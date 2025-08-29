@@ -2535,7 +2535,7 @@ function extendToolbarConfigInit() {
       const hasClassInName = className.includes("Class") || pureClassName.includes("Class");
       
       switch (type) {
-        case "jsbLifecycle":  // JSB 类: 生命周期
+        case "lifecycle":  // 生命周期
           const lifecycleMethods = [`${methodName}`, `${pureClassName}.${methodName}`];
           
           // 只有在有文件路径时才添加 this 版本
@@ -2658,7 +2658,7 @@ function extendToolbarConfigInit() {
 
         // 根据类型生成前缀
         const typePrefix = {
-          "jsbLifecycle": "JSB 类: 生命周期",
+          "lifecycle": "插件：生命周期",
           "staticProperty": "类：静态属性",
           "staticMethod": "类：静态方法",
           "staticGetter": "类：静态 Getter",

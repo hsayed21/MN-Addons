@@ -4763,7 +4763,7 @@ function registerAllCustomActions() {
 
     // 代码元素类型选项
     const codeTypes = [
-      "JSB 类: 生命周期",
+      "类: 生命周期",
       "类：静态属性",
       "类：静态方法",
       "类：静态 Getter",
@@ -4787,7 +4787,7 @@ function registerAllCustomActions() {
         
         // 映射到对应的类型
         const typeMap = {
-          1: "jsbLifecycle",
+          1: "lifecycle",
           2: "staticProperty",
           3: "staticMethod",
           4: "staticGetter",
