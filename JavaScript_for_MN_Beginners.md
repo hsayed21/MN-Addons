@@ -348,156 +348,481 @@ if (focusNote) {
 
 ---
 
-### 2.2 prototype 原型链 - JavaScript 的继承机制
+### 2.2 prototype 原型链 - JavaScript 继承机制的深入理解
 
 #### 什么是 prototype？
 
-在 JavaScript 中，每个函数都有一个 `prototype` 属性，它是实现继承的关键。
+在 JavaScript 中，`prototype` 是实现方法共享和继承的核心机制。但在 MarginNote 插件开发中，它有着特殊的重要性。
 
-让我们看 **mntoolbar/main.js** 中的实际应用：
+#### 为什么 MarginNote 插件必须用 prototype？
+
+让我们看 **mnbrowser/main.js** 的实际结构来理解：
 
 ```javascript
-// mntoolbar/main.js:216-250 行
-JSB.defineClass(
-  'MNToolbar : JSExtension',  // MNToolbar 继承自 JSExtension
-  {
-    // 这些方法会被添加到 MNToolbar.prototype
-    sceneWillConnect: function() {
-      // 应用启动时调用
-    },
-    
-    notebookWillOpen: function(topicid) {
-      // 打开笔记本时调用
-    },
-    
-    queryAddonCommandStatus: function() {
-      // 查询插件状态
-      return {
-        image: "logo.png",
-        object: self,
-        selector: "toggleToolbar:",
-        checked: self.status == 1
-      };
-    }
+// mnbrowser/main.js:23-863 行
+var MNBrowserClass = JSB.defineClass(
+  'MNBrowser : JSExtension',
+  { 
+    // 第一部分：只能放 Objective-C 需要的生命周期方法
+    sceneWillConnect: function() { },
+    notebookWillOpen: function() { },
+    queryAddonCommandStatus: function() { },
+    onPopupMenuOnNote: function() { }
+    // ... 其他生命周期方法
   }
 );
+
+// mnbrowser/main.js:865-1070 行
+// 第二部分：通过 prototype 添加 JavaScript 辅助方法
+MNBrowserClass.prototype.layoutAddonController = function() { }
+MNBrowserClass.prototype.checkWatchMode = function() { }
+MNBrowserClass.prototype.checkLink = function() { }
+MNBrowserClass.prototype.getNoteList = function() { }
+MNBrowserClass.prototype.getTextForSearch = function() { }
+MNBrowserClass.prototype.init = function() { }
+MNBrowserClass.prototype.ensureView = function() { }
 ```
 
-#### 为什么用 JSB.defineClass 而不是 class？
+**为什么要分成两部分？**
 
-这是 MarginNote 的特殊性：需要与 Objective-C 交互。
+##### 1. JSB.defineClass 的结构限制
 
 ```javascript
-// 普通 JavaScript 类（不能用于 MN 插件主类）
-class MyClass extends ParentClass {
-  method() { }
+// ❌ 错误：把辅助方法放在 defineClass 内
+JSB.defineClass('MNBrowser : JSExtension', {
+  sceneWillConnect: function() { },     // ✅ Objective-C 能识别
+  checkWatchMode: function() { }        // ❌ Objective-C 不识别！
+});
+
+// ✅ 正确：分开定义
+JSB.defineClass('MNBrowser : JSExtension', {
+  sceneWillConnect: function() { }      // 生命周期方法
+});
+MNBrowserClass.prototype.checkWatchMode = function() { } // 辅助方法
+```
+
+##### 2. 内存效率：共享 vs 复制
+
+```javascript
+// ❌ 如果在构造函数内定义（浪费内存）
+function MNBrowserClass() {
+  // 每个实例都创建新的方法副本
+  this.layoutAddonController = function() { /* 100行代码 */ };
+  this.checkWatchMode = function() { /* 50行代码 */ };
+  this.checkLink = function() { /* 30行代码 */ };
 }
 
-// MarginNote 插件必须用 JSB.defineClass
-JSB.defineClass('MyPlugin : JSExtension', {
-  // 方法定义
-});
+// 创建10个窗口 = 10份方法副本 = 1800行代码占用内存！
+const browser1 = new MNBrowserClass();
+const browser2 = new MNBrowserClass();
+
+// ✅ 使用 prototype（节省内存）
+MNBrowserClass.prototype.layoutAddonController = function() { }
+
+// 创建10个窗口 = 共享同一份方法 = 只占用180行代码的内存！
 ```
 
-#### prototype 扩展的实际应用
+#### 如何判断方法应该放在哪里？
 
-看看 **mnutils/xdyyutils.js** 如何扩展原生对象：
+##### 生命周期方法 vs 普通方法
 
-```javascript
-// xdyyutils.js - String 原型扩展
-String.prototype.trimStart = function() {
-  // 删除字符串开头的空白
-  return this.replace(/^\s+/, '');
-};
+| 方法类型 | 特征 | 定义位置 | 示例 |
+|---------|------|---------|------|
+| 生命周期方法 | 系统自动调用 | defineClass 内 | sceneWillConnect |
+| 事件响应方法 | on开头，响应用户操作 | defineClass 内 | onPopupMenuOnNote |
+| 查询方法 | 系统查询状态 | defineClass 内 | queryAddonCommandStatus |
+| 辅助方法 | 手动调用 | prototype 上 | checkWatchMode |
+| 工具方法 | 数据处理 | prototype 上 | getTextForSearch |
 
-String.prototype.trimEnd = function() {
-  // 删除字符串结尾的空白
-  return this.replace(/\s+$/, '');
-};
+##### 判断流程
 
-// 使用扩展后的方法
-let text = "  你好，世界  ";
-text = text.trimStart();  // "你好，世界  "
-text = text.trimEnd();    // "你好，世界"
+```
+这个方法放在哪里？
+│
+├─ 系统会自动调用吗？
+│  ├─ 是 → defineClass 内（生命周期方法）
+│  └─ 否 → 继续判断
+│
+├─ 是否响应用户操作（on开头）？
+│  ├─ 是 → defineClass 内（事件方法）
+│  └─ 否 → 继续判断
+│
+└─ 是手动调用的辅助方法？
+   └─ 是 → prototype 上（普通方法）
 ```
 
-#### 原型链的工作原理
+#### 什么时候方法需要"共享"？
+
+##### 共享的核心判断原则
 
 ```javascript
-// 当你调用 note.appendComment() 时：
-// 1. 先在 note 对象自身查找 appendComment
-// 2. 没找到，去 note.__proto__（即 MNNote.prototype）查找
-// 3. 找到了就执行，没找到继续向上查找
+// 问自己这些问题：
 
-// 可视化原型链：
-note (实例)
-  ↓
-MNNote.prototype
-  ↓
+// 1. 所有实例的行为是否完全一致？
+MNBrowserClass.prototype.checkLink = function() {
+  // ✅ 需要共享：检查链接的逻辑对所有窗口都一样
+  return /^https?:\/\//.test(this.link);
+};
+
+// 2. 是否依赖构造时的闭包变量？
+function MNBrowser(config) {
+  const privateKey = config.key;  // 闭包变量
+  
+  // ❌ 不能共享：依赖闭包
+  this.getKey = function() {
+    return privateKey;
+  };
+}
+
+// 3. 是否只通过 this 访问数据？
+MNBrowserClass.prototype.getTextForSearch = function(note) {
+  // ✅ 可以共享：只通过参数和 this 访问数据
+  let order = browserConfig.searchOrder;
+  // ... 处理逻辑
+};
+```
+
+##### 实际判断示例
+
+```javascript
+// mnbrowser/main.js:931-949 行
+MNBrowserClass.prototype.checkWatchMode = function() {
+  // 判断分析：
+  // 1. 逻辑一致？✅ 所有窗口检查方式相同
+  // 2. 依赖闭包？❌ 只用 this.dateNow
+  // 3. 需要私有数据？❌ 通过 this 访问
+  // 结论：共享（用 prototype）✅
+  
+  if (Date.now() - this.dateNow < 500) {
+    this.addonController.watchMode = true;
+    MNUtil.showHUD("Watch mode")
+  }
+};
+```
+
+#### 方法覆盖机制的深入理解
+
+##### 可以覆盖哪些方法？
+
+```javascript
+// 1. 覆盖 prototype 方法（最常见）
+const originalSearch = MNBrowserClass.prototype.search;
+MNBrowserClass.prototype.search = function(text) {
+  console.log("搜索前处理...");
+  const result = originalSearch.call(this, text);
+  console.log("搜索后处理...");
+  return result;
+};
+
+// 2. 覆盖 defineClass 内的方法（谨慎使用）
+const originalConnect = MNBrowserClass.prototype.sceneWillConnect;
+MNBrowserClass.prototype.sceneWillConnect = function() {
+  console.log("增强：连接前准备");
+  originalConnect.call(this);  // 保持原功能
+  console.log("增强：连接后处理");
+};
+```
+
+##### 覆盖的注意事项
+
+```javascript
+// ✅ 正确：保存原方法，使用 call 绑定 this
+const original = Class.prototype.method;
+Class.prototype.method = function(...args) {
+  return original.call(this, ...args);
+};
+
+// ❌ 错误：直接调用会丢失 this
+Class.prototype.method = function(...args) {
+  return original(...args);  // this 是 undefined！
+};
+```
+
+#### 原型链的查找机制
+
+```javascript
+// 当调用 browser.checkLink() 时：
+browser实例
+  ↓ 自身有 checkLink 吗？没有
+MNBrowserClass.prototype  
+  ↓ prototype 有 checkLink 吗？有！执行
 Object.prototype
   ↓
 null
+
+// 这就是为什么方法定义在 prototype 上，但可以通过实例调用
 ```
+
+#### MarginNote 插件开发的最佳实践
+
+##### 1. 方法组织模式
+
+```javascript
+// ===== 生命周期方法（defineClass 内）=====
+JSB.defineClass('MNBrowser : JSExtension', {
+  sceneWillConnect: function() { },
+  notebookWillOpen: function() { },
+  onPopupMenuOnNote: function() { }
+});
+
+// ===== 初始化方法 =====
+MNBrowserClass.prototype.init = function() { }
+
+// ===== 状态检查方法 =====  
+MNBrowserClass.prototype.checkWatchMode = function() { }
+MNBrowserClass.prototype.checkLink = function() { }
+
+// ===== 数据处理方法 =====
+MNBrowserClass.prototype.getNoteList = function() { }
+MNBrowserClass.prototype.getTextForSearch = function() { }
+
+// ===== UI 布局方法 =====
+MNBrowserClass.prototype.layoutAddonController = function() { }
+MNBrowserClass.prototype.ensureView = function() { }
+```
+
+##### 2. 性能优化技巧
+
+```javascript
+// 批量添加方法时，可以使用 Object.assign
+Object.assign(MNBrowserClass.prototype, {
+  method1: function() { },
+  method2: function() { },
+  method3: function() { }
+});
+```
+
+#### 💡 核心要点总结
+
+1. **JSB.defineClass 内**：只放系统需要的方法（生命周期、事件响应）
+2. **prototype 上**：放所有 JavaScript 辅助方法
+3. **共享原则**：方法共享（prototype），数据独立（实例）
+4. **内存效率**：prototype 方法只存一份，所有实例共享
+5. **覆盖机制**：可以覆盖任何方法，但要保存原方法引用
+
+#### 🎯 记忆口诀
+
+- "系统调，defineClass 内"
+- "手动调，prototype 上"
+- "方法共享，数据独立"
+- "覆盖保原，call 绑 this"
 
 ---
 
-### 2.3 构造函数和 this - 对象的初始化
+### 2.3 构造函数、new 和实例化 - 深入理解对象创建
 
-#### 构造函数是什么？
+#### 核心概念：constructor 和 new 的关系
 
-构造函数是创建对象时自动调用的特殊方法，用来初始化对象。
+很多初学者对 constructor 和 new 的关系感到困惑。让我们从根本上理解它们：
 
 ```javascript
-// mnutils.js:12-22 行 - Menu 类的构造函数
+// 当你写这个 class
+class Menu {
+  constructor(sender, delegate) {  // constructor 是"构造函数"
+    this.sender = sender;          // this 指向将要创建的实例
+    this.delegate = delegate;
+  }
+}
+
+// 执行 new Menu() 时发生了什么？
+const menu = new Menu(button, self);
+```
+
+**关键理解**：
+- `new` 是一个**操作符**，负责创建对象和管理流程
+- `constructor` 是一个**特殊方法**，负责初始化对象的属性
+- 它们配合工作：new 创建，constructor 初始化
+
+#### new 操作符的执行过程 - 4步揭秘
+
+```javascript
+// new Menu(button, self) 实际上做了这 4 步：
+
+// 步骤 1：创建一个空对象
+const newObject = {};
+
+// 步骤 2：设置原型链（让新对象能访问类的方法）
+newObject.__proto__ = Menu.prototype;
+
+// 步骤 3：执行 constructor，并把 this 绑定到新对象
+Menu.constructor.call(newObject, button, self);
+// 此时 constructor 里的 this.sender = sender 
+// 实际上是 newObject.sender = sender
+
+// 步骤 4：返回新对象（如果 constructor 没有返回其他对象）
+return newObject;  // 这就是 menu 变量得到的值
+```
+
+**简单记忆**：`new` = 创建空对象 → 设置原型 → 执行构造函数 → 返回对象
+
+#### Class 只是语法糖 - 理解底层原理
+
+```javascript
+// ES6 的 class 写法
+class Menu {
+  constructor(sender) {
+    this.sender = sender;
+  }
+  
+  show() {
+    console.log('showing menu');
+  }
+  
+  static create() {  // 你熟悉的 static
+    return new Menu();
+  }
+}
+
+// 完全等价于 ES5 的写法
+function Menu(sender) {  // 这就是 constructor
+  this.sender = sender;
+}
+
+Menu.prototype.show = function() {  // 实例方法
+  console.log('showing menu');
+};
+
+Menu.create = function() {  // static 方法直接挂在函数上
+  return new Menu();
+};
+```
+
+**关键理解**：
+- `class` 是 ES6 的语法糖，底层还是函数和原型
+- `constructor` 就是那个构造函数本身
+- 普通方法放在 `prototype` 上，所有实例共享
+- `static` 方法直接挂在类（函数）上，不需要实例化
+
+#### 为什么需要实例化？- 实战理解
+
+```javascript
+// ❌ 错误理解：只用 static（很多初学者的做法）
+class Utils {
+  static userName = 'xkw';  // 全局共享，只有一份
+  
+  static setName(name) {
+    Utils.userName = name;  // 只能存一个值
+  }
+}
+
+Utils.setName('张三');
+Utils.setName('李四');  // 覆盖了！张三没了
+console.log(Utils.userName);  // '李四'
+
+// ✅ 正确理解：需要多个独立实例时用 constructor
+class User {
+  constructor(name) {
+    this.name = name;  // 每个实例都有自己的 name
+  }
+  
+  sayHello() {
+    console.log(`我是 ${this.name}`);
+  }
+}
+
+const user1 = new User('张三');  // user1 有自己的 name
+const user2 = new User('李四');  // user2 有自己的 name
+user1.sayHello();  // "我是张三"
+user2.sayHello();  // "我是李四" - 互不影响！
+```
+
+#### MarginNote 插件中的实际应用
+
+```javascript
+// mnutils.js 中的 Menu 类就是典型例子
 class Menu {
   constructor(sender, delegate, width = undefined, preferredPosition = 2) {
-    // this 指向正在创建的新对象
+    // 每个菜单都有自己的配置
     this.menuController = MenuController.new()
     this.delegate = delegate
-    this.sender = sender
+    this.sender = sender        // 不同的按钮
     this.commandTable = []
     this.menuController.rowHeight = 35
     this.preferredPosition = preferredPosition
     
     if (width && width > 100) {
-      this.width = width
+      this.width = width        // 不同的宽度
     }
   }
-}
-
-// 创建实例时，constructor 自动执行
-const menu = new Menu(button, self, 250, 2);
-// 此时 menu 对象已经有了所有属性
-```
-
-#### this 的含义
-
-`this` 是 JavaScript 中最令人困惑的概念之一。它的值取决于函数的调用方式。
-
-```javascript
-// 在类方法中，this 指向实例
-class MNNote {
-  appendComment(text) {
-    this.note.appendTextComment(text);  // this = 当前笔记实例
+  
+  show() {
+    // 使用 this 访问实例的属性
+    this.menuController.width = this.width;
+    this.menuController.show();
   }
 }
 
-// 在普通函数中，this 可能不确定
-function showThis() {
-  console.log(this);  // 取决于如何调用
+// 可以创建多个独立的菜单
+const menu1 = new Menu(button1, self, 200);  // 200px 宽的菜单
+const menu2 = new Menu(button2, self, 300);  // 300px 宽的菜单
+// 两个菜单独立存在，互不干扰
+```
+
+#### 什么时候用 static vs constructor？
+
+```javascript
+// 用 static：工具方法、全局配置、单例
+class MNUtil {
+  static showHUD(text) { }     // 工具方法，不需要状态
+  static version = '1.0.0';    // 全局配置
+  static getInstance() { }     // 单例模式
 }
 
-// 箭头函数继承外部的 this
+// 用 constructor：需要多个实例、每个实例有自己的状态
+class Note {
+  constructor(id) {
+    this.id = id;              // 每个笔记有自己的 ID
+    this.comments = [];         // 每个笔记有自己的评论
+  }
+  
+  addComment(text) {
+    this.comments.push(text);   // 操作自己的数据
+  }
+}
+
+// 实际使用对比
+MNUtil.showHUD("提示");         // 直接调用，无需实例
+const note1 = new Note("001");  // 创建独立实例
+const note2 = new Note("002");  // 另一个独立实例
+```
+
+#### this 的含义和绑定
+
+`this` 是 JavaScript 中最令人困惑的概念之一。在 constructor 中，`this` 的含义很明确：
+
+```javascript
+class MNNote {
+  constructor(noteId) {
+    // 在 constructor 中，this 始终指向正在创建的新对象
+    this.noteId = noteId;  // 给新对象添加 noteId 属性
+    this.comments = [];    // 给新对象添加 comments 属性
+  }
+  
+  appendComment(text) {
+    // 在实例方法中，this 指向调用该方法的实例
+    this.comments.push(text);
+  }
+}
+
+const note = new MNNote("123");
+note.appendComment("评论");  // this = note 对象
+```
+
+**箭头函数与普通函数的 this 区别**：
+
+```javascript
 class Controller {
+  name = "控制器";
+  
   init() {
-    // 普通函数
+    // 普通函数 - this 由调用方式决定
     setTimeout(function() {
-      console.log(this);  // this = window/undefined
+      console.log(this.name);  // undefined！this 不是 Controller 实例
     }, 1000);
     
-    // 箭头函数
+    // 箭头函数 - this 继承自外层
     setTimeout(() => {
-      console.log(this);  // this = Controller 实例
+      console.log(this.name);  // "控制器"，this 是 Controller 实例
     }, 1000);
   }
 }
@@ -515,6 +840,16 @@ const getToolbarController = () => self
 // 因为在 JSB.defineClass 中，this 可能会变化
 // 所以用 self 保存正确的引用
 ```
+
+#### 💡 关键总结
+
+1. **new 的作用**：创建新对象 → 绑定 this → 执行 constructor → 返回对象
+2. **constructor 的作用**：初始化实例的属性
+3. **this 的指向**：在 constructor 中指向正在创建的新对象
+4. **何时需要实例化**：当你需要多个独立的对象，每个有自己的状态时
+5. **何时用 static**：工具方法、全局配置、不需要实例状态时
+
+**你现在的问题可能是**：只用 static 相当于只有"工具箱"，没有"产品"。class 的真正威力在于能批量生产"产品"（实例），每个产品都有自己的属性但共享相同的方法。
 
 ### 2.4 单例模式 - sharedInstance() 的秘密
 
@@ -1084,7 +1419,6 @@ async function processNotesWithProgress() {
 闭包是 JavaScript 的强大特性：内部函数可以访问外部函数的变量。
 
 ```javascript
-// mntoolbar/xdyy_utils_extensions.js 的实际例子
 function createCounter() {
   let count = 0;  // 外部变量
   
