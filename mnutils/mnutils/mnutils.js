@@ -1114,7 +1114,9 @@ static textMatchPhrase(text, query) {
     let docFile = this.getDocById(note.docMd5)
     if (!docFile) {
       this.showHUD("No file")
-      return undefined
+      return {
+        fileExists:false
+      }
     }
     let fullPath
     if (docFile.fullPathFileName) {
@@ -1130,14 +1132,18 @@ static textMatchPhrase(text, query) {
     }
     if (!this.isfileExists(fullPath)) {
       this.showHUD("Invalid file: "+docFile.pathFile)
-      return undefined
+      return {
+        fileExists:false
+      }
     }
     // copy(fullPath)
     let fileName = this.getFileName(fullPath)
     return{
       name:fileName,
       path:fullPath,
-      md5:docFile.docMd5
+      md5:docFile.docMd5,
+      fileExists:true,
+      pageCount:docFile.pageCount
     }
   }
   static isNSNull(obj){
@@ -1633,6 +1639,9 @@ static textMatchPhrase(text, query) {
     let fragment = url.fragment
     if (fragment) {
       config.fragment = fragment
+    }
+    if (url.port) {
+      config.port = url.port
     }
     // 解析查询字符串
     const params = {};
@@ -2423,6 +2432,19 @@ static getValidJSON(jsonString,debug = false) {
     }
   }
   /**
+   * Converts NSData to a string.
+   * 
+   * 
+   * @param {NSData} data - The data object to be converted to a string.
+   * @returns {string} The converted string.
+   */
+  static dataToString(data){
+    if (data instanceof NSData) {
+      return NSString.stringWithContentsOfData(data)
+    }
+    return data
+  }
+  /**
    * 
    * @param {object} object 
    * @returns 
@@ -2458,6 +2480,7 @@ static getValidJSON(jsonString,debug = false) {
   }
   static readText(path){
     let data = NSData.dataWithContentsOfFile(path)
+    return this.dataToString(data)
     let test = CryptoJS.enc.Base64.parse(data.base64Encoding())
     let content = CryptoJS.enc.Utf8.stringify(test);
     return content
@@ -7025,7 +7048,13 @@ try {
       }
       this.note.removeCommentByIndex(this.note.comments.length - 1)
     }
-    this.appendTextComments(tags.map(k => '#'+k).join(" "))
+    this.appendTextComments(tags.map(k => {
+      if (k.startsWith("#")) {
+        return k
+      }else{
+        return '#'+k
+      }
+    }).join(" "))
     return this
   } catch (error) {
     MNNote.addErrorLog(error, "appendTags")
