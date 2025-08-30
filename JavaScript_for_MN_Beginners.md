@@ -157,31 +157,7 @@ const titles = items.map(function(item) {
 **特点**：
 - 用 `=>` 符号（像箭头）
 - 更简洁的语法
-- `this` 绑定不同（后面会详细讲）
 
-#### 形式3：对象的方法
-
-```javascript
-// mnutils.js:53-58 行 - Menu 类中
-class Menu {
-  // 这是类的方法
-  addMenuItem(title, selector, params = "", checked = false) {
-    this.commandTable.push({
-      title: title,
-      object: this.delegate,
-      selector: selector,
-      param: params,
-      checked: checked
-    })
-  }
-}
-```
-
-**什么时候用哪种？**
-
-1. **普通函数**：独立的功能，如工具函数
-2. **箭头函数**：简短的回调，如 map、filter
-3. **方法**：属于对象或类的功能
 
 ---
 
@@ -350,11 +326,9 @@ if (focusNote) {
 
 ### 2.2 prototype 原型链 - JavaScript 继承机制的深入理解
 
-#### 什么是 prototype？
 
 在 JavaScript 中，`prototype` 是实现方法共享和继承的核心机制。但在 MarginNote 插件开发中，它有着特殊的重要性。
 
-#### 为什么 MarginNote 插件必须用 prototype？
 
 让我们看 **mnbrowser/main.js** 的实际结构来理解：
 
@@ -383,44 +357,6 @@ MNBrowserClass.prototype.init = function() { }
 MNBrowserClass.prototype.ensureView = function() { }
 ```
 
-**为什么要分成两部分？**
-
-##### 1. JSB.defineClass 的结构限制
-
-```javascript
-// ❌ 错误：把辅助方法放在 defineClass 内
-JSB.defineClass('MNBrowser : JSExtension', {
-  sceneWillConnect: function() { },     // ✅ Objective-C 能识别
-  checkWatchMode: function() { }        // ❌ Objective-C 不识别！
-});
-
-// ✅ 正确：分开定义
-JSB.defineClass('MNBrowser : JSExtension', {
-  sceneWillConnect: function() { }      // 生命周期方法
-});
-MNBrowserClass.prototype.checkWatchMode = function() { } // 辅助方法
-```
-
-##### 2. 内存效率：共享 vs 复制
-
-```javascript
-// ❌ 如果在构造函数内定义（浪费内存）
-function MNBrowserClass() {
-  // 每个实例都创建新的方法副本
-  this.layoutAddonController = function() { /* 100行代码 */ };
-  this.checkWatchMode = function() { /* 50行代码 */ };
-  this.checkLink = function() { /* 30行代码 */ };
-}
-
-// 创建10个窗口 = 10份方法副本 = 1800行代码占用内存！
-const browser1 = new MNBrowserClass();
-const browser2 = new MNBrowserClass();
-
-// ✅ 使用 prototype（节省内存）
-MNBrowserClass.prototype.layoutAddonController = function() { }
-
-// 创建10个窗口 = 共享同一份方法 = 只占用180行代码的内存！
-```
 
 #### 如何判断方法应该放在哪里？
 
@@ -451,91 +387,107 @@ MNBrowserClass.prototype.layoutAddonController = function() { }
    └─ 是 → prototype 上（普通方法）
 ```
 
-#### 什么时候方法需要"共享"？
 
-##### 共享的核心判断原则
+#### 给现有功能"加料"：方法覆盖
+
+想象一下，你有个很好用的工具，但想给它增加一些功能，又不想破坏原来的用法。方法覆盖就像给手机贴膜：保留原功能，增加新特性。
+
+##### 实际使用场景
+
+比如你想让 MNUtil.showHUD 显示消息时，同时记录到日志里：
 
 ```javascript
-// 问自己这些问题：
+// 1. 先把原来的方法保存起来
+const originalShowHUD = MNUtil.showHUD;
 
-// 1. 所有实例的行为是否完全一致？
-MNBrowserClass.prototype.checkLink = function() {
-  // ✅ 需要共享：检查链接的逻辑对所有窗口都一样
-  return /^https?:\/\//.test(this.link);
-};
-
-// 2. 是否依赖构造时的闭包变量？
-function MNBrowser(config) {
-  const privateKey = config.key;  // 闭包变量
+// 2. 创建增强版本
+MNUtil.showHUD = function(message, duration, view) {
+  // 增强功能：记录日志
+  MNUtil.log("显示消息：" + message);
   
-  // ❌ 不能共享：依赖闭包
-  this.getKey = function() {
-    return privateKey;
-  };
+  // 调用原来的方法，保持原有功能
+  originalShowHUD(message, duration, view);
+  
+  // 还可以添加其他增强功能
+  MNUtil.log("消息已显示");
+};
+```
+
+##### 给菜单类增加动画效果
+
+```javascript
+// 保存 Menu 类的原始 show 方法
+const originalShow = Menu.prototype.show;
+
+Menu.prototype.show = function(autoWidth) {
+  MNUtil.log("菜单即将显示，准备动画效果...");
+  
+  // 调用原来的显示方法
+  originalShow.call(this, autoWidth);
+  
+  MNUtil.log("菜单已显示，动画完成！");
+};
+```
+
+##### 重要提醒：什么时候需要 call？
+
+不是所有情况都需要 call！关键要看方法的类型：
+
+###### 情况1：静态方法 - 不需要 call
+
+```javascript
+// MNUtil.showHUD 是静态方法，不依赖 this
+const originalShowHUD = MNUtil.showHUD;
+MNUtil.showHUD = function(message, duration, view) {
+  MNUtil.log("显示消息：" + message);
+  originalShowHUD(message, duration, view);  // ✅ 直接调用就行
+};
+```
+
+**为什么不需要 call？**
+- 静态方法就像公用电话，谁都可以直接拿起来用
+- 它不需要知道是"谁在用"，只处理传入的参数
+
+###### 情况2：实例方法 - 必须用 call
+
+```javascript
+// Menu.prototype.show 是实例方法，内部使用了 this
+const originalShow = Menu.prototype.show;
+Menu.prototype.show = function(autoWidth) {
+  MNUtil.log("菜单即将显示");
+  originalShow.call(this, autoWidth);  // ✅ 必须用 call
+};
+```
+
+**为什么必须用 call？**
+- 实例方法就像私人手机，需要知道是"谁的手机"
+- Menu.show 内部会用到 `this.width`、`this.commandTable` 等属性
+- 不用 call 的话，原方法内部的 `this` 会是 `undefined`，导致报错
+
+###### 简单判断规则
+
+```javascript
+// 看原方法内部有没有用到 this
+if (原方法内部使用了 this.xxx) {
+  必须用 originalMethod.call(this, 参数);
 }
 
-// 3. 是否只通过 this 访问数据？
-MNBrowserClass.prototype.getTextForSearch = function(note) {
-  // ✅ 可以共享：只通过参数和 this 访问数据
-  let order = browserConfig.searchOrder;
-  // ... 处理逻辑
-};
+if (原方法是静态的，不依赖this) {
+  直接调用 originalMethod(参数);
+}
 ```
 
-##### 实际判断示例
+###### 错误示例：不用 call 的后果
 
 ```javascript
-// mnbrowser/main.js:931-949 行
-MNBrowserClass.prototype.checkWatchMode = function() {
-  // 判断分析：
-  // 1. 逻辑一致？✅ 所有窗口检查方式相同
-  // 2. 依赖闭包？❌ 只用 this.dateNow
-  // 3. 需要私有数据？❌ 通过 this 访问
-  // 结论：共享（用 prototype）✅
-  
-  if (Date.now() - this.dateNow < 500) {
-    this.addonController.watchMode = true;
-    MNUtil.showHUD("Watch mode")
-  }
-};
-```
-
-#### 方法覆盖机制的深入理解
-
-##### 可以覆盖哪些方法？
-
-```javascript
-// 1. 覆盖 prototype 方法（最常见）
-const originalSearch = MNBrowserClass.prototype.search;
-MNBrowserClass.prototype.search = function(text) {
-  console.log("搜索前处理...");
-  const result = originalSearch.call(this, text);
-  console.log("搜索后处理...");
-  return result;
+// ❌ 错误：实例方法不用 call
+Menu.prototype.show = function(autoWidth) {
+  originalShow(autoWidth);  // 内部的 this.width 会报错！
 };
 
-// 2. 覆盖 defineClass 内的方法（谨慎使用）
-const originalConnect = MNBrowserClass.prototype.sceneWillConnect;
-MNBrowserClass.prototype.sceneWillConnect = function() {
-  console.log("增强：连接前准备");
-  originalConnect.call(this);  // 保持原功能
-  console.log("增强：连接后处理");
-};
-```
-
-##### 覆盖的注意事项
-
-```javascript
-// ✅ 正确：保存原方法，使用 call 绑定 this
-const original = Class.prototype.method;
-Class.prototype.method = function(...args) {
-  return original.call(this, ...args);
-};
-
-// ❌ 错误：直接调用会丢失 this
-Class.prototype.method = function(...args) {
-  return original(...args);  // this 是 undefined！
-};
+// 因为 Menu.show 源码里有：
+// if (!this.width) { ... }  ← this 是 undefined！
+// this.commandTable = ...   ← 又是 undefined！
 ```
 
 #### 原型链的查找机制
@@ -583,14 +535,45 @@ MNBrowserClass.prototype.ensureView = function() { }
 
 ##### 2. 性能优化技巧
 
+###### Object.assign - 批量复制的神器
+
+`Object.assign` 就像复制粘贴工具，可以把一个对象的内容复制到另一个对象上。
+
+**最简单的例子**：
 ```javascript
-// 批量添加方法时，可以使用 Object.assign
+// 有两个对象
+const 原对象 = { name: "张三" };
+const 新内容 = { age: 18, city: "北京" };
+
+// 使用 Object.assign 复制
+Object.assign(原对象, 新内容);
+
+// 现在原对象变成了：{ name: "张三", age: 18, city: "北京" }
+MNUtil.log(原对象);  
+```
+
+**在插件开发中的用途**：
+```javascript
+// ❌ 不用 Object.assign - 一个个添加（繁琐）
+MNBrowserClass.prototype.method1 = function() { MNUtil.log("方法1"); };
+MNBrowserClass.prototype.method2 = function() { MNUtil.log("方法2"); };
+MNBrowserClass.prototype.method3 = function() { MNUtil.log("方法3"); };
+
+// ✅ 用 Object.assign - 批量添加（简洁）
 Object.assign(MNBrowserClass.prototype, {
-  method1: function() { },
-  method2: function() { },
-  method3: function() { }
+  method1: function() { MNUtil.log("方法1"); },
+  method2: function() { MNUtil.log("方法2"); },
+  method3: function() { MNUtil.log("方法3"); }
 });
 ```
+
+**类比理解**：
+- **不用 assign**：一本书一本书地往书架上放（麻烦）
+- **用 assign**：把一箱书一次性倒到书架上（高效）
+
+**注意事项**：
+- 如果有同名属性，会被覆盖
+- `Object.assign(目标, 来源)` - 内容会复制到"目标"对象里
 
 #### 💡 核心要点总结
 
@@ -655,7 +638,9 @@ return newObject;  // 这就是 menu 变量得到的值
 
 **简单记忆**：`new` = 创建空对象 → 设置原型 → 执行构造函数 → 返回对象
 
-#### Class 只是语法糖 - 理解底层原理
+#### Class 只是"语法糖" - 理解底层原理
+
+> **语法糖**：让代码更好写的"快捷方式"，就像"拿铁"比"咖啡+糖+牛奶"说起来简单，但本质是一样的。
 
 ```javascript
 // ES6 的 class 写法
@@ -665,7 +650,7 @@ class Menu {
   }
   
   show() {
-    console.log('showing menu');
+    MNUtil.log('showing menu');
   }
   
   static create() {  // 你熟悉的 static
@@ -679,7 +664,7 @@ function Menu(sender) {  // 这就是 constructor
 }
 
 Menu.prototype.show = function() {  // 实例方法
-  console.log('showing menu');
+  MNUtil.log('showing menu');
 };
 
 Menu.create = function() {  // static 方法直接挂在函数上
@@ -688,7 +673,25 @@ Menu.create = function() {  // static 方法直接挂在函数上
 ```
 
 **关键理解**：
-- `class` 是 ES6 的语法糖，底层还是函数和原型
+- `class` 是 ES6 的语法糖（让代码更好写的"快捷方式"），底层还是函数和原型
+
+> **什么是语法糖？**
+> 
+> 就像咖啡店的"拿铁"其实就是"咖啡+糖+牛奶"，但说"拿铁"更简单。
+> 
+> ```javascript
+> // 语法糖写法（看起来简洁）
+> class Person {
+>   constructor(name) { this.name = name; }
+>   sayHello() { MNUtil.log("Hello " + this.name); }
+> }
+> 
+> // 本质写法（实际运行的）
+> function Person(name) { this.name = name; }
+> Person.prototype.sayHello = function() { MNUtil.log("Hello " + this.name); };
+> 
+> // 两种写法完全等价！class 只是让代码看起来更舒服
+> ```
 - `constructor` 就是那个构造函数本身
 - 普通方法放在 `prototype` 上，所有实例共享
 - `static` 方法直接挂在类（函数）上，不需要实例化
@@ -707,7 +710,7 @@ class Utils {
 
 Utils.setName('张三');
 Utils.setName('李四');  // 覆盖了！张三没了
-console.log(Utils.userName);  // '李四'
+MNUtil.log(Utils.userName);  // '李四'
 
 // ✅ 正确理解：需要多个独立实例时用 constructor
 class User {
@@ -716,7 +719,7 @@ class User {
   }
   
   sayHello() {
-    console.log(`我是 ${this.name}`);
+    MNUtil.log(`我是 ${this.name}`);
   }
 }
 
@@ -817,12 +820,12 @@ class Controller {
   init() {
     // 普通函数 - this 由调用方式决定
     setTimeout(function() {
-      console.log(this.name);  // undefined！this 不是 Controller 实例
+      MNUtil.log(this.name);  // undefined！this 不是 Controller 实例
     }, 1000);
     
     // 箭头函数 - this 继承自外层
     setTimeout(() => {
-      console.log(this.name);  // "控制器"，this 是 Controller 实例
+      MNUtil.log(this.name);  // "控制器"，this 是 Controller 实例
     }, 1000);
   }
 }
@@ -877,9 +880,9 @@ const app1 = Application.sharedInstance();
 const app2 = Application.sharedInstance();
 const app3 = Application.sharedInstance();
 
-console.log(app1 === app2);  // true - 是同一个对象！
-console.log(app2 === app3);  // true - 还是同一个对象！
-console.log("应用实例数量：", "只有1个");
+MNUtil.log(app1 === app2);  // true - 是同一个对象！
+MNUtil.log(app2 === app3);  // true - 还是同一个对象！
+MNUtil.log("应用实例数量：", "只有1个");
 
 // 🏗️ new 操作：创建新对象（相当于盖新房子）
 class MyClass {
@@ -892,9 +895,9 @@ const obj1 = new MyClass("对象1");
 const obj2 = new MyClass("对象2");
 const obj3 = new MyClass("对象3");
 
-console.log(obj1 === obj2);  // false - 是不同对象！
-console.log(obj2 === obj3);  // false - 每次都是新对象！
-console.log("对象数量：", "每次 new 都创建一个新的");
+MNUtil.log(obj1 === obj2);  // false - 是不同对象！
+MNUtil.log(obj2 === obj3);  // false - 每次都是新对象！
+MNUtil.log("对象数量：", "每次 new 都创建一个新的");
 ```
 
 #### 形象对比
@@ -1088,17 +1091,17 @@ JSB.newAddon = function() {
 
 **同步**：一件事做完再做下一件事
 ```javascript
-console.log("第1步");
-console.log("第2步"); 
-console.log("第3步");
+MNUtil.log("第1步");
+MNUtil.log("第2步"); 
+MNUtil.log("第3步");
 // 按顺序执行：1→2→3
 ```
 
 **异步**：不等第一件事做完，就可以做其他事
 ```javascript
-console.log("第1步");
-setTimeout(() => console.log("第2步"), 1000); // 1秒后执行
-console.log("第3步");
+MNUtil.log("第1步");
+setTimeout(() => MNUtil.log("第2步"), 1000); // 1秒后执行
+MNUtil.log("第3步");
 // 实际执行顺序：1→3→(1秒后)2
 ```
 
@@ -1126,7 +1129,7 @@ let 盒子 = new Promise((resolve, reject) => {
 
 // 打开盒子看结果
 盒子.then(里面的东西 => {
-  console.log(里面的东西);  // "礼物"
+  MNUtil.log(里面的东西);  // "礼物"
 });
 ```
 
@@ -1172,18 +1175,18 @@ function 读取文件(文件名) {
 // 接收参数 - 方式1：用 await
 try {
   let 结果 = await 读取文件("test.txt");
-  console.log(结果);  // "文件内容" ← resolve的参数
+  MNUtil.log(结果);  // "文件内容" ← resolve的参数
 } catch(错误) {
-  console.log(错误);  // "文件不存在" ← reject的参数
+  MNUtil.log(错误);  // "文件不存在" ← reject的参数
 }
 
 // 接收参数 - 方式2：用 .then()
 读取文件("test.txt")
   .then(结果 => {
-    console.log(结果);  // "文件内容" ← resolve的参数
+    MNUtil.log(结果);  // "文件内容" ← resolve的参数
   })
   .catch(错误 => {
-    console.log(错误);  // "文件不存在" ← reject的参数
+    MNUtil.log(错误);  // "文件不存在" ← reject的参数
   });
 ```
 
@@ -1194,11 +1197,11 @@ try {
 ```javascript
 // 传统回调写法 - 层层嵌套，难以阅读
 delay(1, function() {
-  console.log("1秒后");
+  MNUtil.log("1秒后");
   delay(1, function() {
-    console.log("再1秒后");
+    MNUtil.log("再1秒后");
     delay(1, function() {
-      console.log("再再1秒后");
+      MNUtil.log("再再1秒后");
       // 越嵌越深，像地狱一样
     });
   });
@@ -1211,15 +1214,15 @@ delay(1, function() {
 // Promise 链式调用 - 稍好一些
 delay(1)
   .then(() => {
-    console.log("1秒后");
+    MNUtil.log("1秒后");
     return delay(1);
   })
   .then(() => {
-    console.log("2秒后");
+    MNUtil.log("2秒后");
     return delay(1);
   })
   .then(() => {
-    console.log("3秒后");
+    MNUtil.log("3秒后");
   });
 ```
 
@@ -1258,11 +1261,11 @@ static async delay(seconds) {
 ```javascript
 // 不用 await - 不会等待
 delay(1);
-console.log("立即执行，不等1秒");
+MNUtil.log("立即执行，不等1秒");
 
 // 用 await - 会等待
 await delay(1);
-console.log("1秒后才执行");
+MNUtil.log("1秒后才执行");
 ```
 
 ##### async 函数的要求
@@ -1286,11 +1289,11 @@ async function myFunction() {
 ```javascript
 // 老方式（回调地狱）
 NSTimer.scheduledTimerWithTimeInterval(1, false, function() {
-  console.log("1秒后");
+  MNUtil.log("1秒后");
   NSTimer.scheduledTimerWithTimeInterval(1, false, function() {
-    console.log("2秒后");
+    MNUtil.log("2秒后");
     NSTimer.scheduledTimerWithTimeInterval(1, false, function() {
-      console.log("3秒后");
+      MNUtil.log("3秒后");
     });
   });
 });
@@ -1298,11 +1301,11 @@ NSTimer.scheduledTimerWithTimeInterval(1, false, function() {
 // 新方式（async/await）
 async function 演示() {
   await MNUtil.delay(1);
-  console.log("1秒后");
+  MNUtil.log("1秒后");
   await MNUtil.delay(1);
-  console.log("2秒后");
+  MNUtil.log("2秒后");
   await MNUtil.delay(1);
-  console.log("3秒后");
+  MNUtil.log("3秒后");
 }
 ```
 
@@ -1323,9 +1326,9 @@ static async delay(seconds) {
 // 使用时会触发错误
 try {
   await delay(1);  
-  console.log("成功等待1秒");  // ❌ 不会执行
+  MNUtil.log("成功等待1秒");  // ❌ 不会执行
 } catch(error) {
-  console.log("出错了：" + error);  // ✅ 会执行这里！
+  MNUtil.log("出错了：" + error);  // ✅ 会执行这里！
 }
 ```
 
@@ -1477,8 +1480,8 @@ const toolbarUtils = (function() {
 
 // 使用
 toolbarUtils.addErrorLog("测试错误", "main.js");
-console.log(toolbarUtils.errorLogs);  // undefined（无法直接访问）
-console.log(toolbarUtils.getErrorLogs());  // 可以通过方法访问
+MNUtil.log(toolbarUtils.errorLogs);  // undefined（无法直接访问）
+MNUtil.log(toolbarUtils.getErrorLogs());  // 可以通过方法访问
 ```
 
 #### 常见的闭包陷阱
@@ -1487,14 +1490,14 @@ console.log(toolbarUtils.getErrorLogs());  // 可以通过方法访问
 // ❌ 错误示例：循环中的闭包
 for (var i = 0; i < 3; i++) {
   setTimeout(function() {
-    console.log(i);  // 输出 3, 3, 3
+    MNUtil.log(i);  // 输出 3, 3, 3
   }, 100);
 }
 
 // ✅ 正确示例1：使用 let
 for (let i = 0; i < 3; i++) {
   setTimeout(function() {
-    console.log(i);  // 输出 0, 1, 2
+    MNUtil.log(i);  // 输出 0, 1, 2
   }, 100);
 }
 
@@ -1502,7 +1505,7 @@ for (let i = 0; i < 3; i++) {
 for (var i = 0; i < 3; i++) {
   (function(index) {
     setTimeout(function() {
-      console.log(index);  // 输出 0, 1, 2
+      MNUtil.log(index);  // 输出 0, 1, 2
     }, 100);
   })(i);
 }
@@ -1641,7 +1644,7 @@ class MyClass {
   
   showName() {
     setTimeout(function() {
-      console.log(this.name);  // undefined！this 不是 MyClass 实例
+      MNUtil.log(this.name);  // undefined！this 不是 MyClass 实例
     }, 1000);
   }
 }
@@ -1652,7 +1655,7 @@ class MyClass {
   
   showName() {
     setTimeout(() => {
-      console.log(this.name);  // "测试"，箭头函数保持 this
+      MNUtil.log(this.name);  // "测试"，箭头函数保持 this
     }, 1000);
   }
 }
@@ -1664,7 +1667,7 @@ class MyClass {
   showName() {
     const that = this;  // 保存 this
     setTimeout(function() {
-      console.log(that.name);  // "测试"
+      MNUtil.log(that.name);  // "测试"
     }, 1000);
   }
 }
