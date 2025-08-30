@@ -1482,101 +1482,152 @@ async function processNotesWithProgress() {
 
 ---
 
-### 3.2 闭包和作用域 - 变量的可见范围
+### 3.2 闭包和作用域 - 变量的"记忆盒子"
 
-#### 什么是闭包？
+#### 先理解作用域 - 变量的可见范围
 
-闭包是 JavaScript 的强大特性：内部函数可以访问外部函数的变量。
+想象变量就像放在不同房间里的物品：
 
 ```javascript
-function createCounter() {
-  let count = 0;  // 外部变量
+let global_item = "客厅的遥控器";  // 客厅 - 所有人都能看见
+
+function bedroom() {
+  let private_item = "卧室的日记本";  // 卧室 - 只有在卧室里才能看见
   
-  return {
-    increment: function() {
-      count++;  // 内部函数访问外部变量
-      return count;
-    },
-    
-    decrement: function() {
-      count--;
-      return count;
-    },
-    
-    getCount: function() {
-      return count;
+  MNUtil.showHUD(global_item);   // ✅ 能看见客厅的遥控器
+  MNUtil.showHUD(private_item);  // ✅ 能看见卧室的日记本
+}
+
+bedroom();
+MNUtil.showHUD(global_item);   // ✅ 能看见客厅的遥控器  
+// MNUtil.showHUD(private_item);  // ❌ 错误！客厅里看不见卧室的日记本
+```
+
+#### 什么是闭包？用保险箱来理解
+
+**闭包就像一个神奇的保险箱**：
+- 把一些重要物品（变量）放进去
+- 给你一把钥匙（函数）来访问这些物品
+- 就算保险箱"消失"了，钥匙依然能打开并使用里面的物品
+
+```javascript
+// 最简单的闭包例子
+function createNoteManager() {
+  let savedNote = null;  // 保险箱里的物品
+  
+  // 返回钥匙（函数）
+  return function(note) {
+    if (note) {
+      savedNote = note;  // 存进保险箱
+      MNUtil.showHUD("笔记已保存");
+    } else {
+      return savedNote;  // 从保险箱取出
     }
   };
 }
 
-// 使用闭包
-const counter = createCounter();
-counter.increment();  // 1
-counter.increment();  // 2
-counter.decrement();  // 1
+// 创建一个保险箱并拿到钥匙
+let noteManager = createNoteManager();
+
+// 使用钥匙操作保险箱里的物品
+noteManager(MNNote.getFocusNote());  // 存入当前笔记
+let myNote = noteManager();          // 取出笔记
 ```
 
-#### 在插件中的实际应用
+**神奇的地方**：
+- `createNoteManager` 函数执行完了，按理说 `savedNote` 应该消失
+- 但是闭包让 `savedNote` 一直"活着"，只能通过那个函数访问
+
+#### MN 插件中的实际应用
+
+##### 场景1：保存插件状态
 
 ```javascript
-// 使用闭包保存状态
-const toolbarUtils = (function() {
-  // 私有变量（外部无法直接访问）
-  let errorLogs = [];
-  let config = {};
+function createPluginManager() {
+  let isEnabled = false;        // 插件是否启用
+  let processedNotes = [];     // 已处理的笔记ID列表
   
-  // 返回公开的方法
   return {
-    addErrorLog: function(error, source) {
-      errorLogs.push({
-        error: error,
-        source: source,
-        time: new Date()
-      });
+    toggle: function() {
+      isEnabled = !isEnabled;
+      MNUtil.showHUD(isEnabled ? "插件已启用" : "插件已禁用");
     },
     
-    getErrorLogs: function() {
-      return errorLogs;  // 闭包访问私有变量
+    addProcessedNote: function(noteId) {
+      if (isEnabled && processedNotes.indexOf(noteId) === -1) {
+        processedNotes.push(noteId);
+        MNUtil.showHUD("笔记 " + noteId + " 已处理");
+      }
     },
     
-    clearLogs: function() {
-      errorLogs = [];
+    isProcessed: function(noteId) {
+      return processedNotes.indexOf(noteId) !== -1;
+    },
+    
+    getStatus: function() {
+      return {
+        enabled: isEnabled,
+        processedCount: processedNotes.length
+      };
     }
   };
-})();
+}
 
-// 使用
-toolbarUtils.addErrorLog("测试错误", "main.js");
-MNUtil.log(toolbarUtils.errorLogs);  // undefined（无法直接访问）
-MNUtil.log(toolbarUtils.getErrorLogs());  // 可以通过方法访问
+// 创建插件管理器
+let pluginManager = createPluginManager();
+
+// 使用 - 外部无法直接访问 isEnabled 和 processedNotes
+pluginManager.toggle();                               // 启用插件
+pluginManager.addProcessedNote("note123");           // 添加已处理笔记
+MNUtil.copy(pluginManager.getStatus());              // 查看状态
 ```
 
-#### 常见的闭包陷阱
+##### 场景2：创建专门的工具函数
 
 ```javascript
-// ❌ 错误示例：循环中的闭包
-for (var i = 0; i < 3; i++) {
-  setTimeout(function() {
-    MNUtil.log(i);  // 输出 3, 3, 3
-  }, 100);
+function createNoteHelper(notebook) {
+  let currentNotebook = notebook;  // 闭包保存笔记本信息
+  let operationCount = 0;          // 记录操作次数
+  
+  return {
+    addTextComment: function(note, text) {
+      note.appendTextComment(text);
+      operationCount++;
+      MNUtil.showHUD("在 " + currentNotebook.title + " 中添加评论 (#" + operationCount + ")");
+    },
+    
+    changeColor: function(note, colorIndex) {
+      note.colorIndex = colorIndex;
+      operationCount++;
+      MNUtil.showHUD("在 " + currentNotebook.title + " 中修改颜色 (#" + operationCount + ")");
+    },
+    
+    getStats: function() {
+      return currentNotebook.title + " 已执行 " + operationCount + " 次操作";
+    }
+  };
 }
 
-// ✅ 正确示例1：使用 let
-for (let i = 0; i < 3; i++) {
-  setTimeout(function() {
-    MNUtil.log(i);  // 输出 0, 1, 2
-  }, 100);
-}
+// 为不同笔记本创建专门的助手
+let mathHelper = createNoteHelper({title: "数学笔记本"});
+let historyHelper = createNoteHelper({title: "历史笔记本"});
 
-// ✅ 正确示例2：使用立即执行函数
-for (var i = 0; i < 3; i++) {
-  (function(index) {
-    setTimeout(function() {
-      MNUtil.log(index);  // 输出 0, 1, 2
-    }, 100);
-  })(i);
-}
+// 每个助手都有自己的"记忆"
+mathHelper.addTextComment(someNote, "这是数学公式");     // 数学笔记本 #1
+historyHelper.changeColor(anotherNote, 5);             // 历史笔记本 #1  
+mathHelper.changeColor(someNote, 2);                   // 数学笔记本 #2
+
+MNUtil.showHUD(mathHelper.getStats());    // "数学笔记本 已执行 2 次操作"
+MNUtil.showHUD(historyHelper.getStats()); // "历史笔记本 已执行 1 次操作"
 ```
+
+#### 闭包的价值
+
+1. **数据保护**：外部无法直接修改内部变量，只能通过提供的方法
+2. **状态保持**：函数执行完后，相关数据依然保存着
+3. **创建专用工具**：每次调用都生成一个独立的、有记忆的工具函数
+
+**记住**：闭包就是让函数拥有"记忆力"的技术！
 
 ---
 
