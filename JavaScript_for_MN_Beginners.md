@@ -157,6 +157,94 @@ const titles = items.map(function(item) {
 **特点**：
 - 用 `=>` 符号（像箭头）
 - 更简洁的语法
+- **最重要**：没有自己的 `this`，会继承外层的 `this`
+
+**核心区别**：
+```javascript
+// 简单理解
+// 普通函数：this = "谁调用我"
+// 箭头函数：this = "我在哪里写的"
+```
+
+**详细完整的例子**：
+
+```javascript
+// 模拟一个 MN 插件类的环境
+class MyPlugin {
+  constructor() {
+    this.pluginName = "我的插件";
+    
+    // 在插件类内部定义的箭头函数
+    this.arrowFn = () => {
+      // ⭐ 关键：这里的 this 就是 MyPlugin 实例！
+      // 因为箭头函数是在 MyPlugin 构造函数中写的
+      MNUtil.showHUD("箭头函数: " + this.pluginName);  // "我的插件"
+    };
+  }
+  
+  // 普通函数方法
+  normalMethod() {
+    MNUtil.showHUD("普通方法: " + this.pluginName);  // "我的插件"
+  }
+}
+
+// 创建插件实例
+let plugin = new MyPlugin();
+
+// 情况1：正常调用，this 都正确
+plugin.normalMethod();  // 显示: "普通方法: 我的插件"
+plugin.arrowFn();       // 显示: "箭头函数: 我的插件"
+
+// 情况2：把方法单独拿出来给别人用（关键区别！）
+let normalFn = plugin.normalMethod;
+let arrowFn = plugin.arrowFn;
+
+// 现在由全局环境调用
+normalFn();  // ❌ 普通函数: undefined （this 丢了！）
+arrowFn();   // ✅ 箭头函数: 我的插件 （this 还在！）
+
+// 情况3：更明显的对比 - 把函数给其他对象使用
+let otherObj = {
+  pluginName: "别的插件",
+  testNormal: normalFn,   // 借用普通函数
+  testArrow: arrowFn      // 借用箭头函数
+};
+
+otherObj.testNormal();  // 显示: "普通方法: 别的插件" （this 变成了 otherObj！）
+otherObj.testArrow();   // 显示: "箭头函数: 我的插件" （this 还是原来的 plugin！）
+```
+
+**核心区别解释**：
+
+1. **普通函数**：`this = "谁调用我"`
+   - `plugin.normalMethod()` → this 是 plugin
+   - `otherObj.testNormal()` → this 是 otherObj
+   - `normalFn()` → this 是 undefined（全局调用）
+
+2. **箭头函数**：`this = "我在哪里写的"`
+   - 箭头函数在 `MyPlugin` 构造函数中写的
+   - 所以 this 永远是那个 `MyPlugin` 实例
+   - 不管后来谁调用它，this 都不变
+
+**"写代码时的环境" 的具体意思**：
+```javascript
+// 箭头函数写在哪里，this 就是哪里的 this
+class MyPlugin {
+  constructor() {
+    // 👈 箭头函数写在这里，所以 this = MyPlugin 实例
+    this.arrowFn = () => { ... };
+  }
+}
+
+// 如果写在全局
+let globalArrow = () => {
+  // 👈 写在全局，所以 this = undefined（严格模式下）
+};
+```
+
+**使用原则**：
+- 需要访问对象属性 → 普通函数做方法，箭头函数做回调
+- 只是处理数据，不用 this → 箭头函数更简洁
 
 
 ---
@@ -451,17 +539,21 @@ MNUtil.showHUD = function(message, duration, view) {
 ###### 情况2：实例方法 - 必须用 call
 
 ```javascript
-// Menu.prototype.show 是实例方法，内部使用了 this
-const originalShow = Menu.prototype.show;
-Menu.prototype.show = function(autoWidth) {
-  MNUtil.log("菜单即将显示");
-  originalShow.call(this, autoWidth);  // ✅ 必须用 call
+// 备份 MNNote 实例的方法
+let note = MNNote.getFocusNote();
+const originalAppendText = note.appendTextComment;
+
+// 增强这个方法
+note.appendTextComment = function(text) {
+  MNUtil.copy("添加评论：" + text);  // 先复制到剪贴板记录
+  originalAppendText.call(this, text);  // ✅ 必须用 call
+  MNUtil.showHUD("评论添加完成");
 };
 ```
 
 **为什么必须用 call？**
-- 实例方法就像私人手机，需要知道是"谁的手机"
-- Menu.show 内部会用到 `this.width`、`this.commandTable` 等属性
+- 实例方法就像私人手机，需要知道是"谁的手机"  
+- `appendTextComment` 内部会用到 `this.noteId`、`this.comments` 等属性
 - 不用 call 的话，原方法内部的 `this` 会是 `undefined`，导致报错
 
 ###### 简单判断规则
@@ -481,13 +573,13 @@ if (原方法是静态的，不依赖this) {
 
 ```javascript
 // ❌ 错误：实例方法不用 call
-Menu.prototype.show = function(autoWidth) {
-  originalShow(autoWidth);  // 内部的 this.width 会报错！
+note.appendTextComment = function(text) {
+  originalAppendText(text);  // 内部的 this.noteId 会报错！
 };
 
-// 因为 Menu.show 源码里有：
-// if (!this.width) { ... }  ← this 是 undefined！
-// this.commandTable = ...   ← 又是 undefined！
+// 因为 appendTextComment 源码里可能有：
+// if (!this.noteId) { ... }  ← this 是 undefined！
+// this.comments.push(...)    ← 又是 undefined！
 ```
 
 #### 原型链的查找机制
@@ -813,23 +905,78 @@ note.appendComment("评论");  // this = note 对象
 
 **箭头函数与普通函数的 this 区别**：
 
+前面我们学过箭头函数"没有自己的 this"，现在用 MN 插件的真实代码来理解：
+
+**生活类比**：
+- **普通函数** = 传话筒：谁拿着，就是谁的声音
+- **箭头函数** = 录音：不管谁播放，声音都不变
+
+**真实例子（来自 mntoolbar/main.js）**：
 ```javascript
-class Controller {
-  name = "控制器";
+// MN 插件的实际代码
+MNToolbarClass.prototype.init = function(mainPath) {
+  MNUtil.log("init 方法里的 this:", this.initialized);  // true
   
-  init() {
-    // 普通函数 - this 由调用方式决定
-    setTimeout(function() {
-      MNUtil.log(this.name);  // undefined！this 不是 Controller 实例
-    }, 1000);
-    
-    // 箭头函数 - this 继承自外层
-    setTimeout(() => {
-      MNUtil.log(this.name);  // "控制器"，this 是 Controller 实例
-    }, 1000);
-  }
-}
+  // 设置一个普通函数给别人调用
+  this.normalCallback = function() {
+    MNUtil.log("普通函数里的 this:", this.initialized);  
+    // 结果：undefined！因为别人调用时，this 变了
+  };
+  
+  // 设置一个箭头函数给别人调用
+  this.arrowCallback = () => {
+    MNUtil.log("箭头函数里的 this:", this.initialized);  
+    // 结果：true！因为箭头函数"记住"了原来的 this
+  };
+};
+
+// 模拟其他地方调用这些回调函数
+const toolbar = new MNToolbarClass();
+toolbar.init("/path");
+
+// 别人拿到这些函数后调用
+const fn1 = toolbar.normalCallback;
+const fn2 = toolbar.arrowCallback;
+
+fn1();  // this.initialized = undefined（普通函数的 this 丢了）
+fn2();  // this.initialized = true（箭头函数保持了原来的 this）
 ```
+
+**为什么会这样？**
+```javascript
+// 普通函数：this 取决于"."前面是谁
+toolbar.normalCallback();    // this 是 toolbar ✅
+fn1();                       // 没有"."，this 是 undefined ❌
+
+// 箭头函数：this 永远是"定义时外层的 this"
+toolbar.arrowCallback();     // this 是 toolbar ✅  
+fn2();                       // 还是定义时的 this，仍然是 toolbar ✅
+```
+
+**实际应用**：这就是为什么 `getToolbarController = () => self` 要用箭头函数！
+
+```javascript
+// webviewController.js 第4行的真实代码
+const getToolbarController = () => self
+
+// 为什么不能用普通函数？
+const getToolbarController = function() {
+  return self;  // 可能会报错，因为 this 和 self 都不确定
+}
+
+// 箭头函数的好处
+// 1. 无论在哪里调用，永远返回正确的 self
+webview.evaluateJavaScript(`getToolbarController().doSomething()`)
+
+// 2. 不会被调用环境影响
+someOtherObject.getController = getToolbarController;
+someOtherObject.getController();  // 还是返回正确的 self！
+```
+
+**总结**：
+- **普通函数适合**：作为对象的方法（需要访问 this）
+- **箭头函数适合**：作为回调函数、工具函数（保持环境不变）
+- **记住口诀**："传话筒会变声，录音不会变"
 
 #### self 的特殊用法
 
@@ -993,95 +1140,15 @@ function showMessage(msg) {
 }
 ```
 
-#### 🤔 思考题
-
-1. 如果 `Database.sharedInstance()` 不是单例，会发生什么问题？
-2. 为什么浏览器的 `window` 对象也是单例？
-3. 你能想到其他需要用单例模式的场景吗？
-
 #### 💡 记忆技巧
 
 记住这个口诀：**"shared 表示共享，Instance 表示实例，sharedInstance 就是大家共享的那一个实例"**
 
 ---
 
-## 第三部分：MarginNote 插件特殊语法
+## 第三部分：特殊语法
 
-### 3.1 JSB.defineClass - 与 Objective-C 的桥梁
-
-MarginNote 插件系统建立在 JSBridge 之上，这让 JavaScript 可以调用 iOS 原生功能。
-
-#### 标准插件结构
-
-```javascript
-// 每个插件的 main.js 都有类似结构
-JSB.newAddon = function() {
-  // 1. 定义插件主类
-  JSB.defineClass(
-    'MNToolbar : JSExtension',  // 类名 : 父类
-    {
-      // 2. 生命周期方法
-      sceneWillConnect: function() {
-        // 应用窗口连接时
-        self = MNToolbar.new();  // 创建实例并保存到 self
-      },
-      
-      sceneDidDisconnect: function() {
-        // 应用窗口断开时
-      },
-      
-      notebookWillOpen: function(topicid) {
-        // 笔记本打开时
-        // topicid 是笔记本ID
-      },
-      
-      notebookWillClose: function(topicid) {
-        // 笔记本关闭时
-      },
-      
-      documentDidOpen: function(docmd5) {
-        // 文档打开时
-        // docmd5 是文档的MD5标识
-      },
-      
-      // 3. 事件处理方法
-      onPopupMenuOnNote: function(sender) {
-        // 笔记上的弹出菜单
-        return [{
-          title: "我的功能",
-          object: self,
-          selector: "myFunction:"
-        }];
-      },
-      
-      // 4. 自定义方法
-      myFunction: function(note) {
-        // 处理笔记
-        MNUtil.showHUD("处理笔记：" + note.noteTitle);
-      }
-    },
-    {
-      // 类方法（静态方法）
-    }
-  );
-  
-  // 返回插件类
-  return MNToolbar;
-};
-```
-
-#### 与普通 JavaScript 类的区别
-
-| 特性 | JSB.defineClass | ES6 class |
-|------|----------------|-----------|
-| 用途 | 主插件类，需要与 ObjC 交互 | 纯 JavaScript 类 |
-| 继承 | 通过字符串指定父类 | 使用 extends 关键字 |
-| 方法定义 | 对象字面量形式 | 类方法语法 |
-| this 绑定 | 需要特别注意，常用 self | 自动绑定 |
-
----
-
-### 3.2 异步编程 - async/await 的应用
+### 3.1 异步编程 - async/await 的应用
 
 #### 为什么需要异步？
 
@@ -1415,7 +1482,7 @@ async function processNotesWithProgress() {
 
 ---
 
-### 3.3 闭包和作用域 - 变量的可见范围
+### 3.2 闭包和作用域 - 变量的可见范围
 
 #### 什么是闭包？
 
