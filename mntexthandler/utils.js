@@ -1,27 +1,57 @@
-//简化弹窗通知
-function showHUD(message,duration=2) {
-  let focusWindow = Application.sharedInstance().focusWindow
-  Application.sharedInstance().showHUD(message,focusWindow,2)
+//简化弹窗通知 - 使用 MNUtils API
+function showHUD(message, duration = 2) {
+  if (typeof MNUtil !== "undefined") {
+    MNUtil.showHUD(message, duration);
+  } else {
+    // 降级方案
+    let focusWindow = Application.sharedInstance().focusWindow
+    Application.sharedInstance().showHUD(message, focusWindow, 2)
+  }
 }
+
 function copy(text) {
-  UIPasteboard.generalPasteboard().string = text
+  if (typeof MNUtil !== "undefined") {
+    MNUtil.copy(text);
+  } else {
+    UIPasteboard.generalPasteboard().string = text
+  }
 }
+
 function copyJSON(object) {
-  UIPasteboard.generalPasteboard().string = JSON.stringify(object,null,2)
+  if (typeof MNUtil !== "undefined") {
+    MNUtil.copyJSON(object);
+  } else {
+    UIPasteboard.generalPasteboard().string = JSON.stringify(object, null, 2)
+  }
 }
+
 function studyController() {
-  let focusWindow = Application.sharedInstance().focusWindow
-  return Application.sharedInstance().studyController(focusWindow)
+  if (typeof MNUtil !== "undefined") {
+    return MNUtil.studyController;
+  } else {
+    let focusWindow = Application.sharedInstance().focusWindow
+    return Application.sharedInstance().studyController(focusWindow)
+  }
 }
 
 function getFocusNotes() {
-  let focusWindow = Application.sharedInstance().focusWindow
-  let notebookController = Application.sharedInstance().studyController(focusWindow).notebookController
-  let selViewLst = notebookController.mindmapView.selViewLst
-  // let focusNotes = 
-  return selViewLst.map(tem=>{
-    return tem.note.note
-  })
+  if (typeof MNNote !== "undefined") {
+    return MNNote.getFocusNotes();
+  } else {
+    // 降级方案
+    let focusWindow = Application.sharedInstance().focusWindow
+    let notebookController = Application.sharedInstance().studyController(focusWindow).notebookController
+    
+    // 添加安全检查
+    if (!notebookController || !notebookController.mindmapView || !notebookController.mindmapView.selViewLst) {
+      return [];
+    }
+    
+    let selViewLst = notebookController.mindmapView.selViewLst
+    return selViewLst.map(tem => {
+      return tem.note.note
+    })
+  }
 }
 
 function appVersion() {
@@ -79,24 +109,22 @@ function strCode(str) {  //获取字符串的字节数
 }
 
 function getClipboardText() {
-  return UIPasteboard.generalPasteboard().string
-}
-function copy(text) {
-  UIPasteboard.generalPasteboard().string = text
-}
-
-function copyJSON(object) {
-  UIPasteboard.generalPasteboard().string = JSON.stringify(object,null,2)
+  if (typeof MNUtil !== "undefined") {
+    return MNUtil.clipboardText;
+  } else {
+    return UIPasteboard.generalPasteboard().string
+  }
 }
 
-function studyController() {
-  let focusWindow = Application.sharedInstance().focusWindow
-  return Application.sharedInstance().studyController(focusWindow)
-}
+// 删除重复的 copy 和 copyJSON 函数
 
 function currentDocController() {
-  let focusWindow = Application.sharedInstance().focusWindow
-  return Application.sharedInstance().studyController(focusWindow).readerController.currentDocumentController
+  if (typeof MNUtil !== "undefined") {
+    return MNUtil.currentDocController;
+  } else {
+    let focusWindow = Application.sharedInstance().focusWindow
+    return Application.sharedInstance().studyController(focusWindow).readerController.currentDocumentController
+  }
 }
 
 function currentNotebook() {
@@ -423,8 +451,16 @@ function refreshAfterDBChanged(notebookid) {
  * @returns {MbBookNote[]}
  */
 function getSelectNotes() {
-  let notes =studyController().notebookController.mindmapView.selViewLst.map(item=>item.note.note)
-  return notes
+  let controller = studyController();
+  if (!controller || !controller.notebookController) {
+    return [];
+  }
+  let notebookController = controller.notebookController;
+  if (!notebookController.mindmapView || !notebookController.mindmapView.selViewLst) {
+    return [];
+  }
+  let notes = notebookController.mindmapView.selViewLst.map(item => item.note.note);
+  return notes;
 }
 function getFocusNote() {
   let notebookController = studyController().notebookController
@@ -437,17 +473,26 @@ function getFocusNote() {
   }
 }
 
-function getFocusNotes() {
-  let notebookController = studyController().notebookController
-  // copy("test:"+(!notebookController.view.hidden && notebookController.mindmapView.selViewLst.length))
-  if (!notebookController.view.hidden && notebookController.mindmapView && notebookController.mindmapView.selViewLst.length) {
+function getFocusNotesAlt() {
+  let controller = studyController();
+  if (!controller || !controller.notebookController) {
+    return [];
+  }
+  
+  let notebookController = controller.notebookController;
+  
+  // 在脑图模式且有选中的笔记
+  if (!notebookController.view.hidden && notebookController.mindmapView && notebookController.mindmapView.selViewLst && notebookController.mindmapView.selViewLst.length) {
     let selViewLst = notebookController.mindmapView.selViewLst
-    // let focusNotes = 
-    return selViewLst.map(tem=>{
+    return selViewLst.map(tem => {
       return tem.note.note
     })
-  }else{
-    return [studyController().readerController.currentDocumentController.focusNote]
+  } else {
+    // 文档模式或无选中笔记时，返回当前焦点笔记
+    if (controller.readerController && controller.readerController.currentDocumentController && controller.readerController.currentDocumentController.focusNote) {
+      return [controller.readerController.currentDocumentController.focusNote];
+    }
+    return [];
   }
 }
 

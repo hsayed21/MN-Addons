@@ -1,4 +1,12 @@
 JSB.newAddon = function (mainPath) {
+  // 加载 MNUtils 框架
+  try {
+    JSB.require('mnutils');
+    MNUtil.init(mainPath);
+  } catch (error) {
+    console.log("MNUtils 加载失败，使用原生 API: " + error);
+  }
+  
   // 加载 webviewController.js
   // TODO：require 相当于 LaTeX 的 \input 吗？
   // 只是加载里面的代码还是有额外的处理？
@@ -12,10 +20,12 @@ JSB.newAddon = function (mainPath) {
 
       // 用于 MarginNote 开启一个窗口后执行代码
       sceneWillConnect: function () { //Window initialize
-        // 调用 Application 中的 sharedInstance() 方法，该方法会返回一个类的实例，
-        // 换而言之，使用上述代码等同于使用new来创建一个实例。
-        // 来自：https://is.gd/RTn3DE
-        self.appInstance = Application.sharedInstance();
+        if (typeof MNUtil !== "undefined") {
+          self.appInstance = MNUtil.app;
+        } else {
+          // 降级方案
+          self.appInstance = Application.sharedInstance();
+        }
         self.addonController = mnTextHandlerController.new();  // mnTextHandlerController 在 webviewController.js 中定义
         self.addonController.mainPath = mainPath;
         self.rect = '{{0, 0}, {10, 10}}';
@@ -103,7 +113,12 @@ JSB.newAddon = function (mainPath) {
           return
         }
         // 用户从文档中选择的文本自动填充到输入框中
-        let textSelected  = sender.userInfo.documentController.selectionText
+        let textSelected;
+        if (typeof MNUtil !== "undefined") {
+          textSelected = MNUtil.selectionText;
+        } else {
+          textSelected = sender.userInfo.documentController.selectionText;
+        }
         if (textSelected) {
           self.addonController.textviewInput.text = textSelected
         }
@@ -114,14 +129,19 @@ JSB.newAddon = function (mainPath) {
 
       },
       toggleAddon:function (sender) {
-      let textSelected = self.appInstance.studyController(self.window).readerController.currentDocumentController.selectionText
-      if (textSelected) {
-        self.addonController.textviewInput.text = textSelected
-        self.addonController.view.hidden = false
-      }else{
-        self.addonController.view.hidden = !self.addonController.view.hidden
-      }
-
+        let textSelected;
+        if (typeof MNUtil !== "undefined") {
+          textSelected = MNUtil.selectionText;
+        } else {
+          textSelected = self.appInstance.studyController(self.window).readerController.currentDocumentController.selectionText;
+        }
+        
+        if (textSelected) {
+          self.addonController.textviewInput.text = textSelected
+          self.addonController.view.hidden = false
+        } else {
+          self.addonController.view.hidden = !self.addonController.view.hidden
+        }
       }
     },
     { /* Class members */

@@ -292,8 +292,12 @@ var mnTextHandlerController = JSB.defineClass(
   showSnippets: function (button) {//button就是触发这个函数的那个按钮
     //用try catch的方式获取报错
   try {
-    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
-      
+    // 关闭之前的菜单
+    if (typeof Menu !== "undefined") {
+      Menu.dismissCurrentMenu();
+    } else if (self.view.popoverController) {
+      self.view.popoverController.dismissPopoverAnimated(true);
+    }
 
     let type = button.type //分辨是left还是right
     //获取MNSnippets中存储的文本
@@ -302,28 +306,48 @@ var mnTextHandlerController = JSB.defineClass(
     //config里的promptNames存储顺序
     let snipNames = config.promptNames
 
-
-    // 菜单控制
-    var menuController = MenuController.new();
-    menuController.commandTable = snipNames.map(snipName=>{
-      let snippet = snippets[snipName]
-      switch (type) {
-        case "left"://left调用setTextLeft函数，参数为snippet.context
-          return {title:snippet.title, object:self, selector:'setTextLeft:', param:snippet.context}
-        case "right"://right调用setTextRight函数，参数为snippet.context
-          return {title:snippet.title, object:self, selector:'setTextRight:', param:snippet.context}
-        default:
-      }
-    })
-    menuController.rowHeight = 35;
-    menuController.preferredContentSize = {
-      width: 150,
-      height: menuController.rowHeight * menuController.commandTable.length
-    };
-    var studyController = Application.sharedInstance().studyController(self.view.window);
-    self.view.popoverController = new UIPopoverController(menuController);
-    var r = button.convertRectToView(button.bounds,studyController.view);
-    self.view.popoverController.presentPopoverFromRect(r, studyController.view, 1 << 0, true);  // 1 << 0 是指箭头朝下，1 << 1 是指箭头朝上，1 << 2 是指箭头朝左，1 << 3 是指箭头朝右
+    if (typeof Menu !== "undefined") {
+      // 使用 MNUtils 的 Menu 类
+      const menu = new Menu(button, self, 150, 1); // 箭头朝下
+      
+      const menuItems = snipNames.map(snipName => {
+        let snippet = snippets[snipName]
+        switch (type) {
+          case "left":
+            return {title: snippet.title, selector: 'setTextLeft:', param: snippet.context}
+          case "right":
+            return {title: snippet.title, selector: 'setTextRight:', param: snippet.context}
+          default:
+            return null
+        }
+      }).filter(item => item !== null);
+      
+      menu.addMenuItems(menuItems);
+      menu.rowHeight = 35;
+      menu.show();
+    } else {
+      // 降级方案：使用原生 MenuController
+      var menuController = MenuController.new();
+      menuController.commandTable = snipNames.map(snipName=>{
+        let snippet = snippets[snipName]
+        switch (type) {
+          case "left"://left调用setTextLeft函数，参数为snippet.context
+            return {title:snippet.title, object:self, selector:'setTextLeft:', param:snippet.context}
+          case "right"://right调用setTextRight函数，参数为snippet.context
+            return {title:snippet.title, object:self, selector:'setTextRight:', param:snippet.context}
+          default:
+        }
+      })
+      menuController.rowHeight = 35;
+      menuController.preferredContentSize = {
+        width: 150,
+        height: menuController.rowHeight * menuController.commandTable.length
+      };
+      var studyController = Application.sharedInstance().studyController(self.view.window);
+      self.view.popoverController = new UIPopoverController(menuController);
+      var r = button.convertRectToView(button.bounds,studyController.view);
+      self.view.popoverController.presentPopoverFromRect(r, studyController.view, 1 << 0, true);
+    }
   } catch (error) {
     showHUD(error)
   }
@@ -331,14 +355,18 @@ var mnTextHandlerController = JSB.defineClass(
   setTextLeft: function(text) {
     self.textviewDelimeter.text = text;
     // 关闭弹窗
-    if (self.view.popoverController) {
+    if (typeof Menu !== "undefined") {
+      Menu.dismissCurrentMenu();
+    } else if (self.view.popoverController) {
       self.view.popoverController.dismissPopoverAnimated(true);
     }
   },
   setTextRight: function(text) {
     self.textviewPrefix.text = text;
     // 关闭弹窗
-    if (self.view.popoverController) {
+    if (typeof Menu !== "undefined") {
+      Menu.dismissCurrentMenu();
+    } else if (self.view.popoverController) {
       self.view.popoverController.dismissPopoverAnimated(true);
     }
   },
@@ -349,43 +377,66 @@ var mnTextHandlerController = JSB.defineClass(
     // self.pasteButton.layer.opacity = 0.5
     self.transformButton.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0)
     self.transformButton.layer.opacity = 0.5
-    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
+    
+    // 关闭之前的菜单
+    if (typeof Menu !== "undefined") {
+      Menu.dismissCurrentMenu();
+    } else if (self.view.popoverController) {
+      self.view.popoverController.dismissPopoverAnimated(true);
+    }
 
-    // 菜单控制
-    var menuController = MenuController.new();
-    menuController.commandTable = [
-      {title:'生成正则表达式', object:self, selector:'setOption:', param:6, checked:self.mode === 6},
-      // {title:'处理旧卡片：只清除', object:self, selector:'setOption:', param:9, checked:self.mode === 9},
-      // {title:'处理旧卡片：清除+合并标题', object:self, selector:'setOption:', param:11, checked:self.mode === 11},
-      {title:"批量删除和添加指定评论", object:self, selector:'setOption:', param:8, checked:self.mode === 8},
-      {title:'批量删除“模板：”', object:self, selector:'setOption:', param:12, checked:self.mode === 12},
-      {title:'增加论文卡片', object:self, selector:'setOption:', param:15, checked:self.mode === 15},
-      {title:'增加书作卡片', object:self, selector:'setOption:', param:16, checked:self.mode === 16},
-      {title:'增加作者卡片', object:self, selector:'setOption:', param:14, checked:self.mode === 14},
-      {title:'增加期刊卡片', object:self, selector:'setOption:', param:17, checked:self.mode === 17},
-      {title:'增加出版社卡片', object:self, selector:'setOption:', param:18, checked:self.mode === 18},
-      {title:'增加通讯地址卡片', object:self, selector:'setOption:', param:19, checked:self.mode === 19},
-      // {title:'卡片→非摘录版本', object:self, selector:'setOption:', param:10, checked:self.mode === 10},
-      // {title:"修改子卡片前缀", object:self, selector:'setOption:', param:7, checked:self.mode === 7},
-      {title:'Title case convert', object:self, selector:'setOption:', param:1, checked:self.mode === 1},
-      {title:'Split item', object:self, selector:'setOption:', param:2, checked:self.mode === 2},
-      {title:'Convert to lower case', object:self, selector:'setOption:', param:3, checked:self.mode === 3},
-      {title:'Find and replace', object:self, selector:'setOption:', param:5, checked:self.mode === 5},
-      {title:'Keywords to MNtag', object:self, selector:'setOption:', param:4, checked:self.mode === 4},
-      {title:'克隆卡片为自身的子卡片', object:self, selector:'setOption:', param:13, checked:self.mode === 13},
+    const menuOptions = [
+      {title:'生成正则表达式', selector:'setOption:', param:6, checked:self.mode === 6},
+      {title:"批量删除和添加指定评论", selector:'setOption:', param:8, checked:self.mode === 8},
+      {title:'批量删除"模板："', selector:'setOption:', param:12, checked:self.mode === 12},
+      {title:'增加论文卡片', selector:'setOption:', param:15, checked:self.mode === 15},
+      {title:'增加书作卡片', selector:'setOption:', param:16, checked:self.mode === 16},
+      {title:'增加作者卡片', selector:'setOption:', param:14, checked:self.mode === 14},
+      {title:'增加期刊卡片', selector:'setOption:', param:17, checked:self.mode === 17},
+      {title:'增加出版社卡片', selector:'setOption:', param:18, checked:self.mode === 18},
+      {title:'增加通讯地址卡片', selector:'setOption:', param:19, checked:self.mode === 19},
+      {title:'Title case convert', selector:'setOption:', param:1, checked:self.mode === 1},
+      {title:'Split item', selector:'setOption:', param:2, checked:self.mode === 2},
+      {title:'Convert to lower case', selector:'setOption:', param:3, checked:self.mode === 3},
+      {title:'Find and replace', selector:'setOption:', param:5, checked:self.mode === 5},
+      {title:'Keywords to MNtag', selector:'setOption:', param:4, checked:self.mode === 4},
+      {title:'克隆卡片为自身的子卡片', selector:'setOption:', param:13, checked:self.mode === 13},
     ];
-    menuController.rowHeight = 35;
-    menuController.preferredContentSize = {
-      width: 200,
-      height: menuController.rowHeight * menuController.commandTable.length
-    };
-    var studyController = Application.sharedInstance().studyController(self.view.window);
-    self.view.popoverController = new UIPopoverController(menuController);
-    var r = sender.convertRectToView(sender.bounds,studyController.view);
-    self.view.popoverController.presentPopoverFromRect(r, studyController.view, 1 << 0, true);
+
+    if (typeof Menu !== "undefined") {
+      // 使用 MNUtils 的 Menu 类
+      const menu = new Menu(sender, self, 200, 1); // 箭头朝下
+      menu.addMenuItems(menuOptions);
+      menu.rowHeight = 35;
+      menu.show();
+    } else {
+      // 降级方案：使用原生 MenuController
+      var menuController = MenuController.new();
+      menuController.commandTable = menuOptions.map(option => ({
+        title: option.title,
+        object: self,
+        selector: option.selector,
+        param: option.param,
+        checked: option.checked
+      }));
+      menuController.rowHeight = 35;
+      menuController.preferredContentSize = {
+        width: 200,
+        height: menuController.rowHeight * menuController.commandTable.length
+      };
+      var studyController = Application.sharedInstance().studyController(self.view.window);
+      self.view.popoverController = new UIPopoverController(menuController);
+      var r = sender.convertRectToView(sender.bounds,studyController.view);
+      self.view.popoverController.presentPopoverFromRect(r, studyController.view, 1 << 0, true);
+    }
   },
   setOption: function (params) {
-    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
+    // 关闭弹窗
+    if (typeof Menu !== "undefined") {
+      Menu.dismissCurrentMenu();
+    } else if (self.view.popoverController) {
+      self.view.popoverController.dismissPopoverAnimated(true);
+    }
     self.mode = params
     
     let optionNames = [
