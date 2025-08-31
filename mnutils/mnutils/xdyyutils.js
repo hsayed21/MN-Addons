@@ -8411,20 +8411,29 @@ class MNMath {
       switch (action) {
         case "编辑名称":
           const newName = await new Promise((resolve) => {
-            const alert = UIAlertView.alloc().init();
-            alert.title = "编辑名称";
-            alert.message = "输入新名称：";
-            alert.alertViewStyle = 2; // UIAlertViewStylePlainTextInput
-            alert.addButtonWithTitle("取消");
-            alert.addButtonWithTitle("确定");
-            const textField = alert.textFieldAtIndex(0);
-            textField.text = selectedRoot.name;
-            alert.showWithHandler((alertView, buttonIndex) => {
-              if (buttonIndex === 1) {
-                resolve(alertView.textFieldAtIndex(0).text.trim());
-              } else {
-                resolve(null);
+            UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+              "编辑名称",
+              `当前名称：${selectedRoot.name}\n请输入新名称：`,
+              2, // 输入框样式
+              "取消",
+              ["确定"],
+              (alertView, buttonIndex) => {
+                if (buttonIndex === 1) {
+                  resolve(alertView.textFieldAtIndex(0).text.trim());
+                } else {
+                  resolve(null);
+                }
               }
+            );
+            // 设置默认值
+            MNUtil.delay(0.01).then(() => {
+              try {
+                const currentAlert = UIAlertView.currentAlertView();
+                if (currentAlert && currentAlert.textFieldAtIndex) {
+                  const textField = currentAlert.textFieldAtIndex(0);
+                  if (textField) textField.text = selectedRoot.name;
+                }
+              } catch (e) {}
             });
           });
           
@@ -9651,7 +9660,7 @@ class MNMath {
                   break;
                   
                 case 4: // 添加根目录
-                  resolve({ action: "addRoot", input: inputText });
+                  resolve({ action: "addRoot" });
                   break;
                   
                 case 5: // 切换归类卡片搜索开关
@@ -9725,7 +9734,7 @@ class MNMath {
             
           case "addRoot":
             // 添加根目录
-            const newRoot = await this.handleAddRoot(result.input);
+            const newRoot = await this.handleAddRoot(null);
             if (newRoot) {
               // 将新添加的根目录加入到当前选中的根目录列表
               if (!currentRootIds.includes(newRoot.id)) {
@@ -9984,13 +9993,65 @@ class MNMath {
                 return;
               }
               
-              const newRoot = await this.addCurrentNoteAsRoot(focusNote);
-              if (newRoot) {
-                if (!currentRootIds.includes(newRoot.id)) {
-                  currentRootIds.push(newRoot.id);
+              // 获取卡片标题作为默认名称
+              const defaultName = focusNote.noteTitle || "未命名根目录";
+              
+              // 请求用户输入或确认名称
+              const newRootName = await new Promise((innerResolve) => {
+                UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+                  "添加根目录",
+                  `当前选中的卡片：${defaultName}\n\n请输入根目录的名称：`,
+                  2,
+                  "取消",
+                  ["确定"],
+                  (alert2, buttonIndex2) => {
+                    if (buttonIndex2 === 1) {
+                      const name = alert2.textFieldAtIndex(0).text.trim() || defaultName;
+                      innerResolve(name);
+                    } else {
+                      innerResolve(null);
+                    }
+                  }
+                );
+                // 设置默认值
+                MNUtil.delay(0.01).then(() => {
+                  try {
+                    const currentAlert = UIAlertView.currentAlertView();
+                    if (currentAlert && currentAlert.textFieldAtIndex) {
+                      const textField = currentAlert.textFieldAtIndex(0);
+                      if (textField) textField.text = defaultName;
+                    }
+                  } catch (e) {}
+                });
+              });
+              
+              if (newRootName) {
+                const key = this.addSearchRoot(focusNote.noteId, newRootName);
+                if (key && key !== false) {
+                  const newRoot = {
+                    key: key,
+                    id: focusNote.noteId,
+                    name: newRootName
+                  };
+                  if (!currentRootIds.includes(newRoot.id)) {
+                    currentRootIds.push(newRoot.id);
+                  }
+                  allRoots[newRoot.key] = newRoot;
+                  MNUtil.showHUD(`✅ 已添加根目录：${newRoot.name}`);
+                  
+                  // 更新最后使用的根目录
+                  const rootKeys = [];
+                  for (const rootId of currentRootIds) {
+                    for (const k in allRoots) {
+                      if (allRoots[k].id === rootId) {
+                        rootKeys.push(k);
+                        break;
+                      }
+                    }
+                  }
+                  this.searchRootConfigs.lastUsedRoots = rootKeys;
+                  this.saveSearchConfig();
                 }
-                allRoots[newRoot.key] = newRoot;
-                MNUtil.showHUD(`✅ 已添加根目录：${newRoot.name}`);
               }
               
               // 重新显示当前步骤
@@ -10117,6 +10178,7 @@ class MNMath {
     
     // 3. 群组管理按钮
     displayOptions.push("💾 保存当前选择为群组");
+    displayOptions.push("📝 管理根目录");
     displayOptions.push("⚙️ 管理群组");
     displayOptions.push("──────────────");
     
@@ -10276,6 +10338,18 @@ class MNMath {
         }
         currentIndex++;
         
+        // 处理管理根目录
+        if (selection === currentIndex) {
+          await this.showRootManagementDialog().then(() => {
+            // 刷新所有根目录配置
+            const updatedRoots = this.getAllSearchRoots();
+            // 重新显示对话框
+            this.showEnhancedRootMultiSelectDialog(currentRootIds, updatedRoots, finalCallback);
+          });
+          return;
+        }
+        currentIndex++;
+        
         // 处理管理群组
         if (selection === currentIndex) {
           await this.manageRootGroups();
@@ -10339,6 +10413,9 @@ class MNMath {
     // 构建显示选项
     const displayOptions = [];
     
+    // 添加临时根目录选项
+    displayOptions.push("📍 使用当前选中的卡片（临时）");
+    
     // 添加全选/取消全选选项
     const allSelected = selectedIndices.size === rootOptions.length;
     displayOptions.push(allSelected ? "⬜ 取消全选" : "☑️ 全选所有根目录");
@@ -10356,6 +10433,7 @@ class MNMath {
     
     // 添加分隔线和操作按钮
     displayOptions.push("──────────────");
+    displayOptions.push("📝 管理根目录");
     displayOptions.push("✔️ 确定选择");
     
     // 构建提示信息
@@ -10377,6 +10455,26 @@ class MNMath {
         const selectedOptionIndex = buttonIndex - 1;
         
         if (selectedOptionIndex === 0) {
+          // 临时根目录
+          const currentNote = MNNote.getFocusNote();
+          if (currentNote) {
+            // 保存临时根目录信息
+            this.tempRootInfo = {
+              id: currentNote.noteId,
+              name: currentNote.noteTitle || "无标题"
+            };
+            
+            // 清空所有选择，只选中临时根目录
+            const tempRootIds = [currentNote.noteId];
+            finalCallback(tempRootIds);
+          } else {
+            MNUtil.showHUD("请先选中一个卡片作为临时根目录");
+            // 重新显示对话框
+            this.showRootMultiSelectDialog(rootOptions, selectedIndices, finalCallback);
+          }
+          return;
+          
+        } else if (selectedOptionIndex === 1) {
           // 全选/取消全选
           if (allSelected) {
             selectedIndices.clear();
@@ -10388,9 +10486,52 @@ class MNMath {
           // 递归显示更新后的对话框
           this.showRootMultiSelectDialog(rootOptions, selectedIndices, finalCallback);
           
-        } else if (selectedOptionIndex === 1 || selectedOptionIndex === displayOptions.length - 2) {
+        } else if (selectedOptionIndex === 2 || selectedOptionIndex === displayOptions.length - 3) {
           // 分隔线，忽略并重新显示
           this.showRootMultiSelectDialog(rootOptions, selectedIndices, finalCallback);
+          
+        } else if (selectedOptionIndex === displayOptions.length - 2) {
+          // 管理根目录
+          this.showRootManagementDialog().then((manageResult) => {
+            if (manageResult) {
+              // 如果进行了修改，重新构建选项列表
+              const updatedRoots = this.getAllSearchRoots();
+              const rootsOrder = this.searchRootConfigs.rootsOrder || Object.keys(updatedRoots);
+              const updatedOptions = [];
+              
+              // 重建选项数组
+              for (const key of rootsOrder) {
+                const root = updatedRoots[key];
+                if (root) {
+                  updatedOptions.push({
+                    key: key,
+                    name: root.name,
+                    id: root.id
+                  });
+                }
+              }
+              
+              // 更新选中状态以匹配新的选项列表
+              const newSelectedIndices = new Set();
+              for (let i = 0; i < updatedOptions.length; i++) {
+                // 检查之前选中的根目录是否还存在
+                const option = updatedOptions[i];
+                for (const oldIndex of selectedIndices) {
+                  if (oldIndex < rootOptions.length && 
+                      rootOptions[oldIndex].id === option.id) {
+                    newSelectedIndices.add(i);
+                    break;
+                  }
+                }
+              }
+              
+              // 递归显示更新后的对话框
+              this.showRootMultiSelectDialog(updatedOptions, newSelectedIndices, finalCallback);
+            } else {
+              // 没有修改，重新显示原对话框
+              this.showRootMultiSelectDialog(rootOptions, selectedIndices, finalCallback);
+            }
+          });
           
         } else if (selectedOptionIndex === displayOptions.length - 1) {
           // 确定选择
@@ -10434,7 +10575,7 @@ class MNMath {
           
         } else {
           // 用户点击了某个根目录选项
-          const rootIndex = selectedOptionIndex - 2;  // 减去全选和分隔线
+          const rootIndex = selectedOptionIndex - 3;  // 减去临时根目录、全选和分隔线
           
           if (rootIndex >= 0 && rootIndex < rootOptions.length) {
             // 切换选中状态
@@ -10711,15 +10852,25 @@ class MNMath {
       );
       
       // 处理用户选择
-      if (result === null || result === 0 || result === 1) {
+      if (result === null || result === 0) {
+        // 用户取消
+        return;
+      }
+      
+      if (result === 1) {
         // 保存并返回
         this.saveSearchConfig();
         MNUtil.showHUD(`✅ 群组"${groupName}"已更新`);
         return;
       }
       
+      if (result === 2) {
+        // 分隔线，忽略并继续循环
+        continue;
+      }
+      
       // 切换根目录的选中状态
-      const rootIndex = result - 2; // 减去前面的按钮和分隔线
+      const rootIndex = result - 3; // 减去"保存按钮"、"分隔线"和数组偏移
       if (rootIndex >= 0 && rootIndex < rootsOrder.length) {
         const rootKey = rootsOrder[rootIndex];
         
