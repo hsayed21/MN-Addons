@@ -412,6 +412,61 @@ class MNMath {
   }
 
   /**
+   * 只保留卡片的摘录，删除所有文本和手写评论
+   * 
+   * @param {MNNote} note - 要处理的卡片
+   * @returns {number} 返回删除的评论数量
+   */
+  static keepOnlyExcerpt(note) {
+    if (!note) {
+      return 0;
+    }
+
+    // 1. 清空标题
+    note.noteTitle = "";
+    
+    // 2. 获取所有评论的详细类型
+    const comments = note.MNComments;
+    const indicesToRemove = [];
+    
+    // 3. 识别需要删除的评论（手写和文本类型）
+    for (let i = 0; i < comments.length; i++) {
+      const commentType = comments[i].type;
+      
+      // 手写相关类型
+      if (commentType === "drawingComment" || 
+          commentType === "imageCommentWithDrawing" || 
+          commentType === "mergedImageCommentWithDrawing") {
+        indicesToRemove.push(i);
+        continue;
+      }
+      
+      // 文本相关类型（包括 HTML、链接等）
+      if (commentType === "textComment" || 
+          commentType === "markdownComment" || 
+          commentType === "tagComment" ||
+          commentType === "HtmlComment" ||
+          commentType === "linkComment" ||
+          commentType === "summaryComment" ||
+          commentType === "mergedTextComment" ||
+          commentType === "blankTextComment") {
+        indicesToRemove.push(i);
+      }
+    }
+    
+    // 4. 从后往前删除评论（避免索引变化问题）
+    indicesToRemove.sort((a, b) => b - a);
+    for (const index of indicesToRemove) {
+      note.removeCommentByIndex(index);
+    }
+
+    // 5. 刷新卡片显示
+    note.refresh();
+    
+    return indicesToRemove.length;
+  }
+
+  /**
    * 用选中卡片的摘录更新父卡片的摘录
    * 
    * 功能说明：
@@ -440,54 +495,14 @@ class MNMath {
 
       MNUtil.undoGrouping(() => {
         // 3. 处理选中的卡片B：只保留摘录（删除文本和手写评论）
-        // 清空标题
-        focusNote.noteTitle = "";
-        
-        // 获取所有评论的详细类型
-        const comments = focusNote.MNComments;
-        const indicesToRemove = [];
-        
-        // 识别需要删除的评论（手写和文本类型）
-        for (let i = 0; i < comments.length; i++) {
-          const commentType = comments[i].type;
-          
-          // 手写相关类型
-          if (commentType === "drawingComment" || 
-              commentType === "imageCommentWithDrawing" || 
-              commentType === "mergedImageCommentWithDrawing") {
-            indicesToRemove.push(i);
-            continue;
-          }
-          
-          // 文本相关类型（包括 HTML、链接等）
-          if (commentType === "textComment" || 
-              commentType === "markdownComment" || 
-              commentType === "tagComment" ||
-              commentType === "HtmlComment" ||
-              commentType === "linkComment" ||
-              commentType === "summaryComment" ||
-              commentType === "mergedTextComment" ||
-              commentType === "blankTextComment") {
-            indicesToRemove.push(i);
-          }
-        }
-        
-        // 从后往前删除评论（避免索引变化问题）
-        indicesToRemove.sort((a, b) => b - a);
-        for (const index of indicesToRemove) {
-          focusNote.removeCommentByIndex(index);
-        }
+        const removedCount = this.keepOnlyExcerpt(focusNote);
 
         // 4. 删除父卡片A的摘录区评论
-        const parentCommentsObj = this.parseNoteComments(parentNote);
-        const excerptFieldObj = parentCommentsObj.htmlCommentsObjArr.find(obj => 
-          obj.text.includes("摘录区") || obj.text.includes("摘录")
-        );
-
-        if (excerptFieldObj && excerptFieldObj.excludingFieldBlockIndexArr.length > 0) {
-          // 删除摘录区下的内容（从后往前删除，避免索引变化）
-          let excerptContentIndices = excerptFieldObj.excludingFieldBlockIndexArr.sort((a, b) => b - a);
-          excerptContentIndices.forEach(index => {
+        const excerptBlockIndexArr = this.getExcerptBlockIndexArr(parentNote);
+        if (excerptBlockIndexArr.length > 0) {
+          // 从后往前删除，避免索引变化
+          const sortedIndices = excerptBlockIndexArr.sort((a, b) => b - a);
+          sortedIndices.forEach(index => {
             parentNote.removeCommentByIndex(index);
           });
         }
@@ -503,7 +518,7 @@ class MNMath {
           // 刷新父卡片显示
           this.refreshNotes(parentNote);
           
-          MNUtil.showHUD("✅ 已用选中卡片的摘录更新父卡片的摘录");
+          MNUtil.showHUD(`✅ 已用选中卡片的摘录更新父卡片的摘录（清除了 ${removedCount} 条评论）`);
         });
       });
       
