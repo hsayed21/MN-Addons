@@ -411,6 +411,111 @@ class MNMath {
     }
   }
 
+  /**
+   * 用选中卡片的摘录更新父卡片的摘录
+   * 
+   * 功能说明：
+   * 1. 选中卡片（B）只保留摘录部分，删除所有文本和手写评论
+   * 2. 父卡片（A）删除摘录区的所有评论
+   * 3. 将 B 合并到 A 中
+   * 4. 将合并后的评论移动到摘录区
+   * 
+   * @param {MNNote} focusNote - 选中的卡片（将被处理并合并到父卡片）
+   */
+  static renewExcerptInParentNoteByFocusNote(focusNote) {
+    try {
+      // 1. 参数检查
+      if (!focusNote) {
+        MNUtil.showHUD("❌ 未选择卡片");
+        return;
+      }
+
+      // 2. 检查是否有父卡片
+      if (!focusNote.parentNote) {
+        MNUtil.showHUD("❌ 当前卡片没有父卡片");
+        return;
+      }
+
+      const parentNote = focusNote.parentNote;
+
+      MNUtil.undoGrouping(() => {
+        // 3. 处理选中的卡片B：只保留摘录（删除文本和手写评论）
+        // 清空标题
+        focusNote.noteTitle = "";
+        
+        // 获取所有评论的详细类型
+        const comments = focusNote.MNComments;
+        const indicesToRemove = [];
+        
+        // 识别需要删除的评论（手写和文本类型）
+        for (let i = 0; i < comments.length; i++) {
+          const commentType = comments[i].type;
+          
+          // 手写相关类型
+          if (commentType === "drawingComment" || 
+              commentType === "imageCommentWithDrawing" || 
+              commentType === "mergedImageCommentWithDrawing") {
+            indicesToRemove.push(i);
+            continue;
+          }
+          
+          // 文本相关类型（包括 HTML、链接等）
+          if (commentType === "textComment" || 
+              commentType === "markdownComment" || 
+              commentType === "tagComment" ||
+              commentType === "HtmlComment" ||
+              commentType === "linkComment" ||
+              commentType === "summaryComment" ||
+              commentType === "mergedTextComment" ||
+              commentType === "blankTextComment") {
+            indicesToRemove.push(i);
+          }
+        }
+        
+        // 从后往前删除评论（避免索引变化问题）
+        indicesToRemove.sort((a, b) => b - a);
+        for (const index of indicesToRemove) {
+          focusNote.removeCommentByIndex(index);
+        }
+
+        // 4. 删除父卡片A的摘录区评论
+        const parentCommentsObj = this.parseNoteComments(parentNote);
+        const excerptFieldObj = parentCommentsObj.htmlCommentsObjArr.find(obj => 
+          obj.text.includes("摘录区") || obj.text.includes("摘录")
+        );
+
+        if (excerptFieldObj && excerptFieldObj.excludingFieldBlockIndexArr.length > 0) {
+          // 删除摘录区下的内容（从后往前删除，避免索引变化）
+          let excerptContentIndices = excerptFieldObj.excludingFieldBlockIndexArr.sort((a, b) => b - a);
+          excerptContentIndices.forEach(index => {
+            parentNote.removeCommentByIndex(index);
+          });
+        }
+
+        // 5. 合并子卡片B到父卡片A
+        focusNote.mergeInto(parentNote);
+
+        // 6. 延迟处理，确保合并完成
+        MNUtil.delay(0.1).then(() => {
+          // 将父卡片的新内容移动到摘录区
+          this.autoMoveNewContentToField(parentNote, "摘录区", true, false);
+          
+          // 刷新父卡片显示
+          this.refreshNotes(parentNote);
+          
+          MNUtil.showHUD("✅ 已用选中卡片的摘录更新父卡片的摘录");
+        });
+      });
+      
+    } catch (error) {
+      MNUtil.showHUD(`❌ 更新摘录失败: ${error.message}`);
+      MNUtil.addErrorLog(error, "renewExcerptInParentNoteByFocusNote", {
+        focusNoteId: focusNote?.noteId,
+        parentNoteId: focusNote?.parentNote?.noteId
+      });
+    }
+  }
+
   static autoMoveNewContent(note) {
     // 获取卡片类型
     let noteType = this.getNoteType(note);
@@ -4420,7 +4525,7 @@ class MNMath {
     // 定义选项和对应的处理函数
     const optionHandlers = {
       "📝 手动输入 Index": () => {
-        this.showManualInputDialog(note, (indices) => {
+        this.showCommentIndexInputDialog(note, (indices) => {
           if (indices && indices.length > 0) {
             this.showActionSelectionDialog(note, indices, () => {
               // 返回函数：重新显示主菜单
@@ -4510,7 +4615,7 @@ class MNMath {
   /**
    * 显示手动输入对话框
    */
-  static showManualInputDialog(note, callback, previousDialog = null) {
+  static showCommentIndexInputDialog(note, callback, previousDialog = null) {
     // 构建选项数组
     const options = ["确定"];
     if (previousDialog) {
@@ -6179,7 +6284,7 @@ class MNMath {
    * 显示手动输入对话框
    * @private
    */
-  static showManualInputDialog(note) {
+  static showLinkWordInputDialog(note) {
     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
       "输入链接词",
       "请输入自定义的链接词",
@@ -14938,7 +15043,7 @@ class Pangu {
     // 处理括号后面的空格
     newText = newText.replace(/\]\s*([A-Za-z])/g, "] $1")
     // 去掉 ∈ 前面的空格
-    newText = newText.replace(/\s*∈/g, "∈")
+    newText = newText.replace(/\s*∈\s*/g, "∈")
     return newText
   }
 }

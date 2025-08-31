@@ -3731,7 +3731,7 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
         try {
-          toolbarUtils.renewExcerptInParentNoteByFocusNote(focusNote);
+          MNMath.renewExcerptInParentNoteByFocusNote(focusNote);
         } catch (error) {
           MNUtil.showHUD(error);
         }
