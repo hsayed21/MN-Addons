@@ -1,0 +1,155 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+    <!-- when using the mode "code", it's important to specify charset utf-8 -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
+    <title>Vditor</title>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link href="jsoneditor.min.css" rel="stylesheet" type="text/css">
+    <script src="jsoneditor.min.js"></script>
+</head>
+<style>
+body {
+    margin: 0;
+    padding: 0;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    overflow-y: hidden;
+}
+
+
+</style>
+<body>
+  <div id="jsoneditor"></div>
+  <script>
+    // create the editor
+    const container = document.getElementById("jsoneditor")
+    const actionProperties = {
+      "background": {
+        "title": "Action",
+        "type": "string"
+      },
+      "alertOnFinish": {
+        "title": "alertOnFinish",
+        "type": "boolean"
+      },
+      "annoText":{
+        "title": "annoText",
+        "type": "object",
+        "properties": {
+          "fontSize": {
+            "title": "fontSize",
+            "type": "number",
+            "enum":[10,11,12,13,14,15,16,17,18,19,20]
+          },
+          "color": {
+            "title": "color",
+            "type": "string",
+          },
+          "bold": {
+            "title": "bold",
+            "type": "boolean",
+          },
+        }
+      },
+      "fillColor":{
+        "title": "fillColor",
+        "type": "object",
+        "properties": {
+          "top": {
+            "title": "top",
+            "type": "string",
+          },
+          "bottom": {
+            "title": "bottom",
+            "type": "string",
+          },
+        }
+      },
+      "textColor":{
+        "title": "textColor",
+        "type": "object",
+        "properties": {
+          "top": {
+            "title": "top",
+            "type": "string",
+          },
+          "bottom": {
+            "title": "bottom",
+            "type": "string",
+          },
+        }
+      }
+    }
+    const action = {
+    "title": "Action",
+    "description": "Object containing employee details",
+    "type": "object",
+    "properties": actionProperties,
+    "required": ["alertOnFinish","background","fillColor","textColor"]
+  }
+    const options = {
+      schema: action,
+      schemaRefs: {action:action},
+      theme: 'ace',
+      allowSchemaSuggestions: true,
+      "enableSort": false,
+      "enableTransform": false,
+      "search": false,
+      "mode":"tree",
+      limitDragging:false,
+      "navigationBar":false,
+      "colorPicker":true,
+      "autocomplete": {
+        filter:"contain",
+        getOptions: function (text, path, input, editor) {
+          if (input === 'field') {
+            return ['alertOnFinish','fillColor','background','fillColor','textColor','top','bottom'];
+          }
+          return []
+        }
+      }
+        }
+
+        const editor = new JSONEditor(container, options)
+
+        // set json
+        const initialJson = {
+    }
+
+        editor.set(initialJson)
+
+        // get json
+        const updatedJson = editor.get()
+        function updateContent(data) {
+          let tem = decodeURIComponent(data)
+          // MNUtil.copy(tem)
+          editor.update(JSON.parse(tem))
+          setTimeout(() => {
+            editor.expandAll()
+          }, 100);
+        }
+        function setContent(data) {
+          let tem = decodeURIComponent(data)
+          // MNUtil.copy(tem)
+          editor.set(JSON.parse(tem))
+          editor.expandAll()
+          adjustSelectWidth()
+        }
+        function getContent() {
+          let tem = JSON.stringify(editor.get(),null,2)
+          removeFocus()
+          return encodeURIComponent(tem)
+        }
+        function removeFocus() {
+          document.activeElement.blur(); // 先尝试失去当前焦点
+          // document.body.focus(); // 将焦点设置到 body
+        }
+        window.addEventListener('resize', adjustSelectWidth);
+    </script>
+</body>
+</html>

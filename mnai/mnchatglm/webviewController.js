@@ -884,6 +884,25 @@ try {
     }
     chatAIConfig.save("MNChatglm_config")
   },
+  chooseimageGenerationModel: function (button) {
+    let menu = new Menu(button,self)
+    let model = chatAIConfig.getConfig("imageGenerationModel")
+    menu.addMenuItem("🆓 CogView-3 Flash", "setImageGenerationModel:",{title:"CogView-3-Flash",model:"cogview-3-flash"},model==="cogview-3-flash")
+    menu.addMenuItem("🆓 CogView-4", "setImageGenerationModel:",{title:"CogView-4",model:"cogview-4-250304"},model==="cogview-4-250304")
+    menu.addMenuItem("🆓 Image-01", "setImageGenerationModel:",{title:"Image-01",model:"image-01"},model==="image-01")
+    menu.addMenuItem("🆓 Image-01 Live", "setImageGenerationModel:",{title:"Image-01 Live",model:"image-01-live"},model==="image-01-live")
+    menu.addMenuItem("✨ Gemini-2.5 Flash Image", "setImageGenerationModel:",{title:"Gemini-2.5 Flash Image",model:"gemini-2.5-flash-image"},model==="gemini-2.5-flash-image")
+    menu.addMenuItem("✨ GPT Image-1", "setImageGenerationModel:",{title:"GPT Image-1",model:"gpt-image-1"},model==="gpt-image-1")
+    menu.width = 250
+    menu.show()
+  },
+  setImageGenerationModel: function (modelInfo) {
+    let self = getNotificationController()
+    Menu.dismissCurrentMenu()
+    self.imageGenerationModelButton.setTitleForState("Image Generation: "+modelInfo.title,0)
+    chatAIConfig.config.imageGenerationModel = modelInfo.model
+    chatAIConfig.save("MNChatglm_config")
+  },
   closeButtonTapped: function() {
     if (chatAIUtils.addonBar) {
       self.hide(chatAIUtils.addonBar.frame)
@@ -1480,69 +1499,7 @@ try {
     self.showHUD("Testing...")
     self.testAPI()
     return
-    self.showHUD("Open API Platform")
-    Menu.dismissCurrentMenu()
-    let confirm = false
-    switch (chatAIConfig.config.source) {
-      case "ChatGPT":
-        self.openURL("https://platform.openai.com/docs/overview")
-        break;
-      case "Gemini":
-        self.openURL("https://aistudio.google.com/apikey")
-        break;
-      case "Claude":
-        self.openURL("https://docs.anthropic.com/en/api/")
-        break;
-      case "KimiChat":
-        self.openURL("https://platform.moonshot.cn/console/api-keys")
-        break;
-      case "Minimax":
-        self.openURL("https://platform.minimaxi.com/user-center/basic-information/interface-key")
-        break;
-      case "Deepseek":
-        self.openURL("https://platform.deepseek.com/api_keys")
-        break;
-      case "Github":
-        self.openURL("https://github.com/settings/personal-access-tokens")
-        break;
-      case "Metaso":
-        self.openURL("https://metaso.cn/search-api/api-keys")
-        break;
-      case "Qwen":
-        self.openURL("https://bailian.console.aliyun.com/?tab=model#/api-key")
-        break;
-      case "Volcengine":
-        self.openURL("https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey")
-        break;
-      case "SiliconFlow":
-        confirm = await MNUtil.confirm("MN ChatAI", "是否已注册SiliconFlow？",["未注册","已注册"])
-        if (confirm) {
-          self.openURL("https://cloud.siliconflow.cn/account/ak")
-        }else{
-          self.openURL("https://cloud.siliconflow.cn/i/Jj66Qvv1")
-        }
-        break;
-      case "ChatGLM":
-        confirm = await MNUtil.confirm("MN ChatAI", "是否已注册ChatGLM？",["未注册","已注册"])
-        if (confirm) {
-          self.openURL("https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys")
-        }else{
-          self.openURL("https://www.bigmodel.cn/invite?icode=8sa1hLdemfigJAPEbzFQ233uFJ1nZ0jLLgipQkYjpcA%3D")
-        }
-        break;
-        break;
-      case "PPIO":
-        confirm = await MNUtil.confirm("MN ChatAI", "是否已注册PPIO？",["未注册","已注册"])
-        if (confirm) {
-          self.openURL("https://ppio.com/settings/key-management")
-        }else{
-          self.openURL("https://ppio.com/user/register?invited_by=4QHT31")
-        }
-        break;
-      default:
-        self.showHUD("Unsupported source: "+chatAIConfig.config.source)
-        return;
-    }
+    
     // MNUtil.openURL(chatAIConfig.config.url)
   },
   urlOption:function (button) {
@@ -2657,7 +2614,7 @@ chatglmController.prototype.settingViewLayout = function (){
     // advanceView
     if (width<700) {
       this.orderButton.frame = MNUtil.genFrame(5,5,width-10,35)
-      this.knowledgeInput.frame = {x:5,y:205,width:width-10,height:height-315}
+      this.knowledgeInput.frame = {x:5,y:245,width:width-10,height:height-355}
       this.saveKnowledgeButton.frame = {x:5,y:height-105,width:width-10,height:35}
       this.speechButton.frame = MNUtil.genFrame(5,45,95,35)
       this.autoSpeechButton.frame = MNUtil.genFrame(105,45,130,35)
@@ -2667,6 +2624,7 @@ chatglmController.prototype.settingViewLayout = function (){
       this.windowLocationButton.frame = MNUtil.genFrame(5,85,width-10,35)
       this.autoThemeButton.frame = MNUtil.genFrame(5,125,width-10,35)
       this.pdfExtractModeButton.frame = MNUtil.genFrame(5,165,width-10,35)
+      this.imageGenerationModelButton.frame = MNUtil.genFrame(5,205,width-10,35)
       // configView
       this.scrollview.frame = {x:5,y:5,width:width-10,height:150}
       // this.scrollview.contentSize = {width:width-10,height:height};
@@ -2705,6 +2663,7 @@ chatglmController.prototype.settingViewLayout = function (){
       this.windowLocationButton.frame = MNUtil.genFrame(5,85,350,35)
       this.autoThemeButton.frame = MNUtil.genFrame(5,125,350,35)
       this.pdfExtractModeButton.frame = MNUtil.genFrame(5,165,350,35)
+      this.imageGenerationModelButton.frame = MNUtil.genFrame(5,205,350,35)
       // configView
       this.scrollview.frame = {x:5,y:5,width:350,height:height-75}
       // this.scrollview.contentSize = {width:350,height:height};
@@ -2737,7 +2696,7 @@ chatglmController.prototype.settingViewLayout = function (){
       this.modelScrollview.hidden = true
     }else{
       this.modelScrollview.hidden = false
-      let allSources = 11
+      let allSources = chatAIConfig.allSource(true).length
       let initY = 5
       for (let i = 0; i < allSources; i++) {
         let buttonName = "scrollSourceButton"+i
@@ -2991,6 +2950,9 @@ try {
   this.createButton("pdfExtractModeButton","choosePDFExtractMode:",targetView)
   MNButton.setConfig(this.pdfExtractModeButton, {opacity:1.0,color:"#457bd3",alpha:0.8})
 
+  this.createButton("imageGenerationModelButton","chooseimageGenerationModel:",targetView)
+  MNButton.setConfig(this.imageGenerationModelButton, {opacity:1.0,color:"#457bd3",alpha:0.8})
+
   this.createButton("allowEditButton","toggleAllowEdit:",targetView)
   MNButton.setConfig(this.allowEditButton, {opacity:1.0,color:"#457bd3",alpha:0.8})
 
@@ -3077,9 +3039,10 @@ try {
   this.modelScrollview.showsVerticalScrollIndicator = false
 
   let allSources = chatAIConfig.allSource(true)
+  let sourceNumber = allSources.length
   let sourceIndex = allSources.indexOf(chatAIConfig.config.source)
-  this.modelScrollview.contentSize = {width:145,height:11*40+5}
-  for (let i = 0; i < allSources.length; i++) {
+  this.modelScrollview.contentSize = {width:145,height:sourceNumber*40+5}
+  for (let i = 0; i < sourceNumber; i++) {
     let buttonName = "scrollSourceButton"+i
     this.createButton(buttonName,"setSourceByButton:","modelScrollview")
     this[buttonName].sourceIndex = i
@@ -3557,6 +3520,7 @@ chatglmController.prototype.ask = async function (promptKey = chatAIConfig.curre
     if (!question) {
       return
     }
+    chatAIUtils.notifyController.notShow = false
     chatAIUtils.notifyController.ask(question,promptKey)
     return question
   } catch (error) {
@@ -3718,6 +3682,7 @@ chatglmController.prototype.refreshView = function (targetView) {
 try {
   switch (targetView) {
     case "advanceView":
+      MNUtil.log("refresh advanceView")
       this.knowledgeInput.text = chatAIConfig.knowledge
       let locInd = chatAIConfig.config.notifyLoc
       let locNames = ["Left","Right"]
@@ -3729,6 +3694,28 @@ try {
           break;
         case "moonshot":
           MNButton.setTitle(this.pdfExtractModeButton, "PDF Extract Mode: Moonshot")
+          break;
+        default:
+          break;
+      }
+      switch (chatAIConfig.getConfig("imageGenerationModel")){
+        case "cogview-3-flash":
+          MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: CogView-3-Flash")
+          break;
+        case "cogview-4-250304":
+          MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: CogView-4")
+          break;
+        case "image-01":
+          MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: Image-01")
+          break;
+        case "image-01-live":
+          MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: Image-01 Live")
+          break;
+        case "gpt-image-1":
+          MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: GPT Image-1")
+          break;
+        case "gemini-2.5-flash-image":
+          MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: Gemini-2.5 Flash Image")
           break;
         default:
           break;

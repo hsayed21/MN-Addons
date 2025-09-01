@@ -796,36 +796,54 @@ try {
     self.statusCode = response.statusCode()
     self.currentData = NSMutableData.new()
     self.hasRenderSearchResults = false
+    self.view.layer.opacity = 1.0
+    // MNUtil.log("connectionDidReceiveResponse")
+
     if (self.statusCode >= 400) {
-      MNUtil.stopHUD()
-      MNUtil.showHUD("❗"+MNUtil.getStatusCodeDescription(""+self.statusCode))
-      MNUtil.log("❗"+MNUtil.getStatusCodeDescription(""+self.statusCode))
+        MNUtil.stopHUD()
+        MNUtil.showHUD("❗"+MNUtil.getStatusCodeDescription(""+self.statusCode))
+        MNUtil.log("❗"+MNUtil.getStatusCodeDescription(""+self.statusCode))
 
-      self.errorMessage = {
-        message:"❗"+MNUtil.getStatusCodeDescription(""+self.statusCode),
-        statusCode: self.statusCode,
-        info: self.config
-      }
-      // MNUtil.stopHUD()
-      await MNUtil.delay(0.1)
-      MNUtil.copy(self.errorMessage)
-      self.showErrorMessage(self.errorMessage)
-      // self.setWebviewContentDev({response:`\`\`\`json\n${JSON.stringify(self.errorMessage,null,2)}\n\`\`\``})
-      self.response = JSON.stringify(self.errorMessage,undefined,2)
-      self.setButtonOpacity(1.0)
-      await MNUtil.delay(0.1)
-      if (!self.errorLogged) {
-        MNUtil.log({
-          level:"error",
-          source:"MN ChatAI",
+        self.errorMessage = {
           message:"❗"+MNUtil.getStatusCodeDescription(""+self.statusCode),
-          detail:self.errorMessage
-        })
-        self.errorLogged = true
-      }
+          statusCode: self.statusCode,
+          info: self.config
+        }
+        // MNUtil.stopHUD()
+        await MNUtil.delay(0.1)
+        MNUtil.copy(self.errorMessage)
+        self.showErrorMessage(self.errorMessage)
+        // self.setWebviewContentDev({response:`\`\`\`json\n${JSON.stringify(self.errorMessage,null,2)}\n\`\`\``})
+        self.response = JSON.stringify(self.errorMessage,undefined,2)
+        self.setButtonOpacity(1.0)
+        await MNUtil.delay(0.1)
+        if (!self.errorLogged) {
+          MNUtil.log({
+            level:"error",
+            source:"MN ChatAI",
+            message:"❗"+MNUtil.getStatusCodeDescription(""+self.statusCode),
+            detail:self.errorMessage
+          })
+          self.errorLogged = true
+          //优先在connectionDidReceiveData中处理重试
+          if (!self.retried && self.isSubscription()) {
+            //仅订阅下需要重试,没重试过才需要重试
+            connection.cancel()
+            delete self.connection
+            let allURLs = subscriptionUtils.URLs
+            let filtered = allURLs.filter(url=>url !== self.config.url)
+            let newURL = chatAIUtils.getRandomElement(filtered)
+            self.config.url = newURL+"/v1/chat/completions"
+            MNUtil.log({message:"Retry with new URL",source:"MN ChatAI",detail:self.config.url})
+            self.reAsk()
+            self.retried = true
+          }
+        }
 
-      delete self.connection
+        delete self.connection
       // return
+    }else{
+      self.retried = false
     }
     self.sizeHeight = await self.getWebviewHeight()
     self.setNotiLayout()
@@ -850,20 +868,44 @@ try {
       let contentToShow = "❗["+MNUtil.getStatusCodeDescription(""+self.statusCode)+"]"
       if (MNUtil.isValidJSON(textString)) {
         let res = JSON.parse(textString)
+        let message = undefined
         res.info = self.config
         res.statusCode = self.statusCode
         res.message = contentToShow
         self.errorMessage = res
-        MNUtil.copyJSON(res)
         if ("error" in res && "message" in res.error) {
           contentToShow = contentToShow+" "+res.error.message
+          if (res.error.message.startsWith("Model do not support image input")) {
+            message = "该模型不支持图片输入/视觉模式"
+            self.retried = true//没必要重试的情况
+          }
+          if (res.error.message.startsWith("token quota is not enough")) {
+            if (self.isSubscription()) {
+              message = "令牌额度不足，请检查订阅"
+            }else{
+              message = "令牌额度不足"
+            }
+            self.retried = true//没必要重试的情况
+          }
+          if (res.error.message.startsWith("该令牌额度已用尽")) {
+            if (self.isSubscription()) {
+              message = "该令牌额度已用尽，请检查订阅"
+            }else{
+              message = "该令牌额度已用尽"
+            }
+            self.retried = true//没必要重试的情况
+          }
         }else if ("message" in res) {
           contentToShow = contentToShow+" "+res.message
         }
+        MNUtil.showHUD(contentToShow)
+        await MNUtil.delay(0.1)
+        self.showErrorMessage(self.errorMessage,message)
+      }else{
+        MNUtil.showHUD(contentToShow)
+        await MNUtil.delay(0.1)
+        self.showErrorMessage(self.errorMessage)
       }
-      MNUtil.showHUD(contentToShow)
-      await MNUtil.delay(0.1)
-      self.showErrorMessage(self.errorMessage)
       self.response = JSON.stringify(self.errorMessage,undefined,2)
       self.errorLogged = true
       MNUtil.log({
@@ -875,6 +917,16 @@ try {
       // self.runJavaScript(`openEdit();`)
       connection.cancel()
       delete self.connection
+      if (!self.retried && self.isSubscription()) {
+        //仅订阅下需要重试,没重试过才需要重试
+        let allURLs = subscriptionUtils.URLs
+        let filtered = allURLs.filter(url=>url !== self.config.url)
+        let newURL = chatAIUtils.getRandomElement(filtered)
+        self.config.url = newURL+"/v1/chat/completions"
+        MNUtil.log({message:"Retry with new URL",source:"MN ChatAI",detail:self.config.url})
+        self.reAsk()
+        self.retried = true
+      }
       return
     }else{
       if (MNUtil.isValidJSON(textString)) {
@@ -960,7 +1012,6 @@ try {
     if (error.localizedDescription) {
       message = error.localizedDescription
     }
-    MNUtil.showHUD(message)
 
     MNUtil.stopHUD()
     self.setButtonOpacity(1.0)
@@ -969,9 +1020,23 @@ try {
       message:message,
       info: self.config
     }
+    MNLog.error(message,self.config)
+    if (!self.retried && self.isSubscription()) {
+      //仅订阅下需要重试,没重试过才需要重试
+      let allURLs = subscriptionUtils.URLs
+      let filtered = allURLs.filter(url=>url !== self.config.url)
+      let newURL = chatAIUtils.getRandomElement(filtered)
+      self.config.url = newURL+"/v1/chat/completions"
+      MNUtil.log({message:"Retry with new URL",source:"MN ChatAI",detail:self.config.url})
+      self.reAsk()
+      self.retried = true
+      return
+    }
+    MNUtil.showHUD(message)
     // MNUtil.stopHUD()
     await MNUtil.delay(0.5)
     self.showErrorMessage(self.errorMessage)
+
     
   } catch (error) {
     chatAIUtils.addErrorLog(error, "connectionDidFailWithError")
@@ -1824,6 +1889,7 @@ notificationController.prototype.hide = async function () {
   }
   // MNUtil.copyJSON(targetFrame)
   let preOpacity = this.view.layer.opacity
+  // MNUtil.log("opacity: "+preOpacity)
   let preCustom = this.custom
   if (chatAIUtils.isIOS()) {
     this.showAllButton()
@@ -1928,6 +1994,7 @@ notificationController.prototype.beginNotification = async function (promptName)
     try {
     if (promptName) {
       this.promptButton.setTitleForState(promptName ,0)
+      this.currentTitle = promptName
     }else{
       this.promptButton.setTitleForState(this.currentTitle ,0)
     }
@@ -3709,9 +3776,11 @@ try {
   chatAIUtils.addErrorLog(error, "notificationController.userSelectAddNote", content,format)
 }
 }
-notificationController.prototype.showErrorMessage = function (errorMessage) {
+notificationController.prototype.showErrorMessage = function (errorMessage,customMessage = undefined) {
     if (errorMessage.info.source === "Subscription") {
-      this.setWebviewContentDev({response:`<div><a href="userselect://changeURL" style="
+      let url = customMessage ? "userselect://none" : "userselect://changeURL"
+      let message = customMessage ?? "切换URL / Switch URL"
+      this.setWebviewContentDev({response:`<div><a href="${url}" style="
     display: block;
     padding: 10px 12px;
     margin-top: 10px;
@@ -3726,7 +3795,7 @@ notificationController.prototype.showErrorMessage = function (errorMessage) {
     box-sizing: border-box;
 "
 >
-切换URL / Switch URL
+${message}
 </a></div>
 
 \`\`\`json\n${JSON.stringify(errorMessage,null,2)}\n\`\`\``})
@@ -3778,6 +3847,9 @@ notificationController.prototype.renderSearchResults = function (results,metaso 
 }
 notificationController.prototype.clearCache = function () {
   this.runJavaScript(`clearCache()`)
+}
+notificationController.prototype.isSubscription = function () {
+  return this.config.source === "Subscription"
 }
 /**
  * @type {UIView}

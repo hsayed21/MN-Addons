@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WebDAV 文件管理器</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="notyf.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+
+        <!-- 文件管理器主界面 -->
+        <div class="file-manager" id="fileManager" style="display: none;">
+            <!-- 工具栏 -->
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <button id="backBtn" class="btn btn-icon" title="返回上级">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <button id="refreshBtn" class="btn btn-icon" title="刷新">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                <div class="toolbar-center">
+                    <div class="breadcrumb" id="breadcrumb">
+                        <span class="breadcrumb-item"><i class="fas fa-home"></i></span>
+                    </div>
+                </div>
+                <div class="toolbar-right">
+                    <button id="uploadBtn" class="btn btn-primary">
+                        <i class="fas fa-upload"></i>
+                    </button>
+                    <button id="createFolderBtn" class="btn btn-secondary">
+                        <i class="fas fa-folder-plus"></i>
+                    </button>
+                    <button id="settingsBtn" class="btn btn-icon" title="设置">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 文件列表 -->
+            <div class="file-list-container">
+                <div class="file-list-header">
+                    <div class="file-list-col col-name">名称</div>
+                    <div class="file-list-col col-size">大小</div>
+                    <div class="file-list-col col-modified">修改时间</div>
+                    <div class="file-list-col col-actions">操作</div>
+                </div>
+                <div class="file-list" id="fileList">
+                    <!-- 文件列表将在这里动态生成 -->
+                </div>
+            </div>
+
+            <!-- 加载指示器 -->
+            <div class="loading" id="loading" style="display: none;">
+                <i class="fas fa-spinner fa-spin"></i> 加载中...
+            </div>
+        </div>
+
+        <!-- 上传文件模态框 -->
+        <div class="modal" id="uploadModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-upload"></i> 上传文件</h3>
+                    <button class="modal-close" id="uploadModalClose">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="upload-area" id="uploadArea">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>点击选择文件或拖拽文件到此处</p>
+                        <input type="file" id="fileInput" multiple style="display: none;">
+                    </div>
+                    <div class="upload-progress" id="uploadProgress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <div class="progress-text" id="progressText">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新建文件夹模态框 -->
+        <div class="modal" id="createFolderModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-folder-plus"></i> 新建文件夹</h3>
+                    <button class="modal-close" id="createFolderModalClose">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="folderName">文件夹名称:</label>
+                        <input type="text" id="folderName" placeholder="输入文件夹名称" required>
+                    </div>
+                    <div class="form-actions">
+                        <button id="createFolderConfirm" class="btn btn-primary">
+                            <i class="fas fa-check"></i> 创建
+                        </button>
+                        <button id="createFolderCancel" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> 取消
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 长按菜单模态框 -->
+        <div class="modal" id="longPressModal">
+            <div class="modal-content long-press-modal">
+                <div class="modal-header">
+                    <h3><i class="fas fa-ellipsis-h"></i> 文件操作</h3>
+                    <button class="modal-close" id="longPressModalClose">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="long-press-menu" id="longPressMenu">
+                        <!-- 菜单项将在这里动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <script src="webdav-api.js"></script>
+    <script src="notyf.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

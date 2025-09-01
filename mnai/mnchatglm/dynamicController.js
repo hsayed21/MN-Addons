@@ -455,9 +455,7 @@ try {
   },
   changePromptModel: function(button) {
     let self = getDynamicController()
-    if (!chatAIUtils.checkSubscribe(false)) {
-      return
-    }
+
     try {
     let selector = 'setPromptModel:'
     let modelName = chatAIConfig.getConfig("dynamicModel")

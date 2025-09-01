@@ -769,26 +769,14 @@ class chatAITool{
       return response
     }
   }
-  async generateImage(func,args) {
+  async generateImageUsingCogview(func,args,model = "cogview-3-flash"){
+    MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML(`Generating image using ${model}...`)})
     let response = {}
     let message = {success:true}
     try {
 
-      // let url = "https://open.bigmodel.cn/api/paas/v4/images/generations"
-      // let apikey = "449628b94fcac030495890ee542284b8.F23PvJW4XXLJ4Lsu"
-      // let model = "cogview-4-250304"
-      // let url = "https://yunwu.ai/v1/images/generations"
-      // let apikey = "sk-M81DYoybLN8XpDeDUdmputJzLg9E4utJ0IDE4gpfRI0e7X4r"
-      // let model = "gpt-image-1"
-      let url = "https://api.gptgod.online/v1/images/generations"
-      let apikey = "sk-edtyVyaobSEOb0tDXphlPDSquQKPdE8AvwU6Jl5qIjFPhtMz"
-      let model = "gpt-4o-image"
-      // let url = "https://api.minimax.chat/v1/image_generation"
-      // let apikey = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLmnpfnq4vpo54iLCJVc2VyTmFtZSI6Iuael-eri-mjniIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxNzgyMzYzOTA3MTA5NzAwMTg2IiwiUGhvbmUiOiIxMzEyODU4OTM1MSIsIkdyb3VwSUQiOiIxNzgyMzYzOTA3MTAxMzExNTc4IiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiMTUxNDUwMTc2N0BxcS5jb20iLCJDcmVhdGVUaW1lIjoiMjAyNS0wNS0wMSAyMToxMzozMyIsIlRva2VuVHlwZSI6MSwiaXNzIjoibWluaW1heCJ9.a_vgCX8RH98PWKstZTCkkUow-ta4vS-FEYCkLNTnnYO5wpAPzqkODprPbDHTyE46uQE1PHcV34NNgQjDynAe9cKkCU11hrZhX5UexWZ7OOx_m7IvzeqezX7iZXQQSCJjzEwlwYenACS71uKGyoRpXXfNUWZ_cZZQrS_EJxAYiAiklKY1w-ue0kC61ubRdmT0FvPdQ5mWzYDvrbI6GE5OqLmWKcDFi6qQQ7PPrQkfHm8bZxQ6VmIt0pwMMA3FG4a6DW8We82iCmOZ2ZnRvQauMA7NyDnMxNG2b7Qps_A5LNAsmqNIUOb0aQtyyYdQYOokPV_LOJbrlzo_gjrxwS1n-g"
-      // let model = "image-01"
-      // let url = "https://api.minimax.chat/v1/image_generation"
-      // let apikey = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLmnpfnq4vpo54iLCJVc2VyTmFtZSI6Iuael-eri-mjniIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxNzgyMzYzOTA3MTA5NzAwMTg2IiwiUGhvbmUiOiIxMzEyODU4OTM1MSIsIkdyb3VwSUQiOiIxNzgyMzYzOTA3MTAxMzExNTc4IiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiMTUxNDUwMTc2N0BxcS5jb20iLCJDcmVhdGVUaW1lIjoiMjAyNS0wNS0wMSAyMToxMzozMyIsIlRva2VuVHlwZSI6MSwiaXNzIjoibWluaW1heCJ9.a_vgCX8RH98PWKstZTCkkUow-ta4vS-FEYCkLNTnnYO5wpAPzqkODprPbDHTyE46uQE1PHcV34NNgQjDynAe9cKkCU11hrZhX5UexWZ7OOx_m7IvzeqezX7iZXQQSCJjzEwlwYenACS71uKGyoRpXXfNUWZ_cZZQrS_EJxAYiAiklKY1w-ue0kC61ubRdmT0FvPdQ5mWzYDvrbI6GE5OqLmWKcDFi6qQQ7PPrQkfHm8bZxQ6VmIt0pwMMA3FG4a6DW8We82iCmOZ2ZnRvQauMA7NyDnMxNG2b7Qps_A5LNAsmqNIUOb0aQtyyYdQYOokPV_LOJbrlzo_gjrxwS1n-g"
-      // let model = "wanx2.1-t2i-plus"
+      let url = "https://open.bigmodel.cn/api/paas/v4/images/generations"
+      let apikey = "449628b94fcac030495890ee542284b8.F23PvJW4XXLJ4Lsu"
       MNUtil.showHUD("Generating image...")
       let request = chatAINetwork.initRequestForCogView(args.prompt, apikey, url, model)
       let res = await chatAINetwork.sendRequest(request)
@@ -800,16 +788,22 @@ class chatAITool{
           }else{
             response.result = res.data.error.message
           }
-          MNUtil.confirm("❌ Image generated failed", response.result)
+          MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result)
           message.response = "Failed in generating image: "+response.result
           response.toolMessages = chatAITool.genToolMessage(message,func.id)
         }else{
           MNUtil.showHUD("✅ Image generated")
+          MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
           response.result = res.data[0].url
           // response.result = res.data.image_urls[0]
           message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
           // message.response = "Image is created at the following url: "+res.data.image_urls[0]+"\n please show this image as markdown image"
           response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          MNUtil.delay(0.1).then(()=>{
+            let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
+            MNUtil.postNotification("snipasteImage", {imageData:imageData})
+            // MNUtil.log("✅ Image downloaded")
+          })
         }
       }else{
         if ("error" in res) {
@@ -830,6 +824,186 @@ class chatAITool{
       message.response = "Failed in generating image"
       response.toolMessages = chatAITool.genToolMessage(message,func.id)
     }
+    return response
+  
+  }
+  async generateImageUsingMinimax(func,args,model = "image-01"){
+    MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML(`Generating image using ${model}...`)})
+    let response = {}
+    let message = {success:true}
+    try {
+
+      let url = "https://api.minimax.chat/v1/image_generation"
+      let apikey = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLmnpfnq4vpo54iLCJVc2VyTmFtZSI6Iuael-eri-mjniIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxNzgyMzYzOTA3MTA5NzAwMTg2IiwiUGhvbmUiOiIxMzEyODU4OTM1MSIsIkdyb3VwSUQiOiIxNzgyMzYzOTA3MTAxMzExNTc4IiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiMTUxNDUwMTc2N0BxcS5jb20iLCJDcmVhdGVUaW1lIjoiMjAyNS0wNS0wMSAyMToxMzozMyIsIlRva2VuVHlwZSI6MSwiaXNzIjoibWluaW1heCJ9.a_vgCX8RH98PWKstZTCkkUow-ta4vS-FEYCkLNTnnYO5wpAPzqkODprPbDHTyE46uQE1PHcV34NNgQjDynAe9cKkCU11hrZhX5UexWZ7OOx_m7IvzeqezX7iZXQQSCJjzEwlwYenACS71uKGyoRpXXfNUWZ_cZZQrS_EJxAYiAiklKY1w-ue0kC61ubRdmT0FvPdQ5mWzYDvrbI6GE5OqLmWKcDFi6qQQ7PPrQkfHm8bZxQ6VmIt0pwMMA3FG4a6DW8We82iCmOZ2ZnRvQauMA7NyDnMxNG2b7Qps_A5LNAsmqNIUOb0aQtyyYdQYOokPV_LOJbrlzo_gjrxwS1n-g"
+      MNUtil.showHUD("Generating image...")
+      let request = chatAINetwork.initRequestForCogView(args.prompt, apikey, url, model)
+      let res = await chatAINetwork.sendRequest(request)
+      // MNUtil.copy(res)
+      if ("data" in res) {
+        if ("error" in res.data) {
+          if (typeof res.data.error === "string") {
+            response.result = res.data.error
+          }else{
+            response.result = res.data.error.message
+          }
+          MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result)
+          message.response = "Failed in generating image: "+response.result
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        }else{
+          MNUtil.showHUD("✅ Image generated")
+          MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
+          if (Array.isArray(res.data)) {
+            response.result = res.data[0].url
+          }else{
+            response.result = res.data.image_urls[0]
+          }
+          // response.result = res.data.image_urls[0]
+          message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+          // message.response = "Image is created at the following url: "+res.data.image_urls[0]+"\n please show this image as markdown image"
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          MNUtil.delay(0.1).then(()=>{
+            let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
+            MNUtil.postNotification("snipasteImage", {imageData:imageData})
+            // MNUtil.log("✅ Image downloaded")
+          })
+        }
+      }else{
+        if ("error" in res) {
+          response.result = res.error
+          MNUtil.confirm("❌ Image generated failed", response.result)
+          message.response = "Failed in generating image: "+response.result
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        }else{
+          MNUtil.showHUD("❌ Image generated failed")
+          message.response = "Failed in generating image"
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        }
+      }
+
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "generateImage")
+      MNUtil.showHUD("❌ Image generated failed")
+      message.response = "Failed in generating image"
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    }
+    return response
+  
+  }
+  async generateImage(func,args) {
+    let model = chatAIConfig.getConfig("imageGenerationModel")
+    if (model.startsWith("cogview")) {
+      return await this.generateImageUsingCogview(func,args,model)
+    }
+    if (model.startsWith("image-01")) {
+      return await this.generateImageUsingMinimax(func,args,model)
+    }
+    if (!chatAIUtils.checkSubscribe(false,false,true)) {
+      return await this.generateImageUsingCogview(func,args,"cogview-3-flash")
+    }
+    MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML(`Generating image using ${model}...`)})
+    let response = {}
+    let message = {success:true}
+    try {
+      let url = subscriptionConfig.URL+"/v1/images/generations"
+      let apikey = subscriptionConfig.APIKey
+      // model = "gpt-image-1"
+      // let url = "https://remote.feliks.top/v1/images/generations"
+      // let apikey = "sk-dHlgo7tvMjnnzz4s4yCElJxLPUwcaBP7CoY5SfFTXcpCWuaj"
+      // let model = "gemini-2.0-flash-preview-image-generation"
+      // let url = "https://generativelanguage.googleapis.com/v1beta/openai/images/generations"
+      // let apikey = "AIzaSyAU7Ekqwi6lOHONFtu4g3Q9UWr56c1D5Gk"
+      // let model = "gemini-2.0-flash-preview-image-generation"
+      // let url = "https://api.gptgod.online/v1/images/generations"
+      // let apikey = "sk-edtyVyaobSEOb0tDXphlPDSquQKPdE8AvwU6Jl5qIjFPhtMz"
+      // let model = "gemini-2.5-flash-image"
+      // let url = "https://api.minimax.chat/v1/image_generation"
+      // let apikey = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLmnpfnq4vpo54iLCJVc2VyTmFtZSI6Iuael-eri-mjniIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxNzgyMzYzOTA3MTA5NzAwMTg2IiwiUGhvbmUiOiIxMzEyODU4OTM1MSIsIkdyb3VwSUQiOiIxNzgyMzYzOTA3MTAxMzExNTc4IiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiMTUxNDUwMTc2N0BxcS5jb20iLCJDcmVhdGVUaW1lIjoiMjAyNS0wNS0wMSAyMToxMzozMyIsIlRva2VuVHlwZSI6MSwiaXNzIjoibWluaW1heCJ9.a_vgCX8RH98PWKstZTCkkUow-ta4vS-FEYCkLNTnnYO5wpAPzqkODprPbDHTyE46uQE1PHcV34NNgQjDynAe9cKkCU11hrZhX5UexWZ7OOx_m7IvzeqezX7iZXQQSCJjzEwlwYenACS71uKGyoRpXXfNUWZ_cZZQrS_EJxAYiAiklKY1w-ue0kC61ubRdmT0FvPdQ5mWzYDvrbI6GE5OqLmWKcDFi6qQQ7PPrQkfHm8bZxQ6VmIt0pwMMA3FG4a6DW8We82iCmOZ2ZnRvQauMA7NyDnMxNG2b7Qps_A5LNAsmqNIUOb0aQtyyYdQYOokPV_LOJbrlzo_gjrxwS1n-g"
+      // let model = "image-01"
+      // let url = "https://api.minimax.chat/v1/image_generation"
+      // let apikey = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLmnpfnq4vpo54iLCJVc2VyTmFtZSI6Iuael-eri-mjniIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxNzgyMzYzOTA3MTA5NzAwMTg2IiwiUGhvbmUiOiIxMzEyODU4OTM1MSIsIkdyb3VwSUQiOiIxNzgyMzYzOTA3MTAxMzExNTc4IiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiMTUxNDUwMTc2N0BxcS5jb20iLCJDcmVhdGVUaW1lIjoiMjAyNS0wNS0wMSAyMToxMzozMyIsIlRva2VuVHlwZSI6MSwiaXNzIjoibWluaW1heCJ9.a_vgCX8RH98PWKstZTCkkUow-ta4vS-FEYCkLNTnnYO5wpAPzqkODprPbDHTyE46uQE1PHcV34NNgQjDynAe9cKkCU11hrZhX5UexWZ7OOx_m7IvzeqezX7iZXQQSCJjzEwlwYenACS71uKGyoRpXXfNUWZ_cZZQrS_EJxAYiAiklKY1w-ue0kC61ubRdmT0FvPdQ5mWzYDvrbI6GE5OqLmWKcDFi6qQQ7PPrQkfHm8bZxQ6VmIt0pwMMA3FG4a6DW8We82iCmOZ2ZnRvQauMA7NyDnMxNG2b7Qps_A5LNAsmqNIUOb0aQtyyYdQYOokPV_LOJbrlzo_gjrxwS1n-g"
+      // let model = "wanx2.1-t2i-plus"
+      MNUtil.showHUD("Generating image...")
+      let request = chatAINetwork.initRequestForCogView(args.prompt, apikey, url, model)
+      let res = await chatAINetwork.sendRequest(request)
+      // MNUtil.copy(res)
+      MNUtil.log({message:"generateImage",detail:res})
+      if ("data" in res) {
+        if ("error" in res.data) {
+          if (typeof res.data.error === "string") {
+            response.result = res.data.error
+          }else{
+            response.result = res.data.error.message
+          }
+          let confirm = await MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result+"\n\n是否切换到智谱CogView-3 Flash?")
+          if (confirm) {//使用智谱模型进行生图
+            response = this.generateImageUsingCogview(func, args)
+            return response;
+          }else{
+            message.response = "Failed in generating image: "+response.result
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          }
+        }else{
+          MNUtil.showHUD("✅ Image generated")
+          MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
+          // MNUtil.log("✅ Image generated")
+          if (Array.isArray(res.data)) {
+            let data = res.data[0]
+            if ("url" in data) {
+              response.result = data.url
+              message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+            }else{
+              response.result = "data:png;base64,"+data.b64_json
+              if (typeof snipasteUtils !== "undefined") {
+                message.response = "Image is created and displayed in MN Snipaste"
+              }else{
+                message.response = "Image is created"
+              }
+            }
+          }else{
+            response.result = res.data.image_urls[0]
+            message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+          }
+          // response.result = res.data.image_urls[0]
+          // message.response = "Image is created at the following url: "+res.data.image_urls[0]+"\n please show this image as markdown image"
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          MNUtil.delay(0.1).then(()=>{
+            let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
+            MNUtil.postNotification("snipasteImage", {imageData:imageData})
+            // MNUtil.log("✅ Image downloaded")
+          })
+          // MNUtil.postNotification("snipasteHtml", {html:`<img src="${response.result}" alt="Image generated by MN ChatAI">`})
+        }
+      }else{
+        if ("error" in res) {
+          response.result = res.error
+          let confirm = await MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result+"\n\n是否切换到智谱Cogview-4?")
+          if (confirm) {//使用智谱模型进行生图
+            response = this.generateImageUsingCogview(func, args)
+            return response;
+          }else{
+            message.response = "Failed in generating image: "+response.result
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          }
+        }else{
+          response.result = res.error
+          let confirm = await MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result+"\n\n是否切换到智谱Cogview-4?")
+          if (confirm) {//使用智谱模型进行生图
+            response = this.generateImageUsingCogview(func, args)
+            return response;
+          }else{
+            message.response = "Failed in generating image"
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          }
+        }
+      }
+
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "generateImage")
+      MNUtil.showHUD("❌ Image generated failed")
+      message.response = "Failed in generating image"
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    }
+    MNUtil.stopHUD(0.5)
     return response
   }
   /**
@@ -1408,7 +1582,7 @@ static render(funcObject){
   let funcHtml = `<code class="hljs">${funcText.trim()}</code>`
   return funcHtml
 }
-static getLoadingHTML(){
+static getLoadingHTML(content = "loading"){
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1460,7 +1634,7 @@ static getLoadingHTML(){
 
     <div class="loading-container">
         <div class="spinner"></div>
-        <div class="loading-text">loading</div>
+        <div class="loading-text">${content}</div>
     </div>
 
 </body>
@@ -1501,8 +1675,13 @@ try {
       // MNUtil.copy(args)
       return `🔨 ${funcName}(${JSON.stringify(htmlConfig)})\n`
     case "generateImage":
+      // MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML()})
       if (args.prompt) {
-        return `🔨 ${funcName}("${MNUtil.mergeWhitespace(args.prompt)}")\n`
+        this.preContent = args.prompt.trim()
+        return `🔨 ${funcName}("${args.prompt.trim()}")\n`
+      }
+      if (this.preContent) {
+        return `🔨 ${funcName}("${this.preContent}")\n`
       }
       return `🔨 ${funcName}()\n`
     case "addComment":
@@ -1590,10 +1769,10 @@ try {
             let stringified = JSON.stringify(ast,undefined,2)
             if (stringified.length > this.preContent.length) {
               this.preContent = stringified
-              this.tem.push(`${funcName}(${stringified})\n`)
+              this.tem.push(`🔨 ${funcName}(${stringified})\n`)
               return `🔨 ${funcName}(${stringified})\n`
             }
-            this.tem.push(`${funcName}(${this.preContent})\n`)
+            this.tem.push(`🔨 ${funcName}(${this.preContent})\n`)
             return `🔨 ${funcName}(${this.preContent})\n`
           case "string":
             ast = chatAIUtils.getValidJSON(args.ast)
@@ -1601,16 +1780,16 @@ try {
               let stringified = JSON.stringify(ast,undefined,2)
               if (stringified.length > this.preContent.length) {
                 this.preContent = stringified
-                this.tem.push(`${funcName}(${stringified})\n`)
+                this.tem.push(`🔨 ${funcName}(${stringified})\n`)
                 return `🔨 ${funcName}(${stringified})\n`
               }
-              this.tem.push(`${funcName}(${this.preContent})\n`)
+              this.tem.push(`🔨 ${funcName}(${this.preContent})\n`)
               return `🔨 ${funcName}(${this.preContent})\n`
             }
-            this.tem.push(`${funcName}(${this.preContent})\n`)
+            this.tem.push(`🔨 ${funcName}(${this.preContent})\n`)
             return `🔨 ${funcName}(${this.preContent})\n`
           default:
-            this.tem.push(`${funcName}(${this.preContent})\n`)
+            this.tem.push(`🔨 ${funcName}(${this.preContent})\n`)
             return `🔨 ${funcName}(${this.preContent})\n`
         }
       }else{
@@ -6118,6 +6297,11 @@ static getLineByIndex(str, index) {
     }
     let mindmapView = MNUtil.mindmapView
     if (mindmapTargets.length === 0) {
+      if (mindmapView.mindmapNodes.length === 0) {
+        return {
+          isChildMindMap: false
+        }
+      }
       let note = MNNote.new(mindmapView.mindmapNodes[0].note)
       if(note.childMindMap){
         let childMindMap = await this.genCardStructure(note.childMindMap,OCR_enabled)
@@ -7332,6 +7516,7 @@ class chatAIConfig {
     chatSystemPrompt:"",
     allowEdit:false,
     PDFExtractMode:"local",
+    imageGenerationModel:"cogview-3-flash",
     customButton:{
       "button1":{
         "click":"bigbang",
