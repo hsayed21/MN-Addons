@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mntask/**)",
+      "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnutils/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

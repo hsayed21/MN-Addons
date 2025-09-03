@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx:*)",
+      "Bash(sudo rm:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(grep:*)",
+      "mcp__promptx__promptx_init",
+      "Bash(git checkout:*)",
+      "Bash(git apply:*)",
+      "Bash(npm run build:*)",
+      "Bash(node:*)",
+      "Bash(node:*)",
+      "Bash(awk:*)",
+      "Bash(rg:*)",
+      "Bash(grep -n \"taskCardMake\" /Users/xiakangwei/Nutstore/Github/repository/MN-addon-develop/MN-Addon/mntask/xdyy_custom_actions_registry.js)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(touch:*)",
+      "Bash(sed:*)",
+      "mcp__promptx__promptx_remember",
+      "mcp__promptx__promptx_remember",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "mcp__promptx__promptx_action",
+      "Bash(mnaddon4 unpack:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(gh issue list:*)",
+      "Bash(git push:*)",
+      "Bash(open task-focus-board.html)",
+      "Bash(open:*)",
+      "Bash(python3:*)",
+      "Bash(cp:*)",
+      "Bash(grep -n \"shouldStartLoadWithRequest\" /Users/xiakangwei/Nutstore/Github/repository/MN-addon-develop/MN-Addon/mnbrowser/webviewController.js)",
+      "Bash(grep -n \"webViewShouldStartLoad\\|shouldStartLoad\\|browser://\" /Users/xiakangwei/Nutstore/Github/repository/MN-addon-develop/MN-Addon/mnbrowser/webviewController.js)",
+      "Bash(grep -n \"getSelectedText\\|copySelection\\|browser://comment\" /Users/xiakangwei/Nutstore/Github/repository/MN-addon-develop/MN-Addon/mnbrowser/webviewController.js)",
+      "Bash(grep -n \"todayBoardWebView\" settingController.js)",
+      "Bash(mkdir:*)",
+      "Bash(mnaddon unpack:*)"
+    ],
+    "deny": []
+  }
+}

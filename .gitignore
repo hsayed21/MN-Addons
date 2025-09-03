@@ -54,8 +54,6 @@ temp/
 tmp/
 *.tmp
 
-# Claude
-.claude/
 
 # Custom
 test.html

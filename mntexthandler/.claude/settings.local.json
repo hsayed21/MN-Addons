@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnutils/**)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
