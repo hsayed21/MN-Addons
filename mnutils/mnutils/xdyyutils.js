@@ -2095,6 +2095,43 @@ class MNMath {
   }
 
   /**
+   * 获取指定卡片的所有后代卡片，支持跳过空白标题卡片
+   * 
+   * @param {MNNote} rootNote - 根卡片
+   * @param {boolean} skipEmptyTitle - 是否跳过空白标题的卡片及其子孙
+   * @returns {object[]} 所有后代卡片的原生对象数组
+   */
+  static getAllDescendantNotesWithSkipEmpty(rootNote, skipEmptyTitle = false) {
+    let descendants = [];
+    
+    // 确保 rootNote 是 MNNote 对象
+    if (!rootNote || !rootNote.childNotes) {
+      return descendants;
+    }
+    
+    let childNotes = rootNote.childNotes || [];  // 这里返回的是 MNNote 对象数组
+    
+    for (let childMNNote of childNotes) {
+      // 检查是否需要跳过空标题卡片
+      const title = childMNNote.noteTitle || "";
+      if (skipEmptyTitle && title.trim() === "") {
+        // 跳过该卡片及其所有子孙
+        MNUtil.log(`🚫 跳过空白标题卡片: ${childMNNote.noteId}`);
+        continue;
+      }
+      
+      // childMNNote 已经是 MNNote 对象，不需要再用 new MNNote() 包装
+      descendants.push(childMNNote.note);
+      
+      // 递归获取子卡片的后代（传递 skipEmptyTitle 参数）
+      let childDescendants = this.getAllDescendantNotesWithSkipEmpty(childMNNote, skipEmptyTitle);
+      descendants.push(...childDescendants);
+    }
+    
+    return descendants;
+  }
+
+  /**
    * 获取第一个归类卡片的父爷卡片
    */
   static getFirstClassificationParentNote(note) {
@@ -7567,6 +7604,7 @@ class MNMath {
           ignorePrefix: false,  // 默认搜索完整标题
           searchInKeywords: false,  // 默认不搜索关键词字段
           onlyClassification: false,  // 默认不启用只搜索归类卡片
+          skipEmptyTitle: false,  // 默认不跳过空白标题卡片
           synonymGroups: [],  // 同义词组
           exclusionGroups: [],  // 排除词组
           lastModified: Date.now()
@@ -7593,6 +7631,10 @@ class MNMath {
       // 添加排除词组字段
       if (config && !config.exclusionGroups) {
         config.exclusionGroups = [];
+      }
+      // 添加跳过空白标题字段
+      if (config && config.skipEmptyTitle === undefined) {
+        config.skipEmptyTitle = false;
       }
       
       // 数据迁移：如果旧版本没有 rootsOrder，自动生成
@@ -7891,7 +7933,8 @@ class MNMath {
           includeClassification: this.searchRootConfigs.includeClassification,
           onlyClassification: this.searchRootConfigs.onlyClassification,
           ignorePrefix: this.searchRootConfigs.ignorePrefix,
-          searchInKeywords: this.searchRootConfigs.searchInKeywords
+          searchInKeywords: this.searchRootConfigs.searchInKeywords,
+          skipEmptyTitle: this.searchRootConfigs.skipEmptyTitle
         },
         synonymGroups: this.searchRootConfigs.synonymGroups || []
       };
@@ -7924,7 +7967,8 @@ class MNMath {
         includeClassification: this.searchRootConfigs.includeClassification,
         onlyClassification: this.searchRootConfigs.onlyClassification,
         ignorePrefix: this.searchRootConfigs.ignorePrefix,
-        searchInKeywords: this.searchRootConfigs.searchInKeywords
+        searchInKeywords: this.searchRootConfigs.searchInKeywords,
+        skipEmptyTitle: this.searchRootConfigs.skipEmptyTitle
       },
       synonymGroups: this.searchRootConfigs.synonymGroups || []
     };
@@ -8140,6 +8184,9 @@ class MNMath {
               if (searchConfig.searchInKeywords !== undefined) {
                 this.searchRootConfigs.searchInKeywords = searchConfig.searchInKeywords;
               }
+              if (searchConfig.skipEmptyTitle !== undefined) {
+                this.searchRootConfigs.skipEmptyTitle = searchConfig.skipEmptyTitle;
+              }
               
               // 替换同义词组
               if (synonymGroups) {
@@ -8334,7 +8381,8 @@ class MNMath {
       `${this.searchRootConfigs.includeClassification ? "☑️" : "☐︎"} 搜索归类卡片`,
       `${this.searchRootConfigs.onlyClassification ? "☑️" : "☐︎"} 只搜索归类卡片`,
       `${this.searchRootConfigs.ignorePrefix ? "☑️" : "☐︎"} 忽略前缀搜索`,
-      `${this.searchRootConfigs.searchInKeywords ? "☑️" : "☐︎"} 搜索关键词字段`
+      `${this.searchRootConfigs.searchInKeywords ? "☑️" : "☐︎"} 搜索关键词字段`,
+      `${this.searchRootConfigs.skipEmptyTitle ? "☑️" : "☐︎"} 跳过空白标题卡片`
     ];
     
     const result = await MNUtil.userSelect(
@@ -8359,6 +8407,9 @@ class MNMath {
         break;
       case 4:
         this.searchRootConfigs.searchInKeywords = !this.searchRootConfigs.searchInKeywords;
+        break;
+      case 5:
+        this.searchRootConfigs.skipEmptyTitle = !this.searchRootConfigs.skipEmptyTitle;
         break;
     }
     
@@ -9067,7 +9118,8 @@ class MNMath {
         searchRootConfigs: {
           includeClassification: this.searchRootConfigs.includeClassification,
           ignorePrefix: this.searchRootConfigs.ignorePrefix,
-          searchInKeywords: this.searchRootConfigs.searchInKeywords
+          searchInKeywords: this.searchRootConfigs.searchInKeywords,
+          skipEmptyTitle: this.searchRootConfigs.skipEmptyTitle
         }
       };
       
@@ -9452,6 +9504,13 @@ class MNMath {
         await MNUtil.delay(0.5);
       }
       
+      // 获取配置中的跳过空标题设置
+      const skipEmptyTitle = this.searchRootConfigs ? this.searchRootConfigs.skipEmptyTitle : false;
+      if (skipEmptyTitle) {
+        MNUtil.showHUD(`🚫 已启用跳过空白标题卡片`);
+        await MNUtil.delay(0.5);
+      }
+      
       // 显示获取卡片列表的进度
       MNUtil.showHUD(`⛳ 正在从 ${rootNoteIds.length} 个根目录获取卡片列表...`);
       
@@ -9472,8 +9531,10 @@ class MNMath {
           name: rootNote.noteTitle || "无标题"
         });
         
-        // 获取该根目录的所有子孙卡片
-        const descendants = this.getAllDescendantNotes(rootNote);
+        // 获取该根目录的所有子孙卡片（根据配置决定是否跳过空标题）
+        const descendants = skipEmptyTitle 
+          ? this.getAllDescendantNotesWithSkipEmpty(rootNote, true)
+          : this.getAllDescendantNotes(rootNote);
         
         // 添加到 Set 中去重（基于 noteId）
         for (const note of descendants) {
@@ -9707,6 +9768,9 @@ class MNMath {
         // 显示搜索关键词字段状态
         const searchInKeywords = this.searchRootConfigs.searchInKeywords;
         message += `\n🔖 搜索关键词字段：${searchInKeywords ? "☑️ 是" : "☐︎ 否"}`;
+        // 显示跳过空白标题状态
+        const skipEmptyTitle = this.searchRootConfigs.skipEmptyTitle;
+        message += `\n🚫 跳过空白标题卡片：${skipEmptyTitle ? "☑️ 是" : "☐︎ 否"}`;
         // 显示选中的类型（只搜索归类卡片时不显示类型选择）
         if (!onlyClassification) {
           if (selectedTypes !== null && selectedTypes.size > 0) {
@@ -9732,7 +9796,8 @@ class MNMath {
                 includeClassification ? "☑️ 搜索归类卡片" : "☐︎ 搜索归类卡片",
                 onlyClassification ? "☑️ 只搜索归类卡片" : "☐︎ 只搜索归类卡片",
                 ignorePrefix ? "☑️ 忽略前缀搜索" : "☐︎ 忽略前缀搜索",
-                searchInKeywords ? "☑️ 搜索关键词字段" : "☐︎ 搜索关键词字段"
+                searchInKeywords ? "☑️ 搜索关键词字段" : "☐︎ 搜索关键词字段",
+                skipEmptyTitle ? "☑️ 跳过空白标题卡片" : "☐︎ 跳过空白标题卡片"
               ];
               // 只在未启用"只搜索归类卡片"时显示类型选择按钮
               if (!onlyClassification) {
@@ -9799,16 +9864,20 @@ class MNMath {
                   resolve({ action: "toggleSearchInKeywords" });
                   break;
                   
-                case 9: // 选择类型（只在未启用"只搜索归类卡片"时存在）
+                case 9: // 切换跳过空白标题开关
+                  resolve({ action: "toggleSkipEmptyTitle" });
+                  break;
+                  
+                case 10: // 选择类型（只在未启用"只搜索归类卡片"时存在）
                   if (!onlyClassification) {
                     resolve({ action: "selectTypes" });
                   } else {
-                    // 如果"只搜索归类卡片"启用，9 是"更多功能"
+                    // 如果"只搜索归类卡片"启用，10 是"更多功能"
                     resolve({ action: "moreFeatures" });
                   }
                   break;
                   
-                case 10: // 更多功能（只在未启用"只搜索归类卡片"时存在）
+                case 11: // 更多功能（只在未启用"只搜索归类卡片"时存在）
                   resolve({ action: "moreFeatures" });
                   break;
               }
@@ -9919,6 +9988,13 @@ class MNMath {
             this.searchRootConfigs.searchInKeywords = !this.searchRootConfigs.searchInKeywords;
             this.saveSearchConfig();
             MNUtil.showHUD(`搜索关键词字段：${this.searchRootConfigs.searchInKeywords ? "已启用" : "已禁用"}`);
+            break;
+            
+          case "toggleSkipEmptyTitle":
+            // 切换跳过空白标题开关
+            this.searchRootConfigs.skipEmptyTitle = !this.searchRootConfigs.skipEmptyTitle;
+            this.saveSearchConfig();
+            MNUtil.showHUD(`跳过空白标题卡片：${this.searchRootConfigs.skipEmptyTitle ? "已启用" : "已禁用"}`);
             break;
             
           case "selectTypes":
@@ -11952,7 +12028,8 @@ class MNMath {
           includeClassification: this.searchRootConfigs.includeClassification,
           ignorePrefix: this.searchRootConfigs.ignorePrefix,
           searchInKeywords: this.searchRootConfigs.searchInKeywords,
-          onlyClassification: this.searchRootConfigs.onlyClassification
+          onlyClassification: this.searchRootConfigs.onlyClassification,
+          skipEmptyTitle: this.searchRootConfigs.skipEmptyTitle
         },
         synonymGroups: this.searchRootConfigs.synonymGroups || [],
         exclusionGroups: this.searchRootConfigs.exclusionGroups || []
@@ -16125,16 +16202,11 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
 
   let oldComments = this.MNComments
   oldComments.forEach((comment, index) => {
-    // if (comment.type == "linkComment" && comment.linkDirection == "both") {
     if (comment.type == "linkComment" && this.LinkIfDouble(comment.text)) {
       let linkedNote = MNNote.new(comment.text.toNoteId())
-      let linkedNoteComments = linkedNote.MNComments
       let indexArrInLinkedNote = linkedNote.getLinkCommentsIndexArr(this.noteId.toNoteURL())
       // 把 this 的链接更新为 targetNote 的链接
       indexArrInLinkedNote.forEach(index => {
-        // linkedNoteComments[index].text = targetNote.noteURL
-        // linkedNoteComments[index].detail.text = targetNote.noteURL
-        // linkedNote.replaceWithMarkdownComment(targetNote.noteURL,linkedNoteComments[index].index)
         linkedNote.replaceWithMarkdownComment(targetNote.noteURL, index)
       })
     }
