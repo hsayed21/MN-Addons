@@ -2367,6 +2367,1299 @@ if (comments.length > 0) {
 
 ---
 
+## 第六章：处理文本数据 - 插件开发的日常 📝
+
+在 MarginNote 插件开发中，80% 的工作都是处理文本数据。让我们从实际需求出发，学习处理文本的核心技能。
+
+### 6.1 模板字符串：优雅地拼接文本
+
+#### 问题：如何优雅地拼接提示信息？
+
+**传统的笨拙写法**：
+```javascript
+// ❌ 这样写很麻烦，容易出错
+let error = "文件不存在"
+let fileName = "config.json"
+let message = "错误：" + error + "，文件：" + fileName + "，请检查！"
+MNUtil.showHUD(message)  // "错误：文件不存在，文件：config.json，请检查！"
+```
+
+**现代的优雅写法（模板字符串）**：
+```javascript
+// ✅ 使用模板字符串，清晰易读
+let error = "文件不存在"
+let fileName = "config.json"
+let message = `错误：${error}，文件：${fileName}，请检查！`
+MNUtil.showHUD(message)  // "错误：文件不存在，文件：config.json，请检查！"
+```
+
+#### 真实插件案例
+
+来自 mntask 插件的实际代码：
+```javascript
+// mntask/xdyy_menu_registry.js:226
+try {
+  // 注册菜单的代码...
+} catch (error) {
+  MNUtil.log(`❌ 注册菜单模板时出错: ${error.message}`)  // 模板字符串
+}
+```
+
+**为什么模板字符串更好？**
+1. **可读性高**：一眼就能看出最终输出格式
+2. **不易出错**：不会忘记加空格或标点
+3. **支持表达式**：`${变量 + 1}` 这样的计算也可以
+
+#### 模板字符串的关键要点
+
+```javascript
+// 1. 用反引号 ` 包围，不是引号 ' 或 "
+let name = "张三"
+let age = 25
+
+// ❌ 错误：用了引号
+let wrong = '我是${name}，今年${age}岁'  // 输出：我是${name}，今年${age}岁
+
+// ✅ 正确：用反引号
+let right = `我是${name}，今年${age}岁`  // 输出：我是张三，今年25岁
+
+// 2. 支持多行文本
+let html = `
+<div>
+  <h1>${name}</h1>
+  <p>年龄：${age}</p>
+</div>
+`
+
+// 3. 支持表达式计算
+let result = `明年我就 ${age + 1} 岁了！`  // 输出：明年我就26岁了！
+```
+
+### 6.2 正则表达式：文本处理的瑞士军刀
+
+#### 问题：如何从笔记中提取日期？
+
+想象你在开发任务管理功能，需要从用户输入的文本中提取日期：
+
+**输入文本**：
+```
+今天的任务 📅 2025-01-20
+- 写代码
+- 看书
+```
+
+**需要结果**：`2025-01-20`
+
+#### 正则表达式解决方案
+
+```javascript
+// 来自 mntask 插件的真实代码：
+// mntask/xdyy_utils_extensions.js:3200
+const dateMatch = text.match(/(\d{4}-\d{2}-\d{2})/)
+if (dateMatch && dateMatch[1] === todayStr) {
+  return true
+}
+```
+
+**让我们分解这个正则表达式**：
+
+```javascript
+let text = "今天的任务 📅 2025-01-20"
+
+// /(\d{4}-\d{2}-\d{2})/ 这个正则的含义：
+// \d{4}  = 匹配4个数字（年份）
+// -      = 匹配一个连字符
+// \d{2}  = 匹配2个数字（月份）
+// -      = 匹配一个连字符  
+// \d{2}  = 匹配2个数字（日期）
+// ()     = 圆括号表示"捕获组"，把匹配的内容存起来
+
+let dateMatch = text.match(/(\d{4}-\d{2}-\d{2})/)
+
+if (dateMatch) {
+  console.log("完整匹配结果：", dateMatch[0])  // "2025-01-20"
+  console.log("第一个捕获组：", dateMatch[1])  // "2025-01-20"
+  // 可以直接使用 dateMatch[1] 获取日期
+}
+```
+
+#### 更多实用的正则表达式
+
+```javascript
+// 1. 清理 HTML 标签（来自 mntask 插件实际代码）
+const cleanText = text.replace(/<[^>]*>/g, '')
+
+// 分解：
+// <      = 匹配左尖括号
+// [^>]*  = 匹配任意个不是右尖括号的字符
+// >      = 匹配右尖括号
+// g      = 全局匹配（匹配所有，不只是第一个）
+
+let htmlText = "<p>这是一段<strong>重要</strong>文字</p>"
+let cleanText = htmlText.replace(/<[^>]*>/g, '')
+console.log(cleanText)  // "这是一段重要文字"
+```
+
+```javascript
+// 2. 提取 Markdown 链接（来自 mntask 插件实际代码）
+const linkMatch = comment.text.match(/\[启动\]\(([^)]+)\)/)
+if (linkMatch) {
+  return linkMatch[1]  // 返回链接 URL 部分
+}
+
+// 分解：
+// \[启动\]  = 匹配文字 [启动]（[]需要转义）
+// \(       = 匹配左括号（需要转义）
+// ([^)]+)  = 捕获组：匹配一个或多个不是右括号的字符
+// \)       = 匹配右括号（需要转义）
+
+let markdown = "[启动](marginnote4app://note/abc123)"
+let linkMatch = markdown.match(/\[启动\]\(([^)]+)\)/)
+if (linkMatch) {
+  console.log("提取到的链接：", linkMatch[1])  // "marginnote4app://note/abc123"
+}
+```
+
+#### 正则表达式学习技巧
+
+```javascript
+// 1. 从简单开始
+let text = "我的电话是 138-1234-5678"
+
+// 匹配电话号码
+let phone = text.match(/(\d{3})-(\d{4})-(\d{4})/)
+if (phone) {
+  console.log("区号：", phone[1])      // "138"
+  console.log("前四位：", phone[2])     // "1234"  
+  console.log("后四位：", phone[3])     // "5678"
+}
+
+// 2. 使用在线测试工具
+// 推荐：regex101.com 或 regexr.com
+// 可以实时看到匹配结果，帮助理解
+
+// 3. 常用模式记忆
+// \d  = 数字
+// \w  = 字母数字下划线
+// \s  = 空白字符（空格、制表符等）
+// .   = 任意字符
+// +   = 一个或多个
+// *   = 零个或多个
+// ?   = 零个或一个
+```
+
+### 6.3 字符串方法：处理文本的基本工具
+
+#### 真实场景：处理用户输入的文本
+
+```javascript
+// 场景：用户输入了一段包含多余空格和标点的文本
+let userInput = "  这是一段文字，需要清理！！  "
+
+// 1. 清理前后空格
+let step1 = userInput.trim()
+console.log(`"${step1}"`)  // "这是一段文字，需要清理！！"
+
+// 2. 检查是否包含某个词
+if (step1.includes('需要')) {
+  console.log("用户提到了'需要'")  // 会执行
+}
+
+// 3. 替换标点符号
+let step2 = step1.replace(/！+/g, '!')  // 把多个！替换成一个
+console.log(step2)  // "这是一段文字，需要清理!"
+
+// 4. 按标点分割
+let parts = step2.split('，')
+console.log(parts)  // ["这是一段文字", "需要清理!"]
+
+// 5. 提取开头几个字符
+let preview = step1.substring(0, 5)
+console.log(`预览：${preview}...`)  // "预览：这是一段文..."
+```
+
+#### 插件开发中的实际应用
+
+```javascript
+// 来自实际插件开发：处理笔记标题
+function processNoteTitle(title) {
+  // 1. 清理前后空格
+  title = title.trim()
+  
+  // 2. 如果标题太长，截取前50个字符
+  if (title.length > 50) {
+    title = title.substring(0, 47) + "..."
+  }
+  
+  // 3. 替换换行符为空格
+  title = title.replace(/\n/g, ' ')
+  
+  // 4. 清理多个连续空格
+  title = title.replace(/\s+/g, ' ')
+  
+  return title
+}
+
+// 测试
+let longTitle = `这是一个非常非常
+很长的标题，   有很多空格
+和换行符需要处理`
+
+let cleanTitle = processNoteTitle(longTitle)
+console.log(cleanTitle)  // "这是一个非常非常 很长的标题， 有很多空格 和换行符..."
+```
+
+### 6.4 实战练习：文本处理综合应用
+
+#### 练习：解析任务文本
+
+**需求**：从用户输入的文本中解析出任务信息
+
+**输入示例**：
+```
+任务：完成插件开发 📅 2025-01-25 🏷️ 编程 ⏰ 14:30
+```
+
+**需要提取**：
+- 任务名称：完成插件开发
+- 日期：2025-01-25  
+- 标签：编程
+- 时间：14:30
+
+**完整解决方案**：
+```javascript
+function parseTaskText(text) {
+  // 1. 清理输入
+  text = text.trim()
+  
+  // 2. 提取任务名称（从开头到第一个emoji）
+  let titleMatch = text.match(/^任务：([^📅🏷️⏰]+)/)
+  let title = titleMatch ? titleMatch[1].trim() : "未命名任务"
+  
+  // 3. 提取日期
+  let dateMatch = text.match(/📅\s*(\d{4}-\d{2}-\d{2})/)
+  let date = dateMatch ? dateMatch[1] : null
+  
+  // 4. 提取标签
+  let tagMatch = text.match(/🏷️\s*([^⏰📅]+)/)
+  let tag = tagMatch ? tagMatch[1].trim() : null
+  
+  // 5. 提取时间
+  let timeMatch = text.match(/⏰\s*(\d{2}:\d{2})/)
+  let time = timeMatch ? timeMatch[1] : null
+  
+  return {
+    title: title,
+    date: date,
+    tag: tag,
+    time: time
+  }
+}
+
+// 测试
+let input = "任务：完成插件开发 📅 2025-01-25 🏷️ 编程 ⏰ 14:30"
+let result = parseTaskText(input)
+
+console.log("解析结果：")
+console.log(`任务：${result.title}`)      // "完成插件开发"
+console.log(`日期：${result.date}`)       // "2025-01-25"
+console.log(`标签：${result.tag}`)        // "编程"  
+console.log(`时间：${result.time}`)       // "14:30"
+
+// 使用模板字符串生成提示
+let summary = `已创建任务"${result.title}"，计划在${result.date} ${result.time}完成`
+console.log(summary)  // "已创建任务'完成插件开发'，计划在2025-01-25 14:30完成"
+```
+
+---
+
+## 第七章：让代码更稳定 - 错误处理 🛡️
+
+写代码就像搭积木，一个错误可能让整个插件崩溃。学会错误处理，让你的插件更可靠。
+
+### 7.1 try/catch：给代码加上安全网
+
+#### 问题：插件加载失败怎么办？
+
+**没有错误处理的危险代码**：
+```javascript
+// ❌ 这样写很危险，如果文件不存在会直接崩溃
+JSB.require('utils')        // 可能失败
+JSB.require('controller')   // 可能失败  
+// 其他初始化代码永远不会执行...
+```
+
+**安全的错误处理**：
+```javascript
+// ✅ 这样写更安全，来自 mntask/main.js 的实际代码
+try {
+  JSB.require('utils')
+  MNUtil.log('✅ utils 模块加载成功')
+} catch (error) {
+  MNUtil.log('❌ utils 模块加载失败:', error.message)
+  return  // 如果关键模块加载失败，停止初始化
+}
+
+try {
+  JSB.require('xdyy_menu_registry')
+  MNUtil.log('✅ 菜单注册模块加载成功')
+} catch (error) {
+  MNUtil.log('❌ 菜单注册模块加载失败:', error.message)
+  // 这个模块不是必需的，可以继续
+}
+```
+
+#### try/catch 的基本语法
+
+```javascript
+try {
+  // 可能出错的代码放这里
+  let result = riskyOperation()
+  console.log("操作成功：", result)
+} catch (error) {
+  // 出错时执行这里的代码
+  console.log("操作失败：", error.message)
+} finally {
+  // 无论成功失败都会执行（可选）
+  console.log("清理工作完成")
+}
+```
+
+### 7.2 JSON 操作：安全地保存和读取配置
+
+#### 问题：如何保存配置不崩溃？
+
+**场景**：你的插件需要保存用户设置，比如任务状态、界面偏好等。
+
+**危险的做法**：
+```javascript
+// ❌ 这样直接存储 JavaScript 对象会崩溃
+let taskState = {
+  isTaskLaunched: false,
+  currentTaskId: "task123"
+}
+
+// 这行代码会让 MarginNote 直接崩溃！
+NSUserDefaults.setObjectForKey(taskState, "taskState")
+```
+
+**安全的 JSON 序列化方法**：
+```javascript
+// ✅ 来自 mntask 插件修复崩溃问题的实际代码
+
+// 保存配置
+function saveTaskState(state) {
+  try {
+    // 1. 把 JavaScript 对象转换成 JSON 字符串
+    let jsonString = JSON.stringify(state)
+    
+    // 2. 保存字符串（字符串是安全的）
+    NSUserDefaults.setObjectForKey(jsonString, "taskState")
+    
+    MNUtil.log("✅ 任务状态保存成功")
+  } catch (error) {
+    MNUtil.log("❌ 保存任务状态失败:", error.message)
+  }
+}
+
+// 读取配置  
+function loadTaskState() {
+  try {
+    // 1. 读取 JSON 字符串
+    let jsonString = NSUserDefaults.objectForKey("taskState")
+    
+    if (!jsonString) {
+      // 没有保存过配置，返回默认值
+      return {
+        isTaskLaunched: false,
+        currentTaskId: null
+      }
+    }
+    
+    // 2. 把 JSON 字符串转换回 JavaScript 对象
+    let state = JSON.parse(jsonString)
+    
+    MNUtil.log("✅ 任务状态加载成功")
+    return state
+    
+  } catch (error) {
+    MNUtil.log("❌ 加载任务状态失败:", error.message)
+    
+    // 出错时返回默认值，保证程序能继续运行
+    return {
+      isTaskLaunched: false,
+      currentTaskId: null
+    }
+  }
+}
+```
+
+#### JSON 操作的关键要点
+
+```javascript
+// 1. JSON.stringify() - 把对象转换成字符串
+let data = {
+  name: "张三",
+  age: 25,
+  hobbies: ["编程", "阅读"]
+}
+
+let jsonString = JSON.stringify(data)
+console.log(jsonString)  // '{"name":"张三","age":25,"hobbies":["编程","阅读"]}'
+
+// 2. JSON.parse() - 把字符串转换回对象
+let restored = JSON.parse(jsonString)
+console.log(restored.name)     // "张三"
+console.log(restored.hobbies)  // ["编程", "阅读"]
+
+// 3. 注意！不是所有数据都能转换
+let problematic = {
+  date: new Date(),           // Date 对象会变成字符串
+  func: function() {},        // 函数会丢失
+  undefined: undefined        // undefined 会丢失
+}
+
+let json = JSON.stringify(problematic)
+let restored2 = JSON.parse(json)
+console.log(restored2)  // {date: "2025-01-20T10:30:00.000Z"}
+```
+
+### 7.3 插件开发中的错误处理最佳实践
+
+#### 1. 分层错误处理
+
+```javascript
+// 来自实际插件开发经验的完整错误处理策略
+
+function createTaskCard(noteId) {
+  try {
+    // 第一层：参数验证
+    if (!noteId) {
+      throw new Error("笔记 ID 不能为空")
+    }
+    
+    // 第二层：获取笔记
+    let note = MNNote.new(noteId)
+    if (!note) {
+      throw new Error(`找不到 ID 为 ${noteId} 的笔记`)
+    }
+    
+    // 第三层：处理业务逻辑
+    try {
+      processTaskFields(note)
+      MNUtil.log(`✅ 任务卡片创建成功: ${note.title}`)
+      return true
+      
+    } catch (fieldError) {
+      // 业务逻辑错误，记录但不中断
+      MNUtil.log(`⚠️ 字段处理出现问题: ${fieldError.message}`)
+      MNUtil.showHUD("任务创建成功，但某些字段处理异常")
+      return true  // 依然返回成功
+    }
+    
+  } catch (error) {
+    // 关键错误，必须处理
+    MNUtil.log(`❌ 创建任务卡片失败: ${error.message}`)
+    MNUtil.showHUD(`创建失败: ${error.message}`)
+    return false
+  }
+}
+```
+
+#### 2. 用户友好的错误提示
+
+```javascript
+function connectToServer() {
+  try {
+    // 网络请求...
+    let response = MNConnection.fetch(url, options)
+    return response
+    
+  } catch (error) {
+    // ❌ 技术性错误信息，用户看不懂
+    MNUtil.showHUD(`XMLHttpRequest failed: ERR_NETWORK_TIMEOUT`)
+    
+    // ✅ 用户友好的错误信息
+    if (error.message.includes('timeout')) {
+      MNUtil.showHUD("网络连接超时，请检查网络后重试")
+    } else if (error.message.includes('not found')) {
+      MNUtil.showHUD("服务器地址不正确")
+    } else {
+      MNUtil.showHUD("网络连接失败，请稍后重试")
+    }
+    
+    // 同时记录详细的技术信息，方便调试
+    MNUtil.log(`详细错误信息: ${error.message}`)
+  }
+}
+```
+
+#### 3. 防御式编程
+
+```javascript
+// 永远假设用户输入是不可靠的
+function processUserInput(input) {
+  // 1. 检查输入是否存在
+  if (!input) {
+    MNUtil.showHUD("请输入内容")
+    return false
+  }
+  
+  // 2. 检查输入类型
+  if (typeof input !== 'string') {
+    input = String(input)  // 转换成字符串
+  }
+  
+  // 3. 清理和验证
+  input = input.trim()
+  if (input.length === 0) {
+    MNUtil.showHUD("输入内容不能为空")
+    return false
+  }
+  
+  if (input.length > 1000) {
+    MNUtil.showHUD("输入内容过长，请控制在1000字符以内")
+    return false
+  }
+  
+  // 4. 处理业务逻辑
+  try {
+    return actualProcessing(input)
+  } catch (error) {
+    MNUtil.log(`处理用户输入失败: ${error.message}`)
+    MNUtil.showHUD("处理失败，请重试")
+    return false
+  }
+}
+```
+
+### 7.4 调试技巧：快速定位问题
+
+```javascript
+// 1. 使用有意义的日志
+function loadPluginModule(moduleName) {
+  MNUtil.log(`🔄 开始加载模块: ${moduleName}`)
+  
+  try {
+    JSB.require(moduleName)
+    MNUtil.log(`✅ ${moduleName} 加载成功`)
+  } catch (error) {
+    MNUtil.log(`❌ ${moduleName} 加载失败: ${error.message}`)
+    MNUtil.log(`📍 错误位置: ${error.stack}`)  // 显示调用栈
+    throw error  // 重新抛出，让上层处理
+  }
+}
+
+// 2. 断点调试的替代方案
+function debugTaskProcessing(note) {
+  // 在关键位置打印状态
+  MNUtil.log(`🔍 调试信息 - 笔记标题: ${note.title}`)
+  MNUtil.log(`🔍 调试信息 - 评论数量: ${note.comments.length}`)
+  
+  for (let i = 0; i < note.comments.length; i++) {
+    let comment = note.comments[i]
+    MNUtil.log(`🔍 评论${i}: ${comment.text}`)
+  }
+  
+  // 复制复杂对象到剪贴板，方便查看
+  MNUtil.copyJSON({
+    noteId: note.noteId,
+    title: note.title,
+    commentCount: note.comments.length
+  })
+  MNUtil.showHUD("调试信息已复制到剪贴板")
+}
+```
+
+---
+
+## 第八章：简化你的代码 - ES6 实用特性 ⚡
+
+现代 JavaScript 提供了许多简化代码的新语法。这些特性不仅让代码更简洁，还能减少错误。
+
+### 8.1 箭头函数：简化回调函数
+
+#### 问题：回调函数写起来很繁琐？
+
+**传统写法**：
+```javascript
+// ❌ 传统的函数写法很冗长
+UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitles(
+  "确认操作",
+  "确定要删除这个任务吗？", 
+  0,
+  "取消",
+  ["确定"],
+  function(alert, buttonIndex) {  // 传统函数
+    if (buttonIndex === 1) {
+      deleteTask()
+    }
+  }
+)
+```
+
+**箭头函数简化**：
+```javascript
+// ✅ 使用箭头函数，代码更简洁
+UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitles(
+  "确认操作",
+  "确定要删除这个任务吗？", 
+  0,
+  "取消",
+  ["确定"],
+  (alert, buttonIndex) => {  // 箭头函数
+    if (buttonIndex === 1) {
+      deleteTask()
+    }
+  }
+)
+```
+
+#### 箭头函数的不同写法
+
+```javascript
+// 1. 有参数有大括号（最常用）
+let processNote = (note) => {
+  MNUtil.log(`处理笔记: ${note.title}`)
+  return true
+}
+
+// 2. 单个参数可以省略括号
+let processNote2 = note => {
+  MNUtil.log(`处理笔记: ${note.title}`)
+  return true
+}
+
+// 3. 无参数
+let getCurrentTime = () => {
+  return new Date().toISOString()
+}
+
+// 4. 单行返回可以省略大括号和 return
+let double = x => x * 2
+let add = (a, b) => a + b
+let greet = name => `你好，${name}！`
+
+// 使用
+console.log(double(5))        // 10
+console.log(add(3, 4))        // 7  
+console.log(greet("张三"))    // "你好，张三！"
+```
+
+#### 真实插件案例
+
+来自 mnutils 和 mntexthandler 插件的实际代码：
+```javascript
+// mnutils/main_formatted.js 中的延迟操作
+MNUtil.delay(1).then(() => {
+  // 一秒后执行的代码
+  MNUtil.log("延迟操作完成")
+})
+
+// 数组处理中使用箭头函数
+let noteIds = ["note1", "note2", "note3"]
+let notes = noteIds.map(id => MNNote.new(id))           // 获取笔记对象
+let titles = notes.map(note => note.title)              // 提取标题
+let validNotes = notes.filter(note => note.title)      // 过滤有标题的笔记
+```
+
+### 8.2 数组解构：优雅地处理分割结果
+
+#### 问题：处理字符串分割结果很麻烦？
+
+**传统写法**：
+```javascript
+// ❌ 传统方式：用索引访问，容易出错
+let configText = "name=张三&age=25&city=北京"
+let parts = configText.split("=")
+let key = parts[0]      // 可能忘记检查 parts 的长度
+let value = parts[1]    // 如果没有等号就会是 undefined
+```
+
+**数组解构简化**：
+```javascript
+// ✅ 使用数组解构，代码更清晰
+let configText = "name=张三"
+let [key, value] = configText.split("=")
+console.log(`键: ${key}, 值: ${value}`)  // "键: name, 值: 张三"
+```
+
+#### 真实插件案例
+
+来自 mnutils/main_formatted.js 的实际代码：
+```javascript
+// 解析键值对配置
+var [i, o] = s.split("=")  // 数组解构赋值
+
+// 等价的传统写法：
+var parts = s.split("=")
+var i = parts[0]
+var o = parts[1]
+```
+
+#### 数组解构的实用技巧
+
+```javascript
+// 1. 基本用法
+let colors = ["红", "绿", "蓝"]
+let [first, second, third] = colors
+console.log(first)   // "红"
+console.log(second)  // "绿"
+console.log(third)   // "蓝"
+
+// 2. 跳过不需要的元素
+let numbers = [1, 2, 3, 4, 5]
+let [first, , third, , fifth] = numbers  // 跳过第2、4个
+console.log(first, third, fifth)  // 1 3 5
+
+// 3. 设置默认值
+let data = ["张三"]  // 只有一个元素
+let [name, age = 18] = data  // age 设置默认值
+console.log(`${name}, ${age}岁`)  // "张三, 18岁"
+
+// 4. 交换变量
+let a = 10, b = 20
+[a, b] = [b, a]  // 交换 a 和 b 的值
+console.log(a, b)  // 20 10
+
+// 5. 处理函数返回的数组
+function parseCoordinate(text) {
+  let parts = text.split(",")
+  return [parseFloat(parts[0]), parseFloat(parts[1])]
+}
+
+let [x, y] = parseCoordinate("120.5,31.2")
+console.log(`坐标: (${x}, ${y})`)  // "坐标: (120.5, 31.2)"
+```
+
+### 8.3 switch/case：处理多种情况
+
+#### 问题：多个 if-else 很难读？
+
+**难读的 if-else 链**：
+```javascript
+// ❌ 这样的代码很难维护
+function handleTextAction(type) {
+  if (type === "left") {
+    alignLeft()
+  } else if (type === "right") {
+    alignRight()
+  } else if (type === "center") {
+    alignCenter()
+  } else if (type === "justify") {
+    alignJustify()
+  } else {
+    showError("未知的对齐方式")
+  }
+}
+```
+
+**清晰的 switch 语句**：
+```javascript
+// ✅ switch 语句结构更清晰
+function handleTextAction(type) {
+  switch (type) {
+    case "left":
+      alignLeft()
+      break
+    case "right":
+      alignRight()
+      break
+    case "center":
+      alignCenter()
+      break
+    case "justify":
+      alignJustify()
+      break
+    default:
+      showError("未知的对齐方式")
+  }
+}
+```
+
+#### 真实插件案例
+
+来自 mntexthandler/webviewController.js 的实际代码：
+```javascript
+switch (type) {
+  case "left":
+    // 左对齐处理逻辑
+    break
+  case "right":  
+    // 右对齐处理逻辑
+    break
+  default:
+    // 默认处理逻辑
+}
+```
+
+#### switch 语句的关键要点
+
+```javascript
+// 1. 每个 case 后面要加 break，否则会"掉落"
+let grade = "B"
+switch (grade) {
+  case "A":
+    console.log("优秀")
+    // ❌ 忘记加 break
+  case "B":
+    console.log("良好")  // 如果是 A，这里也会执行！
+    break
+  case "C":
+    console.log("及格")
+    break
+}
+
+// 2. 利用"掉落"特性处理相同逻辑
+let userType = "vip"
+switch (userType) {
+  case "admin":
+  case "vip":
+  case "premium":
+    showAdvancedFeatures()  // 这三种用户都显示高级功能
+    break
+  case "normal":
+    showBasicFeatures()
+    break
+  default:
+    showGuestFeatures()
+}
+
+// 3. 在 case 中使用大括号创建作用域
+switch (action) {
+  case "create": {
+    let newTask = createTask()  // 局部变量
+    saveTask(newTask)
+    break
+  }
+  case "update": {
+    let existingTask = findTask()  // 不会与上面的变量冲突
+    updateTask(existingTask)
+    break
+  }
+}
+```
+
+### 8.4 综合实战：现代化代码重构
+
+#### 练习：重构一个任务处理函数
+
+**原始代码（传统写法）**：
+```javascript
+// ❌ 传统写法：冗长且容易出错
+function processTaskList(tasksText) {
+  var lines = tasksText.split('\n')
+  var results = []
+  
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim()
+    if (line.length === 0) {
+      continue
+    }
+    
+    var parts = line.split('|')
+    var title = parts[0]
+    var priority = parts[1] ? parts[1] : "normal"
+    var dueDate = parts[2] ? parts[2] : null
+    
+    var task = {
+      title: title,
+      priority: priority,
+      dueDate: dueDate
+    }
+    
+    if (task.priority === "high") {
+      task.urgent = true
+    } else if (task.priority === "medium") {
+      task.urgent = false  
+    } else if (task.priority === "low") {
+      task.urgent = false
+    } else {
+      task.urgent = false
+    }
+    
+    results.push(task)
+  }
+  
+  return results
+}
+```
+
+**现代化重构版本**：
+```javascript
+// ✅ 现代写法：简洁清晰
+function processTaskList(tasksText) {
+  return tasksText
+    .split('\n')                           // 按行分割
+    .map(line => line.trim())              // 箭头函数：清理空格
+    .filter(line => line.length > 0)      // 箭头函数：过滤空行
+    .map(line => {
+      // 数组解构：处理分割结果
+      const [title, priority = "normal", dueDate = null] = line.split('|')
+      
+      // 构建任务对象
+      const task = { title, priority, dueDate }
+      
+      // switch 语句：处理优先级
+      switch (priority) {
+        case "high":
+          task.urgent = true
+          break
+        case "medium":
+        case "low":
+        case "normal":
+        default:
+          task.urgent = false
+      }
+      
+      return task
+    })
+}
+
+// 使用模板字符串测试
+const testData = `
+完成插件开发|high|2025-01-25
+写技术文档|medium|2025-01-26  
+代码审查|low
+`
+
+const tasks = processTaskList(testData)
+tasks.forEach(task => {
+  console.log(`任务：${task.title}，优先级：${task.priority}，紧急：${task.urgent}`)
+})
+```
+
+**重构带来的好处**：
+1. **代码行数减少**：从 35 行减少到 25 行
+2. **可读性提高**：意图更明确，逻辑更清晰
+3. **错误更少**：数组解构避免了索引错误
+4. **维护更容易**：每个部分职责单一
+
+---
+
+## 第九章：实战总结 - 构建你的第一个功能 🚀
+
+通过前面的学习，你已经掌握了 MarginNote 插件开发的核心技能。让我们用一个完整的实战项目来巩固所有知识点。
+
+### 9.1 项目需求：智能任务提醒器
+
+**功能描述**：
+- 自动识别笔记中的任务（包含日期的内容）
+- 检查任务是否到期
+- 显示友好的提醒界面
+- 支持快速标记任务完成
+
+**涉及知识点**：
+- 模板字符串
+- 正则表达式
+- try/catch 错误处理
+- 箭头函数
+- JSON 配置管理
+
+### 9.2 完整实现
+
+```javascript
+// 智能任务提醒器 - 完整代码
+class SmartTaskReminder {
+  constructor() {
+    this.configKey = "SmartTaskReminder_Config"
+    this.loadConfig()
+  }
+  
+  // 使用 JSON 安全地加载配置
+  loadConfig() {
+    try {
+      const jsonString = NSUserDefaults.objectForKey(this.configKey)
+      if (jsonString) {
+        this.config = JSON.parse(jsonString)
+      } else {
+        // 默认配置
+        this.config = {
+          enabled: true,
+          checkInterval: 60000,  // 60秒检查一次
+          reminderWords: ["任务", "待办", "TODO", "计划"]
+        }
+      }
+    } catch (error) {
+      MNUtil.log(`❌ 加载配置失败: ${error.message}`)
+      this.config = { enabled: true, checkInterval: 60000, reminderWords: ["任务"] }
+    }
+  }
+  
+  // 使用 JSON 安全地保存配置
+  saveConfig() {
+    try {
+      const jsonString = JSON.stringify(this.config)
+      NSUserDefaults.setObjectForKey(jsonString, this.configKey)
+    } catch (error) {
+      MNUtil.log(`❌ 保存配置失败: ${error.message}`)
+    }
+  }
+  
+  // 使用正则表达式查找任务
+  findTasksInNote(note) {
+    if (!note || !note.title) return []
+    
+    const tasks = []
+    const today = new Date()
+    const todayStr = this.formatDate(today)
+    
+    // 遍历所有评论
+    note.MNComments?.forEach((comment, index) => {
+      if (!comment?.text) return
+      
+      try {
+        // 检查是否包含任务关键词
+        const hasTaskKeyword = this.config.reminderWords.some(word => 
+          comment.text.includes(word)  // 箭头函数简化
+        )
+        
+        if (hasTaskKeyword) {
+          // 使用正则表达式提取日期
+          const dateMatch = comment.text.match(/(\d{4}-\d{2}-\d{2})/)
+          
+          if (dateMatch) {
+            const [, dateStr] = dateMatch  // 数组解构
+            const taskDate = new Date(dateStr)
+            
+            // 判断任务状态
+            let status = "pending"
+            if (dateStr < todayStr) {
+              status = "overdue"
+            } else if (dateStr === todayStr) {
+              status = "today"  
+            }
+            
+            tasks.push({
+              text: comment.text,
+              date: dateStr,
+              status: status,
+              commentIndex: index,
+              noteId: note.noteId
+            })
+          }
+        }
+      } catch (error) {
+        MNUtil.log(`⚠️ 处理评论时出错: ${error.message}`)
+      }
+    })
+    
+    return tasks
+  }
+  
+  // 使用 switch 处理不同状态的任务
+  formatTaskStatus(status) {
+    switch (status) {
+      case "overdue":
+        return "🔴 已逾期"
+      case "today":
+        return "🟡 今天到期"
+      case "pending":
+        return "🟢 未到期"
+      default:
+        return "⚪ 未知状态"
+    }
+  }
+  
+  // 检查当前笔记本的所有任务
+  checkAllTasks() {
+    if (!this.config.enabled) return
+    
+    try {
+      const notebook = MNNotebook.currentNotebook
+      if (!notebook) return
+      
+      const allTasks = []
+      const notes = notebook.allNotes()  // 假设有这个方法
+      
+      // 使用箭头函数处理每个笔记
+      notes.forEach(note => {
+        const tasks = this.findTasksInNote(note)
+        allTasks.push(...tasks)  // 展开运算符合并数组
+      })
+      
+      // 过滤需要提醒的任务
+      const urgentTasks = allTasks.filter(task => 
+        task.status === "overdue" || task.status === "today"
+      )
+      
+      if (urgentTasks.length > 0) {
+        this.showTaskReminder(urgentTasks)
+      }
+      
+    } catch (error) {
+      MNUtil.log(`❌ 检查任务时出错: ${error.message}`)
+    }
+  }
+  
+  // 显示任务提醒界面
+  showTaskReminder(tasks) {
+    // 使用模板字符串生成提醒内容
+    const taskCount = tasks.length
+    const title = `📋 任务提醒 (${taskCount}个)`
+    
+    let message = `您有 ${taskCount} 个任务需要注意：\n\n`
+    
+    tasks.forEach((task, index) => {
+      const statusText = this.formatTaskStatus(task.status)
+      message += `${index + 1}. ${statusText}\n`
+      message += `   ${task.text.substring(0, 50)}...\n`
+      message += `   📅 ${task.date}\n\n`
+    })
+    
+    // 显示提醒对话框
+    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitles(
+      title,
+      message,
+      0,
+      "稍后提醒",
+      ["查看任务", "全部完成"],
+      (alert, buttonIndex) => {  // 箭头函数回调
+        switch (buttonIndex) {
+          case 0:  // 稍后提醒
+            // 10分钟后再次提醒
+            setTimeout(() => this.checkAllTasks(), 10 * 60 * 1000)
+            break
+            
+          case 1:  // 查看任务
+            this.showTaskDetails(tasks)
+            break
+            
+          case 2:  // 全部完成
+            this.markAllTasksComplete(tasks)
+            break
+        }
+      }
+    )
+  }
+  
+  // 标记任务完成
+  markAllTasksComplete(tasks) {
+    try {
+      MNUtil.undoGrouping(() => {  // 事务性操作
+        tasks.forEach(task => {
+          const note = MNNote.new(task.noteId)
+          if (note && note.MNComments[task.commentIndex]) {
+            // 在任务文本前添加完成标记
+            let comment = note.MNComments[task.commentIndex]
+            if (!comment.text.startsWith("✅")) {
+              comment.text = `✅ ${comment.text}`
+            }
+          }
+        })
+      })
+      
+      const successMessage = `✅ 已标记 ${tasks.length} 个任务为完成`
+      MNUtil.showHUD(successMessage)
+      MNUtil.log(successMessage)
+      
+    } catch (error) {
+      const errorMessage = `标记任务完成时出错: ${error.message}`
+      MNUtil.showHUD(`❌ ${errorMessage}`)
+      MNUtil.log(`❌ ${errorMessage}`)
+    }
+  }
+  
+  // 工具方法：格式化日期
+  formatDate(date) {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  
+  // 启动定时检查
+  startPeriodicCheck() {
+    if (!this.config.enabled) return
+    
+    MNUtil.log("🔄 启动任务提醒器")
+    
+    // 立即检查一次
+    this.checkAllTasks()
+    
+    // 设置定时检查
+    this.timer = setInterval(() => {
+      this.checkAllTasks()
+    }, this.config.checkInterval)
+  }
+  
+  // 停止定时检查
+  stopPeriodicCheck() {
+    if (this.timer) {
+      clearInterval(this.timer)
+      this.timer = null
+      MNUtil.log("⏹️ 停止任务提醒器")
+    }
+  }
+}
+
+// 使用示例
+const taskReminder = new SmartTaskReminder()
+
+// 在插件初始化时启动
+taskReminder.startPeriodicCheck()
+
+// 在插件卸载时停止
+// taskReminder.stopPeriodicCheck()
+```
+
+### 9.3 代码解析：知识点回顾
+
+这个完整的项目展示了我们学过的所有重要概念：
+
+#### 1. 模板字符串的实际应用
+```javascript
+const title = `📋 任务提醒 (${taskCount}个)`
+let message = `您有 ${taskCount} 个任务需要注意：\n\n`
+```
+
+#### 2. 正则表达式提取数据
+```javascript
+const dateMatch = comment.text.match(/(\d{4}-\d{2}-\d{2})/)
+if (dateMatch) {
+  const [, dateStr] = dateMatch  // 数组解构获取匹配结果
+}
+```
+
+#### 3. 箭头函数简化代码
+```javascript
+const hasTaskKeyword = this.config.reminderWords.some(word => 
+  comment.text.includes(word)
+)
+
+tasks.forEach(task => {
+  const tasks = this.findTasksInNote(task)
+  allTasks.push(...tasks)
+})
+```
+
+#### 4. try/catch 保证稳定性
+```javascript
+try {
+  const jsonString = JSON.stringify(this.config)
+  NSUserDefaults.setObjectForKey(jsonString, this.configKey)
+} catch (error) {
+  MNUtil.log(`❌ 保存配置失败: ${error.message}`)
+}
+```
+
+#### 5. switch 语句清晰地处理状态
+```javascript
+switch (buttonIndex) {
+  case 0:  // 稍后提醒
+    setTimeout(() => this.checkAllTasks(), 10 * 60 * 1000)
+    break
+  case 1:  // 查看任务
+    this.showTaskDetails(tasks)
+    break
+  case 2:  // 全部完成
+    this.markAllTasksComplete(tasks)
+    break
+}
+```
+
+---
+
 ## 🙏 结语
 
 编程就像学习一门新语言，需要时间和练习。不要害怕犯错，每个错误都是学习的机会。MarginNote 插件开发是一个很好的起点，因为你可以立即看到代码的效果，解决自己的实际需求。
@@ -2379,4 +3672,4 @@ if (comments.length > 0) {
 
 *本文档基于 MarginNote 4 插件实际代码编写，所有示例均来自真实插件。*
 
-*文档版本：1.0.0 | 更新日期：2025-01-20*
+*文档版本：2.0.0 | 更新日期：2025-01-20*
