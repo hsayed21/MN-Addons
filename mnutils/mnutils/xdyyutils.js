@@ -8827,8 +8827,11 @@ class MNMath {
    * @param {string} name - 组名
    * @param {Array<string>} words - 词汇数组
    * @param {boolean} partialReplacement - 是否启用局部替换（默认 false）
+   * @param {Array<string>} contextTriggers - 上下文触发词数组（可选）
+   * @param {string} contextMode - 上下文匹配模式："any"（默认）或 "all"
+   * @param {boolean} caseSensitive - 是否大小写敏感（默认 false）
    */
-  static addSynonymGroup(name, words, partialReplacement = false) {
+  static addSynonymGroup(name, words, partialReplacement = false, contextTriggers = undefined, contextMode = "any", caseSensitive = false) {
     this.initSearchConfig();
     const group = {
       id: "group_" + Date.now(),
@@ -8836,6 +8839,9 @@ class MNMath {
       words: words,
       enabled: true,
       partialReplacement: partialReplacement,  // 新增字段
+      contextTriggers: contextTriggers,  // 新增：上下文触发词
+      contextMode: contextMode,          // 新增：匹配模式
+      caseSensitive: caseSensitive,      // 新增：大小写敏感
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
@@ -8993,9 +8999,14 @@ class MNMath {
    * @param {Array<string>} keywords - 原始关键词数组
    * @returns {Array<Array<string>>} 分组的关键词数组，每组包含原始词及其同义词
    */
-  static expandKeywordsWithSynonymsGrouped(keywords) {
+  static expandKeywordsWithSynonymsGrouped(keywords, title = null) {
     const synonymGroups = this.getSynonymGroups();
     const keywordGroups = [];
+    
+    // 性能监控
+    const startTime = Date.now();
+    let contextCheckCount = 0;
+    let skipCount = 0;
     
     for (const keyword of keywords) {
       const keywordGroup = new Set();
@@ -9006,10 +9017,28 @@ class MNMath {
       for (const group of synonymGroups) {
         if (!group.enabled) continue;
         
-        // 1. 完整词匹配（原有功能）
-        const foundInGroup = group.words.some(word => 
-          word.toLowerCase() === keyword.toLowerCase()
-        );
+        // 检查上下文触发条件
+        if (group.contextTriggers && group.contextTriggers.length > 0 && title) {
+          contextCheckCount++;
+          // 有触发词配置，需要检查标题
+          const matchesTrigger = this.checkContextTriggers(title, group.contextTriggers, group.contextMode);
+          if (!matchesTrigger) {
+            skipCount++;
+            continue;  // 不满足触发条件，跳过此组
+          }
+        }
+        
+        // 根据 caseSensitive 字段决定匹配方式
+        const caseSensitive = group.caseSensitive || false;
+        
+        // 1. 完整词匹配（支持大小写敏感）
+        const foundInGroup = group.words.some(word => {
+          if (caseSensitive) {
+            return word === keyword;  // 大小写敏感匹配
+          } else {
+            return word.toLowerCase() === keyword.toLowerCase();  // 大小写不敏感匹配
+          }
+        });
         
         if (foundInGroup) {
           // 添加组内所有词
@@ -9039,10 +9068,16 @@ class MNMath {
       MNUtil.log(`关键词扩展详情：\n${details}`);
     }
     
+    // 性能监控：记录统计信息
+    const duration = Date.now() - startTime;
+    if (duration > 10 || contextCheckCount > 0) { // 超过10ms或有上下文检查时记录
+      MNUtil.log(`📊 关键词扩展性能统计：耗时${duration}ms 关键词${keywords.length}个 同义词组${synonymGroups.length}个 上下文检查${contextCheckCount}次 跳过${skipCount}个组${title ? ` 标题="${title.substring(0, 20)}..."` : ''}`);
+    }
+    
     return keywordGroups;
   }
 
-  static expandKeywordsWithSynonyms(keywords) {
+  static expandKeywordsWithSynonyms(keywords, title = null) {
     const synonymGroups = this.getSynonymGroups();
     const expandedKeywords = new Set();
     
@@ -9054,10 +9089,26 @@ class MNMath {
       for (const group of synonymGroups) {
         if (!group.enabled) continue;
         
+        // 检查上下文触发条件
+        if (group.contextTriggers && group.contextTriggers.length > 0 && title) {
+          // 有触发词配置，需要检查标题
+          const matchesTrigger = this.checkContextTriggers(title, group.contextTriggers, group.contextMode);
+          if (!matchesTrigger) {
+            continue;  // 不满足触发条件，跳过此组
+          }
+        }
+        
+        // 根据 caseSensitive 字段决定匹配方式
+        const caseSensitive = group.caseSensitive || false;
+        
         // 检查关键词是否在组内
-        const foundInGroup = group.words.some(word => 
-          word.toLowerCase() === keyword.toLowerCase()
-        );
+        const foundInGroup = group.words.some(word => {
+          if (caseSensitive) {
+            return word === keyword;  // 大小写敏感匹配
+          } else {
+            return word.toLowerCase() === keyword.toLowerCase();  // 大小写不敏感匹配
+          }
+        });
         
         if (foundInGroup) {
           // 添加组内所有词
@@ -9071,6 +9122,43 @@ class MNMath {
     // 如果扩展了关键词，记录日志
     if (result.length > keywords.length) {
       MNUtil.log(`关键词扩展：${keywords.join(", ")} → ${result.join(", ")}`);
+    }
+    
+    return result;
+  }
+  
+  /**
+   * 检查标题是否匹配触发词
+   * @param {string} title - 要检查的标题
+   * @param {Array<string>} triggers - 触发词数组
+   * @param {string} mode - 匹配模式："any" 或 "all"
+   * @returns {boolean} 是否匹配
+   */
+  static checkContextTriggers(title, triggers, mode = "any") {
+    // 快速跳过：无触发词或空标题直接返回 false
+    if (!title || !triggers || triggers.length === 0) return false;
+    
+    // 性能监控（仅在调试模式下）
+    const startTime = this.isDebugMode ? Date.now() : null;
+    
+    // 标题标准化（保持原样，因为触发词是大小写敏感的）
+    const normalizedTitle = title;
+    
+    let result = false;
+    if (mode === "all") {
+      // 必须包含所有触发词 - 使用短路评估优化
+      result = triggers.every(trigger => normalizedTitle.includes(trigger));
+    } else {
+      // 默认 "any" 模式：包含任意触发词即可 - 使用短路评估优化
+      result = triggers.some(trigger => normalizedTitle.includes(trigger));
+    }
+    
+    // 性能监控：记录超过阈值的调用
+    if (startTime) {
+      const duration = Date.now() - startTime;
+      if (duration > 5) { // 超过5ms记录
+        MNUtil.log(`⚠️ 上下文检查耗时 ${duration}ms: 标题="${title.substring(0, 30)}..." 触发词=${triggers.length}个`);
+      }
     }
     
     return result;
@@ -9508,22 +9596,65 @@ class MNMath {
             
             this.initSearchConfig();
             
+            // 处理兼容性：为导入的同义词组添加新字段的默认值
+            const processedGroups = config.synonymGroups.map(group => {
+              // 确保新字段有正确的默认值
+              const processedGroup = {
+                ...group,
+                // 如果没有 contextTriggers 字段，设为 undefined（全局模式）
+                contextTriggers: group.contextTriggers !== undefined ? group.contextTriggers : undefined,
+                // 如果没有 contextMode 字段，设为默认值 "any"
+                contextMode: group.contextMode || "any",
+                // 如果没有 caseSensitive 字段，设为默认值 false
+                caseSensitive: group.caseSensitive !== undefined ? group.caseSensitive : false
+              };
+
+              // 验证 contextMode 的有效性
+              if (processedGroup.contextMode && !["any", "all"].includes(processedGroup.contextMode)) {
+                processedGroup.contextMode = "any";
+              }
+
+              // 验证 caseSensitive 的有效性
+              if (typeof processedGroup.caseSensitive !== 'boolean') {
+                processedGroup.caseSensitive = false;
+              }
+
+              // 验证 contextTriggers 的有效性
+              if (processedGroup.contextTriggers && !Array.isArray(processedGroup.contextTriggers)) {
+                processedGroup.contextTriggers = undefined;
+              }
+
+              return processedGroup;
+            });
+
             if (buttonIndex === 1) {
               // 替换模式
-              this.searchRootConfigs.synonymGroups = config.synonymGroups;
+              this.searchRootConfigs.synonymGroups = processedGroups;
               if (config.searchRootConfigs) {
                 Object.assign(this.searchRootConfigs, config.searchRootConfigs);
               }
             } else if (buttonIndex === 2) {
               // 合并模式
               const existingIds = new Set(this.searchRootConfigs.synonymGroups.map(g => g.id));
-              for (const group of config.synonymGroups) {
+              let addedCount = 0;
+              
+              for (const group of processedGroups) {
                 if (!existingIds.has(group.id)) {
                   // 生成新ID避免冲突
                   group.id = "group_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
                   this.searchRootConfigs.synonymGroups.push(group);
+                  addedCount++;
                 }
               }
+              
+              if (addedCount < processedGroups.length) {
+                MNUtil.showHUD(`✅ 已导入 ${addedCount}/${processedGroups.length} 个同义词组\n${processedGroups.length - addedCount} 个重复组已跳过`);
+              } else {
+                MNUtil.showHUD(`✅ 已导入 ${addedCount} 个同义词组`);
+              }
+              this.saveSearchConfig();
+              resolve(true);
+              return;
             }
             
             this.saveSearchConfig();
@@ -9580,10 +9711,11 @@ class MNMath {
       }
       
       // 获取分组的扩展关键词（用于"与"逻辑搜索）
-      const expandedKeywordGroups = this.expandKeywordsWithSynonymsGrouped(keywords);
+      // 注意：这里先不传递标题，因为每个卡片的标题不同，将在后面的循环中动态扩展
+      const baseExpandedKeywordGroups = this.expandKeywordsWithSynonymsGrouped(keywords);
       
       // 计算总扩展词数用于显示
-      const totalExpandedCount = expandedKeywordGroups.reduce((sum, group) => sum + group.length, 0);
+      const totalExpandedCount = baseExpandedKeywordGroups.reduce((sum, group) => sum + group.length, 0);
       if (totalExpandedCount > keywords.length) {
         MNUtil.showHUD(`🔄 关键词已扩展：${keywords.length}个词组，共${totalExpandedCount}个词`);
         await MNUtil.delay(0.5);
@@ -9707,6 +9839,9 @@ class MNMath {
             searchText = searchText + " " + keywordsContent;
           }
         }
+        
+        // 根据当前卡片的标题动态扩展关键词
+        const expandedKeywordGroups = this.expandKeywordsWithSynonymsGrouped(keywords, title);
         
         // 使用"与"逻辑：每个关键词组必须至少有一个匹配
         // 例如：输入 "A//B"，A 及其同义词为一组，B 及其同义词为一组
@@ -11651,11 +11786,11 @@ class MNMath {
       // 第三步：选择是否开启局部替换
       const enablePartial = await new Promise((resolve) => {
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "选择模式",
+          "选择替换模式",
           `组名：${groupName}\n词汇：${words.join(", ")}\n\n是否开启局部替换？\n• 开启：在长词中也会匹配（如"柯西"会匹配"柯西-施瓦茨"）\n• 关闭：只匹配完整的词`,
           0,
           "取消",
-          ["添加（普通）", "添加（开启局部替换）"],
+          ["下一步（普通）", "下一步（局部替换）"],
           (alert, buttonIndex) => {
             if (buttonIndex === 0) {
               resolve(null);
@@ -11670,13 +11805,138 @@ class MNMath {
       if (enablePartial === null) {
         continue; // 返回重新输入
       }
+
+      // 第四步：选择大小写敏感
+      const caseSensitive = await new Promise((resolve) => {
+        const partialText = enablePartial ? "（局部替换）" : "（普通）";
+        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+          "大小写匹配",
+          `组名：${groupName}${partialText}\n词汇：${words.join(", ")}\n\n是否启用大小写敏感匹配？\n• 启用：Machine 和 machine 视为不同词汇\n• 不启用：Machine 和 machine 视为相同词汇`,
+          0,
+          "取消", 
+          ["下一步（不敏感）", "下一步（大小写敏感）"],
+          (alert, buttonIndex) => {
+            if (buttonIndex === 0) {
+              resolve(null);
+              return;
+            }
+            
+            resolve(buttonIndex === 2); // 第二个按钮为启用大小写敏感
+          }
+        );
+      });
+
+      if (caseSensitive === null) {
+        continue; // 返回重新输入
+      }
+
+      // 第五步：设置上下文触发词（可选）
+      let contextTriggers = undefined;
+      let contextMode = "any";
+      
+      const setContext = await new Promise((resolve) => {
+        const partialText = enablePartial ? "（局部替换）" : "（普通）";
+        const caseText = caseSensitive ? "（大小写敏感）" : "";
+        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+          "上下文触发词",
+          `组名：${groupName}${partialText}${caseText}\n词汇：${words.join(", ")}\n\n是否设置上下文触发词？\n• 设置：仅当卡片标题包含特定词汇时才应用\n• 跳过：全局应用（对所有卡片生效，推荐）`,
+          0,
+          "取消",
+          ["直接添加（全局）", "设置触发词"],
+          (alert, buttonIndex) => {
+            if (buttonIndex === 0) {
+              resolve(null);
+              return;
+            }
+            
+            resolve(buttonIndex === 2); // 第二个按钮为设置触发词
+          }
+        );
+      });
+
+      if (setContext === null) {
+        continue; // 返回重新输入
+      }
+
+      // 如果选择设置触发词，进行触发词配置
+      if (setContext) {
+        // 输入触发词
+        const triggerInput = await new Promise((resolve) => {
+          UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+            "设置触发词",
+            "请输入触发词，用逗号分隔：\n例如：内积空间, 赋范线性空间\n\n触发词说明：\n• 只有当卡片标题包含这些词汇时，才会应用该同义词组\n• 适合特定领域的专业术语",
+            2, // 输入框样式
+            "取消",
+            ["完成设置"],
+            (alert, buttonIndex) => {
+              if (buttonIndex === 0) {
+                resolve(null);
+                return;
+              }
+              
+              const input = alert.textFieldAtIndex(0).text.trim();
+              resolve(input);
+            }
+          );
+        });
+
+        if (triggerInput === null) {
+          continue; // 返回重新输入
+        }
+
+        if (triggerInput) {
+          // 解析触发词
+          const parsedTriggers = triggerInput.split(",")
+            .map(t => t.trim())
+            .filter(t => t.length > 0);
+
+          if (parsedTriggers.length > 0) {
+            contextTriggers = parsedTriggers;
+
+            // 如果有多个触发词，选择匹配模式
+            if (parsedTriggers.length > 1) {
+              const mode = await new Promise((resolve) => {
+                UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+                  "选择触发模式",
+                  `已设置 ${parsedTriggers.length} 个触发词：\n${parsedTriggers.join(", ")}\n\n请选择匹配模式：`,
+                  0,
+                  "取消",
+                  ["任意匹配（推荐）", "全部匹配"],
+                  (alert, buttonIndex) => {
+                    if (buttonIndex === 0) {
+                      resolve(null);
+                      return;
+                    }
+                    
+                    resolve(buttonIndex === 1 ? "any" : "all");
+                  }
+                );
+              });
+
+              if (mode === null) {
+                continue; // 返回重新输入
+              }
+              
+              contextMode = mode;
+            }
+          }
+        }
+      }
       
       // 添加同义词组
-      const result = this.addSynonymGroup(groupName, words, enablePartial);
+      const result = this.addSynonymGroup(groupName, words, enablePartial, contextTriggers, contextMode, caseSensitive);
       if (result) {
         addedCount++;
-        const modeText = enablePartial ? "（局部替换）" : "（普通）";
-        MNUtil.showHUD(`✅ 已添加：${groupName}${modeText}`);
+        let configText = "";
+        if (enablePartial) configText += "局部替换·";
+        if (caseSensitive) configText += "大小写敏感·";
+        if (contextTriggers && contextTriggers.length > 0) {
+          const modeText = contextMode === "all" ? "全部匹配" : "任意匹配";
+          configText += `触发词${contextTriggers.length}个(${modeText})`;
+        } else {
+          configText += "全局应用";
+        }
+        MNUtil.showHUD(`✅ 已添加：${groupName}\n配置：${configText}`);
       }
       
       // 第四步：询问是否继续添加
@@ -11707,6 +11967,8 @@ class MNMath {
       const options = [
         group.enabled ? "🔴 禁用此组" : "🟢 启用此组",
         group.partialReplacement ? "🔄 关闭局部替换" : "🔄 开启局部替换",  // 新增
+        "🌍 设置触发词",  // 新增
+        group.caseSensitive ? "🔠 关闭大小写敏感" : "🔠 开启大小写敏感",  // 新增
         "✏️ 编辑词汇",
         "📝 重命名组",
         "🗑 删除此组",
@@ -11717,7 +11979,14 @@ class MNMath {
       
       const wordsPreview = group.words.join(", ");
       const partialStatus = group.partialReplacement ? "已开启" : "已关闭";
-      const message = `词汇：${wordsPreview}\n状态：${group.enabled ? "已启用" : "已禁用"}\n局部替换：${partialStatus}\n创建时间：${new Date(group.createdAt).toLocaleDateString()}`;
+      const caseSensitiveStatus = group.caseSensitive ? "大小写敏感" : "大小写不敏感";
+      let contextInfo = "全局";
+      if (group.contextTriggers && group.contextTriggers.length > 0) {
+        const mode = group.contextMode === "all" ? "全部" : "任意";
+        contextInfo = `触发词(${mode}): ${group.contextTriggers.join(", ")}`;
+      }
+      
+      const message = `词汇：${wordsPreview}\n状态：${group.enabled ? "已启用" : "已禁用"}\n局部替换：${partialStatus}\n大小写：${caseSensitiveStatus}\n上下文：${contextInfo}\n创建时间：${new Date(group.createdAt).toLocaleDateString()}`;
       
       const result = await MNUtil.userSelect(group.name, message, options);
       
@@ -11740,15 +12009,26 @@ class MNMath {
           MNUtil.showHUD(group.partialReplacement ? "🔄 已开启局部替换" : "已关闭局部替换");
           break;
           
-        case 3: // 编辑词汇
+        case 3: // 设置触发词
+          await this.editContextTriggers(group);
+          break;
+          
+        case 4: // 大小写敏感
+          group.caseSensitive = !group.caseSensitive;
+          group.updatedAt = Date.now();
+          this.saveSearchConfig();
+          MNUtil.showHUD(group.caseSensitive ? "🔠 已开启大小写敏感" : "已关闭大小写敏感");
+          break;
+          
+        case 5: // 编辑词汇
           await this.editSynonymWords(group);
           break;
           
-        case 4: // 重命名
+        case 6: // 重命名
           await this.renameSynonymGroup(group);
           break;
           
-        case 5: // 删除
+        case 7: // 删除
           const confirmDelete = await this.confirmAction(
             "确认删除",
             `确定要删除"${group.name}"吗？\n此操作不可恢复。`
@@ -11759,20 +12039,213 @@ class MNMath {
           }
           break;
           
-        case 6: // 复制词汇
+        case 8: // 复制词汇
           MNUtil.copy(group.words.join(", "));
           MNUtil.showHUD("📋 已复制到剪贴板");
           break;
           
-        case 7: // 分隔线
+        case 9: // 分隔线
           break;
           
-        case 8: // 测试局部替换
+        case 10: // 测试局部替换
           await this.testPartialReplacement(group);
           break;
       }
     } catch (error) {
       MNUtil.showHUD("编辑同义词组失败：" + error.message);
+    }
+  }
+
+  /**
+   * 编辑上下文触发词
+   * @param {Object} group - 同义词组对象
+   */
+  static async editContextTriggers(group) {
+    try {
+      // 显示当前配置信息
+      let currentInfo = "当前配置：";
+      if (group.contextTriggers && group.contextTriggers.length > 0) {
+        const mode = group.contextMode === "all" ? "全部匹配" : "任意匹配";
+        currentInfo += `\n触发词：${group.contextTriggers.join(", ")}\n匹配模式：${mode}`;
+      } else {
+        currentInfo += "\n全局应用（无触发词限制）";
+      }
+
+      // 第一步：选择操作类型
+      const actionOptions = [
+        "✏️ 修改触发词",
+        "🔄 切换匹配模式",
+        "🗑 清除触发词（改为全局）",
+        "ℹ️ 查看帮助"
+      ];
+
+      const action = await MNUtil.userSelect(
+        "设置上下文触发词",
+        currentInfo,
+        actionOptions
+      );
+
+      if (action === null || action === 0) return;
+
+      switch (action) {
+        case 1: // 修改触发词
+          await this.editTriggerWords(group);
+          break;
+
+        case 2: // 切换匹配模式
+          if (group.contextTriggers && group.contextTriggers.length > 0) {
+            group.contextMode = group.contextMode === "all" ? "any" : "all";
+            group.updatedAt = Date.now();
+            this.saveSearchConfig();
+            const newMode = group.contextMode === "all" ? "全部匹配" : "任意匹配";
+            MNUtil.showHUD(`🔄 匹配模式已改为：${newMode}`);
+          } else {
+            MNUtil.showHUD("⚠️ 请先设置触发词");
+          }
+          break;
+
+        case 3: // 清除触发词
+          const confirm = await MNUtil.confirm(
+            "确认清除触发词",
+            "清除后该同义词组将全局应用（对所有卡片生效）",
+            ["取消", "确认清除"]
+          );
+          if (confirm === 1) {
+            group.contextTriggers = undefined;
+            group.contextMode = "any";
+            group.updatedAt = Date.now();
+            this.saveSearchConfig();
+            MNUtil.showHUD("✅ 已清除触发词，改为全局应用");
+          }
+          break;
+
+        case 4: // 查看帮助
+          const helpText = `🔍 上下文触发词功能说明：
+
+📌 全局模式（默认）：
+   • 对所有卡片生效
+   • 适合通用同义词
+
+🎯 上下文模式：
+   • 仅当卡片标题包含触发词时生效
+   • 适合特定领域的专业术语
+
+🔄 匹配模式：
+   • 任意匹配：包含任一触发词即生效
+   • 全部匹配：必须包含所有触发词
+
+💡 示例：
+   触发词：["内积空间", "赋范空间"]
+   • 任意匹配：标题包含其中任一词即生效
+   • 全部匹配：标题必须同时包含两个词`;
+
+          await MNUtil.confirm("上下文触发词帮助", helpText, ["知道了"]);
+          // 显示帮助后返回主界面
+          await this.editContextTriggers(group);
+          break;
+      }
+    } catch (error) {
+      MNUtil.showHUD("编辑触发词失败：" + error.message);
+    }
+  }
+
+  /**
+   * 编辑具体的触发词内容
+   * @param {Object} group - 同义词组对象
+   */
+  static async editTriggerWords(group) {
+    try {
+      const currentTriggers = group.contextTriggers || [];
+      const currentText = currentTriggers.join(", ");
+
+      // 输入新的触发词
+      const newTriggers = await new Promise((resolve) => {
+        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+          "设置触发词",
+          `当前触发词：${currentText || "（无）"}\n\n请输入新的触发词，用逗号分隔：\n例如：内积空间, 赋范线性空间`,
+          2, // 输入框样式
+          "取消",
+          ["确定"],
+          (alert, buttonIndex) => {
+            if (buttonIndex === 0) {
+              resolve(null); // 用户取消
+            } else {
+              const input = alert.textFieldAtIndex(0).text.trim();
+              resolve(input);
+            }
+          }
+        );
+      });
+
+      if (newTriggers === null) return; // 用户取消
+
+      // 解析和验证输入
+      if (newTriggers === "") {
+        // 空输入，询问是否清除
+        const confirmClear = await MNUtil.confirm(
+          "确认清除",
+          "输入为空，是否清除所有触发词？\n清除后将改为全局应用。",
+          ["取消", "清除"]
+        );
+        if (confirmClear === 1) {
+          group.contextTriggers = undefined;
+          group.contextMode = "any";
+          group.updatedAt = Date.now();
+          this.saveSearchConfig();
+          MNUtil.showHUD("✅ 已清除触发词");
+        }
+        return;
+      }
+
+      // 解析触发词
+      const parsedTriggers = newTriggers.split(",")
+        .map(t => t.trim())
+        .filter(t => t.length > 0);
+
+      if (parsedTriggers.length === 0) {
+        MNUtil.showHUD("⚠️ 请输入有效的触发词");
+        return;
+      }
+
+      // 验证触发词长度
+      const invalidTriggers = parsedTriggers.filter(t => t.length > 50);
+      if (invalidTriggers.length > 0) {
+        MNUtil.showHUD("⚠️ 触发词长度不能超过50字符");
+        return;
+      }
+
+      // 保存新的触发词
+      group.contextTriggers = parsedTriggers;
+      if (!group.contextMode) {
+        group.contextMode = "any"; // 默认任意匹配
+      }
+      group.updatedAt = Date.now();
+      this.saveSearchConfig();
+
+      // 如果有多个触发词，询问匹配模式
+      if (parsedTriggers.length > 1) {
+        const modeOptions = [
+          "任意匹配（推荐）",
+          "全部匹配"
+        ];
+        const modeChoice = await MNUtil.userSelect(
+          "选择匹配模式",
+          `已设置 ${parsedTriggers.length} 个触发词：\n${parsedTriggers.join(", ")}\n\n请选择匹配模式：`,
+          modeOptions
+        );
+
+        if (modeChoice !== null && modeChoice > 0) {
+          group.contextMode = modeChoice === 1 ? "any" : "all";
+          group.updatedAt = Date.now();
+          this.saveSearchConfig();
+        }
+      }
+
+      const modeText = group.contextMode === "all" ? "全部匹配" : "任意匹配";
+      MNUtil.showHUD(`✅ 已设置 ${parsedTriggers.length} 个触发词（${modeText}）`);
+
+    } catch (error) {
+      MNUtil.showHUD("编辑触发词失败：" + error.message);
     }
   }
 
