@@ -29,9 +29,15 @@ JSB.newAddon = function(mainPath){
      * 注意：此时可能还没有笔记本或文档打开
      */
     sceneWillConnect: function() {
-      // showHUD 是 MarginNote 提供的消息显示方法
-      // 参数：消息内容，目标窗口，显示时长（秒）
-      Application.sharedInstance().showHUD('Hello World', self.window, 2);
+      MNUtil.undoGrouping(()=>{
+        try {
+          self.appInstance = Application.sharedInstance();
+          MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
+          MNUtil.addObserver(self, 'onNoteTitleContainsXDYY:', 'NoteTitleContainsXDYY')
+        } catch (error) {
+          MNUtil.showHUD(error);
+        }
+      })
     },
     
     /**
@@ -44,6 +50,14 @@ JSB.newAddon = function(mainPath){
      */
     sceneDidDisconnect: function() {
       // 目前为空，但建议在实际项目中添加清理代码
+      MNUtil.undoGrouping(()=>{
+        try {
+          MNUtil.removeObserver(self,'NoteTitleContainsXDYY')
+          MNUtil.removeObserver(self,'PopupMenuOnNote')
+        } catch (error) {
+          MNUtil.showHUD(error);
+        }
+      })
     },
     
     /**
@@ -128,6 +142,44 @@ JSB.newAddon = function(mainPath){
     documentWillClose: function(docmd5) {
       // 示例中为空实现
     },
+
+
+    // 生命周期测试
+
+    onPopupMenuOnNote: async function (sender) {
+      MNUtil.undoGrouping(()=>{
+        try {
+          // sender.userInfo.note 可能是空的，
+          self.note = MNNote.getFocusNote()
+          if (self.note){
+            self.noteTitle = self.note.title
+            if (self.noteTitle.includes("夏大鱼羊")) {
+              MNUtil.postNotification('NoteTitleContainsXDYY', {title: self.noteTitle})
+              MNUtil.log("发送了")
+            } else {
+              MNUtil.showHUD("我在找！")
+              MNUtil.log("没发送，但点击了")
+            }
+          }
+        } catch (error) {
+          MNUtil.showHUD(error);
+        }
+      })
+    },
+
+    /**
+     * 卡片标题包含“夏大鱼羊”时
+     */
+    onNoteTitleContainsXDYY: async function(sender) {
+      MNUtil.undoGrouping(()=>{
+        try {
+          MNUtil.showHUD("夏大鱼羊是个大帅哥！")
+          MNUtil.log("成功了！title: " + sender.userInfo.title)
+        } catch (error) {
+          MNUtil.showHUD(error);
+        }
+      })
+    }
   }, 
   
   /*=== 类成员（Class members）===
