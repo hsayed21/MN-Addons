@@ -3075,10 +3075,10 @@ function registerAllCustomActions() {
           // 延迟一下确保合并完成
           MNUtil.delay(0.1).then(() => {
             // 获取最新评论的索引（最后一条）
-            const lastCommentIndex = parentNote.comments.length - 1;
+            const commentsArr = MNMath.autoGetNewContentToMoveIndexArr(parentNote)
             if (lastCommentIndex >= 0) {
               // 将最新评论移动到最顶端（索引0）
-              parentNote.moveCommentsByIndexArr([lastCommentIndex], 0);
+              parentNote.moveCommentsByIndexArr(commentsArr, 0);
               MNUtil.showHUD("✅ 已合并到父卡片并移动到最顶端");
             }
           });
