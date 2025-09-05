@@ -78,7 +78,9 @@
       "Bash(wc:*)",
       "mcp__serena__get_symbols_overview",
       "WebFetch(domain:api.github.com)",
-      "Read(/private/tmp/claude-workflow-test/.claude/**)"
+      "Read(/private/tmp/claude-workflow-test/.claude/**)",
+      "Read(//Users/xiakangwei/.claude/**)",
+      "Bash(claude-code-spec-workflow:*)"
     ],
     "deny": []
   }
