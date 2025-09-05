@@ -1638,6 +1638,9 @@ class MNMath {
     
     // 处理不同类型转换时的第一个字段替换
     this.replaceFirstFieldIfNeeded(note)
+
+    // 去掉一些评论，比如“- ”
+    this.removeUnnecessaryComments(note)
     
     switch (this.getNoteType(note)) {
       case "归类":
@@ -1653,6 +1656,26 @@ class MNMath {
         this.moveRelatedConceptsToRelatedThoughts(note);
         break;
     }
+  }
+
+  static removeUnnecessaryComments(note) {
+    let comments = note.MNComments;
+    let unnecessaryPatterns = [
+      /^\s*-\s*$/, // 仅包含“- ”的评论
+    ]
+    MNUtil.undoGrouping(() => {
+      for (let i = comments.length - 1; i >= 0; i--){
+        let comment = comments[i];
+        if (comment && 
+          (comment.type === "textComment" || comment.type === "markdownComment")
+        ) {
+          let isUnnecessary = unnecessaryPatterns.some(pattern => pattern.test(comment.text));
+          if (isUnnecessary) {
+            note.removeCommentByIndex(i);
+          }
+        }
+      }
+    })
   }
 
   /**
