@@ -1636,6 +1636,9 @@ class MNMath {
     this.cleanupBrokenLinks(note)
     this.fixMergeProblematicLinks(note)
     
+    // 处理空的"关键词："字段
+    this.processEmptyKeywordField(note)
+    
     // 处理不同类型转换时的第一个字段替换
     this.replaceFirstFieldIfNeeded(note)
 
@@ -1731,6 +1734,72 @@ class MNMath {
     }
     
     // MNUtil.log(`✅ 已将"相关概念："字段下的 ${contentIndices.length} 条内容移动到"相关思考"字段下方`);
+  }
+
+  /**
+   * 处理空的"关键词："字段
+   * 识别并处理"关键词："字段是否为空（冒号后没有空格或没有其他非空格内容）
+   * 如果是空的，则删除该字段并用模板卡片的内容替换
+   * 
+   * @param {MNNote} note - 要处理的卡片
+   */
+  static processEmptyKeywordField(note) {
+    let commentsObj = this.parseNoteComments(note);
+    let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
+    
+    // 查找"关键词："字段
+    let keywordFieldObj = null;
+    
+    for (let i = 0; i < htmlCommentsObjArr.length; i++) {
+      let fieldObj = htmlCommentsObjArr[i];
+      // 检查是否是"关键词："字段（支持中英文冒号）
+      if (/^关键词[:：]\s*$/.test(fieldObj.text.trim())) {
+        keywordFieldObj = fieldObj;
+        break;
+      }
+    }
+    
+    // 如果没有找到空的"关键词："字段，直接返回
+    if (!keywordFieldObj) {
+      return;
+    }
+    
+    try {
+      // 记录原始字段的索引位置
+      let originalFieldIndex = keywordFieldObj.index;
+      
+      // 删除空的"关键词："字段
+      note.removeCommentByIndex(originalFieldIndex);
+      
+      // 获取模板卡片并克隆合并
+      let templateNoteId = "13D040DD-A662-4EFF-A751-217EE9AB7D2E";
+      let templateNote = MNNote.new(templateNoteId, false);
+      
+      if (templateNote) {
+        // 克隆模板卡片到当前卡片
+        let clonedNote = templateNote.clone();
+        if (clonedNote) {
+          // 合并克隆的卡片到当前卡片（新内容会添加到末尾）
+          clonedNote.mergeInto(note);
+          
+          // 新合并的"关键词："字段在最后一个位置（note.comments.length - 1）
+          // 将它移动到原来的位置
+          let lastCommentIndex = note.comments.length - 1;
+          note.moveComment(lastCommentIndex, originalFieldIndex);
+          
+          // 刷新显示
+          note.refresh();
+        }
+      } else {
+        MNUtil.log("警告：无法找到关键词模板卡片 (ID: 13D040DD-A662-4EFF-A751-217EE9AB7D2E)");
+      }
+      
+    } catch (error) {
+      MNUtil.addErrorLog(error, "processEmptyKeywordField", {
+        noteId: note.noteId,
+        noteTitle: note.noteTitle
+      });
+    }
   }
 
   /**
