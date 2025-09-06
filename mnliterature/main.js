@@ -32,6 +32,7 @@ JSB.newAddon = function(mainPath){
       MNUtil.undoGrouping(()=>{
         try {
           self.appInstance = Application.sharedInstance();
+          self.toggled = false
           MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
           MNUtil.addObserver(self, 'onNoteTitleContainsXDYY:', 'NoteTitleContainsXDYY')
         } catch (error) {
@@ -141,6 +142,25 @@ JSB.newAddon = function(mainPath){
      */
     documentWillClose: function(docmd5) {
       // 示例中为空实现
+    },
+
+
+    queryAddonCommandStatus() {
+      return MNUtil.studyMode !== 3
+        ? {
+            image: "logo.png",
+            object: self,
+            selector: "onToggle:",
+            checked: self.toggled
+          }
+        : null
+    },
+
+    // 点击插件图标执行的方法。
+    async onToggle() {
+      // 刷新插件按钮状态
+      self.toggled = !self.toggled
+      MNUtil.refreshAddonCommands()
     },
 
 
