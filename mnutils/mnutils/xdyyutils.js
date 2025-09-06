@@ -1503,6 +1503,7 @@ class MNMath {
     
     // 收集文本和链接，按字段分组
     let fieldContents = {}; // { fieldName: { texts: [], links: [] } }
+    let applicationLinks = []; // 专门收集"应用"字段的链接
     let currentField = null;
     
     // 遍历所有评论
@@ -1541,30 +1542,40 @@ class MNMath {
             if (!targetNoteId.includes("/summary/")) {
               let targetNote = MNNote.new(targetNoteId, false);
               if (targetNote) {
-                fieldContents[currentField].links.push(comment.text);
+                // 如果是"应用"字段的链接，单独收集
+                if (currentField === "应用") {
+                  applicationLinks.push(comment.text);
+                } else {
+                  fieldContents[currentField].links.push(comment.text);
+                }
               }
             }
           } else {
-            // 普通文本
+            // 普通文本 - 所有字段的文本都放到 fieldContents
             fieldContents[currentField].texts.push(comment.text);
           }
         } else if (comment.type === "LinkNote") {
           // LinkNote 可能是 mergedTextComment 或其他链接
           let commentType = MNComment.getCommentType(comment);
           if (commentType === "mergedTextComment" || commentType === "linkComment") {
-            fieldContents[currentField].links.push(comment.text);
+            // 如果是"应用"字段的链接，单独收集
+            if (currentField === "应用") {
+              applicationLinks.push(comment.text);
+            } else {
+              fieldContents[currentField].links.push(comment.text);
+            }
           }
         }
       }
     }
     
     // 检查是否有需要迁移的内容
-    let hasContent = Object.values(fieldContents).some(field => 
+    let hasFieldContent = Object.values(fieldContents).some(field => 
       field.texts.length > 0 || field.links.length > 0
     );
     
-    if (hasContent) {
-      // 创建子卡片
+    // 创建第一个子卡片：包含所有非应用链接的内容
+    if (hasFieldContent) {
       let config = {
         title: "旧模板内容",
         content: "",
@@ -1578,7 +1589,7 @@ class MNMath {
         Object.keys(fieldContents).forEach(fieldName => {
           let field = fieldContents[fieldName];
           
-          // 只添加有内容的字段
+          // 只添加有内容的字段（应用字段的链接已被排除）
           if (field.texts.length > 0 || field.links.length > 0) {
             // 添加字段标题
             childNote.appendMarkdownComment(`- ${fieldName}`);
@@ -1588,11 +1599,29 @@ class MNMath {
               childNote.appendMarkdownComment(text);
             });
             
-            // 添加链接
+            // 添加链接（应用字段不会有链接在这里）
             field.links.forEach(link => {
               childNote.appendTextComment(link);
             });
           }
+        });
+      });
+    }
+    
+    // 创建第二个子卡片：专门存放应用字段的链接
+    if (applicationLinks.length > 0) {
+      let config = {
+        title: "", // 无标题
+        content: "",
+        markdown: false,
+        color: note.colorIndex
+      };
+      let applicationCard = note.createChildNote(config);
+      
+      // 添加所有应用链接
+      MNUtil.undoGrouping(() => {
+        applicationLinks.forEach(link => {
+          applicationCard.appendTextComment(link);
         });
       });
     }
@@ -8042,27 +8071,34 @@ class MNMath {
   }
 
   /**
-   * 获取完整的搜索配置（包括同义词）
+   * 获取完整的搜索配置（包括同义词、排除词组、根目录群组）
    * @returns {Object} 配置对象
    */
   static getFullSearchConfig() {
     this.initSearchConfig();
     
     return {
-      version: "1.0",
+      version: "3.0",  // 升级版本号以支持新功能
       exportDate: new Date().toISOString(),
       exportFrom: "MNMath",
       searchConfig: {
         roots: this.searchRootConfigs.roots,
         rootsOrder: this.searchRootConfigs.rootsOrder,
         lastUsedRoot: this.searchRootConfigs.lastUsedRoot,
+        lastUsedRoots: this.searchRootConfigs.lastUsedRoots || [],  // 新增：支持多选根目录
+        
+        // 新增：根目录群组
+        rootGroups: this.searchRootConfigs.rootGroups || {},
+        lastUsedGroup: this.searchRootConfigs.lastUsedGroup || null,
+        
         includeClassification: this.searchRootConfigs.includeClassification,
         onlyClassification: this.searchRootConfigs.onlyClassification,
         ignorePrefix: this.searchRootConfigs.ignorePrefix,
         searchInKeywords: this.searchRootConfigs.searchInKeywords,
         skipEmptyTitle: this.searchRootConfigs.skipEmptyTitle
       },
-      synonymGroups: this.searchRootConfigs.synonymGroups || []
+      synonymGroups: this.searchRootConfigs.synonymGroups || [],
+      exclusionGroups: this.searchRootConfigs.exclusionGroups || []  // 新增：排除词组配置
     };
   }
 
@@ -8261,6 +8297,10 @@ class MNMath {
                 this.searchRootConfigs.roots = searchConfig.roots;
                 this.searchRootConfigs.rootsOrder = searchConfig.rootsOrder || Object.keys(searchConfig.roots);
                 this.searchRootConfigs.lastUsedRoot = searchConfig.lastUsedRoot || "default";
+                // 新增：支持多选根目录和根目录群组
+                this.searchRootConfigs.lastUsedRoots = searchConfig.lastUsedRoots || [];
+                this.searchRootConfigs.rootGroups = searchConfig.rootGroups || {};
+                this.searchRootConfigs.lastUsedGroup = searchConfig.lastUsedGroup || null;
               }
               
               // 应用其他设置
@@ -8284,6 +8324,11 @@ class MNMath {
               if (synonymGroups) {
                 this.searchRootConfigs.synonymGroups = synonymGroups;
               }
+              
+              // 新增：替换排除词组
+              if (config.exclusionGroups) {
+                this.searchRootConfigs.exclusionGroups = config.exclusionGroups;
+              }
             } else if (buttonIndex === 2) {
               // 合并模式
               // 合并根目录
@@ -8299,6 +8344,27 @@ class MNMath {
                     }
                   }
                 }
+                
+                // 新增：合并多选根目录
+                if (searchConfig.lastUsedRoots && searchConfig.lastUsedRoots.length > 0) {
+                  // 如果当前没有设置，直接使用导入的
+                  if (!this.searchRootConfigs.lastUsedRoots || this.searchRootConfigs.lastUsedRoots.length === 0) {
+                    this.searchRootConfigs.lastUsedRoots = searchConfig.lastUsedRoots;
+                  }
+                }
+                
+                // 新增：合并根目录群组
+                if (searchConfig.rootGroups) {
+                  if (!this.searchRootConfigs.rootGroups) {
+                    this.searchRootConfigs.rootGroups = {};
+                  }
+                  // 合并群组，避免覆盖现有群组
+                  for (const groupName in searchConfig.rootGroups) {
+                    if (!this.searchRootConfigs.rootGroups[groupName]) {
+                      this.searchRootConfigs.rootGroups[groupName] = searchConfig.rootGroups[groupName];
+                    }
+                  }
+                }
               }
               
               // 合并同义词组
@@ -8311,6 +8377,20 @@ class MNMath {
                 for (const group of synonymGroups) {
                   if (!existingIds.has(group.id)) {
                     this.searchRootConfigs.synonymGroups.push(group);
+                  }
+                }
+              }
+              
+              // 新增：合并排除词组
+              if (config.exclusionGroups && config.exclusionGroups.length > 0) {
+                if (!this.searchRootConfigs.exclusionGroups) {
+                  this.searchRootConfigs.exclusionGroups = [];
+                }
+                // 避免重复
+                const existingIds = new Set(this.searchRootConfigs.exclusionGroups.map(g => g.id));
+                for (const group of config.exclusionGroups) {
+                  if (!existingIds.has(group.id)) {
+                    this.searchRootConfigs.exclusionGroups.push(group);
                   }
                 }
               }
@@ -12575,30 +12655,10 @@ class MNMath {
    */
   static async exportFullSearchConfig() {
     try {
-      this.initSearchConfig();
-      const config = {
-        version: "3.0",  // 升级版本以支持群组
-        type: "fullSearchConfig",
-        exportDate: new Date().toISOString(),
-        searchConfig: {
-          roots: this.searchRootConfigs.roots,
-          rootsOrder: this.searchRootConfigs.rootsOrder,
-          lastUsedRoot: this.searchRootConfigs.lastUsedRoot,
-          lastUsedRoots: this.searchRootConfigs.lastUsedRoots || [],  // 支持多选
-          
-          // 新增：根目录群组
-          rootGroups: this.searchRootConfigs.rootGroups || {},
-          lastUsedGroup: this.searchRootConfigs.lastUsedGroup || null,
-          
-          includeClassification: this.searchRootConfigs.includeClassification,
-          ignorePrefix: this.searchRootConfigs.ignorePrefix,
-          searchInKeywords: this.searchRootConfigs.searchInKeywords,
-          onlyClassification: this.searchRootConfigs.onlyClassification,
-          skipEmptyTitle: this.searchRootConfigs.skipEmptyTitle
-        },
-        synonymGroups: this.searchRootConfigs.synonymGroups || [],
-        exclusionGroups: this.searchRootConfigs.exclusionGroups || []
-      };
+      // 使用统一的配置获取函数
+      const config = this.getFullSearchConfig();
+      // 添加 type 字段用于识别
+      config.type = "fullSearchConfig";
       
       const jsonStr = JSON.stringify(config, null, 2);
       
