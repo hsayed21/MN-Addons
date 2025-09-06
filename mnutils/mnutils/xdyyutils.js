@@ -1497,9 +1497,8 @@ class MNMath {
    * @param {MNNote} note - 要处理的旧模板卡片
    */
   static processOldTemplateCard(note) {
-    let commentsObj = this.parseNoteComments(note);
-    let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
-    let comments = note.comments;
+    // 使用 MNComments 获取更精准的类型
+    let MNComments = note.MNComments;
     
     // 收集文本和链接，按字段分组
     let fieldContents = {}; // { fieldName: { texts: [], links: [] } }
@@ -1507,14 +1506,12 @@ class MNMath {
     let currentField = null;
     
     // 遍历所有评论
-    for (let i = 0; i < comments.length; i++) {
-      let comment = comments[i];
+    for (let i = 0; i < MNComments.length; i++) {
+      let mnComment = MNComments[i];
       
       // 检查是否是 HtmlComment（字段标记）
-      let isHtmlComment = htmlCommentsObjArr.some(obj => obj.index === i);
-      if (isHtmlComment) {
-        let fieldObj = htmlCommentsObjArr.find(obj => obj.index === i);
-        currentField = fieldObj.text.trim();
+      if (mnComment.type === "HtmlComment") {
+        currentField = mnComment.text.trim();
         if (!fieldContents[currentField]) {
           fieldContents[currentField] = { texts: [], links: [] };
         }
@@ -1522,49 +1519,29 @@ class MNMath {
       }
       
       // 跳过图片摘录和手写/绘图
-      if (comment.type === "PaintNote" || comment.type === "LinkNote") {
-        // PaintNote 包括图片、手写、绘图
-        // LinkNote 可能包含 mergedImageComment
-        let commentType = MNComment.getCommentType(comment);
-        if (commentType.toLowerCase().includes("image") || commentType.toLowerCase().includes("drawing")) {
-          continue;  // 保留这些内容
-        }
+      if (mnComment.type.toLowerCase().includes("image") || 
+          mnComment.type.toLowerCase().includes("drawing")) {
+        continue;  // 保留这些内容
       }
       
       // 收集文本和链接评论
       if (currentField) {
-        if (comment.type === "TextNote") {
-          // 检查是否是链接格式
-          if (comment.text.startsWith("marginnote3app://note/") || 
-              comment.text.startsWith("marginnote4app://note/")) {
-            // 验证链接有效性
-            let targetNoteId = comment.text.match(/marginnote[34]app:\/\/note\/(.*)/)[1];
-            if (!targetNoteId.includes("/summary/")) {
-              let targetNote = MNNote.new(targetNoteId, false);
-              if (targetNote) {
-                // 如果是"应用"字段的链接，单独收集
-                if (currentField === "应用") {
-                  applicationLinks.push(comment.text);
-                } else {
-                  fieldContents[currentField].links.push(comment.text);
-                }
-              }
-            }
+        // 处理链接类型（linkComment 和 summaryComment）
+        if (mnComment.type === "linkComment" || mnComment.type === "summaryComment") {
+          // 如果是"应用"字段的链接，单独收集
+          if (currentField === "应用") {
+            applicationLinks.push(mnComment.text);
           } else {
-            // 普通文本 - 所有字段的文本都放到 fieldContents
-            fieldContents[currentField].texts.push(comment.text);
+            fieldContents[currentField].links.push(mnComment.text);
           }
-        } else if (comment.type === "LinkNote") {
-          // LinkNote 可能是 mergedTextComment 或其他链接
-          let commentType = MNComment.getCommentType(comment);
-          if (commentType === "mergedTextComment" || commentType === "linkComment") {
-            // 如果是"应用"字段的链接，单独收集
-            if (currentField === "应用") {
-              applicationLinks.push(comment.text);
-            } else {
-              fieldContents[currentField].links.push(comment.text);
-            }
-          }
+        }
+        // 处理文本类型
+        else if (mnComment.type === "textComment" || 
+                 mnComment.type === "markdownComment" || 
+                 mnComment.type === "mergedTextComment" ||
+                 mnComment.type === "tagComment") {
+          // 所有字段的文本都放到 fieldContents
+          fieldContents[currentField].texts.push(mnComment.text);
         }
       }
     }
@@ -1628,16 +1605,16 @@ class MNMath {
     
     // 清理原卡片：删除除图片摘录和手写/绘图外的所有评论
     MNUtil.undoGrouping(() => {
+      // 使用原始 comments 数组进行删除操作（因为需要按索引删除）
+      let comments = note.comments;
       for (let i = comments.length - 1; i >= 0; i--) {
-        let comment = comments[i];
+        let mnComment = MNComments[i];
         let shouldKeep = false;
         
-        // 判断是否应该保留
-        if (comment.type === "PaintNote" || comment.type === "LinkNote") {
-          let commentType = MNComment.getCommentType(comment);
-          if (commentType.toLowerCase().includes("image") || commentType.toLowerCase().includes("drawing")) {
-            shouldKeep = true;
-          }
+        // 判断是否应该保留（图片和手写）
+        if (mnComment.type.toLowerCase().includes("image") || 
+            mnComment.type.toLowerCase().includes("drawing")) {
+          shouldKeep = true;
         }
         
         if (!shouldKeep) {
