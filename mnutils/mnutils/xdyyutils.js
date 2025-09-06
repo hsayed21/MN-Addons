@@ -7652,6 +7652,36 @@ class MNMath {
   static tempRootInfo = null; // 存储临时根目录信息
   static searchBoardId = "37F2105C-35E4-4840-AD79-DA4702C36BE1";  // 搜索筛选看板 ID
   
+  // 正则表达式搜索前缀
+  static REGEX_PREFIXES = ['r:', 're:', 'regex:'];
+  
+  /**
+   * 解析搜索关键词，识别正则表达式前缀
+   * @param {string} keyword - 输入的关键词
+   * @param {boolean} regexEnabled - 是否启用正则表达式搜索
+   * @returns {Object} 包含 type 和 pattern 的对象
+   */
+  static parseSearchKeyword(keyword, regexEnabled) {
+    if (!regexEnabled) {
+      // 未启用正则搜索，全部作为普通文本
+      return { type: 'text', pattern: keyword };
+    }
+    
+    // 检查是否有正则前缀
+    const lowerKeyword = keyword.toLowerCase();
+    for (const prefix of this.REGEX_PREFIXES) {
+      if (lowerKeyword.startsWith(prefix)) {
+        return {
+          type: 'regex',
+          pattern: keyword.substring(prefix.length).trim()
+        };
+      }
+    }
+    
+    // 无前缀，普通文本
+    return { type: 'text', pattern: keyword };
+  }
+  
   /**
    * 初始化搜索配置
    */
@@ -7703,6 +7733,7 @@ class MNMath {
           searchInKeywords: false,  // 默认不搜索关键词字段
           onlyClassification: false,  // 默认不启用只搜索归类卡片
           skipEmptyTitle: false,  // 默认不跳过空白标题卡片
+          enableRegexSearch: false,  // 默认不启用正则表达式搜索
           synonymGroups: [],  // 同义词组
           exclusionGroups: [],  // 排除词组
           lastModified: Date.now()
@@ -7734,6 +7765,10 @@ class MNMath {
       if (config && config.skipEmptyTitle === undefined) {
         config.skipEmptyTitle = false;
       }
+      // 添加正则表达式搜索字段
+      if (config && config.enableRegexSearch === undefined) {
+        config.enableRegexSearch = false;
+      }
       
       // 数据迁移：如果旧版本没有 rootsOrder，自动生成
       if (config && config.roots && !config.rootsOrder) {
@@ -7764,6 +7799,8 @@ class MNMath {
         ignorePrefix: false,  // 默认搜索完整标题
         searchInKeywords: false,  // 默认不搜索关键词字段
         onlyClassification: false,  // 默认不启用只搜索归类卡片
+        skipEmptyTitle: false,  // 默认不跳过空白标题卡片
+        enableRegexSearch: false,  // 默认不启用正则表达式搜索
         synonymGroups: [],  // 同义词组
         exclusionGroups: [],  // 排除词组
         lastModified: Date.now()
@@ -9767,6 +9804,12 @@ class MNMath {
         return [];
       }
       
+      // 获取正则搜索配置
+      const enableRegexSearch = this.searchRootConfigs ? this.searchRootConfigs.enableRegexSearch : false;
+      
+      // 解析关键词，识别正则表达式
+      const parsedKeywords = keywords.map(keyword => this.parseSearchKeyword(keyword, enableRegexSearch));
+      
       // 获取分组的扩展关键词（用于"与"逻辑搜索）
       // 注意：这里先不传递标题，因为每个卡片的标题不同，将在后面的循环中动态扩展
       const baseExpandedKeywordGroups = this.expandKeywordsWithSynonymsGrouped(keywords);
@@ -9776,6 +9819,15 @@ class MNMath {
       if (totalExpandedCount > keywords.length) {
         MNUtil.showHUD(`🔄 关键词已扩展：${keywords.length}个词组，共${totalExpandedCount}个词`);
         await MNUtil.delay(0.5);
+      }
+      
+      // 如果启用了正则搜索，显示提示
+      if (enableRegexSearch) {
+        const regexCount = parsedKeywords.filter(k => k.type === 'regex').length;
+        if (regexCount > 0) {
+          MNUtil.showHUD(`🔤 正则模式：${regexCount}个正则表达式`);
+          await MNUtil.delay(0.5);
+        }
       }
       
       // 获取激活的排除词信息
@@ -9905,14 +9957,33 @@ class MNMath {
         // 搜索文本必须包含第一组中的至少一个词 且 包含第二组中的至少一个词
         let allGroupsMatch = true;
         
-        for (const keywordGroup of expandedKeywordGroups) {
+        // 使用解析后的关键词进行匹配
+        for (let i = 0; i < parsedKeywords.length; i++) {
+          const parsedKeyword = parsedKeywords[i];
           let groupHasMatch = false;
           
-          // 检查当前组中是否有任何关键词匹配
-          for (const keyword of keywordGroup) {
-            if (searchText.includes(keyword)) {
-              groupHasMatch = true;
-              break;  // 找到匹配就跳出当前组的循环
+          if (parsedKeyword.type === 'regex') {
+            // 正则表达式匹配（不进行同义词扩展）
+            try {
+              const regex = new RegExp(parsedKeyword.pattern, 'i'); // 默认不区分大小写
+              if (regex.test(searchText)) {
+                groupHasMatch = true;
+              }
+            } catch (e) {
+              // 无效的正则表达式，跳过
+              MNUtil.log(`无效的正则表达式: ${parsedKeyword.pattern}`);
+            }
+          } else {
+            // 普通文本匹配（使用同义词扩展）
+            const keywordGroup = expandedKeywordGroups[i];
+            if (keywordGroup) {
+              // 检查当前组中是否有任何关键词匹配
+              for (const keyword of keywordGroup) {
+                if (searchText.includes(keyword)) {
+                  groupHasMatch = true;
+                  break;  // 找到匹配就跳出当前组的循环
+                }
+              }
             }
           }
           
@@ -10055,6 +10126,9 @@ class MNMath {
         // 显示跳过空白标题状态
         const skipEmptyTitle = this.searchRootConfigs.skipEmptyTitle;
         message += `\n🚫 跳过空白标题卡片：${skipEmptyTitle ? "☑️ 是" : "☐︎ 否"}`;
+        // 显示正则表达式搜索状态
+        const enableRegexSearch = this.searchRootConfigs.enableRegexSearch;
+        message += `\n🔤 正则表达式搜索：${enableRegexSearch ? "☑️ 是" : "☐︎ 否"}`;
         // 显示选中的类型（只搜索归类卡片时不显示类型选择）
         if (!onlyClassification) {
           if (selectedTypes !== null && selectedTypes.size > 0) {
@@ -10064,7 +10138,12 @@ class MNMath {
             message += `\n📋 搜索类型：全部`;
           }
         }
-        message += `\n\n💡 提示：点击"添加根目录"可使用当前卡片或输入ID/URL`;
+        // 根据正则搜索状态显示不同的提示
+        if (enableRegexSearch) {
+          message += `\n\n💡 正则模式已启用：\n• 使用前缀 r: re: regex: 标识正则表达式\n• 无前缀的关键词仍支持同义词扩展\n• 示例：r:^定理\\d+ 或 证明`;
+        } else {
+          message += `\n\n💡 提示：点击"添加根目录"可使用当前卡片或输入ID/URL`;
+        }
         
         // 显示输入框
         const result = await new Promise((resolve) => {
@@ -10081,7 +10160,8 @@ class MNMath {
                 onlyClassification ? "☑️ 只搜索归类卡片" : "☐︎ 只搜索归类卡片",
                 ignorePrefix ? "☑️ 忽略前缀搜索" : "☐︎ 忽略前缀搜索",
                 searchInKeywords ? "☑️ 搜索关键词字段" : "☐︎ 搜索关键词字段",
-                skipEmptyTitle ? "☑️ 跳过空白标题卡片" : "☐︎ 跳过空白标题卡片"
+                skipEmptyTitle ? "☑️ 跳过空白标题卡片" : "☐︎ 跳过空白标题卡片",
+                enableRegexSearch ? "☑️ 正则表达式搜索" : "☐︎ 正则表达式搜索"
               ];
               // 只在未启用"只搜索归类卡片"时显示类型选择按钮
               if (!onlyClassification) {
@@ -10152,16 +10232,20 @@ class MNMath {
                   resolve({ action: "toggleSkipEmptyTitle" });
                   break;
                   
-                case 10: // 选择类型（只在未启用"只搜索归类卡片"时存在）
+                case 10: // 切换正则表达式搜索开关
+                  resolve({ action: "toggleRegexSearch" });
+                  break;
+                  
+                case 11: // 选择类型（只在未启用"只搜索归类卡片"时存在）
                   if (!onlyClassification) {
                     resolve({ action: "selectTypes" });
                   } else {
-                    // 如果"只搜索归类卡片"启用，10 是"更多功能"
+                    // 如果"只搜索归类卡片"启用，11 是"更多功能"
                     resolve({ action: "moreFeatures" });
                   }
                   break;
                   
-                case 11: // 更多功能（只在未启用"只搜索归类卡片"时存在）
+                case 12: // 更多功能（只在未启用"只搜索归类卡片"时存在）
                   resolve({ action: "moreFeatures" });
                   break;
               }
@@ -10279,6 +10363,13 @@ class MNMath {
             this.searchRootConfigs.skipEmptyTitle = !this.searchRootConfigs.skipEmptyTitle;
             this.saveSearchConfig();
             MNUtil.showHUD(`跳过空白标题卡片：${this.searchRootConfigs.skipEmptyTitle ? "已启用" : "已禁用"}`);
+            break;
+            
+          case "toggleRegexSearch":
+            // 切换正则表达式搜索开关
+            this.searchRootConfigs.enableRegexSearch = !this.searchRootConfigs.enableRegexSearch;
+            this.saveSearchConfig();
+            MNUtil.showHUD(`正则表达式搜索：${this.searchRootConfigs.enableRegexSearch ? "已启用" : "已禁用"}`);
             break;
             
           case "selectTypes":
