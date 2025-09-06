@@ -251,6 +251,9 @@ viewWillLayoutSubviews: function() {
         }else{
           viewFrame.height = parseFloat(ret)+40
         }
+        if (viewFrame.height < 200) {
+          viewFrame.height = 200
+        }
         self.view.frame = viewFrame
         self.currentFrame = viewFrame
 
@@ -1077,6 +1080,18 @@ exportToPDF()
       snipasteUtils.addErrorLog(error, "linkButtonTapped")
     }
   },
+  snipasteAudio:function (fileName) {
+  try {
+    let self = getSnipasteController()
+    let audioData = MNUtil.getFile(fileName)
+    let audioBase64 = audioData.base64Encoding()
+    MNUtil.log("snipasteAudio")
+    self.snipasteFromAudio(audioBase64)
+    
+  } catch (error) {
+    snipasteUtils.addErrorLog(error, "snipasteAudio")
+  }
+  },
 
   snipasteFromPDF:function (target) {
     let self = getSnipasteController()
@@ -1649,7 +1664,6 @@ try {
   this.currentHTMLString = html
   this.mode = "html"
   if (this.onRendering && !force) {
-    MNUtil.log("reject:onRendering"+force)
     return
   }
   this.onRendering = true
@@ -2026,8 +2040,13 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
       excerpt = snipasteUtils.wrapText(focusNote.excerptText,"p","excerpt")
     }
   }
-  let CSS = snipasteUtils.getNoteCSS(focusNote)
   let audioBase64 = ""
+  if (focusNote.excerptPic) {
+    if ("video" in focusNote.excerptPic && focusNote.excerptPic.video_ext === "mp3") {
+      let audioData = MNUtil.getMediaByHash(focusNote.excerptPic.video)
+      audioBase64 = audioData.base64Encoding()
+    }
+  }
 
   let comments = focusNote.comments.map(comment=>{
     try {
@@ -2064,7 +2083,9 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
             return `<br><img width="100%" src="data:image/jpeg;base64,${imageData.base64Encoding()}"/>`
           }
         case "AudioNote":
-          audioBase64 = MNUtil.getMediaByHash(comment.audio).base64Encoding()
+          if (!audioBase64) {
+            audioBase64 = MNUtil.getMediaByHash(comment.audio).base64Encoding()
+          }
           break;
         default:
           return "";
@@ -2074,6 +2095,8 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
       return ""
     }
   }).join("")
+  let CSS = snipasteUtils.getNoteCSS(focusNote,!!audioBase64)
+
   let audioHTML = audioBase64 ? `<div class="audioContainer">
       <audio id="audioPlayer" controls></audio>
     </div>`:""
@@ -2247,6 +2270,7 @@ async function exportToPDF() {
 }
 snipasteController.prototype.audioControl = function (action) {
   switch (action) {
+    case "pauseOrPlay":
     case "playOrPause":
       this.runJavaScript(`
 if (audioPlayer.ended) {
@@ -2257,6 +2281,16 @@ if (audioPlayer.ended) {
 }else{
   audioPlayer.pause()
 }`)
+      break;
+    case "volumeUp":
+      this.runJavaScript(`
+audioPlayer.volume += 0.1
+`)
+      break;
+    case "volumeDown":
+      this.runJavaScript(`
+audioPlayer.volume -= 0.1
+`)
       break;
     case "toggleMute":
       this.runJavaScript(`
@@ -2312,9 +2346,45 @@ audioPlayer.currentTime += 15
 audioPlayer.play()
 `)
       break;
+    case "forward10s":
+      this.runJavaScript(`
+audioPlayer.currentTime += 10
+audioPlayer.play()
+`)
+      break;
+    case "forward30s":
+      this.runJavaScript(`
+audioPlayer.currentTime += 30
+audioPlayer.play()
+`)
+      break;
+    case "backward10s":
+      this.runJavaScript(`
+if (audioPlayer.currentTime - 10 < 0) {
+  audioPlayer.currentTime = 0
+}else{
+  audioPlayer.currentTime -= 10
+}
+audioPlayer.play()
+`)
+      break;
     case "backward15s":
       this.runJavaScript(`
-audioPlayer.currentTime -= 15
+if (audioPlayer.currentTime - 15 < 0) {
+  audioPlayer.currentTime = 0
+}else{
+  audioPlayer.currentTime -= 15
+}
+audioPlayer.play()
+`)
+      break;
+    case "backward30s":
+      this.runJavaScript(`
+if (audioPlayer.currentTime - 30 < 0) {
+  audioPlayer.currentTime = 0
+}else{
+  audioPlayer.currentTime -= 30
+}
 audioPlayer.play()
 `)
       break;
@@ -2703,7 +2773,97 @@ try {
   snipasteUtils.addErrorLog(error, "downloadPDF")
 }
 }
+snipasteController.prototype.snipasteFromAudio = function (fileName,audioAutoPlay = false) {
+try {
+  MNUtil.log("snipasteFromAudio")
+  let audioData = MNUtil.getFile(fileName)
+  let audioBase64 = audioData.base64Encoding()
+  let imageBase64 = "data:image/png;base64,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"
+  this.mode = "audio"
+    let html = `
+  <html lang="en">
 
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Document</title>
+    <style>
+    .audioContainer {
+      width: 100%;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      margin-bottom: 8px;
+    }
+
+    audio {
+      width: 100%;
+      display: block;
+    }
+    /* 新增：图片容器，控制布局范围 */
+    .img-container {
+      width: 100%; /* 容器宽度等于页面宽度 */
+      overflow-x: hidden; /* 隐藏超出容器的横向内容 */
+      position: relative; /* 可选：若需要定位图片 */
+    }
+
+    /* 图片样式调整 */
+    #png-input {
+      height: 100px; /* 固定高度（按需修改） */
+      width: auto; /* 宽度自动（保持原始比例，可能超过容器宽度） */
+      /* 或使用 width: max-content; 强制图片宽度为原始宽度（适合超宽图） */
+      object-fit: cover; /* 保持比例填充高度，超出部分裁剪（可选） */
+      display: block; /* 避免内联元素默认间距 */
+      margin: 0 auto; /* 可选：让图片在容器内居中显示（超出部分左右对称裁剪） */
+    }
+    </style>
+  </head>
+
+  <body>
+    <div class="audioContainer">
+      <audio id="audioPlayer" controls></audio>
+    </div>
+    <!-- 新增：图片外层容器，限制宽度并隐藏溢出 -->
+    <div class="img-container">
+      <img class="body" id="png-input" src="${imageBase64}" />
+    </div>
+  <script>
+${snipasteUtils.getSubFuncScript()}
+    let audioBase64String = "${audioBase64}"
+    if (audioBase64String) {
+      const audioLoaded = false
+      const audioPlayer = document.getElementById('audioPlayer');
+      audioPlayer.src = \`data:audio/x-caf;base64,\` + audioBase64String;
+      audioPlayer.addEventListener('loadedmetadata', () => {
+        audioLoaded = true
+      });
+    }
+  </script>
+  </body>
+  </html>`
+  // MNUtil.copy(html)
+  this.onSnipaste = true
+  this.currentHTMLString = html
+  let data = NSData.dataWithStringEncoding(html,4)
+  this.webview.loadDataMIMETypeTextEncodingNameBaseURL(data,"text/html","UTF-8",MNUtil.genNSURL(this.mainPath+"/"))
+
+  // this.webview.loadHTMLStringBaseURL(html)
+  // this.webview.context["hide"] = (message)=>{
+  //   Application.sharedInstance().showHUD("123", this.view.window, 2);
+  // }
+  if (this.view.hidden) {
+    this.show()
+  }
+  if (audioAutoPlay && audioBase64) {
+    MNUtil.delay(0.1).then(()=>{
+      this.audioControl("playOrPause")
+    })
+  }
+  
+} catch (error) {
+  snipasteUtils.addErrorLog(error, "snipasteFromAudio")
+}
+}
 /**
  * 
  * @param {string} title 

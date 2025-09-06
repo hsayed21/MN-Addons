@@ -643,6 +643,7 @@ const copyClickMd = (idx) => {
   input.setSelectionRange(0, input.value.length);
   document.execCommand("copy");
   document.body.removeChild(input);
+  // notyf.success("Text copied");
 }
 const enhanceCode = (render, options = {}) => (...args) => {
   /* args = [tokens, idx, options, env, slf] */

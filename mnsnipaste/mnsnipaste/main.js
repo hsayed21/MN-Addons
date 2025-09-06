@@ -1,4 +1,6 @@
-
+if (typeof MNOnAlert === 'undefined') {
+  var MNOnAlert = false
+}
 JSB.newAddon = function (mainPath) {
   JSB.require("utils")
   if (!snipasteUtils.checkMNUtilsFolder(mainPath)) {return undefined}
@@ -338,7 +340,7 @@ JSB.newAddon = function (mainPath) {
           if (focusNote) {
             self.addonController.docMd5 = undefined
             self.addonController.pageIndex = undefined
-            if (focusNote.excerptPic && !focusNote.noteTitle && !focusNote.comments.length) {
+            if (snipasteUtils.isPureImageNote(focusNote)) {
               imageData = MNUtil.getMediaByHash(focusNote.excerptPic.paint)
               self.addonController.focusNoteId = focusNote.noteId
               self.addonController.snipasteFromImage(imageData)
@@ -394,9 +396,15 @@ JSB.newAddon = function (mainPath) {
         let menu = new Menu(sender,self)
         menu.width = 250
         menu.addMenuItem("📋  Clipboard Image", "snipasteFromClipboard:")
-        menu.addMenuItem("📄  PDF (Current Page)", "snipasteFromPDF:","Current")
-        menu.addMenuItem("📄  PDF (First Page)", "snipasteFromPDF:","First")
-        menu.addMenuItem("📄  PDF (Last Page)", "snipasteFromPDF:","Last")
+        let docFileName = MNUtil.currentDoc.fullPathFileName
+        if (docFileName.endsWith(".pdf")) {
+          menu.addMenuItem("📄  PDF (Current Page)", "snipasteFromPDF:","Current")
+          menu.addMenuItem("📄  PDF (First Page)", "snipasteFromPDF:","First")
+          menu.addMenuItem("📄  PDF (Last Page)", "snipasteFromPDF:","Last")
+        }
+        if (docFileName.endsWith(".mp3")) {
+          menu.addMenuItem("🎵  Audio", "snipasteFromAudio:",docFileName)
+        }
         if (self.addonBar.frame.x < 100) {
           menu.preferredPosition = 4
         }else{
@@ -404,6 +412,11 @@ JSB.newAddon = function (mainPath) {
         }
         menu.show()
         return
+      },
+      snipasteFromAudio: function (fileName) {
+
+        Menu.dismissCurrentMenu()
+        self.addonController.snipasteFromAudio(fileName)
       },
       snipasteFromPDF: function (target) {
         Menu.dismissCurrentMenu()

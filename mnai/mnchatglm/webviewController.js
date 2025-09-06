@@ -1,6 +1,6 @@
 /** @return {chatglmController} */
 const getChatglmController = ()=>self
-var chatglmController = JSB.defineClass('chatglmController : UIViewController', {
+var chatglmController = JSB.defineClass('chatglmController : UIViewController <NSURLConnectionDelegate,UIWebViewDelegate>', {
   viewDidLoad: function() {
     try {
     let self = getChatglmController()
@@ -15,23 +15,30 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController', 
       self.setButtonText(chatAIConfig.config.promptNames,chatAIConfig.currentPrompt)
       self.setTextview(chatAIConfig.currentPrompt)
       self.settingView.hidden = false
+    self.preResponse = ""
 
     self.createButton("moveButton","moveButtonTapped:")
     self.moveButton.clickDate = 0
     MNButton.setColor(self.moveButton, "#3a81fb",0.5)
+    
+    MNButton.addPanGesture(self.closeButton, self, "onResizeGesture0:")
+    MNButton.addPanGesture(self.moveButton, self, "onMoveGesture:")
+    MNButton.addPanGesture(self.promptSaveButton, self, "onResizeGesture:")
+    MNButton.addPanGesture(self.saveCustomButton, self, "onResizeGesture:")
+    MNButton.addPanGesture(self.saveKnowledgeButton, self, "onResizeGesture:")
 
-    self.moveGesture = new UIPanGestureRecognizer(self,"onMoveGesture:")
-    self.moveButton.addGestureRecognizer(self.moveGesture)
-    self.moveGesture.view.hidden = false
+    // self.moveGesture = new UIPanGestureRecognizer(self,"onMoveGesture:")
+    // self.moveButton.addGestureRecognizer(self.moveGesture)
+    // self.moveGesture.view.hidden = false
     // self.moveGesture.addTargetAction(self,"onMoveGesture:")
 
-    self.resizeGesture = new UIPanGestureRecognizer(self,"onResizeGesture:")
-    self.promptSaveButton.addGestureRecognizer(self.resizeGesture)
-    self.resizeGesture.view.hidden = false
+    // self.resizeGesture = new UIPanGestureRecognizer(self,"onResizeGesture:")
+    // self.promptSaveButton.addGestureRecognizer(self.resizeGesture)
+    // self.resizeGesture.view.hidden = false
 
-    self.resizeGesture0 = new UIPanGestureRecognizer(self,"onResizeGesture:")
-    self.saveCustomButton.addGestureRecognizer(self.resizeGesture0)
-    self.resizeGesture.view.hidden = false
+    // self.resizeGesture0 = new UIPanGestureRecognizer(self,"onResizeGesture:")
+    // self.saveCustomButton.addGestureRecognizer(self.resizeGesture0)
+    // self.resizeGesture.view.hidden = false
     // MNButton.addPanGesture(self.saveCustomButtonConfig, self, "onResizeGesture:")
     // self.saveCustomButtonConfig.addGestureRecognizer(self.resizeGesture)
     // self.resizeGesture.addTargetAction(self,"onResizeGesture:")
@@ -360,6 +367,12 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController', 
   },
   saveCustomButtonConfig: async function (params) {
     try {
+    if (!chatAIUtils.isSubscribed()) {
+      let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
+    };
       if (!chatAIUtils.checkSubscribe(false)) {
         return
       }
@@ -412,8 +425,9 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController', 
     MNUtil.showHUD("Reset Custom Buttons")
     self.refreshCustomButton()
   },
-  changeFunc: function (button) {
+  changeFunc: async function (button) {
     let self = getChatglmController()
+
     try {
       let currentFunc
       let selector
@@ -422,7 +436,7 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController', 
         currentFunc = chatAIConfig.getConfig("dynamicFunc")
         selector = 'setDynamicFunc:'
       }else{
-        currentFunc = chatAIConfig.currentFunc
+        currentFunc = chatAIConfig.currentFunc??[]
         selector = 'setFunc:'
       }
     let newOrder = chatAITool.activatedToolsExceptOld
@@ -475,11 +489,11 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController', 
       chatAIUtils.addErrorLog(error, "changeFunc")
     }
   },
-  setFunc(index) {
+  setFunc:async function (index) {
 try {
     Menu.dismissCurrentMenu()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
-    let currentFunc = chatAITool.getChangedTools(chatAIConfig.currentFunc, index)
+    let currentFunc = await chatAITool.getChangedTools(chatAIConfig.currentFunc, index)
     // chatAIUtils.copyJSON(currentFunc)
     chatAIConfig.currentFunc = currentFunc
     chatAIConfig.prompts[chatAIConfig.currentPrompt].func = currentFunc
@@ -488,12 +502,12 @@ try {
   MNUtil.showHUD(error)
 }
   },
-  setDynamicFunc(index) {
+  setDynamicFunc:async function (index) {
     Menu.dismissCurrentMenu()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
 try {
     let currentFunc = chatAIConfig.config.dynamicFunc ?? []
-    let targetFunc = chatAITool.getChangedTools(currentFunc, index)
+    let targetFunc = await chatAITool.getChangedTools(currentFunc, index)
     chatAIConfig.config.dynamicFunc = targetFunc
     chatAIConfig.save("MNChatglm_config")
 } catch (error) {
@@ -501,8 +515,9 @@ try {
 }
 
   },
-  changePromptModel:function (button) {
+  changePromptModel:async function (button) {
     let self = getChatglmController()
+
     // if (!chatAIUtils.checkSubscribe(false)) {
     //   return
     // }
@@ -551,14 +566,20 @@ try {
       chatAIUtils.addErrorLog(error, "chatglmController.changePromptModel")
     }
   },
-  changePromptModelFromSource: function (params) {
+  changePromptModelFromSource: async function (params) {
   try {
     let self = getChatglmController()
     Menu.dismissCurrentMenu()
     self.checkPopover()
-    if (!chatAIUtils.checkSubscribe(false)) {
-      return
-    }
+    // if (!chatAIUtils.isSubscribed()) {
+    //   let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+    //   if (!confirm) {
+    //     return
+    //   }
+    // }
+    // if (!chatAIUtils.checkSubscribe(false)) {
+    //   return
+    // }
     let source = params.source
     let button = params.button
     let selectIndex = params.index
@@ -601,7 +622,7 @@ try {
     chatAIUtils.addErrorLog(error, "changePromptModelFromSource")
   }
   },
-  setPromptModel: function (model) {
+  setPromptModel: async function (model) {
     self.checkPopover()
     Menu.dismissCurrentMenu()
     // let config = model.split(":")
@@ -609,6 +630,12 @@ try {
     if (currentModel === model) {
       MNUtil.showHUD("No Change")
       return
+    }
+    if (model !== "Default" && !chatAIUtils.isSubscribed()) {
+      let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
     }
     if (model !== "Default" && !chatAIUtils.checkSubscribe()) {
       return
@@ -729,9 +756,15 @@ try {
 }
 
   },
-  chooseToolbarActions: function (button) {
+  chooseToolbarActions: async function (button) {
     let self = getChatglmController()
     Menu.dismissCurrentMenu()
+    if (!chatAIUtils.isSubscribed()) {
+      let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
+    }
     let currentAction = chatAIConfig.prompts[chatAIConfig.currentPrompt].toolbarAction ?? ""
     let menu = new Menu(button,self)
     menu.preferredPosition = 0
@@ -740,6 +773,7 @@ try {
     actionKey.map(key=>{
       menu.addMenuItem("🔨  "+toolbarConfig.getAction(key).name, selector,key,key == currentAction)
     })
+    // menu.addMenuItem("❌ None", selector, "")
     menu.show()
   },
   setToolbarActions: function (action) {
@@ -891,6 +925,7 @@ try {
     menu.addMenuItem("🆓 CogView-4", "setImageGenerationModel:",{title:"CogView-4",model:"cogview-4-250304"},model==="cogview-4-250304")
     menu.addMenuItem("🆓 Image-01", "setImageGenerationModel:",{title:"Image-01",model:"image-01"},model==="image-01")
     menu.addMenuItem("🆓 Image-01 Live", "setImageGenerationModel:",{title:"Image-01 Live",model:"image-01-live"},model==="image-01-live")
+    menu.addMenuItem("🆓 Qwen-Image", "setImageGenerationModel:",{title:"Qwen-Image",model:"qwen-image"},model==="qwen-image")
     menu.addMenuItem("✨ Gemini-2.5 Flash Image", "setImageGenerationModel:",{title:"Gemini-2.5 Flash Image",model:"gemini-2.5-flash-image"},model==="gemini-2.5-flash-image")
     menu.addMenuItem("✨ GPT Image-1", "setImageGenerationModel:",{title:"GPT Image-1",model:"gpt-image-1"},model==="gpt-image-1")
     menu.width = 250
@@ -936,27 +971,48 @@ try {
   },
   onResizeGesture:function (gesture) {
   try {
-    let baseframe = gesture.view.frame
-    // let locationToBrowser = gesture.locationInView(self.view)
-    // let locationToButton = gesture.locationInView(gesture.view)
-    let frame = self.view.frame
-    let translation = chatAIUtils.getTranslation(gesture)
-    let width = translation.x-frame.x+baseframe.width
-    let height = translation.y-frame.y+baseframe.height+15
-    if (width <= 330) {
-      width = 330
+
+    if (gesture.state === 1) {
+      self.originalLocationToMN = gesture.locationInView(MNUtil.studyView)
+      self.originalFrame = self.view.frame
     }
-    if (height <= 465) {
-      height = 465
+    if (gesture.state === 2) {
+      let locationToMN = gesture.locationInView(MNUtil.studyView)
+      // let translation = gesture.translationInView(MNUtil.studyView)
+      let locationDiff = {x:locationToMN.x - self.originalLocationToMN.x,y:locationToMN.y - self.originalLocationToMN.y}
+      let frame = self.view.frame
+      frame.width = self.originalFrame.width + locationDiff.x
+      frame.height = self.originalFrame.height + locationDiff.y
+      if (frame.width <= 330) {
+        frame.width = 330
+      }
+      if (frame.height <= 465) {
+        frame.height = 465
+      }
+      self.setFrame(frame)
     }
 
-    // if (translation) {
-    //   MNUtil.showHUD(JSON.stringify(translation))
-      // let newFrame = {x:frame.x,y:frame.y,width:frame.width+translation.x,height:frame.height+translation.y}
-      // self.view.frame = newFrame
-      self.view.frame = {x:frame.x,y:frame.y,width:width,height:height}
-      self.currentFrame  = self.view.frame
+    // let baseframe = gesture.view.frame
+    // // let locationToBrowser = gesture.locationInView(self.view)
+    // // let locationToButton = gesture.locationInView(gesture.view)
+    // let frame = self.view.frame
+    // let translation = chatAIUtils.getTranslation(gesture)
+    // let width = translation.x-frame.x+baseframe.width
+    // let height = translation.y-frame.y+baseframe.height+15
+    // if (width <= 330) {
+    //   width = 330
     // }
+    // if (height <= 465) {
+    //   height = 465
+    // }
+
+    // // if (translation) {
+    // //   MNUtil.showHUD(JSON.stringify(translation))
+    //   // let newFrame = {x:frame.x,y:frame.y,width:frame.width+translation.x,height:frame.height+translation.y}
+    //   // self.view.frame = newFrame
+    //   self.view.frame = {x:frame.x,y:frame.y,width:width,height:height}
+    //   self.currentFrame  = self.view.frame
+    // // }
     if (gesture.state === 3) {
       MNUtil.studyView.bringSubviewToFront(self.view)
     }
@@ -1033,6 +1089,9 @@ try {
   
   self.setWebviewContent(text)
       // self.customButtonView.hidden = false
+  },
+  knowledgeTabTapped: function (button) {
+    self.switchView("knowledgeView")
   },
   triggerButtonTapped: function (button) {
     if (button.isSelected) {
@@ -1213,7 +1272,7 @@ try {
       }
     }
   },
-  saveKnowledgeButtonTapped: function (params) {
+  saveKnowledge: function (params) {
     try {
       chatAIConfig.knowledge = self.knowledgeInput.text
       chatAIConfig.save("MNChatglm_knowledge")
@@ -1221,6 +1280,108 @@ try {
     } catch (error) {
       MNUtil.showHUD(error);
     }
+  },
+  organizeKnowledge: async function (params) {
+    try {
+
+    let self = getChatglmController()
+    if (self.connection) {
+      // self.showHUD("On output")
+      let confirm = await MNUtil.confirm("🤖 MN ChatAI","AI is already organizing knowledge, do you want to cancel it?\n\n AI 正在整理知识库，是否取消？")
+      if (confirm) {
+        self.connection.cancel()
+        delete self.connection
+        MNUtil.showHUD("Cancel organize")
+        self.organizeKnowledgeButton.setTitleForState("Organize",0)
+        return
+      }
+      return
+    }
+    let confirm = await MNUtil.confirm("🤖 MN ChatAI","Oraganize knowledge using glm-4.5-flash? \n\n 是否使用glm-4.5-flash整理知识库？")
+    if (confirm) {
+      let config = {
+        source: "Subscription",
+        model: "glm-4.5-flash-nothinking",
+        key: "sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44",
+        url: subscriptionConfig.URL+"/v1/chat/completions"
+      }
+      self.preKnowledge = chatAIConfig.knowledge
+      self.showHUD("🤖 Organizing...")
+
+
+      self.organizeKnowledgeButton.setTitleForState("Oraganizing...",0)
+      let question = [chatAIUtils.genSystemMessage(`
+# Role
+  * you are a knowledge organizer, you are responsible for organizing the knowledge in the clearest way
+# Task
+  * update the content of current knowledge
+  * remove the redundant content and rewrite the knowledge in the clearest way 
+# Constrain
+  * output the updated knowledge in code block
+  * the updated knowledge should be in the same language as the current knowledge
+  * the updated knowledge should be in the same format as the example
+# Example
+\`\`\`knowledge
+  content of updated knowledge
+\`\`\`
+# Current Knowledge
+${self.knowledgeInput.text}
+`),
+chatAIUtils.genUserMessage(`Please update the current knowledge`)
+]
+      self.baseAsk(question,config)
+      self.knowledgeInput.editable = false
+      self.knowledgeInput.text = "🤖 Organizing..."
+      self.knowledgeInput.backgroundColor = MNUtil.hexColorAlpha("#e06c75",0.2)
+      self.knowledgeInput.textColor = MNUtil.hexColorAlpha("#b91c29",1.0)
+    }
+      
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "organizeKnowledge")
+    }
+  },
+  knowledgeAction: function (button) {
+    let self = getChatglmController()
+    let menu = new Menu(button,self)
+    menu.preferredPosition = 4
+    let selector = 'executeKnowledgeAction:'
+    menu.addMenuItem("🔄  Restore",selector,"restoreKnowledge:")
+    menu.addMenuItem("📋  Copy",selector,"copyKnowledge:")
+    menu.addMenuItem("📋  Paste",selector,"pasteKnowledge:")
+    menu.addMenuItem("🗑️  Clear",selector,"clearKnowledge:")
+    menu.show()
+  },
+  executeKnowledgeAction: function (params) {
+    let self = getChatglmController()
+    Menu.dismissCurrentMenu()
+    switch (params) { 
+      case "restoreKnowledge:":
+        //恢复到上次保存的状态
+        if (self.preKnowledge && self.preKnowledge.trim()) {
+          self.knowledgeInput.text = self.preKnowledge
+        }else{
+          self.showHUD("Previous knowledge is empty")
+        }
+        break;
+      case "copyKnowledge:":
+        MNUtil.copy(self.knowledgeInput.text)
+        self.showHUD("Knowledge is copied")
+        break;
+      case "pasteKnowledge:":
+        if (MNUtil.clipboardText && MNUtil.clipboardText.trim()) {
+          self.knowledgeInput.text = MNUtil.clipboardText
+        }else{
+          self.showHUD("Clipboard text is empty")
+        }
+        break;
+      case "clearKnowledge:":
+        self.preKnowledge = chatAIConfig.knowledge
+        self.knowledgeInput.text = ""
+        self.showHUD("Knowledge is cleared")
+        break;
+      default:
+        break;
+  }
   },
   changeTunnel: async function(sender) {
     let self = getChatglmController()
@@ -1748,27 +1909,7 @@ try {
           }
           break;
         case "Chat":
-          if (chatAIUtils.isMN3()) {
-            self.showHUD("Only available in MN4")
-            return
-          }
-          if (!chatAIUtils.sideOutputController) {
-            try {
-              chatAIUtils.sideOutputController = sideOutputController.new();
-              MNUtil.toggleExtensionPanel()
-              MNExtensionPanel.show()
-              MNExtensionPanel.addSubview("chatAISideOutputView", chatAIUtils.sideOutputController.view)
-              let panelView = MNExtensionPanel.view
-              chatAIUtils.sideOutputController.view.hidden = false
-              chatAIUtils.sideOutputController.view.frame = {x:0,y:0,width:panelView.frame.width,height:panelView.frame.height}
-              chatAIUtils.sideOutputController.currentFrame = {x:0,y:0,width:panelView.frame.width,height:panelView.frame.height}
-              // MNUtil.toggleExtensionPanel()
-            } catch (error) {
-              chatAIUtils.addErrorLog(error, "openSideBar")
-            }
-          }else{
-            MNExtensionPanel.show("chatAISideOutputView")
-          }
+          await chatAIUtils.openSideOutput()
           chatAIUtils.sideOutputController.openChatViewFromPrompt(currentPrompt)
           break;
         case "Copy":
@@ -1813,6 +1954,12 @@ ${config}
           chatAIConfig.save("MNChatglm_config")
           break;
         case "changeTemperature":
+          if (!chatAIUtils.isSubscribed()) {
+            let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+            if (!confirm) {
+              return
+            }
+          }
           let options = [
             "🌡️  1.0",
             "🌡️  0.8",
@@ -1824,6 +1971,9 @@ ${config}
           let temperatures = [1.0,0.8,0.6,0.4,0.2,0.0]
           let res = await MNUtil.userSelect("Select temperature", "选择温度", options)
           if (res) {
+            if(!chatAIUtils.checkSubscribe(true,false,false)) {
+              return
+            }
             let targetTemperature = temperatures[res-1]
             chatAIConfig.prompts[currentPrompt].temperature = targetTemperature
             MNUtil.showHUD("Change temperature to "+targetTemperature)
@@ -2075,7 +2225,13 @@ ${config}
   },
   changeDynamicTemp: async function (param) {
     let self = getChatglmController()
-    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true)          }
+    if (!chatAIUtils.isSubscribed()) {
+      let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
+    };
     let options = [
       "🌡️  1.0",
       "🌡️  0.8",
@@ -2087,6 +2243,9 @@ ${config}
     let temperatures = [1.0,0.8,0.6,0.4,0.2,0.0]
     let res = await MNUtil.userSelect("Select temperature", "选择温度", options)
     if (res) {
+      if(!chatAIUtils.checkSubscribe(true,false,false)) {
+        return
+      }
       let targetTemperature = temperatures[res-1]
       chatAIConfig.config.dynamicTemp = targetTemperature
       MNUtil.showHUD("Change temperature to "+targetTemperature)
@@ -2350,17 +2509,26 @@ ${config}
         break;
     }
   },
-  toggleVisionMode: function (params) {
+  toggleVisionMode: async function (params) {
     if (!chatAIUtils.checkSubscribe(true)) {
       return
     }
-    let prompt = chatAIConfig.currentPrompt
-    let vision = chatAIConfig.prompts[prompt].vision
+    let promptKey = chatAIConfig.currentPrompt
+    let promptConfig = chatAIConfig.prompts[promptKey]
+    // MNUtil.log({message:"toggleVisionMode",detail:config})
+    let vision = promptConfig.vision
     if (vision) {
-      chatAIConfig.prompts[prompt].vision = false
+      chatAIConfig.prompts[promptKey].vision = false
       self.visionButton.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",0.8)
     }else{
-      chatAIConfig.prompts[prompt].vision = true
+      let config = chatAIConfig.getConfigFromPrompt(promptKey)
+      if (!chatAIUtils.isVisionModel(config.model)) {
+        let confirm = await MNUtil.confirm("🤖 MN ChatAI", `The current model [${config.model}] does not support image input. Continue? \n\n当前模型 [${config.model}] 不支持图片输入，是否继续？`)
+        if (!confirm) {
+          return
+        }
+      }
+      chatAIConfig.prompts[promptKey].vision = true
       self.visionButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",0.8)
     }
     chatAIConfig.save("MNChatglm_prompts")
@@ -2394,6 +2562,289 @@ ${config}
     }
   } catch (error) {
     chatAIUtils.addErrorLog(error, "focusConfigNoteId")
+  }
+  },
+  /**
+   * 
+   * @param {NSURLConnection} connection 
+   * @param {NSURLResponse} response 
+   * @returns 
+   */
+  connectionDidReceiveResponse: async function (connection,response) {
+    let self = getChatglmController()
+    // self.response = ""
+    self.funcResponse = ""
+    self.reasoningResponse = ""
+    self.originalText = ""
+    self.notShow = false
+    self.size = []
+    // self.token = []
+    self.func = undefined
+    self.tool = {}
+    self.preHeight = 0
+    self.autoHide = true
+    self.errorLogged = false
+    if (!self.onChat) {
+      self.sizeHeight = 0
+    }
+    self.scrollToBottom = false
+    self.first = true
+    self.onFinish = false
+    self.lastRenderTime = []
+    self.errorMessage = undefined
+    // chatAIUtils.copyJSON(self.token)
+    self.statusCode = response.statusCode()
+    self.currentData = NSMutableData.new()
+    self.hasRenderSearchResults = false
+    self.view.layer.opacity = 1.0
+    // MNUtil.log("connectionDidReceiveResponse")
+    // if (self.statusCode >= 400) {
+    //     MNUtil.stopHUD()
+    //     MNUtil.showHUD("❗"+MNUtil.getStatusCodeDescription(""+self.statusCode))
+    //     MNUtil.log("❗"+MNUtil.getStatusCodeDescription(""+self.statusCode))
+
+    //     self.errorMessage = {
+    //       message:"❗"+MNUtil.getStatusCodeDescription(""+self.statusCode),
+    //       statusCode: self.statusCode,
+    //       info: self.config
+    //     }
+    //     // MNUtil.stopHUD()
+    //     await MNUtil.delay(0.1)
+    //     MNUtil.copy(self.errorMessage)
+    //     self.showErrorMessage(self.errorMessage)
+    //     // self.setWebviewContentDev({response:`\`\`\`json\n${JSON.stringify(self.errorMessage,null,2)}\n\`\`\``})
+    //     self.response = JSON.stringify(self.errorMessage,undefined,2)
+    //     self.setButtonOpacity(1.0)
+    //     await MNUtil.delay(0.1)
+    //     if (!self.errorLogged) {
+    //       MNUtil.log({
+    //         level:"error",
+    //         source:"MN ChatAI",
+    //         message:"❗"+MNUtil.getStatusCodeDescription(""+self.statusCode),
+    //         detail:self.errorMessage
+    //       })
+    //       self.errorLogged = true
+    //       //优先在connectionDidReceiveData中处理重试
+    //       if (!self.retried && self.isSubscription()) {
+    //         //仅订阅下需要重试,没重试过才需要重试
+    //         connection.cancel()
+    //         delete self.connection
+    //         let allURLs = subscriptionUtils.URLs
+    //         let filtered = allURLs.filter(url=>url !== self.config.url)
+    //         let newURL = chatAIUtils.getRandomElement(filtered)
+    //         self.config.url = newURL+"/v1/chat/completions"
+    //         MNUtil.log({message:"Retry with new URL",source:"MN ChatAI",detail:self.config.url})
+    //         self.reAsk()
+    //         self.retried = true
+    //       }
+    //     }
+
+    //     delete self.connection
+    //   // return
+    // }else{
+    //   self.retried = false
+    // }
+    // self.sizeHeight = await self.getWebviewHeight()
+    // self.setNotiLayout()
+  },
+
+  connectionDidReceiveData: async function (connection,data) {
+    let self = getChatglmController()
+    try {
+    self.onreceive = true
+    self.currentData.appendData(data)
+    // self.size.push(self.textString)
+    // let beginTime = Date.now()
+    let textString = chatAIUtils.dataToString(data)
+    // let endTime = Date.now()
+    // MNUtil.log(`dataToString: ${endTime-beginTime}ms`)
+    // beginTime = Date.now()
+    // let tem = MNUtil.data2string(data)
+    // endTime = Date.now()
+    // MNUtil.log(`data2string: ${endTime-beginTime}ms`)
+    // if (self.statusCode >= 400) {
+    //   let contentToShow = "❗["+MNUtil.getStatusCodeDescription(""+self.statusCode)+"]"
+    //   if (MNUtil.isValidJSON(textString)) {
+    //     let res = JSON.parse(textString)
+    //     let message = undefined
+    //     res.info = self.config
+    //     res.statusCode = self.statusCode
+    //     res.message = contentToShow
+    //     self.errorMessage = res
+    //     if ("error" in res && "message" in res.error) {
+    //       contentToShow = contentToShow+" "+res.error.message
+    //       if (res.error.message.startsWith("Model do not support image input")) {
+    //         message = "该模型不支持图片输入/视觉模式"
+    //         self.retried = true//没必要重试的情况
+    //       }
+    //       if (res.error.message.startsWith("token quota is not enough")) {
+    //         if (self.isSubscription()) {
+    //           message = "令牌额度不足，请检查订阅"
+    //         }else{
+    //           message = "令牌额度不足"
+    //         }
+    //         self.retried = true//没必要重试的情况
+    //       }
+    //       if (res.error.message.startsWith("该令牌额度已用尽")) {
+    //         if (self.isSubscription()) {
+    //           message = "该令牌额度已用尽，请检查订阅"
+    //         }else{
+    //           message = "该令牌额度已用尽"
+    //         }
+    //         self.retried = true//没必要重试的情况
+    //       }
+    //     }else if ("message" in res) {
+    //       contentToShow = contentToShow+" "+res.message
+    //     }
+    //     MNUtil.showHUD(contentToShow)
+    //     await MNUtil.delay(0.1)
+    //     self.showErrorMessage(self.errorMessage,message)
+    //   }else{
+    //     MNUtil.showHUD(contentToShow)
+    //     await MNUtil.delay(0.1)
+    //     self.showErrorMessage(self.errorMessage)
+    //   }
+    //   self.response = JSON.stringify(self.errorMessage,undefined,2)
+    //   self.errorLogged = true
+    //   MNUtil.log({
+    //     level:"error",
+    //     source:"MN ChatAI",
+    //     message:contentToShow,
+    //     detail:self.errorMessage
+    //   })
+    //   // self.runJavaScript(`openEdit();`)
+    //   connection.cancel()
+    //   delete self.connection
+    //   if (!self.retried && self.isSubscription()) {
+    //     //仅订阅下需要重试,没重试过才需要重试
+    //     let allURLs = subscriptionUtils.URLs
+    //     let filtered = allURLs.filter(url=>url !== self.config.url)
+    //     let newURL = chatAIUtils.getRandomElement(filtered)
+    //     self.config.url = newURL+"/v1/chat/completions"
+    //     MNUtil.log({message:"Retry with new URL",source:"MN ChatAI",detail:self.config.url})
+    //     self.reAsk()
+    //     self.retried = true
+    //   }
+    //   return
+    // }else{
+    //   if (MNUtil.isValidJSON(textString)) {
+    //     let res = JSON.parse(textString)
+    //     if ("base_resp" in res && "status_code" in res.base_resp) {
+    //       MNUtil.copy(res)
+    //       self.errorMessage = res
+    //       await MNUtil.delay(0.1)
+    //       self.showErrorMessage(self.errorMessage)
+    //       // self.setWebviewContentDev({response:`\`\`\` json\n${JSON.stringify(self.errorMessage,undefined,2)}\n\`\`\``})
+    //       // self.runJavaScript(`openEdit();`)
+    //       connection.cancel()
+    //       delete self.connection
+    //       return
+    //     }
+    //   }
+    // }
+    // self.hasDone = /^data:\s?\[DONE\]/.test(textString)
+    // if (!self.hasDone) {
+    //   self.textString = textString
+    // }else{
+    //   if (/^data\:\s{"base_resp"\:{"status_code"\:\d\d+/.test(textString)) {
+    //     chatAIUtils.addErrorLog(textString, "connectionDidReceiveData")
+    //     return
+    //   }
+    // }
+    // self.originalText = MNUtil.data2string(self.currentData)
+    // let beginTime = Date.now()
+    self.originalText = chatAIUtils.dataToString(self.currentData)
+
+    // let endTime = Date.now()
+    // MNUtil.log(`dataToString: ${endTime-beginTime}ms`)
+    // beginTime = Date.now()
+    // let tem = MNUtil.data2string(self.currentData)
+    // endTime = Date.now()
+    // MNUtil.log(`data2string: ${endTime-beginTime}ms`)
+
+
+    // if (self.onResponse) {
+      if (self.hasDone) {
+        if (!self.onFinish && self.connection && (self.connection === connection)) {
+          self.onFinish = true
+    self.showHUD("✅ Done")
+    self.organizeKnowledgeButton.setTitleForState("Organize",0)
+    self.knowledgeInput.editable = true
+    self.connection.cancel()
+    self.knowledgeInput.backgroundColor = MNUtil.hexColorAlpha("#b3bbc0",0.8)
+    self.knowledgeInput.textColor = UIColor.blackColor()
+    delete self.connection
+          // self.beginTime = Date.now()
+          // self.prepareFinish()
+        }
+      }
+      // MNUtil.showHUD("reject")
+      // return
+    // }
+    self.getResponse()
+    } catch (error) {
+      if (error.toString() !== "Error: Malformed UTF-8 data") {
+        chatAIUtils.addErrorLog(error, "connectionDidReceiveData",self.originalText)
+      }
+    }
+  },
+  connectionDidFinishLoading: function (connection) {
+    let self = getChatglmController()
+    if (!self.onFinish && self.connection && (self.connection === connection)) {
+      self.onFinish = true
+    self.showHUD("✅ Done")
+    self.organizeKnowledgeButton.setTitleForState("Organize",0)
+    self.knowledgeInput.backgroundColor = MNUtil.hexColorAlpha("#b3bbc0",0.8)
+    self.knowledgeInput.textColor = UIColor.blackColor()
+    self.knowledgeInput.editable = true
+    self.connection.cancel()
+    delete self.connection
+      // self.prepareFinish()
+      // MNUtil.showHUD("finish")
+      // MNUtil.copy(self.textString)
+    }
+    MNUtil.stopHUD()
+  },
+  connectionDidFailWithError: async function (connection,error) {
+  try {
+
+    let self = getChatglmController()
+    let message = "Network error"
+    if (error.localizedDescription) {
+      message = error.localizedDescription
+    }
+    self.knowledgeInput.backgroundColor = MNUtil.hexColorAlpha("#b3bbc0",0.8)
+    self.knowledgeInput.textColor = UIColor.blackColor()
+    self.knowledgeInput.editable = true
+
+    MNUtil.stopHUD()
+    // self.setButtonOpacity(1.0)
+    self.errorMessage = {
+      message:message,
+      info: self.config
+    }
+    MNLog.error(message,self.config)
+    // if (!self.retried && self.isSubscription()) {
+    //   //仅订阅下需要重试,没重试过才需要重试
+    //   let allURLs = subscriptionUtils.URLs
+    //   let filtered = allURLs.filter(url=>url !== self.config.url)
+    //   let newURL = chatAIUtils.getRandomElement(filtered)
+    //   self.config.url = newURL+"/v1/chat/completions"
+    //   MNUtil.log({message:"Retry with new URL",source:"MN ChatAI",detail:self.config.url})
+    //   self.reAsk()
+    //   self.retried = true
+    //   return
+    // }
+    MNUtil.showHUD(message)
+    // MNUtil.stopHUD()
+    self.connection.cancel()
+    delete self.connection
+    // await MNUtil.delay(0.5)
+    // self.showErrorMessage(self.errorMessage)
+
+    
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "connectionDidFailWithError")
   }
   }
 });
@@ -2496,7 +2947,7 @@ chatglmController.prototype.getQuestionOnNote = async function(noteid,prompt = c
   if (system) {//有system指令的情况
     systemMessage = await chatAIUtils.render(system,opt)
     if (chatAIUtils.visionMode || vision) {
-      let imageDatas = chatAIUtils.getImagesFromNote(MNNote.new(noteid))
+      let imageDatas = MNNote.getImagesFromNote(MNNote.new(noteid),true)
       question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(contextMessage, imageDatas)]
     }else{
       question = [{role:"system",content:systemMessage},{role: "user", content: contextMessage}]
@@ -2506,7 +2957,7 @@ chatglmController.prototype.getQuestionOnNote = async function(noteid,prompt = c
   //无system指令的情况
   if (chatAIUtils.visionMode || vision) {
     // let imageData = MNNote.getImageFromNote(MNNote.new(noteid))
-    let imageDatas = chatAIUtils.getImagesFromNote(MNNote.new(noteid))
+    let imageDatas = MNNote.getImagesFromNote(MNNote.new(noteid),true)
     question = [chatAIUtils.genUserMessage(contextMessage, imageDatas)]
   }else{
     question = [{role: "user", content: contextMessage}]
@@ -2599,6 +3050,8 @@ chatglmController.prototype.createButton = function (buttonName,targetAction,sup
  * @this {chatglmController}
  */
 chatglmController.prototype.settingViewLayout = function (){
+  try {
+
     let viewFrame = this.view.bounds
     let width = viewFrame.width+10
     let height = viewFrame.height
@@ -2610,12 +3063,12 @@ chatglmController.prototype.settingViewLayout = function (){
     this.webviewInput.frame = MNUtil.genFrame(0,0,width,height-65)
 
     this.advanceView.frame = MNUtil.genFrame(0,0,width,height-65)
+    this.knowledgeView.frame = MNUtil.genFrame(0,0,width,height-65)
     this.syncView.frame = MNUtil.genFrame(0,0,width,height-65)
+
     // advanceView
     if (width<700) {
       this.orderButton.frame = MNUtil.genFrame(5,5,width-10,35)
-      this.knowledgeInput.frame = {x:5,y:245,width:width-10,height:height-355}
-      this.saveKnowledgeButton.frame = {x:5,y:height-105,width:width-10,height:35}
       this.speechButton.frame = MNUtil.genFrame(5,45,95,35)
       this.autoSpeechButton.frame = MNUtil.genFrame(105,45,130,35)
       this.speechSpeedButton.frame = MNUtil.genFrame(240,45,width-245,35)
@@ -2653,8 +3106,8 @@ chatglmController.prototype.settingViewLayout = function (){
       this.actionButton.frame = {x:width-80,y:320,width:75,height:35}
     }else{
       this.orderButton.frame = MNUtil.genFrame(5,5,350,35)
-      this.knowledgeInput.frame = {x:360,y:5,width:width-365,height:height-115}
-      this.saveKnowledgeButton.frame = {x:360,y:height-105,width:width-365,height:35}
+      // this.knowledgeInput.frame = {x:360,y:5,width:width-365,height:height-115}
+      // this.saveKnowledgeButton.frame = {x:360,y:height-105,width:width-365,height:35}
       this.speechButton.frame = MNUtil.genFrame(5,45,95,35)
       this.autoSpeechButton.frame = MNUtil.genFrame(105,45,130,35)
       this.speechSpeedButton.frame = MNUtil.genFrame(240,45,115,35)
@@ -2720,6 +3173,12 @@ chatglmController.prototype.settingViewLayout = function (){
     this.setModel(chatAIConfig.config.source)
     this.tunnelButton.frame = MNUtil.genFrame(realX,50,(realWidth-10),40)
     this.usageButton.frame = MNUtil.genFrame(realX,95,(realWidth-10),40)
+
+    //knowledgeView
+    this.knowledgeInput.frame = {x:5,y:5,width:width-10,height:height-115}
+    this.saveKnowledgeButton.frame = {x:width-150,y:height-105,width:145,height:35}
+    this.organizeKnowledgeButton.frame = {x:45,y:height-105,width:width-200,height:35}
+    this.knowledgeActionButton.frame = {x:5,y:height-105,width:35,height:35}
 
     // autoView
     this.autoActionButton.frame = MNUtil.genFrame(5,5,width-110,35)
@@ -2789,9 +3248,15 @@ chatglmController.prototype.settingViewLayout = function (){
     settingFrame.x = settingFrame.x + settingFrame.width + 5
     settingFrame.width = this.customButtonTab.width
     this.customButtonTab.frame = settingFrame
+
     settingFrame.x = settingFrame.x + settingFrame.width + 5
     settingFrame.width = this.syncConfig.width
     this.syncConfig.frame = settingFrame
+
+    settingFrame.x = settingFrame.x + settingFrame.width + 5
+    settingFrame.width = this.knowledgeTab.width
+    this.knowledgeTab.frame = settingFrame
+
     settingFrame.x = settingFrame.x + settingFrame.width + 5
     settingFrame.width = this.triggerButton.width
     this.triggerButton.frame = settingFrame
@@ -2804,8 +3269,12 @@ chatglmController.prototype.settingViewLayout = function (){
     settingFrame.x = this.tabView.frame.width + 5
     settingFrame.width = 30
     this.closeButton.frame = settingFrame
-
+  
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "settingViewLayout")
+  }
 }
+
 /**
  * @this {chatglmController}
  */
@@ -2817,6 +3286,7 @@ try {
   let targetView = "settingView"
   let boldFont = UIFont.boldSystemFontOfSize(16)
   this.creatView(targetView,"view","#f1f6ff",0.9)
+  // this.creatView(targetView,"view","#474a4fff",0.9)
   this.settingView.hidden = true
   this.settingView.layer.cornerRadius = 15
   this.tabView = this.createScrollview("view","#ffffff",0)
@@ -2836,6 +3306,9 @@ try {
 
   this.creatView("advanceView",targetView,"#9bb2d6",0)
   this.advanceView.hidden = true
+
+  this.creatView("knowledgeView",targetView,"#9bb2d6",0)
+  this.knowledgeView.hidden = true
 
   this.creatView("syncView",targetView,"#9bb2d6",0)
   this.syncView.hidden = true
@@ -2873,6 +3346,15 @@ try {
   )
   size = this.customButtonTab.sizeThatFits({width:100,height:100})
   this.customButtonTab.width = size.width+15
+
+  this.createButton("knowledgeTab","knowledgeTabTapped:",targetView)
+  this.knowledgeTab.layer.cornerRadius = radius;
+  this.knowledgeTab.isSelected = false
+  MNButton.setConfig(this.knowledgeTab, 
+    {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"Knowledge",font:17,bold:true}
+  )
+  size = this.knowledgeTab.sizeThatFits({width:120,height:100})
+  this.knowledgeTab.width = size.width+15
 
   this.createButton("triggerButton","triggerButtonTapped:",targetView)
   this.triggerButton.layer.cornerRadius = radius;
@@ -2925,16 +3407,16 @@ try {
   // this.segmentedController.layer.masksToBounds = true;
   // this.segmentedController.selectedSegmentTintColor = UIColor.blueColor()
 
-  try {
+  // try {
     
-  // var attributes = NSDictionary.dictionaryWithObjectsForKeys([UIFont.boldSystemFontOfSize(15)], ["NSFont"]);
-  // this.segmentedController.setTitleTextAttributesForState(attributes, 0)
-  this.resizeGesture0 = new UIPanGestureRecognizer(this,"onResizeGesture0:")
-  this.closeButton.addGestureRecognizer(this.resizeGesture0)
-  this.resizeGesture0.view.hidden = false
-  } catch (error) {
-    chatAIUtils.addErrorLog(error, "createSettingView")
-  }
+  // // var attributes = NSDictionary.dictionaryWithObjectsForKeys([UIFont.boldSystemFontOfSize(15)], ["NSFont"]);
+  // // this.segmentedController.setTitleTextAttributesForState(attributes, 0)
+  // this.resizeGesture0 = new UIPanGestureRecognizer(this,"onResizeGesture0:")
+  // this.closeButton.addGestureRecognizer(this.resizeGesture0)
+  // this.resizeGesture0.view.hidden = false
+  // } catch (error) {
+  //   chatAIUtils.addErrorLog(error, "createSettingView")
+  // }
   //创建各分页下的按钮
 
 
@@ -2959,10 +3441,7 @@ try {
   this.createButton("orderButton","changeSearchOrder:",targetView)
   MNButton.setConfig(this.orderButton, {opacity: 1.0,color: "#457bd3", alpha: 0.8})
   
-  this.creatTextView("knowledgeInput",targetView)
 
-  this.createButton("saveKnowledgeButton","saveKnowledgeButtonTapped:","advanceView")
-  MNButton.setConfig(this.saveKnowledgeButton, {opacity: 1.0,color:"#e06c75",alpha:0.8,title:"Save Knowledge"})
 
   this.createButton("speechButton","toggleSpeech:","advanceView")
   MNButton.setConfig(this.speechButton, {opacity: 1.0,color:(chatAIConfig.getConfig("speech")?"#457bd3":"#9bb2d6"),alpha:0.8,title:"Speech "+(chatAIConfig.getConfig("speech")?"✅":"❌")})
@@ -2979,6 +3458,27 @@ try {
   this.createButton("speechSpeedButton","changeSpeechSpeed:","advanceView")
   MNButton.setConfig(this.speechSpeedButton, {opacity: 1.0,color:(chatAIConfig.getConfig("speech")?"#457bd3":"#9bb2d6"),alpha:0.8,title:"Speech Speed: "+chatAIConfig.getConfig("speechSpeed")})
   this.speechSpeedButton.hidden = true
+
+  this.refreshView(targetView)
+  //knowledgeView
+  targetView = "knowledgeView"
+  // this.createButton("orderButton","changeKnowledgeOrder:",targetView)
+  // MNButton.setConfig(this.orderButton, {opacity: 1.0,color: "#457bd3", alpha: 0.8})
+
+  this.creatTextView("knowledgeInput",targetView)
+  this.knowledgeInput.layer.cornerRadius = 11
+
+  this.createButton("saveKnowledgeButton","saveKnowledge:",targetView)
+  MNButton.setConfig(this.saveKnowledgeButton, {opacity: 1.0,color:"#e06c75",alpha:0.8,title:"Save",radius:11})
+
+  this.createButton("organizeKnowledgeButton","organizeKnowledge:",targetView)
+  MNButton.setConfig(this.organizeKnowledgeButton, {opacity: 1.0,title:"Organize",radius:11})
+
+  // this.createButton("organizeKnowledgeButton","organizeKnowledge:",targetView)
+  // MNButton.setConfig(this.organizeKnowledgeButton, {opacity: 1.0,title:"Organize",radius:11})
+
+  this.createButton("knowledgeActionButton","knowledgeAction:",targetView)
+  MNButton.setConfig(this.knowledgeActionButton, {opacity: 1.0,title:"···",radius:11})
 
   this.refreshView(targetView)
 
@@ -3664,8 +4164,8 @@ chatglmController.prototype.setModel = function (source) {
  * @this {chatglmController}
  */
 chatglmController.prototype.switchView = function (targetView) {
-  let allViews = ["configView", "syncView", "advanceView", "modelView","customButtonView", "autoActionView"]
-  let allButtons = ["configButton","syncConfig", "advancedButton", "modelTab", "customButtonTab", "triggerButton"]
+  let allViews = ["configView", "syncView", "advanceView", "modelView","customButtonView", "knowledgeView","autoActionView"]
+  let allButtons = ["configButton","syncConfig", "advancedButton", "modelTab", "customButtonTab","knowledgeTab", "triggerButton"]
   allViews.forEach((k,index) => {
     let isTargetView = k === targetView
     this[k].hidden = !isTargetView
@@ -3681,9 +4181,16 @@ chatglmController.prototype.switchView = function (targetView) {
 chatglmController.prototype.refreshView = function (targetView) {
 try {
   switch (targetView) {
+    case "knowledgeView":
+      MNUtil.log("refresh knowledgeView")
+      this.knowledgeInput.text = chatAIConfig.knowledge
+      // this.settingView.bringSubviewToFront(this.knowledgeView)
+      // this.knowledgeView.bringSubviewToFront(this.knowledgeInput)
+
+      // this.view
+      break;
     case "advanceView":
       MNUtil.log("refresh advanceView")
-      this.knowledgeInput.text = chatAIConfig.knowledge
       let locInd = chatAIConfig.config.notifyLoc
       let locNames = ["Left","Right"]
       MNButton.setTitle(this.windowLocationButton, "Notification: "+locNames[locInd])
@@ -3710,6 +4217,9 @@ try {
           break;
         case "image-01-live":
           MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: Image-01 Live")
+          break;
+        case "qwen-image":
+          MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: Qwen-Image")
           break;
         case "gpt-image-1":
           MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: GPT Image-1")
@@ -4235,7 +4745,219 @@ chatglmController.prototype.importNewPrompt = async function (promptConfig,key) 
     }
     this.scrollview.setContentOffsetAnimated({x:0,y:this.scrollview.contentSize.height-self.scrollview.frame.height}, true)
 }
+
+/**
+ * Base method to initiate an AI request.
+ * 
+ * This method prepares the AI request by setting up the necessary configurations and initializing the request based on the source model.
+ * 
+ * @this {chatglmController} 
+ * @param {object} question - The question or prompt to be sent to the AI.
+ * @param {{key:String,url:String,model:String}} [config=chatAIConfig.getConfigFromSource()] - Configuration object containing API key, URL, and model information.
+ * @param {number} [temperature=0.8] - The temperature parameter for the AI model, controlling the randomness of the output.
+ * @throws {Error} - Throws an error if there is an issue during the request initialization.
+ */
+chatglmController.prototype.baseAsk = async function(
+  question,
+  config = chatAIConfig.getConfigFromSource(),  
+  temperature=undefined
+) {
+try {
+  // chatAIUtils.copyJSON(config)
+  if (question) {
+    this.question = question
+    this.history = [].concat(question)
+  }
+
+  this.config = config
+  this.temperature = temperature
+  this.funcIndices = config.func ?? []
+  this.actions = config.action ?? []
+  this.toolbarAction = config.toolbarAction ?? ""
+  if (temperature !== undefined) {//优先从函数的参数中获取温度
+    this.temperature = temperature
+  }else{
+    this.temperature = config.temperature ?? 0.8
+  }
+  this.source = config.source
+  let request
+  switch (config.source) {
+    case "ChatGLM":
+    case "KimiChat":
+    case "Minimax":
+    case "Deepseek":
+    case "SiliconFlow":
+    case "PPIO":
+    case "Github":
+    case "Metaso":
+    case "Qwen":
+    case "ChatGPT":
+    case "Subscription":
+    case "Custom":
+    case "Volcengine":
+      request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+      break;
+    case "Gemini":
+      request =chatAINetwork.initRequestForGemini(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+      break;
+    case "Claude":
+      request = chatAINetwork.initRequestForClaude(this.history,config.key,config.url,config.model, this.temperature)
+      break;
+    case "Built-in":
+      //对内置模型而言，只能使用选择好的渠道，不能指定模型
+      let keyInfo = chatAIConfig.keys["key"+chatAIConfig.getConfig("tunnel")]
+      if (!keyInfo || !keyInfo.keys) {
+        MNUtil.showHUD("No apikey for built-in mode!")
+        return
+      }
+      // MNUtil.copyJSON(keyInfo)
+      let key = chatAIUtils.getRandomElement(keyInfo.keys)
+      if (key === "") {
+        MNUtil.showHUD("No apikey for built-in mode!")
+        return
+      }
+      if (keyInfo.useSubscriptionURL) {
+        let url = subscriptionConfig.getConfig("url")+ "/v1/chat/completions"
+        request =chatAINetwork.initRequestForChatGPT(this.history,key, url,keyInfo.model,this.temperature,this.funcIndices)
+      }else{
+        request =chatAINetwork.initRequestForChatGPT(this.history,key, keyInfo.url,keyInfo.model,this.temperature,this.funcIndices)
+      }
+      break;
+    default:
+      MNUtil.showHUD("Unspported source: "+config.source)
+      return
+  }
+  this.sendStreamRequest(request)
+  chatAIUtils.lastTime = Date.now()
+} catch (error) {
+  chatAIUtils.addErrorLog(error, "baseAsk")
+}
+}
+
+/** 
+ * @this {chatglmController}
+ */
+chatglmController.prototype.getResponse = async function (force = false) {
+  // if (this.onResponse && !force) {
+  //   MNUtil.showHUD("getResponse.reject")
+  //   return false
+  // }
+  try {
+
+    switch (this.source) {
+    case "Claude":
+      this.getResponseForClaude()
+      break;
+    case "Gemini":
+      // this.getResponseForGemini()
+      this.getResponseForChatGPT()
+      break;
+    default:
+      this.getResponseForChatGPT()
+      break;
+    }
+    // MNUtil.log({message:"getResponse",response:this.response})
+    return await this.setResponseText("",force)
+    
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "getResponse")
+    return false
+  }
+}
+
+/** @this {chatglmController} */
+chatglmController.prototype.setResponseText = async function (funcResponse = "",force = false) {
+  // if (this.onResponse && !force) {
+  //   MNUtil.showHUD("setResponseText.reject")
+  //   return false
+  // }
+  try {
+    // MNUtil.copy(funcResponse)
+    let funcHtml = ""
+    if (funcResponse.trim()) {
+      funcHtml = `<pre><code>${funcResponse.trim()}</code></pre>`
+    }
+    // this.tem.push(funcResponse)
+    // MNUtil.copy(this.tem)
+    this.onResponse = true
+    this.onreceive = false
+    // MNUtil.copy(this.response.trim())
+    // let beginTime = Date.now()
+    // let response = chatAIUtils.fixMarkdownLinks(this.response.trim())
+    // response = chatAIUtils.replaceButtonCodeBlocks(response)
+    // let endTime = Date.now()
+    // MNUtil.log("setResponseText:"+(endTime-beginTime)+"ms")
+    let option = {
+      scrollToBottom: this.scrollToBottom,
+      funcResponse: funcHtml,
+      response: this.response?.trim() ?? "",
+      reasoningResponse: this.reasoningResponse,
+    }
+    // MNUtil.log({message:"setResponseText",response:option.response})
+    if (option.response) {
+      let tem = option.response.split("```knowledge")
+      if (tem.length > 1) {
+        option.response = tem[1].split("```")[0]
+        this.knowledgeInput.text = option.response.trim()
+        let size = this.knowledgeInput.sizeThatFits({width:this.knowledgeInput.frame.width,height:1000})
+        if (size.height > this.knowledgeInput.frame.height) {
+          this.knowledgeInput.setContentOffsetAnimated({x:0,y:size.height-this.knowledgeInput.frame.height},false)
+        }
+      }
+    }
+    // this.setWebviewContentDev(option)
+    // if (sizeHeight !== undefined) {
+    //   this.sizeHeight = sizeHeight
+    // }
+    // this.onResponse = false
+    return true
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "setResponseText")
+      return false
+    }
+}
+/** 
+ * @param {string} response 
+ * @this {chatglmController}
+ */
+chatglmController.prototype.getResponseForChatGPT = function (checkToolCalls = true) {
+  try {
+    let test = chatAIUtils.parseResponse(this.originalText, checkToolCalls)
+    // MNUtil.copy(test)
+    // MNUtil.log({message:"getResponseForChatGPT",detail:test})
+    if (!test) {
+      // MNUtil.showHUD("Empty")
+      return
+    }
+    // if (test.usage) {
+    //   if (test.usage.total_tokens) {
+    //     this.setToken(test.usage.total_tokens)
+    //   }
+    // }
+    this.response = (this.preResponse+"\n\n"+test.response) ?? ""
+    this.reasoningResponse = test.reasoningResponse ?? ""
+    this.func = test.funcList ?? []
+    this.funcResponse = test.funcResponse ?? ""
+    // if (this.config.source === "Metaso" && test.citations) {
+    //   this.renderSearchResults(test.citations,true)
+    // }
+    return
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "getResponseForChatGPT",this.resList)
+    return
+  }
+}
+/**
+ * @this {chatglmController}
+ * @param {NSURLRequest} request 
+ */
+chatglmController.prototype.sendStreamRequest = function (request) {
+  this.currentTime = Date.now()
+  this.connection = NSURLConnection.connectionWithRequestDelegate(request,this)
+}
 /** @type {UITextView} */
 chatglmController.prototype.contextInput
+/** @type {UITextView} */
+chatglmController.prototype.knowledgeInput
 
 

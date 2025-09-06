@@ -28,6 +28,7 @@ class chatAITool{
     // return new chatAITool(name,args,description,needNote)
     return new chatAITool(name,config)
   }
+  static toolCache = {}
   static showHUD(text,duration = 2){
     if (this.executeView) {
       MNUtil.showHUD(text,duration,this.executeView)
@@ -43,12 +44,18 @@ class chatAITool{
     }
   }
   constructor(name,config){
+    try {
+
     this.config = config
     this.name = name;
     this.args = config.args;
     this.description = config.description;
     this.needNote = config.needNote ?? false
     this.toolTitle = config.toolTitle ?? ""
+      
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "chatAITool constructor",{name:name,config:config})
+    }
   }
   static genToolMessage(content,funcId){
     if (typeof content === 'object') {
@@ -136,6 +143,7 @@ class chatAITool{
    */
   async execute(func,noteId = undefined,onChat = false){
   try {
+  MNUtil.log("execute")
   /**
    * @type {MNNote} 
    */
@@ -167,13 +175,12 @@ class chatAITool{
       // MNUtil.log({message:"createMindmap",detail:args})
 
   // MNUtil.copy(func.function.arguments)
-  let noteid = noteId ?? chatAIUtils.getFocusNoteId(this.needNote)
-  // MNUtil.log(noteid)
-  if (this.needNote && !noteid) { return this.genErrorInNoNote(func.id)}
+  note = MNUtil.noteExists(noteId) ? MNNote.new(noteId) : chatAIUtils.getFocusNote(this.needNote)
+  if (this.needNote && !note) { return this.genErrorInNoNote(func.id)}
   let checkRes = this.checkArgs(args,func.id)
   if (checkRes.onError) { return checkRes.errorMessage}
-  if (this.needNote || noteid) {
-    note = MNNote.new(noteid)?.realGroupNoteForTopicId()
+  if (this.needNote || note) {
+    note = note.realGroupNoteForTopicId()
     // MNUtil.log("123"+note.noteId)
   }
   let response = {}
@@ -211,6 +218,9 @@ class chatAITool{
       break;
     case "createMermaidChart":
       response = await this.createMermaidChart(func,args)
+      break;
+    case "createNote":
+      response = await this.createNote(func, args, note)
       break;
     default:
       break;
@@ -323,11 +333,18 @@ class chatAITool{
       }
       break;
     case "readNotes":
-      let focusNotes = chatAIUtils.getFocusNotes()
-      if (focusNotes.length === 0 || args.range === "allNotesInMindmap") {
-        focusNotes = chatAIUtils.getCurrentNotesInMindmap()
+      let focusNotes = []
+      if ("noteIds" in args && args.noteIds.length) {
+        focusNotes = args.noteIds.map((noteId)=>{
+          return MNNote.new(noteId)
+        })
+      }else{
+        focusNotes = chatAIUtils.getFocusNotes()
+        if (focusNotes.length === 0 || args.range === "allNotesInMindmap") {
+          focusNotes = chatAIUtils.getCurrentNotesInMindmap()
+        }
+        // MNUtil.copy("object"+focusNotes.length)
       }
-      // MNUtil.copy("object"+focusNotes.length)
       if (focusNotes.length > 100) {
         let confirm = await MNUtil.confirm("Too many notes ("+focusNotes.length+")","🤖: 当前脑图笔记过多请确认是否继续读取笔记("+focusNotes.length+")",["Cancel","Confirm"])
         if (confirm === 0) {
@@ -340,18 +357,23 @@ class chatAITool{
       // MNUtil.copy("object"+focusNotes.length)
       MNUtil.waitHUD("🤖 Reading "+focusNotes.length+" notes")
       if (focusNotes.length) {
-        let notesContents = []
-        for (let i = 0; i < focusNotes.length; i++) {
-          const note = focusNotes[i];
-          let structure = await chatAIUtils.genCardStructure(note.noteId)
-          notesContents.push(structure)
+        if (focusNotes.length === 1) {
+          let noteContent = await chatAIUtils.genCardStructure(focusNotes[0])
+          response.toolMessages = chatAITool.genToolMessage("Below are the details of note:\n"+JSON.stringify(noteContent,undefined,2),func.id)
+        }else{
+          let notesContents = []
+          for (let i = 0; i < focusNotes.length; i++) {
+            const note = focusNotes[i];
+            let structure = await chatAIUtils.genCardStructure(note)
+            notesContents.push(structure)
+          }
+          let tree = chatAIUtils.buildHierarchy(notesContents)
+          // MNUtil.copy(tree)
+          MNUtil.delay(0.5).then(()=>{
+            MNUtil.stopHUD()
+          })
+          response.toolMessages = chatAITool.genToolMessage("Below are the details of focused notes:\n"+JSON.stringify(tree,undefined,2),func.id)
         }
-        let tree = chatAIUtils.buildHierarchy(notesContents)
-        // MNUtil.copy(tree)
-        MNUtil.delay(0.5).then(()=>{
-          MNUtil.stopHUD()
-        })
-        response.toolMessages = chatAITool.genToolMessage("Below are the focused notes:\n"+JSON.stringify(tree,undefined,2),func.id)
       }else{
         message.response = "Empty notes"
         message.success = false
@@ -407,9 +429,11 @@ class chatAITool{
       break;
 
     case "readParentNote":
-      let focusNote = MNNote.new(noteId)
-      if (focusNote) {
-        parentNote = focusNote.parentNote
+      if ("noteId" in args && args.noteId) {
+        note = MNNote.new(args.noteId)
+      }
+      if (note) {
+        parentNote = note.parentNote
         if (parentNote) {
           let noteContent = {
             title:parentNote.noteTitle,
@@ -444,7 +468,6 @@ class chatAITool{
       // note = MNUtil.getNoteById(noteid)
       // response.result = args.excerpt.replace(/&nbsp;/g, ' ')
       response.result = chatAITool.formatMarkdownList(args.excerpt)
-      note = MNNote.new(noteid)
       note = note.realGroupNoteForTopicId()
       MNUtil.undoGrouping(()=>{
         note.excerptText = response.result
@@ -457,16 +480,19 @@ class chatAITool{
       message.success = true
       response.toolMessages = chatAITool.genToolMessage(message, func.id)
       break;
-    case "addChildNote":
+
+    case "createNote":
       let title = args.title
       let config = {markdown:true}
       if (title) {
         config.title = title.trim()
       }
       let content = args.content
+      // MNUtil.log({message:"addChildNoteBefore",detail:content})
       if (content) {
         config.content = chatAITool.formatMarkdownList(content)
       }
+      // MNUtil.log({message:"addChildNoteAfter",detail:config.content})
       let htmlContent = args.html
       // if (htmlContent) {
       //   config.htmlContent = htmlContent
@@ -481,13 +507,10 @@ class chatAITool{
       }
       if ("parentNoteId" in args && args.parentNoteId) {
         note = MNNote.new(args.parentNoteId)
-      }else{
-        note = MNNote.new(noteid)
+        note = note.realGroupNoteForTopicId()
       }
       if (!note) {
         note = MNUtil.currentChildMap
-      }else{
-        note = note.realGroupNoteForTopicId()
       }
       // MNNote.createChildNote
       response.result = config
@@ -889,6 +912,91 @@ class chatAITool{
     return response
   
   }
+  async generateImageUsingQwen(func,args,model = "qwen-image"){
+    MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML(`Generating image using ${model}...`)})
+    let response = {}
+    let message = {success:true}
+    try {
+      let url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
+      let apikey = "sk-a1afb999f36b4f52be59a94490ce8528"
+      MNUtil.showHUD("Generating image...")
+      let request = chatAINetwork.initRequestForQwenWithoutStream(args.prompt, apikey, url, model)
+      let res = await chatAINetwork.sendRequest(request)
+      MNUtil.log({message:"generateImageUsingQwen",detail:res})
+      if (typeof res === "string") {
+        let resObj = JSON.parse(res.split("data:")[1])
+        if ("output" in resObj) {
+          MNUtil.log({message:"generateImageUsingQwen",detail:resObj})
+          MNUtil.showHUD("✅ Image generated")
+          MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
+          response.result = resObj.output.choices[0].message.content[0].image
+          message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          
+          MNUtil.delay(0.1).then(()=>{
+            let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
+            MNUtil.postNotification("snipasteImage", {imageData:imageData})
+            // MNUtil.log("✅ Image downloaded")
+          })
+          return response
+        }
+        response.result = res
+        MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result)
+        message.response = "Failed in generating image: "+response.result
+        response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        return response
+      }
+      // MNUtil.copy(res)
+      if ("data" in res) {
+        if ("error" in res.data) {
+          if (typeof res.data.error === "string") {
+            response.result = res.data.error
+          }else{
+            response.result = res.data.error.message
+          }
+          MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result)
+          message.response = "Failed in generating image: "+response.result
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        }else{
+          MNUtil.showHUD("✅ Image generated")
+          MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
+          if (Array.isArray(res.data)) {
+            response.result = res.data[0].url
+          }else{
+            response.result = res.data.image_urls[0]
+          }
+          // response.result = res.data.image_urls[0]
+          message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+          // message.response = "Image is created at the following url: "+res.data.image_urls[0]+"\n please show this image as markdown image"
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          MNUtil.delay(0.1).then(()=>{
+            let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
+            MNUtil.postNotification("snipasteImage", {imageData:imageData})
+            // MNUtil.log("✅ Image downloaded")
+          })
+        }
+      }else{
+        if ("error" in res) {
+          response.result = res.error
+          MNUtil.confirm("❌ Image generated failed", response.result)
+          message.response = "Failed in generating image: "+response.result
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        }else{
+          MNUtil.showHUD("❌ Image generated failed")
+          message.response = "Failed in generating image"
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        }
+      }
+
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "generateImage")
+      MNUtil.showHUD("❌ Image generated failed")
+      message.response = "Failed in generating image"
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    }
+    return response
+  
+  }
   async generateImage(func,args) {
     let model = chatAIConfig.getConfig("imageGenerationModel")
     if (model.startsWith("cogview")) {
@@ -896,6 +1004,9 @@ class chatAITool{
     }
     if (model.startsWith("image-01")) {
       return await this.generateImageUsingMinimax(func,args,model)
+    }
+    if (model.startsWith("qwen-")) {
+      return await this.generateImageUsingQwen(func, args, model)
     }
     if (!chatAIUtils.checkSubscribe(false,false,true)) {
       return await this.generateImageUsingCogview(func,args,"cogview-3-flash")
@@ -909,7 +1020,7 @@ class chatAITool{
       // model = "gpt-image-1"
       // let url = "https://remote.feliks.top/v1/images/generations"
       // let apikey = "sk-dHlgo7tvMjnnzz4s4yCElJxLPUwcaBP7CoY5SfFTXcpCWuaj"
-      // let model = "gemini-2.0-flash-preview-image-generation"
+      // let model = "qwen-image"
       // let url = "https://generativelanguage.googleapis.com/v1beta/openai/images/generations"
       // let apikey = "AIzaSyAU7Ekqwi6lOHONFtu4g3Q9UWr56c1D5Gk"
       // let model = "gemini-2.0-flash-preview-image-generation"
@@ -1126,7 +1237,7 @@ class chatAITool{
        * @param {*} tree 
        * @returns 
        */
-      function addChildrenDev(parentNote,tree) {
+      function addChildrenDev(parentNote,tree,isRoot = false) {
         let mainNode
         let noteId = ("noteId" in tree) ? tree.noteId : ("id" in tree) ? tree.id : undefined
         if (noteId) {
@@ -1145,7 +1256,7 @@ class chatAITool{
           mainNode.color = tree.color
         }
         relatedNotes.push(mainNode)
-        if (parentNote && (parentNote.noteId !== mainNode.parentNote?.noteId)) {
+        if (!isRoot && parentNote && (parentNote.noteId !== mainNode.parentNote?.noteId)) {
           parentNote.addChild(mainNode)
         }
         if ("children" in tree && tree.children.length) {
@@ -1179,12 +1290,12 @@ class chatAITool{
               default:
                 break;
             }
-            addChildrenDev(MNNote.currentChildMap,parsedTree)
+            addChildrenDev(MNNote.currentChildMap,parsedTree,true)
           })
       })
-      MNUtil.delay(0.5).then(()=>{
-        MNUtil.excuteCommand("EditArrangeNotes")
-      })
+      // MNUtil.delay(0.5).then(()=>{
+      //   MNUtil.excuteCommand("EditArrangeNotes")
+      // })
       let notesContents = []
       for (let i = 0; i < relatedNotes.length; i++) {
         const note = relatedNotes[i];
@@ -1195,6 +1306,83 @@ class chatAITool{
       // MNUtil.copy(newTree)
       message.response = "Notes are organized as follows:\n"+JSON.stringify(tree,undefined,2)
       message.success = true
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    return response
+  }
+  async createNote(func,args,parentNote = undefined){
+    let response = {}
+    let message = {success:true}
+    let title = args.title
+      let config = {markdown:true}
+      if (title) {
+        config.title = title.trim()
+      }
+      let content = args.content
+      // MNUtil.log({message:"addChildNoteBefore",detail:content})
+      if (content) {
+        config.content = chatAITool.formatMarkdownList(content)
+      }
+      // MNUtil.log({message:"addChildNoteAfter",detail:config.content})
+      let htmlContent = args.html
+      // if (htmlContent) {
+      //   config.htmlContent = htmlContent
+      // }
+      let tags = args.tags
+      if (tags) {
+        config.tags = tags
+      }
+      let color = args.color
+      if (color) {
+        config.color = color
+      }
+      if ("parentNoteId" in args && args.parentNoteId) {
+        parentNote = MNNote.new(args.parentNoteId)
+      }
+      if (!parentNote) {
+        parentNote = MNUtil.currentChildMap
+      }else{
+        parentNote = parentNote.realGroupNoteForTopicId()
+      }
+      // MNNote.createChildNote
+      response.result = config
+      // MNUtil.showHUD("message")
+      // MNUtil.copy(htmlContent)
+      if (!parentNote) {
+        MNUtil.undoGrouping(()=>{
+          let note = MNNote.new(response.result)
+          if (htmlContent) {
+            note.appendHtmlComment(htmlContent, htmlContent, {width:1000,height:500}, "")
+          }
+          if (MNUtil.mindmapView) {
+            note.focusInMindMap(0.5)
+          }
+          message.response = "note is created"
+          message.success = true
+        })
+      }else{
+        MNUtil.undoGrouping(()=>{
+          let child = parentNote.createChildNote(response.result,false)
+          if (!child) {
+            MNUtil.showHUD("❌ Failed in create childNote")
+            message.response = "Failed in create childNote"
+            message.success = false
+          }else{
+            try {
+              if (htmlContent) {
+                child.appendHtmlComment(htmlContent, htmlContent, {width:1000,height:500}, "")
+              }
+            } catch (error) {
+              chatAIUtils.addErrorLog(error, "createNote")
+            }
+            if (MNUtil.mindmapView) {
+              child.focusInMindMap(0.5)
+            }
+            message.response = "child note is created"
+            message.success = false
+          }
+        })
+      }
+      message.noteStructure = response.result
       response.toolMessages = chatAITool.genToolMessage(message,func.id)
     return response
   }
@@ -1213,6 +1401,7 @@ class chatAITool{
      */
     let notes = []
       let targetTitle = ""
+      let targetContent = ""
       switch (args.action) {
         case "setColor":
           MNUtil.undoGrouping(()=>{
@@ -1267,6 +1456,14 @@ class chatAITool{
           message.response = `Title has been changed as "${targetTitle}"`
           message.success = true
           break;
+        case "prependTitle":
+          targetTitle = args.content+";"+note.title
+          MNUtil.undoGrouping(()=>{
+            note.title = targetTitle
+          })
+          message.response = `Title has been changed as "${targetTitle}"`
+          message.success = true
+          break;
         case "clearTitle":
           MNUtil.undoGrouping(()=>{
             note.title = ""
@@ -1279,36 +1476,58 @@ class chatAITool{
             note.excerptText = chatAITool.formatMarkdownList(args.content)
             note.excerptTextMarkdown = true
           })
-          message.response = `Note/card Content has been changed as "${args.content}"`
+          message.response = `Note/card content has been changed as: "${args.content}"`
           message.success = true
           break;
         case "appendContent":
-          let targetContent = note.excerptText+"\n"+args.content
+          targetContent = note.excerptText+"\n"+args.content
           MNUtil.undoGrouping(()=>{
             note.excerptText = chatAITool.formatMarkdownList(targetContent)
           })
-          message.response = `Note/card Content has been changed as "${targetContent}"`
+          message.response = `Note/card content has been changed as: "${targetContent}"`
+          message.success = true
+          break;
+        case "prependContent":
+          targetContent = args.content.trim()+"\n"+note.excerptText
+          MNUtil.undoGrouping(()=>{
+            note.excerptText = chatAITool.formatMarkdownList(targetContent)
+          })
+          message.response = `Note/card content has been changed as: "${targetContent}"`
           message.success = true
           break;
         case "clearContent":
           MNUtil.undoGrouping(()=>{
             note.excerptText = ""
           })
-          message.response = "Note/card Content has been cleared"
+          message.response = "Note/card content has been cleared"
           message.success = true
           break;
         case "addComment":
           MNUtil.undoGrouping(()=>{
             note.appendMarkdownComment(chatAITool.formatMarkdownList(args.content))
           })
-          message.response = `Add comment with "${args.content}"`
+          message.response = `Add comment with content: "${args.content}"`
+          message.success = true
+          break;
+        case "appendComment":
+          MNUtil.undoGrouping(()=>{
+            note.appendMarkdownComment(chatAITool.formatMarkdownList(args.content))
+          })
+          message.response = `Append comment with content: "${args.content}"`
+          message.success = true
+          break;
+        case "prependComment":
+          MNUtil.undoGrouping(()=>{
+            note.appendMarkdownComment(chatAITool.formatMarkdownList(args.content),0)
+          })
+          message.response = `Prepend comment with content: "${args.content}"`
           message.success = true
           break;
         case "addTags":
           MNUtil.undoGrouping(()=>{
             note.appendTags(args.tags)
           })
-          message.response = `Add tags with "${args.tags}"`
+          message.response = `Add tags: "${args.tags}"`
           message.success = true
           break;
         case "removeTags":
@@ -1456,7 +1675,7 @@ try {
  */
 static formatMarkdownList(markdownText) {
   // 1. 首先，全局替换所有的 &nbsp; 为标准空格。
-  let correctedText = markdownText.replace(/&nbsp;/g, ' ');
+  let correctedText = markdownText.replace(/&nbsp;/g, ' ').replace(/\frac/g, '\\frac').replace(/\x08egin/, "\\begin").replace(/\right/, "\\right");
 
   // 2. 将文本按行分割成数组，以便逐行处理。
   const lines = correctedText.split('\n');
@@ -1559,7 +1778,7 @@ static render(funcObject){
       case "webSearch":
         funcText = `${funcName}("${args.question}")\n`
         break;
-      case "addChildNote":
+      case "createNote":
         funcText = `${funcName}(${JSON.stringify(args,undefined,2)})\n`
         // if (args.title) {
         //   pre = pre+`"${MNUtil.mergeWhitespace(args.title)}"`
@@ -1724,14 +1943,39 @@ try {
       let currentDocName = MNUtil.getFileName(MNUtil.currentDocController.document.pathFile)
       return `🔨 ${funcName}("${currentDocName}")\n`
     case "readNotes":
-      if (args.range) {
-        return `🔨 ${funcName}("${args.range}")\n`
+      if ("noteIds" in args ) {
+        if (!args.noteIds) {
+          return `🔨 readNotes.byId()\n`
+        }
+        if (args.noteIds.length === 1) {
+          return `🔨 readNote.byId(
+  ${args.noteIds[0]}
+)\n`
+        }
+        return `🔨 readNotes.byIds(
+  ${args.noteIds.join(",\n  ")}
+)\n`
       }else{
-        return `🔨 ${funcName}()\n`
+        if (args.range) {
+          switch (args.range) {
+            case "focusedNotes":
+              return `🔨 readFocusedNotes()\n`
+            case "allNotesInMindmap":
+              return `🔨 readAllNotesInMindmap()\n`
+            default:
+              break;
+          }
+        }
       }
+      return `🔨 readNotes()\n`
     case "webSearch":
       return `🔨 ${funcName}("${args.question}")\n`
     case "readParentNote":
+      if ("noteId" in args && args.noteId) {
+        return `🔨 readParentNote.byId(
+  ${args.noteId}
+)\n`
+      }
       return `🔨 ${funcName}()\n`
       // let pre = `${funcName}(\n`
       // if (args.title) {
@@ -1755,8 +1999,12 @@ try {
             asts.push(chatAIUtils.getValidJSON(ast))
           }
         })
+        asts = asts.filter(ast=>Object.keys(ast).length > 0)
+        if (asts.length === 1) {
+          return `🔨 ${funcName}(${JSON.stringify(asts[0],undefined,2)})\n`
+        }
         return `🔨 ${funcName}(${JSON.stringify(asts,undefined,2)})\n`
-      }
+        }
       return `🔨 ${funcName}()\n`
     case "createMindmap":
       if (args.ast) {
@@ -1796,6 +2044,106 @@ try {
         // MNUtil.showHUD("Missing arguments: ast")
         return `🔨 ${funcName}(${this.preContent})\n`
       }
+    case "editNote":
+      if (args.action) {
+        switch (args.action) {
+          case "setColor":
+            if (args.color) {
+              return `🔨 editNote.setColor("${args.color}")`
+            }
+            return `🔨 editNote.setColor()`
+          case "replaceContent":
+              return `🔨 editNote.replaceContent(
+  From: ${args.originalContent??""}
+  To: ${args.content??""}
+)`
+          case "setTitle":
+            if (args.title) {
+              return `🔨 editNote.setTitle(
+  ${args.title}
+)`
+            }
+            return `🔨 editNote.setTitle()`
+          case "appendTitle":
+            if (args.content) {
+              return `🔨 editNote.appendTitle(
+  ${args.content}
+)`
+            }
+            return `🔨 editNote.appendTitle()`
+          case "prependTitle":
+            if (args.content) {
+              return `🔨 editNote.prependTitle(
+  ${args.content}
+)`
+            }
+            return `🔨 editNote.prependTitle()`
+          case "clearTitle":
+            return `🔨 editNote.clearTitle()`
+          case "setContent":
+            if (args.content) {
+              return `🔨 editNote.setContent(
+  ${args.content}
+)`
+            }
+            return `🔨 editNote.setContent()`
+          case "appendContent":
+            if (args.content) {
+              return `🔨 editNote.appendContent(
+  ${args.content}
+)`
+            }
+            return `🔨 editNote.appendContent()`
+          case "prependContent":
+            if (args.content) {
+              return `🔨 editNote.prependContent(
+  ${args.content}
+)`
+            }
+            return `🔨 editNote.prependContent()`
+
+          case "clearContent":
+            return `🔨 editNote.clearContent()`
+          case "appendComment":
+            if (args.content) {
+              return `🔨 editNote.appendComment(
+  ${args.content}
+)`
+            }
+            return `🔨 editNote.appendComment()`
+          case "prependComment":
+            if (args.content) {
+              return `🔨 editNote.prependComment(
+  ${args.content}
+)`
+            }
+            return `🔨 editNote.prependComment()`
+          case "addTags":
+            if (args.tags) {
+              return `🔨 editNote.addTags(
+  ${args.tags.join("\n")}
+)`
+            }
+            return `🔨 editNote.addTags()`
+          case "removeTags":
+            if (args.tags) {
+              return `🔨 editNote.removeTags(
+  ${args.tags.join("\n")}
+)`
+            }
+            return `🔨 editNote.removeTags()`
+          case "deleteNote":
+            if (args.targetNoteIds) {
+              return `🔨 editNote.deleteNote(
+  ${args.targetNoteIds.join("\n")}
+)`
+            }
+            return `🔨 editNote.deleteNote()`
+          default:
+            return `🔨 ${funcName}(${JSON.stringify(args,undefined,2)})\n`
+        }
+      }
+      return `🔨 ${funcName}()\n`
     case "knowledge":
       if (args.action) {
         switch (args.action) {
@@ -1804,14 +2152,14 @@ try {
           case "appendKnowledge":
             if (args.content) {
               return `🔨 knowledge.append(
-${args.content}
+  ${args.content}
 )`
             }
             return `🔨 knowledge.append()`
           case "overwriteKnowledge":
             if (args.content) {
               return `🔨 knowledge.overwrite(
-${args.content}
+  ${args.content}
 )`
             }
             return `🔨 knowledge.overwrite()`
@@ -2118,17 +2466,31 @@ ${args.html}
         args:{
           range:{
             type:"string",
-            description:"optional, range of notes to read, default is `focusedNotes`, other options: `allNotesInMindmap`"
+            enum:["focusedNotes","allNotesInMindmap","noteIds"],
+            description:"optional, range of notes to read, default is `focusedNotes`"
+          },
+          noteIds:{
+            type:"array",
+            items: {
+              type:"string",
+              description:"noteId formated as xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx, or noteURL formated as `marginnote4app://note/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`"
+            },
+            description:"optional, use this argument to read notes by note ids, only valid when range is `noteIds`"
           }
         },
         required:[],
         description:"this function is used to read focus notes/cards, also called selected notes/cards, do not pass any argument"
       },
       "readParentNote":{
-        needNote:true,
+        needNote:false,
         toolTitle: "🔨   Read ParentNote",
-        args:{},
-        description:"this function is used to read parent note/card of current note/card, do not pass any argument"
+        args:{
+          noteId:{
+            type:"string",
+            description:"optional, noteId formated as xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx, or noteURL formated as `marginnote4app://note/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`. If not provided, the parent note/card of current note/card will be read"
+          }
+        },
+        description:"this function is used to read parent note/card of current note/card or note/card specified by noteId"
       },
       "webSearch":{
         needNote:false,
@@ -2158,37 +2520,37 @@ ${args.html}
         },
         description:"this function is used to set content for a note."
       },
-      "addChildNote":{
+      "createNote":{
         needNote:false,
-        toolTitle: "➕   Create ChildNote",
+        toolTitle: "➕   Create Note",
+        description:"Creates a new note (a 'child note') hierarchically under a specified parent note. If no parent note is specified, it defaults to the currently active note.",
         args:{
           title:{
             type:"string",
-            description:"title for child note, optional"
+            description:"The title or heading for the new child note. Optional."
           },
           content:{
             type:"string",
-            description:`markdown content for child note, optional. It supports HTML tags like "span", "p", "div", "font", "u", "small", "big", "mark", "sup", "sub", "center" and etc. For example, this span tag change the color of the word "reveals" to red: <span style="background-color: red;">reveals</span>`
+            description:`The main body content for the child note, formatted in Markdown. Simple HTML tags are also supported. Optional.`
           },
           tags:{
             type:"array",
             items: {
-              type:"string",
-              description:"tag for child note, optional"
+              type:"string"
             },
-            description:"tags for child note, optional"
+            description:"A list of tags to associate with the child note. Optional. Use this argument only when user ask to"
           },
           color:{
             type:"string",
-            description:"color for child note, optional. \nColors includes White, Yellow, Green, Blue, Red, Orange, Purple, LightYellow, LightGreen, LightBlue, LightRed, DarkGreen, DarkBlue, DeepRed, LightGray and DarkGray"
+            enum:["White", "Yellow", "Green", "Blue", "Red", "Orange", "Purple", "LightYellow", "LightGreen", "LightBlue", "LightRed", "DarkGreen", "DarkBlue", "DeepRed", "LightGray", "DarkGray"],
+            description:"Sets a background color for the note. Optional. Use this argument only when user ask to set color."
           },
           parentNoteId:{
             type:"string",
-            description:" optional, parent note id for this child note, default is current note. NoteId format: `marginnote4app://note/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`"
+            description:"The ID of the parent note under which this child note will be created. If omitted, it defaults to the currently active note. Format must be: `marginnote4app://note/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`. Optional."
           }
         },
         required:[],
-        description:"this function is used to create a child note"
       },
       "createMindmap":{
         needNote:false,
@@ -2443,7 +2805,7 @@ sequenceDiagram
         args:{
           action:{
             type:"string",
-            enum:["setTitle","setTitleWithOptions","appendTitle","clearTitle","setColor","setContent","appendContent","clearContent","replaceContent","addComment","addTags","removeTags","deleteNote"],
+            enum:["setTitle","setTitleWithOptions","appendTitle","prependTitle","clearTitle","setColor","setContent","appendContent","prependContent","clearContent","replaceContent","appendComment","prependComment","addTags","removeTags","deleteNote"],
             description:`actions to edit note.
 Use the \`replaceContent\` action to change the style of specific words.
 For example, set parameter \`originalContent\` to "reveals" and parameter \`content\` to "<span style="background-color: red;">reveals</span>" to change the color of the word "reveals" to red.`
@@ -2451,7 +2813,7 @@ For example, set parameter \`originalContent\` to "reveals" and parameter \`cont
           content:{
             type:"string",
             description:`content for specific action. 
-            Required when use action \`setTitle\`, \`appendTitle\`, \`setContent\`, \`appendContent\`, \`replaceContent\`, \`addComment\`, \`addTags\`, \`removeTags\`.
+            Required when use action \`setTitle\`, \`appendTitle\`, \`prependTitle\`, \`setContent\`, \`appendContent\`,\`prependContent\`, \`replaceContent\`, \`appendComment\`, \`prependComment\`, \`addTags\`, \`removeTags\`.
             For actions \`setContent\`, \`appendContent\`, \`replaceContent\` and \`addComment\`, the content uses markdown format, which supports HTML tags like "span", "p", "div", "font", "u", "small", "big", "mark", "sup", "sub", "center" and etc.`
           },
           originalContent:{
@@ -2582,7 +2944,7 @@ For example, set parameter \`originalContent\` to "reveals" and parameter \`cont
     }
   }
   static get toolNames(){
-    return ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","addChildNote","clearExcerpt","setExcerpt","readDocument","readNotes","webSearch","readParentNote","createMindmap","editNote","generateImage","createHTML","userConfirm","userInput","userSelect","mergeNotes","moveNotes","linkNotes","organizeNotes","searchNotes","createMermaidChart","knowledge"]
+    return ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","createNote","clearExcerpt","setExcerpt","readDocument","readNotes","webSearch","readParentNote","createMindmap","editNote","generateImage","createHTML","userConfirm","userInput","userSelect","mergeNotes","moveNotes","linkNotes","organizeNotes","searchNotes","createMermaidChart","knowledge"]
   }
   static get toolNumber(){
     return this.toolNames.length
@@ -2598,18 +2960,30 @@ For example, set parameter \`originalContent\` to "reveals" and parameter \`cont
     // return [15,11,13,21,22,23,24,25,7,14,17,16,18,19,20,10,12,5]
     return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,27,5]
   }
-  static getChangedTools(currentFunc,index){
+  static async getChangedTools(currentFunc,index){
     let targetFunc = currentFunc
     switch (index) {
       case -1:
         targetFunc = []
         break;
       case 100:
+        if (!chatAIUtils.isSubscribed()) {
+          let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+          if (!confirm) {
+            return currentFunc
+          }
+        }
         if (chatAIUtils.checkSubscribe()) {
           targetFunc = chatAITool.activatedToolsExceptOld
         }
         break
       default:
+        if (!chatAITool.oldTools.includes(index) && !chatAIUtils.isSubscribed()) {
+          let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+          if (!confirm) {
+            return currentFunc
+          }
+        }
         if (chatAITool.oldTools.includes(index) || chatAIUtils.checkSubscribe()) {
           if (targetFunc.includes(index)) {
             targetFunc = targetFunc.filter(func=> func!==index)
@@ -2930,6 +3304,16 @@ class chatAIUtils {
     let ver = this.appVersion()
     return ver.version+'app://note/'+noteid
   } 
+  static currentNote() {
+    if (!this.currentNoteId) {
+      return undefined
+    }
+    if (!this.noteExists(this.currentNoteId)) {
+      return undefined
+    }
+    let note = MNNote.new(this.currentNoteId)
+    return note
+  }
   static blur() {
     if (this.isMN4() && this.sideOutputController && this.sideOutputController.userInput) {
       this.sideOutputController.blur(0.1)
@@ -3281,7 +3665,7 @@ static buildHierarchy(notes) {
 
   // First pass: Create a map of notes and initialize a 'children' array for each.
   notes.forEach(note => {
-    map[note.id] = { ...note, children: [] }; // Store a copy and add children array
+    map[note.id] = { ...note, children: note.children || [] }; // Store a copy and add children array
   });
 
   // Second pass: Populate the 'children' arrays and identify root nodes.
@@ -3289,7 +3673,14 @@ static buildHierarchy(notes) {
     let parentId = note.parentId
     if (parentId && map[parentId]) {
       // If it has a parent and the parent exists in our map, add it to parent's children
-      map[parentId].children.push(map[note.id]);
+      let children = map[parentId].children ?? []
+      children = children.map(child=>{
+        if (child.id === note.id) {
+          return map[note.id]
+        }
+        return child
+      })
+      map[parentId].children = children
     } else {
       // Otherwise, it's a root node (or an orphan if parentId is invalid but present)
       tree.push(map[note.id]);
@@ -3555,8 +3946,8 @@ try {
     if (focusNote) {
       return focusNote
     }else{
-      if (this.currentNoteId) {
-        return MNNote.new(this.currentNoteId)
+      if (this.currentNote()) {
+        return this.currentNote()
       }
       if (allowSelection && MNUtil.currentSelection.onSelection) {
         return MNNote.fromSelection().realGroupNoteForTopicId()
@@ -3588,7 +3979,7 @@ try {
   static cloneNote(noteid) {
     let targetNote = this.getNoteById(noteid)
     if (!targetNote) {
-      this.showHUD("Note not exists!")
+      this.addErrorLog("Note not exists!", "cloneNote")
       return undefined
     }
     let note = this.data.cloneNotesToTopic([targetNote], targetNote.notebookId)
@@ -3609,15 +4000,15 @@ try {
    * @param {number} level 
    * @returns {Promise<string>}
    */
-  static async getMDFromNote(note,level = 0,OCR_enabled = false){
+  static async getMDFromNote(note,withLink = false){
     if (note) {
       note = note.realGroupNoteForTopicId()
     }else{
       return ""
     }
 try {
-
-  let title = (note.noteTitle && note.noteTitle.trim()) ? "# "+note.noteTitle.trim() : ""
+  let OCR_enabled = false
+  let title = (note.noteTitle && note.noteTitle.trim()) ? note.noteTitle.trim() : ""
   if (title.trim()) {
     title = title.split(";").filter(t=>{
       if (/{{.*}}/.test(t)) {
@@ -3625,6 +4016,13 @@ try {
       }
       return true
     }).join(";")
+    if (withLink) {
+      title = `# [${title}](${note.noteURL})`
+    }else{
+      title = `# ${title}`
+    }
+  }else if (withLink) {
+    title = `# [note:${note.noteId}](${note.noteURL})`
   }
   let textFirst = note.textFirst
   let excerptText
@@ -3679,9 +4077,9 @@ try {
   }
   excerptText = (excerptText && excerptText.trim()) ? this.highlightEqualsContentReverse(excerptText) : ""
   let content = title+"\n"+excerptText
-  if (level) {
-    content = content.replace(/(#+\s)/g, "#".repeat(level)+"\$1")
-  }
+  // if (level) {
+  //   content = content.replace(/(#+\s)/g, "#".repeat(level)+"\$1")
+  // }
   return content
 }catch(error){
   this.addErrorLog(error, "getMDFromNote")
@@ -4144,12 +4542,16 @@ try {
           }
           break;
         case 2:
-          if (OCR_enabled && note.excerptPic && !note.textFirst) {
-            let image = MNUtil.getMediaByHash(note.excerptPic.paint)
-            text = await chatAINetwork.getTextOCR(image)
-            // text = ""
-          }else if (this.noteHasExcerptText(note)) {
-            text = note.excerptText
+          if (MNUtil.isBlankNote(note)) {//单独处理留白笔记
+            text = note.excerptText??""
+          }else{
+            if (OCR_enabled && note.excerptPic && !note.textFirst) {
+              let image = MNUtil.getMediaByHash(note.excerptPic.paint)
+              text = await chatAINetwork.getTextOCR(image)
+              // text = ""
+            }else if (this.noteHasExcerptText(note)) {
+              text = note.excerptText
+            }
           }
 
           //如果都不满足，此时text依然为undefined
@@ -4216,18 +4618,22 @@ try {
     }
     return undefined
   }
-  static async getInfoForReference(){
+  static async getInfoForReference(dynamic = false,returnAfterOCR = true) {
     try {
       let info = {userInput:"",ocr:false}
-      if (chatAIUtils.currentNoteId) {
-        let note = MNNote.new(chatAIUtils.currentNoteId)
-        info.userInput = `{{note:${chatAIUtils.currentNoteId}}}`
+      let note = this.currentNote()
+      if (note) {
+        info.userInput = `{{note:${this.currentNoteId}}}`
         // let hasImage = chatAIUtils.hasImageInNote(note)
-        let imageDatas = chatAIUtils.getImagesFromNote(note)
+        let imageDatas = MNNote.getImagesFromNote(note,true)
         let numberOfImages = imageDatas.length
         // let imageData = note.imageData
         if (numberOfImages) {//检查是否包含图片
           let autoImage = chatAIConfig.getConfig("autoImage")
+          if (dynamic) {
+            let config = chatAIConfig.getDynmaicConfig()
+            autoImage = chatAIUtils.isVisionModel(config.model)
+          }
           let autoOCR = chatAIConfig.getConfig("autoOCR")
           if (autoImage || autoOCR) {//如果同时开启了自动图片和自动OCR，则只有当图片存在时才会调用OCR
             if (autoImage) {//将图片添加到引用框中
@@ -4237,16 +4643,17 @@ try {
               }
               return info
             }else if (autoOCR) {//对图片进行OCR
-              let text = await chatAINetwork.getTextOCR(imageDatas[0])
-              if (numberOfImages > 1) {
-                for (let i = 1; i < numberOfImages; i++) {
-                  const image = imageDatas[i]
-                  const tem = await chatAINetwork.getTextOCR(image)
-                  text = text + "\n" + tem
+              if (returnAfterOCR) {
+                let text = await chatAINetwork.getTextOCR(imageDatas[0])
+                if (numberOfImages > 1) {
+                  for (let i = 1; i < numberOfImages; i++) {
+                    const image = imageDatas[i]
+                    const tem = await chatAINetwork.getTextOCR(image)
+                    text = text + "\n" + tem
+                  }
                 }
+                info.userInput = text
               }
-
-              info.userInput = text
               info.ocr = true
               return info
             }
@@ -4268,14 +4675,20 @@ try {
         }else{//选区为图片
           let autoImage = chatAIConfig.getConfig("autoImage")
           let autoOCR = chatAIConfig.getConfig("autoOCR")
+          if (dynamic) {
+            let config = chatAIConfig.getDynmaicConfig()
+            autoImage = chatAIUtils.isVisionModel(config.model)
+          }
           if (autoImage || autoOCR) {//如果同时开启了自动图片和自动OCR，则只有当图片存在时才会调用OCR
             let imageData = selection.image
             if (autoImage) {//将图片添加到引用框中
               info.imageData = imageData
               return info
             }else if (autoOCR) {
-              let text = await chatAINetwork.getTextOCR(imageData)
-              info.userInput = text
+              if (returnAfterOCR) {
+                let text = await chatAINetwork.getTextOCR(imageData)
+                info.userInput = text
+              }
               info.ocr = true
               return info
             }
@@ -4283,15 +4696,19 @@ try {
         }
         return info
       }
-      let note = chatAIUtils.getFocusNote()
+      note = chatAIUtils.getFocusNote()
       if (note) {
         info.userInput = `{{note:${note.noteId}}}`
-        let imageDatas = chatAIUtils.getImagesFromNote(note)
+        let imageDatas = MNNote.getImagesFromNote(note,true)
         // let imageData = note.imageData
         let numberOfImages = imageDatas.length
         if (numberOfImages) {//检查是否包含图片
           let autoImage = chatAIConfig.getConfig("autoImage")
           let autoOCR = chatAIConfig.getConfig("autoOCR")
+          if (dynamic) {
+            let config = chatAIConfig.getDynmaicConfig()
+            autoImage = chatAIUtils.isVisionModel(config.model)
+          }
           if (autoImage || autoOCR) {//如果同时开启了自动图片和自动OCR，则只有当图片存在时才会调用OCR
             if (autoImage) {//将图片添加到引用框中
               info.imageData = imageDatas[0]
@@ -4300,15 +4717,17 @@ try {
               }
               return info
             }else if (autoOCR) {
-              let text = await chatAINetwork.getTextOCR(imageDatas[0])
-              if (numberOfImages > 1) {
-                for (let i = 1; i < numberOfImages; i++) {
-                  const image = imageDatas[i]
-                  const tem = await chatAINetwork.getTextOCR(image)
-                  text = text + "\n" + tem
+              if (returnAfterOCR) {
+                let text = await chatAINetwork.getTextOCR(imageDatas[0])
+                if (numberOfImages > 1) {
+                  for (let i = 1; i < numberOfImages; i++) {
+                    const image = imageDatas[i]
+                    const tem = await chatAINetwork.getTextOCR(image)
+                    text = text + "\n" + tem
+                  }
                 }
+                info.userInput = text
               }
-              info.userInput = text
               info.ocr = true
               return info
             }
@@ -4536,7 +4955,7 @@ try {
   }
   static refreshCurrent(){
     this.currentSelection = this.currentDocController().selectionText
-    let focusNote = this.getFocusNote()
+    let focusNote = this.getFocusNote(false)
     if (focusNote) {
       this.currentNoteId = focusNote.noteId
     }else{
@@ -4694,193 +5113,6 @@ try {
     }
     return undefined; // 没有找到对应的 key
   }
-  static getFuncForAI(funcName,forMinimax = false) {
-    let args = {}
-    switch (funcName) {
-      case "setTitle":
-        args.title = this.genArgument("string", "title that should be set for this card, pure text only")
-        return this.genStructure(funcName, args,
-          "this function is used to set title for a card",
-          forMinimax
-        )
-      case "addComment":
-        args.comment = this.genArgument("string", "comment that should be added for this card, pure text only")
-        return this.genStructure(funcName, args,
-          "this function is used to add a comment for a card",
-          forMinimax
-        )
-      case "addTag":
-        args.tag = this.genArgument("string", "tag that should be added for this card, single word only, no hyphen is allowed")
-        return this.genStructure(funcName, args,
-          "this function is used to add a tag for a card",
-          forMinimax
-        )
-      case "addChildNote":
-        args.title = this.genArgument("string", "title for child note, optional")
-        args.content = this.genArgument("string", "content for child note, optional")
-        return this.genStructure(funcName, args,
-          "this function is used to add a child note for a card",
-          forMinimax
-        )
-      case "clearExcerpt":
-        return this.genStructure(funcName, args,
-          "this function is used to clear the card excerpt, do not pass any argument",
-          forMinimax
-        )
-      case "setExcerpt":
-        args.excerpt = this.genArgument("string", "excerpt text to be set")
-        return this.genStructure(funcName, args,
-          "this function is used to set the card excerpt text",
-          forMinimax
-        )
-      case "copyMarkdownLink":
-        args.title = this.genArgument("string", "title for markdown link")
-        return this.genStructure(funcName, args,
-          "this function can copy the card link in mardown format, just specify the title for this link",
-          forMinimax
-        )
-      case "copyCardURL":
-        return this.genStructure(funcName, args,
-          "this function can directly copy the card url, do not pass any argument",
-          forMinimax
-        )
-      case "copyText":
-        args.text = this.genArgument("string", "pure text that need to be copied")
-        return this.genStructure(funcName, args,
-          "this function can copy any pure text, but not card link",
-          forMinimax
-        )
-      case "close":
-        return this.genStructure(funcName, args,
-          "this function is used to end the coversation, do not pass any argument",
-          forMinimax
-        )
-      default:
-        break;
-    }
-  }
-// static getFuncForAIForMinimax(funcName) {
-//     let args = {}
-//     switch (funcName) {
-//       case "setTitle":
-//         args.title = this.genArgument("string", "title that should be set for this card, pure text only")
-//         return this.genStructure(funcName, args,
-//           "this function is used to set title for a card",
-//           true
-//         )
-//       case "addComment":
-//         args.comment = this.genArgument("string", "comment that should be added for this card, pure text only")
-//         return this.genStructure(funcName, args,
-//           "this function is used to add a comment for a card",
-//           true
-//         )
-//       case "addTag":
-//         args.tag = this.genArgument("string", "tag that should be added for this card, single word only, no hyphen is allowed")
-//         return this.genStructure(funcName, args,
-//           "this function is used to add a tag for a card",
-//           true
-//         )
-//       case "addChildNote":
-//         args.title = this.genArgument("string", "title for child note, optional")
-//         args.content = this.genArgument("string", "content for child note, optional")
-//         return this.genStructure(funcName, args,
-//           "this function is used to add a child note for a card",
-//           true
-//         )
-//       case "clearExcerpt":
-//         return this.genStructure(funcName, args,
-//           "this function is used to clear the card excerpt, do not pass any argument",
-//           true
-//         )
-//       case "setExcerpt":
-//         args.excerpt = this.genArgument("string", "excerpt text to be set")
-//         return this.genStructure(funcName, args,
-//           "this function is used to set the card excerpt text",
-//           true
-//         )
-//       case "copyMarkdownLink":
-//         args.title = this.genArgument("string", "title for markdown link")
-//         return this.genStructure(funcName, args,
-//           "this function can copy the card link in mardown format, just specify the title for this link",
-//           true
-//         )
-//       case "copyCardURL":
-//         return this.genStructure(funcName, args,
-//           "this function can directly copy the card url, do not pass any argument",
-//           true
-//         )
-//       case "copyText":
-//         args.text = this.genArgument("string", "pure text that need to be copied")
-//         return this.genStructure(funcName, args,
-//           "this function can copy any pure text, but not card link",
-//           true
-//         )
-//       case "close":
-//         return this.genStructure(funcName, args,
-//           "this function is used to end the coversation, do not pass any argument",
-//           true
-//         )
-//       default:
-//         break;
-//     }
-//   }
-  static getFuncByIndex(indices,isNote = true) {
-    let func = ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","addChildNote","clearExcerpt","setExcerpt"]
-    let disableForSelection = [true,true,true,true,false,false,true,true,true,true]
-    if (isNote) {
-      let funcStructures = indices.map(ind=>this.getFuncForAI(func[ind]))
-      return funcStructures
-    }else{
-      let funcStructures = indices.filter(ind=>!disableForSelection[ind]).map(ind=>this.getFuncForAI(func[ind]))
-      return funcStructures
-    }
-  }
-
-  static genArgument(type,description) {
-    return{ "type": type, "description": description }
-  }
-  static genStructure(name,args,description,forMinimax = false) {
-    let parameters = {
-      "type": "object",
-      "properties": args,
-      "required": Object.keys(args),
-    }
-    let funcStructure = {
-      "name":name,
-      "description":description
-    }
-    if (forMinimax) {
-      funcStructure.parameters = JSON.stringify(parameters)
-      return {"type":"function","function":funcStructure}
-    }
-    funcStructure.parameters = parameters
-    return {"type":"function","function":funcStructure}
-  }
-  // static genStructureForMinimax(name,args,description) {
-  //   let parameters = {
-  //     "type": "object",
-  //     "properties": args,
-  //     "required": Object.keys(args),
-  //   }
-  //   let funcStructure = {
-  //     "name":name,
-  //     "description":description,
-  //     "parameters": JSON.stringify(parameters)
-  //   }
-  //   return {"type":"function","function":funcStructure}
-  // }
-  
-  static getFuncByIndexForMinimax(indices,isNote = true) {
-    let func = ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","addChildNote","clearExcerpt","setExcerpt"]
-    let disableForSelection = [true,true,true,true,false,false,true,true,true,true]
-    if (isNote) {
-      let funcStructures = indices.map(ind=>this.getFuncForAI(func[ind],true))
-      return funcStructures
-    }else{
-      let funcStructures = indices.filter(ind=>!disableForSelection[ind]).map(ind=>this.getFuncForAI(func[ind],true))
-      return funcStructures
-    }
-  }
 
   /**
    * 
@@ -4952,12 +5184,10 @@ static parseDataChunks(str) {
       this.addErrorLog(e, "parseDataChunks")
     }
   }
-  // MNUtil.log({message:"parseDataChunks",detail:results})
   if (results.length === 0 && /data:\s/.test(str)) {
     let jsonStr = str.split("data:")[1]
     try {
       let data = this.getValidJSON(jsonStr)
-      results.push(data.choices[0]?.delta)
       const delta = data.choices[0]?.delta;
       if (delta) {
         results.push(delta);
@@ -5082,6 +5312,7 @@ static parseDataChunks(str) {
         return null; // 如果解析失败，返回 null 或其他默认值
     }
 }
+
 static parseTime = []
 static preResults = []
 /** 
@@ -5116,10 +5347,14 @@ static preResults = []
     // return
     if (checkToolCalls && this.checkToolCalls(results)) {
       let funcs = []
+      // let funcIds = []
       results.map(res=>{
         if (res.tool_calls && res.tool_calls.length) {
           if (res.tool_calls[0].function.name) {
-            funcs.push(res.tool_calls[0])
+            // if (!funcIds.includes(res.tool_calls[0].id)) {
+              funcs.push(res.tool_calls[0])
+              // funcIds.push(res.tool_calls[0].id)
+            // }
           }else{
             let index = res.tool_calls[0].index ?? 0
             if (!funcs[index]) {
@@ -5142,18 +5377,34 @@ static preResults = []
       // MNUtil.copy(funcs)
       let funcResponses = funcs.map(func=>{
         let arg = func.function.arguments
+        // MNUtil.log({message:"funcArgs",detail:arg})
         // MNUtil.copyJSON(JSON.parse("{\"title\": \"排放变化特征分析\"}{\"title\": \"排放变化特征分析\"}"))
-        if (arg) {
+        if (arg) {//尝试解析arg为对象
           let args = this.getValidJSON(arg.trim())
           if (!args) {
             args = this.getValidJSON(this.safeJsonParse(arg.trim()))
           }
-          func.function.arguments = JSON.stringify(args)
-          if (args) {
+          if (args && Object.keys(args).length) {
+            func.function.arguments = JSON.stringify(args)
+            // func.function.arguments = args
+            chatAITool.toolCache[func.id] = {name:func.function.name,args:args}
             funcList.push(func)
-            return this.codifyToolCall(func.function.name, args)
+            MNUtil.log({message:"func",detail:{func:func,args:args}})
+            return chatAITool.getToolByName(func.function.name).codifyToolCall(args)
+            // return this.codifyToolCall(func.function.name, args)
           }else{
-            func.function.arguments = ""
+            if (chatAITool.toolCache[func.id]) {
+              let cache = chatAITool.toolCache[func.id]
+              func.function = {name:cache.name,arguments:JSON.stringify(cache.args)}
+              // func.function = {name:cache.name,arguments:cache.args}
+              funcList.push(func)
+            MNUtil.log({message:"funcCache",detail:cache})
+              return chatAITool.getToolByName(cache.name).codifyToolCall(cache.args)
+              // return this.codifyToolCall(cache.name, cache.args)
+            }else{
+              func.function.arguments = ""
+            }
+            // MNUtil.log({message:"args",detail:args})
             funcList.push(func)
             return func.function.name+"()\n"
           }
@@ -5239,6 +5490,7 @@ static preResults = []
     // let endTime = Date.now()
     // this.parseTime.push(endTime - beginTime)
     // MNUtil.copyJSON(this.parseTime)
+
     return response
   } catch (error) {
     this.addErrorLog(error, "parseResponse")
@@ -5658,6 +5910,18 @@ code.hljs {
    * @param {NSData|NSData[]} imageData 
    * @returns 
    */
+  static genSystemMessage(content,imageData){
+    return {
+      role: "system", 
+      content: content
+    }
+  }
+  /**
+   * 
+   * @param {string} context 
+   * @param {NSData|NSData[]} imageData 
+   * @returns 
+   */
   static genUserMessage(context,imageData){
     let compression = chatAIConfig.getConfig("imageCompression")
     if (imageData) {
@@ -5757,12 +6021,7 @@ code.hljs {
   static async genCardStructure (noteid,OCR_enabled=false) {
   let hasImage = false
   let cardStructure = {}
-  let note = undefined
-  if (MNUtil.typeOf(noteid) === "MNNote") {
-    note = noteid
-  }else{
-    note = MNNote.new(noteid)
-  }
+  let note = MNNote.new(noteid)
   if (note.noteTitle && note.noteTitle !== "") {
     cardStructure.title = note.noteTitle
   }
@@ -5773,14 +6032,17 @@ code.hljs {
       hasImage = true
     }
   }
-  if (OCR_enabled && note.excerptPic && !note.textFirst) {
-    cardStructure.content = await chatAINetwork.getTextOCR(MNUtil.getMediaByHash(note.excerptPic.paint))
-    // hasImage = true
-  }else if (this.noteHasExcerptText(note)){
-    if (hasImage) {
-      cardStructure.content = "{{image}}"
-    }else{
-      cardStructure.content = chatAIUtils.replaceBase64ImagesWithTemplate(note.excerptText)
+  if (this.isBlankNote(note)) {
+    cardStructure.content = note.excerptText??""
+  }else{
+    if (OCR_enabled && note.excerptPic && !note.textFirst) {
+      cardStructure.content = await chatAINetwork.getTextOCR(MNUtil.getMediaByHash(note.excerptPic.paint))
+    }else if (this.noteHasExcerptText(note)){
+      if (hasImage) {
+        cardStructure.content = "{{image}}"
+      }else{
+        cardStructure.content = chatAIUtils.replaceBase64ImagesWithTemplate(note.excerptText)
+      }
     }
   }
   if (note.linkedNotes?.length) {
@@ -5843,6 +6105,13 @@ code.hljs {
   }
   if (note.tags && note.tags.length) {
     cardStructure.tags = note.tags
+  }
+  if (note.childNotes && note.childNotes.length) {
+    cardStructure.children = note.childNotes.map((childNote)=>{
+      return {id:childNote.noteId}
+    })
+  }else{
+    cardStructure.children = []
   }
   return cardStructure
 }
@@ -5988,11 +6257,13 @@ code.hljs {
   static constrain(value, min, max) {
     return Math.min(Math.max(value, min), max);
   }
-  static openSideOutput(){
-    if (chatAIUtils.isMN3()) {
-      MNUtil.showHUD("Only available in MN4+")
+  static async openSideOutput(){
+    if (this.isMN3()) {
+      MNUtil.confirm("Only available in MN4+")
       return
     }
+    try {
+
     if (!this.sideOutputController) {
         this.sideOutputController = sideOutputController.new();
         MNUtil.toggleExtensionPanel()
@@ -6002,9 +6273,15 @@ code.hljs {
         this.sideOutputController.view.hidden = false
         this.sideOutputController.view.frame = {x:0,y:0,width:panelView.frame.width,height:panelView.frame.height}
         this.sideOutputController.currentFrame = {x:0,y:0,width:panelView.frame.width,height:panelView.frame.height}
+        await MNUtil.delay(0.1)
+        MNUtil.studyView.bringSubviewToFront(MNExtensionPanel.view)
         // MNUtil.toggleExtensionPanel()
     }else{
       MNExtensionPanel.show("chatAISideOutputView")
+      MNUtil.studyView.bringSubviewToFront(MNExtensionPanel.view)
+    }
+    } catch (error) {
+      this.addErrorLog(error, "openSideOutput")
     }
   }
   static isMN4(){
@@ -6340,6 +6617,15 @@ static getLineByIndex(str, index) {
     }
     return object
   }
+  /**
+   * 
+   * @param {MNNote|string} noteid 
+   * @param {string} text 
+   * @param {*} userInput 
+   * @param {*} vision 
+   * @param {*} ocr 
+   * @returns 
+   */
   static async getNoteVarInfo(noteid,text,userInput,vision=false,ocr = this.OCREnhancedMode) {
     try {
     let replaceText= text//this.checkVariableForNote(text, userInput)//提前写好要退化到的变量
@@ -6378,26 +6664,22 @@ static getLineByIndex(str, index) {
     }
 
     if (vars.hasCard) {
-      // let stringified = await this.getMDFromNote(note,ocr)
       let structure = await this.genCardStructure(noteid,ocr)
       let stringified = this.stringifyCardStructure(structure)
       config.card = stringified
     }
     if (vars.hasCardOCR) {
       MNUtil.showHUD("OCR...")
-      // let stringified = await this.getMDFromNote(note,0,true)
       let structure = await this.genCardStructure(noteid,true)
       let stringified = this.stringifyCardStructure(structure)
       config.cardOCR = stringified
     }
     if (vars.hasParentCard) {
-      // let stringified = await this.getMDFromNote(note.parentNote,0,ocr)
       let structure = await this.genCardStructure(note.parentNote.noteId,ocr)
       let stringified = this.stringifyCardStructure(structure)
       config.parentCard = stringified
     }
     if (vars.hasParentCardOCR) {
-      // let stringified = await this.getMDFromNote(note.parentNote,0,true)
       let structure = await this.genCardStructure(note.parentNote.noteId,true)
       let stringified = this.stringifyCardStructure(structure)
       config.parentCardOCR = stringified
@@ -6944,6 +7226,7 @@ static getValidJSON(jsonString,debug = false) {
     return JSON.parse(jsonString)
   } catch (error) {
     try {
+      // MNUtil.log({message:"error in getValidJSON",detail:{jsonString:jsonString,error:error.message}})
       return JSON.parse(jsonrepair(jsonString))
     } catch (error) {
       let errorString = error.toString()
@@ -7381,6 +7664,57 @@ static isBlankNote(note){//指有图片摘录但图片分辨率为1x1的空白�
     }
     return data
   }
+  static isVisionModel(model){
+    if (chatAIConfig.modelsWithoutVision.includes(model)) {
+      return false
+    }
+    return true
+  }
+  static checkVision(history,config){
+    // MNUtil.log({message:"Checking vision model in history",detail:{history:history,config:config}})
+    let hasImage = this.hasImageInHistory(history)
+    if (hasImage) {
+      MNUtil.log("History contains image message")
+      let model = config.model
+      if (!("model" in config) && config.source === "Built-in") {
+        let keyInfo = chatAIConfig.keys["key"+chatAIConfig.getConfig("tunnel")]
+        model = keyInfo.model
+      }
+      if (!this.isVisionModel(model)) {
+        return {proceed:false,model:model}
+      }
+      
+    }
+    return {proceed:true}
+  }
+  static hasImageInHistory(history){
+  try {
+
+    if (history.length === 0) {
+      return false
+    }
+    let imageMessage = history.find(message=>{
+      if (message.role !== "user") {
+        return false
+      }
+      if (Array.isArray(message.content)) {
+        return message.content.some(content=>{
+          if (content.type === "image_url") {
+            return true
+          }
+          return false
+        })
+      }
+      return false
+    })
+    return !!imageMessage
+    
+  } catch (error) {
+    this.addErrorLog(error, "hasImageInHistory",history)
+    return false
+  }
+  }
+  
 }
 
 class chatAIConfig {
@@ -7588,12 +7922,95 @@ class chatAIConfig {
     switchLocation:"switchLocationImage",
     reply:"replyImage"
   }
+  static modelsWithoutVision = [
+        "deepseek/deepseek-v3.1",
+        "deepseek/deepseek-r1-0528",
+        "deepseek/deepseek-r1-turbo",
+        "deepseek/deepseek-v3-0324",
+        "deepseek/deepseek-v3-turbo",
+        "deepseek/deepseek-v3/community",
+        "deepseek/deepseek-r1/community",
+        "deepseek/deepseek-prover-v2-671b",
+    "deepseek-ai/DeepSeek-V3.1",
+    "deepseek-ai/DeepSeek-R1",
+    "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+    "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    "deepseek-ai/DeepSeek-V3",
+    "deepseek-v3-1-250821",
+    "deepseek-v3-250324",
+    "deepseek-r1-250120",
+    "deepseek-r1-250528",
+    "DeepSeek-R1",
+    "deepseek-v3.1",
+    "deepseek-v3",
+    "deepseek-r1",
+    "deepseek-r1-0528",
+        "deepseek-chat",
+        "deepseek-reasoner",
+    "zai-org/glm-4.5",
+    "zai-org/GLM-4.5",
+    "zai-org/GLM-4.5-Air",
+        "glm-4.5",
+        "glm-4.5-nothinking",
+        "glm-4.5-x",
+        "glm-4.5-x-nothinking",
+        "glm-4.5-air",
+        "glm-4.5-airx",
+    "glm-4.5-flash",
+    "glm-4-plus",
+    "glm-4v-plus-0111",
+    "glm-4-air-250414",
+    "glm-4-airx",
+    "glm-4-long",
+    "glm-4-flash",
+    "glm-4-flash-250414",
+    "glm-4-flashX",
+    "glm-z1-air",
+    "glm-z1-airx",
+    "glm-z1-flash",
+    "moonshotai/kimi-k2-instruct",
+    "moonshotai/Kimi-K2-Instruct",
+    "Moonshot-Kimi-K2-Instruct",
+    "kimi-k2-0711-preview",
+    "kimi-k2-turbo-preview",
+        "qwen3",
+        "qwen3-thinking",
+    "Qwen/Qwen3-235B-A22B-Instruct-2507",
+    "Qwen/Qwen3-235B-A22B",
+    "qwen/qwen3-235b-a22b-thinking-2507",
+    "qwen/qwen3-235b-a22b-instruct-2507",
+    "qwen/qwen3-235b-a22b-fp8",
+    "qwen/qwen3-coder-480b-a35b-instruct",
+    "qwen/qwen3-30b-a3b-fp8",
+    "qwen/qwen3-32b-fp8",
+    "qwen/qwen3-8b-fp8",
+    "qwen/qwen3-4b-fp8",
+    "thudm/glm-4-32b-0414",
+    "thudm/glm-4-9b-0414",
+    "THUDM/GLM-Z1-32B-0414",
+    "THUDM/GLM-4-32B-0414",
+    "THUDM/GLM-Z1-9B-0414",
+    "THUDM/GLM-4-9B-0414",
+    "Pro/deepseek-ai/DeepSeek-V3.1",
+    "Pro/deepseek-ai/DeepSeek-R1",
+    "Pro/deepseek-ai/DeepSeek-R1-0120",
+    "Pro/deepseek-ai/DeepSeek-V3",
+    "Pro/deepseek-ai/DeepSeek-V3-1226",
+    "Pro/moonshotai/Kimi-K2-Instruct",
+      ]
   //直接返回UIImage
   static actionImage(action){
     if (action in this.actionImages) {
       return this[this.actionImages[action]]
     }
     if (action.startsWith("toolbar:")) {
+      if (typeof toolbarConfig === "undefined") {
+        return this.noneImage
+      }
       let toolbarAction = action.split(":")[1]
       let image = toolbarConfig.imageConfigs[toolbarAction]
       let scale = image.scale
@@ -9724,12 +10141,16 @@ class chatAIConfig {
     }
     if (modelConfig[0] !== "Default") {
       let source = modelConfig[0]
-      config = chatAIConfig.getConfigFromSource(source)
+      config = this.getConfigFromSource(source)
       if (modelConfig.length === 2) {
         config.model = modelConfig[1]
       }
     }else{
-      config = chatAIConfig.getConfigFromSource()
+      config = this.getConfigFromSource()
+    }
+    if (config.source === "Built-in") {
+      let keyInfo = this.keys["key"+this.getConfig("tunnel")]
+      config.model = keyInfo.model
     }
     return config
     } catch (error) {
@@ -10332,6 +10753,7 @@ class chatAINetwork {
         request,
         queue,
         (res, data, err) => {
+          let resultString = chatAIUtils.dataToString(data)
           const result = NSJSONSerialization.JSONObjectWithDataOptions(
             data,
             1<<0
@@ -10342,6 +10764,8 @@ class chatAINetwork {
             let error = {error:err.localizedDescription}
             if (validJson) {
               error.data = result
+            }else if(resultString){
+              error.data = resultString
             }
             resolve(error)
           }
@@ -10352,12 +10776,16 @@ class chatAINetwork {
             let error = {statusCode:res.statusCode()}
             if (validJson) {
               error.data = result
+            }else if(resultString){
+              error.data = resultString
             }
             resolve(error)
             // MNUtil.showHUD("Error in OCR")
           }
           if (validJson){
             resolve(result)
+          }else if(resultString){
+            resolve(resultString)
           }
           resolve(result)
         }
@@ -10552,16 +10980,15 @@ Image Text Extraction Specialist
  */
  static async rerank(texts,query,top_n=10) {
   try {
-  let keys = [
-    'sk-mntukfctmybybqirgzpbrxlhmeodbyotrokzcscukxbxgdiz',
-    'sk-ntboxtwuptdfuxyrjyklqxcnagqtzzyklqiozmxnyknyfpbg',
-    'sk-kasoqoophinagknminykaqfhzkftwfognfkghobwtqnnqpkk'
-  ]
-  let key = chatAIUtils.getRandomElement(keys)
-  let url = "https://api.siliconflow.cn/v1/rerank"
-  let model = "BAAI/bge-reranker-v2-m3"
- 
-  let request = this.initRequestForRerank(texts,query,key, url, model,top_n)
+    MNUtil.log("rerank")
+    let keys = [
+      'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44'
+    ]
+    // let key = chatAIUtils.getRandomElement(keys)
+    let key = keys[0]
+    let url = subscriptionConfig.URL+"/v1/rerank"
+    let model = "Qwen/Qwen3-Reranker-8B"
+    let request = this.initRequestForRerank(texts,query,key, url, model,top_n)
     let tem = await this.sendRequest(request)
     let res = tem.results
     // MNUtil.stopHUD()
@@ -11145,6 +11572,52 @@ static initRequestForChatGPTWithoutStream (history,apikey,url,model,temperature,
         body.tool_choice = "auto"
       }
     }
+  const request = this.initRequest(url, {
+      method: "POST",
+      headers: headers,
+      timeout: 60,
+      json: body
+    })
+  return request
+}
+/**
+ * Initializes a request for ChatGPT using the provided configuration.
+ * 
+ * @param {string} prompt - An array of messages to be included in the request.
+ * @param {string} apikey - The API key for authentication.
+ * @param {string} url - The URL endpoint for the API request.
+ * @param {string} model - The model to be used for the request.
+ * @throws {Error} If the API key is empty or if there is an error during the request initialization.
+ */
+static initRequestForQwenWithoutStream (prompt,apikey,url,model) {
+  if (apikey.trim() === "") {
+    MNUtil.confirm("MN ChatAI", `❌ APIKey not found!\n\nURL: ${url}\n\nModel: ${model}\n\nPlease check your settings.`)
+    return
+  }
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: "Bearer "+apikey,
+    Accept: "text/event-stream"
+  }
+    // copyJSON(headers)
+  let body = {
+    "model":model,
+    "input":{"messages":[
+      {
+        "role":"user",
+        "content":[
+          {
+            "text":prompt
+          }
+        ]}
+    ]},
+    "parameters": {
+        "negative_prompt": "",
+        "prompt_extend": true,
+        "watermark": false,
+        "size": "1328*1328"
+    }
+  }
   const request = this.initRequest(url, {
       method: "POST",
       headers: headers,

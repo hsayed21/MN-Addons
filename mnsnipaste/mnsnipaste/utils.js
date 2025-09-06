@@ -116,18 +116,74 @@ class snipasteUtils{
     let app = Application.sharedInstance()
     app.showHUD(message,app.focusWindow,duration)
   }
+  /**
+   * Displays a confirmation dialog with a main title and a subtitle.
+   * 
+   * This method shows a confirmation dialog with the specified main title and subtitle.
+   * It returns a promise that resolves with the button index of the button clicked by the user.
+   * 
+   * @param {string} mainTitle - The main title of the confirmation dialog.
+   * @param {string} subTitle - The subtitle of the confirmation dialog.
+   * @param {string[]} items - The items of the confirmation dialog.
+   * @returns {Promise<number|undefined>} A promise that resolves with the button index of the button clicked by the user.
+   */
+  static async confirm(mainTitle,subTitle,items = ["Cancel","Confirm"]){
+    if (MNOnAlert) {
+      return
+    }
+    MNOnAlert = true
+    return new Promise((resolve, reject) => {
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        mainTitle,subTitle,0,items[0],items.slice(1),
+        (alert, buttonIndex) => {
+          MNOnAlert = false
+          // MNUtil.copyJSON({alert:alert,buttonIndex:buttonIndex})
+          resolve(buttonIndex)
+        }
+      )
+    })
+  }
+  static async delay (seconds) {
+    return new Promise((resolve, reject) => {
+      NSTimer.scheduledTimerWithTimeInterval(seconds, false, function () {
+        resolve()
+      })
+    })
+  }
+  static openURL(url){
+    if (!this.app) {
+      this.app = Application.sharedInstance()
+    }
+    this.app.openURL(NSURL.URLWithString(url));
+  }
+  static copy(text) {
+    UIPasteboard.generalPasteboard().string = text
+  }
   static async checkMNUtil(alert = false,delay = 0.01){
+  try {
+    
+
     if (typeof MNUtil === 'undefined') {//如果MNUtil未被加载，则执行一次延时，然后再检测一次
       //仅在MNUtil未被完全加载时执行delay
-      await snipasteUtils.delay(delay)
+      await this.delay(delay)
       if (typeof MNUtil === 'undefined') {
         if (alert) {
-          snipasteUtils.showHUD("MN Snipaste: Please install 'MN Utils' first!",5)
+          let res = await this.confirm("MN Snipaste:", "Install 'MN Utils' first\n\n请先安装'MN Utils'",["Cancel","Open URL"])
+          if (res) {
+            this.openURL("https://bbs.marginnote.com.cn/t/topic/49699")
+          }
+        }else{
+          this.showHUD("MN Snipaste: Please install 'MN Utils' first!",5)
         }
         return false
       }
     }
     return true
+  } catch (error) {
+    this.copy(error.toString())
+    // chatAIUtils.addErrorLog(error, "chatAITool.checkMNUtil")
+    return false
+  }
   }
   static getDocImage(){
     let docMapSplitMode = MNUtil.studyController.docMapSplitMode
@@ -245,7 +301,37 @@ class snipasteUtils{
       })
     })
   }
-  static getNoteCSS(focusNote){
+  /**
+   * 
+   * @param {MNNote} note 
+   * @returns {boolean}
+   */
+  static isPureImageNote(note){
+    if (note.noteTitle) {
+      return false
+    }
+    if (note.comments.length) {
+      return false
+    }
+    if (note.excerptPic) {
+      if (note.textFirst) {
+        return false
+      }
+      if ("video" in note.excerptPic) {
+        return false
+      }
+      let imageData = MNUtil.getMediaByHash(note.excerptPic.paint)
+      let image = UIImage.imageWithData(imageData)
+      if (image.size.width === 1 && image.size.height === 1) {
+        return false
+      }
+      return true
+
+    }
+    return false
+  
+  }
+  static getNoteCSS(focusNote,hasAudio = false){
     let noteColor = snipasteUtils.getNoteColor(focusNote.colorIndex)
     let textColor = snipasteUtils.getTextColor()
     let backgroundColor = snipasteUtils.getBackgroundColor()
@@ -255,16 +341,22 @@ class snipasteUtils{
     }`
     let CSS = `      ${themeHtml}
       .body {
+        ${hasAudio?"margin-top: 48px;":""}
         border: 3px solid ${noteColor};
         border-radius: 10px 10px 10px 10px;
         font-size: large;
       }
     .audioContainer {
-      width: 100%;
-      background: #fff;
+      position: fixed; /* 固定定位，始终置顶 */
+      top: 0; /* 距离顶部 0px */
+      left: 0; /* 距离左侧 0px */
+      width: 100%; /* 宽度占满屏幕 */
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
       margin-bottom: 8px;
+      z-index: 1000; /* 确保层级最高，不被其他元素覆盖 */
+      padding: 8px; /* 可选：增加内边距，避免内容贴边 */
+      box-sizing: border-box; /* 确保 padding 不影响宽度 */
     }
 
     audio {

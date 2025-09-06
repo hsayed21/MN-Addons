@@ -162,45 +162,70 @@ var dynamicController = JSB.defineClass('dynamicController : UIViewController <N
   },
   addContext: async function (params) {
       if (chatAIUtils.isMN3()) {
-        MNUtil.showHUD("Only available in MN4")
+        MNUtil.confirm("Only available in MN4")
         return
       }
+      try {
+
       let info = await chatAIUtils.getInfoForReference()
-      chatAIUtils.openSideOutput()
+      await chatAIUtils.openSideOutput()
       let userInput = info.userInput
       if ("imageData" in info) {
-        chatAIUtils.sideOutputController.addToInput(userInput,imageData)
+        MNUtil.log({message:"imageData"})
+        chatAIUtils.sideOutputController.addToInput(userInput,info.imageData)
       }else{
         chatAIUtils.sideOutputController.addToInput(userInput)
+      }
+        
+      } catch (error) {
+        chatAIUtils.addErrorLog(error, "addContext")
       }
   },
   onLongPress: async function (gesture) {
     if (gesture.state === 1) {
       let self = getDynamicController()
       if (chatAIUtils.isMN3()) {
-        MNUtil.showHUD("Only available in MN4")
+        MNUtil.confirm("Only available in MN4")
         return
       }
       self.onClick = true
       self.view.hidden = false
       let button = gesture.view
-      var commandTable = []
-      if (chatAIUtils.currentNoteId) {
-        commandTable = [
-          {title:'📝 Title',object:self,selector:'chooseInputFromNote:',param:"Title"},
-          {title:'📄 Content',object:self,selector:'chooseInputFromNote:',param:"Content"},
-          {title:'🖼️ Image',object:self,selector:'chooseInputFromNote:',param:"Image"}
-        ];
-      }else{
-        commandTable = [
-          {title:'📝 Text (OCR)',object:self,selector:'chooseInputFromSelection:',param:"OCR"},
-          {title:'📄 Text',object:self,selector:'chooseInputFromSelection:',param:"Text"},
-          {title:'🖼️ Image',object:self,selector:'chooseInputFromSelection:',param:"Image"}
-        ];
-        // self.popoverController = MNUtil.getPopoverAndPresent(sender,commandTable,250)
+      let menu = new Menu(button,self)
+      menu.width = 150
+      if (chatAIUtils.currentNote()) {
+        // menu.addMenuItem('📝 Text (OCR)', 'chooseInputFromNote:', "textOCR")
+        menu.addMenuItem('📝 Title', 'chooseInputFromNote:', "Title")
+        menu.addMenuItem('📄 Content', 'chooseInputFromNote:', "Content")
+        menu.addMenuItem('🖼️ Image', 'chooseInputFromNote:', "Image")
+        menu.show()
+        return
       }
-      self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,150,2)
-      self.popoverController.delegate = self
+      if (MNUtil.currentSelection.onSelection) {
+        menu.addMenuItem('📝 Text (OCR)', 'chooseInputFromSelection:', "OCR")
+        menu.addMenuItem('📄 Text', 'chooseInputFromSelection:', "Text")
+        menu.addMenuItem('🖼️ Image', 'chooseInputFromSelection:', "Image")
+        menu.show()
+        return
+      }
+      // var commandTable = []
+      // if (chatAIUtils.currentNoteId) {
+      //   commandTable = [
+      //     {title:'📝 Title',object:self,selector:'chooseInputFromNote:',param:"Title"},
+      //     {title:'📄 Content',object:self,selector:'chooseInputFromNote:',param:"Content"},
+      //     {title:'📝 Text (OCR)',object:self,selector:'chooseInputFromNote:',param:"textOCR"},
+      //     {title:'🖼️ Image',object:self,selector:'chooseInputFromNote:',param:"Image"}
+      //   ];
+      // }else{
+      //   commandTable = [
+      //     {title:'📝 Text (OCR)',object:self,selector:'chooseInputFromSelection:',param:"OCR"},
+      //     {title:'📄 Text',object:self,selector:'chooseInputFromSelection:',param:"Text"},
+      //     {title:'🖼️ Image',object:self,selector:'chooseInputFromSelection:',param:"Image"}
+      //   ];
+      //   // self.popoverController = MNUtil.getPopoverAndPresent(sender,commandTable,250)
+      // }
+      // self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,150,2)
+      // self.popoverController.delegate = self
     }
   },
   onLongPressSend: async function (gesture) {
@@ -272,9 +297,8 @@ var dynamicController = JSB.defineClass('dynamicController : UIViewController <N
         chatAIUtils.sideOutputController.addToInput(userInput)
         break;
       case "Image":
-        let hasImage = chatAIUtils.hasImageInNote(note)
-        if (hasImage) {
-          let imageData = MNNote.getImageFromNote(note)
+        let imageData = note.imageData
+        if (imageData) {
           chatAIUtils.sideOutputController.addToInput(userInput,imageData)
         }else{
           chatAIUtils.sideOutputController.addToInput(userInput)
@@ -292,8 +316,8 @@ var dynamicController = JSB.defineClass('dynamicController : UIViewController <N
     if (chatAIUtils.OCREnhancedMode) {
       let autoOCR = chatAIConfig.getConfig("autoOCR")
       if (autoOCR) {
-        if (chatAIUtils.currentNoteId) {
-          let note = MNNote.new(chatAIUtils.currentNoteId)
+        let note = chatAIUtils.currentNote()
+        if (note) {
           let imageData = note.imageData
           if (imageData) {
             chatAINetwork.getTextOCR(imageData).then(()=>{
@@ -313,7 +337,7 @@ var dynamicController = JSB.defineClass('dynamicController : UIViewController <N
           })
           return
         }
-        let note = chatAIUtils.getFocusNote()
+        note = chatAIUtils.getFocusNote()
         let imageData = note.imageData
         if (imageData) {//检查是否包含图片
           chatAINetwork.getTextOCR(imageData).then(()=>{
@@ -331,13 +355,21 @@ var dynamicController = JSB.defineClass('dynamicController : UIViewController <N
     }
   },
   toggleVisionMode:async function (params) {
-    chatAIUtils.visionMode = !chatAIUtils.visionMode
     if (chatAIUtils.visionMode) {
-      MNUtil.showHUD("Vision Mode ✅")
-      self.visionButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",0.8)
-    }else{
+      chatAIUtils.visionMode = false
       MNUtil.showHUD("Vision Mode ❌")
       self.visionButton.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",0.8)
+    }else{
+      let config = chatAIConfig.getDynmaicConfig()
+      if (!chatAIUtils.isVisionModel(config.model)) {
+        let confirm = await MNUtil.confirm("🤖 MN ChatAI", `The current model [${config.model}] does not support image input. Continue? \n\n当前模型 [${config.model}] 不支持图片输入，是否继续？`)
+        if (!confirm) {
+          return
+        }
+      }
+      chatAIUtils.visionMode = true
+      MNUtil.showHUD("Vision Mode ✅")
+      self.visionButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",0.8)
     }
   },
   toggleNoSystemMode:async function (params) {
@@ -551,51 +583,8 @@ try {
       userInput = chatAIConfig.getLatestHistory()
       self.setInput(userInput)
     }
-    // let notifyController = chatAIUtils.notifyController
-    // let currentNoteId = chatAIUtils.currentNoteId
-    // notifyController.notShow = false
-
-    // if (chatAIUtils.visionMode) {
-    //   // MNUtil.showHUD("Vision")
-    //   let imageDatas
-    //   let system
-    //   if (currentNoteId) {
-    //     imageDatas = chatAIUtils.getImagesFromNote(MNNote.new(currentNoteId))
-    //     system = chatAIConfig.dynamicPrompt.note
-    //   }else{
-    //     imageDatas = [MNUtil.getDocImage(true,true)]
-    //     system = chatAIConfig.dynamicPrompt.text
-    //   }
-    //   if (system.trim()) {
-    //     let systemMessage = await chatAIUtils.getTextVarInfo(system,userInput)
-    //     let question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(userInput, imageDatas)]
-    //     // MNUtil.copy(question)
-    //     notifyController.askByVision(question)
-    //     return
-    //   }
-    //   let question = chatAIUtils.genUserMessage(userInput, imageDatas)
-    //   notifyController.askByVision(question)
-    //   return
-    // }
-    // if (chatAIUtils.noSystemMode) {
-    //   let question = [{role: "user", content: userInput}]
-    //   notifyController.askByDynamic(question)
-    //   notifyController.currentPrompt = "Dynamic"
-    //   // notifyController.onChat = false
-    //   // MNUtil.showHUD("No System Message")
-    //   return
-    // }
-    // if (MNUtil.currentSelection.onSelection || !currentNoteId) {
-    //   notifyController.askWithDynamicPromptOnText(userInput)
-    //   // MNUtil.showHUD("askWithDynamicPromptOnText")
-    //   return
-    // }else{
-    //   notifyController.askWithDynamicPromptOnNote(currentNoteId,userInput)
-    //   // MNUtil.showHUD("askWithDynamicPromptOnNote")
-    //   return
-    // }
   } catch (error) {
-    chatAIUtils.addErrorLog(error, "askWithPrompt")
+    chatAIUtils.addErrorLog(error, "sendButtonTapped")
   }
   },
   historyButtonTapped:function (sender) {
@@ -961,12 +950,22 @@ dynamicController.prototype.openInput = async function () {
   this.lastFrame.height = 215
   this.aiButton.hidden = true
   this.addButton.hidden = true
-  chatAIUtils.getInfoForReference().then((info)=>{
+  chatAIUtils.getInfoForReference(true,false).then((info)=>{
     if ("imageData" in info) {
-      chatAIUtils.visionMode = true
-    }
-    if (info.ocr) {
-      chatAIUtils.OCREnhancedMode = true
+      let config = chatAIConfig.getDynmaicConfig()
+      // MNUtil.log({message:"config",detail:config})
+      if (chatAIUtils.isVisionModel(config.model)) {
+        chatAIUtils.visionMode = true
+      }else{
+        chatAIUtils.visionMode = false
+        if (info.ocr) {
+          chatAIUtils.OCREnhancedMode = true
+        }
+      }
+    }else{
+      if (info.ocr) {
+        chatAIUtils.OCREnhancedMode = true
+      }
     }
     this.setLayout()
   })
@@ -1426,20 +1425,28 @@ dynamicController.prototype.sendMessage = async function (userInput) {
       return
     }
     let notifyController = chatAIUtils.notifyController
-    let currentNoteId = chatAIUtils.currentNoteId
+    let currentNote = chatAIUtils.currentNote()
     notifyController.notShow = false
 
     if (chatAIUtils.visionMode) {
+      notifyController.beginNotification("Vision")
+      await MNUtil.delay(0.01)
       // MNUtil.showHUD("Vision")
       let imageDatas
       let system
-      if (currentNoteId) {
-        imageDatas = chatAIUtils.getImagesFromNote(MNNote.new(currentNoteId))
+      if (currentNote) {
+        imageDatas = MNNote.getImagesFromNote(currentNote,true)
         system = chatAIConfig.dynamicPrompt.note
       }else{
         imageDatas = [MNUtil.getDocImage(true,true)]
         system = chatAIConfig.dynamicPrompt.text
       }
+      // if (imageDatas) {
+      //   let config = chatAIConfig.getDynmaicConfig()
+      //   let model = config.model
+      //   MNUtil.log({message:"config",detail:config})
+      //   return
+      // }
       if (system.trim()) {
         let systemMessage = await chatAIUtils.getTextVarInfo(system,userInput)
         let question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(userInput, imageDatas)]
@@ -1459,17 +1466,17 @@ dynamicController.prototype.sendMessage = async function (userInput) {
       // MNUtil.showHUD("No System Message")
       return
     }
-    if (MNUtil.currentSelection.onSelection || !currentNoteId) {
+    if (MNUtil.currentSelection.onSelection || !currentNote) {
       notifyController.askWithDynamicPromptOnText(userInput)
       // MNUtil.showHUD("askWithDynamicPromptOnText")
       return
     }else{
-      notifyController.askWithDynamicPromptOnNote(currentNoteId,userInput)
+      notifyController.askWithDynamicPromptOnNote(currentNote,userInput)
       // MNUtil.showHUD("askWithDynamicPromptOnNote")
       return
     }
   } catch (error) {
-    chatAIUtils.addErrorLog(error, "askWithPrompt")
+    chatAIUtils.addErrorLog(error, "sendMessage")
   }
 }
 /**

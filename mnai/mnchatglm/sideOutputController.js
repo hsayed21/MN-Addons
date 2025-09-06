@@ -20,6 +20,7 @@ try {
     self.toolbarOn = true;
     self.panelWidth = 100
     self.hasRenderSearchResults = false
+    self.preSelection = ""
     // self.view.frame = {x:chatAIUtils.getX(),y:chatAIUtils.getY(),width:MNExtensionPanel.width,height:120}
     self.view.frame = MNUtil.genFrame(chatAIUtils.getX(), chatAIUtils.getY(), MNExtensionPanel.width, 120)
     self.lastFrame = self.view.frame;
@@ -266,6 +267,8 @@ try {
       self.chatModel.frame = MNUtil.genFrame(0, 0, 35, 35)
       self.chatModel.setTitleForState("",0)
       self.chatModel.setImageForState(chatAIConfig.editorImage,0)
+      self.chatModel.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
+      self.sendButton.setImageForState(chatAIConfig.sendImage,0)
     }).then(()=>{
       self.blur(0.1)
     })
@@ -389,12 +392,12 @@ try {
     chatAIUtils.addErrorLog(error, "changeFunc")
   }
   },
-  setFunc: function (index) {
+  setFunc: async function (index) {
     let self = getSideOutputController()
     Menu.dismissCurrentMenu()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
 try {
-    let currentFunc = chatAITool.getChangedTools(self.funcIndices, index)
+    let currentFunc = await chatAITool.getChangedTools(self.funcIndices, index)
     self.funcIndices = currentFunc
     self.setCurrentFuncIdxs(currentFunc)
     chatAIConfig.config.chatFuncIndices = currentFunc
@@ -425,7 +428,9 @@ try {
         self.setCurrentModel(self.currentModel)
         self.focusInput()
       })
-
+      return
+    }else if (!self.userReference.hidden) {
+      self.showHUD("On Reference Mode")
       return
     }
     if (!chatAIUtils.checkSubscribe(false)) {
@@ -578,8 +583,8 @@ try {
     try {
     let self = getSideOutputController()
     if (!self.userReference.hidden) {
-      self.userReference.hidden = true
-      self.sendButton.setImageForState(chatAIConfig.sendImage,0)
+      self.hideReference()
+      self.focusInput()
       MNUtil.showHUD("Hide Reference",0.5,self.chatToolbar)
       return
     }
@@ -616,11 +621,11 @@ try {
       self.userReference.hidden = !self.userReference.hidden
       if (self.userReference.hidden) {
         MNUtil.showHUD("Hide Reference",0.5,self.chatToolbar)
-        self.sendButton.setImageForState(chatAIConfig.sendImage,0)
+        self.hideReference()
         // self.showHUD("Hide Reference")
       }else{
         MNUtil.showHUD("Show Reference",0.5,self.chatToolbar)
-        self.sendButton.setImageForState(chatAIConfig.closeImage,0)
+        self.showReference()
         // self.showHUD("Show Reference")
       }
     }
@@ -638,19 +643,21 @@ try {
       // let translation = gesture.translationInView(MNUtil.studyView)
       let locationDiff = {x:locationToMN.x - self.originalLocationToMN.x,y:locationToMN.y - self.originalLocationToMN.y}
       let frame = self.chatToolbar.frame
-      frame.x = self.originalFrame.x + locationDiff.x
+      // frame.x = self.originalFrame.x + locationDiff.x
       frame.y = self.originalFrame.y + locationDiff.y
-      if (MNExtensionPanel.width < 350) {
-        frame.x = 0
-      }else{
-        frame.x = MNUtil.constrain(frame.x, -200,MNExtensionPanel.width - 200)
-      }
-      frame.y = MNUtil.constrain(frame.y, 0, MNExtensionPanel.height-80)
+      // if (MNExtensionPanel.width < 350) {
+      frame.x = 5
+      frame.width = MNExtensionPanel.width-10
+      // }else{
+      //   frame.x = MNUtil.constrain(frame.x, -200,MNExtensionPanel.width - 200)
+      // }
+      frame.y = MNUtil.constrain(frame.y, 5, MNExtensionPanel.height-70)
       self.chatToolbar.frame = frame
       // self.setFrame(frame)
     }
     if (gesture.state === 3) {
       self.view.bringSubviewToFront(self.chatToolbar)
+      self.setChatLayout()
     }
   },
   /**
@@ -729,7 +736,7 @@ try {
           MNUtil.showHUD("No note selected")
           return
         }
-        let images = chatAIUtils.getImagesFromNote(focusNote)
+        let images = MNNote.getImagesFromNote(focusNote,true)
         // imageData = MNNote.getImageFromNote(focusNote)
         if (images.length) {
           imageData = images[0]
@@ -747,7 +754,6 @@ try {
       self.addImageInChat(imageData)
     }
     return
-    MNUtil.showHUD("Not Implemented")
   
   },
   imagePickerControllerDidFinishPickingMediaWithInfo:async function (UIImagePickerController,info) {
@@ -827,25 +833,54 @@ try {
     }
     
   },
-  resizeButtonTapped:async function (button) {
+  referenceButtonTapped:async function (button) {
+  try {
+
+    let self = getSideOutputController()
+    let selection = await self.runJavaScript(`window.getSelection().toString();`,"chatWebview")
+    if (selection.trim() && (selection !== self.preSelection)) {
+      self.preSelection = selection
+      self.addToInput(selection)
+      self.showHUD("Add reference")
+      MNUtil.delay(0.1,()=>{
+        self.runJavaScript(`document.activeElement.blur();`)
+        self.chatWebview.endEditing(true)
+      })
+      return
+    }
     if (self.userReference.text) {
-      var commandTable = [
-        {title:"❌   Clear Reference",object:self,selector:"referenceAction:",param:"clearReference"}
-      ]
+      let menu = new Menu(button,self)
+      menu.width = 200
+      menu.addMenuItem("❌   Clear Reference", "referenceAction:", "clearReference")
       if(self.userReference.hidden){
-        commandTable.push({title:"   Show Reference",object:self,selector:"referenceAction:",param:"showReference"})
+        menu.addMenuItem("   Show Reference", "referenceAction:", "showReference")
       }else{
-        commandTable.push({title:"   Show User Input",object:self,selector:"referenceAction:",param:"hideReference"})
+        menu.addMenuItem("   Show User Input", "referenceAction:", "hideReference")
       }
-      self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,200,0)
+      menu.addMenuItem("   From Note", "referenceAction:", "importFromNote")
+      menu.addMenuItem("   From Clipboard", "referenceAction:", "importFromClipboard")
+      menu.addMenuItem("   From Selection on Doc", "referenceAction:", "importFromDocSelection")
+      menu.addMenuItem("   From Selection on Chat", "referenceAction:", "importFromChatSelection")
+      menu.addMenuItem("   From Selection on Note", "referenceAction:", "importFromNoteSelection")
+      menu.show()
     }else{
-      let selection = await self.runJavaScript(`window.getSelection().toString();`,"chatWebview")
-      if (selection.trim()) {
-        self.userReference.text = selection
-        self.userReference.hidden = false
-        self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
-        return
-      }
+      // let selection = await self.runJavaScript(`window.getSelection().toString();`,"chatWebview")
+      // if (selection.trim() && (selection !== self.preSelection)) {
+      //   self.preSelection = selection
+      //   self.userReference.text = ">"+selection
+      //   self.userReference.hidden = false
+      //   self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
+      //   self.showReference()
+      //   let size = self.userReference.sizeThatFits({width:self.userReference.frame.width,height:1000})
+      //   if (size.height > self.userReference.frame.height) {
+      //     self.userReference.setContentOffsetAnimated({x:0,y:size.height-self.userReference.frame.height},true)
+      //   }
+      //   self.showHUD("Add reference")
+      //   self.runJavaScript(`document.activeElement.blur();`)
+      //   self.chatWebview.endEditing(true)
+      //   // self.chatRunJavaScript(`document.activeElement.blur();`)
+      //   return
+      // }
       var commandTable = [
         {title:"   From Note",object:self,selector:"referenceAction:",param:"importFromNote"},
         {title:"   From Clipboard",object:self,selector:"referenceAction:",param:"importFromClipboard"},
@@ -855,36 +890,32 @@ try {
       ]
       self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,200,0)
     }
+    
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "referenceButtonTapped")
+  }
   },
   referenceAction: async function (action) {
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
     switch (action) {
       case "clearReference":
         self.userReference.text = ""
-        self.userReference.hidden = true
-        self.resizeButton.hidden = false
-        self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
-        self.sendButton.setImageForState(chatAIConfig.sendImage,0)
+        self.hideReference()
         break;
       case "showReference":
-        self.userReference.hidden = false
-        self.sendButton.setImageForState(chatAIConfig.closeImage,0)
+        self.showReference()
         break;
       case "hideReference":
-        self.userReference.hidden = true
+        self.hideReference()
         break;
       case "importFromClipboard":
-        self.userReference.text = MNUtil.clipboardText
-        self.userReference.hidden = false
-        self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
-        self.sendButton.setImageForState(chatAIConfig.closeImage,0)
+        if (MNUtil.clipboardText) {
+          self.addToInput(MNUtil.clipboardText)
+        }
         break
       case "importFromDocSelection":
         if (MNUtil.currentSelection && MNUtil.currentSelection.onSelection) {
-          self.userReference.text = MNUtil.currentSelection.text
-          self.userReference.hidden = false
-          self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
-          self.sendButton.setImageForState(chatAIConfig.closeImage,0)
+          self.addToInput(MNUtil.currentSelection.text)
         }else{
           MNUtil.showHUD("No selection")
         }
@@ -892,10 +923,7 @@ try {
       case "importFromChatSelection":
         let selection = await self.runJavaScript(`window.getSelection().toString();`,"chatWebview")
         if (selection) {
-          self.userReference.text = selection
-          self.userReference.hidden = false
-          self.sendButton.setImageForState(chatAIConfig.closeImage,0)
-          self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
+          self.addToInput(selection)
         }else{
           MNUtil.showHUD("No selection")
         }
@@ -903,25 +931,16 @@ try {
       case "importFromNoteSelection":
         if (MNUtil.activeTextView) {
           let selectedRange = MNUtil.activeTextView.selectedRange
-          if (selectedRange.length > 0) {
-            self.userReference.text = MNUtil.activeTextView.text.slice(selectedRange.location,selectedRange.location+selectedRange.length)
-          }else{
-            self.userReference.text = MNUtil.activeTextView.text
-          }
-          self.userReference.hidden = false
-          self.sendButton.setImageForState(chatAIConfig.closeImage,0)
-          self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
+          let text = (selectedRange.length > 0)?MNUtil.activeTextView.text.slice(selectedRange.location,selectedRange.location+selectedRange.length):MNUtil.activeTextView.text
+          self.addToInput(text)
         }else{
           MNUtil.showHUD("No selection")
         }
         break;
       case "importFromNote":
-        if (chatAIUtils.currentNoteId) {
+        if (chatAIUtils.currentNote()) {
           // let note = MNNote.new(chatAIUtils.currentNoteId)
-          self.userReference.text = `{{note:${chatAIUtils.currentNoteId}}}`
-          self.userReference.hidden = false
-          self.sendButton.setImageForState(chatAIConfig.closeImage,0)
-          self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
+          self.addToInput(`{{note:${chatAIUtils.currentNoteId}}}`)
           // let hasImage = chatAIUtils.hasImageInNote(note)
           // if (hasImage && chatAIConfig.getConfig("autoImage")) {
           //   let imageData = MNNote.getImageFromNote(note)
@@ -934,7 +953,6 @@ try {
           MNUtil.showHUD("No note selected")
           return
         }
-        break;
       default:
         MNUtil.showHUD("Unspported action")
         break;
@@ -946,7 +964,7 @@ try {
     self.userReference.hidden = true
     self.sendButton.setImageForState(chatAIConfig.sendImage,0)
     self.resizeButton.hidden = false
-    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
+    self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
   },
   onResizeGesture:function (gesture) {
     // MNUtil.showHUD("message")
@@ -1778,7 +1796,7 @@ try {
       const tem = res[i];
       let noteId = tem.match(/{{note:(.*)}}/)[1]
       let note = MNNote.new(noteId)
-      let stringified = (await chatAIUtils.getMDFromNote(note)).trim()
+      let stringified = (await chatAIUtils.getMDFromNote(note,true)).trim()
       stringified = stringified.split("\n").map((l,i)=>{
         if (i && l.trim()) {
           return `> ${l}`
@@ -2004,9 +2022,7 @@ sideOutputController.prototype.setChatLayout = async function (heightOffset = 0)
   if (!this.userInput.custom) {
     inputFrame.height = 80
   }
-  viewFrame.width = MNUtil.constrain(viewFrame.width, 0, 350)
-  this.userInput.frame = MNUtil.genFrame(5,40, viewFrame.width-65, inputFrame.height)
-  this.userReference.frame = MNUtil.genFrame(5,40, viewFrame.width-65, inputFrame.height)
+  // viewFrame.width = MNUtil.constrain(viewFrame.width, 0, 350)
   if (this.miniMode) {
     this.chatToolbar.frame = MNUtil.genFrame(5, viewFrame.height-240, 35, 35)
 
@@ -2014,20 +2030,23 @@ sideOutputController.prototype.setChatLayout = async function (heightOffset = 0)
     let toolbarFrame = this.chatToolbar.frame
     toolbarFrame.y = MNUtil.constrain(toolbarFrame.y, 5, MNExtensionPanel.height-50)
     // toolbarFrame.x = MNUtil.constrain(toolbarFrame.x, 0, max)
-    toolbarFrame.width = viewFrame.width
+    toolbarFrame.width = viewFrame.width-10
     toolbarFrame.height = 45+inputFrame.height
+    toolbarFrame.x = 5
     this.chatToolbar.frame = toolbarFrame
+    this.userInput.frame = MNUtil.genFrame(5,40, toolbarFrame.width-65, inputFrame.height)
+    this.userReference.frame = MNUtil.genFrame(5,40, toolbarFrame.width-65, inputFrame.height)
 
     // this.userReference.contentSize = {width:1000,height:50}
-    this.sendButton.frame = MNUtil.genFrame(viewFrame.width-55,40, 50, 45)
-    this.resizeButton.frame = MNUtil.genFrame(viewFrame.width-55,90, 50, 30)
+    this.sendButton.frame = MNUtil.genFrame(toolbarFrame.width-55,40, 50, 45)
+    this.resizeButton.frame = MNUtil.genFrame(toolbarFrame.width-55,90, 50, 30)
     // if (!this.currentImage) {
-    this.imageButton.frame = MNUtil.genFrame(viewFrame.width-55,5, 50, 30)
+    this.imageButton.frame = MNUtil.genFrame(toolbarFrame.width-55,5, 50, 30)
     // }
     this.reAskButton.frame = MNUtil.genFrame(5, 70, 30, 30)
     this.reAskButton.hidden = true
-    this.chatToken.frame = MNUtil.genFrame(viewFrame.width-90, 5, 30, 30)
-    this.chatModel.frame = MNUtil.genFrame(40, 5, viewFrame.width-135, 30)
+    this.chatToken.frame = MNUtil.genFrame(toolbarFrame.width-90, 5, 30, 30)
+    this.chatModel.frame = MNUtil.genFrame(40, 5, toolbarFrame.width-135, 30)
     this.minimizeButton.frame = MNUtil.genFrame(5,5, 30, 30)
   }
 
@@ -2587,6 +2606,7 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
     this.userReference.layer.borderColor = MNUtil.hexColorAlpha("#afafaf",0.8)
     this.userReference.backgroundColor = MNUtil.hexColorAlpha("#cecece",0.8)
     this.userReference.scrollEnabled = true
+    this.userReference.layer.cornerRadius = 8
     this.userReference.bounces = true
     this.userReference.custom = false
     this.userReference.layer.borderWidth = 3
@@ -2595,8 +2615,7 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
 
     // this.resizeGesture.addTargetAction(this,"onResizeGesture:")
 
-
-    this.createButton("resizeButton","resizeButtonTapped:","chatToolbar")
+    this.createButton("resizeButton","referenceButtonTapped:","chatToolbar")
     this.resizeButton.setImageForState(this.referenceImage,0)
     // this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
     this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
@@ -2821,10 +2840,12 @@ sideOutputController.prototype.setCurrentModel = async function (model) {
     // this.config.model 
     // MNUtil.copy("Model: " + model)
     let modelConfig = chatAIConfig.parseModelConfig(model)
-    if (modelConfig.source === "Built-in") {
-      MNButton.setTitle(this.chatModel, "Built-in",15,true)
-    }else{
-      MNButton.setTitle(this.chatModel, modelConfig.model,15,true)
+    if (this.userReference.hidden) {
+      if (modelConfig.source === "Built-in") {
+        MNButton.setTitle(this.chatModel, "Built-in",15,true)
+      }else{
+        MNButton.setTitle(this.chatModel, modelConfig.model,15,true)
+      }
     }
     this.config = modelConfig
     this.chatRunJavaScript(`setCurrentModel(\`${encodeURIComponent(model)}\`)`)
@@ -3248,10 +3269,15 @@ sideOutputController.prototype.addToolMessage = function (content,funcId) {
   this.tool.push({"role":"tool","content":content,"tool_call_id":funcId})
 }
 /** @this {sideOutputController} */
-sideOutputController.prototype.setToken = function (token) {
+sideOutputController.prototype.setToken = async function (token) {
     if (this.onFinish) {
       this.token.push(token)
-      this.aiButton.setTitleForState(""+chatAIUtils.sum(this.token),0)
+      let totalToken = chatAIUtils.sum(this.token)
+      this.aiButton.setTitleForState(""+totalToken,0)
+      if (totalToken > 100000) {
+        MNUtil.confirm("🤖 MN ChatAI",`This AI Chat has consumed ${totalToken} tokens. Please keep an eye on your balance usage.\n\n本次对话已使用${totalToken} tokens。请注意tokens消耗。\nPS: 无关问题建议新开对话，以避免token消耗过多。`)
+      }
+
     }else{
       this.aiButton.setTitleForState(""+chatAIUtils.sum(this.token.concat(token)),0)
     }
@@ -3387,15 +3413,15 @@ sideOutputController.prototype.addImageInChat = function (imageData) {
   }
 }
 /**
+ * @this {sideOutputController}
  * @param {string} text 
  * @param {NSData} imageData 
  */
 sideOutputController.prototype.addToInput = function (text,imageData=undefined) {
+try {
+
   this.openChatView()
   this.addImageInChat(imageData)
-  this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
-  this.sendButton.setImageForState(chatAIConfig.closeImage,0)
-
   // if (imageData) {
   //   this.currentImage = UIImage.imageWithDataScale(imageData, 2)
   //   this.imageButton.setImageForState(this.currentImage, 0)
@@ -3413,8 +3439,34 @@ sideOutputController.prototype.addToInput = function (text,imageData=undefined) 
     if (size.height > inputFrame.height) {
       textView.setContentOffsetAnimated({x:0,y:size.height-inputFrame.height},true)
     }
-    MNUtil.showHUD("Add reference")
+    this.showHUD("Add reference")
+    this.showReference()
   }
+  if (this.miniMode) {
+    this.miniMode = false
+    this.chatModel.hidden = true
+    MNUtil.animate(()=>{
+      this.chatToolbar.frame = this.lastChatToolbarFrame
+    }).then(()=>{
+      this.minimizeButton.hidden = false
+      // this.chatModel.hidden = true
+      this.userInput.hidden = true
+      this.userReference.hidden = false
+      this.sendButton.hidden = false
+      this.resizeButton.hidden = false
+      this.imageButton.hidden = false
+      this.chatToken.hidden = false
+      this.chatModel.hidden = false
+      this.chatModel.setImageForState(undefined,0)
+      this.showReference()
+      // this.setCurrentModel(this.currentModel)
+      // MNButton.setTitle(this.chatModel, "Reference",15,true)
+    })
+  }
+  
+} catch (error) {
+  chatAIUtils.addErrorLog(error, "addToInput")
+}
   // this.userInput.becomeFirstResponder()
   // textView.becomeFirstResponder()
 }
@@ -3501,7 +3553,7 @@ sideOutputController.prototype.tableItem = function (title,selector,param = "",c
  * @param {number} duration 
  * @param {UIView} view 
  */
-sideOutputController.prototype.showHUD = function (title,duration = 1.5,view = self.view) {
+sideOutputController.prototype.showHUD = function (title,duration = 1.5,view = this.view) {
   MNUtil.showHUD(title,duration,view)
 }
 
@@ -3673,7 +3725,7 @@ sideOutputController.prototype.createWebviewInput = function (superView) {
   this.userInput.layer.cornerRadius = 8;
   this.userInput.layer.masksToBounds = true;
   this.userInput.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
-  this.userInput.layer.borderWidth = 0
+  this.userInput.layer.borderWidth = 3
   this.userInput.layer.opacity = 0.85
   this.userInput.scrollEnabled = false
   this.userInput.loadFileURLAllowingReadAccessToURL(
@@ -3732,7 +3784,40 @@ sideOutputController.prototype.sendMessage = async function (text) {
     } catch (error) {
       chatAIUtils.addErrorLog(error, "sendButtonTapped")
     }
-  },
+  }
+sideOutputController.prototype.showReference = function () {
+try {
+
+  this.userReference.hidden = false
+  this.userInput.hidden = true
+  this.sendButton.setImageForState(chatAIConfig.closeImage,0)
+  if (this.userReference.text.trim()) {
+    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
+  }else{
+    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
+  }
+  this.chatModel.backgroundColor = MNUtil.hexColorAlpha("#afafaf",0.8)
+  MNButton.setTitle(this.chatModel, "Reference",15,true)
+  // MNUtil.delay(0.5).then(()=>{
+  //   MNButton.setTitle(this.chatModel, "Reference",15,true)
+  // })
+  
+} catch (error) {
+  chatAIUtils.addErrorLog(error, "showReference")
+}
+}
+sideOutputController.prototype.hideReference = function () {
+  this.userReference.hidden = true
+  this.userInput.hidden = false
+  this.sendButton.setImageForState(chatAIConfig.sendImage,0)
+  this.chatModel.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
+  if (this.userReference.text.trim()) {
+    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
+  }else{
+    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
+  }
+  this.setCurrentModel(this.currentModel)
+}
 /**
  * @type {UIView}
  */

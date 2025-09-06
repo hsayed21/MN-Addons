@@ -300,6 +300,9 @@ document.addEventListener('DOMContentLoaded', function () {
           editor.disabled()
         }
         setTimeout(() => {
+          notifyRefreshHeight()
+        }, 0);
+        setTimeout(() => {
 
         const mermaidElements = document.querySelectorAll('.language-mermaid');
     
@@ -354,7 +357,6 @@ document.addEventListener('DOMContentLoaded', function () {
           editor.disabled()
         }
 
-          notifyRefreshHeight()
           // window.location.href = "chataction://showerror="+encodeURIComponent("test")
         }, 1000);
       }
