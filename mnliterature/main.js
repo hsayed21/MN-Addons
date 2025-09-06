@@ -149,7 +149,7 @@ JSB.newAddon = function(mainPath){
     onPopupMenuOnNote: async function (sender) {
       MNUtil.undoGrouping(()=>{
         try {
-          // sender.userInfo.note 可能是空的，
+          // sender.userInfo.note 是 MbNote 对象，不是 JSON 对象。
           self.note = MNNote.getFocusNote()
           if (self.note){
             self.noteTitle = self.note.title
