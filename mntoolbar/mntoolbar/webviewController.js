@@ -1525,6 +1525,7 @@ toolbarController.prototype.popupReplace = async function (button) {
       }
       // MNUtil.showHUD("popupReplace:"+ids[i]+":"+toolbarConfig.getPopupConfig(ids[i]).enabled)
       if (popupConfig.enabled) {
+        // MNUtil.log({message:"popupReplace:"+ids[i],detail:popupConfig})
         // MNUtil.showHUD(toolbarConfig.getPopupConfig(ids[i]).target)
         let target = popupConfig.target
         if (target) {
@@ -1545,7 +1546,7 @@ toolbarController.prototype.popupReplace = async function (button) {
           toolbarUtils.addErrorLog(error, "popupReplaceSelector", ids[i])
         }
         }else{
-          MNUtil.showHUD("message"+ids[i])
+          // MNUtil.showHUD("message"+ids[i])
           // toolbarUtils.addErrorLog(error, "popupReplace", ids[i])
         }
       }
@@ -1596,7 +1597,7 @@ toolbarController.prototype.popupReplace = async function (button) {
               toolbarUtils.addErrorLog(error, "popupReplaceSelector", ids[i])
             }
             }else{
-              MNUtil.showHUD("message"+ids[i])
+              // MNUtil.showHUD("message"+ids[i])
               // toolbarUtils.addErrorLog(error, "popupReplace", ids[i])
             }
           }else{
@@ -1714,7 +1715,7 @@ toolbarController.prototype.popupReplaceAgain = async function (button) {
           toolbarUtils.addErrorLog(error, "popupReplaceSelector", ids[i])
         }
         }else{
-          MNUtil.showHUD("message"+ids[i])
+          // MNUtil.showHUD("message"+ids[i])
           // toolbarUtils.addErrorLog(error, "popupReplace", ids[i])
         }
       }

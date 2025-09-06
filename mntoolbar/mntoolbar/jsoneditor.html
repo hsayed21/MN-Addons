@@ -25,7 +25,7 @@ body {
 <body>
   <div id="jsoneditor"></div>
   <script>
-  let actionNames = ['addChildNote','addBrotherNote','addComment','addImageComment','addTags','addMarkdownLink','addWordsToEurdic','bigbang','crash','clearContent','clearFormat','cloneAndMerge','cloneAsChildNote','confirm','chatAI','copy','command','export','focus','insertSnippet','importDoc','link','markdown2Mindmap','moveNote','mergeText','moveComment','menu','noteHighlight','ocr','openURL','openWebURL','openInEditor','openSetting','paste','redo','replace','removeComment','removeTags','search','searchInDict','setContent','setColor','setTimer','snipaste','showInFloatWindow','switchTitleOrExcerpt','showMessage','setButtonImage','shortcut','triggerButton','toggleView','toggleTextFirst','toggleMarkdown','toggleSidebar','undo','userSelect','webSearch']
+  let actionNames = ['addChildNote','addBrotherNote','addComment','addImageComment','addTags','addMarkdownLink','addWordsToEurdic','bigbang','crash','clearContent','clearFormat','cloneAndMerge','cloneAsChildNote','confirm','chatAI','copy','command','export','focus','insertSnippet','importDoc','link','markdown2Mindmap','moveNote','mergeText','moveComment','menu','noteHighlight','ocr','openURL','openWebURL','openInEditor','openSetting','paste','redo','replace','removeComment','removeTags','search','searchInDict','setContent','setColor','setTimer','snipaste','showInFloatWindow','switchTitleOrExcerpt','showMessage','setButtonImage','shortcut','triggerButton','toggleView','toggleTextFirst','toggleMarkdown','toggleSidebar','undo','userSelect','userInput','webSearch']
   function generalActionProperties(params) {
     return {
       "action": {
@@ -586,6 +586,9 @@ function getSchemaByActionName(actionName) {
     case "openURL":
       properties.url = stringType()
       break;
+    case "openWebURL":
+      properties.url = stringType()
+      break;
     case "setTimer":
       properties.target = stringEnum(['menu'])
       properties.timerMode = stringEnum(["clock","pauseOrResume","countUp","countdown"])
@@ -598,7 +601,7 @@ function getSchemaByActionName(actionName) {
       properties.tag = stringType()
       break;
     case "snipaste":
-      properties.target = stringEnum(['auto','selectionImage','selectionText','note','pdf','audioControl'])
+      properties.target = stringEnum(['auto','selectionImage','selectionText','note','pdf','clipboard','audioControl'])
       properties.page = stringEnum(['current','first','last'])
       properties.audioAutoPlay = booleanType()
       properties.audioAction = stringEnum(['playOrPause','toggleMute','forward15s','backward15s','play0.5x','play2x','play3x','play4x'])
@@ -618,6 +621,12 @@ function getSchemaByActionName(actionName) {
       properties.title = stringType()
       properties.subTitle = stringType()
       properties.selectItems = arrayType({"$ref": "selectAction"})
+      break;
+    case "userInput":
+      properties.title = stringType()
+      properties.subTitle = stringType()
+      properties.target = stringEnum(['clipboard','globalVar'])
+      properties.varName = stringType()
       break;
     case "showMessage":
       properties.content = stringType()
@@ -1007,7 +1016,7 @@ function setSchemaByAction(action) {
           //path: array
           // console.log(input);
           if (input === 'field') {
-            return ['textFirst','focusAfterDelay','focusInFloatWindowForAllDocMode','hideMessage','mergeToPreviousNote','annotation','timerMode','minutes','selectTitle','selectItems','userSelect','find','delay','noteURL','menuWidth','buttonName','subTitle','onConfirm','onCancel','followAutoStyle','followParentColor','menuTitle','name','input','text','target', 'action', 'description','menu', 'source','color','content','title','markdown','command','commands','OCR','fillPattern','asTitle','tags','tag','find','multi','type','index','removeSource','prompt','user','system','trim','replace','merge','linkType','from','to','steps','range','url','engine','targets','onFinish','onLongPress','doubleClick','menuItems','autoClose','parentNote','mainMindMap','method','paste','forceToFocus'];
+            return ['textFirst','focusAfterDelay','focusInFloatWindowForAllDocMode','hideMessage','mergeToPreviousNote','annotation','timerMode','minutes','selectTitle','selectItems','userSelect','userInput','find','delay','noteURL','menuWidth','buttonName','subTitle','onConfirm','onCancel','followAutoStyle','followParentColor','menuTitle','name','input','text','target', 'action', 'description','menu', 'source','color','content','title','markdown','command','commands','OCR','fillPattern','asTitle','tags','tag','find','multi','type','index','removeSource','prompt','user','system','trim','replace','merge','linkType','from','to','steps','range','url','engine','targets','onFinish','onLongPress','doubleClick','menuItems','autoClose','parentNote','mainMindMap','method','paste','forceToFocus'];
           }
           if (input === 'value') {
             let parent = path.at(-1)

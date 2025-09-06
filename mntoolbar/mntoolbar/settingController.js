@@ -514,6 +514,17 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
       MNUtil.openURL("https://mnaddon.craft.me/toolbar/template")
     }
   },
+  showActionDocument: async function (button) {
+    let self = getSettingController()
+    let input = await self.getWebviewContent()
+    let des = JSON.parse(input)
+    let action = des.action
+    if (typeof browserUtils !== "undefined") {
+      MNUtil.postNotification("openInBrowser", {url:"https://mnaddon.craft.me/toolbar/action/"+action})
+    }else{
+      MNUtil.openURL("https://mnaddon.craft.me/toolbar/action/"+action)
+    }
+  },
   configCopyTapped: async function (params) {
     // MNUtil.copy(self.selectedItem)
     let selected = self.selectedItem
@@ -628,6 +639,7 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
     self.popupEditView.endEditing()
     self.showHUD("Save Popup config")
     toolbarConfig.popupConfig = config
+    toolbarConfig.save("MNToolbar_popupConfig")
   },
   configRunTapped: async function (button) {
     let self = getSettingController()
@@ -1337,6 +1349,7 @@ settingController.prototype.settingViewLayout = function (){
       Frame.set(this.titleInput,5,155,width-122,35)
       Frame.set(this.saveButton,width-112,155)
       Frame.set(this.templateButton,width-188,199.5)
+      Frame.set(this.actionDocButton,width-218,199.5)
       Frame.set(this.runButton,width-42,155)
       Frame.set(this.addOptionButton,width-35,199.5)
       Frame.set(this.copyButton,width-158,199.5)
@@ -1352,6 +1365,7 @@ settingController.prototype.settingViewLayout = function (){
       Frame.set(this.titleInput,305,5,width-422,35)
       Frame.set(this.saveButton,width-112,5)
       Frame.set(this.templateButton,width-188,49.5)
+      Frame.set(this.actionDocButton,width-218,49.5)
       Frame.set(this.runButton,width-42,5)
       Frame.set(this.addOptionButton,width-35,49.5)
       Frame.set(this.copyButton,width-158,49.5)
@@ -1587,6 +1601,13 @@ try {
   this.templateButton.setImageForState(toolbarConfig.templateImage,0)
   this.templateButton.width = 26
   this.templateButton.height = 26
+
+  this.createButton("actionDocButton","showActionDocument:","configView")
+  MNButton.setConfig(this.actionDocButton, {opacity:0.8,color:"#457bd3"})
+  this.actionDocButton.layer.cornerRadius = 6
+  this.actionDocButton.setImageForState(toolbarConfig.questionImage,0)
+  this.actionDocButton.width = 26
+  this.actionDocButton.height = 26
 
 
 

@@ -246,10 +246,16 @@
     function updateConfigList() {
       // let configList = document.getElementById('config-list');
       configList.innerHTML = ''
+      // console.log(allPopupButtons);
+      
       // 动态创建每一行配置
       allPopupButtons.forEach((buttonName, index) => {
+        // console.log(buttonName);
+        
         let config = popupReplaceConfig[buttonName];
-        if (!config) return; // 如果配置不存在则跳过
+        if (!config) {
+          config = {enabled:false,target:"",name:buttonName}
+        }
 
         const row = document.createElement('div');
         row.className = 'config-row';

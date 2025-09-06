@@ -261,6 +261,8 @@ class toolbarUtils {
     let actionName = des.action
     let keys = Object.keys(des)
     let menuItems = []
+    if (actionName) {
+      
     switch (actionName) {
       case "toggleTextFirst":
         menuItems = ["range"]
@@ -337,6 +339,9 @@ class toolbarUtils {
       case "openURL":
         menuItems = ["url"]
         break;
+      case "openWebURL":
+        menuItems = ["url"]
+        break;
       case "setTimer":
         menuItems = ["target","timerMode","minutes","annotation"]
         break;
@@ -351,6 +356,9 @@ class toolbarUtils {
         break;
       case "userSelect":
         menuItems = ["title","subTitle","selectItems"]
+        break;
+      case "userInput":
+        menuItems = ["title","subTitle","target","varName"]
         break;
       case "showMessage":
         menuItems = ["content"]
@@ -387,6 +395,9 @@ class toolbarUtils {
         break;
       default:
         break;
+    }
+    }else{
+      menuItems = ["action"]
     }
     if (prefix) {
       if (!("onFinish" in des)) {
@@ -2843,6 +2854,36 @@ try {
     }
     return undefined
   }
+  static async userInput(des){
+    if (des.title) {
+      let confirmTitle = toolbarUtils.detectAndReplace(des.title)
+      let confirmSubTitle = des.subTitle ? toolbarUtils.detectAndReplace(des.subTitle) : ""
+      let res = await MNUtil.userInput(confirmTitle, confirmSubTitle)
+      if (res.button) {
+        if ("target" in des) {
+          switch (des.target) {
+            case "clipboard":
+              MNUtil.copy(res.input)
+              break;
+            case "globalVar":
+              let varName = des.varName
+              if (!varName) {
+                MNUtil.showHUD("❌ varName not found!")
+                return
+              }
+              //将句号和空格都替换成下划线
+              varName = varName.trim().replace(/\.|\s/g, "_")
+              toolbarSandbox.setValue(varName, res.input)
+              break;
+            default:
+              break;
+          }
+        }
+      }
+      return undefined
+    }
+    return undefined
+  }
   /**
    * 
    * @param {object} des 
@@ -5179,6 +5220,17 @@ static getButtonFrame(button){
     return this.extractUrls(content)
   }
   static openWebURL(des){
+    if ("url" in des) {
+      let url = des.url
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        if (typeof browserUtils !== "undefined") {
+          MNUtil.postNotification("openInBrowser", {url:url})
+          return
+        }
+      }
+      MNUtil.openURL(des.url)
+      return
+    }
     let focusNote = MNNote.getFocusNote()
     if (focusNote) {
       let urls = this.noteHasWebURL(focusNote)
@@ -5293,8 +5345,27 @@ static async getTextVarInfo(text,userInput) {
           }else{
             MNUtil.postNotification("snipasteNote",{noteid:MNNote.getFocusNote().noteId})
           }
+        }else if (MNUtil.clipboardImage) {
+          MNUtil.log("clipboardImage")
+          MNUtil.postNotification("snipasteImage", {imageData:MNUtil.clipboardImage.pngData()})
+        }else if (MNUtil.clipboardText) {
+          if (MNUtil.clipboardText.trim()) {
+          // MNUtil.log({message:"snipasteHtml",html:MNUtil.clipboardText})
+            MNUtil.postNotification("snipasteHtml",{html:MNUtil.clipboardText})
+          }
         }else{
           MNUtil.showHUD("No note found")
+        }
+        break;
+      case "clipboard":
+        if (MNUtil.clipboardImage) {
+          MNUtil.log("clipboardImage")
+          MNUtil.postNotification("snipasteImage", {imageData:MNUtil.clipboardImage.pngData()})
+        }else if (MNUtil.clipboardText) {
+          if (MNUtil.clipboardText.trim()) {
+          // MNUtil.log({message:"snipasteHtml",html:MNUtil.clipboardText})
+            MNUtil.postNotification("snipasteHtml",{html:MNUtil.clipboardText})
+          }
         }
         break;
       case "selectionImage":
@@ -5308,7 +5379,7 @@ static async getTextVarInfo(text,userInput) {
       case "selectionText":
         if (selection.onSelection) {
           let text = selection.text
-          MNUtil.postNotification("snipasteHtml",{text:text})
+          MNUtil.postNotification("snipasteHtml",{html:text})
         }else{
           MNUtil.showHUD("No selection found")
         }
@@ -5762,6 +5833,12 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
       case "openURL":
         if (des.url) {
           let url = this.detectAndReplace(des.url)
+          if (url.startsWith("http://") || url.startsWith("https://")) {
+            if (typeof browserUtils !== "undefined") {
+              MNUtil.postNotification("openInBrowser", {url:url})
+              break;
+            }
+          }
           MNUtil.openURL(url)
           break;
           // MNUtil.showHUD("message")
@@ -5936,6 +6013,9 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
           MNUtil.showHUD("No valid argument!")
         }
         break
+      case "userInput":
+        await this.userInput(des)
+        break;
       case "toggleView":
         if ("targets" in des) {
           des.targets.map(target=>{
@@ -6800,6 +6880,7 @@ class toolbarConfig {
     })
     this.curveImage = MNUtil.getImage(this.mainPath+"/curve.png",2)
     this.runImage = MNUtil.getImage(this.mainPath+"/run.png",2.)
+    this.questionImage = MNUtil.getImage(this.mainPath+"/question.png",2.)
     this.templateImage = MNUtil.getImage(this.mainPath+"/template.png",2.2)
     // MNUtil.copyJSON(this.imageConfigs)
       } catch (error) {
