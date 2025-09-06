@@ -145,22 +145,33 @@ JSB.newAddon = function(mainPath){
     },
 
 
-    queryAddonCommandStatus() {
+    queryAddonCommandStatus: function() {
       return MNUtil.studyMode !== 3
         ? {
             image: "logo.png",
             object: self,
-            selector: "onToggle:",
+            selector: "toggleAddon:",
             checked: self.toggled
           }
         : null
     },
 
     // 点击插件图标执行的方法。
-    async onToggle() {
-      // 刷新插件按钮状态
-      self.toggled = !self.toggled
-      MNUtil.refreshAddonCommands()
+    toggleAddon: async function() {
+      try {
+        self.toggled = !self.toggled
+        MNUtil.refreshAddonCommands()
+        MNLog.log({
+          message: "点击文献管理插件",
+          source: "MNLiterature: toggleAddon",
+        })
+      } catch (error) {
+        MNUtil.showHUD(error);
+        MNLog.error({
+          message:error,
+          source:"MNLiterature: toggleAddon",
+        })
+      }
     },
 
 
