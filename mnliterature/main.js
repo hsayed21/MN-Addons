@@ -157,7 +157,7 @@ JSB.newAddon = function(mainPath){
     },
 
     // 点击插件图标执行的方法。
-    toggleAddon: async function() {
+    toggleAddon: async function(button) {
       try {
         self.toggled = !self.toggled
         MNUtil.refreshAddonCommands()
@@ -165,12 +165,41 @@ JSB.newAddon = function(mainPath){
           message: "点击文献管理插件",
           source: "MNLiterature: toggleAddon",
         })
+
+        let commandTable = [
+          self.tableItem('⚙️   Setting', 'openSetting:'),
+          self.tableItem('🗄️   文献数据库', 'openLiteratureLibrary:'),
+        ];
+
+        // 显示菜单
+        self.popoverController = MNUtil.getPopoverAndPresent(
+          button,        // 触发按钮
+          commandTable,  // 菜单项
+          200,          // 宽度
+          0             // 箭头方向（0=自动）
+        );
       } catch (error) {
         MNUtil.showHUD(error);
         MNLog.error({
           message:error,
           source:"MNLiterature: toggleAddon",
         })
+      }
+    },
+
+    openSetting: function() {
+      MNUtil.showHUD("打开设置界面")
+      // 关闭菜单
+      if (self.popoverController) {
+        self.popoverController.dismissPopoverAnimated(true);
+      }
+    },
+
+    openLiteratureLibrary: function() {
+      MNUtil.showHUD("打开文献数据库")
+      // 关闭菜单
+      if (self.popoverController) {
+        self.popoverController.dismissPopoverAnimated(true);
       }
     },
 
@@ -270,6 +299,16 @@ JSB.newAddon = function(mainPath){
       // 示例中为空实现
     },
   });
+
+  MNLiteratureClass.prototype.tableItem = function (title, selector, param = "", checked = false) {
+    return {
+      title: title,        // 菜单项显示的文字
+      object: this,        // 执行方法的对象（重要！）
+      selector: selector,  // 点击后要调用的方法名
+      param: param,        // 传递给方法的参数
+      checked: checked     // 是否显示勾选状态
+    }
+  }
   
   // 返回定义的插件类，MarginNote 会自动实例化这个类
   return MNLiteratureClass;
