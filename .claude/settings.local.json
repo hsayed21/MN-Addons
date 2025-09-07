@@ -80,7 +80,9 @@
       "WebFetch(domain:api.github.com)",
       "Read(/private/tmp/claude-workflow-test/.claude/**)",
       "Read(//Users/xiakangwei/.claude/**)",
-      "Bash(claude-code-spec-workflow:*)"
+      "Bash(claude-code-spec-workflow:*)",
+      "Bash(git fetch:*)",
+      "Bash(git check-ignore:*)"
     ],
     "deny": []
   }
