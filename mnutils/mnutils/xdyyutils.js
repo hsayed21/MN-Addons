@@ -14877,12 +14877,81 @@ class HtmlMarkdownUtils {
   }
 
   /**
+   * 检查笔记的后代中是否有任何子卡片包含标题
+   * @param {MNNote} rootFocusNote 要检查的根笔记
+   * @returns {boolean} 如果有任何后代包含标题返回 true，否则返回 false
+   */
+  static hasDescendantWithTitle(rootFocusNote) {
+      try {
+          const nodesData = rootFocusNote.descendantNodes;
+          if (!nodesData || !nodesData.descendant) {
+              return false;
+          }
+          
+          const allDescendants = nodesData.descendant;
+          const treeIndex = nodesData.treeIndex;
+          
+          // 过滤掉知识点卡片和归类卡片的分支
+          const excludedBranchRoots = new Set();
+          
+          if (rootFocusNote.childNotes && rootFocusNote.childNotes.length > 0) {
+              rootFocusNote.childNotes.forEach(childNote => {
+                  if (MNMath.isClassificationNote(childNote) || MNMath.isKnowledgeNote(childNote)) {
+                      excludedBranchRoots.add(childNote.noteId);
+                  }
+              });
+          }
+          
+          // 检查每个后代节点
+          for (let i = 0; i < allDescendants.length; i++) {
+              const node = allDescendants[i];
+              const nodeTreeIndex = treeIndex[i];
+              
+              // 跳过被排除的分支
+              if (nodeTreeIndex.length > 0 && excludedBranchRoots.size > 0) {
+                  const directChildIndex = nodeTreeIndex[0];
+                  const directChild = rootFocusNote.childNotes[directChildIndex];
+                  if (directChild && excludedBranchRoots.has(directChild.noteId)) {
+                      continue;
+                  }
+              }
+              
+              // 检查节点是否有标题
+              let hasTitle = false;
+              if (typeof node.title === 'string') {
+                  let titleContent = "";
+                  if (typeof node.title.toNoBracketPrefixContent === 'function') {
+                      titleContent = node.title.toNoBracketPrefixContent();
+                  } else if (HtmlMarkdownUtils.isHtmlMDComment(node.title)) {
+                      titleContent = HtmlMarkdownUtils.getSpanTextContent(node.title);
+                  } else {
+                      titleContent = node.title;
+                  }
+                  
+                  if (titleContent.trim()) {
+                      hasTitle = true;
+                  }
+              }
+              
+              if (hasTitle) {
+                  return true;
+              }
+          }
+          
+          return false;
+      } catch (e) {
+          MNUtil.error("检查后代标题时出错", e);
+          return false;
+      }
+  }
+
+  /**
    * 执行向上合并操作，将被聚焦笔记的后代笔记合并到其自身。
    * 子笔记的标题会作为带样式的、独立的评论添加到它们各自的直接父笔记中，
    * 然后子笔记（清空标题后）的结构内容再合并到父笔记。
    *
    * @param {MNNote} rootFocusNote 要处理的主笔记，其后代笔记将被向上合并到此笔记中。
-   * @param {string} firstLevelType rootFocusNote 直接子笔记的 HtmlMarkdownUtils 类型 (例如：'goal', 'level1')。
+   * @param {string} [firstLevelType] rootFocusNote 直接子笔记的 HtmlMarkdownUtils 类型 (例如：'goal', 'level1')。如果不提供，将跳过标题样式化步骤。
    */
   static upwardMergeWithStyledComments(rootFocusNote, firstLevelType) {
       // 确保 MNUtil 和 HtmlMarkdownUtils 在当前作用域中可用
@@ -14982,6 +15051,11 @@ class HtmlMarkdownUtils {
        * @returns {string} - 计算得到的 HtmlMarkdownUtils 类型
        */
       function getNodeTypeForTreeIndexLevel(level, initialTypeForLevel1) {
+          // 仅在提供了 initialTypeForLevel1 时才执行
+          if (!initialTypeForLevel1) {
+              return null;
+          }
+          
           let currentType = initialTypeForLevel1;
           if (!HtmlMarkdownUtils.isLevelType(initialTypeForLevel1)) {
               MNUtil.warn(`初始类型 "${initialTypeForLevel1}" 不是一个可识别的层级类型。将为第一层级默认使用 'goal'。`);
@@ -15017,9 +15091,13 @@ class HtmlMarkdownUtils {
                   continue;
               }
 
-              // 1. 确定 currentNode 的标题在添加到 parentNode 的评论中时应采用的 'type'。
-              //    这个 type 是基于 currentNode 相对于 rootFocusNote 的深度来决定的。
-              const typeForCurrentNodeTitleInParentComment = getNodeTypeForTreeIndexLevel(currentTreeIndexLevel, firstLevelType);
+              // 1. 仅在提供了 firstLevelType 时确定类型
+              let typeForCurrentNodeTitleInParentComment;
+              if (firstLevelType) {
+                  // 确定 currentNode 的标题在添加到 parentNode 的评论中时应采用的 'type'。
+                  // 这个 type 是基于 currentNode 相对于 rootFocusNote 的深度来决定的。
+                  typeForCurrentNodeTitleInParentComment = getNodeTypeForTreeIndexLevel(currentTreeIndexLevel, firstLevelType);
+              }
 
               // 2. 准备来自 currentNode 标题的原始文本内容。
               let rawTextFromTitle;
@@ -15036,25 +15114,28 @@ class HtmlMarkdownUtils {
               }
               rawTextFromTitle = rawTextFromTitle.trim();
 
-              // 3. 将 currentNode 的 rawTextFromTitle (原始标题文本) 作为一个新的带样式的评论添加到 parentNode。
-              //    评论的类型由 currentNode 自身的层级决定。
-              if (rawTextFromTitle) { // 仅当标题有内容时才添加评论
-                  // HtmlMarkdownUtils.addSameLevelHtmlMDComment(parentNode, rawTextFromTitle, typeForCurrentNodeTitleInParentComment);
-                  // 或者，如果更倾向于直接使用 appendMarkdownComment:
-                  if (typeof parentNode.appendMarkdownComment === 'function') {
-                      parentNode.appendMarkdownComment(
-                          HtmlMarkdownUtils.createHtmlMarkdownText(rawTextFromTitle, typeForCurrentNodeTitleInParentComment)
-                      );
-                  } else {
-                      MNUtil.warn(`parentNode ${parentNode.id} 上未找到 appendMarkdownComment 方法。`);
+              // 3. 如果提供了 firstLevelType，将标题转换为带样式的评论
+              if (firstLevelType) {
+                  // 将 currentNode 的 rawTextFromTitle (原始标题文本) 作为一个新的带样式的评论添加到 parentNode。
+                  // 评论的类型由 currentNode 自身的层级决定。
+                  if (rawTextFromTitle) { // 仅当标题有内容时才添加评论
+                      // HtmlMarkdownUtils.addSameLevelHtmlMDComment(parentNode, rawTextFromTitle, typeForCurrentNodeTitleInParentComment);
+                      // 或者，如果更倾向于直接使用 appendMarkdownComment:
+                      if (typeof parentNode.appendMarkdownComment === 'function') {
+                          parentNode.appendMarkdownComment(
+                              HtmlMarkdownUtils.createHtmlMarkdownText(rawTextFromTitle, typeForCurrentNodeTitleInParentComment)
+                          );
+                      } else {
+                          MNUtil.warn(`parentNode ${parentNode.id} 上未找到 appendMarkdownComment 方法。`);
+                      }
                   }
-              }
 
-              // 4. 清空 currentNode 的标题。
-              if (typeof currentNode.setTitle === 'function') {
-                  currentNode.setTitle("");
-              } else {
-                  currentNode.title = "";
+                  // 4. 清空 currentNode 的标题。
+                  if (typeof currentNode.setTitle === 'function') {
+                      currentNode.setTitle("");
+                  } else {
+                      currentNode.title = "";
+                  }
               }
 
               // 5. 执行 currentNode（现在已无标题，但包含其原有评论、子节点等）到 parentNode 的结构性合并。

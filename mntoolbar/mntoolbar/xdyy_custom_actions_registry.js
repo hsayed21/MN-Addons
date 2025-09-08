@@ -3503,34 +3503,44 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
         try {
-          UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-            "选择「当前卡片」下一层的层级",
-            "然后会依次递减",
-            0,
-            "取消",
-            levelHtmlSettingTitles,
-            (alert, buttonIndex) => {
-              try {
-                MNUtil.undoGrouping(() => {
-                  // 按钮索引从1开始（0是取消按钮）
-                  const selectedIndex = buttonIndex - 1;
+          // 先检查是否有子卡片包含标题
+          const hasTitle = HtmlMarkdownUtils.hasDescendantWithTitle(focusNote);
+          
+          if (!hasTitle) {
+            // 如果没有任何子卡片有标题，直接合并，不需要选择样式
+            HtmlMarkdownUtils.upwardMergeWithStyledComments(focusNote);
+            MNUtil.showHUD("✅ 子卡片已合并");
+          } else {
+            // 如果有子卡片有标题，显示样式选择弹窗
+            UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+              "选择「当前卡片」下一层的层级",
+              "然后会依次递减",
+              0,
+              "取消",
+              levelHtmlSettingTitles,
+              (alert, buttonIndex) => {
+                try {
+                  MNUtil.undoGrouping(() => {
+                    // 按钮索引从1开始（0是取消按钮）
+                    const selectedIndex = buttonIndex - 1;
 
-                  if (
-                    selectedIndex >= 0 &&
-                    selectedIndex < levelHtmlSetting.length
-                  ) {
-                    const selectedType = levelHtmlSetting[selectedIndex].type;
-                    HtmlMarkdownUtils.upwardMergeWithStyledComments(
-                      focusNote,
-                      selectedType,
-                    );
-                  }
-                });
-              } catch (error) {
-                MNUtil.showHUD(error);
-              }
-            },
-          );
+                    if (
+                      selectedIndex >= 0 &&
+                      selectedIndex < levelHtmlSetting.length
+                    ) {
+                      const selectedType = levelHtmlSetting[selectedIndex].type;
+                      HtmlMarkdownUtils.upwardMergeWithStyledComments(
+                        focusNote,
+                        selectedType,
+                      );
+                    }
+                  });
+                } catch (error) {
+                  MNUtil.showHUD(error);
+                }
+              },
+            );
+          }
         } catch (error) {
           MNUtil.showHUD(error);
         }
