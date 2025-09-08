@@ -232,8 +232,9 @@ JSB.newAddon = function(mainPath){
     onNoteTitleContainsXDYY: async function(sender) {
       MNUtil.undoGrouping(()=>{
         try {
-          MNUtil.showHUD("夏大鱼羊是个大帅哥！")
-          MNUtil.log("成功了！title: " + sender.userInfo.title)
+          MNUtil.postNotification("openInBrowser", {
+            url: "https://www.marginnote.com.cn/"
+          })
         } catch (error) {
           MNUtil.showHUD(error);
         }
