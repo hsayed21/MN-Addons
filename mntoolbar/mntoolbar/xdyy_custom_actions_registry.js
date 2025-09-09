@@ -2870,6 +2870,18 @@ function registerAllCustomActions() {
     },
   );
 
+  // splitCommentsByNotes - 拆分评论为独立卡片
+  global.registerCustomAction("splitCommentsByNotes", async function(context) {
+    const { button, des, focusNote, focusNotes, self } = context;
+    
+    if (!focusNote) {
+      MNUtil.showHUD("请先选择一张卡片");
+      return;
+    }
+    
+    MNMath.splitComments(focusNote);
+  });
+
   // changeHtmlMarkdownCommentTypeByPopup
   global.registerCustomAction(
     "changeHtmlMarkdownCommentTypeByPopup",

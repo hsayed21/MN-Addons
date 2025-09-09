@@ -5329,6 +5329,84 @@ class MNMath {
   }
 
   /**
+   * 拆分评论为独立卡片
+   * 将包含多条评论的卡片拆分成多张独立卡片，每张卡片只保留一条评论
+   * @param {MNNote} note - 要拆分的卡片
+   */
+  static splitComments(note) {
+    // 检查评论数量
+    if (!note || note.comments.length < 2) {
+      MNUtil.showHUD("卡片评论少于2条，无需拆分");
+      return;
+    }
+    
+    const parentNote = note.parentNote;
+    const commentCount = note.comments.length;
+    
+    MNUtil.undoGrouping(() => {
+      try {
+        // 克隆 n-1 张卡片
+        const clonedNotes = [];
+        for (let i = 1; i < commentCount; i++) {
+          const clonedNote = note.clone();
+          clonedNote.title = "";
+          
+          // 删除克隆卡片的子卡片
+          if (clonedNote.childNotes && clonedNote.childNotes.length > 0) {
+            for (let j = clonedNote.childNotes.length - 1; j >= 0; j--) {
+              clonedNote.childNotes[j].removeFromParent();
+            }
+          }
+          
+          // 只保留第 i 条评论
+          const indicesToDelete = [];
+          for (let j = 0; j < clonedNote.comments.length; j++) {
+            if (j !== i) {
+              indicesToDelete.push(j);
+            }
+          }
+          indicesToDelete.sort((a, b) => b - a);
+          clonedNote.removeCommentsByIndexArr(indicesToDelete);
+          
+          // 添加到父卡片（如果有父卡片）或作为原卡片的兄弟节点
+          if (parentNote) {
+            parentNote.addChild(clonedNote);
+          } else {
+            note.addChild(clonedNote);
+          }
+          
+          clonedNotes.push(clonedNote);
+        }
+        
+        // 原卡片只保留第一条评论
+        const originalIndicesToDelete = [];
+        for (let i = 1; i < note.comments.length; i++) {
+          originalIndicesToDelete.push(i);
+        }
+        originalIndicesToDelete.sort((a, b) => b - a);
+        note.removeCommentsByIndexArr(originalIndicesToDelete);
+        
+        // 刷新显示
+        note.refresh();
+        clonedNotes.forEach(n => n.refresh());
+        
+        MNUtil.showHUD(`✅ 成功拆分为 ${commentCount} 张卡片`);
+        
+        // 聚焦第一张克隆的卡片（可选）
+        if (clonedNotes.length > 0) {
+          MNUtil.delay(0.3).then(() => {
+            MNUtil.focusNoteInMindMapById(clonedNotes[0].noteId, 0.3);
+          });
+        }
+        
+      } catch (error) {
+        MNUtil.showHUD("拆分失败: " + error.message);
+        MNUtil.addErrorLog(error, "splitComments", {noteId: note.noteId});
+      }
+    });
+  }
+
+  /**
    * 获得一个基于 htmlCommentsTextArr 的数组专门用于移动评论
    * 
    * 摘录区也是放在这个地方处理

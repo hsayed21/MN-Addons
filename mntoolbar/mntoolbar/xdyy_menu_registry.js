@@ -391,6 +391,10 @@ function registerAllMenuTemplates() {
           menuTitle: "    基于 Markdown 拆卡",
         },
         {
+          action: "splitCommentsByNotes",
+          menuTitle: "    拆分评论为独立卡片",
+        },
+        {
           action: "forceOldCardMakeNote",
           menuTitle: "    📋 强制按旧卡片制卡",
         },
