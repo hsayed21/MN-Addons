@@ -9,6 +9,8 @@
  * @returns {Class} 返回定义的插件类
  */
 JSB.newAddon = function(mainPath){
+  JSB.require('utils');
+  JSB.require('webviewController');
   // 使用 JSB.defineClass 定义一个继承自 JSExtension 的插件类
   // 格式：'类名 : 父类名'
   var MNLiteratureClass = JSB.defineClass('MNLiterature : JSExtension', 
@@ -33,6 +35,7 @@ JSB.newAddon = function(mainPath){
         try {
           self.appInstance = Application.sharedInstance();
           self.toggled = false
+          self.ifFirst = true
           MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
           MNUtil.addObserver(self, 'onNoteTitleContainsXDYY:', 'NoteTitleContainsXDYY')
         } catch (error) {
@@ -96,9 +99,23 @@ JSB.newAddon = function(mainPath){
      * @param {String} notebookid 笔记本的唯一标识符
      */
     notebookWillOpen: function(notebookid) {
-      // JSB.log 用于调试输出，类似于 console.log
-      // %@ 是 Objective-C 风格的字符串占位符
-      JSB.log('MNLOG Open Notebook: %@',notebookid);
+      literatureUtils.checkLiteratureController()
+      try {
+        if (MNUtil.studyMode < 3) {
+          literatureUtils.literatureController.view.hidden = true;
+          literatureUtils.literatureController.view.frame = { x: 50, y: 100, width: 260, height: 345 }
+          literatureUtils.literatureController.currentFrame = { x: 50, y: 100, width: 260, height: 345 }
+          MNUtil.delay(0.2).then(()=>{
+            MNUtil.studyView.becomeFirstResponder(); //For dismiss keyboard on iOS
+          })
+        } else{
+          if (literatureUtils.literatureController) {
+            literatureUtils.literatureController.view.hidden = true
+          }
+        }
+      } catch (error) {
+        MNLog.error(error, "notebookWillOpen")
+      }
     },
     
     /**
@@ -146,19 +163,30 @@ JSB.newAddon = function(mainPath){
 
 
     queryAddonCommandStatus: function() {
-      return MNUtil.studyMode !== 3
-        ? {
-            image: "logo.png",
-            object: self,
-            selector: "toggleAddon:",
-            checked: self.toggled
-          }
-        : null
+      literatureUtils.checkLiteratureController()
+      if (MNUtil.studyMode < 3) {
+        return {
+          image: 'logo.png',
+          object: self,
+          selector: 'toggleAddon:',
+          checked: self.toggled
+        };
+      } else {
+        if (literatureUtils.literatureController) {
+          literatureUtils.literatureController.view.hidden = true
+        }
+        return null;
+      }
     },
 
     // 点击插件图标执行的方法。
     toggleAddon: async function(button) {
       try {
+        // 获取插件栏对象
+        if (!self.addonBar) {
+          self.addonBar = button.superview.superview
+          literatureUtils.addonBar = self.addonBar
+        }
         self.toggled = !self.toggled
         MNUtil.refreshAddonCommands()
         MNLog.log({
@@ -187,11 +215,30 @@ JSB.newAddon = function(mainPath){
       }
     },
 
-    openSetting: function() {
+    openSetting: function(button) {
       MNUtil.showHUD("打开设置界面")
+      self.toggled = false
+      MNUtil.refreshAddonCommands()
       // 关闭菜单
       if (self.popoverController) {
         self.popoverController.dismissPopoverAnimated(true);
+      }
+      try {
+        literatureUtils.checkLiteratureController()
+        if (self.isFirst) {
+          let buttonFrame = self.addonBar.frame
+          let frame = buttonFrame.x < 100 ? {x:40, y:buttonFrame.y, width:260, height: 345} : {x:buttonFrame.x-260,y:buttonFrame.y, width:260, height:345}
+          literatureUtils.setFrame(literatureUtils.literatureController, frame)
+          self.isFirst = false;
+        }
+        if (literatureUtils.literatureController.view.hidden || !MNUtil.isDescendantOfStudyView(literatureUtils.literatureController.view)) {
+          literatureUtils.ensureView(literatureUtils.literatureController.view)
+          literatureUtils.literatureController.show(self.addonBar.frame)
+        } else{
+          literatureUtils.literatureController.hide(self.addonBar.frame)
+        }
+      } catch (error) {
+        MNUtil.showHUD(error);
       }
     },
 
