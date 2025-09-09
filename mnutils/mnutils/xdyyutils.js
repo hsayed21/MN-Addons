@@ -15224,7 +15224,8 @@ class HtmlMarkdownUtils {
               }
           }
       }
-      // MNUtil.showHUD("向上合并完成！", 2);
+      
+      rootFocusNote.focusInMindMap(0.5);
   }
 
 
