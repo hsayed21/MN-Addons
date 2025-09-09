@@ -1,48 +1,93 @@
-/** @return {literatureController} */
+/**
+ * 文献管理视图控制器
+ * 
+ * 技术要点：
+ * 1. 继承自 UIViewController：iOS 的标准视图控制器基类
+ * 2. 实现 NSURLConnectionDelegate 协议：用于处理网络请求
+ * 3. 通过 JSB.defineClass 创建 Objective-C 类
+ * 
+ * 视图层级结构：
+ * - self.view（主视图）
+ *   - literatureView（文献操作视图）
+ *     - 各种文献操作按钮
+ *   - settingView（设置视图）
+ *     - 各种设置选项
+ *   - moveButton（标题/拖动按钮）
+ *   - closeButton（关闭按钮）
+ *   - settingButton（设置按钮）
+ * 
+ * @return {literatureController}
+ */
 var literatureController = JSB.defineClass('literatureController : UIViewController <NSURLConnectionDelegate>', {
+  /**
+   * 视图加载完成的生命周期方法
+   * 
+   * 这是 iOS UIViewController 的核心生命周期方法：
+   * - 在视图控制器的 view 被加载到内存后调用
+   * - 只会调用一次（在控制器的整个生命周期中）
+   * - 用于初始化视图和设置 UI 组件
+   * 
+   * 执行时机：
+   * 当 literatureController.new() 被调用时，系统会：
+   * 1. 创建控制器实例
+   * 2. 创建主视图（self.view）
+   * 3. 调用 viewDidLoad
+   */
   viewDidLoad: function() {
     try {
-      // 关闭按钮的图片
+      // === 1. 加载图片资源 ===
+      // 加载按钮图标，第二个参数是缩放比例
       self.closeImage = MNUtil.getImage(MNUtil.mainPath + `/stop.png`, 2)
       // self.translateImage = MNUtil.getImage(MNUtil.mainPath + `/translate.png`, 2)
       self.settingImage = MNUtil.getImage(MNUtil.mainPath + `/setting.png`, 1.8)
       // self.clearImage = MNUtil.getImage(MNUtil.mainPath + `/eraser.png`, 1.8)
+      
+      // === 2. 初始化状态变量 ===
       // self.lastFrame = self.view.frame;
       // self.currentFrame = self.view.frame
-      self.moveDate = Date.now()
-      self.view.layer.shadowOffset = {width: 0, height: 0};
-      self.view.layer.shadowRadius = 15;
-      self.view.layer.shadowOpacity = 0.5;
-      self.view.layer.shadowColor = UIColor.colorWithWhiteAlpha(0.5, 1);
-      self.view.layer.opacity = 1.0
-      self.view.layer.cornerRadius = 15
-      self.view.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0.8)
+      self.moveDate = Date.now()  // 用于拖动手势的时间跟踪
+      
+      // === 3. 设置主视图的外观 ===
+      // 设置阴影效果（让面板看起来浮在上方）
+      self.view.layer.shadowOffset = {width: 0, height: 0};  // 阴影偏移
+      self.view.layer.shadowRadius = 15;                      // 阴影模糊半径
+      self.view.layer.shadowOpacity = 0.5;                    // 阴影透明度
+      self.view.layer.shadowColor = UIColor.colorWithWhiteAlpha(0.5, 1);  // 阴影颜色
+      
+      // 设置视图本身的外观
+      self.view.layer.opacity = 1.0              // 视图透明度
+      self.view.layer.cornerRadius = 15          // 圆角半径
+      self.view.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0.8)  // 半透明白色背景
       self.highlightColor = UIColor.blendedColor(MNUtil.hexColorAlpha("#2c4d81", 0.8),
         MNUtil.app.defaultTextColor,
         0.8
       );
 
+      // === 4. 创建子视图 ===
+      // 文献操作视图（主要功能区域）
       self.literatureView = self.createView()
-      self.literatureView.hidden = false
-      self.literatureView.layer.backgroundColor = MNUtil.hexColorAlpha("#ffffff", 0.0)
+      self.literatureView.hidden = false  // 默认显示
+      self.literatureView.layer.backgroundColor = MNUtil.hexColorAlpha("#ffffff", 0.0)  // 透明背景
 
-      // >>> move button >>>
-      self.moveButton = self.createButton("changeSource:")
+      // === 5. 创建按钮组件 ===
+      // 标题/源选择按钮（显示当前源，点击可切换）
+      self.moveButton = self.createButton("changeSource:")  // 指定响应方法
       self.moveButton.titleLabel.font = UIFont.boldSystemFontOfSize(16);
       // self.moveButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
       MNButton.setColor(self.moveButton, "#5694ff",0.8)
       MNButton.setRadius(self.moveButton, 12)
 
+      // 关闭按钮
+      self.closeButton = self.createButton("closeButtonTapped:")  // 响应方法：closeButtonTapped
+      MNButton.setImage(self.closeButton, self.closeImage)       // 设置图标
+      MNButton.setColor(self.closeButton, "#e06c75",0.8)         // 红色按钮
+      MNButton.setRadius(self.closeButton, 12)                   // 圆角
 
-      self.closeButton = self.createButton("closeButtonTapped:")
-      MNButton.setImage(self.closeButton, self.closeImage)
-      MNButton.setColor(self.closeButton, "#e06c75",0.8)
-      MNButton.setRadius(self.closeButton, 12)
-
+      // 设置按钮
       self.settingButton = self.createButton("settingButtonTapped:")
       MNButton.setImage(self.settingButton, self.settingImage)
-      MNButton.setColor(self.settingButton, "#89a6d5",0.8)
-      self.settingButton.open = false
+      MNButton.setColor(self.settingButton, "#89a6d5",0.8)  // 蓝色按钮
+      self.settingButton.open = false  // 自定义属性，标记设置面板是否打开
       MNButton.setRadius(self.settingButton, 12)
       // let fontSize = 15
       // self.LiteratureCommentButton = self.createButton("beginLiterature:","literatureView")
@@ -132,11 +177,13 @@ var literatureController = JSB.defineClass('literatureController : UIViewControl
       // // self.tabButton      = UIButton.buttonWithType(0);
       // self.color = ["#ffffb4","#ccfdc4","#b4d1fb","#f3aebe","#ffff54","#75fb4c","#55bbf9","#ea3323","#ef8733","#377e47","#173dac","#be3223","#ffffff","#dadada","#b4b4b4","#bd9fdc"]
 
-      //     // >>> screen button >>>
+      // === 6. 添加手势识别器 ===
+      // 为关闭按钮添加拖动手势（通过拖动关闭按钮可以移动整个面板）
+      // UIPanGestureRecognizer 是 iOS 的拖动手势识别器
       self.moveGesture3 = new UIPanGestureRecognizer(self,"onMoveGesture:")
       self.closeButton.addGestureRecognizer(self.moveGesture3)
       self.moveGesture3.view.hidden = false
-      self.moveGesture3.addTargetAction(self,"onMoveGesture:")
+      self.moveGesture3.addTargetAction(self,"onMoveGesture:")  // 指定手势响应方法
 
       // self.moveGesture2 = new UIPanGestureRecognizer(self,"onMoveGesture:")
       // self.settingButton.addGestureRecognizer(self.moveGesture2)
@@ -148,9 +195,11 @@ var literatureController = JSB.defineClass('literatureController : UIViewControl
       // // self.moveGesture.addTargetAction(self,"onMoveGesture:")
       // // MNUtil.showHUD("init")
 
+      // === 7. 创建设置视图 ===
+      // 设置视图（默认隐藏，点击设置按钮后显示）
       self.settingView = self.createView()
-      self.settingView.hidden = true
-      self.settingView.layer.backgroundColor = MNUtil.hexColorAlpha("#ffffff",0)
+      self.settingView.hidden = true  // 初始状态为隐藏
+      self.settingView.layer.backgroundColor = MNUtil.hexColorAlpha("#ffffff",0)  // 透明背景
 
       // self.apikeyInput = self.creatTextView("settingView",undefined,0.75)
       // self.apikeyInput.text = literatureConfig.getConfig("doc2xApikey")
@@ -208,10 +257,26 @@ var literatureController = JSB.defineClass('literatureController : UIViewControl
       MNUtil.showHUD("Error in viewDidLoad: "+error)  
     }
   },
+  /**
+   * 视图即将显示
+   * iOS 生命周期方法，在视图即将显示在屏幕上时调用
+   */
   viewWillAppear: function(animated) {
   },
+  /**
+   * 视图即将消失
+   * iOS 生命周期方法，在视图即将从屏幕上移除时调用
+   */
   viewWillDisappear: function(animated) {
   },
+  /**
+   * 视图即将布局子视图
+   * 
+   * 这是 iOS 的布局生命周期方法：
+   * - 在视图的 bounds 改变时调用
+   * - 用于调整子视图的位置和大小
+   * - 在这里设置所有按钮和子视图的 frame
+   */
   viewWillLayoutSubviews: function() {
     var viewFrame = self.view.bounds;
     var xLeft     = viewFrame.x
@@ -954,9 +1019,16 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
   connectionDidFailWithError: function (connection,error) {
     MNUtil.showHUD("network error")
   },
-  // 点击关闭按钮
+  /**
+   * 关闭按钮的响应方法
+   * 
+   * 处理逻辑：
+   * 1. 如果有 addonBar 引用，传入其 frame 作为动画终点
+   * 2. 否则使用默认隐藏动画
+   */
   closeButtonTapped: function() {
     if (self.addonBar) {
+      // 传入插件栏的位置，让面板动画收缩到插件栏位置
       self.hide(self.addonBar.frame)
     } else {
       self.hide()
@@ -974,28 +1046,63 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
       self.literatureView.hidden = false
     }
   },
+  /**
+   * 处理拖动手势
+   * 
+   * 这个方法实现了通过拖动关闭按钮来移动整个面板的功能
+   * 
+   * 技术要点：
+   * 1. gesture.state === 1 表示手势刚开始（UIGestureRecognizerStateBegan）
+   * 2. 需要计算手指在视图中的相对位置，以保持拖动时的偏移正确
+   * 3. 限制面板在屏幕范围内移动
+   * 
+   * @param {UIPanGestureRecognizer} gesture - 拖动手势识别器
+   */
   onMoveGesture:function (gesture) {
+    // 获取手指在 studyView 中的位置
     let locationToMN = gesture.locationInView(MNUtil.studyView)
+    
+    // 节流处理：避免过于频繁的更新
     if ( (Date.now() - self.moveDate) > 100) {
+      // 获取手势的位移量
       let translation = gesture.translationInView(MNUtil.studyView)
+      // 获取手指在面板视图中的位置
       let locationToBrowser = gesture.locationInView(self.view)
+      
+      // 手势开始时，记录手指在视图中的初始偏移
       if (gesture.state === 1 ) {
-        gesture.locationToBrowser = {x:locationToBrowser.x-translation.x,y:locationToBrowser.y-translation.y}
+        // 计算并保存手指相对于视图的偏移量
+        gesture.locationToBrowser = {
+          x:locationToBrowser.x-translation.x,
+          y:locationToBrowser.y-translation.y
+        }
       }
     }
     self.moveDate = Date.now()
-    let location = {x:locationToMN.x - gesture.locationToBrowser.x,y:locationToMN.y -gesture.locationToBrowser.y}
+    
+    // 计算面板应该移动到的新位置
+    // 新位置 = 手指位置 - 手指在视图中的偏移
+    let location = {
+      x:locationToMN.x - gesture.locationToBrowser.x,
+      y:locationToMN.y -gesture.locationToBrowser.y
+    }
+    
     let frame = self.view.frame
     var viewFrame = self.view.bounds;
     let studyFrame = MNUtil.studyView.bounds
+    
+    // 限制垂直移动范围，确保面板不会移出屏幕
     let y = location.y
     if (y<=0) {
-      y = 0
+      y = 0  // 不能超出顶部
     }
     if (y>=studyFrame.height-15) {
-      y = studyFrame.height-15
+      y = studyFrame.height-15  // 底部至少保留15像素可见
     }
-    let x = location.x
+    
+    let x = location.x  // 水平方向暂不限制
+    
+    // 更新面板位置
     literatureUtils.setFrame(self, {x:x,y:y,width:frame.width,height:frame.height})
   }
 });
@@ -1012,36 +1119,61 @@ literatureController.prototype.setButtonLayout = function (button,targetAction) 
     this.view.addSubview(button);
 }
 /**
+ * 显示面板（带动画效果）
+ * 
+ * 动画流程：
+ * 1. 记录目标位置和当前透明度
+ * 2. 设置初始状态（半透明、起始位置）
+ * 3. 执行动画（淡入 + 位置移动）
+ * 4. 动画完成后恢复正常状态
+ * 
+ * @param {Object} frame - 动画的起始位置（通常是插件栏的位置）
  * @this {literatureController}
  */
 literatureController.prototype.show = function (frame) {
+  // 保存目标位置（面板的正常显示位置）
   let preFrame = this.view.frame
-  preFrame.width = 260
+  preFrame.width = 260  // 确保宽度正确
+  
+  // 保存当前透明度，并设置初始透明度为 0.2（半透明）
   let preOpacity = this.view.layer.opacity
   this.view.layer.opacity = 0.2
+  
+  // 如果传入了起始位置，先将视图移动到该位置
   if (frame) {
     this.view.frame = frame
     this.currentFrame = frame
   }
-  this.view.hidden = false
-  this.setAllButton(true)
-  this.literatureView.hidden = true
+  
+  // 设置初始状态
+  this.view.hidden = false              // 显示主视图
+  this.setAllButton(true)               // 隐藏所有按钮（动画期间）
+  this.literatureView.hidden = true     // 隐藏子视图
   this.settingView.hidden = true
+  
+  // 将视图移动到最前面
   MNUtil.studyView.bringSubviewToFront(this.view)
-  UIView.animateWithDurationAnimationsCompletion(0.2,()=>{
-    this.view.layer.opacity = preOpacity
-    this.view.frame = preFrame
-    this.currentFrame = preFrame
-  },
-  ()=>{
-    this.view.layer.borderWidth = 0
-    this.setAllButton(false)
-    this.literatureView.hidden = false
-    this.settingView.hidden = true
-    MNButton.setColor(this.settingButton, "#89a6d5")
-    this.settingButton.open = false
-    this.refreshView(literatureConfig.config.source)
-  })
+  
+  // 执行 iOS 动画
+  UIView.animateWithDurationAnimationsCompletion(
+    0.2,  // 动画时长 0.2 秒
+    ()=>{
+      // 动画块：这里的变化会以动画形式呈现
+      this.view.layer.opacity = preOpacity  // 恢复透明度
+      this.view.frame = preFrame             // 移动到目标位置
+      this.currentFrame = preFrame
+    },
+    ()=>{
+      // 动画完成回调
+      this.view.layer.borderWidth = 0
+      this.setAllButton(false)                // 显示所有按钮
+      this.literatureView.hidden = false      // 显示主功能视图
+      this.settingView.hidden = true          // 确保设置视图隐藏
+      MNButton.setColor(this.settingButton, "#89a6d5")  // 重置设置按钮颜色
+      this.settingButton.open = false         // 重置设置按钮状态
+      this.refreshView(literatureConfig.config.source)  // 刷新视图内容
+    }
+  )
 }
 literatureController.prototype.setAllButton = function (hidden) {
   this.moveButton.hidden = hidden
@@ -1049,31 +1181,56 @@ literatureController.prototype.setAllButton = function (hidden) {
   this.settingButton.hidden = hidden
   
 }
+/**
+ * 隐藏面板（带动画效果）
+ * 
+ * 动画流程（与 show 相反）：
+ * 1. 记录当前位置和透明度
+ * 2. 隐藏所有子视图
+ * 3. 执行动画（淡出 + 位置移动）
+ * 4. 动画完成后完全隐藏视图
+ * 
+ * @param {Object} frame - 动画的终点位置（通常是插件栏的位置）
+ */
 literatureController.prototype.hide = function (frame) {
+  // 保存当前位置（用于下次显示时恢复）
   let preFrame = this.view.frame
   preFrame.width = 260
   this.view.frame = preFrame
+  
+  // 标记动画状态
   this.onAnimate = true
+  
+  // 保存当前透明度
   let preOpacity = this.view.layer.opacity
-        // Application.sharedInstance().showHUD(JSON.stringify(frame),this.view.window,2)
-  this.setAllButton(true)
+  // Application.sharedInstance().showHUD(JSON.stringify(frame),this.view.window,2)
+  
+  // 隐藏所有子视图（动画前）
+  this.setAllButton(true)        // 隐藏所有按钮
   this.literatureView.hidden = true
   this.settingView.hidden = true
-  UIView.animateWithDurationAnimationsCompletion(.25,()=>{
-    this.view.layer.opacity = 0.2
-    if (frame) {
-      this.view.frame = frame
-      this.currentFrame = frame
+  
+  // 执行 iOS 动画
+  UIView.animateWithDurationAnimationsCompletion(
+    .25,  // 动画时长 0.25 秒
+    ()=>{
+      // 动画块
+      this.view.layer.opacity = 0.2  // 淡出到半透明
+      if (frame) {
+        // 如果指定了终点位置，移动到该位置
+        this.view.frame = frame
+        this.currentFrame = frame
+      }
+    },
+    ()=>{
+      // 动画完成回调
+      this.onAnimate = false
+      this.view.hidden = true;           // 完全隐藏视图
+      this.view.layer.opacity = preOpacity  // 恢复透明度（为下次显示准备）
+      this.view.frame = preFrame         // 恢复位置
+      this.currentFrame = preFrame
     }
-  },
-  ()=>{
-    this.onAnimate = false
-    this.view.hidden = true;
-    this.view.layer.opacity = preOpacity      
-    this.view.frame = preFrame
-    this.currentFrame = preFrame
-
-  })
+  )
 }
 
 /**
@@ -1275,23 +1432,41 @@ literatureController.prototype.createView = function (superview="view",color="#9
   return view
 }
 
+/**
+ * 创建按钮的通用方法
+ * 
+ * @param {string} targetAction - 按钮点击时调用的方法名（如 "closeButtonTapped:"）
+ * @param {string} superview - 父视图名称，不传则添加到主视图
+ * @returns {UIButton} 创建的按钮对象
+ */
 literatureController.prototype.createButton = function (targetAction,superview) {
+    // 创建按钮（type=0 表示自定义按钮）
     let button = UIButton.buttonWithType(0);
+    
+    // 设置自动布局掩码（灵活左边距 + 灵活高度）
     button.autoresizingMask = (1 << 0 | 1 << 3);
-    button.setTitleColorForState(UIColor.whiteColor(),0);
-    button.setTitleColorForState(this.highlightColor, 1);
-    button.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
-    button.layer.cornerRadius = 8;
-    button.layer.masksToBounds = true;
-    button.titleLabel.font = UIFont.systemFontOfSize(16);
+    
+    // 设置按钮文字颜色
+    button.setTitleColorForState(UIColor.whiteColor(),0);  // 正常状态：白色
+    button.setTitleColorForState(this.highlightColor, 1);  // 高亮状态：自定义颜色
+    
+    // 设置按钮外观
+    button.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)  // 蓝灰色背景
+    button.layer.cornerRadius = 8;        // 圆角
+    button.layer.masksToBounds = true;    // 裁剪超出圆角的内容
+    button.titleLabel.font = UIFont.systemFontOfSize(16);  // 字体大小
 
+    // 绑定点击事件
     if (targetAction) {
+      // 1 << 6 = 64 = UIControlEventTouchUpInside（手指在按钮内部抬起）
       button.addTargetActionForControlEvents(this, targetAction, 1 << 6);
     }
+    
+    // 添加到父视图
     if (superview) {
-      this[superview].addSubview(button)
+      this[superview].addSubview(button)  // 添加到指定的子视图
     }else{
-      this.view.addSubview(button);
+      this.view.addSubview(button);       // 添加到主视图
     }
     return button
 }

@@ -9,7 +9,10 @@
  * @returns {Class} 返回定义的插件类
  */
 JSB.newAddon = function(mainPath){
+  // 加载工具类，提供视图管理的辅助函数
   JSB.require('utils');
+  // 加载视图控制器类定义（iOS UIViewController 的 JavaScript 实现）
+  // 此时只是加载类定义，实例会在需要时通过 literatureController.new() 创建
   JSB.require('webviewController');
   // 使用 JSB.defineClass 定义一个继承自 JSExtension 的插件类
   // 格式：'类名 : 父类名'
@@ -34,7 +37,9 @@ JSB.newAddon = function(mainPath){
       MNUtil.undoGrouping(()=>{
         try {
           self.appInstance = Application.sharedInstance();
+          // 插件栏图标的选中状态
           self.toggled = false
+          // 标记是否是第一次打开设置面板（用于设置初始位置）
           self.ifFirst = true
           MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
           MNUtil.addObserver(self, 'onNoteTitleContainsXDYY:', 'NoteTitleContainsXDYY')
@@ -99,16 +104,26 @@ JSB.newAddon = function(mainPath){
      * @param {String} notebookid 笔记本的唯一标识符
      */
     notebookWillOpen: function(notebookid) {
+      // 确保视图控制器已创建并添加到 studyView 中
+      // 这是一个单例模式的实现，只会创建一次实例
       literatureUtils.checkLiteratureController()
       try {
+        // studyMode < 3 表示文档模式或学习模式（非脑图单独模式）
         if (MNUtil.studyMode < 3) {
+          // 初始化时隐藏面板，等待用户手动打开
           literatureUtils.literatureController.view.hidden = true;
+          // 设置面板的初始位置和大小
+          // frame 是 iOS 中视图的位置和大小属性：{x, y, width, height}
           literatureUtils.literatureController.view.frame = { x: 50, y: 100, width: 260, height: 345 }
+          // currentFrame 是自定义属性，用于记录当前位置（动画时使用）
           literatureUtils.literatureController.currentFrame = { x: 50, y: 100, width: 260, height: 345 }
+          // 延迟 0.2 秒后让 studyView 成为第一响应者
+          // 这是 iOS 的机制，用于确保键盘正确隐藏
           MNUtil.delay(0.2).then(()=>{
             MNUtil.studyView.becomeFirstResponder(); //For dismiss keyboard on iOS
           })
         } else{
+          // 在纯脑图模式下，隐藏面板（不支持在此模式下使用）
           if (literatureUtils.literatureController) {
             literatureUtils.literatureController.view.hidden = true
           }
@@ -162,16 +177,25 @@ JSB.newAddon = function(mainPath){
     },
 
 
+    /**
+     * 插件栏按钮状态查询
+     * MarginNote 会定期调用此方法，确定是否显示插件按钮及其状态
+     */
     queryAddonCommandStatus: function() {
+      // 每次查询时都确保控制器已初始化
+      // 这是必要的，因为可能在不同的时机被调用
       literatureUtils.checkLiteratureController()
       if (MNUtil.studyMode < 3) {
+        // 返回按钮配置，告诉 MarginNote 如何显示插件按钮
         return {
-          image: 'logo.png',
-          object: self,
-          selector: 'toggleAddon:',
-          checked: self.toggled
+          image: 'logo.png',          // 按钮图标
+          object: self,               // 响应对象（this）
+          selector: 'toggleAddon:',   // 点击时调用的方法
+          checked: self.toggled       // 是否显示选中状态
         };
       } else {
+        // 纯脑图模式下不显示插件按钮
+        // 同时确保面板也是隐藏的
         if (literatureUtils.literatureController) {
           literatureUtils.literatureController.view.hidden = true
         }
@@ -179,10 +203,16 @@ JSB.newAddon = function(mainPath){
       }
     },
 
-    // 点击插件图标执行的方法。
+    /**
+     * 点击插件图标时的响应方法
+     * @param {UIButton} button - 被点击的按钮对象
+     */
     toggleAddon: async function(button) {
       try {
-        // 获取插件栏对象
+        // 获取插件栏对象（通过视图层级向上查找）
+        // button.superview 是按钮的父视图
+        // button.superview.superview 是插件栏本身
+        // 保存这个引用，用于后续定位面板的显示位置
         if (!self.addonBar) {
           self.addonBar = button.superview.superview
           literatureUtils.addonBar = self.addonBar
@@ -215,26 +245,52 @@ JSB.newAddon = function(mainPath){
       }
     },
 
+    /**
+     * 打开设置面板
+     * 这是整个视图显示流程的入口
+     * @param {UIButton} button - 菜单中的设置按钮
+     */
     openSetting: function(button) {
       MNUtil.showHUD("打开设置界面")
+      // 重置插件图标的选中状态
       self.toggled = false
+      // 刷新插件栏，更新图标状态
       MNUtil.refreshAddonCommands()
-      // 关闭菜单
+      // 关闭弹出菜单
       if (self.popoverController) {
         self.popoverController.dismissPopoverAnimated(true);
       }
       try {
+        // 确保视图控制器已创建（单例模式）
         literatureUtils.checkLiteratureController()
+        
+        // 第一次打开时，设置面板的初始位置
         if (self.isFirst) {
           let buttonFrame = self.addonBar.frame
-          let frame = buttonFrame.x < 100 ? {x:40, y:buttonFrame.y, width:260, height: 345} : {x:buttonFrame.x-260,y:buttonFrame.y, width:260, height:345}
+          // 根据插件栏的位置决定面板显示在左侧还是右侧
+          // 如果插件栏在左边（x < 100），面板显示在右边
+          // 如果插件栏在右边，面板显示在左边（x - 面板宽度）
+          let frame = buttonFrame.x < 100 ? 
+            {x:40, y:buttonFrame.y, width:260, height: 345} : 
+            {x:buttonFrame.x-260,y:buttonFrame.y, width:260, height:345}
+          // 设置面板的位置（同时设置 frame 和 currentFrame）
           literatureUtils.setFrame(literatureUtils.literatureController, frame)
           self.isFirst = false;
         }
-        if (literatureUtils.literatureController.view.hidden || !MNUtil.isDescendantOfStudyView(literatureUtils.literatureController.view)) {
+        
+        // 判断面板的显示状态，执行显示或隐藏
+        // 条件1：view.hidden = true（面板当前是隐藏的）
+        // 条件2：视图不在 studyView 中（可能被移除了）
+        if (literatureUtils.literatureController.view.hidden || 
+            !MNUtil.isDescendantOfStudyView(literatureUtils.literatureController.view)) {
+          // 确保视图在正确的父视图中
           literatureUtils.ensureView(literatureUtils.literatureController.view)
+          // 显示面板（带动画效果）
+          // 传入 addonBar.frame 作为动画的起始位置参考
           literatureUtils.literatureController.show(self.addonBar.frame)
         } else{
+          // 如果面板已显示，则隐藏它（带动画效果）
+          // 传入 addonBar.frame 作为动画的终点位置参考
           literatureUtils.literatureController.hide(self.addonBar.frame)
         }
       } catch (error) {
