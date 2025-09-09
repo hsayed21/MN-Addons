@@ -379,6 +379,10 @@ function registerAllMenuTemplates() {
           menuTitle: "    ⇨ 粗读区",
         },
         {
+          action: "sendNotesToRoughReadingAreaAndFocus",
+          menuTitle: "    ⇨ 粗读区 & 定位",
+        },
+        {
           action: "toBeIndependent",
           menuTitle: "    ⇨ 独立",
         },
