@@ -629,7 +629,7 @@ viewWillLayoutSubviews: function() {
   closeButtonTapped: function() {
     if (self.addonBar) {
       self.hide(self.addonBar.frame)
-    }else{
+    } else {
       self.hide()
     }
     self.searchedText = ""

@@ -15,17 +15,14 @@ color: cyan
 
 ### 1. 识别需要打包的插件
 - 检查最近修改的插件项目（通过 git status 或文件修改时间）
-- 确认哪些插件需要打包
+- 确认哪些插件需要打包，严禁打包未修改的插件
 - 如果用户没有明确指定，询问具体要打包哪些插件
 
 ### 2. 确定打包路径
-**特殊情况 - mntoolbar**：
-- 必须进入 `/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mntoolbar/mntoolbar/` 目录
-- 注意是 mntoolbar 下的 mntoolbar 子目录
+大部分插件都是要进入两层目录：
 
-**其他插件**：
-- 进入对应的插件目录：`/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/[插件名]/`
-- 例如：mnai、mntask、mnmath 等
+- 进入对应的插件目录：`/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/[插件名]/[插件名]/`
+- 例如：mnai、mntask 等
 
 ### 3. 执行打包命令
 使用格式：`mnaddon4 build [插件名]_[日期]`

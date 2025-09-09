@@ -81,7 +81,8 @@
       "Read(//Users/xiakangwei/.claude/**)",
       "Bash(claude-code-spec-workflow:*)",
       "Bash(git fetch:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "mcp__serena__find_symbol"
     ],
     "deny": []
   }

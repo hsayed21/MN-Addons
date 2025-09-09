@@ -1588,7 +1588,7 @@ git clone [repository]
 cd mnocr/mnocr
 
 # 4. 打包插件
-mnaddon4 build .
+mnaddon4 build
 
 # 5. 安装到 MarginNote 4
 # 将生成的 .mnaddon 文件拖入应用

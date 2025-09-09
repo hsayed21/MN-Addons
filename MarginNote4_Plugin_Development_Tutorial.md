@@ -163,7 +163,7 @@ JSB.newAddon = function() {
 cd MyFirstPlugin
 
 # 打包！
-mnaddon4 build .
+mnaddon4 build
 
 # 会生成 MyFirstPlugin.mnaddon 文件
 ```
