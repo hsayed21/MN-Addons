@@ -3,6 +3,13 @@
  * 提供视图控制器管理和辅助功能
  */
 class literatureUtils {
+  static init(mainPath) {
+    try {
+      this.mainPath = mainPath
+    } catch (error) {
+      MNLog.error(error, "literatureUtils:init")
+    }
+  }
   /**
    * 获取插件文件夹路径
    * @param {string} fullPath - 完整文件路径

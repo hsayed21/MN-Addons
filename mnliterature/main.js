@@ -36,6 +36,7 @@ JSB.newAddon = function(mainPath){
     sceneWillConnect: function() {
       MNUtil.undoGrouping(()=>{
         try {
+          self.init(mainPath)
           self.appInstance = Application.sharedInstance();
           // 插件栏图标的选中状态
           self.toggled = false
@@ -404,6 +405,10 @@ JSB.newAddon = function(mainPath){
     },
   });
 
+  MNLiteratureClass.prototype.init = function(mainPath) {
+    literatureUtils.init(mainPath)
+  }
+
   MNLiteratureClass.prototype.tableItem = function (title, selector, param = "", checked = false) {
     return {
       title: title,        // 菜单项显示的文字
@@ -412,6 +417,13 @@ JSB.newAddon = function(mainPath){
       param: param,        // 传递给方法的参数
       checked: checked     // 是否显示勾选状态
     }
+  }
+
+  MNLiteratureClass.prototype.loadLocalHTML =  function() {
+    const htmlPath = MNUtil.mainPath + "/index.html";
+    const htmlURL = NSURL.fileURLWithPath(htmlPath);
+    const request = NSURLRequest.requestWithURL(htmlURL);
+    this.webView.loadRequest(request);
   }
   
   // 返回定义的插件类，MarginNote 会自动实例化这个类

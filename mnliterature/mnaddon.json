@@ -2,7 +2,7 @@
   "addonid": "marginnote.extension.mnliterature",
   "author": "Kangwei Xia",
   "title": "MN Literature",
-  "version": "1.6",
+  "version": "1.7",
   "marginnote_version_min": "3.6.11",
   "cert_key": ""
 }

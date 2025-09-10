@@ -71,24 +71,37 @@ var literatureController = JSB.defineClass('literatureController : UIViewControl
 
       // === 5. 创建按钮组件 ===
       // 标题/源选择按钮（显示当前源，点击可切换）
-      self.moveButton = self.createButton("changeSource:")  // 指定响应方法
-      self.moveButton.titleLabel.font = UIFont.boldSystemFontOfSize(16);
-      // self.moveButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
-      MNButton.setColor(self.moveButton, "#5694ff",0.8)
-      MNButton.setRadius(self.moveButton, 12)
+      // self.moveButton = self.createButton("changeSource:")  // 指定响应方法
+      // self.moveButton.titleLabel.font = UIFont.boldSystemFontOfSize(16);
+      // // self.moveButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
+      // MNButton.setColor(self.moveButton, "#5694ff",0.8)
+      // MNButton.setRadius(self.moveButton, 12)
 
       // 关闭按钮
-      self.closeButton = self.createButton("closeButtonTapped:")  // 响应方法：closeButtonTapped
-      MNButton.setImage(self.closeButton, self.closeImage)       // 设置图标
-      MNButton.setColor(self.closeButton, "#e06c75",0.8)         // 红色按钮
-      MNButton.setRadius(self.closeButton, 12)                   // 圆角
+      // self.closeButton = self.createButton("closeButtonTapped:")  // 响应方法：closeButtonTapped
+      // MNButton.setImage(self.closeButton, self.closeImage)       // 设置图标
+      // MNButton.setColor(self.closeButton, "#e06c75",0.8)         // 红色按钮
+      // MNButton.setRadius(self.closeButton, 12)                   // 圆角
+      self.closeButton = MNButton.new({
+        image: literatureUtils.mainPath + `/logo.png`,
+        radius: 12,
+        color: "#e06c75",
+        opacity: .8,
+      }, self.view)
+      self.closeButton.addClickAction(self, "closeButtonTapped:")
+      // 为关闭按钮添加拖动手势（通过拖动关闭按钮可以移动整个面板）
+      // UIPanGestureRecognizer 是 iOS 的拖动手势识别器
+      self.moveGesture = new UIPanGestureRecognizer(self, "onMoveGesture:")
+      self.closeButton.addGestureRecognizer(self.moveGesture)
+      self.moveGesture.view.hidden = false
+      self.moveGesture.addTargetAction(self, "onMoveGesture:")  // 指定手势响应方法
 
       // 设置按钮
-      self.settingButton = self.createButton("settingButtonTapped:")
-      MNButton.setImage(self.settingButton, self.settingImage)
-      MNButton.setColor(self.settingButton, "#89a6d5",0.8)  // 蓝色按钮
-      self.settingButton.open = false  // 自定义属性，标记设置面板是否打开
-      MNButton.setRadius(self.settingButton, 12)
+      // self.settingButton = self.createButton("settingButtonTapped:")
+      // MNButton.setImage(self.settingButton, self.settingImage)
+      // MNButton.setColor(self.settingButton, "#89a6d5",0.8)  // 蓝色按钮
+      // self.settingButton.open = false  // 自定义属性，标记设置面板是否打开
+      // MNButton.setRadius(self.settingButton, 12)
       // let fontSize = 15
       // self.LiteratureCommentButton = self.createButton("beginLiterature:","literatureView")
       // self.LiteratureCommentButton.action = "toComment"
@@ -178,12 +191,6 @@ var literatureController = JSB.defineClass('literatureController : UIViewControl
       // self.color = ["#ffffb4","#ccfdc4","#b4d1fb","#f3aebe","#ffff54","#75fb4c","#55bbf9","#ea3323","#ef8733","#377e47","#173dac","#be3223","#ffffff","#dadada","#b4b4b4","#bd9fdc"]
 
       // === 6. 添加手势识别器 ===
-      // 为关闭按钮添加拖动手势（通过拖动关闭按钮可以移动整个面板）
-      // UIPanGestureRecognizer 是 iOS 的拖动手势识别器
-      self.moveGesture3 = new UIPanGestureRecognizer(self,"onMoveGesture:")
-      self.closeButton.addGestureRecognizer(self.moveGesture3)
-      self.moveGesture3.view.hidden = false
-      self.moveGesture3.addTargetAction(self,"onMoveGesture:")  // 指定手势响应方法
 
       // self.moveGesture2 = new UIPanGestureRecognizer(self,"onMoveGesture:")
       // self.settingButton.addGestureRecognizer(self.moveGesture2)
@@ -1176,9 +1183,9 @@ literatureController.prototype.show = function (frame) {
   )
 }
 literatureController.prototype.setAllButton = function (hidden) {
-  this.moveButton.hidden = hidden
+  // this.moveButton.hidden = hidden
   this.closeButton.hidden = hidden
-  this.settingButton.hidden = hidden
+  // this.settingButton.hidden = hidden
   
 }
 /**
@@ -1501,33 +1508,33 @@ literatureController.prototype.createWebviewInput = function (superView,content)
     this[superView].addSubview(this.webviewInput)
   }
 }
-// literatureController.prototype.createButton = function (config) {
-//   let button = UIButton.buttonWithType(0);
-//   button.autoresizingMask = (1 << 0 | 1 << 3);
-//   button.setTitleColorForState(this.highlightColor, 1);
-//   if ("fontColor" in config) {
-//     button.setTitleColorForState(MNUtil.hexColorAlpha(config.fontColor),0);
-//   }else{
-//     button.setTitleColorForState(UIColor.whiteColor(),0);
-//   }
-//   if ("targetAction" in config) {
-//     button.addTargetActionForControlEvents(this, config.targetAction, 1 << 6);
-//   }
-//   if ("superView" in config) {
-//     this[config.superView].addSubview(button)
-//   }else{
-//     this.view.addSubview(button);
-//   }
-//   if ("color" in config) {
+literatureController.prototype.createButton = function (config) {
+  let button = UIButton.buttonWithType(0);
+  button.autoresizingMask = (1 << 0 | 1 << 3);
+  button.setTitleColorForState(this.highlightColor, 1);
+  if ("fontColor" in config) {
+    button.setTitleColorForState(MNUtil.hexColorAlpha(config.fontColor),0);
+  }else{
+    button.setTitleColorForState(UIColor.whiteColor(),0);
+  }
+  if ("targetAction" in config) {
+    button.addTargetActionForControlEvents(this, config.targetAction, 1 << 6);
+  }
+  if ("superView" in config) {
+    this[config.superView].addSubview(button)
+  } else {
+    this.view.addSubview(button);
+  }
+  if ("color" in config) {
     
-//   }
-//   MNButton.setConfig(button, config)
-//     button.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
-//     button.layer.cornerRadius = 8;
-//     button.layer.masksToBounds = true;
-//     button.titleLabel.font = UIFont.systemFontOfSize(16);
-//     return button
-// }
+  }
+  MNButton.setConfig(button, config)
+    button.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
+    button.layer.cornerRadius = 8;
+    button.layer.masksToBounds = true;
+    button.titleLabel.font = UIFont.systemFontOfSize(16);
+    return button
+}
 
 /**
  * @this {literatureController}
@@ -1570,4 +1577,17 @@ literatureController.prototype.tableItem = function (title,selector,param = "",c
  */
 literatureController.prototype.checkPopover = function () {
   if (this.popoverController) {this.popoverController.dismissPopoverAnimated(true);}
+}
+
+/**
+ * 测试网页交互
+ */
+literatureController.prototype.sendTitleToWeb = function(title) {
+  // 编码（防止特殊字符破坏）
+  const encoded = encodeURIComponent(title)
+  
+  // 向网页"喊话"
+  this.webview.runJavaScript(
+    `receiveTitle('${encoded}')`  // 调用网页的函数
+  )
 }
