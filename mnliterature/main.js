@@ -284,9 +284,9 @@ JSB.newAddon = function(mainPath){
             } else {
               MNUtil.log("没有选中的卡片")
               // 清空网页中的显示
-              literatureUtils.literatureController.webView.evaluateJavaScript(
+              literatureUtils.literatureController.runJavaScript(
                 "clearCardInfo()",
-                function(result) {}
+                literatureUtils.literatureController.webView
               )
             }
           })
@@ -301,9 +301,9 @@ JSB.newAddon = function(mainPath){
               MNUtil.log("卡片标题：" + focusNote.title)
             } else {
               // 清空显示
-              literatureUtils.literatureController.webView.evaluateJavaScript(
+              literatureUtils.literatureController.runJavaScript(
                 "clearCardInfo()",
-                function(result) {}
+                literatureUtils.literatureController.webView
               )
             }
           }
@@ -366,9 +366,9 @@ JSB.newAddon = function(mainPath){
               MNUtil.log("卡片标题：" + self.note.title)
             } else {
               // 清空显示
-              literatureUtils.literatureController.webView.evaluateJavaScript(
+              literatureUtils.literatureController.runJavaScript(
                 "clearCardInfo()",
-                function(result) {}
+                literatureUtils.literatureController.webView
               )
             }
           }

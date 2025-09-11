@@ -1149,32 +1149,48 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
    * @param {number} navigationType - 导航类型（0=链接点击，5=其他）
    * @returns {boolean} - true 允许加载，false 阻止加载
    */
-  webViewShouldStartLoadWithRequest: function(webView, request, navigationType) {
+  webViewShouldStartLoadWithRequestNavigationType: function(webView, request, navigationType) {
     try {
-      let requestURL = request.URL().absoluteString()
+      // 获取请求的 URL 字符串
+      // 注意：request.URL 是属性，不是方法，不需要括号
+      let requestURL = request.URL.absoluteString
+      
+      // 使用 MNUtil.parseURL 解析 URL
       let config = MNUtil.parseURL(requestURL)
       
       // 打印日志，方便调试
       MNUtil.log("WebView 请求 URL: " + requestURL)
+      MNUtil.log("解析的 URL 配置: " + JSON.stringify(config))
 
-      if (config.scheme = "mnliterature") {
-        // 解析自定义 URL
+      // 重要修复：使用 === 比较运算符，而不是 = 赋值运算符
+      if (config.scheme === "mnliterature") {
+        // 处理自定义 URL scheme
         // 例如: mnliterature://updateTitle?id=xxx&title=yyy
+        MNUtil.log("检测到自定义协议，action: " + config.action)
+        
         switch (config.action) {
           case "updateTitle":
+            // 调用更新标题的方法
+            MNUtil.log("准备更新标题，参数: " + JSON.stringify(config.params))
             self.updateCardTitle(config.params.id, config.params.title)
             break;
+          default:
+            MNUtil.showHUD("未知的方法: " + config.action)
         }
-        // 返回 false，阻止 WebView 实际加载这个 URL
+        
+        // 返回 false，阻止 WebView 实际加载这个自定义 URL
         return false
       }
       
       // 其他正常的 URL（如 http://、file:// 等）允许加载
+      // 这很重要！如果返回 false，HTML 文件将无法加载
       return true
       
     } catch (error) {
       MNUtil.showHUD("处理 URL 时出错: " + error)
-      return false
+      MNUtil.log("URL 处理错误: " + error)
+      // 出错时返回 true，避免阻塞正常的页面加载
+      return true
     }
   },
   
@@ -1241,34 +1257,42 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
       }
       
       // 获取卡片对象
-      // MNNote.getNoteById 是 MNUtils 提供的方法
+      // 使用 MNNote.new 创建卡片对象
       let note = MNNote.new(cardId)
       
       if (!note) {
         MNUtil.showHUD("找不到卡片: " + cardId)
         
         // 通知网页显示错误
-        self.webView.evaluateJavaScript(
+        // 使用 runJavaScript 替代 evaluateJavaScript
+        self.runJavaScript(
           "showResult('找不到卡片', false)",
-          function(result) {}
+          self.webView
         )
         return
       }
       
       // 使用 undoGrouping 包装，使操作可以撤销
-      // 更新卡片标题
-      note.title = newTitle
-      
-      // 显示成功提示
-      MNUtil.showHUD("标题已更新")
-      
-      // 通知网页显示成功信息
-      // 注意：需要转义单引号
-      let escapedTitle = newTitle.replace(/'/g, "\\'")
-      let jsCode = "showResult('标题已更新为: " + escapedTitle + "', true)"
-      
-      self.webView.evaluateJavaScript(jsCode, function(result) {
-        MNUtil.log("JavaScript 执行完成")
+      MNUtil.undoGrouping(() => {
+        // 更新卡片标题
+        note.title = newTitle
+        
+        // 显示成功提示
+        MNUtil.showHUD("标题已更新")
+        
+        // 通知网页显示成功信息
+        // 注意：需要转义特殊字符
+        let escapedTitle = newTitle.replace(/\\/g, '\\\\')  // 反斜杠要先转义
+        escapedTitle = escapedTitle.replace(/'/g, "\\'")     // 单引号
+        escapedTitle = escapedTitle.replace(/"/g, '\\"')     // 双引号
+        escapedTitle = escapedTitle.replace(/\n/g, '\\n')    // 换行符
+        
+        let jsCode = `showResult('标题已更新为: ${escapedTitle}', true)`
+        
+        // 使用 runJavaScript 替代 evaluateJavaScript
+        self.runJavaScript(jsCode, self.webView).then(() => {
+          MNUtil.log("JavaScript 执行完成，标题更新成功")
+        })
       })
       
     } catch (error) {
@@ -1276,9 +1300,13 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
       MNUtil.log("更新卡片标题错误: " + error)
       
       // 通知网页显示错误
-      self.webView.evaluateJavaScript(
-        "showResult('更新失败: " + error + "', false)",
-        function(result) {}
+      // 转义错误信息中的特殊字符
+      let escapedError = String(error).replace(/'/g, "\\'")
+      
+      // 使用 runJavaScript 替代 evaluateJavaScript
+      self.runJavaScript(
+        `showResult('更新失败: ${escapedError}', false)`,
+        self.webView
       )
     }
   }
@@ -1327,7 +1355,8 @@ literatureController.prototype.sendCardInfoToWebView = function(note) {
     if (!note) {
       MNUtil.log("没有选中的卡片")
       // 清空网页中的卡片信息
-      this.webView.evaluateJavaScript("clearCardInfo()", function(result) {})
+      // 使用 runJavaScript 替代 evaluateJavaScript
+      this.runJavaScript("clearCardInfo()", this.webView)
       return
     }
     
@@ -1351,13 +1380,13 @@ literatureController.prototype.sendCardInfoToWebView = function(note) {
     cardTitle = cardTitle.replace(/\t/g, '\\t')   // 制表符
     
     // 构造 JavaScript 代码
-    let jsCode = "updateCardInfo('" + cardId + "', '" + cardTitle + "')"
+    let jsCode = `updateCardInfo('${cardId}', '${cardTitle}')`
     
     MNUtil.log("执行 JavaScript: " + jsCode)
     
     // 执行 JavaScript
-    // evaluateJavaScript 方法用于在 WebView 中执行 JavaScript 代码
-    this.webView.evaluateJavaScript(jsCode, function(result) {
+    // 使用 runJavaScript 替代 evaluateJavaScript
+    this.runJavaScript(jsCode, this.webView).then(() => {
       MNUtil.log("卡片信息已发送到网页")
     })
     
@@ -1792,6 +1821,36 @@ literatureController.prototype.createButton = function (config) {
     return button
 }
 
+
+/** @this {literatureController} */
+literatureController.prototype.runJavaScript = async function(script,webview) {
+  return new Promise((resolve, reject) => {
+    try {
+    if (webview) {
+      // MNUtil.copy(webview)
+      this[webview].evaluateJavaScript(script, (result) => {
+        if (MNUtil.isNSNull(result)) {
+          resolve(undefined)
+        } else {
+          resolve(result)
+        }
+      });
+    }else{
+      this.webviewResponse.evaluateJavaScript(script, (result) => {
+        if (MNUtil.isNSNull(result)) {
+          resolve(undefined)
+        }else{
+          resolve(result)
+        }
+      });
+    }
+    } catch (error) {
+      MNLog.error(error, "runJavaScript")
+      resolve(undefined)
+    }
+  })
+};
+
 /**
  * @this {literatureController}
  */
@@ -1807,13 +1866,6 @@ literatureController.prototype.getWebviewContent = async function () {
   this.webviewInput.endEditing(true)
   return content
 }
-/** @this {literatureController} */
-literatureController.prototype.runJavaScript = async function(script) {
-  // if(!this.webviewResponse || !this.webviewResponse.window)return;
-  return new Promise((resolve, reject) => {
-      this.webviewInput.evaluateJavaScript(script,(result) => {resolve(result)});
-  })
-};
 
 /**
  * 
@@ -1833,17 +1885,4 @@ literatureController.prototype.tableItem = function (title,selector,param = "",c
  */
 literatureController.prototype.checkPopover = function () {
   if (this.popoverController) {this.popoverController.dismissPopoverAnimated(true);}
-}
-
-/**
- * 测试网页交互
- */
-literatureController.prototype.sendTitleToWeb = function(title) {
-  // 编码（防止特殊字符破坏）
-  const encoded = encodeURIComponent(title)
-  
-  // 向网页"喊话"
-  this.webview.runJavaScript(
-    `receiveTitle('${encoded}')`  // 调用网页的函数
-  )
 }
