@@ -37,13 +37,11 @@ JSB.newAddon = function(mainPath){
       MNUtil.undoGrouping(()=>{
         try {
           self.init(mainPath)
-          self.appInstance = Application.sharedInstance();
           // 插件栏图标的选中状态
           self.toggled = false
           // 标记是否是第一次打开设置面板（用于设置初始位置）
           self.ifFirst = true
           MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
-          MNUtil.addObserver(self, 'onNoteTitleContainsXDYY:', 'NoteTitleContainsXDYY')
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -59,10 +57,8 @@ JSB.newAddon = function(mainPath){
      * - 释放占用的资源
      */
     sceneDidDisconnect: function() {
-      // 目前为空，但建议在实际项目中添加清理代码
       MNUtil.undoGrouping(()=>{
         try {
-          MNUtil.removeObserver(self,'NoteTitleContainsXDYY')
           MNUtil.removeObserver(self,'PopupMenuOnNote')
         } catch (error) {
           MNUtil.showHUD(error);
@@ -79,7 +75,7 @@ JSB.newAddon = function(mainPath){
      * - 释放一些临时资源
      */
     sceneWillResignActive: function() {
-      // 示例中为空实现
+
     },
     
     /**
@@ -91,7 +87,7 @@ JSB.newAddon = function(mainPath){
      * - 重新获取最新数据
      */
     sceneDidBecomeActive: function() {
-      // 示例中为空实现
+
     },
     
     /**
@@ -105,30 +101,8 @@ JSB.newAddon = function(mainPath){
      * @param {String} notebookid 笔记本的唯一标识符
      */
     notebookWillOpen: function(notebookid) {
-      // 确保视图控制器已创建并添加到 studyView 中
-      // 这是一个单例模式的实现，只会创建一次实例
-      literatureUtils.checkLiteratureController()
       try {
-        // studyMode < 3 表示文档模式或学习模式（非脑图单独模式）
-        if (MNUtil.studyMode < 3) {
-          // 初始化时隐藏面板，等待用户手动打开
-          literatureUtils.literatureController.view.hidden = true;
-          // 设置面板的初始位置和大小
-          // frame 是 iOS 中视图的位置和大小属性：{x, y, width, height}
-          literatureUtils.literatureController.view.frame = { x: 50, y: 100, width: 260, height: 345 }
-          // currentFrame 是自定义属性，用于记录当前位置（动画时使用）
-          literatureUtils.literatureController.currentFrame = { x: 50, y: 100, width: 260, height: 345 }
-          // 延迟 0.2 秒后让 studyView 成为第一响应者
-          // 这是 iOS 的机制，用于确保键盘正确隐藏
-          MNUtil.delay(0.2).then(()=>{
-            MNUtil.studyView.becomeFirstResponder(); //For dismiss keyboard on iOS
-          })
-        } else{
-          // 在纯脑图模式下，隐藏面板（不支持在此模式下使用）
-          if (literatureUtils.literatureController) {
-            literatureUtils.literatureController.view.hidden = true
-          }
-        }
+
       } catch (error) {
         MNLog.error(error, "notebookWillOpen")
       }
@@ -145,7 +119,6 @@ JSB.newAddon = function(mainPath){
      * @param {String} notebookid 笔记本的唯一标识符
      */
     notebookWillClose: function(notebookid) {
-      JSB.log('MNLOG Close Notebook: %@',notebookid);
     },
     
     /**
@@ -160,7 +133,6 @@ JSB.newAddon = function(mainPath){
      * @param {String} docmd5 文档的 MD5 哈希值，用作唯一标识
      */
     documentDidOpen: function(docmd5) {
-      // 示例中为空实现
     },
     
     /**
@@ -174,7 +146,7 @@ JSB.newAddon = function(mainPath){
      * @param {String} docmd5 文档的 MD5 哈希值
      */
     documentWillClose: function(docmd5) {
-      // 示例中为空实现
+
     },
 
 
@@ -195,8 +167,6 @@ JSB.newAddon = function(mainPath){
           checked: self.toggled       // 是否显示选中状态
         };
       } else {
-        // 纯脑图模式下不显示插件按钮
-        // 同时确保面板也是隐藏的
         if (literatureUtils.literatureController) {
           literatureUtils.literatureController.view.hidden = true
         }
@@ -220,10 +190,6 @@ JSB.newAddon = function(mainPath){
         }
         self.toggled = !self.toggled
         MNUtil.refreshAddonCommands()
-        MNLog.log({
-          message: "点击文献管理插件",
-          source: "MNLiterature: toggleAddon",
-        })
 
         let commandTable = [
           self.tableItem('⚙️   Setting', 'openSetting:'),
@@ -231,7 +197,7 @@ JSB.newAddon = function(mainPath){
         ];
 
         // 显示菜单
-        self.popoverController = MNUtil.getPopoverAndPresent(
+        self.menuPopoverController = MNUtil.getPopoverAndPresent(
           button,        // 触发按钮
           commandTable,  // 菜单项
           200,          // 宽度
@@ -239,10 +205,7 @@ JSB.newAddon = function(mainPath){
         );
       } catch (error) {
         MNUtil.showHUD(error);
-        MNLog.error({
-          message:error,
-          source:"MNLiterature: toggleAddon",
-        })
+        literatureUtils.addErrorLog(error, "toggleAddon")
       }
     },
 
@@ -258,14 +221,54 @@ JSB.newAddon = function(mainPath){
       // 刷新插件栏，更新图标状态
       MNUtil.refreshAddonCommands()
       // 关闭弹出菜单
-      if (self.popoverController) {
-        self.popoverController.dismissPopoverAnimated(true);
+      if (self.menuPopoverController) {
+        self.menuPopoverController.dismissPopoverAnimated(true);
       }
       try {
-        // 确保视图控制器已创建（单例模式）
+        // 确保视图控制器已创建并添加到 studyView 中
+        // 这是一个单例模式的实现，只会创建一次实例
         literatureUtils.checkLiteratureController()
+        // 初始化时隐藏面板，等待用户手动打开
+        literatureUtils.literatureController.view.hidden = true;
+        // 设置面板的初始位置和大小
+        // frame 是 iOS 中视图的位置和大小属性：{x, y, width, height}
+        literatureUtils.literatureController.view.frame = { x: 50, y: 100, width: 260, height: 345 }
+        // currentFrame 是自定义属性，用于记录当前位置（动画时使用）
+        literatureUtils.literatureController.currentFrame = { x: 50, y: 100, width: 260, height: 345 }
+        // 延迟 0.2 秒后让 studyView 成为第一响应者
+        // 这是 iOS 的机制，用于确保键盘正确隐藏
+        MNUtil.delay(0.2).then(()=>{
+          MNUtil.studyView.becomeFirstResponder(); //For dismiss keyboard on iOS
+        })
+
+        // 确保视图在正确的父视图中
+        literatureUtils.ensureView(literatureUtils.literatureController.view)
         
-        // ========== WebView 初始化部分 ==========
+        // 第一次打开时，设置面板的初始位置
+        if (self.isFirst) {
+          let buttonFrame = self.addonBar.frame
+          // 根据插件栏的位置决定面板显示在左侧还是右侧
+          // 如果插件栏在左边（x < 100），面板显示在右边
+          // 如果插件栏在右边，面板显示在左边（x - 面板宽度）
+          let frame = buttonFrame.x < 100 ? 
+            {x:40, y:buttonFrame.y, width:260, height: 345} : 
+            {x:buttonFrame.x-260, y:buttonFrame.y, width:260, height:345}
+          // 设置面板的位置（同时设置 frame 和 currentFrame）
+          literatureUtils.setFrame(literatureUtils.literatureController, frame)
+          self.isFirst = false;
+        }
+        
+        // 判断面板的显示状态，执行显示或隐藏
+        if (literatureUtils.literatureController.view.hidden) {
+          // 显示面板（带动画效果）
+          // 传入 addonBar.frame 作为动画的起始位置参考
+          literatureUtils.literatureController.show(self.addonBar.frame)
+        } else {
+          // 如果面板已显示，则隐藏它（带动画效果）
+          // 传入 addonBar.frame 作为动画的终点位置参考
+          literatureUtils.literatureController.hide(self.addonBar.frame)
+        }
+
         // 检查 WebView 是否已加载 HTML 文件
         // 只在第一次打开时加载，避免重复加载
         if (!literatureUtils.literatureController.webViewLoaded) {
@@ -283,15 +286,10 @@ JSB.newAddon = function(mainPath){
               MNUtil.log("已发送卡片标题" + focusNote.title + "到 WebView")
             } else {
               MNUtil.log("没有选中的卡片")
-              // 清空网页中的显示
-              literatureUtils.literatureController.runJavaScript(
-                "clearCardInfo()",
-                literatureUtils.literatureController.webView
-              )
             }
           })
         } else {
-          // WebView 已加载，直接发送当前卡片信息
+          // WebView 已加载，且面板是显示状态才发送
           if (!literatureUtils.literatureController.hidden) {
             let focusNote = MNNote.getFocusNote()
             
@@ -299,56 +297,19 @@ JSB.newAddon = function(mainPath){
             if (focusNote) {
               literatureUtils.literatureController.sendCardInfoToWebView(focusNote)
               MNUtil.log("卡片标题：" + focusNote.title)
-            } else {
-              // 清空显示
-              literatureUtils.literatureController.runJavaScript(
-                "clearCardInfo()",
-                literatureUtils.literatureController.webView
-              )
             }
           }
         }
-        // ========== WebView 初始化结束 ==========
-        
-        // 第一次打开时，设置面板的初始位置
-        if (self.isFirst) {
-          let buttonFrame = self.addonBar.frame
-          // 根据插件栏的位置决定面板显示在左侧还是右侧
-          // 如果插件栏在左边（x < 100），面板显示在右边
-          // 如果插件栏在右边，面板显示在左边（x - 面板宽度）
-          let frame = buttonFrame.x < 100 ? 
-            {x:40, y:buttonFrame.y, width:260, height: 345} : 
-            {x:buttonFrame.x-260,y:buttonFrame.y, width:260, height:345}
-          // 设置面板的位置（同时设置 frame 和 currentFrame）
-          literatureUtils.setFrame(literatureUtils.literatureController, frame)
-          self.isFirst = false;
-        }
-        
-        // 判断面板的显示状态，执行显示或隐藏
-        // 条件1：view.hidden = true（面板当前是隐藏的）
-        // 条件2：视图不在 studyView 中（可能被移除了）
-        if (literatureUtils.literatureController.view.hidden || 
-            !MNUtil.isDescendantOfStudyView(literatureUtils.literatureController.view)) {
-          // 确保视图在正确的父视图中
-          literatureUtils.ensureView(literatureUtils.literatureController.view)
-          // 显示面板（带动画效果）
-          // 传入 addonBar.frame 作为动画的起始位置参考
-          literatureUtils.literatureController.show(self.addonBar.frame)
-        } else{
-          // 如果面板已显示，则隐藏它（带动画效果）
-          // 传入 addonBar.frame 作为动画的终点位置参考
-          literatureUtils.literatureController.hide(self.addonBar.frame)
-        }
       } catch (error) {
-        MNUtil.showHUD(error);
+        literatureUtils.addErrorLog(error, "openSetting")
       }
     },
 
     openLiteratureLibrary: function() {
       MNUtil.showHUD("打开文献数据库")
       // 关闭菜单
-      if (self.popoverController) {
-        self.popoverController.dismissPopoverAnimated(true);
+      if (self.menuPopoverController) {
+        self.menuPopoverController.dismissPopoverAnimated(true);
       }
     },
 
@@ -408,7 +369,7 @@ JSB.newAddon = function(mainPath){
      * - 设置插件的基础服务
      */
     addonDidConnect: function() {
-      // 示例中为空实现
+
     },
     
     /**
@@ -420,7 +381,7 @@ JSB.newAddon = function(mainPath){
      * - 释放全局资源
      */
     addonWillDisconnect: function() {
-      // 示例中为空实现
+
     },
     
     /**
@@ -429,7 +390,7 @@ JSB.newAddon = function(mainPath){
      * 适用于 iOS/iPadOS 平台，当用户从后台切换回 MarginNote 时触发
      */
     applicationWillEnterForeground: function() {
-      // 示例中为空实现
+
     },
     
     /**
@@ -438,7 +399,7 @@ JSB.newAddon = function(mainPath){
      * 适用于 iOS/iPadOS 平台，当用户切换到其他应用时触发
      */
     applicationDidEnterBackground: function() {
-      // 示例中为空实现
+
     },
     
     /**
@@ -449,7 +410,7 @@ JSB.newAddon = function(mainPath){
      * @param {Object} notify 通知对象
      */
     applicationDidReceiveLocalNotification: function(notify) {
-      // 示例中为空实现
+
     },
   });
 

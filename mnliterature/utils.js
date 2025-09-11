@@ -6,8 +6,31 @@ class literatureUtils {
   static init(mainPath) {
     try {
       this.mainPath = mainPath
+      this.errorLog = []
     } catch (error) {
       MNLog.error(error, "literatureUtils:init")
+    }
+  }
+  static addErrorLog(error, source, info){
+    MNUtil.showHUD("MN Literature Error ("+ source +"): "+error)
+    let tem = {source:source, time:(new Date(Date.now())).toString()}
+    if (error.detail) {
+      tem.error = {message: error.message, detail:error.detail}
+    } else {
+      tem.error = error.message
+    }
+    if (info) {
+      tem.info = info
+    }
+    this.errorLog.push(tem)
+    MNUtil.copy(this.errorLog)
+    if (typeof MNUtil.log !== 'undefined') {
+      MNUtil.log({
+        source:"MN Literature",
+        level:"error",
+        message:source,
+        detail:tem,
+      })
     }
   }
   /**

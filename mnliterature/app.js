@@ -28,35 +28,59 @@ let currentCard = {
  * 当用户在 MarginNote 中选择一个卡片时，原生代码会调用这个函数
  * 将卡片的信息传递给网页
  * 
- * @param {string} cardId - 卡片的唯一标识符
- * @param {string} cardTitle - 卡片的当前标题
+ * @param {string} encodedData - 经过 encodeURIComponent 和 JSON.stringify 编码的卡片信息
  */
-function updateCardInfo(cardId, cardTitle) {
-  console.log('收到卡片信息:', cardId, cardTitle);
-  
-  // 1. 保存卡片信息到全局变量
-  currentCard.id = cardId;
-  currentCard.title = cardTitle;
-  
-  // 2. 更新页面上的卡片信息显示
-  // document.getElementById 用于获取 HTML 中的元素
-  let cardInfoDiv = document.getElementById('cardInfo');
-  
-  // 使用 innerHTML 修改元素内的 HTML 内容
-  cardInfoDiv.innerHTML = 
-    '<p><strong>当前卡片ID:</strong> ' + cardId + '</p>' +
-    '<p><strong>当前标题:</strong> ' + cardTitle + '</p>';
-  
-  // 3. 更新输入框的值
-  let titleInput = document.getElementById('titleInput');
-  titleInput.value = cardTitle;
-  
-  // 4. 启用输入框和按钮（之前是 disabled 状态）
-  titleInput.disabled = false;
-  document.getElementById('saveButton').disabled = false;
-  
-  // 5. 隐藏成功消息（如果之前有显示的话）
-  document.getElementById('successMessage').style.display = 'none';
+function updateCardInfo(encodedData) {
+  try {
+    // 1. 两步解码：先 URL 解码，再 JSON 解析
+    const jsonString = decodeURIComponent(encodedData);
+    const cardInfo = JSON.parse(jsonString);
+    
+    console.log('收到卡片信息:', cardInfo);
+    
+    // 2. 保存卡片信息到全局变量
+    currentCard.id = cardInfo.id;
+    currentCard.title = cardInfo.title;
+    
+    // 3. 更新页面上的卡片信息显示
+    const cardInfoDiv = document.getElementById('cardInfo');
+    
+    // 构建显示内容，包含更多信息
+    let htmlContent = `<p><strong>当前卡片ID:</strong> ${cardInfo.id}</p>
+                      <p><strong>当前标题:</strong> ${cardInfo.title}</p>`;
+    
+    // 如果有摘录信息，也显示出来
+    if (cardInfo.excerpt) {
+      const excerptPreview = cardInfo.excerpt.length > 50 
+        ? `${cardInfo.excerpt.substring(0, 50)}...` 
+        : cardInfo.excerpt;
+      htmlContent += `<p><strong>摘录:</strong> ${excerptPreview}</p>`;
+    }
+    
+    // 如果有评论数量，也显示
+    if (cardInfo.comments !== undefined) {
+      htmlContent += `<p><strong>评论数:</strong> ${cardInfo.comments}</p>`;
+    }
+    
+    cardInfoDiv.innerHTML = htmlContent;
+    
+    // 4. 更新输入框的值
+    const titleInput = document.getElementById('titleInput');
+    titleInput.value = cardInfo.title;
+    
+    // 5. 启用输入框和按钮（之前是 disabled 状态）
+    titleInput.disabled = false;
+    document.getElementById('saveButton').disabled = false;
+    
+    // 6. 隐藏成功消息（如果之前有显示的话）
+    document.getElementById('successMessage').style.display = 'none';
+    
+  } catch (error) {
+    console.error('解码卡片信息失败:', error);
+    // 显示错误信息
+    const cardInfoDiv = document.getElementById('cardInfo');
+    cardInfoDiv.innerHTML = '<p style="color: red;">解析数据失败，请重试</p>';
+  }
 }
 
 /**
@@ -71,7 +95,7 @@ function showResult(message, isSuccess) {
   console.log('显示结果:', message, isSuccess);
   
   // 获取消息显示区域
-  let messageDiv = document.getElementById('successMessage');
+  const messageDiv = document.getElementById('successMessage');
   
   // 设置消息内容
   messageDiv.textContent = message;
@@ -111,8 +135,8 @@ function saveTitle() {
   }
   
   // 2. 获取输入框中的新标题
-  let titleInput = document.getElementById('titleInput');
-  let newTitle = titleInput.value;
+  const titleInput = document.getElementById('titleInput');
+  const newTitle = titleInput.value;
   
   // 3. 检查标题是否为空
   if (!newTitle || newTitle.trim() === '') {
@@ -129,9 +153,7 @@ function saveTitle() {
   // 5. 构造自定义 URL 来调用原生方法
   // URL 格式: mnliterature://方法名?参数1=值1&参数2=值2
   // encodeURIComponent 用于编码特殊字符，避免 URL 解析错误
-  let url = 'mnliterature://updateTitle' + 
-        '?id=' + encodeURIComponent(currentCard.id) + 
-        '&title=' + encodeURIComponent(newTitle);
+  const url = `mnliterature://updateTitle?id=${encodeURIComponent(currentCard.id)}&title=${encodeURIComponent(newTitle)}`;
   
   console.log('准备调用原生方法，URL:', url);
   
@@ -160,7 +182,7 @@ function clearCardInfo() {
     '<p class="no-card">请先选择一个卡片</p>';
   
   // 清空并禁用输入框
-  let titleInput = document.getElementById('titleInput');
+  const titleInput = document.getElementById('titleInput');
   titleInput.value = '';
   titleInput.disabled = true;
   
@@ -185,15 +207,15 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // 给输入框添加回车键监听
   document.getElementById('titleInput').addEventListener('keypress', function(event) {
-    // keyCode 13 是回车键
-    if (event.keyCode === 13) {
+    // 使用 key 属性代替已弃用的 keyCode
+    if (event.key === 'Enter') {
       saveTitle(); // 按回车时也触发保存
     }
   });
   
   // 输入框内容变化时的实时验证
   document.getElementById('titleInput').addEventListener('input', function(event) {
-    let newValue = event.target.value;
+    const newValue = event.target.value;
     
     // 如果输入框为空，禁用保存按钮
     if (!newValue || newValue.trim() === '') {
