@@ -18,7 +18,8 @@
  * 
  * @return {literatureController}
  */
-var literatureController = JSB.defineClass('literatureController : UIViewController <NSURLConnectionDelegate>', {
+// 添加 UIWebViewDelegate 协议，用于处理 WebView 的事件
+let literatureController = JSB.defineClass('literatureController : UIViewController <NSURLConnectionDelegate, UIWebViewDelegate>', {
   /**
    * 视图加载完成的生命周期方法
    * 
@@ -202,7 +203,28 @@ var literatureController = JSB.defineClass('literatureController : UIViewControl
       // // self.moveGesture.addTargetAction(self,"onMoveGesture:")
       // // MNUtil.showHUD("init")
 
-      // === 7. 创建设置视图 ===
+      // === 7. 创建 WebView 用于显示 HTML 内容 ===
+      // UIWebView 是 iOS 的网页视图组件，可以显示 HTML、CSS、JavaScript
+      // 参数 {x, y, width, height} 定义了 WebView 在父视图中的位置和大小
+      self.webView = new UIWebView({x: 10, y: 50, width: 240, height: 250})
+      
+      // 设置 WebView 的背景颜色为白色
+      self.webView.backgroundColor = UIColor.whiteColor()
+      
+      // 设置代理为自己，这样可以接收 WebView 的事件
+      // 比如：页面加载完成、链接点击等
+      self.webView.delegate = self
+      
+      // 允许页面根据内容自动缩放
+      self.webView.scalesPageToFit = true
+      
+      // 将 WebView 添加到主视图中
+      self.view.addSubview(self.webView)
+      
+      // 标记 WebView 是否已加载 HTML（避免重复加载）
+      self.webViewLoaded = false
+
+      // === 8. 创建设置视图 ===
       // 设置视图（默认隐藏，点击设置按钮后显示）
       self.settingView = self.createView()
       self.settingView.hidden = true  // 初始状态为隐藏
@@ -285,11 +307,11 @@ var literatureController = JSB.defineClass('literatureController : UIViewControl
    * - 在这里设置所有按钮和子视图的 frame
    */
   viewWillLayoutSubviews: function() {
-    var viewFrame = self.view.bounds;
-    var xLeft     = viewFrame.x
-    var xRight    = xLeft + viewFrame.width
-    var yTop      = viewFrame.y
-    var yBottom   = yTop + viewFrame.height
+    let viewFrame = self.view.bounds;
+    let xLeft     = viewFrame.x
+    let xRight    = xLeft + viewFrame.width
+    let yTop      = viewFrame.y
+    let yBottom   = yTop + viewFrame.height
     // self.settingView.frame = MNUtil.genFrame(0, 40, viewFrame.width, viewFrame.height-45)
     // self.literatureView.frame = MNUtil.genFrame(0, 40, viewFrame.width, viewFrame.height-45)
     // self.moveButton.frame = {x: xLeft+40 ,y: 5,width: 180,height: 30};
@@ -1095,7 +1117,7 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
     }
     
     let frame = self.view.frame
-    var viewFrame = self.view.bounds;
+    let viewFrame = self.view.bounds;
     let studyFrame = MNUtil.studyView.bounds
     
     // 限制垂直移动范围，确保面板不会移出屏幕
@@ -1111,8 +1133,242 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
     
     // 更新面板位置
     literatureUtils.setFrame(self, {x:x,y:y,width:frame.width,height:frame.height})
+  },
+
+  // ========== UIWebViewDelegate 协议方法 ==========
+  // 这些方法用于处理 WebView 的各种事件
+
+  /**
+   * WebView 即将开始加载请求时调用
+   * 
+   * 这个方法非常重要！用于拦截自定义 URL scheme
+   * 返回 false 可以阻止请求，返回 true 允许请求
+   * 
+   * @param {UIWebView} webView - WebView 实例
+   * @param {NSURLRequest} request - 请求对象
+   * @param {number} navigationType - 导航类型（0=链接点击，5=其他）
+   * @returns {boolean} - true 允许加载，false 阻止加载
+   */
+  webViewShouldStartLoadWithRequest: function(webView, request, navigationType) {
+    try {
+      let requestURL = request.URL().absoluteString()
+      let config = MNUtil.parseURL(requestURL)
+      
+      // 打印日志，方便调试
+      MNUtil.log("WebView 请求 URL: " + requestURL)
+
+      if (config.scheme = "mnliterature") {
+        // 解析自定义 URL
+        // 例如: mnliterature://updateTitle?id=xxx&title=yyy
+        switch (config.action) {
+          case "updateTitle":
+            self.updateCardTitle(config.params.id, config.params.title)
+            break;
+        }
+        // 返回 false，阻止 WebView 实际加载这个 URL
+        return false
+      }
+      
+      // 其他正常的 URL（如 http://、file:// 等）允许加载
+      return true
+      
+    } catch (error) {
+      MNUtil.showHUD("处理 URL 时出错: " + error)
+      return false
+    }
+  },
+  
+  /**
+   * WebView 开始加载页面时调用
+   * 
+   * @param {UIWebView} webView - WebView 实例
+   */
+  webViewDidStartLoad: function(webView) {
+    MNUtil.log("WebView 开始加载页面")
+  },
+  
+  /**
+   * WebView 完成页面加载时调用
+   * 
+   * 这是执行 JavaScript 代码的好时机
+   * 
+   * @param {UIWebView} webView - WebView 实例
+   */
+  webViewDidFinishLoad: function(webView) {
+    MNUtil.log("WebView 页面加载完成")
+    
+    // 标记已加载
+    self.webViewLoaded = true
+    
+    // 可以在这里执行一些初始化的 JavaScript
+    // 例如：设置初始状态
+    self.webView.evaluateJavaScript(
+      "console.log('页面加载完成，来自原生代码的问候！')",
+      function(result) {
+        // JavaScript 执行完成
+      }
+    )
+  },
+  
+  /**
+   * WebView 加载失败时调用
+   * 
+   * @param {UIWebView} webView - WebView 实例
+   * @param {NSError} error - 错误对象
+   */
+  webViewDidFailLoadWithError: function(webView, error) {
+    MNUtil.showHUD("WebView 加载失败: " + error.localizedDescription)
+    MNUtil.log("WebView 加载错误: " + JSON.stringify(error))
+  },
+
+  /**
+   * 更新卡片标题
+   * 
+   * 这个方法由 WebView 通过自定义 URL 调用
+   * 负责更新 MarginNote 中卡片的标题
+   * 
+   * @param {string} cardId - 卡片的唯一标识符
+   * @param {string} newTitle - 新的标题
+   */
+  updateCardTitle: function(cardId, newTitle) {
+    try {
+      MNUtil.log("开始更新卡片标题: " + cardId + " -> " + newTitle)
+      
+      // 检查参数
+      if (!cardId || !newTitle) {
+        MNUtil.showHUD("参数不完整")
+        return
+      }
+      
+      // 获取卡片对象
+      // MNNote.getNoteById 是 MNUtils 提供的方法
+      let note = MNNote.new(cardId)
+      
+      if (!note) {
+        MNUtil.showHUD("找不到卡片: " + cardId)
+        
+        // 通知网页显示错误
+        self.webView.evaluateJavaScript(
+          "showResult('找不到卡片', false)",
+          function(result) {}
+        )
+        return
+      }
+      
+      // 使用 undoGrouping 包装，使操作可以撤销
+      // 更新卡片标题
+      note.title = newTitle
+      
+      // 显示成功提示
+      MNUtil.showHUD("标题已更新")
+      
+      // 通知网页显示成功信息
+      // 注意：需要转义单引号
+      let escapedTitle = newTitle.replace(/'/g, "\\'")
+      let jsCode = "showResult('标题已更新为: " + escapedTitle + "', true)"
+      
+      self.webView.evaluateJavaScript(jsCode, function(result) {
+        MNUtil.log("JavaScript 执行完成")
+      })
+      
+    } catch (error) {
+      MNUtil.showHUD("更新失败: " + error)
+      MNUtil.log("更新卡片标题错误: " + error)
+      
+      // 通知网页显示错误
+      self.webView.evaluateJavaScript(
+        "showResult('更新失败: " + error + "', false)",
+        function(result) {}
+      )
+    }
   }
 });
+// ========== 原型方法：WebView 相关辅助函数 ==========
+
+/**
+ * 加载 HTML 文件到 WebView
+ * 
+ * 这个方法用于初始化 WebView，加载本地的 HTML 文件
+ */
+literatureController.prototype.loadHTMLFile = function() {
+  try {
+    // 获取 HTML 文件的完整路径
+    // literatureUtils.mainPath 是插件的根目录路径
+    let htmlPath = literatureUtils.mainPath + "/index.html"
+    
+    // 将路径转换为文件 URL
+    // NSURL.fileURLWithPath 是 iOS 的方法，将文件路径转换为 file:// URL
+    let htmlURL = NSURL.fileURLWithPath(htmlPath)
+    
+    // 创建请求对象
+    // NSURLRequest 是 iOS 的网络请求类
+    let request = NSURLRequest.requestWithURL(htmlURL)
+    
+    // 加载请求到 WebView
+    this.webView.loadRequest(request)
+    
+    MNUtil.log("开始加载 HTML: " + htmlPath)
+    
+  } catch (error) {
+    MNUtil.showHUD("加载 HTML 失败: " + error)
+    MNUtil.log("加载 HTML 错误: " + error)
+  }
+}
+
+/**
+ * 向 WebView 发送卡片信息
+ * 
+ * 当用户选择卡片时调用，将卡片信息传递给网页
+ * 
+ * @param {MNNote} note - 卡片对象
+ */
+literatureController.prototype.sendCardInfoToWebView = function(note) {
+  try {
+    if (!note) {
+      MNUtil.log("没有选中的卡片")
+      // 清空网页中的卡片信息
+      this.webView.evaluateJavaScript("clearCardInfo()", function(result) {})
+      return
+    }
+    
+    // 确保 WebView 已加载
+    if (!this.webViewLoaded) {
+      MNUtil.log("WebView 尚未加载完成")
+      return
+    }
+    
+    // 获取卡片信息
+    let cardId = note.noteId
+    let cardTitle = note.title || ""
+    
+    // 转义特殊字符，避免 JavaScript 语法错误
+    // 单引号、双引号、换行符等都需要转义
+    cardTitle = cardTitle.replace(/\\/g, '\\\\')  // 反斜杠要先转义
+    cardTitle = cardTitle.replace(/'/g, "\\'")    // 单引号
+    cardTitle = cardTitle.replace(/"/g, '\\"')    // 双引号
+    cardTitle = cardTitle.replace(/\n/g, '\\n')   // 换行符
+    cardTitle = cardTitle.replace(/\r/g, '\\r')   // 回车符
+    cardTitle = cardTitle.replace(/\t/g, '\\t')   // 制表符
+    
+    // 构造 JavaScript 代码
+    let jsCode = "updateCardInfo('" + cardId + "', '" + cardTitle + "')"
+    
+    MNUtil.log("执行 JavaScript: " + jsCode)
+    
+    // 执行 JavaScript
+    // evaluateJavaScript 方法用于在 WebView 中执行 JavaScript 代码
+    this.webView.evaluateJavaScript(jsCode, function(result) {
+      MNUtil.log("卡片信息已发送到网页")
+    })
+    
+  } catch (error) {
+    MNUtil.showHUD("发送卡片信息失败: " + error)
+    MNUtil.log("发送卡片信息错误: " + error)
+  }
+}
+
+// ========== 原有的原型方法 ==========
+
 literatureController.prototype.setButtonLayout = function (button,targetAction) {
     button.autoresizingMask = (1 << 0 | 1 << 3);
     button.setTitleColorForState(UIColor.whiteColor(),0);

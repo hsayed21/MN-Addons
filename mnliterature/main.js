@@ -16,7 +16,7 @@ JSB.newAddon = function(mainPath){
   JSB.require('webviewController');
   // 使用 JSB.defineClass 定义一个继承自 JSExtension 的插件类
   // 格式：'类名 : 父类名'
-  var MNLiteratureClass = JSB.defineClass('MNLiterature : JSExtension', 
+  let MNLiteratureClass = JSB.defineClass('MNLiterature : JSExtension', 
   
   /*=== 实例成员（Instance members）===
    * 这些方法对应每个窗口实例的生命周期
@@ -265,6 +265,51 @@ JSB.newAddon = function(mainPath){
         // 确保视图控制器已创建（单例模式）
         literatureUtils.checkLiteratureController()
         
+        // ========== WebView 初始化部分 ==========
+        // 检查 WebView 是否已加载 HTML 文件
+        // 只在第一次打开时加载，避免重复加载
+        if (!literatureUtils.literatureController.webViewLoaded) {
+          // 调用控制器的加载方法
+          literatureUtils.literatureController.loadHTMLFile()
+          
+          // 延迟一下，等待页面加载完成后再发送卡片信息
+          MNUtil.delay(0.5).then(()=>{
+            // 获取当前选中的卡片
+            let focusNote = MNNote.getFocusNote()
+            
+            if (focusNote) {
+              // 将卡片信息发送给 WebView
+              literatureUtils.literatureController.sendCardInfoToWebView(focusNote)
+              MNUtil.log("已发送卡片标题" + focusNote.title + "到 WebView")
+            } else {
+              MNUtil.log("没有选中的卡片")
+              // 清空网页中的显示
+              literatureUtils.literatureController.webView.evaluateJavaScript(
+                "clearCardInfo()",
+                function(result) {}
+              )
+            }
+          })
+        } else {
+          // WebView 已加载，直接发送当前卡片信息
+          if (!literatureUtils.literatureController.hidden) {
+            let focusNote = MNNote.getFocusNote()
+            
+            // 立即发送卡片信息（不需要延迟）
+            if (focusNote) {
+              literatureUtils.literatureController.sendCardInfoToWebView(focusNote)
+              MNUtil.log("卡片标题：" + focusNote.title)
+            } else {
+              // 清空显示
+              literatureUtils.literatureController.webView.evaluateJavaScript(
+                "clearCardInfo()",
+                function(result) {}
+              )
+            }
+          }
+        }
+        // ========== WebView 初始化结束 ==========
+        
         // 第一次打开时，设置面板的初始位置
         if (self.isFirst) {
           let buttonFrame = self.addonBar.frame
@@ -313,15 +358,18 @@ JSB.newAddon = function(mainPath){
     onPopupMenuOnNote: async function (sender) {
       MNUtil.undoGrouping(()=>{
         try {
-          self.note = MNNote.getFocusNote()
-          if (self.note){
-            self.noteTitle = self.note.title
-            if (self.noteTitle.includes("夏大鱼羊")) {
-              MNUtil.postNotification('NoteTitleContainsXDYY', {title: self.noteTitle})
-              MNUtil.log("发送了")
+          self.note = MNNote.new(sender.userInfo.note.noteId)
+          if (!literatureUtils.literatureController.view.hidden) {
+            // 立即发送卡片信息（不需要延迟）
+            if (self.note) {
+              literatureUtils.literatureController.sendCardInfoToWebView(self.note)
+              MNUtil.log("卡片标题：" + self.note.title)
             } else {
-              MNUtil.showHUD("我在找！")
-              MNUtil.log("没发送，但点击了")
+              // 清空显示
+              literatureUtils.literatureController.webView.evaluateJavaScript(
+                "clearCardInfo()",
+                function(result) {}
+              )
             }
           }
         } catch (error) {
@@ -417,13 +465,6 @@ JSB.newAddon = function(mainPath){
       param: param,        // 传递给方法的参数
       checked: checked     // 是否显示勾选状态
     }
-  }
-
-  MNLiteratureClass.prototype.loadLocalHTML =  function() {
-    const htmlPath = MNUtil.mainPath + "/index.html";
-    const htmlURL = NSURL.fileURLWithPath(htmlPath);
-    const request = NSURLRequest.requestWithURL(htmlURL);
-    this.webView.loadRequest(request);
   }
   
   // 返回定义的插件类，MarginNote 会自动实例化这个类
