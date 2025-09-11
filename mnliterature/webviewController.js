@@ -47,7 +47,7 @@ let literatureController = JSB.defineClass('literatureController : UIViewControl
 
     
       // === 创建 WebView ===
-      self.webView = new UIWebView({x: 10, y: 50, width: 240, height: 250})
+      self.webView = new UIWebView({x: 10, y: 50, width: 240, height: 280})
       self.webView.backgroundColor = UIColor.whiteColor()
       self.webView.delegate = self
       self.webView.scalesPageToFit = true
@@ -495,7 +495,7 @@ literatureController.prototype.checkPopover = function () {
  * @param {string} cardId - 卡片的唯一标识符
  * @param {string} newTitle - 新的标题
  */
-literatureController.prototype.updateCardTitle= function(cardId, newTitle) {
+literatureController.prototype.updateCardTitle = function(cardId, newTitle) {
   try {
     MNUtil.log("开始更新卡片标题: " + cardId + " -> " + newTitle)
     

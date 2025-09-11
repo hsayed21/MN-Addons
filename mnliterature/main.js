@@ -325,12 +325,6 @@ JSB.newAddon = function(mainPath){
             if (self.note) {
               literatureUtils.literatureController.sendCardInfoToWebView(self.note)
               MNUtil.log("卡片标题：" + self.note.title)
-            } else {
-              // 清空显示
-              literatureUtils.literatureController.runJavaScript(
-                "clearCardInfo()",
-                literatureUtils.literatureController.webView
-              )
             }
           }
         } catch (error) {
@@ -338,21 +332,6 @@ JSB.newAddon = function(mainPath){
         }
       })
     },
-
-    /**
-     * 卡片标题包含“夏大鱼羊”时
-     */
-    onNoteTitleContainsXDYY: async function(sender) {
-      MNUtil.undoGrouping(()=>{
-        try {
-          MNUtil.postNotification("openInBrowser", {
-            url: "https://www.marginnote.com.cn/"
-          })
-        } catch (error) {
-          MNUtil.showHUD(error);
-        }
-      })
-    }
   }, 
   
   /*=== 类成员（Class members）===
