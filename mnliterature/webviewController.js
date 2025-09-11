@@ -1151,24 +1151,27 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
    */
   webViewShouldStartLoadWithRequestNavigationType: function(webView, request, navigationType) {
     try {
-      // 获取请求的 URL 字符串
-      // 注意：request.URL 是属性，不是方法，不需要括号
-      let requestURL = request.URL.absoluteString
+      // 直接使用 MNUtil.parseURL 解析 request 对象
+      // MNUtil.parseURL 会自动处理 request.URL
+      // 这是 mnwebdav 等成熟插件的标准做法
+      let config = MNUtil.parseURL(request)
       
-      // 使用 MNUtil.parseURL 解析 URL
-      let config = MNUtil.parseURL(requestURL)
+      // 检查是否成功解析
+      if (!config) {
+        // 如果解析失败，允许正常加载
+        return true
+      }
       
       // 打印日志，方便调试
-      MNUtil.log("WebView 请求 URL: " + requestURL)
-      MNUtil.log("解析的 URL 配置: " + JSON.stringify(config))
+      MNUtil.log("WebView 请求 URL 配置: " + JSON.stringify(config))
 
       // 重要修复：使用 === 比较运算符，而不是 = 赋值运算符
       if (config.scheme === "mnliterature") {
         // 处理自定义 URL scheme
         // 例如: mnliterature://updateTitle?id=xxx&title=yyy
-        MNUtil.log("检测到自定义协议，action: " + config.action)
+        MNUtil.log("检测到自定义协议，action: " + config.host)
         
-        switch (config.action) {
+        switch (config.host) {
           case "updateTitle":
             // 调用更新标题的方法
             MNUtil.log("准备更新标题，参数: " + JSON.stringify(config.params))
@@ -1236,80 +1239,6 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
     MNUtil.showHUD("WebView 加载失败: " + error.localizedDescription)
     MNUtil.log("WebView 加载错误: " + JSON.stringify(error))
   },
-
-  /**
-   * 更新卡片标题
-   * 
-   * 这个方法由 WebView 通过自定义 URL 调用
-   * 负责更新 MarginNote 中卡片的标题
-   * 
-   * @param {string} cardId - 卡片的唯一标识符
-   * @param {string} newTitle - 新的标题
-   */
-  updateCardTitle: function(cardId, newTitle) {
-    try {
-      MNUtil.log("开始更新卡片标题: " + cardId + " -> " + newTitle)
-      
-      // 检查参数
-      if (!cardId || !newTitle) {
-        MNUtil.showHUD("参数不完整")
-        return
-      }
-      
-      // 获取卡片对象
-      // 使用 MNNote.new 创建卡片对象
-      let note = MNNote.new(cardId)
-      
-      if (!note) {
-        MNUtil.showHUD("找不到卡片: " + cardId)
-        
-        // 通知网页显示错误
-        // 使用 runJavaScript 替代 evaluateJavaScript
-        self.runJavaScript(
-          "showResult('找不到卡片', false)",
-          self.webView
-        )
-        return
-      }
-      
-      // 使用 undoGrouping 包装，使操作可以撤销
-      MNUtil.undoGrouping(() => {
-        // 更新卡片标题
-        note.title = newTitle
-        
-        // 显示成功提示
-        MNUtil.showHUD("标题已更新")
-        
-        // 通知网页显示成功信息
-        // 注意：需要转义特殊字符
-        let escapedTitle = newTitle.replace(/\\/g, '\\\\')  // 反斜杠要先转义
-        escapedTitle = escapedTitle.replace(/'/g, "\\'")     // 单引号
-        escapedTitle = escapedTitle.replace(/"/g, '\\"')     // 双引号
-        escapedTitle = escapedTitle.replace(/\n/g, '\\n')    // 换行符
-        
-        let jsCode = `showResult('标题已更新为: ${escapedTitle}', true)`
-        
-        // 使用 runJavaScript 替代 evaluateJavaScript
-        self.runJavaScript(jsCode, self.webView).then(() => {
-          MNUtil.log("JavaScript 执行完成，标题更新成功")
-        })
-      })
-      
-    } catch (error) {
-      MNUtil.showHUD("更新失败: " + error)
-      MNUtil.log("更新卡片标题错误: " + error)
-      
-      // 通知网页显示错误
-      // 转义错误信息中的特殊字符
-      let escapedError = String(error).replace(/'/g, "\\'")
-      
-      // 使用 runJavaScript 替代 evaluateJavaScript
-      self.runJavaScript(
-        `showResult('更新失败: ${escapedError}', false)`,
-        self.webView
-      )
-    }
-  }
 });
 // ========== 原型方法：WebView 相关辅助函数 ==========
 
@@ -1827,8 +1756,9 @@ literatureController.prototype.runJavaScript = async function(script,webview) {
   return new Promise((resolve, reject) => {
     try {
     if (webview) {
-      // MNUtil.copy(webview)
-      this[webview].evaluateJavaScript(script, (result) => {
+      // webview 参数是一个 UIWebView 对象，直接使用它
+      // 不要使用 this[webview]，那是把 webview 当成字符串属性名
+      webview.evaluateJavaScript(script, (result) => {
         if (MNUtil.isNSNull(result)) {
           resolve(undefined)
         } else {
@@ -1836,6 +1766,7 @@ literatureController.prototype.runJavaScript = async function(script,webview) {
         }
       });
     }else{
+      // 默认使用 webviewResponse
       this.webviewResponse.evaluateJavaScript(script, (result) => {
         if (MNUtil.isNSNull(result)) {
           resolve(undefined)
@@ -1885,4 +1816,77 @@ literatureController.prototype.tableItem = function (title,selector,param = "",c
  */
 literatureController.prototype.checkPopover = function () {
   if (this.popoverController) {this.popoverController.dismissPopoverAnimated(true);}
+}
+/** 
+ * 更新卡片标题
+ * 
+ * 这个方法由 WebView 通过自定义 URL 调用
+ * 负责更新 MarginNote 中卡片的标题
+ * 
+ * @param {string} cardId - 卡片的唯一标识符
+ * @param {string} newTitle - 新的标题
+ */
+literatureController.prototype.updateCardTitle= function(cardId, newTitle) {
+  try {
+    MNUtil.log("开始更新卡片标题: " + cardId + " -> " + newTitle)
+    
+    // 检查参数
+    if (!cardId || !newTitle) {
+      MNUtil.showHUD("参数不完整")
+      return
+    }
+    
+    // 获取卡片对象
+    // 使用 MNNote.new 创建卡片对象
+    let note = MNNote.new(cardId)
+    
+    if (!note) {
+      MNUtil.showHUD("找不到卡片: " + cardId)
+      
+      // 通知网页显示错误
+      // 使用 runJavaScript 替代 evaluateJavaScript
+      self.runJavaScript(
+        "showResult('找不到卡片', false)",
+        self.webView
+      )
+      return
+    }
+    
+    // 使用 undoGrouping 包装，使操作可以撤销
+    MNUtil.undoGrouping(() => {
+      // 更新卡片标题
+      note.title = newTitle
+      
+      // 显示成功提示
+      MNUtil.showHUD("标题已更新")
+      
+      // 通知网页显示成功信息
+      // 注意：需要转义特殊字符
+      let escapedTitle = newTitle.replace(/\\/g, '\\\\')  // 反斜杠要先转义
+      escapedTitle = escapedTitle.replace(/'/g, "\\'")     // 单引号
+      escapedTitle = escapedTitle.replace(/"/g, '\\"')     // 双引号
+      escapedTitle = escapedTitle.replace(/\n/g, '\\n')    // 换行符
+      
+      let jsCode = `showResult('标题已更新为: ${escapedTitle}', true)`
+      
+      // 使用 runJavaScript 替代 evaluateJavaScript
+      self.runJavaScript(jsCode, self.webView).then(() => {
+        MNUtil.log("JavaScript 执行完成，标题更新成功")
+      })
+    })
+    
+  } catch (error) {
+    MNUtil.showHUD("更新失败: " + error)
+    MNUtil.log("更新卡片标题错误: " + error)
+    
+    // 通知网页显示错误
+    // 转义错误信息中的特殊字符
+    let escapedError = String(error).replace(/'/g, "\\'")
+    
+    // 使用 runJavaScript 替代 evaluateJavaScript
+    self.runJavaScript(
+      `showResult('更新失败: ${escapedError}', false)`,
+      self.webView
+    )
+  }
 }
