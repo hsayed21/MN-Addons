@@ -49,18 +49,6 @@ function updateCardInfo(encodedData) {
     let htmlContent = `<p><strong>当前卡片ID:</strong> ${cardInfo.id}</p>
                       <p><strong>当前标题:</strong> ${cardInfo.title}</p>`;
     
-    // 如果有摘录信息，也显示出来
-    if (cardInfo.excerpt) {
-      const excerptPreview = cardInfo.excerpt.length > 50 
-        ? `${cardInfo.excerpt.substring(0, 50)}...` 
-        : cardInfo.excerpt;
-      htmlContent += `<p><strong>摘录:</strong> ${excerptPreview}</p>`;
-    }
-    
-    // 如果有评论数量，也显示
-    if (cardInfo.comments !== undefined) {
-      htmlContent += `<p><strong>评论数:</strong> ${cardInfo.comments}</p>`;
-    }
     
     cardInfoDiv.innerHTML = htmlContent;
     
