@@ -264,6 +264,12 @@ class toolbarUtils {
     if (actionName) {
       
     switch (actionName) {
+      case "browserCustomAction":
+        menuItems = ["browserAction"]
+        break;
+      case "openWebApp":
+        menuItems = ["webapp"]
+        break;
       case "toggleTextFirst":
         menuItems = ["range"]
         break;
@@ -5219,6 +5225,13 @@ static getButtonFrame(button){
     let content = note.allNoteText()
     return this.extractUrls(content)
   }
+  static openWebApp(des){
+    if ("webapp" in des) {
+      let webapp = des.webapp
+      MNUtil.postNotification("openWebAppInBrowser", {webapp:webapp})
+      return
+    }
+  }
   static openWebURL(des){
     if ("url" in des) {
       let url = des.url
@@ -5492,6 +5505,10 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//è
     let targetNoteId
     MNUtil.log(des.action)
     switch (des.action) {
+      case "browserCustomAction":
+        this.browserCustomAction(des)
+        await MNUtil.delay(0.1)
+        break;
       case "switchTitleorExcerpt":
       case "switchTitleOrExcerpt":
         this.switchTitleOrExcerpt()
@@ -5938,6 +5955,10 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//è
         this.openWebURL(des)
         await MNUtil.delay(0.1)
         break;
+      case "openWebApp":
+        this.openWebApp(des)
+        await MNUtil.delay(0.1)
+        break;
       case "addImageComment":
         let source = des.source ?? "photo"
         this.compression = des.compression ?? true
@@ -6157,6 +6178,13 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//è
     config.params = params
     return config
   }
+  static browserCustomAction(des){
+    if ("browserAction" in des) {
+      let action = des.browserAction
+      MNUtil.postNotification("browserCustomAction", {action:action})
+      return
+    }
+  }
 }
 
 class toolbarConfig {
@@ -6241,6 +6269,7 @@ class toolbarConfig {
   "setTitleHighlight",
   "setCommentHighlight",
   "setEmphasisHighlight",
+  "actionHighlight",
   "sourceHighlightOfNote",
   "highStyleColor0",
   "highStyleColor1",
@@ -6299,10 +6328,12 @@ class toolbarConfig {
   "textFirstForNote",
   "aiMenuPlaceholder",
   "editFavorites",
-  "setDraft"
+  "setDraft",
+  "setTreeBranch"
 ]
   static defaultPopupReplaceConfig = {
     noteHighlight:{enabled:false,target:"",name:"noteHighlight"},
+    actionHighlight:{enabled:false,target:"",name:"actionHighlight"},
     textHighlight:{enabled:false,target:"",name:"textHighlight"},
     addToReview:{enabled:false,target:"",name:"addToReview"},
     goPalette:{enabled:false,target:"",name:"goPalette"},
@@ -6381,7 +6412,8 @@ class toolbarConfig {
     textFirstForNote:{enabled:false,target:"",name:"textFirstForNote"},
     aiMenuPlaceholder:{enabled:false,target:"",name:"aiMenuPlaceholder"},
     editFavorites:{enabled:false,target:"",name:"editFavorites"},
-    setDraft:{enabled:false,target:"",name:"setDraft"}
+    setDraft:{enabled:false,target:"",name:"setDraft"},
+    setTreeBranch:{enabled:false,target:"",name:"setTreeBranch"}
   }
   static defalutImageScale = {
     "color0":2.4,

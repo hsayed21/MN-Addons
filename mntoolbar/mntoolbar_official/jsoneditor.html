@@ -25,7 +25,7 @@ body {
 <body>
   <div id="jsoneditor"></div>
   <script>
-  let actionNames = ['addChildNote','addBrotherNote','addComment','addImageComment','addTags','addMarkdownLink','addWordsToEurdic','bigbang','crash','clearContent','clearFormat','cloneAndMerge','cloneAsChildNote','confirm','chatAI','copy','command','export','focus','insertSnippet','importDoc','link','markdown2Mindmap','moveNote','mergeText','moveComment','menu','noteHighlight','ocr','openURL','openWebURL','openInEditor','openSetting','paste','redo','replace','removeComment','removeTags','search','searchInDict','setContent','setColor','setTimer','snipaste','showInFloatWindow','switchTitleOrExcerpt','showMessage','setButtonImage','shortcut','triggerButton','toggleView','toggleTextFirst','toggleMarkdown','toggleSidebar','undo','userSelect','userInput','webSearch']
+  let actionNames = ['addChildNote','addBrotherNote','addComment','addImageComment','addTags','addMarkdownLink','addWordsToEurdic','bigbang','browserCustomAction','crash','clearContent','clearFormat','cloneAndMerge','cloneAsChildNote','confirm','chatAI','copy','command','export','focus','insertSnippet','importDoc','link','markdown2Mindmap','moveNote','mergeText','moveComment','menu','noteHighlight','ocr','openURL','openWebURL','openWebApp','openInEditor','openSetting','paste','redo','replace','removeComment','removeTags','search','searchInDict','setContent','setColor','setTimer','snipaste','showInFloatWindow','switchTitleOrExcerpt','showMessage','setButtonImage','shortcut','triggerButton','toggleView','toggleTextFirst','toggleMarkdown','toggleSidebar','undo','userSelect','userInput','webSearch']
   function generalActionProperties(params) {
     return {
       "action": {
@@ -553,6 +553,9 @@ function getSchemaByActionName(actionName) {
       properties.range = stringEnum(['currentNotes','childNotes','descendantNotes'])
       properties.varName = stringType()
       break;
+    case "browserCustomAction":
+      properties.browserAction = stringEnum(['uploadPDFToDoc2X','uploadImageToDoc2X','screenshot','videoFrame2Clipboard','videoFrame2Editor','videoFrame2Note','videoFrame2ChildNote','videoFrameToNewNote','videoFrameToComment','videoTime2Clipboard','videoTime2Editor','videoTime2Note','videoTime2ChildNote','videoFrameToSnipaste','videoTimeToNewNote','videoTimeToComment','bigbang','copyCurrentURL','copyAsMDLink','openInNewWindow','openNewWindow','openCopiedURL','pauseOrPlay','toggleMute','volumeUp','volumeDown','play0.5x','play1.25x','play1.5x','play1.75x','play2x','play2.5x','play3x','play3.5x','play4x','forward10s','forward15s','forward30s','backward10s','backward15s','backward30s'])
+      break;
     case "showInFloatWindow":
       properties.noteURL = stringType()
       properties.target = stringEnum(['noteInClipboard','currentNote','currentChildMap','parentNote','currentNoteInMindMap','menu','globalVar'])
@@ -588,6 +591,9 @@ function getSchemaByActionName(actionName) {
       break;
     case "openWebURL":
       properties.url = stringType()
+      break;
+    case "openWebApp":
+      properties.webapp = stringType()
       break;
     case "setTimer":
       properties.target = stringEnum(['menu'])
