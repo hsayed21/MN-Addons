@@ -92,7 +92,7 @@ class Menu{
     })
     this.commandTable.splice(index,0,...fullItems)
   }
-  show(autoWidth = false){
+  show(autoWidth = false,animate = true){
   try {
     if (autoWidth || !this.width) {//用autoWidth参数来控制是否自动计算宽度,如果menu实例没有width参数,也会自动计算宽度
       let titles = this.commandTable.map(item=>item.title)
@@ -145,7 +145,7 @@ class Menu{
       default:
         break;
     }
-    popoverController.presentPopoverFromRect(r, targetView, position, true);
+    popoverController.presentPopoverFromRect(r, targetView, position, animate);
     popoverController.delegate = this.delegate
     // this.menuController.menuTableView.dataSource = this.delegate
     Menu.popover = popoverController
@@ -163,9 +163,9 @@ class Menu{
     return {title:title,selector:selector,param:params,checked:checked}
   }
   static popover = undefined
-  static dismissCurrentMenu(){
+  static dismissCurrentMenu(animate = true){
     if (this.popover) {
-      this.popover.dismissPopoverAnimated(true)
+      this.popover.dismissPopoverAnimated(animate)
     }
   }
 }
@@ -1475,20 +1475,23 @@ static textMatchPhrase(text, query) {
     // MNUtil.log(type)
 
     if (type === "NSURL") {
+      let urlString = url.absoluteString()
       switch (mode) {
         case "auto":
-          if (typeof browserUtils !== "undefined") {
-            MNUtil.postNotification("openInBrowser", {url:url.absoluteString()})
-          }else{
-            this.app.openURL(url);
+          if (urlString.startsWith("http://") || urlString.startsWith("https://")) {
+            if (typeof browserUtils !== "undefined") {
+              MNUtil.postNotification("openInBrowser", {url:urlString})
+              break;
+            }
           }
+          this.app.openURL(url);
           break;
         case "external":
           this.app.openURL(url);
           break;
         case "mnbrowser":
           if (typeof browserUtils !== "undefined") {
-            MNUtil.postNotification("openInBrowser", {url:url.absoluteString()})
+            MNUtil.postNotification("openInBrowser", {url:urlString})
           }else{
             MNUtil.showHUD("❌ MN Browser not installed")
           }
@@ -1501,11 +1504,13 @@ static textMatchPhrase(text, query) {
     if (typeof url === "string") {
       switch (mode) {
         case "auto":
-          if (typeof browserUtils !== "undefined") {
-            MNUtil.postNotification("openInBrowser", {url:url})
-          }else{
-            this.app.openURL(NSURL.URLWithString(url));
+          if (url.startsWith("http://") || url.startsWith("https://")) {
+            if (typeof browserUtils !== "undefined") {
+              MNUtil.postNotification("openInBrowser", {url:url})
+              break;
+            }
           }
+          this.app.openURL(NSURL.URLWithString(url));
           break;
         case "external":
           // MNUtil.log("openURL:"+url)
@@ -1753,7 +1758,6 @@ static textMatchPhrase(text, query) {
           message:'Note not exist!',
           detail:noteid
         })
-        this.showHUD("Note not exist!")
       }
       return undefined
     }
@@ -2939,6 +2943,8 @@ try {
           }
           if ("default" in options) {
             textField.text = options.default
+            let clearButtonMode = options.clearButtonMode ?? 1
+            textField.clearButtonMode = clearButtonMode
           }
         } catch (error) {
           MNUtil.addErrorLog(error, "MNUtil.input")
@@ -2984,6 +2990,8 @@ try {
           }
           if ("default" in options) {
             textField.text = options.default
+            let clearButtonMode = options.clearButtonMode ?? 1
+            textField.clearButtonMode = clearButtonMode
           }
         } catch (error) {
           this.addErrorLog(error, "MNUtil.input")
@@ -3115,7 +3123,10 @@ try {
 
     let keys1 = Object.keys(obj1);
     let keys2 = Object.keys(obj2);
-
+    if (keysToIgnore && keysToIgnore.length) {
+      keys1 = keys1.filter(k => !keysToIgnore.includes(k));
+      keys2 = keys2.filter(k => !keysToIgnore.includes(k));
+    }
     if (keys1.length !== keys2.length) return false;
 
     for (let key of keys1) {
