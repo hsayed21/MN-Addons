@@ -321,7 +321,7 @@ class chatAITool{
     case "webSearch":
       if (chatAIUtils.checkSubscribe(true,false)) {
         MNUtil.showHUD("🤖 Searching for ["+args.question+"] ")
-        let apikeys = ["449628b94fcac030495890ee542284b8.F23PvJW4XXLJ4Lsu","7a83bf0873d12b99a1f9ab972ee874a1.NULvuYvVrATzI4Uj"]
+        let apikeys = ["76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C","b9bf21c783bf4207a0f419af4a82fa9c.9guT9c4lY05MgFrC"]
         let apikey = chatAIUtils.getRandomElement(apikeys)
         let res = await chatAINetwork.webSearch(args.question,apikey)
         response.renderSearchResults = JSON.stringify(res)
@@ -799,7 +799,7 @@ class chatAITool{
     try {
 
       let url = "https://open.bigmodel.cn/api/paas/v4/images/generations"
-      let apikey = "449628b94fcac030495890ee542284b8.F23PvJW4XXLJ4Lsu"
+      let apikey = "76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C"
       MNUtil.showHUD("Generating image...")
       let request = chatAINetwork.initRequestForCogView(args.prompt, apikey, url, model)
       let res = await chatAINetwork.sendRequest(request)
@@ -5021,21 +5021,23 @@ try {
       return false
     }
   }
-  static preCheck(freeOCR = false){
+  static preCheck(config = chatAIConfig.config, freeOCR = false){
   try {
+    // MNUtil.log({message:"preCheck",detail:config})
     
 
-    if (this.checkSubscribe(false,false,true)) {
+    if (this.isSubscribed()) {
       this.chatController.usageButton.setTitleForState("Unlimited",0)
       return true
     }
-    if (chatAIConfig.config.source === "Built-in" || freeOCR) {
+    if (config.source === "Built-in" || freeOCR) {
       let usage = chatAIConfig.getUsage()
       if (usage.usage >= usage.limit) {
         MNUtil.confirm("Access limited", "You have reached the usage limit for today. Please subscribe to continue or use other AI providers.\n\n 当天免费额度已用完，请订阅或使用其他AI提供商。")
         return false
       }else{
         usage.usage = usage.usage+1
+        MNUtil.log({message:"usage",detail:usage})
       }
       if (this.chatController.usageButton) {
         this.chatController.usageButton.setTitleForState("Usage: "+usage.usage+"/100",0)
@@ -5919,17 +5921,37 @@ code.hljs {
   /**
    * 
    * @param {string} context 
-   * @param {NSData|NSData[]} imageData 
+   * @param {NSData|NSData[]|string|string[]} imageData
    * @returns 
    */
   static genUserMessage(context,imageData){
     let compression = chatAIConfig.getConfig("imageCompression")
     if (imageData) {
-      let imageDatas
+      let imageBase64Array = []
       if (Array.isArray(imageData)) {
-        imageDatas = imageData
+        if (typeof imageData[0] === "string") {
+          imageData.map((base64)=>{
+            if (base64.startsWith("data:image/png;base64,")) {
+              imageBase64Array.push(base64)
+            }else{
+              imageBase64Array.push("data:image/png;base64,"+base64)
+            }
+          })
+        }else{
+          imageData.map((data)=>{
+            imageBase64Array.push(this.getURLFromImageData(data,compression))
+          })
+        }
       }else{
-        imageDatas = [imageData]
+        if (typeof imageData === "string") {
+          if (imageData.startsWith("data:image/png;base64,")) {
+            imageBase64Array.push(imageData)
+          }else{
+            imageBase64Array.push("data:image/png;base64,"+imageData)
+          }
+        }else{
+          imageBase64Array.push(this.getURLFromImageData(imageData,compression))
+        }
       }
       let content = [
           {
@@ -5937,11 +5959,11 @@ code.hljs {
             "text": context
           }
       ]
-      imageDatas.forEach((data,index)=>{
+      imageBase64Array.forEach((base64,index)=>{
         content.push({
           "type": "image_url",
           "image_url": {
-            "url" : this.getURLFromImageData(data,compression)
+            "url" : base64
           }
         })
       })
@@ -6145,6 +6167,9 @@ code.hljs {
       default:
         return undefined
     }
+  }
+  static log(message,detail){
+    MNUtil.log({message:message,detail:detail,source:"MN ChatAI"})
   }
   static addErrorLog(error,source,info){
     MNUtil.showHUD("MN ChatAI Error ("+source+"): "+error)
@@ -7309,69 +7334,34 @@ static replaceLtInLatexBlocks(markdown) {
  * @returns 
  */
 static getChoiceBlock(code) {
-  let url = `userselect://choice?content=${encodeURIComponent(code)}`
+  // let url = `userselect://choice?content=${encodeURIComponent(code)}`
   let tem = code.split(". ")
   if (tem.length > 1 && tem[0].trim().length === 1) {
     
   return `<div style="margin-top: 15px;">
-    <div style="
-      display: block;
-      padding: 0.8em 0.8em;
-      color: #495057;
-      border-radius: 20px;
-      text-decoration: none;
-      border: 0.1em solid #dee2e6;
-      background: #f1f7fe;
-      cursor: pointer;
-      box-sizing: border-box;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-      position: relative;
-      "
-     >
-      <span style="
-          display: inline-block;
-          width: 1.8em;
-          height: 1.8em;
-          background: #2196f3;
-          color: white;
-          border-radius: 50%;
-          text-align: center;
-          line-height: 1.8em;
-          font-weight: 600;
-          margin-right: 0.5em;
-          vertical-align: middle;
-          ">${tem[0]}</span>
-      <span style="vertical-align: middle;">${tem.slice(1).join(". ")}</span>
+  <div style="display: block; padding: 0.8em 0.8em; color: #495057; border-radius: 20px; text-decoration: none; border: 0.1em solid #dee2e6; background: #f1f7fe; cursor: pointer; box-sizing: border-box; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative;">
+    <span style="display: inline-block; width: 1.8em; height: 1.8em; background: #2196f3; color: white; border-radius: 50%; text-align: center; line-height: 1.8em; font-weight: 600; margin-right: 0.5em; vertical-align: middle; ">${tem[0]}</span>
+    <span style="vertical-align: middle;">${tem.slice(1).join(". ")}</span>
   </div>
   </div>`
   }
   return `<div style="margin-top: 15px;">
-    <div 
-     style="
-      display: block;
-      padding: 0.8em 0.8em;
-      color: #495057;
-      border-radius: 20px;
-      text-decoration: none;
-      border: 0.1em solid #dee2e6;
-      background: #f1f7fe;
-      cursor: pointer;
-      box-sizing: border-box;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-      position: relative;
-      "
-     >
+  <div style="display: block; padding: 0.8em 0.8em; color: #495057; border-radius: 20px; text-decoration: none; border: 0.1em solid #dee2e6; background: #f1f7fe; cursor: pointer; box-sizing: border-box; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative;">
       <span style="vertical-align: middle;">${code}</span>
   </div>
   </div>`
 }
 static getChoicesHTML(choices){
+try {
+  // chatAIUtils.log("choices", choices)
   let choicesHTML = choices.map(choice => {
     return this.getChoiceBlock(choice)
-}).join("\n")
-return choicesHTML
+  }).join("\n")
+  return choicesHTML
+} catch (error) {
+  return ""
+}
+
 }
 static codeBlockReplacer(lang,format,code){
     let encodedContent = encodeURIComponent(code);
@@ -8330,6 +8320,14 @@ class chatAIConfig {
   } catch (error) {
     chatAIUtils.addErrorLog(error, "chatAIConfig.init")
   }
+  }
+  /**
+   * 
+   * @param {string} key 
+   * @returns {{title:string,context:string,system:string,model:string,vision:boolean,func:string[]}}
+   */
+  static getPromptByKey(key){
+    return this.prompts[key]
   }
   static isLocalConfigExists(key){
     let value = NSUserDefaults.standardUserDefaults().objectForKey(key)
@@ -10512,7 +10510,7 @@ class chatAIConfig {
 /**
  * @param {{name:String,path:String,md5:String}} fileObject
  */
-static async getFileId (fileObject){
+static async getFileIdFromMoonshot (fileObject){
   let fileMd5 = fileObject.md5
   if (this.fileId[fileMd5]) {
     return this.fileId[fileMd5]
@@ -10522,8 +10520,9 @@ static async getFileId (fileObject){
     MNUtil.showHUD("No Moonshot ApiKey!")
     return undefined
   }
+  
   MNUtil.waitHUD("Upload file: "+fileObject.name)
-  let res = await chatAINetwork.upload(fileObject.path,key)
+  let res = await chatAINetwork.uploadToMoonshot(fileObject.path,key)
   if ("statusCode" in res && res.statusCode >= 400) {
     if ("data" in res && "error" in res.data && "message" in res.data.error) {
       MNUtil.waitHUD("❌ Upload file failed: "+res.data.error.message)
@@ -10534,7 +10533,7 @@ static async getFileId (fileObject){
       newError.detail = res
       throw newError;
     }
-    MNUtil.waitHUD("❌Upload file failed: "+res.statusCode)
+    MNUtil.waitHUD("❌ Upload file failed: "+res.statusCode)
     MNUtil.delay(1).then(()=>{
       MNUtil.stopHUD()
     })
@@ -10681,7 +10680,7 @@ static async getFileContent(fileObject,local = false){
       MNUtil.log("read file content from local cache")
       return cachedFile.moonshot
     }
-    let file_id = await this.getFileId(fileObject)
+    let file_id = await this.getFileIdFromMoonshot(fileObject)
     if (!file_id) {
       return undefined
     }
@@ -10911,7 +10910,7 @@ Content-Type: application/pdf
  */
  static async ChatGPTVision(imageData,model="glm-4v-flash") {
   try {
-  let keys = ['449628b94fcac030495890ee542284b8.F23PvJW4XXLJ4Lsu','b153822e28214c1ae0edc301f2b244c9.rvBehQYAxTkqznVs']
+  let keys = ['76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C','b9bf21c783bf4207a0f419af4a82fa9c.9guT9c4lY05MgFrC']
   // let key = 'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44'
   let key = chatAIUtils.getRandomElement(keys)
   MNUtil.waitHUD("OCR By "+model)
@@ -11207,15 +11206,17 @@ Image Text Extraction Specialist
  * @param {*} fullPath 
  * @returns {Promise<{object:String,status:String,id:String,purpose:String,bytes:Number,filename:String}>}
  */
-  static async upload(fullPath,key) {
+  static async uploadToMoonshot(fullPath,key) {
   let fileData = chatAIUtils.getFile(fullPath)
   if (!fileData) {
     return {}
   }
-  // let fileSizeWithMB = fileData.length()/1048576
-  if (fileData.length() >= 104857600) {
-    MNUtil.showHUD("Too large file!")
-    return {}
+  let fileSizeWithMB = fileData.length()/1048576
+  if (fileSizeWithMB >= 100) {
+    let confirm = await MNUtil.confirm("🤖 MN ChatAI",`File is too large (${fileSizeWithMB} MB), do you want to continue?\n\n文件太大（${fileSizeWithMB} MB），是否继续上传？`)
+    if (!confirm) {
+      return {}
+    }
   }
   // function sanitizeFileName(fileName) {
   //     // 定义一个包含所有需要替换的字符的正则表达式

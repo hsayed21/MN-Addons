@@ -1637,7 +1637,7 @@ chatAIUtils.genUserMessage(`Please update the current knowledge`)
         if (confirm) {
           self.openURL("https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys")
         }else{
-          self.openURL("https://www.bigmodel.cn/invite?icode=8sa1hLdemfigJAPEbzFQ233uFJ1nZ0jLLgipQkYjpcA%3D")
+          self.openURL("https://www.bigmodel.cn/invite?icode=6m37FNrh1xwvptSaD261cmczbXFgPRGIalpycrEwJ28%3D")
         }
         break;
         break;
@@ -1921,7 +1921,7 @@ chatAIUtils.genUserMessage(`Please update the current knowledge`)
             self.showHUD("You can not clear all prompts!")
             return
           }
-          let confirm = await MNUtil.confirm("MN ChatAI\nDelete this prompt?", "删除这个prompt？")
+          let confirm = await MNUtil.confirm("🤖 MN ChatAI", "Delete this prompt?\n\n是否删除这个prompt？")
           if (confirm) {
             let prompt = chatAIConfig.prompts[currentPrompt]
             delete chatAIConfig.prompts[currentPrompt]
@@ -3857,27 +3857,30 @@ try {
   // }
   this.view.hidden = false
   this.hideAllButton()
-
-  MNUtil.animate(()=>{
-    this.view.layer.opacity = preOpacity
-    // this.view.frame = preFrame
-    // this.currentFrame = preFrame
-  }).then(()=>{
-    try {
-    this.view.layer.borderWidth = 0
-    this.view.layer.opacity = 1.0
-    // MNUtil.copy("123")
-    this.showAllButton()
-    this.settingView.hidden = false
-    MNUtil.studyView.bringSubviewToFront(this.view)
-    } catch (error) {
-      chatAIUtils.addErrorLog(error, "show")
+  return new Promise((resolve, reject) => {
+    MNUtil.animate(()=>{
+      this.view.layer.opacity = preOpacity
+      // this.view.frame = preFrame
+      // this.currentFrame = preFrame
+    }).then(()=>{
+      try {
+      this.view.layer.borderWidth = 0
+      this.view.layer.opacity = 1.0
+      // MNUtil.copy("123")
+      this.showAllButton()
+      this.settingView.hidden = false
+      MNUtil.studyView.bringSubviewToFront(this.view)
+      } catch (error) {
+        chatAIUtils.addErrorLog(error, "show")
+      }
+      resolve()
+      // chatAIUtils.copyJSON(this.view.frame)
+    })
+    if (chatAIConfig.autoImport(true)) {
+      chatAIConfig.import(false)
     }
-    // chatAIUtils.copyJSON(this.view.frame)
   })
-  if (chatAIConfig.autoImport(true)) {
-    chatAIConfig.import(false)
-  }
+
 
 } catch (error) {
   chatAIUtils.addErrorLog(error, "show")
@@ -4727,6 +4730,10 @@ chatglmController.prototype.waitHUD = function (title,view = this.view) {
 }
 
 chatglmController.prototype.importNewPrompt = async function (promptConfig,key) {
+  try {
+    if (this.view.hidden) {
+      await this.show()
+    }
     chatAIUtils.chatController.titleInput.text = promptConfig.title
     chatAIUtils.chatController.contextInput.text = promptConfig.context
     chatAIUtils.chatController.systemInput.text = promptConfig.system
@@ -4738,12 +4745,16 @@ chatglmController.prototype.importNewPrompt = async function (promptConfig,key) 
     chatAIConfig.setCurrentPrompt(key)
     this.refreshLayout()
     chatAIConfig.save("MNChatglm_prompts")
-    if (config.vision) {
+    if (promptConfig.vision) {
       this.visionButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",0.8)
     }else{
       this.visionButton.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",0.8)
     }
-    this.scrollview.setContentOffsetAnimated({x:0,y:this.scrollview.contentSize.height-self.scrollview.frame.height}, true)
+    this.scrollview.setContentOffsetAnimated({x:0,y:this.scrollview.contentSize.height-this.scrollview.frame.height}, true)
+    
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "importNewPrompt")
+  }
 }
 
 /**

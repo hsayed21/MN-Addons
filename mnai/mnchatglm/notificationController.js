@@ -560,6 +560,7 @@ try {
     // MNUtil.copy(requestURL)
     let config = MNUtil.parseURL(requestURL)
     if (config.scheme === "userselect") {
+      // chatAIUtils.log("config", config)
       switch (config.host) {
         case "choice":
           if ("content" in config.params) {
@@ -581,7 +582,13 @@ try {
           if (type === "choiceQuestion") {
             // MNUtil.showHUD("Create note")
             let content = config.params.content
-            self.userSelectAddNote(content,"json")
+            if (typeof content === "string") {
+              // chatAIUtils.log("getValidJSON", content)
+              let noteConfig = chatAIUtils.getValidJSON(content)
+              self.userSelectAddNote(noteConfig,"json")
+            }else{
+              self.userSelectAddNote(content,"json")
+            }
             return false
           }
           if ("content" in config.params) {
@@ -991,6 +998,7 @@ try {
 
 
 /**
+ * 返回是否可以继续发送消息
  * @this {notificationController}
  * @returns 
  */
@@ -1005,7 +1013,7 @@ notificationController.prototype.preCheck = function () {
     return false
   }
   // MNUtil.showHUD("preCheck")
-  return chatAIUtils.preCheck()
+  return chatAIUtils.preCheck(this.config)
 }
 
 notificationController.prototype.updateAIButton = function () {
@@ -2426,16 +2434,17 @@ notificationController.prototype.setResponseText = async function (funcResponse 
     let option = {
       scrollToBottom: this.scrollToBottom,
       funcResponse: funcHtml,
-      response: this.response,
-      reasoningResponse: this.reasoningResponse,
+      response: this.response?.trim() ?? "",
+      reasoningResponse: this.reasoningResponse?.trim() ?? "",
     }
     if (!this.onFinish) {
-      if (option.response.trim()) {
+      if (option.response) {
         option.response = option.response +"..."
-      }else if (option.reasoningResponse.trim()) {
-        option.reasoningResponse = option.reasoningResponse.trim() +"..."
+      }else if (option.reasoningResponse) {
+        option.reasoningResponse = option.reasoningResponse +"..."
       }
     }
+    chatAIUtils.log("setResponseText", option)
     this.setWebviewContentDev(option)
     // if (sizeHeight !== undefined) {
     //   this.sizeHeight = sizeHeight
@@ -2837,20 +2846,30 @@ try {
         await chatAIUtils.insertBlank(note, text)
         break;
       case "addChildNote":
-        MNUtil.showHUD("Creating childNote...")
-        // note.focusInFloatMindMap(0.5)
-        let childNote = note.createChildNote({excerptText:text,excerptTextMarkdown:true})
-        childNote.focusInMindMap(0.5)
+        if (text.trim()) {
+          MNUtil.showHUD("Creating childNote...")
+          let childNote = note.createChildNote({excerptText:text,excerptTextMarkdown:true})
+          childNote.focusInMindMap(0.5)
+        }else{
+          MNUtil.showHUD("Empty content!")
+        }
         break;
       case "addBrotherNote":
-        MNUtil.showHUD("Creating brotherNote...")
-        let parentNote = note.parentNote
-        let brotherNote = parentNote.createChildNote({excerptText:text,excerptTextMarkdown:true})
-        brotherNote.focusInMindMap(0.5)
+        if (text.trim()) {
+          MNUtil.showHUD("Creating brotherNote...")
+          let parentNote = note.parentNote
+          let brotherNote = parentNote.createChildNote({excerptText:text,excerptTextMarkdown:true})
+          brotherNote.focusInMindMap(0.5)
+        }else{
+          MNUtil.showHUD("Empty content!")
+        }
         break;
       case "setTitle":
-        note.noteTitle = text
-        MNUtil.showHUD("Title is set")
+        if (text.trim()) {
+          note.noteTitle = text
+        }else{
+          MNUtil.showHUD("Empty content!")
+        }
         break;
       case "addTitle":
       case "appendTitle":
@@ -2880,11 +2899,15 @@ try {
         break;
       case "markdown2Mindmap":
       case "markdown2mindmap":
-        MNUtil.waitHUD("Create Mindmap...")
-        await MNUtil.delay(0.1)
-        let ast = chatAIUtils.markdown2AST(text)
-        chatAIUtils.AST2Mindmap(note,ast)
-        MNUtil.stopHUD()
+        if (text.trim()) {
+          MNUtil.waitHUD("Create Mindmap...")
+          await MNUtil.delay(0.1)
+          let ast = chatAIUtils.markdown2AST(text)
+          chatAIUtils.AST2Mindmap(note,ast)
+          MNUtil.stopHUD()
+        }else{
+          MNUtil.showHUD("Empty content!")
+        }
         break;
       default:
         break;
@@ -3481,12 +3504,12 @@ notificationController.prototype.currentNote = function (allowSelection = false)
 notificationController.prototype.userSelectAddNote = async function (content,format) {
 try {
     // MNUtil.copy(format)
+    let note = this.currentNote()
     if (format === "json") {
       this.showHUD("➕ Add Question note")
       let title = content.title
       let description = content.description+"\n\n"+chatAIUtils.getChoicesHTML(content.choices)
       // let choices = content.choices
-      let note = this.currentNote()
       let childNote = note.createChildNote({title:title,excerptText:description,excerptTextMarkdown:true})
       childNote.focusInMindMap(1.5)
       return
@@ -3497,12 +3520,11 @@ try {
       selectingText = this.selection.text
     }
     // let selectingText = await this.getWebviewContent()
-    let note = this.currentNote()
     if (selectingText) {
       content = content+"\n\n"+selectingText
     }
     if (format === "markdown" && /^#/.test(content.trim())) {
-      this.showHUD("➕ Add note: "+content)
+        this.showHUD("➕ Add note: "+content)
         let contents = content.split("\n")
         let newTitle = contents[0].replace(/^#\s?/g,"")
         let contentRemain = contents.slice(1).join("\n").trim()

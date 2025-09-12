@@ -52,7 +52,15 @@ Knowledge改为独立标签页
 readNotes工具支持读取特定笔记的内容（通过id或url）
 修复organizeNotes的一些bug
 
+对于Built-in模型，禁止使用模型进行超长对话
+修复Butlt-in模型免费次数计算错误的问题
+修复添加引用导致的历史记录清空问题
+改进思考下的思考显示逻辑
 
+修复对引导式学习选择题按钮的一些问题
+
+修复导入配置时的一点bug
+改进聊天模式下token的检测和显示逻辑
 killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app"
 
 pgrep -x "MarginNote 4" > /dev/null && (killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app") || open "/Applications/MarginNote 4.app"

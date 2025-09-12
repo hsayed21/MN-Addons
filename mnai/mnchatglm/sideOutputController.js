@@ -64,7 +64,13 @@ try {
     // MNUtil.copyJSON(config)
     // MNUtil.copy(self.currentModel)
     self.config = config
-    // self.openChatView()
+    self.token = [0]//原来的token计算方案，存在跨聊天的问题，现在使用tokenConfig来计算token
+    self.tokenConfig = {}
+    self.preFuncResponse = ""
+    self.reasoningResponse = ""
+    self.history = []
+    self.lastResponse = ''
+    self.activeChatIdx = 0//当前聊天索引，通过activeChatIdx来获取当前聊天
 } catch (error) {
     chatAIUtils.addErrorLog(error, "viewDidLoad")
 }
@@ -87,6 +93,7 @@ try {
     
 
     let self = getSideOutputController()
+    Menu.dismissCurrentMenu()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
     if (self.connection) {
       self.connection.cancel()
@@ -116,8 +123,9 @@ try {
   try {
     let self = getSideOutputController()
     self.checkPopover()
-    let prompt = chatAIConfig.prompts[promptName]
+    let prompt = chatAIConfig.getPromptByKey(promptName)
     MNUtil.showHUD("New Chat From: "+prompt.title)
+    chatAIUtils.log("newChatFromPrompt",prompt)
     if (!("model" in prompt)) {
       prompt.model = "Default"
     }
@@ -128,7 +136,9 @@ try {
       newHistory.push({role:"system",content:prompt.system})
     }
     self.history = newHistory
-    self.setInput(prompt.content)
+    self.setInput(prompt.context)
+    self.aiButton.setTitleForState(""+0,0)
+    // self.token = [0]
     // self.userInput.text = prompt.context
     let newData = {data:newHistory,name:prompt.title,model:prompt.model}
     if ("func" in prompt) {
@@ -182,6 +192,7 @@ try {
     MNUtil.showHUD("📥 Import history")
     let data= MNUtil.readJSON(dataPath)
     if ("chats" in data && "chatIdxs" in data && "folder" in data && "activeChatIdx" in data) {
+      self.activeChatIdx = data.activeChatIdx
       chatAIConfig.exportChatData(data)
       self.importData()
     }else{
@@ -194,6 +205,7 @@ try {
     let data = chatAIConfig.getChatData()
     if ("chats" in data && "chatIdxs" in data && "folder" in data && "activeChatIdx" in data) {
       MNUtil.showHUD("🔄 Reload history")
+      self.activeChatIdx = data.activeChatIdx
       self.importData()
     }else{
       MNUtil.showHUD("Invalid history file!")
@@ -513,6 +525,7 @@ try {
   },
   setChatModel:function (chatModel) {
     let self = getSideOutputController()
+    Menu.dismissCurrentMenu()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
     if (chatModel !== "Default" && !chatAIUtils.checkSubscribe(true)) {
       return
@@ -523,6 +536,7 @@ try {
       chatAIConfig.save("MNChatglm_config")
   },
   setChatModelAndReAsk:function (chatModel) {
+    Menu.dismissCurrentMenu()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
     if (chatModel !== "Default" && !chatAIUtils.checkSubscribe(true)) {
       return
@@ -565,6 +579,7 @@ try {
   },
   askWithPrompt: async function (prompt) {
     let self = getSideOutputController()
+    Menu.dismissCurrentMenu()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
     self.askWithPrompt(prompt)
   },
@@ -581,6 +596,7 @@ try {
   },
   sendButtonTapped: async function (params) {
     try {
+
     let self = getSideOutputController()
     if (!self.userReference.hidden) {
       self.hideReference()
@@ -588,18 +604,16 @@ try {
       MNUtil.showHUD("Hide Reference",0.5,self.chatToolbar)
       return
     }
-
-    if (self.connection) {
-      MNUtil.showHUD("Wait...")
+    if (!self.preCheck()) {
       return
     }
-    
     let text = await self.getInputext()
     if (!text) {
       return
     }
     // MNUtil.copy(text)
     self.preFuncResponse = ""
+    // MNUtil.log({message:"historyBefore",detail:self.history})
     await self.continueAsk(text)
     self.chatSendMessage(self.history.at(-1))
     self.userReference.text = ""
@@ -690,6 +704,7 @@ try {
   importImage: async function (param) {
     // MNUtil.showHUD("12"+param)
     let self = getSideOutputController()
+    Menu.dismissCurrentMenu()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
     let imageData
     switch (param) {
@@ -896,6 +911,8 @@ try {
   }
   },
   referenceAction: async function (action) {
+    let self = getSideOutputController()
+    Menu.dismissCurrentMenu()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
     switch (action) {
       case "clearReference":
@@ -959,6 +976,8 @@ try {
     }
   },
   clearReference:function (params) {
+    let self = getSideOutputController()
+    Menu.dismissCurrentMenu()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
     self.userReference.text = ""
     self.userReference.hidden = true
@@ -1040,7 +1059,9 @@ try {
           let content = config.params.content
           // let timestamp = config.params.timestamp
           if (content.trim()) {
-            self.sendMessage(content)
+            if (self.preCheck()) {
+              self.sendMessage(content)
+            }
             // chatAIConfig.appendDynamicHistory(content)
             self.blur(0.1)
           }else{
@@ -1075,25 +1096,43 @@ try {
       return false
     }
     if (config.scheme === "userselect") {
+      // chatAIUtils.log("config", config)
       switch (config.host) {
         case "choice":
           if ("content" in config.params) {
-            let content = config.params.content
-            self.waitHUD("💬 Reply: "+content)
-            self.continueAsk(content)
-            self.chatSendMessage(self.history.at(-1))
+            if (self.preCheck()) {
+              let content = config.params.content
+              self.waitHUD("💬 Reply: "+content)
+              self.continueAsk(content)
+              self.chatSendMessage(self.history.at(-1))
+            }
             return false
           }else if ("linkText" in config.params) {
-            let linkText = config.params.linkText
-            // let content = config.params.content
-            self.waitHUD("💬 Reply: "+linkText)
-            self.continueAsk(linkText)
-            self.chatSendMessage(self.history.at(-1))
+            if (self.preCheck()) {
+              let linkText = config.params.linkText
+              // let content = config.params.content
+              self.waitHUD("💬 Reply: "+linkText)
+              self.continueAsk(linkText)
+              self.chatSendMessage(self.history.at(-1))
+            }
           }else{
             MNUtil.copy(config)
           }
           break;
         case "addnote":
+          let type = ("type" in config.params) ? config.params.type : "plainText"
+          if (type === "choiceQuestion") {
+            // MNUtil.showHUD("Create note")
+            let content = config.params.content
+            if (typeof content === "string") {
+              // chatAIUtils.log("getValidJSON", content)
+              let noteConfig = chatAIUtils.getValidJSON(content)
+              self.userSelectAddNote(noteConfig,"json")
+            }else{
+              self.userSelectAddNote(content,"json")
+            }
+            return false
+          }
           if ("content" in config.params) {
             let content = config.params.content
             self.userSelectAddNote(content,config.params.format)
@@ -1369,35 +1408,6 @@ try {
   }
 });
 
-sideOutputController.prototype.preCheck = function () {
-  if (this.connection) {
-    MNUtil.showHUD("on output")
-    return false
-  }
-  if (this.notShow && !this.called) {
-    // MNUtil.showHUD("not show")
-    return false
-  }
-  if (chatAIUtils.checkSubscribe(false,false,true)) {
-    chatAIUtils.chatController.usageButton.setTitleForState("Unlimited",0)
-    return true
-  }
-  if (chatAIConfig.config.source === "Built-in") {
-    let usage = chatAIConfig.getUsage()
-    if (usage.usage >= usage.limit) {
-        MNUtil.confirm("Access limited", "You have reached the usage limit for today. Please subscribe to continue or use other AI providers.\n\n 当天免费额度已用完，请订阅或使用其他AI提供商。")
-      return false
-    }else{
-      usage.usage = usage.usage+1
-    }
-    if (chatAIUtils.chatController.usageButton) {
-      chatAIUtils.chatController.usageButton.setTitleForState("Usage: "+usage.usage+"/100",0)
-    }
-    chatAIConfig.save("MNChatglm_usage")
-  }
-  return true
-}
-
 /**
  * Base method to initiate an AI request.
  * 
@@ -1415,6 +1425,7 @@ sideOutputController.prototype.baseAsk = async function(
   temperature=undefined
 ) {
 try {
+  // MNUtil.log({message:"baseAsk",detail:config})
   // chatAIUtils.copyJSON(config)
   this.question = question
   this.history = [].concat(question)
@@ -1518,7 +1529,7 @@ try {
   if (this.called) {
     delay = 0
   }
-  if (!this.preCheck()) {
+  if (!chatAIUtils.preCheck(this.config)) {
     return
   }
   await this.delay(delay)
@@ -1563,7 +1574,7 @@ try {
   if (this.called) {
     delay = 0
   }
-  if (!this.preCheck()) {
+  if (!chatAIUtils.preCheck(this.config)) {
     return
   }
   await this.delay(delay)
@@ -1608,7 +1619,7 @@ try {
   if (this.called) {
     delay = 0
   }
-  if (!this.preCheck()) {
+  if (!chatAIUtils.preCheck(this.config)) {
     return
   }
   await this.delay(delay)
@@ -1635,7 +1646,7 @@ try {
   this.func = []
   this.preFuncResponse = ""
   // this.targetTextview = "textviewResponse"
-  if (!this.preCheck()) {
+  if (!chatAIUtils.preCheck(this.config)) {
     return
   }
   let currentFrame = this.view.frame
@@ -1647,102 +1658,6 @@ try {
   this.baseAsk(question)
 } catch (error) {
   chatAIUtils.addErrorLog(error, "customAsk")
-}
-};
-
-/**
- * 
- * @param {*} question 
- * @param {*} temperature 
- * @param {*} reask 
- * @this {sideOutputController}
- */
-sideOutputController.prototype.askByDynamic = async function(question,temperature=0.8,reask=false) {
-try {
-  let config = chatAIConfig.getDynmaicConfig()
-  let promptModel = chatAIConfig.getConfig("dynamicModel")
-  if (promptModel) {
-    this.currentModel = promptModel
-  }else{
-    this.currentModel = "Default"
-  }
-  // chatAIUtils.copyJSON(question)
-  this.dynamic = true
-  this.history = []
-  this.token = []
-  this.preFuncResponse = ""
-  this.actions = config.action
-  // this.targetTextview = "textviewResponse"
-  if (!this.preCheck()) {
-    return
-  }
-  let currentFrame = this.view.frame
-  currentFrame.height = 120
-  this.view.frame = currentFrame
-  this.currentFrame = currentFrame
-  this.config = config
-  await this.beginNotification("Dynamic")
-  this.baseAsk(question,config,config.temperature)
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "askByDynamic")
-}
-};
-/**
- * 
- * @param {*} question 
- * @param {*} temperature 
- * @param {*} reask 
- * @this {sideOutputController}
- */
-sideOutputController.prototype.reAskByDynamic = async function(question,config,temperature=0.8,reask=false) {
-try {
-  this.dynamic = true
-  this.history = []
-  this.token = []
-  this.preFuncResponse = ""
-  this.actions = config.action
-  // this.targetTextview = "textviewResponse"
-  if (!this.preCheck()) {
-    return
-  }
-  let currentFrame = this.view.frame
-  currentFrame.height = 120
-  this.view.frame = currentFrame
-  this.currentFrame = currentFrame
-  await this.beginNotification("Dynamic")
-  this.baseAsk(question,this.config,undefined)
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "askByDynamic")
-}
-};
-/**
- * 
- * @param {*} question 
- * @param {*} temperature 
- * @param {*} reask 
- * @this {sideOutputController}
- */
-sideOutputController.prototype.askByVision = async function(question,temperature=0.8,reask=false) {
-try {
-  let config = chatAIConfig.getDynmaicConfig()
-  // chatAIUtils.copyJSON(question)
-  this.dynamic = true
-  this.history = []
-  this.token = []
-  this.actions = config.action
-  this.preFuncResponse = ""
-  // this.targetTextview = "textviewResponse"
-  if (!this.preCheck()) {
-    return
-  }
-  let currentFrame = this.view.frame
-  currentFrame.height = 120
-  this.view.frame = currentFrame
-  this.currentFrame = currentFrame
-  await this.beginNotification("Vision")
-  this.baseAsk(question,config,config.temperature)
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "askByVision")
 }
 };
 sideOutputController.prototype.getInputext = async function () {
@@ -1804,29 +1719,31 @@ try {
         return l
       }).join("\n")
       question = question.replace("{{note:"+noteId+"}}",stringified)
-      MNUtil.copy(question)
+      // MNUtil.copy(question)
     }
   }
 
   if (this.currentImageBase64) {
-    this.history.push({
-          role: "user", 
-          content: [
-            {
-              "type": "text",
-              "text": question
-            },
-            {
-              "type": "image_url",
-              "image_url": {
-                "url" : "data:image/jpeg;base64,"+this.currentImageBase64//this.currentImage.jpegData(0.).base64Encoding()
-              }
-            }
-          ]
-        })
+    this.history.push(chatAIUtils.genUserMessage(question,this.currentImageBase64))
+    // this.history.push({
+    //       role: "user", 
+    //       content: [
+    //         {
+    //           "type": "text",
+    //           "text": question
+    //         },
+    //         {
+    //           "type": "image_url",
+    //           "image_url": {
+    //             "url" : "data:image/jpeg;base64,"+this.currentImageBase64//this.currentImage.jpegData(0.).base64Encoding()
+    //           }
+    //         }
+    //       ]
+    //     })
   }else{
     this.history.push(chatAIUtils.genUserMessage(question))
   }
+  // MNUtil.log({message:"historyAfter",detail:this.history})
   this.resetImageInChat()
 
   this.baseAsk(this.history,this.config)
@@ -2418,7 +2335,6 @@ sideOutputController.prototype.codifyToolCall = function (funcName,arguments) {
 }
 /** 
  * @this {sideOutputController}
- * 支持从通知窗口打开（hasContext为true）和直接打开（hasContext为false）
  */
 sideOutputController.prototype.openChatView = async function (params=undefined) {
     if (this.connection) {
@@ -2428,34 +2344,7 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
   try {
     this.panelWidth = MNExtensionPanel.width
     this.lastScrollTime = Date.now()
-    if (!params) {
-      this.token = [0]
-      let systemPrompt = chatAIConfig.getConfig("chatSystemPrompt")
-      if (systemPrompt.trim()) {
-        this.history = [{role:"system",content:systemPrompt}]
-      }else{
-        this.history = []
-      }
-      this.preFuncResponse = ""
-      this.reasoningResponse = ""
-      this.currentModel = chatAIConfig.getConfig("chatModel")
-      let config = chatAIConfig.parseModelConfig(this.currentModel)
-      // let modelConfig = this.currentModel.split(":").map(model=>model.trim())
-      // if (modelConfig[0] !== "Default") {
-      //   let source = modelConfig[0]
-      //   config = chatAIConfig.getConfigFromSource(source)
-      //   if (modelConfig.length === 2) {
-      //     config.model = modelConfig[1]
-      //   }
-      // }else{
-      //   config = chatAIConfig.getConfigFromSource()
-      // }
-      this.config = config
-      this.lastResponse = ""
-      this.funcIndices = chatAIConfig.getConfig("chatFuncIndices")
-    }else{
-      // MNUtil.copyJSON(params)
-      this.token = params.token
+    if (params) {
       this.history = params.history
       this.config = params.config
       this.currentModel = params.currentModel
@@ -2496,6 +2385,7 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
           this.preFilledUserInput = undefined
         }
         newData.model = params.currentModel
+        newData.token = params.token
         // if (this.config) {
         //   if (this.config.model) {
         //     newData.model = this.config.model
@@ -2507,8 +2397,7 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
         this.importData(newData)
       }
     }
-
-    // MNUtil.copyJSON(this.config)
+ 
     this.round = 0
     this.heights = {}
     if (this.notifyTimer) {
@@ -2557,7 +2446,9 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
 
     this.minimizeButton.hidden = false
     this.minimizeButton.setImageForState(this.minimizeImage,0)
-
+    if (!this.token) {
+      this.token = []
+    }
     this.aiButton.setTitleForState(""+chatAIUtils.sum(this.token),0)
     this.aiButton.titleLabel.font = UIFont.boldSystemFontOfSize(16);
     this.aiButton.setTitleColorForState(UIColor.grayColor(),0)
@@ -2641,21 +2532,21 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
 }
 /** 
  * @this {sideOutputController}
- * 支持从通知窗口打开（hasContext为true）和直接打开（hasContext为false）
+ * @param {string} promptKey
  */
-sideOutputController.prototype.openChatViewFromPrompt = async function (promptName) {
+sideOutputController.prototype.openChatViewFromPrompt = async function (promptKey) {
     if (this.connection) {
       MNUtil.showHUD("Wait...")
       return
     }
   try {
 
-    let prompt = chatAIConfig.prompts[promptName]
+    let prompt = chatAIConfig.getPromptByKey(promptKey)
     MNUtil.showHUD("New Chat From: "+prompt.title)
     if (!("model" in prompt)) {
       prompt.model = "Default"
     }
-    let param = {currentModel:prompt.model,token:[0],preFuncResponse:"",lastResponse:"",prompt:promptName}
+    let param = {currentModel:prompt.model,token:[0],preFuncResponse:"",lastResponse:"",prompt:promptKey}
     let config = chatAIConfig.parseModelConfig(prompt.model)
     // let modelConfig = prompt.model.split(":").map(m=>m.trim())
     // if (modelConfig[0] !== "Default") {
@@ -2893,8 +2784,8 @@ sideOutputController.prototype.stopLoading = async function (exportData = true) 
   if (exportData) {
     // let data = JSON.parse(decodeURIComponent(encoded))
     let allData = chatAIConfig.getChatData()
-    let activeChatIdx = allData.activeChatIdx
-    allData.chats[activeChatIdx].data = this.history
+    this.activeChatIdx = allData.activeChatIdx
+    allData.chats[this.activeChatIdx].data = this.history
     // MNUtil.copyJSON(allData)
     chatAIConfig.exportChatData(allData)
     // chatAIConfig.exportChatData(data)
@@ -2929,15 +2820,20 @@ try {
         let newIdx = Math.max(...data.chatIdxs)+1
         data.chatIdxs.push(newIdx)
         data.activeChatIdx = newIdx
+        this.activeChatIdx = newIdx
       }else{
         data.chatIdxs.push(0)
         data.activeChatIdx = 0
+        this.activeChatIdx = 0
+      }
+      if ("token" in newChatData) {
+        this.addTokenByKey(newChatData.token)
       }
       chatAIConfig.exportChatData(data)
     }else{
       let chatsData = data.chats
-      let activeChatIdx = data.activeChatIdx
-      let currentChat = chatsData[activeChatIdx]
+      this.activeChatIdx = data.activeChatIdx
+      let currentChat = chatsData[this.activeChatIdx]
       if ("funcIdxs" in currentChat) {
         this.funcIndices = currentChat.funcIdxs
       }else{
@@ -2950,7 +2846,11 @@ try {
       if ("temperature" in currentChat) {
         this.temperature = currentChat.temperature
       }
+      // if ("token" in currentChat) {
+      //   this.addTokenByKey(currentChat.token)
+      // }
     }
+    this.refreshTokenByKey()
     // MNUtil.copy(`importAllData(\`${encodeURIComponent(JSON.stringify(data))}\`)`)
     this.chatRunJavaScript(`importAllData(\`${encodeURIComponent(JSON.stringify(data))}\`)`)
   }
@@ -2980,7 +2880,6 @@ sideOutputController.prototype.setHistory = function (history,render = true) {
  * @this {sideOutputController}
  */
 sideOutputController.prototype.clearHistory = function () {
-  this.token = [0]
   let systemPrompt = chatAIConfig.getConfig("chatSystemPrompt")
   if (systemPrompt.trim()) {
     this.history = [{role:"system",content:systemPrompt}]
@@ -3005,8 +2904,10 @@ sideOutputController.prototype.clearHistory = function () {
   this.lastResponse = ""
   this.funcIndices = chatAIConfig.getConfig("chatFuncIndices")
   let data = chatAIConfig.getChatData()
-  data.chats[data.activeChatIdx].data = this.history
+  this.activeChatIdx = data.activeChatIdx
+  data.chats[this.activeChatIdx].data = this.history
   chatAIConfig.exportChatData(data)
+  this.clearTokenByKey()
 }
 /** @this {sideOutputController} */
 sideOutputController.prototype.getWebviewHeight = async function (webview,offset = 25) {
@@ -3149,6 +3050,7 @@ sideOutputController.prototype.setResponseText = async function (funcResponse = 
         option.reasoningResponse = option.reasoningResponse +"..."
       }
     }
+    // MNUtil.log({message:"setResponseText",detail:option})
     this.chatSetResponseDev(option)
     // this["assistant"+this.round].sizeHeight = sizeHeight+40
     } catch (error) {
@@ -3271,15 +3173,23 @@ sideOutputController.prototype.addToolMessage = function (content,funcId) {
 /** @this {sideOutputController} */
 sideOutputController.prototype.setToken = async function (token) {
     if (this.onFinish) {
-      this.token.push(token)
-      let totalToken = chatAIUtils.sum(this.token)
+      let tokens = this.addTokenByKey(token)
+      let totalToken = chatAIUtils.sum(tokens)
       this.aiButton.setTitleForState(""+totalToken,0)
-      if (totalToken > 100000) {
-        MNUtil.confirm("🤖 MN ChatAI",`This AI Chat has consumed ${totalToken} tokens. Please keep an eye on your balance usage.\n\n本次对话已使用${totalToken} tokens。请注意tokens消耗。\nPS: 无关问题建议新开对话，以避免token消耗过多。`)
+      // MNUtil.log({message:"config",detail:this.config})
+      if (this.config.source === "Built-in") {
+        if (token > 50000) {
+          MNUtil.confirm("🤖 MN ChatAI",`This AI Chat Context has reached ${token} tokens. Please not using Buitl-In models for long chat.\n\n本次对话已使用${token} tokens。请不要使用Built-in模型进行长对话.`)
+        }
+      }else{
+        if (token > 100000) {
+          MNUtil.confirm("🤖 MN ChatAI",`This AI Chat has consumed ${token} tokens. Please keep an eye on your balance usage.\n\n本次对话已使用${token} tokens。请注意tokens消耗。\nPS: 无关问题建议新开对话，以避免token消耗过多。`)
+        }
       }
-
     }else{
-      this.aiButton.setTitleForState(""+chatAIUtils.sum(this.token.concat(token)),0)
+      this.refreshTokenByKey()
+      // let tokens = this.getTokenByKey()
+      // this.aiButton.setTitleForState(""+chatAIUtils.sum(tokens.concat(token)),0)
     }
 }
 /** @this {sideOutputController} */
@@ -3419,7 +3329,6 @@ sideOutputController.prototype.addImageInChat = function (imageData) {
  */
 sideOutputController.prototype.addToInput = function (text,imageData=undefined) {
 try {
-
   this.openChatView()
   this.addImageInChat(imageData)
   // if (imageData) {
@@ -3569,18 +3478,31 @@ sideOutputController.prototype.waitHUD = function (title,view = this.view) {
 
 /** @this {sideOutputController} */
 sideOutputController.prototype.userSelectAddNote = async function (content,format) {
+try {
+
+    let note = chatAIUtils.getFocusNote()
+    if (format === "json") {
+      this.showHUD("➕ Add Question note")
+      // chatAIUtils.log("content", content)
+      // chatAIUtils.log("choices", content.choices)
+      let title = content.title
+      let description = content.description+"\n\n"+chatAIUtils.getChoicesHTML(content.choices)
+      // let choices = content.choices
+      let childNote = note.createChildNote({title:title,excerptText:description,excerptTextMarkdown:true})
+      childNote.focusInMindMap(1.5)
+      return
+    }
     content = content.replace(/\\n/g,"\n")
     // let selectingText = await this.getWebviewSelection()
     // if (!selectingText && (Date.now()-this.selection.time < 5000)) {
     //   selectingText = this.selection.text
     // }
     // let selectingText = await this.getWebviewContent()
-    this.showHUD("➕ Add note: "+content)
-    let note = chatAIUtils.getFocusNote()
     // if (selectingText) {
     //   content = content+"\n\n"+selectingText
     // }
     if (format === "markdown" && /^#/.test(content.trim())) {
+        this.showHUD("➕ Add note: "+content)
         let contents = content.split("\n")
         let newTitle = contents[0].replace(/^#\s?/g,"")
         let contentRemain = contents.slice(1).join("\n").trim()
@@ -3590,11 +3512,16 @@ sideOutputController.prototype.userSelectAddNote = async function (content,forma
     }
     let childNote = note.createChildNote({excerptText:content,excerptTextMarkdown:true})
     childNote.focusInMindMap(0.5)
+  
+} catch (error) {
+  chatAIUtils.addErrorLog(error, "userSelectAddNote")
+}
 }
 sideOutputController.prototype.executeChatAction = async function (config) {
   try {
     // MNUtil.copy(config)
-    MNUtil.log(config.host)
+    // MNUtil.log(config.host)
+    // chatAIUtils.log("executeChatAction.config", config)
 
       switch (config.host) {
         case "stopLoading":
@@ -3604,11 +3531,19 @@ sideOutputController.prototype.executeChatAction = async function (config) {
           this.setButtonOpacity(1.0)
           MNUtil.stopHUD()
           return false
-        case "activeChat":
+        case "activeChat"://通常在切换对话时触发
           if ("content" in config.params) {
             let content = config.params.content
             let chatsData = (typeof content === "string") ? JSON.parse(content) : content
             this.history = chatsData.data
+            // chatAIUtils.log("executeChatAction.activeChat", chatsData)
+            this.activeChatIdx = chatsData.chatIdx
+            this.refreshTokenByKey()
+            // let tokens = this.getTokenByKey()
+            // this.aiButton.setTitleForState(""+chatAIUtils.sum(tokens),0)
+            // if (this.history.length === 0) {
+            //   this.token = [0]
+            // }
             if ("funcIdxs" in chatsData) {
               this.funcIndices = chatsData.funcIdxs
             }else{
@@ -3628,7 +3563,10 @@ sideOutputController.prototype.executeChatAction = async function (config) {
             let chatConfig = (typeof content === "string") ? JSON.parse(content) : content
             // MNUtil.copy(chatConfig)
             this.history = chatConfig.history
+            // chatAIUtils.log("refreshChat", chatConfig)
             this.afterHistory = chatConfig.afterHistory
+            this.activeChatIdx = chatConfig.chatIdx
+            // chatAIUtils.log("refreshChat.afterHistory", chatConfig.afterHistory)
             let last = this.history.pop()
             let question = undefined
             while (last.role !== "user") {
@@ -3646,9 +3584,10 @@ sideOutputController.prototype.executeChatAction = async function (config) {
               // MNUtil.log({message:"updateChat:"+typeof content,detail:content})
               let allData = (typeof content === "string") ? JSON.parse(content) : content
               let chatsData = allData.chats
-              let activeChatIdx = allData.activeChatIdx
-              let currentChat = chatsData[activeChatIdx]
+              this.activeChatIdx = allData.activeChatIdx
+              let currentChat = chatsData[this.activeChatIdx]
               this.history = currentChat.data
+              // chatAIUtils.log("updateChat", currentChat)
               if ("funcIdxs" in currentChat) {
                 this.funcIndices = currentChat.funcIdxs
               }else{
@@ -3817,6 +3756,100 @@ sideOutputController.prototype.hideReference = function () {
     this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
   }
   this.setCurrentModel(this.currentModel)
+}
+sideOutputController.prototype.preCheck = function () {
+  if (this.connection) {
+    MNUtil.showHUD("Wait...")
+    return false
+  }
+  // let totalToken = chatAIUtils.sum(this.token)
+  if (this.config.source === "Built-in") {
+    let tokens = this.getTokenByKey()
+    let lastToken = tokens.at(-1)
+    // chatAIUtils.log("lastToken", {lastToken:lastToken,token:this.token})
+    if (lastToken > 50000) {
+      MNUtil.confirm("🤖 MN ChatAI",`This AI Chat context has reached ${lastToken} tokens. Please not using Buitl-In models for long chat.\n\n本次对话上下文已达${lastToken} tokens。请不要使用Built-in模型进行长对话.`)
+      return false
+    }
+  }
+  return chatAIUtils.preCheck(this.config)
+}
+/**
+ * 
+ * @param {string|number} key 
+ * @returns 
+ */
+sideOutputController.prototype.getTokenByKey = function (key=this.activeChatIdx) {
+  let realKey = ""
+  if (typeof key === "number") {
+    realKey = "tokenConfig_"+key
+  }
+  if (typeof key === "string") {
+    if (key.startsWith("tokenConfig_")) {
+      realKey = key
+    }else{
+      realKey = "tokenConfig_"+key
+    }
+  }
+  if (realKey in this.tokenConfig) {
+    return this.tokenConfig[realKey]
+  }else{
+    return [0]
+  }
+}
+/**
+ * @param {number|number[]} token
+ * @param {string|number} key 
+ * @returns 
+ */
+sideOutputController.prototype.addTokenByKey = function (token,key=this.activeChatIdx) {
+  let realKey = ""
+  if (typeof key === "number") {
+    realKey = "tokenConfig_"+key
+  }
+  if (typeof key === "string") {
+    if (key.startsWith("tokenConfig_")) {
+      realKey = key
+    }else{
+      realKey = "tokenConfig_"+key
+    }
+  }
+  if (realKey in this.tokenConfig) {
+    this.tokenConfig[realKey] = this.tokenConfig[realKey].concat(token)
+  }else{
+    this.tokenConfig[realKey] = [].concat(token)
+  }
+  return this.tokenConfig[realKey]
+}
+/**
+ * 
+ * @param {string|number} key 
+ * @returns 
+ */
+sideOutputController.prototype.clearTokenByKey = function (key=this.activeChatIdx) {
+  let realKey = ""
+  if (typeof key === "number") {
+    realKey = "tokenConfig_"+key
+  }
+  if (typeof key === "string") {
+    if (key.startsWith("tokenConfig_")) {
+      realKey = key
+    }else{
+      realKey = "tokenConfig_"+key
+    }
+  }
+  this.tokenConfig[realKey] = [0]
+  this.aiButton.setTitleForState(""+0,0)
+
+}
+/**
+ * 
+ * @param {string|number} key 
+ * @returns 
+ */
+sideOutputController.prototype.refreshTokenByKey = function (key=this.activeChatIdx) {
+  let tokens = this.getTokenByKey(key)
+  this.aiButton.setTitleForState(""+chatAIUtils.sum(tokens),0)
 }
 /**
  * @type {UIView}

@@ -531,7 +531,11 @@ JSB.newAddon = function (mainPath) {
           if (action === "importprompt") {
             let promptConfig = config.params.promptconfig
             if (promptConfig.title) {
-              let confirm = await MNUtil.confirm("MN ChatAI\nImport prompt ["+promptConfig.title+"]?", "是否导入 prompt ["+promptConfig.title+"]？\n"+JSON.stringify(promptConfig,null,2))
+              let content = JSON.stringify(promptConfig,null,2)
+              if (content.length > 1000) {
+                content = content.slice(0,1000)+"..."
+              }
+              let confirm = await MNUtil.confirm("🤖 MN ChatAI","Import prompt ["+promptConfig.title+"]?\n\n是否导入 prompt ["+promptConfig.title+"]？\n"+content)
               if (!confirm) {
                 MNUtil.showHUD("Cancel import")
                 return
@@ -849,7 +853,7 @@ ${knowledge}
       openSideBar: async function (params) {
         if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
         await chatAIUtils.openSideOutput()
-        chatAIUtils.sideOutputController.openChatView(false)
+        chatAIUtils.sideOutputController.openChatView()
       },
       toggleWindowLocation: function (origionalLoc) {
         if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}

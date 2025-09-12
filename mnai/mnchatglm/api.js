@@ -303,7 +303,7 @@ function getQustionBlock(code) {
       let newNoteButtonBorderColor = (theme === "dark") ? "rgba(192, 217, 255, 0.47)" : "rgba(13, 110, 253, 0.15)"
       let questionHTML = `\n<div style="background: ${backgroundColor}; border: 1px solid ${borderColor}; box-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);  width: calc(100% - 2px);  border-radius: 16px; padding: 5px; padding-left: 0px; margin: 3px; margin-left: 0px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; " >
 <div style="text-align: right; margin-top: 1px; margin-bottom: 2px;">
-    <div style=" display: inline-block; font-weight: 600; width: 120px; min-width: 120px; font-size: 14px; text-align: center; padding: 8px 5px; background: ${newNoteButtonBackgroundColor}; border-radius: 12px; border: 1px solid ${newNoteButtonBorderColor}; ">
+    <div style=" display: inline-block; font-weight: 600; width: 130px; min-width: 130px; font-size: 14px; text-align: center; padding: 8px 5px; background: ${newNoteButtonBackgroundColor}; border-radius: 12px; border: 1px solid ${newNoteButtonBorderColor}; ">
         <a href="${createNoteURL}" style="text-decoration: none; color: ${newNoteButtonTextColor}; display: block;">
            ➕ 点击创建卡片
         </a>
@@ -1711,10 +1711,13 @@ const activeChat = async (ele) => {
   if (activeChatIdx > chatsData.length-1) {
     activeChatIdx = chatsData.length-1
   }
-  refreshChat(chatsData[activeChatIdx]["data"])
+  let dataToActive = chatsData[activeChatIdx]
+  let history = dataToActive.data
+  refreshChat(history)
   try {
     await delay(500)
-    postNotificataion("activeChat", JSON.stringify(chatsData[activeChatIdx]))
+    dataToActive.chatIdx = activeChatIdx
+    postNotificataion("activeChat", JSON.stringify(dataToActive))
   } catch (error) {
     
   }
