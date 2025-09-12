@@ -337,7 +337,7 @@ viewWillLayoutSubviews: function() {
     // MNUtil.log("webViewShouldStartLoadWithRequestNavigationType:"+type)
   //  https://qun.qq.com/universal-share/share?ac=1&authKey=7j5ESev4kHF%2BVOyv0MIP6xLGy7AxHqAv2aSo1zckqWUdLWKFloiCBbsmKsXAuvNY&busi_data=eyJncm91cENvZGUiOiI1MzkzMDUyMjciLCJ0b2tlbiI6IjA1c3R1azhjaVBvN1BmRUt6OGF5TXI0WEhzaEwrQ3IrN0k2ZklNU2tENnVjVzlRVlZSVFdFd3dPZGNCaG9LSlUiLCJ1aW4iOiIxNTE0NTAxNzY3In0%3D&data=g3UDk1OiVpEsWZsCg12Eau9l0pcVSSBZykMUIznWi8QSlSJfqWsr2m6VM4xiByyRC-t7sYSZmjr2z7s8dCsdxA&svctype=4&tempid=h5_group_info
   //  https://qm.qq.com/q/nuwBBTCwpi
-    let currentURL = webView.request.URL().absoluteString()
+    let currentURL = webView.request?.URL()?.absoluteString()
     let requestURL = request.URL().absoluteString()
     // MNUtil.copy(requestURL)
     // MNUtil.log(requestURL)
@@ -535,7 +535,7 @@ viewWillLayoutSubviews: function() {
             if (typeof snipasteUtils !== 'undefined') {
               MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
             }else{
-              let confirm = await MNUtil.confirm("MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
+              let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
               if (confirm) {
                 MNUtil.openDoc(md5,MNUtil.currentNotebookId)
                 if (MNUtil.docMapSplitMode === 0) {
@@ -645,13 +645,15 @@ viewWillLayoutSubviews: function() {
     menu.addMenuItem('📸  Screenshot', 'screenshot:',self.view.frame.width>1000?self.view.frame.width:1000)
     menu.addMenuItem('📸  Screenshot Full Page', 'screenshotFull:',self.view.frame.width>1000?self.view.frame.width:1000)
     menu.addMenuItem('📤  Export to PDF', 'exportToPDF:')
-    menu.addMenuItem('🎬  VideoFrame → Clipboard', 'videoFrame:',self.view.frame.width>1000?self.view.frame.width:1000)
-    menu.addMenuItem('🎬  VideoFrame → Snipaste', 'videoFrameToSnipaste:',self.view.frame.width>1000?self.view.frame.width:1000)
-    menu.addMenuItem('🎬  VideoFrame → Editor', 'videoFrameToEditor:',self.view.frame.width>1000?self.view.frame.width:1000)
-    menu.addMenuItem('🎬  VideoFrame → CurrentNote', 'videoFrameToNote:',false)
-    menu.addMenuItem('🎬  VideoFrame → ChildNote', 'videoFrameToNote:',true)
-    menu.addMenuItem('🎬  VideoFrame → NewNote', 'videoFrameToNewNote:',true)
-    menu.addMenuItem('🎬  VideoFrame → NewComment', 'videoFrameToComment:',true)
+    if (!self.inHomePage) {
+      menu.addMenuItem('🎬  VideoFrame → Clipboard', 'videoFrame:',self.view.frame.width>1000?self.view.frame.width:1000)
+      menu.addMenuItem('🎬  VideoFrame → Snipaste', 'videoFrameToSnipaste:',self.view.frame.width>1000?self.view.frame.width:1000)
+      menu.addMenuItem('🎬  VideoFrame → Editor', 'videoFrameToEditor:',self.view.frame.width>1000?self.view.frame.width:1000)
+      menu.addMenuItem('🎬  VideoFrame → CurrentNote', 'videoFrameToNote:',false)
+      menu.addMenuItem('🎬  VideoFrame → ChildNote', 'videoFrameToNote:',true)
+      menu.addMenuItem('🎬  VideoFrame → NewNote', 'videoFrameToNewNote:',true)
+      menu.addMenuItem('🎬  VideoFrame → NewComment', 'videoFrameToComment:',true)
+    }
     // menu.addMenuItem('🎬  VideoFrame → NewComment', 'changeZoomScale:',true)
     if ((await self.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
       menu.addMenuItem('📤  Upload to Doc2X', 'uploadToDoc2X:',true)
@@ -901,17 +903,30 @@ viewWillLayoutSubviews: function() {
     commandTable.push({title:'🎛  Setting',object:self,selector:'openSettingView:',param:'engine'})
     self.view.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,200,2)
   },
-  changeWebApp: function(sender) {
-    var commandTable = browserConfig.webAppEntrieNames.map(entrieName => {
-      return {title:browserConfig.webAppEntries[entrieName].title,object:self,selector:'changeWebAppTo:',param:entrieName,checked:self.webApp === entrieName}
+  changeWebApp: function(button) {
+    let menu = new Menu(button,self)
+    // menu.width = 200
+    menu.preferredPosition = 2
+    browserConfig.webAppEntrieNames.forEach(entrieName => {
+      menu.addMenuItem(browserConfig.webAppEntries[entrieName].title, 'changeWebAppTo:', entrieName)
     })
     if (self.inHomePage) {
-      commandTable.push({title:'🎛  Setting',object:self,selector:'openSettingView:',param:'webApp'})
+      menu.addMenuItem('🎛  Setting', 'openSettingView:', 'webApp')
     }else{
-      commandTable.push({title:'➕  Add this page',object:self,selector:'addPageToWebApp:',param:'123'})
-      commandTable.push({title:'🎛  Setting',object:self,selector:'openSettingView:',param:'webApp'})
+      menu.addMenuItem('➕  Add this page', 'addPageToWebApp:', button)
+      menu.addMenuItem('🎛  Setting', 'openSettingView:', 'webApp')
     }
-    self.view.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,200)
+    menu.show()
+    // var commandTable = browserConfig.webAppEntrieNames.map(entrieName => {
+    //   return {title:browserConfig.webAppEntries[entrieName].title,object:self,selector:'changeWebAppTo:',param:entrieName}
+    // })
+    // if (self.inHomePage) {
+    //   commandTable.push({title:'🎛  Setting',object:self,selector:'openSettingView:',param:'webApp'})
+    // }else{
+    //   commandTable.push({title:'➕  Add this page',object:self,selector:'addPageToWebApp:',param:button})
+    //   commandTable.push({title:'🎛  Setting',object:self,selector:'openSettingView:',param:'webApp'})
+    // }
+    // self.view.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,200)
   },
   changeOpacity: function(slider) {
     self.view.layer.opacity = slider.value
@@ -942,15 +957,48 @@ viewWillLayoutSubviews: function() {
   },
   changeCustomButton: function(button){
     if (browserUtils.checkSubscribe(false)) {
-      var commandTable = browserConfig.allCustomActions.map(action=>{
-        return {title:browserConfig.getCustomDescription(action),object:self,selector:'setCustomAction:',param:{index:button.index,action:action}}
+      let menu = new Menu(button,self)
+      menu.width = 300
+      menu.preferredPosition = 1
+      menu.addMenuItem('🌐  WebAPP:', 'chooseWebApp:',{button:button,index:button.index})
+      browserConfig.allCustomActions.forEach(action=>{
+        menu.addMenuItem(browserConfig.getCustomDescription(action),'setCustomAction:',{index:button.index,action:action})
       })
-      self.view.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,300,1)
+      menu.show()
+      // self.view.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,300,1)
+      // var commandTable = browserConfig.allCustomActions.map(action=>{
+      //   return {title:browserConfig.getCustomDescription(action),object:self,selector:'setCustomAction:',param:{index:button.index,action:action}}
+      // })
+      // self.view.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,300,1)
     }
   },
-  setCustomAction: function(config){
+  chooseWebApp: function(params){
+  try {
+    Menu.dismissCurrentMenu()
+    let button = params.button
+    let index = params.index
+    let menu = new Menu(button,self)
+    menu.width = 200
+    menu.preferredPosition = 1
+    browserConfig.webAppEntrieNames.map(entrieName => {
+      menu.addMenuItem(browserConfig.webAppEntries[entrieName].title, 'setCustomAction:', {index:index,action:"webApp:"+entrieName})
+    })
+    menu.show()
+    
+  } catch (error) {
+    browserUtils.addErrorLog(error, "chooseWebApp")
+  }
+  },
+  setCustomAction: async function(config){
+  
+    if (!chatAIUtils.isSubscribed()) {
+      let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
+    }
+    Menu.dismissCurrentMenu()
     if (browserUtils.checkSubscribe(true)) {
-      if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
       if (config.index === 1) {
         browserConfig.config.custom = config.action
         // self["setCustomButton"+config.index].setTitleForState("Custom"+config.index+": "+browserConfig.getConfig("custom"),0)
@@ -1030,10 +1078,40 @@ try {
       self.showHUD("❌ Watch Mode: OFF")
     }
   },
-  toggleDesktop:function (param) {
+  toggleDesktop:function (params) {
+  try {
+
     let self = getBrowserController()
-    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
     Menu.dismissCurrentMenu()
+    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
+
+    if (self.settingView && params && params.type) {
+      browserUtils.log("toggleDesktop", params)
+      if (params.type === "engine") {
+        let config = browserConfig.entries[params.id]
+        config.desktop = !config.desktop
+        browserConfig.entries[params.id] = config
+        browserConfig.save("MNBrowser_entries")
+        if (config.desktop) {
+          MNUtil.showHUD("✅ Desktop mode for engine: "+config.title)
+        }else{
+        MNUtil.showHUD("❌ Desktop mode for engine: "+config.title)
+        }
+        self.setTextview(params.id)
+      }else{
+        let config = browserConfig.webAppEntries[params.id]
+        config.desktop = !config.desktop
+        browserConfig.webAppEntries[params.id] = config
+        browserConfig.save("MNBrowser_webAppEntries")
+        if (config.desktop) {
+          MNUtil.showHUD("✅ Desktop mode for webapp: "+config.title)
+        }else{
+          MNUtil.showHUD("❌ Desktop mode for webapp: "+config.title)
+        }
+        self.setTextview(params.id)
+      }
+      return;
+    }
     if (self.desktop) {
       self.setWebMode(false)
     }else{
@@ -1043,6 +1121,10 @@ try {
       let newURL = self.webview.url.replace("www.baidu","m.baidu")
       MNConnection.loadRequest(self.webview, newURL)
     }
+    
+  } catch (error) {
+    browserUtils.addErrorLog(error, "toggleDesktop")
+  }
     return;
     // // self.view.popoverController.dismissPopoverAnimated(true);
     // let desktop
@@ -1171,7 +1253,7 @@ try {
   },
   uploadConfig: function (engine) {
 
-    let note = MNUtil.getNoteById(self.currentNoteId)
+    let note = self.currentNote()
     let customEntries
     let commentsLength = note.comments.length
     if (commentsLength === 0) {
@@ -1463,13 +1545,13 @@ exportToPDF()
     let self = getBrowserController()
     Menu.dismissCurrentMenu()
     if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
-    self.videoFrameAction("clipboard")
+    self.videoFrameAction("clipboard",false)
   },
   videoFrameToSnipaste: async function (width) {
     let self = getBrowserController()
     Menu.dismissCurrentMenu()
     if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
-    self.videoFrameAction("snipaste")
+    self.videoFrameAction("snipaste",false)
   },
   videoFrameToEditor: async function (width) {
     let self = getBrowserController()
@@ -1524,333 +1606,346 @@ exportToPDF()
       return
     }
     try {
-      
-
-    let url
-    let text
-    let configName = (button.index === 1)?"custom":"custom"+button.index
-    switch (browserConfig.getConfig(configName)) {
-      case "uploadPDFToDoc2X":
-        if (!(await self.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
-          MNUtil.waitHUD("Opening Doc2X...")
-          self.setWebMode(true)
-          MNConnection.loadRequest(self.webview, "https://doc2x.noedgeai.com")
-          self.uploadOnDoc2X = {enabled:true,action:"uploadPDFToDoc2X"}
-          return
-        }
-        self.uploadPDFToDoc2X()
-        break;
-      case "uploadImageToDoc2X":
-        if (!(await self.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
-          MNUtil.waitHUD("Opening Doc2X...")
-          self.setWebMode(true)
-          MNConnection.loadRequest(self.webview, "https://doc2x.noedgeai.com")
-          self.uploadOnDoc2X = {enabled:true,action:"uploadImageToDoc2X"}
-          return
-        }
-        self.uploadImageToDoc2X()
-        break;
-      case "changeBilibiliVideoPart":
-        self.changeBilibiliVideoPart(button)
-        break;
-      case "screenshot":
-        let width = self.view.frame.width>1000?self.view.frame.width:1000
-        let imageData = await self.screenshot(width)
-        MNUtil.copyImage(imageData)
-        self.showHUD('截图已复制到剪贴板')
-        break;
-      case "videoFrame2Clipboard":
-        self.videoFrameAction("clipboard")
-        break;
-      case "videoFrame2Editor":
-        self.videoFrameAction("editor")
-        break;
-      case "videoFrame2Note":
-        self.videoFrameAction("excerpt")
-        break;
-      case "videoFrame2ChildNote":
-        self.videoFrameAction("childNote")
-        break;
-      case "videoFrameToNewNote":
-        self.videoFrameAction("newNote")
-        break;
-      case "videoFrameToComment":
-        self.videoFrameAction("comment")
-        break;
-      case "videoTime2Clipboard":
-        self.videoTimeAction("clipboard")
-        break;
-      case "videoTime2Editor":
-        self.videoTimeAction("editor")
-        break;
-      case "videoTime2Note":
-        self.videoTimeAction("excerpt")
-        break;
-      case "videoTime2ChildNote":
-        self.videoTimeAction("childNote")
-        break;
-      case "videoFrameToSnipaste":
-        self.videoFrameAction("snipaste")
-        break;
-      case "videoTimeToNewNote":
-        self.videoTimeAction("newNote")
-        break;
-      case "videoTimeToComment":
-        self.videoTimeAction("comment")
-        break;
-      case "bigbang":
-        url = await self.getCurrentURL()
-        text = await self.getTextInWebview()
-        MNUtil.postNotification('bigbangText', {text:text,url:url})
-        break;
-      case "copyCurrentURL":
-        url = await self.getCurrentURL()
-        MNUtil.copy(url)
-        self.showHUD("链接已复制")
-        break;
-      case "copyAsMDLink":
-        url = await self.getCurrentURL()
-        text = await self.getSelectedTextInWebview()
-        MNUtil.copy(`[${text}](${url})`)
-        self.showHUD("链接已复制")
-        break;
-      case "openInNewWindow":
-        if (browserUtils.checkSubscribe()) {
-          let agent = self.webview.customUserAgent
-          url = await self.getCurrentURL()
-          MNUtil.postNotification('newWindow', {url:url,desktop:browserConfig.entries[browserConfig.engine].desktop,engine:browserConfig.engine,webApp:self.webApp,agent:agent})
-          self.homePage();
-        }
-        break;
-      case "openNewWindow":
-        if (browserUtils.checkSubscribe()) {
-          MNUtil.postNotification('newWindow', {url:browserConfig.getConfig("homePage").url,desktop:browserConfig.entries[browserConfig.engine].desktop,engine:browserConfig.engine,webApp:self.webApp})
-        }
-        break;
-      case "openCopiedURL":
-        MNConnection.loadRequest(self.webview, MNUtil.clipboardText)
-        break;
-      case "pauseOrPlay":
-        self.runJavaScript(`
-function togglePlayPause() {
-  // 假设我们的video元素的id是'myVideo'
-  const video = document.getElementsByTagName('video')[0];
-  if (video.ended) {
-    video.currentTime = 0
-    video.play()
-  }else if (video.paused) {
-    video.play()
-  }else{
-    video.pause()
-  }
-};
-togglePlayPause()
-`)
-        break;
-      case "toggleMute":
-        self.runJavaScript(`
-function toggleMute() {
-  const video = document.getElementsByTagName('video')[0];
-  video.muted = !video.muted;
-}
-toggleMute()`)
-        break;
-      case "volumeUp":
-        self.runJavaScript(`
-function volumeUp() {
-  const video = document.getElementsByTagName('video')[0];
-  video.volume += 0.1;
-}
-volumeUp()`)
-        break;
-      case "volumeDown":
-        self.runJavaScript(`
-function volumeDown() {
-  const video = document.getElementsByTagName('video')[0];
-  video.volume -= 0.1;
-}
-volumeDown()`)
-        break;
-      case "play0.5x":
-        self.runJavaScript(`
-function changePlaybackRate(rate) {
-  const video = document.getElementsByTagName('video')[0];
-  if (video.playbackRate === rate) {
-    video.playbackRate = 1;
-  }else{
-    video.playbackRate = rate;
-  }
-}
-changePlaybackRate(0.5)`)
-        break;
-      case "play1.25x":
-        self.runJavaScript(`
-function changePlaybackRate(rate) {
-  const video = document.getElementsByTagName('video')[0];
-  if (video.playbackRate === rate) {
-    video.playbackRate = 1;
-  }else{
-    video.playbackRate = rate;
-  }
-}
-changePlaybackRate(1.25)`)
-        break;
-      case "play1.5x":
-        self.runJavaScript(`
-function changePlaybackRate(rate) {
-  const video = document.getElementsByTagName('video')[0];
-  if (video.playbackRate === rate) {
-    video.playbackRate = 1;
-  }else{
-    video.playbackRate = rate;
-  }
-}
-changePlaybackRate(1.5)`)
-        break;
-      case "play1.75x":
-        self.runJavaScript(`
-function changePlaybackRate(rate) {
-  const video = document.getElementsByTagName('video')[0];
-  if (video.playbackRate === rate) {
-    video.playbackRate = 1;
-  }else{
-    video.playbackRate = rate;
-  }
-}
-changePlaybackRate(1.75)`)
-        break;
-      case "play2x":
-        self.runJavaScript(`
-function changePlaybackRate(rate) {
-  const video = document.getElementsByTagName('video')[0];
-  if (video.playbackRate === rate) {
-    video.playbackRate = 1;
-  }else{
-    video.playbackRate = rate;
-  }
-}
-changePlaybackRate(2)`)
-        break;
-      case "play2.5x":
-        self.runJavaScript(`
-function changePlaybackRate(rate) {
-  const video = document.getElementsByTagName('video')[0];
-  if (video.playbackRate === rate) {
-    video.playbackRate = 1;
-  }else{
-    video.playbackRate = rate;
-  }
-}
-changePlaybackRate(2.5)`)
-        break;
-      case "play3x":
-        self.runJavaScript(`
-function changePlaybackRate(rate) {
-  const video = document.getElementsByTagName('video')[0];
-  if (video.playbackRate === rate) {
-    video.playbackRate = 1;
-  }else{
-    video.playbackRate = rate;
-  }
-}
-changePlaybackRate(3)`)
-        break;
-      case "play3.5x":
-        self.runJavaScript(`
-function changePlaybackRate(rate) {
-  const video = document.getElementsByTagName('video')[0];
-  if (video.playbackRate === rate) {
-    video.playbackRate = 1;
-  }else{
-    video.playbackRate = rate;
-  }
-}
-changePlaybackRate(3.5)`)
-        break;
-      case "play4x":
-        self.runJavaScript(`
-function changePlaybackRate(rate) {
-  const video = document.getElementsByTagName('video')[0];
-  if (video.playbackRate === rate) {
-    video.playbackRate = 1;
-  }else{
-    video.playbackRate = rate;
-  }
-}
-changePlaybackRate(4)`)
-        break;
-      case "forward10s":
-        self.runJavaScript(`
-function forwardSeconds(seconds) {
-  const video = document.getElementsByTagName('video')[0];
-  video.currentTime += seconds;
-  video.play()
-};
-forwardSeconds(10)`);
-        break;
-      case "forward15s":
-        self.runJavaScript(`
-function forwardSeconds(seconds) {
-  const video = document.getElementsByTagName('video')[0];
-  video.currentTime += seconds;
-  video.play()
-};
-forwardSeconds(15)`);
-        break;
-      case "forward30s":
-        self.runJavaScript(`
-function forwardSeconds(seconds) {
-  const video = document.getElementsByTagName('video')[0];
-  video.currentTime += seconds;
-  video.play()
-};
-forwardSeconds(30)`);
-        break;
-      case "backward10s":
-        self.runJavaScript(`
-function backwardSeconds(seconds) {
-  const video = document.getElementsByTagName('video')[0];
-  let currentTime = video.currentTime;
-  if (currentTime - seconds < 0) {
-    video.currentTime = 0;
-  }else{
-    video.currentTime -= seconds;
-  }
-  video.play()
-};
-backwardSeconds(10)`);
-        break;
-      case "backward15s":
-        self.runJavaScript(`
-function backwardSeconds(seconds) {
-  const video = document.getElementsByTagName('video')[0];
-  let currentTime = video.currentTime;
-  if (currentTime - seconds < 0) {
-    video.currentTime = 0;
-  }else{
-    video.currentTime -= seconds;
-  }
-  video.play()
-};
-backwardSeconds(15)`);
-        break;
-      case "backward30s":
-        self.runJavaScript(`
-function backwardSeconds(seconds) {
-  const video = document.getElementsByTagName('video')[0];
-  let currentTime = video.currentTime;
-  if (currentTime - seconds < 0) {
-    video.currentTime = 0;
-  }else{
-    video.currentTime -= seconds;
-  }
-  video.play()
-};
-backwardSeconds(30)`);
-        break;
-        default:
-        break;
+    if (self.settingView) {
+      let preOpacity = self.settingView.layer.opacity
+      UIView.animateWithDurationAnimationsCompletion(0.2,()=>{
+        self.settingView.layer.opacity = 0
+      },()=>{
+        self.settingView.layer.opacity = preOpacity
+        self.settingView.hidden = true
+      })
     }
+    // let url
+    // let text
+    let configName = (button.index === 1)?"custom":"custom"+button.index
+    let action = browserConfig.getConfig(configName)
+    if (action.startsWith("webApp:")) {
+      self.changeWebAppTo(action.split(":")[1])
+      return
+    }
+    self.executeCustomAction(action)
+//     switch (action) {
+//       case "uploadPDFToDoc2X":
+//         if (!(await self.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
+//           MNUtil.waitHUD("Opening Doc2X...")
+//           self.setWebMode(true)
+//           MNConnection.loadRequest(self.webview, "https://doc2x.noedgeai.com")
+//           self.uploadOnDoc2X = {enabled:true,action:"uploadPDFToDoc2X"}
+//           return
+//         }
+//         self.uploadPDFToDoc2X()
+//         break;
+//       case "uploadImageToDoc2X":
+//         if (!(await self.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
+//           MNUtil.waitHUD("Opening Doc2X...")
+//           self.setWebMode(true)
+//           MNConnection.loadRequest(self.webview, "https://doc2x.noedgeai.com")
+//           self.uploadOnDoc2X = {enabled:true,action:"uploadImageToDoc2X"}
+//           return
+//         }
+//         self.uploadImageToDoc2X()
+//         break;
+//       case "changeBilibiliVideoPart":
+//         self.changeBilibiliVideoPart(button)
+//         break;
+//       case "screenshot":
+//         let width = self.view.frame.width>1000?self.view.frame.width:1000
+//         let imageData = await self.screenshot(width)
+//         MNUtil.copyImage(imageData)
+//         self.showHUD('截图已复制到剪贴板')
+//         break;
+//       case "videoFrame2Clipboard":
+//         self.videoFrameAction("clipboard")
+//         break;
+//       case "videoFrame2Editor":
+//         self.videoFrameAction("editor")
+//         break;
+//       case "videoFrame2Note":
+//         self.videoFrameAction("excerpt")
+//         break;
+//       case "videoFrame2ChildNote":
+//         self.videoFrameAction("childNote")
+//         break;
+//       case "videoFrameToNewNote":
+//         self.videoFrameAction("newNote")
+//         break;
+//       case "videoFrameToComment":
+//         self.videoFrameAction("comment")
+//         break;
+//       case "videoTime2Clipboard":
+//         self.videoTimeAction("clipboard")
+//         break;
+//       case "videoTime2Editor":
+//         self.videoTimeAction("editor")
+//         break;
+//       case "videoTime2Note":
+//         self.videoTimeAction("excerpt")
+//         break;
+//       case "videoTime2ChildNote":
+//         self.videoTimeAction("childNote")
+//         break;
+//       case "videoFrameToSnipaste":
+//         self.videoFrameAction("snipaste")
+//         break;
+//       case "videoTimeToNewNote":
+//         self.videoTimeAction("newNote")
+//         break;
+//       case "videoTimeToComment":
+//         self.videoTimeAction("comment")
+//         break;
+//       case "bigbang":
+//         url = await self.getCurrentURL()
+//         text = await self.getTextInWebview()
+//         MNUtil.postNotification('bigbangText', {text:text,url:url})
+//         break;
+//       case "copyCurrentURL":
+//         url = await self.getCurrentURL()
+//         MNUtil.copy(url)
+//         self.showHUD("链接已复制")
+//         break;
+//       case "copyAsMDLink":
+//         url = await self.getCurrentURL()
+//         text = await self.getSelectedTextInWebview()
+//         MNUtil.copy(`[${text}](${url})`)
+//         self.showHUD("链接已复制")
+//         break;
+//       case "openInNewWindow":
+//         if (browserUtils.checkSubscribe()) {
+//           let agent = self.webview.customUserAgent
+//           url = await self.getCurrentURL()
+//           MNUtil.postNotification('newWindow', {url:url,desktop:browserConfig.entries[browserConfig.engine].desktop,engine:browserConfig.engine,webApp:self.webApp,agent:agent})
+//           self.homePage();
+//         }
+//         break;
+//       case "openNewWindow":
+//         if (browserUtils.checkSubscribe()) {
+//           MNUtil.postNotification('newWindow', {url:browserConfig.getConfig("homePage").url,desktop:browserConfig.entries[browserConfig.engine].desktop,engine:browserConfig.engine,webApp:self.webApp})
+//         }
+//         break;
+//       case "openCopiedURL":
+//         MNConnection.loadRequest(self.webview, MNUtil.clipboardText)
+//         break;
+//       case "pauseOrPlay":
+//         self.runJavaScript(`
+// function togglePlayPause() {
+//   // 假设我们的video元素的id是'myVideo'
+//   const video = document.getElementsByTagName('video')[0];
+//   if (video.ended) {
+//     video.currentTime = 0
+//     video.play()
+//   }else if (video.paused) {
+//     video.play()
+//   }else{
+//     video.pause()
+//   }
+// };
+// togglePlayPause()
+// `)
+//         break;
+//       case "toggleMute":
+//         self.runJavaScript(`
+// function toggleMute() {
+//   const video = document.getElementsByTagName('video')[0];
+//   video.muted = !video.muted;
+// }
+// toggleMute()`)
+//         break;
+//       case "volumeUp":
+//         self.runJavaScript(`
+// function volumeUp() {
+//   const video = document.getElementsByTagName('video')[0];
+//   video.volume += 0.1;
+// }
+// volumeUp()`)
+//         break;
+//       case "volumeDown":
+//         self.runJavaScript(`
+// function volumeDown() {
+//   const video = document.getElementsByTagName('video')[0];
+//   video.volume -= 0.1;
+// }
+// volumeDown()`)
+//         break;
+//       case "play0.5x":
+//         self.runJavaScript(`
+// function changePlaybackRate(rate) {
+//   const video = document.getElementsByTagName('video')[0];
+//   if (video.playbackRate === rate) {
+//     video.playbackRate = 1;
+//   }else{
+//     video.playbackRate = rate;
+//   }
+// }
+// changePlaybackRate(0.5)`)
+//         break;
+//       case "play1.25x":
+//         self.runJavaScript(`
+// function changePlaybackRate(rate) {
+//   const video = document.getElementsByTagName('video')[0];
+//   if (video.playbackRate === rate) {
+//     video.playbackRate = 1;
+//   }else{
+//     video.playbackRate = rate;
+//   }
+// }
+// changePlaybackRate(1.25)`)
+//         break;
+//       case "play1.5x":
+//         self.runJavaScript(`
+// function changePlaybackRate(rate) {
+//   const video = document.getElementsByTagName('video')[0];
+//   if (video.playbackRate === rate) {
+//     video.playbackRate = 1;
+//   }else{
+//     video.playbackRate = rate;
+//   }
+// }
+// changePlaybackRate(1.5)`)
+//         break;
+//       case "play1.75x":
+//         self.runJavaScript(`
+// function changePlaybackRate(rate) {
+//   const video = document.getElementsByTagName('video')[0];
+//   if (video.playbackRate === rate) {
+//     video.playbackRate = 1;
+//   }else{
+//     video.playbackRate = rate;
+//   }
+// }
+// changePlaybackRate(1.75)`)
+//         break;
+//       case "play2x":
+//         self.runJavaScript(`
+// function changePlaybackRate(rate) {
+//   const video = document.getElementsByTagName('video')[0];
+//   if (video.playbackRate === rate) {
+//     video.playbackRate = 1;
+//   }else{
+//     video.playbackRate = rate;
+//   }
+// }
+// changePlaybackRate(2)`)
+//         break;
+//       case "play2.5x":
+//         self.runJavaScript(`
+// function changePlaybackRate(rate) {
+//   const video = document.getElementsByTagName('video')[0];
+//   if (video.playbackRate === rate) {
+//     video.playbackRate = 1;
+//   }else{
+//     video.playbackRate = rate;
+//   }
+// }
+// changePlaybackRate(2.5)`)
+//         break;
+//       case "play3x":
+//         self.runJavaScript(`
+// function changePlaybackRate(rate) {
+//   const video = document.getElementsByTagName('video')[0];
+//   if (video.playbackRate === rate) {
+//     video.playbackRate = 1;
+//   }else{
+//     video.playbackRate = rate;
+//   }
+// }
+// changePlaybackRate(3)`)
+//         break;
+//       case "play3.5x":
+//         self.runJavaScript(`
+// function changePlaybackRate(rate) {
+//   const video = document.getElementsByTagName('video')[0];
+//   if (video.playbackRate === rate) {
+//     video.playbackRate = 1;
+//   }else{
+//     video.playbackRate = rate;
+//   }
+// }
+// changePlaybackRate(3.5)`)
+//         break;
+//       case "play4x":
+//         self.runJavaScript(`
+// function changePlaybackRate(rate) {
+//   const video = document.getElementsByTagName('video')[0];
+//   if (video.playbackRate === rate) {
+//     video.playbackRate = 1;
+//   }else{
+//     video.playbackRate = rate;
+//   }
+// }
+// changePlaybackRate(4)`)
+//         break;
+//       case "forward10s":
+//         self.runJavaScript(`
+// function forwardSeconds(seconds) {
+//   const video = document.getElementsByTagName('video')[0];
+//   video.currentTime += seconds;
+//   video.play()
+// };
+// forwardSeconds(10)`);
+//         break;
+//       case "forward15s":
+//         self.runJavaScript(`
+// function forwardSeconds(seconds) {
+//   const video = document.getElementsByTagName('video')[0];
+//   video.currentTime += seconds;
+//   video.play()
+// };
+// forwardSeconds(15)`);
+//         break;
+//       case "forward30s":
+//         self.runJavaScript(`
+// function forwardSeconds(seconds) {
+//   const video = document.getElementsByTagName('video')[0];
+//   video.currentTime += seconds;
+//   video.play()
+// };
+// forwardSeconds(30)`);
+//         break;
+//       case "backward10s":
+//         self.runJavaScript(`
+// function backwardSeconds(seconds) {
+//   const video = document.getElementsByTagName('video')[0];
+//   let currentTime = video.currentTime;
+//   if (currentTime - seconds < 0) {
+//     video.currentTime = 0;
+//   }else{
+//     video.currentTime -= seconds;
+//   }
+//   video.play()
+// };
+// backwardSeconds(10)`);
+//         break;
+//       case "backward15s":
+//         self.runJavaScript(`
+// function backwardSeconds(seconds) {
+//   const video = document.getElementsByTagName('video')[0];
+//   let currentTime = video.currentTime;
+//   if (currentTime - seconds < 0) {
+//     video.currentTime = 0;
+//   }else{
+//     video.currentTime -= seconds;
+//   }
+//   video.play()
+// };
+// backwardSeconds(15)`);
+//         break;
+//       case "backward30s":
+//         self.runJavaScript(`
+// function backwardSeconds(seconds) {
+//   const video = document.getElementsByTagName('video')[0];
+//   let currentTime = video.currentTime;
+//   if (currentTime - seconds < 0) {
+//     video.currentTime = 0;
+//   }else{
+//     video.currentTime -= seconds;
+//   }
+//   video.play()
+// };
+// backwardSeconds(30)`);
+//         break;
+//         default:
+//         break;
+//     }
     } catch (error) {
       browserUtils.addErrorLog(error, "customButtonTapped")
     }
@@ -2206,7 +2301,8 @@ backwardSeconds(30)`);
     self.custom = false;
     // MNUtil.copy(self.view.frame)
   },
-  onResizeGesture:function (gesture) {
+  onResizeGesture:async function (gesture) {
+    let self = getBrowserController()
     self.custom = false;
     browserConfig.dynamic = false;
     self.customMode = "none"
@@ -2236,6 +2332,11 @@ backwardSeconds(30)`);
       let size = {width:width,height:height}
       browserConfig.config.size = size
       browserConfig.save("MNBrowser_config")
+      let webInfo = await self.getCurrentWebInfo()
+      // browserUtils.log("getCurrentWebInfo", webInfo)
+      if (webInfo.hasVideo && webInfo.urlConfig.host === "www.bilibili.com") {
+        self.enableWideMode()
+      }
 //       self.runJavaScript(`(function() {
 //     let resizeTimer;
 //     const container = document.documentElement; // 根元素作为基准（可替换为其他容器）
@@ -2269,52 +2370,43 @@ backwardSeconds(30)`);
     }
   },
   changeWebAppTo:function(webApp) {
+    Menu.dismissCurrentMenu()
     if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
-    if (webApp) {
-      self.webApp = webApp;
-    }
-    var url;
-    url = browserConfig.webAppEntries[self.webApp].link
-    self.setWebMode(browserConfig.webAppEntries[self.webApp].desktop)
-    self.inHomePage = false
-    if (self.webview.url !== url) {
-      MNConnection.loadRequest(self.webview, url)
-      self.webview.hidden = false
+    self.changeWebAppTo(webApp)
+
+  },
+  addPageToWebApp: async function (button) {
+    let self = getBrowserController()
+    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
+    let info = await self.getCurrentWebInfo()
+    let url = info.url
+    let config = {title:info.title,desktop:info.desktop,link:url}
+    let option = {default:info.title}
+    let userInput = await MNUtil.input("🌐 MN Browser","Name for this page?\n\n请输入网页名称\n\nCurrent URL/当前URL:\n"+url+"\n\nDefault/默认:",["Cancel / 取消","➕ Add / 添加"],option)
+    let buttonIndex = userInput.button
+    let input = userInput.input
+    if (buttonIndex === 0) {
       return
     }
-  },
-  addPageToWebApp: async function (params) {
-    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
-
-    let url = await self.getCurrentURL()
-    let config = {title:"test",desktop:false,link:url}
-    let title = await self.runJavaScript("document.title")
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "Name for this page?",url,2,"Cancel",[title,"Add"],
-      (alert, buttonIndex) => {
-        switch (buttonIndex) {
-          case 1:
-            // self.appInstance.showHUD(title,self.view.window,2)
-            config = {title:title,desktop:false,link:url}
-            break;
-          case 2:
-            // self.appInstance.showHUD(alert.textFieldAtIndex(0).text,self.view.window,2)
-            config = {title:alert.textFieldAtIndex(0).text,desktop:false,link:url}
-            break;
-          default:
-            break;
-        }
-        let i = 0
-        while (browserConfig.webAppEntries["customEWebApp"+i]) {
-          i = i+1
-        }
-        browserConfig.webAppEntries["customEWebApp"+i] = config
-        browserConfig.webAppEntrieNames = browserConfig.webAppEntrieNames.concat(("customEWebApp"+i))
-        self.configEngine = "customEWebApp"+i
-        browserConfig.save("MNBrowser_webAppEntrieNames")
-        browserConfig.save("MNBrowser_webAppEntries")
-
-      })
+    if (buttonIndex === 1) {
+      config.title = input
+    }
+    let entryKey = browserConfig.getAvailableWebAppEntryKey()
+    browserConfig.webAppEntries[entryKey] = config
+    browserConfig.webAppEntrieNames = browserConfig.webAppEntrieNames.concat((entryKey))
+    self.configEngine = entryKey
+    browserConfig.save("MNBrowser_webAppEntrieNames")
+    browserConfig.save("MNBrowser_webAppEntries")
+    self.showHUD("✅ WebApp Added: "+config.title)
+    Menu.dismissCurrentMenu(false)
+    let menu = new Menu(button,self)
+    // menu.width = 200
+    menu.preferredPosition = 2
+    browserConfig.webAppEntrieNames.forEach(entrieName => {
+      menu.addMenuItem(browserConfig.webAppEntries[entrieName].title, 'changeWebAppTo:', entrieName)
+    })
+    menu.addMenuItem('🎛  Setting', 'openSettingView:', 'webApp')
+    menu.show(true,false)
   },
   advancedButtonTapped: function (params) {
     self.configSearchView.hidden = true
@@ -2406,29 +2498,31 @@ backwardSeconds(30)`);
       }
       self.refreshLayout(true)
     }else{
-      MNUtil.confirm("MN Browser", "Invalid JSON format:\n\n"+configText)
+      MNUtil.confirm("🌐 MN Browser", "Invalid JSON format:\n\n"+configText)
     }
   },
   configSaveTapped: function (params) {
     // self.appInstance.showHUD(123, self.view.window, 2);
     try {
     self.textviewInput.text = self.textviewInput.text.replaceAll(`”`,`"`)
-    if (MNUtil.isValidJSON(self.textviewInput.text)) {
-      let config = JSON.parse(self.textviewInput.text)
+    let config = MNUtil.getValidJSON(self.textviewInput.text)
+    if (Object.keys(config).length > 0) {
       if (self.configMode === 0) {
         browserConfig.entries[self.configEngine] = config
         self.setButtonText(browserConfig.entrieNames,self.configEngine)
         browserConfig.save("MNBrowser_entries")
         MNUtil.showHUD("Saved engine: "+config.title)
+        self.setTextview(self.configEngine)
       }else{
         browserConfig.webAppEntries[self.configEngine] = config
         self.setButtonText(browserConfig.webAppEntrieNames,self.configEngine)
         browserConfig.save("MNBrowser_webAppEntries")
         MNUtil.showHUD("Saved webapp: "+config.title)
+        self.setTextview(self.configEngine)
       }
       self.refreshLayout(true)
     }else{
-      MNUtil.confirm("MN Browser", "Invalid JSON format:\n\n"+self.textviewInput.text)
+      MNUtil.confirm("🌐 MN Browser", "Invalid JSON format:\n\n"+self.textviewInput.text)
     }
     } catch (error) {
       browserUtils.addErrorLog(error, "configSaveTapped")
@@ -2444,25 +2538,14 @@ backwardSeconds(30)`);
   "desktop": false,
   "link":    "https://www.bing.com/search?q=%s"
 }`
-    let i = 0
-    while (browserConfig.entries["customEngine"+i]) {
-      i = i+1
-    }
-    let entries = browserConfig.entries
-    entries["customEngine"+i] = JSON.parse(self.textviewInput.text)
-    browserConfig.entries = entries
-    browserConfig.entrieNames = browserConfig.entrieNames.concat(("customEngine"+i))
-    self.setButtonText(browserConfig.entrieNames,"customEngine"+i)
-    self.configEngine = "customEngine"+i
-    try {
-    browserConfig.save("MNBrowser_entrieNames")
-    NSUserDefaults.standardUserDefaults().setObjectForKey(browserConfig.entries,"MNBrowser_entries")
-    entries = NSUserDefaults.standardUserDefaults().objectForKey("MNBrowser_entries")
-    // self.appInstance.showHUD(Object.keys(entries),self.view.window,2)
-    
-    } catch (error) {
-      browserUtils.addErrorLog(error, "configAddTapped")
-    }
+      let entryKey = browserConfig.getAvailableEngineEntryKey()
+      browserConfig.entries[entryKey] = MNUtil.getValidJSON(self.textviewInput.text)
+      browserConfig.entrieNames = browserConfig.entrieNames.concat((entryKey))
+      browserConfig.save("MNBrowser_entrieNames")
+      browserConfig.save("MNBrowser_entries")
+      self.setButtonText(browserConfig.entrieNames,entryKey)
+      self.configEngine = entryKey
+      self.refreshLayout()
     }else{
       self.textviewInput.text = 
 `{
@@ -2470,21 +2553,19 @@ backwardSeconds(30)`);
   "desktop": false,
   "link":    "https://www.bing.com"
 }`
-    let i = 0
-    while (browserConfig.webAppEntries["customEWebApp"+i]) {
-      i = i+1
-    }
-    browserConfig.webAppEntries["customEWebApp"+i] = JSON.parse(self.textviewInput.text)
-    browserConfig.webAppEntrieNames = browserConfig.webAppEntrieNames.concat(("customEWebApp"+i))
-    self.setButtonText(browserConfig.webAppEntrieNames,"customEWebApp"+i)
-    self.configEngine = "customEWebApp"+i
-    browserConfig.save("MNBrowser_webAppEntrieNames")
-    browserConfig.save("MNBrowser_webAppEntries")
+      let entryKey = browserConfig.getAvailableWebAppEntryKey()
+      browserConfig.webAppEntries[entryKey] = MNUtil.getValidJSON(self.textviewInput.text)
+      browserConfig.webAppEntrieNames = browserConfig.webAppEntrieNames.concat((entryKey))
+      browserConfig.save("MNBrowser_webAppEntrieNames")
+      browserConfig.save("MNBrowser_webAppEntries")
+      self.setButtonText(browserConfig.webAppEntrieNames,entryKey)
+      self.configEngine = entryKey
+      self.refreshLayout()
     }
   },
   configDeleteTapped: async function (params) {
   try {
-    let confim = await MNUtil.confirm("Remove config?", "删除配置？")
+    let confim = await MNUtil.confirm("🌐 MN Browser","Remove current config?\n\n是否删除当前配置？")
     if (!confim) {
       return
     }
@@ -2512,6 +2593,7 @@ backwardSeconds(30)`);
         self.webApp = browserConfig.webAppEntrieNames[0]
       }
       self.configEngine = browserConfig.webAppEntrieNames[0]
+      self.webApp = self.configEngine
       self.setButtonText(browserConfig.webAppEntrieNames,self.configEngine)
       self.setTextview(self.configEngine)
       self.refreshLayout()
@@ -2590,13 +2672,26 @@ backwardSeconds(30)`);
     MNConnection.loadRequest(self.webview, url)
     self.webview.hidden = false
   },
-  toggleSelected:function (sender) {
-    if (sender.isSelected) {
-      return;
+  toggleSelected:function (button) {
+  try {
+    let self = getBrowserController()
+    if (button.isSelected) {
+      if (self.configMode === 1) {
+        if (self.webApp === button.id) {
+          self.configMoreOption(button)
+          return
+        }
+      }else{
+        self.configMoreOption(button)
+        return;
+      }
     }
-    sender.isSelected = !sender.isSelected
+    button.isSelected = !button.isSelected
+    if (self.configMode === 1) {
+      self.webApp = button.id
+    }
     // self.appInstance.showHUD(text,self.view.window,2)
-    let title = sender.id
+    let title = button.id
     self.configEngine = title
     self.words.forEach((entryName,index)=>{
       if (entryName !== title) {
@@ -2604,12 +2699,16 @@ backwardSeconds(30)`);
         self["nameButton"+index].backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
       }
     })
-    if (sender.isSelected) {
+    if (button.isSelected) {
       self.setTextview(title)
-      sender.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
+      button.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
     }else{
-      sender.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
+      button.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
     }
+    
+  } catch (error) {
+    browserUtils.addErrorLog(error, "toggleSelected")
+  }
   },
   exportConfig: async function (params) {
     let success = await browserConfig.export()
@@ -3522,6 +3621,8 @@ try {
   }
   // return
   this.inHomePage = true
+  this.currentBvid = ""
+  this.currentP = 0
   
   // this.webview.loadFileURLAllowingReadAccessToURL(
   //   NSURL.fileURLWithPath(browserUtils.mainPath + '/milkdown.html'),
@@ -3774,7 +3875,33 @@ browserController.prototype.updateThesaurusOffset = function() {
   });
   this.shouldCopy = false
   this.shouldComment = false
+}
+/** 
+* @description 获取当前网页的信息
+* @returns {Promise<{url:string, title:string, hasVideo:boolean, videoTime:number, urlConfig:{url: string, scheme: string, host: string, query: string ,params: any, pathComponents: string[], isBlank: boolean, fragment: string}}>} 当前网页的信息
+*/
+browserController.prototype.getCurrentWebInfo = async function() {
+  if(!this.webview || !this.webview.window) return;
+
+  let encodedInfo = await this.runJavaScript(`function currentWebInfo() {
+    let url = window.location.href
+    let title = document.title
+    let hasVideo = document.getElementsByTagName('video').length > 0
+    let info = {url, title, hasVideo}
+    if (hasVideo) {
+      info.videoTime = document.getElementsByTagName('video')[0].currentTime;
+    }
+    return encodeURIComponent(JSON.stringify(info))
+  }
+  currentWebInfo()
+  `)
+  let info = JSON.parse(decodeURIComponent(encodedInfo))
+  info.desktop = this.desktop ?? false
+  info.urlConfig = MNUtil.parseURL(info.url)
+  this.webview.url = info.url
+  return info
 };
+
 
 /** @this {browserController} */
 browserController.prototype.getCurrentURL = async function() {
@@ -3805,7 +3932,7 @@ browserController.prototype.getSelectedTextInWebview = async function() {
 /** @this {browserController} */
 browserController.prototype.getTextInWebview = async function() {
   let ret = await this.runJavaScript(`
-      function getSelectOrWholeText(){
+    function getSelectOrWholeText(){
 
       let selectionObj = null, rangeObj = null;
       let selectedText = "", selectedHtml = "";
@@ -3819,7 +3946,6 @@ browserController.prototype.getTextInWebview = async function() {
       }
     };
     getSelectOrWholeText()
-    // document.body.innerHTML;
     `)
   return ret
 }
@@ -4411,16 +4537,22 @@ browserController.prototype.refreshLayout = function (refreshHomepage = false) {
     let initL = 0
     this.locs = [];
     this.words.map((word,index)=>{
+      let button = this["nameButton"+index]
+      if (this.configMode === 0) {
+        button.isSelected = word === this.configEngine
+      }else{
+        button.isSelected = word === this.webApp
+      }
       // let title = this.configMode===0?browserConfig.entries[word].title:browserConfig.webAppEntries[word].title
       // let width = strCode(title.replaceAll(" ",""))*9+15
-      let width = this["nameButton"+index].sizeThatFits({width:100,height:30}).width+15
+      let width = button.sizeThatFits({width:100,height:30}).width+15
 
       if (xLeft+initX+width > viewFrame.width-20) {
         initX = 8
         initY = initY+38
         initL = initL+1
       }
-      this["nameButton"+index].frame = {  x: xLeft+initX,  y: initY,  width: width,  height: 30,};
+      button.frame = {  x: xLeft+initX,  y: initY,  width: width,  height: 30,};
       this.locs.push({
         x:xLeft+initX,
         y:initY,
@@ -4445,14 +4577,20 @@ browserController.prototype.refreshLayout = function (refreshHomepage = false) {
     let initL = 0
     this.locs = [];
     this.words.map((word,index)=>{
-      let title = this.configMode===0?browserConfig.entries[word].title:browserConfig.webAppEntries[word].title
-      let width = this["nameButton"+index].sizeThatFits({width:100,height:30}).width+15
+      let button = this["nameButton"+index]
+      if (this.configMode === 0) {
+        button.isSelected = word === this.configEngine
+      }else{
+        button.isSelected = word === this.webApp
+      }
+      // let title = this.configMode===0?browserConfig.entries[word].title:browserConfig.webAppEntries[word].title
+      let width = button.sizeThatFits({width:100,height:30}).width+15
       if (xLeft+initX+width > viewFrame.width-20) {
         initX = 8
         initY = initY+38
         initL = initL+1
       }
-      this["nameButton"+index].frame = {  x: xLeft+initX,  y: initY,  width: width,  height: 30,};
+      button.frame = {  x: xLeft+initX,  y: initY,  width: width,  height: 30,};
       this.locs.push({
         x:xLeft+initX,
         y:initY,
@@ -4496,6 +4634,8 @@ browserController.prototype.setWebMode = function (desktop = false) {
     this.desktop = true
     // this.webview.customUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15'
     this.webview.customUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15'
+    // this.webview.customUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/604.1 Edg/139.0.0.0'
+    // this.webview.customUserAgent = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36'
     this.setAllButtonColor("#b5b5f5")
   }else{
     this.desktop = false
@@ -4727,18 +4867,6 @@ try {
   browserUtils.addErrorLog(error, "refreshView")
 }
 }
-browserController.prototype.getCurrentURL = async function(url) {
-  return new Promise((resolve, reject) => {
-    if(!this.webview || !this.webview.window)return;
-    this.webview.evaluateJavaScript(
-      `window.location.href`,
-      (ret) => {
-        this.webview.url = ret
-        resolve(ret)
-      }
-    );
-  })
-};
 /** @this {browserController} */
 browserController.prototype.openOrJump = async function(bvid,time = 0,p) {
 try {
@@ -4746,7 +4874,7 @@ try {
     MNUtil.showHUD(`window is hidden`)
     return
   }
-  let timestamp = await this.getTimestamp()
+  // let timestamp = await this.getTimestamp()
 
   // await this.getCurrentURL()
 
@@ -4812,34 +4940,53 @@ try {
 };
 /** @this {browserController} */
 browserController.prototype.getTimestamp = async function(){
-  let videoTime = await this.runJavaScript(`document.getElementsByTagName('video')[0].currentTime.toFixed(2);`)
-  if (videoTime) {
-    let url = await this.runJavaScript(`window.location.href`)
-    let res = url.match(/(?<=bilibili.com\/video\/)\w+/);
-    if (res) {
-      let timestamp = {time:parseFloat(videoTime),bv:res[0]}
+  let webInfo = await this.getCurrentWebInfo()
+  // browserUtils.log("webInfo", webInfo)
+  if (webInfo.hasVideo) {
+    let config = webInfo.urlConfig
+    let videoTime = webInfo.videoTime.toFixed(2)
+    if (config.host === "www.bilibili.com") {
+      let timestamp = {time:parseFloat(videoTime),bv:config.pathComponents[1]}
       this.currentBvid = timestamp.bv
-      let testP = url.match(/(?<=bilibili.com\/video\/.+(\?|&)p\=)\d+/);
-      if (testP) {
-        timestamp.p = parseInt(testP[0])
+      if ("p" in config.params) {
+        timestamp.p = parseInt(config.params.p)
         this.currentP = timestamp.p
       }else{
         this.currentP = 0
       }
-      // https://www.bilibili.com/video/BV1F34y1h7so/?p=4
-      // https://www.bilibili.com/video/BV1F34y1h7so?p=4
       return timestamp
     }
     this.currentBvid = ""
     this.currentP = 0
     return {time:parseFloat(videoTime)}
   }
+  // let videoTime = await this.runJavaScript(`document.getElementsByTagName('video')[0].currentTime.toFixed(2);`)
+  // if (videoTime) {
+  //   let url = await this.getCurrentURL()
+  //   let res = url.match(/(?<=bilibili.com\/video\/)\w+/);
+  //   if (res) {
+  //     let timestamp = {time:parseFloat(videoTime),bv:res[0]}
+  //     this.currentBvid = timestamp.bv
+  //     let testP = url.match(/(?<=bilibili.com\/video\/.+(\?|&)p\=)\d+/);
+  //     if (testP) {
+  //       timestamp.p = parseInt(testP[0])
+  //       this.currentP = timestamp.p
+  //     }else{
+  //       this.currentP = 0
+  //     }
+  //     // https://www.bilibili.com/video/BV1F34y1h7so/?p=4
+  //     // https://www.bilibili.com/video/BV1F34y1h7so?p=4
+  //     return timestamp
+  //   }
+  //   this.currentBvid = ""
+  //   this.currentP = 0
+  //   return {time:parseFloat(videoTime)}
+  // }
   return undefined
 }
 /** @this {browserController} */
-browserController.prototype.getVideoFrameInfo = async function(){
-try {
-    let imageBase64 = await this.runJavaScript(`
+browserController.prototype.getVideoFrameBase64 = async function(){
+let imageBase64 = await this.runJavaScript(`
 function getImage() {
 // try {
   const video = document.getElementsByTagName('video')[0];
@@ -4849,29 +4996,44 @@ function getImage() {
   canvas.width = video.videoWidth*2;
   canvas.height = video.videoHeight*2;
   context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/png');
+  return canvas.toDataURL('image/jpeg',1.0);
 // } catch (error) {
 //   return error.toString()
 // }
 };
 getImage();
 `)
-    if (browserUtils.isNSNull(imageBase64)) {
-        MNUtil.showHUD("Capture video frame failed!")
+return imageBase64
+}
+
+/** 
+* @this {browserController} 
+* @returns {Promise<{image:string,time:number,bv:string,p:number}>}
+*/
+browserController.prototype.getVideoFrameInfo = async function(){
+try {
+    let timestamp = await this.getTimestamp()
+    if (!timestamp) {
       return undefined
-      let width = this.view.frame.width>1000?this.view.frame.width:1000
-      let image = await this.screenshot(width)
-      if (!image) {
-        MNUtil.showHUD("Capture video frame failed!")
-        return undefined
-      }
-      imageBase64 = 'data:image/png;base64,'+image.base64Encoding()
     }
-    // let videoTime = await this.runJavaScript(`document.getElementsByTagName('video')[0].currentTime.toFixed(2);`)
-    let timestamp = await this.getTimestamp(this.webview.url)
-    if (timestamp) {
+    let imageBase64 = await this.getVideoFrameBase64()
+    if (imageBase64) {
       timestamp.image = imageBase64
     }
+
+    // if (browserUtils.isNSNull(imageBase64)) {
+    //     MNUtil.showHUD("Capture video frame failed!")
+    //   return undefined
+    //   let width = this.view.frame.width>1000?this.view.frame.width:1000
+    //   let image = await this.screenshot(width)
+    //   if (!image) {
+    //     MNUtil.showHUD("Capture video frame failed!")
+    //     return undefined
+    //   }
+    //   imageBase64 = 'data:image/png;base64,'+image.base64Encoding()
+    // }
+    // let videoTime = await this.runJavaScript(`document.getElementsByTagName('video')[0].currentTime.toFixed(2);`)
+
     return timestamp
 
 
@@ -4922,11 +5084,30 @@ getImage();
 }
 
 /**
- * 
+ * @this {browserController}
  * @param {*} width 
  * @returns {Promise<NSData>}
  */
 browserController.prototype.screenshot = async function(width){
+  if (!MNUtil.isMacOS()) {
+    let webInfo = await this.getCurrentWebInfo()
+    if (webInfo.hasVideo) {
+      let confirm = await MNUtil.confirm("🌐 MN Browser","检测到当前网页有视频标签，是否启用视频截图？\n\nPS：iPad/iOS端普通截图无法截取视频内容，需启用视频截图")
+      if (confirm) {
+        let videoFrameInfo = await this.getVideoFrameInfo()
+        if (videoFrameInfo && "image" in videoFrameInfo) {
+          let imageData = MNUtil.dataFromBase64(videoFrameInfo.image,"jpeg")
+          MNUtil.copyImage(imageData)
+          MNUtil.showHUD('✅ 视频截图已复制到剪贴板')
+          return imageData
+        }else{
+          MNUtil.showHUD("❌ 视频截图失败")
+          return undefined
+        }
+      }
+    }
+  }
+
   return new Promise((resolve, reject) => {
     this.webview.takeSnapshotWithWidth(width,(snapshot)=>{
       resolve(snapshot.pngData())
@@ -4934,12 +5115,14 @@ browserController.prototype.screenshot = async function(width){
   })
 }
 
-browserController.prototype.videoFrameAction= async function(target){
-    if (!browserUtils.checkSubscribe(true)) {
-      return
-    }
+browserController.prototype.videoFrameAction= async function(target,needSubscribe = true){
+    // let needSubscribe = (target !== "clipboard") && (target !== "snipaste")
     let videoFrameInfo= await this.getVideoFrameInfo()
     if (!videoFrameInfo) {
+      this.showHUD("No video frame found")
+      return
+    }
+    if (!browserUtils.checkSubscribe(true)) {
       return
     }
     let focusNote = MNNote.getFocusNote()
@@ -5074,8 +5257,7 @@ browserController.prototype.videoTimeAction= async function(target){
     if (!browserUtils.checkSubscribe(true)) {
       return
     }
-    let videoFrameInfo = await this.getTimestamp(this.webview.url)
-    // let videoFrameInfo= await this.getVideoFrameInfo()
+    let videoFrameInfo = await this.getTimestamp()
     if (!videoFrameInfo) {
       return
     }
@@ -5088,7 +5270,7 @@ try {
     switch (target) {
       case "clipboard":
         MNUtil.copy(formatedLink)
-        MNUtil.showHUD('视频时间戳已复制到剪贴板')
+        this.showHUD('视频时间戳已复制到剪贴板')
         break;
       case "editor":
         MNUtil.postNotification("editorInsert", {
@@ -5099,14 +5281,13 @@ try {
         break;
       case "excerpt":
         if (!focusNote) {
-          MNUtil.showHUD("No note selected!")
+          this.showHUD("No note selected!")
           return
         }
         if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoTime → Excerpt")
+          this.showHUD("videoTime → Excerpt")
           if (focusNote.excerptPic && !focusNote.textFirst) {
             this.webview.endEditing(true)
-            MNUtil.excuteCommand("EditTextMode")
           }
           let MDVideoInfo = formatedLink
           let excerptText = (focusNote.excerptText??"")+`\n`+MDVideoInfo
@@ -5118,11 +5299,11 @@ try {
         break;
       case "childNote":
         if (!focusNote) {
-          MNUtil.showHUD("No note selected!")
+          this.showHUD("No note selected!")
           return
         }
         if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoTime → ChildNote")
+          this.showHUD("videoTime → ChildNote")
           let MDVideoInfo = formatedLink
           let config = {excerptText:MDVideoInfo,excerptTextMarkdown:true}
           let childNote = focusNote.createChildNote(config)
@@ -5131,11 +5312,11 @@ try {
         break;
       case "comment":
         if (!focusNote) {
-          MNUtil.showHUD("No note selected!")
+          this.showHUD("No note selected!")
           return
         }
         if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoTime → Comment")
+          this.showHUD("videoTime → Comment")
           let MDVideoInfo = formatedLink
             MNUtil.undoGrouping(()=>{
               focusNote.appendMarkdownComment(MDVideoInfo)
@@ -5144,7 +5325,7 @@ try {
         break;
       case "newNote":
         if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoTime → ChildNote")
+          this.showHUD("videoTime → ChildNote")
           let MDVideoInfo = formatedLink
           let config = {excerptText:MDVideoInfo,excerptTextMarkdown:true}
           let mindmap = MNUtil.mindmapView.mindmapNodes[0].note.childMindMap
@@ -5153,7 +5334,7 @@ try {
             let childNote = MNNote.new(mindmap).createChildNote(config)
             childNote.focusInMindMap(0.5)
           }else{
-            MNUtil.showHUD("Create in main mindmap")
+            this.showHUD("Create in main mindmap")
             MNUtil.undoGrouping(()=>{
               let newNote = MNNote.new(config)
               newNote.focusInMindMap(0.5)
@@ -5162,7 +5343,7 @@ try {
         }
         break;
       default:
-        MNUtil.showHUD("Unsupported action: "+target)
+        this.showHUD("Unsupported action: "+target)
         break;
     }
   } catch (error) {
@@ -5213,6 +5394,8 @@ browserController.prototype.showHUD = function (title,duration = 1.5,view = this
  */
 browserController.prototype.openSetting = function(targetView){
 if (this.view.popoverController) {this.view.popoverController.dismissPopoverAnimated(true);}
+try {
+
     // this.settingController.view.hidden = false
     if (!this.settingView) {
       this.createSettingView()
@@ -5225,6 +5408,7 @@ if (this.view.popoverController) {this.view.popoverController.dismissPopoverAnim
     this.view.frame = frame
     this.currentFrame = frame
     if (targetView === "webApp") {
+      MNUtil.log("webapp: "+this.webApp)
       this.configSearchView.hidden = false
       this.advanceView.hidden = true
       this.syncView.hidden = true
@@ -5259,6 +5443,10 @@ if (this.view.popoverController) {this.view.popoverController.dismissPopoverAnim
     } catch (error) {
       browserUtils.addErrorLog(error, "openSettingView")
     }
+  
+} catch (error) {
+  browserUtils.addErrorLog(error, "openSettingView")
+}
 }
 /**
  * @this {browserController}
@@ -5469,7 +5657,7 @@ browserController.prototype.importPDFFromBase64Doc2X = async function(base64PDF,
   let pdfData = NSData.dataWithContentsOfURL(NSURL.URLWithString("data:application/pdf;base64,"+tem[1]))
   let fileName = await this.runJavaScript(`document.getElementsByClassName("doc2x-cander-breadcrumbs-item")[0].childNodes[0].textContent;`)
   fileName = fileName.replace(".pdf","")+"_translated.pdf"
-  let userInput = await MNUtil.input("MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:\n\n${fileName}`, ["Cancel / 取消","Default / 默认","Confirm / 确认"])
+  let userInput = await MNUtil.input("🌐 MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:\n\n${fileName}`, ["Cancel / 取消","Default / 默认","Confirm / 确认"])
   // MNUtil.copy(userInput)
   switch (userInput.button) {
     case 0:
@@ -5491,7 +5679,7 @@ browserController.prototype.importPDFFromBase64Doc2X = async function(base64PDF,
   if (typeof snipasteUtils !== 'undefined') {
     MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
   }else{
-    let confirm = await MNUtil.confirm("MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
+    let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
     if (confirm) {
       MNUtil.openDoc(md5,MNUtil.currentNotebookId)
       if (MNUtil.docMapSplitMode === 0) {
@@ -5535,7 +5723,7 @@ browserController.prototype.importPDFFromBase64MoreDraw = async function(base64P
   }
   getTtile()`)
   let fileName = res ? (res+".pdf") : ("moredraw_"+Date.now()+".pdf")
-  let userInput = await MNUtil.input("MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:\n\n${fileName}`, ["Cancel / 取消","Default / 默认","Confirm / 确认"])
+  let userInput = await MNUtil.input("🌐 MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:\n\n${fileName}`, ["Cancel / 取消","Default / 默认","Confirm / 确认"])
   // MNUtil.copy(userInput)
   switch (userInput.button) {
     case 0:
@@ -5557,7 +5745,7 @@ browserController.prototype.importPDFFromBase64MoreDraw = async function(base64P
   if (typeof snipasteUtils !== 'undefined') {
     MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
   }else{
-    let confirm = await MNUtil.confirm("MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
+    let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
     if (confirm) {
       MNUtil.openDoc(md5,MNUtil.currentNotebookId)
       if (MNUtil.docMapSplitMode === 0) {
@@ -5710,7 +5898,7 @@ try {
     defaultName = title+".pdf"
   }
   let option = {}
-  let userInput = await MNUtil.input("MN Browser","Please input the name of the document\n\n请输入文档名称\n\nDefault: "+defaultName+"\n\nFile Size: "+fileSize.toFixed(2)+"MB",["Cancel",defaultName,"Confirm"])
+  let userInput = await MNUtil.input("🌐 MN Browser","Please input the name of the document\n\n请输入文档名称\n\nDefault: "+defaultName+"\n\nFile Size: "+fileSize.toFixed(2)+"MB",["Cancel",defaultName,"Confirm"])
   if (userInput.button === 0) {
     return
   }
@@ -5831,8 +6019,8 @@ let encodedPartInfo = await this.runJavaScript(`
 
 browserController.prototype.enableWideMode = async function() {
     let scrollview = this.webview.scrollView
-  let webWidth = scrollview.contentSize.width
-  let notWide = (scrollview.zoomScale - scrollview.minimumZoomScale < 0.01) && (webWidth/this.view.frame.width > 1.1)
+    let webWidth = scrollview.contentSize.width
+    let notWide = (scrollview.zoomScale - scrollview.minimumZoomScale < 0.01) && (webWidth/this.view.frame.width > 1.1)
     // MNUtil.log({
     //   message:"enableWideMode",
     //   detail:{
@@ -5846,9 +6034,12 @@ browserController.prototype.enableWideMode = async function() {
 
   // MNUtil.log(webWidth)
   // MNUtil.log(this.view.frame.width)
-              if (this.view.frame.width < 700 && !notWide) {
+  // MNUtil.log("enableWideMode: "+notWide)
+    if (this.view.frame.width < 700 && !notWide) {
                 
-                this.runJavaScript(`
+      this.runJavaScript(`
+function enableWideMode() {
+  
 // 存储 interval ID
 const intervalId = setInterval(() => {
   const wideButton = document.querySelector('.bpx-player-ctrl-btn.bpx-player-ctrl-wide');
@@ -5857,7 +6048,315 @@ const intervalId = setInterval(() => {
     clearInterval(intervalId); // 取消 interval
     document.getElementById("biliMainHeader").style.display = 'none'
   }
-}, 1000);`)
+}, 1000);
+}
+enableWideMode()
+`)
+  
               }
                 this.updateBilibiliOffset()
+}
+browserController.prototype.changeWebAppTo = function(webApp) {
+    if (webApp) {
+      this.webApp = webApp;
+    }
+    let config = browserConfig.webAppEntries[this.webApp]
+    var url = config.link
+    MNUtil.showHUD("Changing WebApp to "+config.title)
+
+    this.setWebMode(config.desktop)
+    this.inHomePage = false
+    if (this.webview.url !== url) {
+      MNConnection.loadRequest(this.webview, url)
+      this.webview.hidden = false
+      return
+    }
+}
+browserController.prototype.executeCustomAction = async function(action) {
+    let url
+    let text
+    let res = ""
+    let success = true
+    switch (action) {
+      case "uploadPDFToDoc2X":
+        if (!(await this.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
+          MNUtil.waitHUD("Opening Doc2X...")
+          this.setWebMode(true)
+          MNConnection.loadRequest(this.webview, "https://doc2x.noedgeai.com")
+          this.uploadOnDoc2X = {enabled:true,action:"uploadPDFToDoc2X"}
+          return success
+        }
+        this.uploadPDFToDoc2X()
+        break;
+      case "uploadImageToDoc2X":
+        if (!(await this.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
+          MNUtil.waitHUD("Opening Doc2X...")
+          this.setWebMode(true)
+          MNConnection.loadRequest(this.webview, "https://doc2x.noedgeai.com")
+          this.uploadOnDoc2X = {enabled:true,action:"uploadImageToDoc2X"}
+          return success
+        }
+        this.uploadImageToDoc2X()
+        break;
+      case "changeBilibiliVideoPart":
+        this.changeBilibiliVideoPart(button)
+        break;
+      case "screenshot":
+        let width = this.view.frame.width>1000?this.view.frame.width:1000
+        let imageData = await this.screenshot(width)
+        MNUtil.copyImage(imageData)
+        this.showHUD('截图已复制到剪贴板')
+        break;
+      case "videoFrame2Clipboard":
+        this.videoFrameAction("clipboard")
+        break;
+      case "videoFrame2Editor":
+        this.videoFrameAction("editor")
+        break;
+      case "videoFrame2Note":
+        this.videoFrameAction("excerpt")
+        break;
+      case "videoFrame2ChildNote":
+        this.videoFrameAction("childNote")
+        break;
+      case "videoFrameToNewNote":
+        this.videoFrameAction("newNote")
+        break;
+      case "videoFrameToComment":
+        this.videoFrameAction("comment")
+        break;
+      case "videoTime2Clipboard":
+        this.videoTimeAction("clipboard")
+        break;
+      case "videoTime2Editor":
+        this.videoTimeAction("editor")
+        break;
+      case "videoTime2Note":
+        this.videoTimeAction("excerpt")
+        break;
+      case "videoTime2ChildNote":
+        this.videoTimeAction("childNote")
+        break;
+      case "videoFrameToSnipaste":
+        this.videoFrameAction("snipaste")
+        break;
+      case "videoTimeToNewNote":
+        this.videoTimeAction("newNote")
+        break;
+      case "videoTimeToComment":
+        this.videoTimeAction("comment")
+        break;
+      case "bigbang":
+        url = await this.getCurrentURL()
+        text = await this.getTextInWebview()
+        MNUtil.postNotification('bigbangText', {text:text,url:url})
+        break;
+      case "copyCurrentURL":
+        url = await this.getCurrentURL()
+        MNUtil.copy(url)
+        this.showHUD("链接已复制")
+        break;
+      case "copyAsMDLink":
+        url = await this.getCurrentURL()
+        text = await this.getSelectedTextInWebview()
+        MNUtil.copy(`[${text}](${url})`)
+        this.showHUD("链接已复制")
+        break;
+      case "openInNewWindow":
+        if (browserUtils.checkSubscribe()) {
+          let agent = this.webview.customUserAgent
+          url = await this.getCurrentURL()
+          MNUtil.postNotification('newWindow', {url:url,desktop:browserConfig.entries[browserConfig.engine].desktop,engine:browserConfig.engine,webApp:this.webApp,agent:agent})
+          this.homePage();
+        }
+        break;
+      case "openNewWindow":
+        if (browserUtils.checkSubscribe()) {
+          MNUtil.postNotification('newWindow', {url:browserConfig.getConfig("homePage").url,desktop:browserConfig.entries[browserConfig.engine].desktop,engine:browserConfig.engine,webApp:this.webApp})
+        }
+        break;
+      case "openCopiedURL":
+        MNConnection.loadRequest(this.webview, MNUtil.clipboardText)
+        break;
+      case "pauseOrPlay":
+        res = await this.runJavaScript(`
+function togglePlayPause() {
+  // 假设我们的video元素的id是'myVideo'
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  if (video.ended) {
+    video.currentTime = 0
+    video.play()
+  }else if (video.paused) {
+    video.play()
+  }else{
+    video.pause()
+  }
+  return ""
+};
+togglePlayPause()
+`)
+        break;
+      case "toggleMute":
+        res = await this.runJavaScript(`
+function toggleMute() {
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  video.muted = !video.muted;
+  return ""
+}
+toggleMute()`)
+        break;
+      case "volumeUp":
+        res = await this.runJavaScript(`
+function volumeUp() {
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  video.volume += 0.1;
+  return ""
+}
+volumeUp()`)
+        break;
+      case "volumeDown":
+        res = await this.runJavaScript(`
+function volumeDown() {
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  video.volume -= 0.1;
+  return ""
+}
+volumeDown()`)
+        break;
+      case "play0.5x":
+        res = await this.changePlaybackRate(0.5)
+        break;
+      case "play1.25x":
+        res = await this.changePlaybackRate(1.25)
+        break;
+      case "play1.5x":
+        res = await this.changePlaybackRate(1.5)
+        break;
+      case "play1.75x":
+        res = await this.changePlaybackRate(1.75)
+        break;
+      case "play2x":
+        res = await this.changePlaybackRate(2)
+        break;
+      case "play2.5x":
+        res = await this.changePlaybackRate(2.5)
+        break;
+      case "play3x":
+        res = await this.changePlaybackRate(3)
+        break;
+      case "play3.5x":
+        res = await this.changePlaybackRate(3.5)
+        break;
+      case "play4x":
+        res = await this.changePlaybackRate(4)
+        break;
+      case "forward10s":
+        res = await this.forwardSeconds(10)
+        break;
+      case "forward15s":
+        res = await this.forwardSeconds(15)
+        break;
+      case "forward30s":
+        res = await this.forwardSeconds(30)
+        break;
+      case "backward10s":
+        res = await this.backwardSeconds(10)
+        break;
+      case "backward15s":
+        res = await this.backwardSeconds(15)
+        break;
+      case "backward30s":
+        res = await this.backwardSeconds(30)
+        break;
+        default:
+        break;
+    }
+  if (res === "No video found") {
+    this.showHUD("No video found")
+    success = false
+  }
+  return success
+}
+browserController.prototype.backwardSeconds = async function(seconds) {
+  let res = await this.runJavaScript(`
+function backwardSeconds(seconds) {
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  let currentTime = video.currentTime;
+  if (currentTime - seconds < 0) {
+    video.currentTime = 0;
+  }else{
+    video.currentTime -= seconds;
+  }
+  video.play()
+  return ""
+};
+backwardSeconds(${seconds})`);
+  return res
+}
+browserController.prototype.forwardSeconds = async function(seconds) {
+  let res = await this.runJavaScript(`
+function forwardSeconds(seconds) {
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  video.currentTime += seconds;
+  video.play()
+  return ""
+};
+forwardSeconds(${seconds})`);
+  return res
+}
+browserController.prototype.changePlaybackRate = async function(rate) {
+  let res = await this.runJavaScript(`
+function changePlaybackRate(rate) {
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  if (video.playbackRate === rate) {
+    video.playbackRate = 1;
+  }else{
+    video.playbackRate = rate;
+  }
+  return ""
+}
+changePlaybackRate(${rate})`)
+  return res
+}
+
+browserController.prototype.configMoreOption = function(button) {
+  let id = button.id
+  let menu = new Menu(button,this)
+  menu.preferredPosition = 1
+  if (this.configMode === 0) {
+    let config = browserConfig.entries[id]
+    menu.addMenuItem('🖥️  Desktop', 'toggleDesktop:',{type:'engine',id:id},config.desktop)
+  }else{
+    let config = browserConfig.webAppEntries[id]
+    menu.addMenuItem('🖥️  Desktop', 'toggleDesktop:',{type:'webApp',id:id},config.desktop)
+  }
+  menu.show()
+}
+/**
+ * @this {browserController}
+ * @returns {MNNote}
+ */
+browserController.prototype.currentNote = function () {
+  return MNNote.new(this.currentNoteId)
 }

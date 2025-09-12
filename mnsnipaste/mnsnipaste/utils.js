@@ -186,7 +186,7 @@ class snipasteUtils{
   }
   }
   static getDocImage(){
-    let docMapSplitMode = MNUtil.studyController.docMapSplitMode
+    let docMapSplitMode = MNUtil.docMapSplitMode
     if (docMapSplitMode) {//不为0则表示documentControllers存在
       let imageData
       let docControllers = MNUtil.docControllers
@@ -332,9 +332,9 @@ class snipasteUtils{
   
   }
   static getNoteCSS(focusNote,hasAudio = false){
-    let noteColor = snipasteUtils.getNoteColor(focusNote.colorIndex)
-    let textColor = snipasteUtils.getTextColor()
-    let backgroundColor = snipasteUtils.getBackgroundColor()
+    let noteColor = this.getNoteColor(focusNote.colorIndex)
+    let textColor = this.getTextColor()
+    let backgroundColor = this.getBackgroundColor()
     let themeHtml = `      
     body{
       background-color: ${backgroundColor};
@@ -443,14 +443,55 @@ class snipasteUtils{
     }
     return false
   }
-  static getNoteColor(colorIndex){
-    let theme = MNUtil.app.currentTheme
-    let colorConfig = {
-      Default:["#ffffb4","#ccfdc4","#b4d1fb","#f3aebe","#ffff54","#75fb4c","#55bbf9","#ea3323","#ef8733","#377e47","#173dac","#be3223","#ffffff","#dadada","#b4b4b4","#bd9edc"],
-      Dark:["#a0a071","#809f7b","#71839e","#986d77","#a0a032","#479e2c","#33759c","#921c12","#96551c","#204f2c","#0c266c","#771e14","#a0a0a0","#898989","#717171","#77638a"],
-      Gary:["#d2d294","#a8d1a1","#94accf","#c88f9d","#d2d244","#5fcf3d","#459acd","#c0281b","#c46f28","#2c683a","#12328e","#9c281c","#d2d2d2","#b4b4b4","#949494","#9c82b5"]
+  static rgbaArrayToHexArray(rgbaArray, includeAlpha = false, toUpperCase = false) {
+  return rgbaArray.map(rgba => {
+    // 确保RGB分量在0-255范围内
+    const r = Math.max(0, Math.min(255, Math.round(rgba.r)));
+    const g = Math.max(0, Math.min(255, Math.round(rgba.g)));
+    const b = Math.max(0, Math.min(255, Math.round(rgba.b)));
+    
+    // 确保alpha分量在0-1范围内
+    const a = Math.max(0, Math.min(1, rgba.a));
+    
+    // 将每个颜色分量转换为两位的十六进制
+    const rHex = r.toString(16).padStart(2, '0');
+    const gHex = g.toString(16).padStart(2, '0');
+    const bHex = b.toString(16).padStart(2, '0');
+    
+    let hex;
+    if (includeAlpha) {
+      // 将alpha分量从0-1转换为0-255，然后转换为两位的十六进制
+      const aHex = Math.round(a * 255).toString(16).padStart(2, '0');
+      // 组合成8位HEX颜色值
+      hex = `#${rHex}${gHex}${bHex}${aHex}`;
+    } else {
+      // 组合成6位HEX颜色值
+      hex = `#${rHex}${gHex}${bHex}`;
     }
-    let colorHexes = (theme in colorConfig)?colorConfig[theme]:colorConfig["Default"]
+    
+    // 根据参数决定是否转换为大写
+    return toUpperCase ? hex.toUpperCase() : hex;
+  });
+}
+  static getCurrentNotebookExcerptColor(){
+    let options = MNUtil.currentNotebook.options
+    if ("excerptColorTemplate" in options && options.useTopicTool2) {
+      let excerptColorTemplate = options.excerptColorTemplate
+      let colors = this.rgbaArrayToHexArray(excerptColorTemplate,true)
+      return colors
+    }else{
+      let theme = MNUtil.app.currentTheme
+      let colorConfig = {
+        Default:["#ffffb4","#ccfdc4","#b4d1fb","#f3aebe","#ffff54","#75fb4c","#55bbf9","#ea3323","#ef8733","#377e47","#173dac","#be3223","#ffffff","#dadada","#b4b4b4","#bd9edc"],
+        Dark:["#a0a071","#809f7b","#71839e","#986d77","#a0a032","#479e2c","#33759c","#921c12","#96551c","#204f2c","#0c266c","#771e14","#a0a0a0","#898989","#717171","#77638a"],
+        Gary:["#d2d294","#a8d1a1","#94accf","#c88f9d","#d2d244","#5fcf3d","#459acd","#c0281b","#c46f28","#2c683a","#12328e","#9c281c","#d2d2d2","#b4b4b4","#949494","#9c82b5"]
+      }
+      let colorHexes = (theme in colorConfig)?colorConfig[theme]:colorConfig["Default"]
+      return colorHexes
+    }
+  }
+  static getNoteColor(colorIndex){
+    let colorHexes = this.getCurrentNotebookExcerptColor()
     if (colorIndex !== undefined && colorIndex >= 0) {
       return colorHexes[colorIndex]
     }

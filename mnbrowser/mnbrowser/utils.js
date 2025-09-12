@@ -802,19 +802,27 @@ static extractBilibiliLinks(markdownText) {
       return `![image.png](${videoFrameInfo.image})`
     }
   }
-  static videoTime2MD(videoFrameInfo){
-    let formatedVideoTime = this.formatSeconds(videoFrameInfo.time)
+  static genBilibiliExcerptLink(videoFrameInfo){
     if ("p" in videoFrameInfo && videoFrameInfo.p) {
-      if (browserConfig.getConfig("timestampDetail")) {
-        return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv}-${videoFrameInfo.p})](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}&p=${videoFrameInfo.p})`
-      }else{
-        return `[${formatedVideoTime}](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}&p=${videoFrameInfo.p})`
-      }
-    }
-    if (browserConfig.getConfig("timestampDetail")) {
-      return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv})](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time})`
+      return `[${videoFrameInfo.bv}-${videoFrameInfo.p}](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}&p=${videoFrameInfo.p})`
     }else{
-      return `[${formatedVideoTime}](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time})`
+      return `[${videoFrameInfo.bv}](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time})`
+    }
+  }
+  static videoTime2MD(videoFrameInfo){
+    let link = this.genBilibiliExcerptLink(videoFrameInfo)
+    let formatedVideoTime = this.formatSeconds(videoFrameInfo.time)
+    // if ("p" in videoFrameInfo && videoFrameInfo.p) {
+    //   if (browserConfig.getConfig("timestampDetail")) {
+    //     return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv}-${videoFrameInfo.p})](${link})`
+    //   }else{
+    //     return `[${formatedVideoTime}](${link})`
+    //   }
+    // }
+    if (browserConfig.getConfig("timestampDetail")) {
+      return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv})](${link})`
+    }else{
+      return `[${formatedVideoTime}](${link})`
     }
   }
   static getTargetFrame(popupFrame,arrow){
@@ -1037,6 +1045,9 @@ static getWebJS(id) {
       return ""
   }
 }
+  static log(message,detail){
+    MNUtil.log({message:message,detail:detail,source:"MN Browser"})
+  }
 
 }
 class browserConfig{
@@ -1115,6 +1126,13 @@ class browserConfig{
       ]
   }
   static getCustomEmojiByAction(action){
+    if (action.startsWith("webApp:")) {
+      let webAppEntry = this.webAppEntries[action.split(":")[1]]
+      if ("symbol" in webAppEntry) {
+        return webAppEntry.symbol;
+      }
+      return "🌐";
+    }
     switch (action) {
       case "screenshot":
         return " 📸";
@@ -1183,6 +1201,10 @@ class browserConfig{
     return this.getCustomEmojiByAction(this.getConfig(configName))
   }
     static getCustomDescription(action){
+    if (action.startsWith("webApp:")) {
+      let webAppEntry = this.webAppEntries[action.split(":")[1]]
+      return webAppEntry.title;
+    }
     let actionConfig = {
       "openNewWindow":"open new window",
       "openInNewWindow":"open in new window",
@@ -1276,6 +1298,20 @@ class browserConfig{
       engine = this.entrieNames[0]
     }
     return engine
+  }
+  static getAvailableEngineEntryKey(){
+    let i = 0
+    while (this.entries["customEngine"+i]) {
+      i = i+1
+    }
+    return "customEngine"+i
+  }
+  static getAvailableWebAppEntryKey(){
+    let i = 0
+    while (this.webAppEntries["customEWebApp"+i]) {
+      i = i+1
+    }
+    return "customEWebApp"+i
   }
   static init(){
     this.config = this.getByDefault('MNBrowser_config', this.defaultConfig)
@@ -1861,6 +1897,10 @@ class browserConfig{
     return Math.max(lastSyncTime,modifiedTime)
   }
   static async import(alert = true,force = false){
+    let syncSource = this.getConfig("syncSource")
+    if (syncSource === "None") {
+      return false
+    }
     if (!browserUtils.checkSubscribe(true)) {
       return false
     }
@@ -1870,7 +1910,6 @@ class browserConfig{
       }
       return false
     }
-    let syncSource = this.getConfig("syncSource")
     // if (syncSource === "iCloud") {
     //   return false
     // }
@@ -1942,6 +1981,10 @@ class browserConfig{
   static async export(alert = true,force = false){
   try {
     
+    let syncSource = this.getConfig("syncSource")
+    if (syncSource === "None") {
+      return false
+    }
     if (!browserUtils.checkSubscribe(true)) {
       return false
     }
@@ -1949,7 +1992,6 @@ class browserConfig{
       MNUtil.showHUD("onSync")
       return
     }
-    let syncSource = this.getConfig("syncSource")
     this.setSyncStatus(true)
     if (force) {
       switch (syncSource) {

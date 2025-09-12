@@ -5,11 +5,12 @@ JSB.newAddon = function (mainPath) {
   JSB.require("utils")
   if (!snipasteUtils.checkMNUtilsFolder(mainPath)) {return undefined}
   JSB.require('webviewController');
-  var temSender;
   var MNSnipasteClass = JSB.defineClass(
     'MNSnipaste : JSExtension',
     { /* Instance members */
       sceneWillConnect: async function () { //Window initialize
+      try {
+
         if (!(await snipasteUtils.checkMNUtil(true))) return
         self.appInstance = Application.sharedInstance();
         self.addonController = snipasteController.new();
@@ -32,7 +33,10 @@ JSB.newAddon = function (mainPath) {
         MNUtil.addObserver(self, 'OnReceivedAudioAction:', 'snipasteAudioAction');
         MNUtil.addObserver(self, 'onPopupMenuOnSelection:', 'PopupMenuOnSelection')
         MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote');
-
+        
+      } catch (error) {
+        snipasteUtils.addErrorLog(error, "sceneWillConnect")
+      }
         // NSNotificationCenter.defaultCenter().addObserverSelectorName(self, 'trst:', 'onReciveTrst');
         // NSNotificationCenter.defaultCenter().addObserverSelectorName(self, 'onClosePopupMenuOnSelection:', 'ClosePopupMenuOnSelection');
       },
@@ -45,6 +49,9 @@ JSB.newAddon = function (mainPath) {
         MNUtil.removeObserver(self, "snipasteMermaid")
         MNUtil.removeObserver(self, "snipasteNote")
         MNUtil.removeObserver(self, "snipasteImage")
+        MNUtil.removeObserver(self, "snipasteAudioAction")
+        MNUtil.removeObserver(self, "PopupMenuOnSelection")
+        MNUtil.removeObserver(self, "PopupMenuOnNote")
       },
 
       sceneWillResignActive: function () { // Window resign active
@@ -54,9 +61,13 @@ JSB.newAddon = function (mainPath) {
       },
 
       notebookWillOpen: async function (notebookid) {
-        if (!(await snipasteUtils.checkMNUtil(false,0.1))) return
         try {
-        if (MNUtil.studyMode < 3 && !self.addonController.onSnipaste) {
+        if (!(await snipasteUtils.checkMNUtil(false,0.1))) return
+        if (!self.addonController) {
+          self.addonController = snipasteController.new();
+          self.addonController.mainPath = mainPath;
+        }
+        if (!self.addonController.onSnipaste) {
           MNUtil.refreshAddonCommands()
           MNUtil.currentWindow.addSubview(self.addonController.view)
           self.addonController.view.hidden = true;
@@ -66,7 +77,6 @@ JSB.newAddon = function (mainPath) {
           self.addonController.view.frame = { x: 50, y: 10, width: 500, height: 500 }
           self.addonController.webview.frame = { x: 50, y: 10, width: 500, height: 500 }
           self.addonController.currentFrame = { x: 50, y: 10, width: 500, height: 500 }
-          self.customLayoutAddonController();
         }
         // if (dynamic !== undefined) {
         //   self.addonController.dynamic = dynamic
@@ -156,16 +166,12 @@ JSB.newAddon = function (mainPath) {
         if (!snipasteUtils.checkLogo()) {
           return null
         }
-        if (MNUtil.studyMode < 3) {
           return {
             image: 'logo.png',
             object: self,
             selector: 'toggleAddon:',
             checked: false
           };
-        } else {
-          return null;
-        }
       },
       OnReceivedSnipastePDF: function (sender) {
         if (typeof MNUtil === 'undefined') return
@@ -282,6 +288,8 @@ JSB.newAddon = function (mainPath) {
         if (typeof MNUtil === 'undefined') return
         // self.addonController.snipasteMermaid("test")
         // return
+        try {
+
         if (!self.addonBar) {
           self.addonBar = sender.superview.superview
           self.addonController.addonBar = self.addonBar
@@ -330,19 +338,29 @@ JSB.newAddon = function (mainPath) {
           self.addonController.snipasteFromImage(imageData)
 //           self.addonController.webview.loadHTMLStringBaseURL(html)
           // self.addonController.webview.loadHTMLStringBaseURL(`<a href="marginnote3app://note/C08E37FD-AC36-42BB-A8AB-739296E62F23">test</a>`)
-          if (self.addonController.view.hidden) {
-            self.addonController.show()
-          }
           return
         }else{
           //无图片下选择卡片
           let focusNote = MNNote.getFocusNote()
+            // MNUtil.log("docMapSplitMode"+MNUtil.docMapSplitMode)
+            // MNUtil.log("studyMode"+MNUtil.studyMode) 
+          // MNUtil.log("currentNotebookType"+currentNotebook.flags) 
+          if (!focusNote) {
+            let currentNotebookType = MNUtil.currentNotebook.flags
+            if (currentNotebookType === 1) {
+              focusNote = MNNote.new(MNUtil.currentDocController.focusNote)
+            }else{
+              MNUtil.showHUD("Note not found")
+              return
+            }
+          }
           if (focusNote) {
             self.addonController.docMd5 = undefined
             self.addonController.pageIndex = undefined
             if (snipasteUtils.isPureImageNote(focusNote)) {
               imageData = MNUtil.getMediaByHash(focusNote.excerptPic.paint)
               self.addonController.focusNoteId = focusNote.noteId
+            // MNUtil.showHUD("Snipaste from note image")
               self.addonController.snipasteFromImage(imageData)
               return;
             }else{//摘录中无图片，直接贴卡片
@@ -353,10 +371,13 @@ JSB.newAddon = function (mainPath) {
                 self.addonController.currentFrame = frame
                 self.isFirst = false
               }
+            // MNUtil.showHUD("Snipaste from note")
               self.addonController.snipasteNote(focusNote)
               return;
             }
           }else if (selection.onSelection) {//尝试贴文字
+            // MNUtil.showHUD("123")
+            // MNUtil.showHUD("No note found")
               self.addonController.focusNoteId = undefined
               // MNUtil.showHUD(selection.docMd5)
               self.addonController.docMd5 = selection.docMd5
@@ -412,6 +433,10 @@ JSB.newAddon = function (mainPath) {
         }
         menu.show()
         return
+          
+        } catch (error) {
+          snipasteUtils.addErrorLog(error, "toggleAddon")
+        }
       },
       snipasteFromAudio: function (fileName) {
 
@@ -458,136 +483,5 @@ JSB.newAddon = function (mainPath) {
     }
   );
 
-  MNSnipasteClass.prototype.layoutAddonController = function (rectStr, arrowNum, custom = false) {
-
-    this.rect = rectStr || this.rect;
-    this.arrow = arrowNum || this.arrow;
-    var x, y
-    w = (this.appInstance.osType !== 1) ? 500 :500, // this.addonController.view.frame.width
-      h = 500, // this.addonController.view.frame.height
-      fontSize = 15,
-      margin = 10,
-      padding = 20,
-      frame = MNUtil.studyView.bounds,
-      W = frame.width,
-      H = frame.height,
-      rectArr = this.rect.replace(/{/g, '').replace(/}/g, '').replace(/\s/g, '').split(','),
-      X = Number(rectArr[0]),
-      Y = Number(rectArr[1]),
-      studyMode = MNUtil.studyMode,
-      contextMenuWidth = studyMode === 0 ? 225 : 435,
-      contextMenuHeight = 35,
-      textMenuPadding = 40;
-
-    // this.addonController.view.frame.x
-    if (w >= contextMenuWidth) {
-      if (X - w / 2 - margin <= 0) {
-        x = margin;
-      } else if (X + w / 2 + margin >= W) {
-        x = W - margin - w;
-      } else {
-        x = X - w / 2;
-      }
-    } else {
-      if (X - contextMenuWidth / 2 - margin <= 0) {
-        x = margin + contextMenuWidth / 2 - w / 2;
-      } else if (X + contextMenuWidth / 2 + margin >= W) {
-        x = W - margin - contextMenuWidth / 2 - w / 2;
-      } else {
-        x = X - w / 2;
-      }
-    }
-
-    // this.addonController.view.frame.[y, height]
-    if (this.arrow === 1) {
-      let upperBlankHeight = Y - textMenuPadding - fontSize - padding,
-        lowerBlankHeight = H - Y - contextMenuHeight - padding;
-      if (upperBlankHeight >= lowerBlankHeight) {
-        h = (upperBlankHeight >= h) ? h : upperBlankHeight;
-        y = upperBlankHeight - h;
-      } else {
-        y = H - lowerBlankHeight;
-        h = (H - y >= h) ? h : H - y;
-      }
-    } else {
-      let upperBlankHeight = Y - textMenuPadding - contextMenuHeight - padding,
-        lowerBlankHeight = H - Y - fontSize - padding;
-      if (upperBlankHeight >= lowerBlankHeight) {
-        h = (upperBlankHeight >= h) ? h : upperBlankHeight;
-        y = upperBlankHeight - h;
-      } else {
-        y = H - lowerBlankHeight;
-        h = (H - y >= h) ? h : H - y;
-      }
-    }
-    this.addonController.view.frame = { x: x, y: y, width: w, height: h };
-    this.addonController.currentFrame = { x: x, y: y, width: w, height: h };
-
-  };
-  MNSnipasteClass.prototype.customLayoutAddonController = function (rectStr, arrowNum, custom = false) {
-
-    this.rect = rectStr || this.rect;
-    this.arrow = arrowNum || this.arrow;
-    var x, y
-    w = (this.appInstance.osType !== 1) ? 500 : 500, // this.addonController.view.frame.width
-      h = 450, // this.addonController.view.frame.height
-      fontSize = 15,
-      margin = 10,
-      padding = 20,
-      frame = MNUtil.studyView.bounds,
-      W = frame.width,
-      H = frame.height,
-      rectArr = this.rect.replace(/{/g, '').replace(/}/g, '').replace(/\s/g, '').split(','),
-      X = Number(rectArr[0]),
-      Y = Number(rectArr[1]),
-      studyMode = MNUtil.studyMode,
-      contextMenuWidth = studyMode === 0 ? 225 : 435,
-      contextMenuHeight = 35,
-      textMenuPadding = 40;
-
-    // this.addonController.view.frame.x
-    if (w >= contextMenuWidth) {
-      if (X - w / 2 - margin <= 0) {
-        x = margin;
-      } else if (X + w / 2 + margin >= W) {
-        x = W - margin - w;
-      } else {
-        x = X - w / 2;
-      }
-    } else {
-      if (X - contextMenuWidth / 2 - margin <= 0) {
-        x = margin + contextMenuWidth / 2 - w / 2;
-      } else if (X + contextMenuWidth / 2 + margin >= W) {
-        x = W - margin - contextMenuWidth / 2 - w / 2;
-      } else {
-        x = X - w / 2;
-      }
-    }
-
-    // this.addonController.view.frame.[y, height]
-    if (this.arrow === 1) {
-      let upperBlankHeight = Y - textMenuPadding - fontSize - padding,
-        lowerBlankHeight = H - Y - contextMenuHeight - padding;
-      if (upperBlankHeight >= lowerBlankHeight) {
-        h = (upperBlankHeight >= h) ? h : upperBlankHeight;
-        y = upperBlankHeight - h;
-      } else {
-        y = H - lowerBlankHeight;
-        h = (H - y >= h) ? h : H - y;
-      }
-    } else {
-      let upperBlankHeight = Y - textMenuPadding - contextMenuHeight - padding,
-        lowerBlankHeight = H - Y - fontSize - padding;
-      if (upperBlankHeight >= lowerBlankHeight) {
-        h = (upperBlankHeight >= h) ? h : upperBlankHeight;
-        y = upperBlankHeight - h;
-      } else {
-        y = H - lowerBlankHeight;
-        h = (H - y >= h) ? h : H - y;
-      }
-    }
-    this.addonController.view.frame = { x: x, y: y + 50, width: w, height: h };
-    this.addonController.currentFrame = { x: x, y: y + 50 , width: w, height: h };
-  };
   return MNSnipasteClass;
 };

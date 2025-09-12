@@ -1,7 +1,8 @@
 /** @return {snipasteController} */
 const getSnipasteController = ()=>self
 
-var snipasteController = JSB.defineClass('snipasteController : UIViewController <UIWebViewDelegate>', {
+var snipasteController = JSB.defineClass('snipasteController : UIViewController <UIWebViewDelegate>', 
+{
   viewDidLoad: function() {
     let self = getSnipasteController()
     self.appInstance = Application.sharedInstance();
@@ -1006,7 +1007,7 @@ exportToPDF()
         MNUtil.showHUD("Not in notebook")
         return
       }
-      let docMapSplitMode = MNUtil.studyController.docMapSplitMode
+      let docMapSplitMode = MNUtil.docMapSplitMode
       let focusNote = MNNote.new(self.focusNoteId)
       if (focusNote.notebookId === MNUtil.currentNotebookId) {
         switch (docMapSplitMode) {
@@ -1042,7 +1043,7 @@ exportToPDF()
       if (self.docMd5 !== MNUtil.currentDocMd5) {
         MNUtil.openDoc(self.docMd5)
         if (MNUtil.docMapSplitMode === 0) {
-          MNUtil.studyController.docMapSplitMode = 1
+          MNUtil.docMapSplitMode = 1
         }
         await MNUtil.delay(0.01)
       }
@@ -2662,6 +2663,9 @@ try {
 // MNUtil.copy(html)
 this.webview.loadHTMLStringBaseURL(html)
 this.history.push({type:"image",base64:base64,id:MNUtil.MD5(base64)})
+if (this.view.hidden) {
+  this.show()
+}
 } catch (error) {
   snipasteUtils.addErrorLog(error, "snipasteFromImage")
 }

@@ -40,8 +40,8 @@ JSB.newAddon = function (mainPath) {
         self.addObserver( 'onPopupMenuOnNote:', 'PopupMenuOnNote');
         self.addObserver( 'receivedSearchInBrowser:', 'searchInBrowser');
         self.addObserver( 'receivedOpenInBrowser:', 'openInBrowser');
-        self.addObserver( 'receivedVideoFrameAction:', 'browserVideoFrameAction');
-        self.addObserver( 'receivedVideoControl:', 'browserVideoControl');
+        self.addObserver( 'receivedCustomAction:', 'browserCustomAction');
+        self.addObserver( 'receivedOpenWebAppInBrowser:', 'openWebAppInBrowser');
 
         self.addObserver( 'onNewWindow:', 'newWindow');
         self.addObserver( 'onSetVideo:', 'browserVideo');
@@ -569,35 +569,53 @@ JSB.newAddon = function (mainPath) {
           return
         }
         try {
-          
-        let message = sender.userInfo.message
-        if (/BilibiliExcerpt\?/.test(message) && (typeof biliUtils === 'undefined')) {
-          let arguments = message.match(/(?<=BilibiliExcerpt\?).*/)[0].split("&")
-          let id = arguments[0].match(/(?<=videoId\=)\w+/)[0]
-          let time = arguments[1].match(/(?<=t\=).*/)[0]
+        let tem = sender.userInfo.message
+        let message = tem.startsWith("marginnote4app://addon/") ? tem : "marginnote4app://addon/"+tem
+        let config = MNUtil.parseURL(message)
+        let addon = config.pathComponents[0]
+        if (addon === "BilibiliExcerpt") {
+          // MNUtil.copy(config)
+          let id = config.params.videoId
+          let time = parseFloat(config.params.t)
           if (self.addonController.view.hidden) {
             // MNUtil.showHUD("message")
             self.addonController.show()
           }
-          if (arguments.length > 2) {
-            let p = arguments[2].match(/(?<=p\=).*/)[0]
-            self.addonController.openOrJump(id,time,parseInt(p))
+          if ("p" in config.params) {
+            self.addonController.openOrJump(id,time,parseInt(config.params.p))
           }else{
             self.addonController.openOrJump(id,time,0)
           }
           MNUtil.studyView.bringSubviewToFront(self.addonController.view)
         }
-        if (/YoutubeExcerpt\?/.test(message)) {
-          let arguments = message.match(/(?<=YoutubeExcerpt\?).*/)[0].split("&")
-          let id = arguments[0].match(/(?<=videoId\=)\w+/)[0]
-          let time = arguments[1].match(/(?<=t\=).*/)[0]
-          if (self.addonController.view.hidden) {
-            // MNUtil.showHUD("message")
-            self.addonController.show()
-          }
-          self.addonController.openOrJumpForYT(id,time)
-          MNUtil.studyView.bringSubviewToFront(self.addonController.view)
-        }
+        // let message = sender.userInfo.message
+        // if (/BilibiliExcerpt\?/.test(message) && (typeof biliUtils === 'undefined')) {
+        //   let arguments = message.match(/(?<=BilibiliExcerpt\?).*/)[0].split("&")
+        //   let id = arguments[0].match(/(?<=videoId\=)\w+/)[0]
+        //   let time = arguments[1].match(/(?<=t\=).*/)[0]
+        //   if (self.addonController.view.hidden) {
+        //     // MNUtil.showHUD("message")
+        //     self.addonController.show()
+        //   }
+        //   if (arguments.length > 2) {
+        //     let p = arguments[2].match(/(?<=p\=).*/)[0]
+        //     self.addonController.openOrJump(id,time,parseInt(p))
+        //   }else{
+        //     self.addonController.openOrJump(id,time,0)
+        //   }
+        //   MNUtil.studyView.bringSubviewToFront(self.addonController.view)
+        // }
+        // if (/YoutubeExcerpt\?/.test(message)) {
+        //   let arguments = message.match(/(?<=YoutubeExcerpt\?).*/)[0].split("&")
+        //   let id = arguments[0].match(/(?<=videoId\=)\w+/)[0]
+        //   let time = arguments[1].match(/(?<=t\=).*/)[0]
+        //   if (self.addonController.view.hidden) {
+        //     // MNUtil.showHUD("message")
+        //     self.addonController.show()
+        //   }
+        //   self.addonController.openOrJumpForYT(id,time)
+        //   MNUtil.studyView.bringSubviewToFront(self.addonController.view)
+        // }
         } catch (error) {
           browserUtils.addErrorLog(error, "onAddonBroadcast")
         }
@@ -667,6 +685,69 @@ JSB.newAddon = function (mainPath) {
           return
         }
         self.addonController.show()
+      },
+      receivedCustomAction: function (sender) {
+        if (typeof MNUtil === 'undefined') {
+          return
+        }
+        if (self.window!==self.appInstance.focusWindow) {
+          return
+        } 
+        try {
+        if (!("action" in sender.userInfo)) {
+          MNUtil.showHUD("Action not found")
+          return
+        }
+        let info = sender.userInfo
+        let action = info.action.trim()
+        self.addonController.executeCustomAction(action)
+
+        if (!self.addonController.view.hidden) {
+          return
+        }
+        if (info.beginFrame && info.endFrame) {
+          self.addonController.show(info.beginFrame,info.endFrame)
+          MNUtil.studyView.bringSubviewToFront(self.addonController.view)
+          return
+        }
+        } catch (error) {
+          browserUtils.addErrorLog(error, "receivedCustomAction")
+        }
+      },
+      receivedOpenWebAppInBrowser: function (sender) {
+        if (typeof MNUtil === 'undefined') {
+          return
+        }
+        if (self.window!==self.appInstance.focusWindow) {
+          return
+        }
+        try {
+        if (!("webapp" in sender.userInfo)) {
+          MNUtil.showHUD("WebApp not found")
+          return
+        }
+        let info = sender.userInfo
+        let webappName = info.webapp.trim()
+        let webapp = browserConfig.webAppEntrieNames.find(key=>browserConfig.webAppEntries[key].title===webappName)
+        if (webapp === undefined) {
+          MNUtil.showHUD("WebApp not found: "+webappName)
+          return
+        }
+        self.addonController.changeWebAppTo(webapp)
+        if (!self.addonController.view.hidden) {
+          self.addonController.show(self.addonController.view.frame,info.endFrame)
+          return
+        }
+        if (info.beginFrame && info.endFrame) {
+          self.addonController.show(info.beginFrame,info.endFrame)
+          MNUtil.studyView.bringSubviewToFront(self.addonController.view)
+          return
+        }
+        self.addonController.show()
+        MNUtil.studyView.bringSubviewToFront(self.addonController.view)
+        } catch (error) {
+          browserUtils.addErrorLog(error, "receivedOpenWebAppInBrowser")
+        }
       },
       onSetVideo: function (sender) {
         if (typeof MNUtil === 'undefined') {
@@ -749,7 +830,7 @@ JSB.newAddon = function (mainPath) {
         if (self.viewTimer) self.viewTimer.invalidate();
 
 
-        if (self.addonController.currentNoteId) {//自动提取哔哩哔哩链接
+        if (self.addonController.currentNote()) {//自动提取哔哩哔哩链接
           let text = self.getTextForSearch(self.addonController.currentNoteId)
           // MNUtil.copy(text)
           let result = browserUtils.extractBilibiliLinks(text)
@@ -968,8 +1049,13 @@ JSB.newAddon = function (mainPath) {
     return noteList.concat(note.comments.filter(comment=>comment.type==="TextNote").map(comment=>comment.text))
   };
   MNBrowserClass.prototype.getTextForSearch = function (note) {
+    try {
+
     if (typeof note === "string") {
       note = MNNote.new(note)
+    }
+    if (!note) {
+      return ""
     }
     let order = browserConfig.searchOrder
     if (!order) {
@@ -1003,6 +1089,11 @@ JSB.newAddon = function (mainPath) {
       }
     }
   return ""
+      
+    } catch (error) {
+      browserUtils.addErrorLog(error, "getTextForSearch")
+      return ""
+    }
   }
   MNBrowserClass.prototype.init = function(mainPath){ 
   try {
