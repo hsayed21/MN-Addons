@@ -584,7 +584,7 @@ class MNUtil {
     if (selectionText) {
       return selectionText
     }
-    if (this.studyController.docMapSplitMode) {//不为0则表示documentControllers存在
+    if (this.docMapSplitMode) {//不为0则表示documentControllers存在
       let docControllers = this.docControllers
       let docNumber = docControllers.length
       for (let i = 0; i < docNumber; i++) {
@@ -608,7 +608,7 @@ class MNUtil {
     if (image) {
       return this.currentDocController.isSelectionText
     }
-    if (this.studyController.docMapSplitMode) {//不为0则表示documentControllers存在
+    if (this.docMapSplitMode) {//不为0则表示documentControllers存在
       let docControllers = this.docControllers
       let docNumber = docControllers.length
       for (let i = 0; i < docNumber; i++) {
@@ -659,7 +659,7 @@ class MNUtil {
     if (image) {
       return this.genSelection(this.currentDocController)
     }
-    if (this.studyController.docMapSplitMode) {//不为0则表示documentControllers存在
+    if (this.docMapSplitMode) {//不为0则表示documentControllers存在
       let docControllers = this.docControllers
       let docNumber = docControllers.length
       for (let i = 0; i < docNumber; i++) {
@@ -682,6 +682,35 @@ class MNUtil {
   }
   static get currentNotebook() {
     return this.getNoteBookById(this.currentNotebookId)
+  }
+  /**
+   * Hiden = 0, Doc = 1, MindMap = 2, FlashCard = 3
+   * @returns {number}
+   */
+  static get currentNotebookFlags() {
+    return this.currentNotebook.flags
+  }
+  /**
+   * Hiden = 0, Doc = 1, MindMap = 2, FlashCard = 3
+   * @returns {"Hiden" | "Doc" | "MindMap" | "FlashCard" | "Unknown"}
+   */
+  static get currentNotebookType() {
+    let flags = this.currentNotebook.flags
+    switch (flags) {
+      case 0:
+        return "Hiden"
+      case 1:
+        return "Doc"
+      case 2:
+        return "MindMap"
+      case 3:
+        return "FlashCard"
+      default:
+        return "Unknown"
+    }
+  }
+  static get currentNotebookController() {
+    return this.studyController.notebookController
   }
   static rgbaToHex(rgba, includeAlpha = false, toUpperCase = false) {
       // 确保RGB分量在0-255范围内
@@ -2413,7 +2442,7 @@ static getValidJSON(jsonString,debug = false) {
     MNUtil.studyController.openNotebookAndDocument(notebookId, md5)
     let splitMode = MNUtil.docMapSplitMode
     if (splitMode === 0) {
-      MNUtil.studyController.docMapSplitMode = 1
+      MNUtil.docMapSplitMode = 1
     }
   }
   /**
@@ -2803,14 +2832,26 @@ try {
     return noteId
   }
   /**
+   * 注意即使是纯文档模式，也可能是allMap（返回0）,且studyMode为2,所以需要使用currentNotebook.flags来判断
+   * @returns {number}
    * allMap = 0,
    * half = 1,
    * allDoc = 2
    */
   static get docMapSplitMode(){
+    let notebookType = this.currentNotebook.flags
+    if (notebookType === 1) {//文档模式下，直接返回当前文档控制器的焦点笔记
+      //此时studyController.docMapSplitMode为0，但实际上为纯文档模式，应返回2
+      return 2
+    }
     return this.studyController.docMapSplitMode
   }
   static set docMapSplitMode(mode){
+    let notebookType = this.currentNotebook.flags
+    if (notebookType === 1) {//文档模式
+      //纯文档模式下不允许调整docMapSplitMode
+      return
+    }
     this.studyController.docMapSplitMode = mode
   }
   /**
@@ -2826,7 +2867,7 @@ try {
   static getDocImage(checkImageFromNote=false,checkDocMapSplitMode=false){
   try {
 
-    let docMapSplitMode = this.studyController.docMapSplitMode
+    let docMapSplitMode = this.docMapSplitMode
     if (checkDocMapSplitMode && !docMapSplitMode) {
       return undefined
     }
@@ -6054,6 +6095,12 @@ class MNNote{
   open(){
     MNUtil.openURL(this.noteURL)
   }
+  appendExcerptText(text){
+    this.excerptText = this.excerptText+"\n"+text
+  }
+  prependExcerptText(text){
+    this.excerptText = text+"\n"+this.excerptText
+  }
   copy(){
     let noteInfo = {
       id:this.noteId,
@@ -6693,6 +6740,9 @@ try {
     }
     return this
   }
+  prependMarkdownComment(comment){
+    this.appendMarkdownComment(comment,0)
+  }
   /**
    *
    * @param  {string} comment
@@ -6734,6 +6784,9 @@ try {
     }
     return this
   }
+  prependTextComment(comment){
+    this.appendTextComment(comment,0)
+  }
   /**
    *
    * @param  {string} comment
@@ -6769,6 +6822,9 @@ try {
       this.moveComment(this.note.comments.length-1, index)
     }
     return this
+  }
+  prependHtmlComment(html, text, size, tag){
+    this.appendHtmlComment(html, text, size, tag, 0)
   }
   /**
    *
@@ -7028,6 +7084,7 @@ try {
     return this
   }
 
+
   /**
    * @param {string[]} titles
    * append titles as much as you want
@@ -7040,6 +7097,15 @@ try {
     } else {
       this.note.noteTitle = newTitle
     }
+    return this
+  }
+  appendTitle(title){
+    this.appendTitles([title])
+    return this
+  }
+  prependTitle(title){
+    this.titles.unshift(title)
+    this.note.noteTitle = this.titles.join("; ")
     return this
   }
   /**
@@ -7166,8 +7232,6 @@ try {
    */
   appendNoteLink(note,type="To"){
   try {
-    
-
     switch (MNUtil.typeOf(note)) {
       case "MNNote":
         switch (type) {
@@ -7222,7 +7286,7 @@ try {
     }
     return this
   } catch (error) {
-    MNUtil.showHUD(error)
+    MNNote.addErrorLog(error, "appendNoteLink")
     return this
   }
   }
@@ -7472,15 +7536,17 @@ try {
   }
   static get currentChildMap(){
   try {
-
-    if (MNUtil.mindmapView && MNUtil.mindmapView.mindmapNodes[0].note?.childMindMap) {
-      return this.new(MNUtil.mindmapView.mindmapNodes[0].note.childMindMap.noteId)
+    let mindmapView = MNUtil.mindmapView
+    if (!mindmapView || !mindmapView.mindmapNodes || mindmapView.mindmapNodes.length === 0) {
+      return undefined
+    }
+    if (mindmapView.mindmapNodes[0].note?.childMindMap) {
+      return this.new(mindmapView.mindmapNodes[0].note.childMindMap.noteId)
     }else{
       return undefined
     }
-    
   } catch (error) {
-    MNNote.addErrorLog(error, "currentChildMap")
+    MNNote.addErrorLog(error, "MNNote.currentChildMap")
     return undefined
   }
   }
@@ -7512,7 +7578,14 @@ try {
     if (!notebookController.view.hidden && notebookController.mindmapView && notebookController.focusNote) {
       return MNNote.new(notebookController.focusNote)
     }
-    if (MNUtil.studyController.docMapSplitMode) {//不为0则表示documentControllers存在
+    let notebookType = MNUtil.currentNotebook.flags
+    if (notebookType === 1) {//文档模式下，直接返回当前文档控制器的焦点笔记
+      let note = MNUtil.currentDocController.focusNote
+      if (note) {
+        return MNNote.new(note)
+      }
+    }
+    if (MNUtil.docMapSplitMode) {//不为0则表示documentControllers存在
       let note = MNUtil.currentDocController.focusNote
       if (note) {
         return MNNote.new(note)
@@ -7593,7 +7666,14 @@ try {
         return this.new(tem.note.note)
       })
     }
-    if (MNUtil.studyController.docMapSplitMode) {//不为0则表示documentControllers存在
+    let notebookType = MNUtil.currentNotebook.flags
+    if (notebookType === 1) {//文档模式下，直接返回当前文档控制器的焦点笔记
+      let note = MNUtil.currentDocController.focusNote
+      if (note) {
+        return [MNNote.new(note)]
+      }
+    }
+    if (MNUtil.docMapSplitMode) {//不为0则表示documentControllers存在
       let note = MNUtil.currentDocController.focusNote
       if (note) {
         return [this.new(note)]
