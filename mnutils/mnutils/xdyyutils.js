@@ -2197,9 +2197,10 @@ class MNMath {
    * 
    * @param {MNNote} rootNote - 根卡片
    * @param {boolean} skipEmptyTitle - 是否跳过空白标题的卡片及其子孙
+   * @param {Array<string>} rootNoteIds - 根目录ID列表，用于检查空白卡片的子卡片是否为根目录
    * @returns {object[]} 所有后代卡片的原生对象数组
    */
-  static getAllDescendantNotesWithSkipEmpty(rootNote, skipEmptyTitle = false) {
+  static getAllDescendantNotesWithSkipEmpty(rootNote, skipEmptyTitle = false, rootNoteIds = []) {
     let descendants = [];
     
     // 确保 rootNote 是 MNNote 对象
@@ -2213,16 +2214,28 @@ class MNMath {
       // 检查是否需要跳过空标题卡片
       const title = childMNNote.noteTitle || "";
       if (skipEmptyTitle && title.trim() === "") {
-        // 跳过该卡片及其所有子孙
-        MNUtil.log(`🚫 跳过空白标题卡片: ${childMNNote.noteId}`);
-        continue;
+        // 检查该空白卡片的第一个子卡片是否在根目录列表中
+        let shouldSkip = true;
+        if (rootNoteIds && rootNoteIds.length > 0 && childMNNote.childNotes && childMNNote.childNotes.length > 0) {
+          const firstChildId = childMNNote.childNotes[0].noteId;
+          if (rootNoteIds.includes(firstChildId)) {
+            shouldSkip = false;
+            MNUtil.log(`⚠️ 空白标题卡片的子卡片为根目录，不跳过: ${childMNNote.noteId} -> ${firstChildId}`);
+          }
+        }
+        
+        if (shouldSkip) {
+          // 跳过该卡片及其所有子孙
+          MNUtil.log(`🚫 跳过空白标题卡片: ${childMNNote.noteId}`);
+          continue;
+        }
       }
       
       // childMNNote 已经是 MNNote 对象，不需要再用 new MNNote() 包装
       descendants.push(childMNNote.note);
       
-      // 递归获取子卡片的后代（传递 skipEmptyTitle 参数）
-      let childDescendants = this.getAllDescendantNotesWithSkipEmpty(childMNNote, skipEmptyTitle);
+      // 递归获取子卡片的后代（传递 skipEmptyTitle 和 rootNoteIds 参数）
+      let childDescendants = this.getAllDescendantNotesWithSkipEmpty(childMNNote, skipEmptyTitle, rootNoteIds);
       descendants.push(...childDescendants);
     }
     
@@ -9975,7 +9988,7 @@ class MNMath {
         
         // 获取该根目录的所有子孙卡片（根据配置决定是否跳过空标题）
         const descendants = skipEmptyTitle 
-          ? this.getAllDescendantNotesWithSkipEmpty(rootNote, true)
+          ? this.getAllDescendantNotesWithSkipEmpty(rootNote, true, rootNoteIds)
           : this.getAllDescendantNotes(rootNote);
         
         // 添加到 Set 中去重（基于 noteId）
