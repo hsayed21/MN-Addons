@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/**)",
-      "Read(//Users/xiakangwei/Nutstore/Obsidian/IOTO/1-输入/碎片笔记/MarginNote/**)"
+      "Read(//Users/xiakangwei/Nutstore/Obsidian/IOTO/1-输入/碎片笔记/MarginNote/**)",
+      "mcp__serena__find_file"
     ],
     "deny": [],
     "ask": []

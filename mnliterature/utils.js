@@ -33,6 +33,18 @@ class literatureUtils {
       })
     }
   }
+
+  static log(log, source){
+    let tem = {source:source, time:(new Date(Date.now())).toString(), log:log}
+    if (typeof MNUtil.log !== 'undefined') {
+      MNUtil.log({
+        source:"MN Literature",
+        level:"log",
+        message:source,
+        detail:tem,
+      })
+    }
+  }
   /**
    * 获取插件文件夹路径
    * @param {string} fullPath - 完整文件路径
