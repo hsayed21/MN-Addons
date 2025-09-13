@@ -418,12 +418,27 @@ JSB.newAddon = function(mainPath){
 
   MNLiteratureClass.prototype.testAI = async function() {
     try {
-      LiteraturePluginIntegration.callMNAIWithNotification("什么是算子")
-      let output = await chatAIUtils.notifyController.getTextForAction()
-      literatureUtils.log(output)
-      MNUtil.copy(output)
+      // 调用 MNAI 并等待结果
+      const output = await LiteraturePluginIntegration.callMNAIWithNotification("什么是算子")
+      
+      if (output) {
+        // 记录结果
+        literatureUtils.log("AI 结果: " + output)
+        
+        // 可选：设置为当前卡片的标题
+        const focusNote = MNNote.getFocusNote()
+        if (focusNote) {
+          MNUtil.undoGrouping(() => {
+            focusNote.appendMarkdownComment(output) 
+          })
+          MNUtil.showHUD("✅ 已添加到卡片评论")
+        }
+      } else {
+        MNUtil.showHUD("❌ 未获取到 AI 结果")
+      }
     } catch (error) {
       literatureUtils.addErrorLog(error, "testAI")
+      MNUtil.showHUD("❌ 调用失败: " + error.message)
     }
   }
   

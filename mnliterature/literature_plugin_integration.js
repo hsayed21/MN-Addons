@@ -189,30 +189,77 @@ class LiteraturePluginIntegration {
   /**
    * 通过事件通知调用 MNAI（更高级）
    * @param {string} text - 要处理的文本
-   * @returns {Promise<void>}
+   * @returns {Promise<string|null>} AI 生成的结果文本，失败返回 null
    * 
    * @description
    * 使用 NSNotificationCenter 广播机制调用 MNAI 插件。
-   * 这是一种更底层的插件间通信方式，适合需要更复杂交互的场景。
+   * 发送请求后会轮询等待 AI 生成完成，最多等待 30 秒。
    * 
-   * MNAI 插件会监听 "AddonBroadcast" 事件，并解析消息内容执行相应操作。
+   * MNAI 插件会监听 "customChat" 事件，通过 customAsk 方法处理请求。
+   * 生成的内容最终存储在 chatAIUtils.notifyController.lastResponse 中。
    * 
    * @example
-   * await LiteraturePluginIntegration.callMNAIWithNotification("请帮我翻译这段文字");
+   * const result = await LiteraturePluginIntegration.callMNAIWithNotification("请帮我翻译这段文字");
+   * if (result) {
+   *   console.log("AI 结果：", result);
+   * }
    */
-  static callMNAIWithNotification(text) {
-    MNUtil.postNotification("customChat", 
-      {
-        user: text,
+  static async callMNAIWithNotification(text) {
+    try {
+      // 检查 MNAI 是否已加载
+      if (typeof chatAIUtils === "undefined") {
+        MNUtil.showHUD("❌ 请先安装并打开 MNAI 插件");
+        return null;
       }
-    )
-    // MNUtil.postNotification("customChat", 
-    //   {
-    //     prompt: "翻译为英文",
-    //   }
-    // )
-    
-    MNUtil.showHUD("已通过事件发送到 MNAI");
+      
+      MNUtil.showHUD("正在发送到 AI 处理...");
+      
+      // 发送请求到 MNAI
+      MNUtil.postNotification("customChat", {
+        user: text
+      });
+      
+      // 等待一小段时间让 MNAI 开始处理
+      await MNUtil.delay(0.5);
+      
+      // 轮询等待结果
+      const maxAttempts = 60;  // 最多等待 30 秒（60 * 0.5）
+      const pollInterval = 0.5; // 每 0.5 秒检查一次
+      
+      for (let i = 0; i < maxAttempts; i++) {
+        // 检查 notifyController 是否存在
+        if (chatAIUtils && chatAIUtils.notifyController) {
+          const controller = chatAIUtils.notifyController;
+          
+          // 优先检查 lastResponse（生成完成后的最终结果）
+          // MNAI 在 finish() 中会将 response 保存到 lastResponse 然后清空 response
+          if (controller.lastResponse && controller.lastResponse.trim()) {
+            MNUtil.showHUD("✅ 获取到 AI 结果");
+            MNUtil.log("获取到 lastResponse: " + controller.lastResponse.substring(0, 50) + "...");
+            return controller.lastResponse;
+          }
+          
+          // 备用检查：在某些情况下 response 可能还未被清空
+          // 这种情况较少见，但保留以防万一
+          if (!controller.connection && controller.response && controller.response.trim()) {
+            MNUtil.showHUD("✅ 获取到 AI 结果（备用）");
+            MNUtil.log("获取到 response: " + controller.response.substring(0, 50) + "...");
+            return controller.response;
+          }
+        }
+        
+        // 继续等待
+        await MNUtil.delay(pollInterval);
+      }
+      
+      // 超时
+      MNUtil.showHUD("❌ 获取 AI 结果超时（30秒）");
+      return null;
+      
+    } catch (error) {
+      MNUtil.showHUD("❌ 调用 MNAI 失败: " + error.message);
+      return null;
+    }
   }
   
   /**
