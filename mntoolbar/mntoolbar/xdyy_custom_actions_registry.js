@@ -3328,8 +3328,7 @@ function registerAllCustomActions() {
     
     MNUtil.undoGrouping(() => {
       try {
-        const removedCount = MNMath.keepOnlyExcerpt(focusNote);
-        MNUtil.showHUD(`✅ 已处理：清除标题和 ${removedCount} 条评论`);
+        MNMath.keepOnlyExcerpt(focusNote);
         
       } catch (error) {
         MNUtil.showHUD(`❌ 处理失败: ${error.message}`);
@@ -3977,6 +3976,21 @@ function registerAllCustomActions() {
         
         // 3. 加入复习并聚焦
         MNMath.addToReview(focusNote, true);
+        focusNote.focusInMindMap(0.3);
+        
+        MNUtil.showHUD("✅ 已按旧卡片模式处理");
+      } catch (error) {
+        MNUtil.showHUD(`❌ 处理失败: ${error.message || error}`);
+      }
+    });
+  });
+
+  // 处理旧卡片
+  global.registerCustomAction("handleOldCardWithoutMakeNote", async function (context) {
+    const { focusNote } = context;
+    MNUtil.undoGrouping(() => {
+      try {
+        MNMath.processOldTemplateCard(focusNote);
         focusNote.focusInMindMap(0.3);
         
         MNUtil.showHUD("✅ 已按旧卡片模式处理");

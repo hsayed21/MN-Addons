@@ -418,52 +418,60 @@ class MNMath {
    * @returns {number} 返回删除的评论数量
    */
   static keepOnlyExcerpt(note) {
-    if (!note) {
-      return 0;
+    if (note) {
+      this.keepOnlyExcerptAndTitle(note); // 先保留标题
+      note.noteTitle = "";
     }
+  }
 
-    // 1. 清空标题
-    note.noteTitle = "";
-    
-    // 2. 获取所有评论的详细类型
-    const comments = note.MNComments;
-    const indicesToRemove = [];
-    
-    // 3. 识别需要删除的评论（手写和文本类型）
-    for (let i = 0; i < comments.length; i++) {
-      const commentType = comments[i].type;
+  static keepOnlyExcerptAndTitle(note) {
+    if (note) {
+      // 获取所有评论的详细类型
+      const comments = note.MNComments;
+      const indicesToRemove = [];
       
-      // 手写相关类型
-      if (commentType === "drawingComment" || 
-          commentType === "imageCommentWithDrawing" || 
-          commentType === "mergedImageCommentWithDrawing") {
-        indicesToRemove.push(i);
-        continue;
+      // 识别需要删除的评论（手写和文本类型）
+      for (let i = 0; i < comments.length; i++) {
+        const commentType = comments[i].type;
+        // 手写相关类型
+        if (commentType === "drawingComment" || 
+            commentType === "imageCommentWithDrawing" || 
+            commentType === "mergedImageCommentWithDrawing") {
+          indicesToRemove.push(i);
+          continue;
+        }
+        
+        // 文本相关类型（包括 HTML、链接等）
+        if (commentType === "textComment" || 
+            commentType === "markdownComment" || 
+            commentType === "tagComment" ||
+            commentType === "HtmlComment" ||
+            commentType === "linkComment" ||
+            commentType === "summaryComment" ||
+            commentType === "mergedTextComment" ||
+            commentType === "blankTextComment") {
+          indicesToRemove.push(i);
+        }
       }
       
-      // 文本相关类型（包括 HTML、链接等）
-      if (commentType === "textComment" || 
-          commentType === "markdownComment" || 
-          commentType === "tagComment" ||
-          commentType === "HtmlComment" ||
-          commentType === "linkComment" ||
-          commentType === "summaryComment" ||
-          commentType === "mergedTextComment" ||
-          commentType === "blankTextComment") {
-        indicesToRemove.push(i);
+      // 从后往前删除评论（避免索引变化问题）
+      indicesToRemove.sort((a, b) => b - a);
+      for (const index of indicesToRemove) {
+        note.removeCommentByIndex(index);
       }
-    }
-    
-    // 4. 从后往前删除评论（避免索引变化问题）
-    indicesToRemove.sort((a, b) => b - a);
-    for (const index of indicesToRemove) {
-      note.removeCommentByIndex(index);
-    }
 
-    // 5. 刷新卡片显示
-    note.refresh();
-    
-    return indicesToRemove.length;
+      // 刷新卡片显示
+      note.refresh();
+
+      this.removeTitlePrefix(note)
+    }
+  }
+
+  // 去掉卡片的 【】 前缀
+  static removeTitlePrefix(note) {
+    if (note && note.noteTitle) {
+      note.noteTitle = note.noteTitle.replace(/^【.*?】/, "");
+    }
   }
 
   /**
@@ -9046,18 +9054,20 @@ class MNMath {
    * @param {Array<string>} contextTriggers - 上下文触发词数组（可选）
    * @param {string} contextMode - 上下文匹配模式："any"（默认）或 "all"
    * @param {boolean} caseSensitive - 是否大小写敏感（默认 false）
+   * @param {boolean} patternMode - 是否启用模式匹配（默认 false）
    */
-  static addSynonymGroup(name, words, partialReplacement = false, contextTriggers = undefined, contextMode = "any", caseSensitive = false) {
+  static addSynonymGroup(name, words, partialReplacement = false, contextTriggers = undefined, contextMode = "any", caseSensitive = false, patternMode = false) {
     this.initSearchConfig();
     const group = {
       id: "group_" + Date.now(),
       name: name,
       words: words,
       enabled: true,
-      partialReplacement: partialReplacement,  // 新增字段
-      contextTriggers: contextTriggers,  // 新增：上下文触发词
-      contextMode: contextMode,          // 新增：匹配模式
-      caseSensitive: caseSensitive,      // 新增：大小写敏感
+      partialReplacement: partialReplacement,  // 局部替换字段
+      contextTriggers: contextTriggers,  // 上下文触发词
+      contextMode: contextMode,          // 匹配模式
+      caseSensitive: caseSensitive,      // 大小写敏感
+      patternMode: patternMode,          // 模式匹配（新增）
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
@@ -9139,6 +9149,112 @@ class MNMath {
     if (isFromEnglish && isToChinese) return 'removeSpace';
     
     return 'direct';
+  }
+
+  /**
+   * 编译模式为正则表达式
+   * @param {string} pattern - 包含{{}}占位符的模式
+   * @returns {Object} 返回 {regex: RegExp, captureCount: number}
+   */
+  static compilePattern(pattern) {
+    try {
+      // 缓存编译结果
+      if (!this._patternCache) {
+        this._patternCache = new Map();
+      }
+      
+      if (this._patternCache.has(pattern)) {
+        return this._patternCache.get(pattern);
+      }
+      
+      // 转义正则表达式特殊字符，但保留{{}}
+      let escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, (match) => {
+        // 不转义{{和}}
+        if (match === '{' || match === '}') {
+          return match;
+        }
+        return '\\' + match;
+      });
+      
+      // 将{{}}替换为非贪婪捕获组
+      let captureCount = 0;
+      const regexPattern = escapedPattern.replace(/\{\{\}\}/g, () => {
+        captureCount++;
+        return '(.*?)';  // 非贪婪匹配任意内容
+      });
+      
+      const regex = new RegExp('^' + regexPattern + '$', 'i');  // 不区分大小写
+      const result = { regex, captureCount };
+      
+      // 缓存结果
+      this._patternCache.set(pattern, result);
+      
+      return result;
+    } catch (error) {
+      MNUtil.log(`模式编译失败: ${pattern}, 错误: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * 使用模式匹配文本并提取捕获组
+   * @param {string} text - 要匹配的文本
+   * @param {string} pattern - 模式字符串
+   * @returns {Object|null} 返回 {matches: boolean, captures: Array<string>} 或 null
+   */
+  static matchPattern(text, pattern) {
+    const compiled = this.compilePattern(pattern);
+    if (!compiled) return null;
+    
+    const match = text.match(compiled.regex);
+    if (!match) return null;
+    
+    return {
+      matches: true,
+      captures: match.slice(1)  // 排除完整匹配，只要捕获组
+    };
+  }
+
+  /**
+   * 生成模式匹配的变体
+   * @param {string} keyword - 原始关键词
+   * @param {Object} group - 同义词组
+   * @returns {Array<string>} 生成的变体数组
+   */
+  static generatePatternVariants(keyword, group) {
+    const variants = new Set();
+    
+    if (!group.patternMode || !group.words) return Array.from(variants);
+    
+    // 尝试匹配keyword到组内的每个模式
+    for (const pattern of group.words) {
+      if (!pattern.includes('{{}}')) continue;  // 跳过没有占位符的词
+      
+      const matchResult = this.matchPattern(keyword, pattern);
+      if (matchResult && matchResult.matches) {
+        // 匹配成功，生成其他模式的变体
+        const captures = matchResult.captures;
+        
+        for (const targetPattern of group.words) {
+          if (targetPattern === pattern) continue;  // 跳过自己
+          
+          let variant = targetPattern;
+          
+          if (targetPattern.includes('{{}}')) {
+            // 目标也是模式，替换占位符
+            let captureIndex = 0;
+            variant = targetPattern.replace(/\{\{\}\}/g, () => {
+              return captures[captureIndex++] || '';
+            });
+          }
+          // 如果目标不是模式（没有占位符），直接使用
+          
+          variants.add(variant);
+        }
+      }
+    }
+    
+    return Array.from(variants);
   }
 
   /**
@@ -9266,6 +9382,12 @@ class MNMath {
           const partialVariants = this.generatePartialReplacements(keyword, group);
           partialVariants.forEach(variant => keywordGroup.add(variant));
         }
+        
+        // 3. 模式匹配（新功能）
+        if (group.patternMode) {
+          const patternVariants = this.generatePatternVariants(keyword, group);
+          patternVariants.forEach(variant => keywordGroup.add(variant));
+        }
       }
       
       keywordGroups.push(Array.from(keywordGroup));
@@ -9329,6 +9451,12 @@ class MNMath {
         if (foundInGroup) {
           // 添加组内所有词
           group.words.forEach(word => expandedKeywords.add(word));
+        }
+        
+        // 检查模式匹配
+        if (group.patternMode) {
+          const patternVariants = this.generatePatternVariants(keyword, group);
+          patternVariants.forEach(variant => expandedKeywords.add(variant));
         }
       }
     }
@@ -9822,7 +9950,9 @@ class MNMath {
                 // 如果没有 contextMode 字段，设为默认值 "any"
                 contextMode: group.contextMode || "any",
                 // 如果没有 caseSensitive 字段，设为默认值 false
-                caseSensitive: group.caseSensitive !== undefined ? group.caseSensitive : false
+                caseSensitive: group.caseSensitive !== undefined ? group.caseSensitive : false,
+                // 如果没有 patternMode 字段，设为默认值 false
+                patternMode: group.patternMode !== undefined ? group.patternMode : false
               };
 
               // 验证 contextMode 的有效性
@@ -12284,35 +12414,55 @@ class MNMath {
         continue; // 返回重新输入
       }
       
-      // 第三步：选择是否开启局部替换
-      const enablePartial = await new Promise((resolve) => {
+      // 第三步：选择匹配模式
+      const { enablePartial, patternMode } = await new Promise((resolve) => {
+        const hasPatternPlaceholder = words.some(word => word.includes('{{}}'));
+        
+        let message = `组名：${groupName}\n词汇：${words.join(", ")}\n\n`;
+        if (hasPatternPlaceholder) {
+          message += `检测到模式占位符 {{}}，建议启用模式匹配：\n`;
+        }
+        message += `选择匹配模式：\n• 普通：只匹配完整的词\n• 局部替换：在长词中也会匹配\n• 模式匹配：支持 {{}} 占位符的动态匹配`;
+        
+        const buttons = ["下一步（普通）", "下一步（局部替换）", "下一步（模式匹配）"];
+        
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "选择替换模式",
-          `组名：${groupName}\n词汇：${words.join(", ")}\n\n是否开启局部替换？\n• 开启：在长词中也会匹配（如"柯西"会匹配"柯西-施瓦茨"）\n• 关闭：只匹配完整的词`,
+          "选择匹配模式",
+          message,
           0,
           "取消",
-          ["下一步（普通）", "下一步（局部替换）"],
+          buttons,
           (alert, buttonIndex) => {
             if (buttonIndex === 0) {
               resolve(null);
               return;
             }
             
-            resolve(buttonIndex === 2); // 第二个按钮为开启局部替换
+            switch (buttonIndex) {
+              case 1: // 普通模式
+                resolve({ enablePartial: false, patternMode: false });
+                break;
+              case 2: // 局部替换
+                resolve({ enablePartial: true, patternMode: false });
+                break;
+              case 3: // 模式匹配
+                resolve({ enablePartial: false, patternMode: true });
+                break;
+            }
           }
         );
       });
       
-      if (enablePartial === null) {
-        continue; // 返回重新输入
+      if (!enablePartial && !patternMode && enablePartial !== false) {
+        continue; // 返回重新输入（当resolve(null)时）
       }
 
       // 第四步：选择大小写敏感
       const caseSensitive = await new Promise((resolve) => {
-        const partialText = enablePartial ? "（局部替换）" : "（普通）";
+        const modeText = patternMode ? "（模式匹配）" : (enablePartial ? "（局部替换）" : "（普通）");
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
           "大小写匹配",
-          `组名：${groupName}${partialText}\n词汇：${words.join(", ")}\n\n是否启用大小写敏感匹配？\n• 启用：Machine 和 machine 视为不同词汇\n• 不启用：Machine 和 machine 视为相同词汇`,
+          `组名：${groupName}${modeText}\n词汇：${words.join(", ")}\n\n是否启用大小写敏感匹配？\n• 启用：Machine 和 machine 视为不同词汇\n• 不启用：Machine 和 machine 视为相同词汇`,
           0,
           "取消", 
           ["下一步（不敏感）", "下一步（大小写敏感）"],
@@ -12336,11 +12486,11 @@ class MNMath {
       let contextMode = "any";
       
       const setContext = await new Promise((resolve) => {
-        const partialText = enablePartial ? "（局部替换）" : "（普通）";
+        const modeText = patternMode ? "（模式匹配）" : (enablePartial ? "（局部替换）" : "（普通）");
         const caseText = caseSensitive ? "（大小写敏感）" : "";
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
           "上下文触发词",
-          `组名：${groupName}${partialText}${caseText}\n词汇：${words.join(", ")}\n\n是否设置上下文触发词？\n• 设置：仅当卡片标题包含特定词汇时才应用\n• 跳过：全局应用（对所有卡片生效，推荐）`,
+          `组名：${groupName}${modeText}${caseText}\n词汇：${words.join(", ")}\n\n是否设置上下文触发词？\n• 设置：仅当卡片标题包含特定词汇时才应用\n• 跳过：全局应用（对所有卡片生效，推荐）`,
           0,
           "取消",
           ["直接添加（全局）", "设置触发词"],
@@ -12425,11 +12575,12 @@ class MNMath {
       }
       
       // 添加同义词组
-      const result = this.addSynonymGroup(groupName, words, enablePartial, contextTriggers, contextMode, caseSensitive);
+      const result = this.addSynonymGroup(groupName, words, enablePartial, contextTriggers, contextMode, caseSensitive, patternMode);
       if (result) {
         addedCount++;
         let configText = "";
-        if (enablePartial) configText += "局部替换·";
+        if (patternMode) configText += "模式匹配·";
+        else if (enablePartial) configText += "局部替换·";
         if (caseSensitive) configText += "大小写敏感·";
         if (contextTriggers && contextTriggers.length > 0) {
           const modeText = contextMode === "all" ? "全部匹配" : "任意匹配";
@@ -12467,19 +12618,21 @@ class MNMath {
     try {
       const options = [
         group.enabled ? "🔴 禁用此组" : "🟢 启用此组",
-        group.partialReplacement ? "🔄 关闭局部替换" : "🔄 开启局部替换",  // 新增
-        "🌍 设置触发词",  // 新增
-        group.caseSensitive ? "🔠 关闭大小写敏感" : "🔠 开启大小写敏感",  // 新增
+        group.partialReplacement ? "🔄 关闭局部替换" : "🔄 开启局部替换",
+        group.patternMode ? "🔀 关闭模式匹配" : "🔀 开启模式匹配",  // 新增
+        "🌍 设置触发词",
+        group.caseSensitive ? "🔠 关闭大小写敏感" : "🔠 开启大小写敏感",
         "✏️ 编辑词汇",
         "📝 重命名组",
         "🗑 删除此组",
         "📋 复制词汇列表",
         "──────────────",
-        "🔍 测试局部替换效果"  // 新增
+        "🔍 测试匹配效果"  // 修改为通用测试
       ];
       
       const wordsPreview = group.words.join(", ");
       const partialStatus = group.partialReplacement ? "已开启" : "已关闭";
+      const patternStatus = group.patternMode ? "已开启" : "已关闭";
       const caseSensitiveStatus = group.caseSensitive ? "大小写敏感" : "大小写不敏感";
       let contextInfo = "全局";
       if (group.contextTriggers && group.contextTriggers.length > 0) {
@@ -12487,7 +12640,7 @@ class MNMath {
         contextInfo = `触发词(${mode}): ${group.contextTriggers.join(", ")}`;
       }
       
-      const message = `词汇：${wordsPreview}\n状态：${group.enabled ? "已启用" : "已禁用"}\n局部替换：${partialStatus}\n大小写：${caseSensitiveStatus}\n上下文：${contextInfo}\n创建时间：${new Date(group.createdAt).toLocaleDateString()}`;
+      const message = `词汇：${wordsPreview}\n状态：${group.enabled ? "已启用" : "已禁用"}\n局部替换：${partialStatus}\n模式匹配：${patternStatus}\n大小写：${caseSensitiveStatus}\n上下文：${contextInfo}\n创建时间：${new Date(group.createdAt).toLocaleDateString()}`;
       
       const result = await MNUtil.userSelect(group.name, message, options);
       

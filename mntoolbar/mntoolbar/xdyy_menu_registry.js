@@ -407,6 +407,10 @@ function registerAllMenuTemplates() {
           action: "forceOldCardMakeNote",
           menuTitle: "    📋 强制按旧卡片制卡",
         },
+        {
+          action: "handleOldCardWithoutMakeNote",
+          menuTitle: "    📋 旧卡片处理 & 不制卡",
+        },
         "⬇️ 合并到父卡片",
         {
           action: "mergeInParentNote",
@@ -440,6 +444,10 @@ function registerAllMenuTemplates() {
         {
           action: "keepOnlyExcerpt",
           menuTitle: "    只保留摘录",
+        },
+        {
+          action: "keepOnlyExcerptAndTitle",
+          menuTitle: "    只保留摘录和标题",
         },
         "⬇️ 修改标题",
         {
