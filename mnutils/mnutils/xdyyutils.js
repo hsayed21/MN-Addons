@@ -7848,6 +7848,15 @@ class MNMath {
         config.enableRegexSearch = false;
       }
       
+      // 为现有根目录添加 skipEmptyTitleByDefault 字段（向后兼容）
+      if (config && config.roots) {
+        for (const key in config.roots) {
+          if (config.roots[key].skipEmptyTitleByDefault === undefined) {
+            config.roots[key].skipEmptyTitleByDefault = false;
+          }
+        }
+      }
+      
       // 数据迁移：如果旧版本没有 rootsOrder，自动生成
       if (config && config.roots && !config.rootsOrder) {
         config.rootsOrder = Object.keys(config.roots);
@@ -7868,7 +7877,8 @@ class MNMath {
           default: {
             id: "B2A5D567-909C-44E8-BC08-B1532D3D0AA1",
             name: "数学知识库",
-            isDefault: true
+            isDefault: true,
+            skipEmptyTitleByDefault: false
           }
         },
         rootsOrder: ["default"],  // 根目录顺序
@@ -8018,7 +8028,8 @@ class MNMath {
       this.searchRootConfigs.roots[key] = {
         id: noteId,
         name: name,
-        isDefault: false
+        isDefault: false,
+        skipEmptyTitleByDefault: false
       };
       
       // 添加到顺序数组末尾
@@ -8784,7 +8795,8 @@ class MNMath {
         if (roots[key]) {
           const root = roots[key];
           const prefix = root.isDefault ? "📌 " : "";
-          options.push(prefix + root.name);
+          const suffix = root.skipEmptyTitleByDefault ? " [跳过空白]" : "";
+          options.push(prefix + root.name + suffix);
           keys.push(key);
         }
       }
@@ -8818,7 +8830,12 @@ class MNMath {
       
       // 显示操作选项
       const action = await new Promise((resolve) => {
-        const buttons = ["编辑名称", "更改卡片"];
+        const skipEmptyStatus = selectedRoot.skipEmptyTitleByDefault ? "✅" : "☐";
+        const buttons = [
+          "编辑名称", 
+          "更改卡片",
+          `${skipEmptyStatus} 默认跳过空白标题`
+        ];
         if (selectedKey !== "default") {
           buttons.push("删除");
         }
@@ -8911,6 +8928,20 @@ class MNMath {
             if (modified) {
               MNUtil.showHUD("✅ 已删除");
             }
+          }
+          break;
+          
+        default:
+          // 处理跳过空白标题选项
+          if (action && action.includes("默认跳过空白标题")) {
+            // 切换状态
+            selectedRoot.skipEmptyTitleByDefault = !selectedRoot.skipEmptyTitleByDefault;
+            this.saveSearchConfig();
+            MNUtil.showHUD(selectedRoot.skipEmptyTitleByDefault ? 
+              "✅ 已启用默认跳过空白标题" : 
+              "☐ 已禁用默认跳过空白标题"
+            );
+            modified = true;
           }
           break;
       }
@@ -10137,6 +10168,57 @@ class MNMath {
   }
   
   /**
+   * 根据选中的根目录更新 skipEmptyTitle 设置
+   * @param {Array} currentRootIds - 当前选中的根目录ID数组
+   * @param {Object} allRoots - 所有根目录配置
+   * @returns {boolean} 是否应该跳过空白标题
+   */
+  static updateSkipEmptyTitleFromRoots(currentRootIds, allRoots) {
+    // 策略：所有选中的根目录都启用 skipEmptyTitleByDefault 时才默认开启（保守策略）
+    let shouldSkipEmpty = false;
+    
+    if (currentRootIds.length > 0) {
+      shouldSkipEmpty = true; // 先假设应该跳过
+      
+      for (const rootId of currentRootIds) {
+        // 检查是否是临时根目录
+        if (this.tempRootInfo && this.tempRootInfo.id === rootId) {
+          // 临时根目录默认不跳过空白标题
+          shouldSkipEmpty = false;
+          break;
+        }
+        
+        // 在配置中查找根目录
+        let rootFound = false;
+        for (const key in allRoots) {
+          if (allRoots[key].id === rootId) {
+            rootFound = true;
+            // 如果有任何一个根目录没有启用跳过空白，就不跳过
+            if (!allRoots[key].skipEmptyTitleByDefault) {
+              shouldSkipEmpty = false;
+              break;
+            }
+          }
+        }
+        
+        // 如果某个根目录未找到（可能是已删除的），默认不跳过
+        if (!rootFound) {
+          shouldSkipEmpty = false;
+          break;
+        }
+        
+        if (!shouldSkipEmpty) break;
+      }
+    }
+    
+    // 应用设置
+    this.searchRootConfigs.skipEmptyTitle = shouldSkipEmpty;
+    this.saveSearchConfig();
+    
+    return shouldSkipEmpty;
+  }
+  
+  /**
    * 显示搜索对话框 - 主入口
    * 处理用户输入和搜索流程
    */
@@ -10169,6 +10251,15 @@ class MNMath {
       }
       this.searchRootConfigs.lastUsedRoots = rootKeys;
       this.saveSearchConfig();
+      
+      // 根据选中的根目录初始化 skipEmptyTitle 设置
+      const shouldSkipEmpty = this.updateSkipEmptyTitleFromRoots(currentRootIds, allRoots);
+      
+      // 显示提示
+      if (shouldSkipEmpty) {
+        MNUtil.showHUD("✅ 已根据根目录设置默认启用跳过空白标题");
+        await MNUtil.delay(1);
+      }
       
       // 第二步：输入关键词并搜索
       let keywords = [];
@@ -10364,6 +10455,14 @@ class MNMath {
             const newRootIds = await this.showRootSelection(currentRootIds, allRoots);
             if (newRootIds && newRootIds.length > 0) {
               currentRootIds = newRootIds;
+              
+              // 更新 skipEmptyTitle 设置
+              const shouldSkip = this.updateSkipEmptyTitleFromRoots(currentRootIds, allRoots);
+              if (shouldSkip) {
+                MNUtil.showHUD("✅ 已根据新选择的根目录启用跳过空白标题");
+              } else {
+                MNUtil.showHUD("☐ 已根据新选择的根目录禁用跳过空白标题");
+              }
             }
             break;
             
@@ -10394,6 +10493,10 @@ class MNMath {
               this.saveSearchConfig();
               // 刷新 allRoots 以包含新添加的根目录
               allRoots = this.getAllSearchRoots();
+              
+              // 更新 skipEmptyTitle 设置（新添加的根目录默认不跳过）
+              this.updateSkipEmptyTitleFromRoots(currentRootIds, allRoots);
+              
               MNUtil.showHUD(`✅ 已添加根目录：${newRoot.name}`);
             }
             break;
@@ -11637,7 +11740,8 @@ class MNMath {
     // 添加到配置
     this.searchRootConfigs.roots[key] = {
       name: noteTitle,
-      id: noteId
+      id: noteId,
+      skipEmptyTitleByDefault: false
     };
     
     // 添加到顺序数组
