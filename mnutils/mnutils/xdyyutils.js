@@ -15134,22 +15134,40 @@ class HtmlMarkdownUtils {
               return null;
           }
           
-          let currentType = initialTypeForLevel1;
-          if (!HtmlMarkdownUtils.isLevelType(initialTypeForLevel1)) {
-              MNUtil.warn(`初始类型 "${initialTypeForLevel1}" 不是一个可识别的层级类型。将为第一层级默认使用 'goal'。`);
-              currentType = 'goal';
-          }
-          if (level === 1) {
-              return currentType;
-          }
-          for (let i = 1; i < level; i++) {
-              const nextType = HtmlMarkdownUtils.getSpanNextLevelType(currentType);
-              if (!nextType || nextType === currentType) {
+          // 检查是否是层级类型（goal, level1-5）
+          if (HtmlMarkdownUtils.isLevelType(initialTypeForLevel1)) {
+              // 原有逻辑：层级类型按原规则递减
+              let currentType = initialTypeForLevel1;
+              if (level === 1) {
                   return currentType;
               }
-              currentType = nextType;
+              for (let i = 1; i < level; i++) {
+                  const nextType = HtmlMarkdownUtils.getSpanNextLevelType(currentType);
+                  if (!nextType || nextType === currentType) {
+                      return currentType;
+                  }
+                  currentType = nextType;
+              }
+              return currentType;
+          } else {
+              // 新逻辑：非层级类型（如 method, idea, question 等）
+              if (level === 1) {
+                  // 第一层使用指定的非层级类型
+                  return initialTypeForLevel1;
+              } else {
+                  // 从第二层开始，使用 level1 并按层级递减
+                  let currentType = 'level1';
+                  // 注意：level 是从 1 开始的，level=2 表示第二层
+                  for (let i = 2; i < level; i++) {
+                      const nextType = HtmlMarkdownUtils.getSpanNextLevelType(currentType);
+                      if (!nextType || nextType === currentType) {
+                          return currentType;
+                      }
+                      currentType = nextType;
+                  }
+                  return currentType;
+              }
           }
-          return currentType;
       }
 
       // 从最深层级开始，逐层向上处理

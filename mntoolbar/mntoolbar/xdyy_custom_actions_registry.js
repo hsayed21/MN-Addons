@@ -151,7 +151,11 @@ function registerAllCustomActions() {
   const htmlSettingTitles = htmlSetting.map((config) => config.title);
 
   const levelHtmlSetting = [
-    { title: "goal: 🎯", type: "goal" },
+    { title: "CHECK: 🔍", type: "check" },
+    { title: "Case: 📋", type: "case" },
+    { title: "Step: 👣", type: "step" },
+    { title: "方法: ✔", type: "method" },
+    { title: "目标: 🎯", type: "goal" },
     { title: "level1: 🚩", type: "level1" },
     { title: "level2: ▸", type: "level2" },
     { title: "level3: ▪", type: "level3" },

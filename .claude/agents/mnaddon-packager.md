@@ -14,15 +14,39 @@ color: cyan
 ## 工作流程
 
 ### 1. 识别需要打包的插件
-- 检查最近修改的插件项目（通过 git status 或文件修改时间）
-- 确认哪些插件需要打包，严禁打包未修改的插件
-- 如果用户没有明确指定，询问具体要打包哪些插件
+- 使用 `git status --porcelain` 快速检查修改的文件
+- 根据文件路径自动推断需要打包的插件
+- 优先处理用户明确指定的插件
+- 避免不必要的目录遍历和文件检测
 
 ### 2. 确定打包路径
-大部分插件都是要进入两层目录：
+使用预定义的插件目录映射表，直接定位到正确路径：
 
-- 进入对应的插件目录：`/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/[插件名]/[插件名]/`
-- 例如：mnai、mntask 等
+```
+PLUGIN_DIRECTORIES = {
+  // 直接在根目录
+  'gotopage': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/GoToPage/',
+  'mnliterature': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnliterature/',
+  'mntask': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mntask/',
+  'mntexthandler': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mntexthandler/',
+  
+  // 二级目录（插件名重复）
+  'mnutils': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnutils/mnutils/',
+  'mntoolbar': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mntoolbar/mntoolbar/',
+  'mneditor': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mneditor/mneditor/',
+  'mnbrowser': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnbrowser/mnbrowser/',
+  'mntimer': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mntimer/mntimer/',
+  'mnsnipaste': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnsnipaste/mnsnipaste/',
+  'mnwebdav': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnwebdav/mnwebdav/',
+  'mnocr': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnocr/mnocr/',
+  'mnexcalidraw': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnexcalidraw/mnexcalidraw/',
+  
+  // 特殊命名
+  'mnai': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnai/mnchatglm/'
+}
+```
+
+**重要提醒**：避免打包带 `_official` 后缀的版本，只打包标准版本。
 
 ### 3. 执行打包命令
 使用格式：`mnaddon4 build [插件名]_[日期]`
@@ -37,17 +61,27 @@ color: cyan
 
 ## 执行规范
 
-### 命令执行顺序
+### 优化后的命令执行顺序
 ```bash
-# 1. 切换到正确目录
-cd /Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/[插件目录]/
+# 1. 识别修改的插件（仅用于自动推断，不关心提交状态）
+git status --porcelain
 
-# 2. 执行打包
+# 2. 直接切换到预定义路径
+cd [PLUGIN_DIRECTORIES 中的完整路径]
+
+# 3. 执行打包
 mnaddon4 build [插件名]_[MMDD]
 
-# 3. 定位文件
+# 4. 定位文件
 open -R ./[插件名]_[MMDD].mnaddon
 ```
+
+### 避免的冗余操作
+- ❌ 不要使用 `pwd` 反复确认路径
+- ❌ 不要使用 `ls -la` 探测目录结构  
+- ❌ 不要使用 `find` 查找 mnaddon.json
+- ❌ 不要使用 `grep` 搜索配置文件
+- ❌ 直接使用映射表，跳过所有探测步骤
 
 ### 批量打包处理
 如果需要打包多个插件：
@@ -57,10 +91,10 @@ open -R ./[插件名]_[MMDD].mnaddon
 
 ## 注意事项
 
-### 路径验证
-- 打包前必须确认当前在正确的目录
-- mntoolbar 特别注意要进入二级目录
-- 使用 `pwd` 确认当前路径
+### 快速路径定位
+- 直接使用预定义路径，无需验证
+- 如果 `cd` 失败，立即报错并停止
+- 只在发生错误时才进行路径检查
 
 ### 命名规范
 - 始终使用小写插件名
@@ -68,16 +102,17 @@ open -R ./[插件名]_[MMDD].mnaddon
 - 不要使用其他分隔符，只用下划线
 
 ### 错误处理
-- 如果打包失败，检查：
-  1. 是否在正确目录
-  2. mnaddon4 命令是否可用
-  3. 插件代码是否有语法错误
-- 提供清晰的错误信息和解决建议
+- 如果 `cd` 到预定义路径失败：检查插件名是否在映射表中
+- 如果 `mnaddon4 build` 失败：
+  1. 检查是否存在 mnaddon.json 文件
+  2. 检查插件代码语法错误
+  3. 确认 mnaddon4 命令可用
+- 错误时才使用 `pwd`、`ls` 等调试命令
 
 ### 打包前检查
-- 确认代码已保存
-- 建议先运行简单的语法检查
-- 如有 git 仓库，确认更改已提交
+- 跳过不必要的预检查（代码保存、语法检查等）
+- 直接执行打包，让 mnaddon4 自己处理错误
+- git status 仅用于识别修改的插件，不关心提交状态
 
 ## 输出格式
 
@@ -101,12 +136,17 @@ open -R ./[插件名]_[MMDD].mnaddon
 所有文件已在 Finder 中定位显示。
 ```
 
-## 常见插件列表
-- mntoolbar（注意特殊路径）
-- mnai
-- mntask
-- mnmath
-- mnutils
-- 其他用户项目中的插件
+## 性能优化原则
 
-记住：你的目标是高效、准确地完成插件打包工作，确保开发成果能够正确构建和分发。
+### 核心优化点
+1. **直接定位**：使用预定义映射表，跳过目录探测
+2. **最少命令**：只执行必要的 `cd` 和 `mnaddon4 build`
+3. **延迟调试**：仅在出错时才使用探测命令
+4. **批量处理**：多插件时复用逻辑，避免重复检测
+
+### 预期性能提升
+- 打包时间：从 30+ 秒减少到 5 秒内
+- 命令数量：从 10+ 个减少到 3 个以内
+- 成功率：消除路径错误，提高到 95%+
+
+记住：你的目标是**极速、准确**地完成插件打包工作，避免一切不必要的操作。
