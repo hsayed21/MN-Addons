@@ -222,10 +222,7 @@ JSB.newAddon = function(mainPath){
       self.toggled = false
       // 刷新插件栏，更新图标状态
       MNUtil.refreshAddonCommands()
-      // 关闭弹出菜单
-      if (self.menuPopoverController) {
-        self.menuPopoverController.dismissPopoverAnimated(true);
-      }
+      self.closeMenu()
       try {
         // 确保视图控制器已创建并添加到 studyView 中
         // 这是一个单例模式的实现，只会创建一次实例
@@ -309,14 +306,12 @@ JSB.newAddon = function(mainPath){
 
     openLiteratureLibrary: function() {
       MNUtil.showHUD("打开文献数据库")
-      // 关闭菜单
-      if (self.menuPopoverController) {
-        self.menuPopoverController.dismissPopoverAnimated(true);
-      }
+      self.closeMenu()
     },
 
     testAI: function() {
       try {
+        self.closeMenu()
         self.testAI()
       } catch (error) {
         literatureUtils.addErrorLog(error, "testAI")
@@ -404,6 +399,13 @@ JSB.newAddon = function(mainPath){
 
   MNLiteratureClass.prototype.init = function(mainPath) {
     literatureUtils.init(mainPath)
+  }
+
+  MNLiteratureClass.prototype.closeMenu = function() {
+    // 关闭菜单
+    if (this.menuPopoverController) {
+      this.menuPopoverController.dismissPopoverAnimated(true);
+    }
   }
 
   MNLiteratureClass.prototype.tableItem = function (title, selector, param = "", checked = false) {

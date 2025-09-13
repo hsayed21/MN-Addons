@@ -236,6 +236,18 @@ class LiteraturePluginIntegration {
           if (controller.lastResponse && controller.lastResponse.trim()) {
             MNUtil.showHUD("✅ 获取到 AI 结果");
             MNUtil.log("获取到 lastResponse: " + controller.lastResponse.substring(0, 50) + "...");
+            
+            // 延迟 0.5 秒后自动关闭通知窗口
+            // 让用户有时间看到成功提示
+            if (controller.checkAutoClose) {
+              controller.checkAutoClose(true, 0.5);
+            } else if (controller.hide) {
+              // 备用：如果 checkAutoClose 不可用，直接调用 hide
+              setTimeout(() => {
+                controller.hide();
+              }, 500);
+            }
+            
             return controller.lastResponse;
           }
           
@@ -244,6 +256,16 @@ class LiteraturePluginIntegration {
           if (!controller.connection && controller.response && controller.response.trim()) {
             MNUtil.showHUD("✅ 获取到 AI 结果（备用）");
             MNUtil.log("获取到 response: " + controller.response.substring(0, 50) + "...");
+            
+            // 同样关闭窗口
+            if (controller.checkAutoClose) {
+              controller.checkAutoClose(true, 0.5);
+            } else if (controller.hide) {
+              setTimeout(() => {
+                controller.hide();
+              }, 500);
+            }
+            
             return controller.response;
           }
         }
