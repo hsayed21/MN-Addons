@@ -1,9 +1,20 @@
-// JSB.require('utils')
-// JSB.require('settingController');
 /** @return {toolbarController} */
 const getToolbarController = ()=>self
+if (typeof toolbarControllerClassName === 'undefined') {
+  var toolbarControllerClassName = "toolbarController : UIViewController <UIImagePickerControllerDelegate,UINavigationControllerDelegate>"
+  if (MNUtil.isMN3()) {
+    toolbarControllerClassName = "toolbarController : UIViewController <UINavigationControllerDelegate>"
+  }
+}
+// if (MNUtil.isMN3()) {
+//   MNUtil.log("toolbarController : UIViewController <UINavigationControllerDelegate>")
+// }else{
+//   MNUtil.log("toolbarController : UIViewController <UIImagePickerControllerDelegate,UINavigationControllerDelegate>")
+// }
 
-var toolbarController = JSB.defineClass('toolbarController : UIViewController <UIImagePickerControllerDelegate,UINavigationControllerDelegate>', {
+// var toolbarController = JSB.defineClass('toolbarController : UIViewController <UIImagePickerControllerDelegate,UINavigationControllerDelegate>', {
+// var toolbarController = JSB.defineClass('toolbarController : UIViewController <UIImagePickerControllerDelegate,UINavigationControllerDelegate>', {
+var toolbarController = JSB.defineClass(toolbarControllerClassName, {
   viewDidLoad: async function() {
   try {
     
@@ -338,25 +349,33 @@ lastPopover: function (button) {
 },
   imagePickerControllerDidFinishPickingMediaWithInfo:async function (UIImagePickerController,info) {
     try {
-      
     let image = info.UIImagePickerControllerOriginalImage
     // MNUtil.copy(image.pngData().base64Encoding())
     // MNUtil.copyJSON(info)
     MNUtil.studyController.dismissViewControllerAnimatedCompletion(true,undefined)
-    if (self.compression) {
+    if (toolbarUtils.compression) {
       MNUtil.copyImage(image.jpegData(0.0))
     }else{
       MNUtil.copyImage(image.pngData())
     }
     await MNUtil.delay(0.1)
-    MNNote.new(self.currentNoteId).paste()
+    let focusNote = MNNote.new(toolbarUtils.currentNoteId)
+    if (!focusNote) {
+      await MNUtil.delay(0.5)
+      focusNote = MNNote.getFocusNote() 
+    }
+    if (focusNote) {
+      focusNote.paste()
+      focusNote.focusInMindMap(0.5)
+    }else{
+      MNUtil.showHUD("❌ No note found")
+    }
     // MNNote.getFocusNote().paste()
     } catch (error) {
-      MNUtil.showHUD(error)
+      toolbarUtils.addErrorLog(error, "imagePickerControllerDidFinishPickingMediaWithInfo")
     }
   },
   imagePickerControllerDidCancel:function (params) {
-    // MNUtil.copy("text")
     MNUtil.studyController.dismissViewControllerAnimatedCompletion(true,undefined)
     
   },

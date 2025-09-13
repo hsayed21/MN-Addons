@@ -2,7 +2,14 @@
 // JSB.require('base64')
 /** @return {settingController} */
 const getSettingController = ()=>self
-var settingController = JSB.defineClass('settingController : UIViewController <NSURLConnectionDelegate,UIImagePickerControllerDelegate,UIWebViewDelegate>', {
+if (typeof toolbarSettingControllerClassName === 'undefined') {
+  var toolbarSettingControllerClassName = "settingController : UIViewController <NSURLConnectionDelegate,UIImagePickerControllerDelegate,UIWebViewDelegate>"
+  if (MNUtil.isMN3()) {
+    toolbarSettingControllerClassName = "settingController : UIViewController <NSURLConnectionDelegate,UIWebViewDelegate>"
+  }
+}
+// var settingController = JSB.defineClass('settingController : UIViewController <NSURLConnectionDelegate,UIImagePickerControllerDelegate,UIWebViewDelegate>', {
+var settingController = JSB.defineClass(toolbarSettingControllerClassName, {
   viewDidLoad: function() {
     let self = getSettingController()
 try {
@@ -785,6 +792,10 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
     }
     switch (userSelect) {
       case 1:
+        if (MNUtil.isMN3()) {
+          MNUtil.showHUD("Not supported")
+          return
+        }
         self.imagePickerController = UIImagePickerController.new()
         self.imagePickerController.buttonName = buttonName
         self.imagePickerController.delegate = self  // 设置代理
@@ -844,6 +855,10 @@ ${input}
   },
   changeIconFromPhoto:function (buttonName) {
     self.checkPopoverController()
+    if (MNUtil.isMN3()) {
+      MNUtil.showHUD("Not supported")
+      return
+    }
     if (toolbarUtils.checkSubscribe(true)) {
       self.checkPopoverController()
       self.imagePickerController = UIImagePickerController.new()
@@ -936,7 +951,7 @@ ${input}
     MNUtil.studyController.dismissViewControllerAnimatedCompletion(true,undefined)
     toolbarConfig.setButtonImage(ImagePickerController.buttonName, image,true)
     } catch (error) {
-      MNUtil.showHUD(error)
+      toolbarUtils.addErrorLog(error, "imagePickerControllerDidFinishPickingMediaWithInfo")
     }
   },
   imagePickerControllerDidCancel:function (params) {
@@ -1982,7 +1997,6 @@ settingController.prototype.initRequest = function (url,options) {
  */
 settingController.prototype.createWebviewInput = function (superView) {
   try {
-  // this.webviewInput = MNUtil.createJsonEditor(this.mainPath + '/jsoneditor.html')
   this.webviewInput = new UIWebView(this.view.bounds);
   this.webviewInput.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",0.8)
   this.webviewInput.scalesPageToFit = false;
@@ -1997,16 +2011,25 @@ settingController.prototype.createWebviewInput = function (superView) {
   this.webviewInput.layer.opacity = 0.85
   this.webviewInput.scrollEnabled = false
   this.webviewInput.scrollView.scrollEnabled = false
+  // toolbarUtils.log('jsoneditor.html',toolbarUtils.mainPath + '/jsoneditor.html')
+  // toolbarUtils.log('jsoneditor.html',timerUtils.mainPath + '/jsoneditor.html')
   this.webviewInput.loadFileURLAllowingReadAccessToURL(
-    NSURL.fileURLWithPath(this.mainPath + '/jsoneditor.html'),
-    NSURL.fileURLWithPath(this.mainPath + '/')
+    NSURL.fileURLWithPath(toolbarUtils.mainPath + '/jsoneditor.html'),
+    NSURL.fileURLWithPath(toolbarUtils.mainPath + '/')
   );
   // this.webviewInput.loadFileURLAllowingReadAccessToURL(
-  //   NSURL.fileURLWithPath(this.mainPath + '/jsoneditor.html'),
-  //   NSURL.fileURLWithPath(MNUtil.mainPath + '/')
+  //   NSURL.fileURLWithPath(timerUtils.mainPath + '/jsoneditor.html'),
+  //   NSURL.fileURLWithPath(timerUtils.mainPath + '/')
   // );
+  // MNUtil.delay(1).then(()=>{
+  //   this.webviewInput.loadFileURLAllowingReadAccessToURL(
+  //     NSURL.fileURLWithPath(toolbarUtils.mainPath + '/jsoneditor.html'),
+  //     NSURL.fileURLWithPath(toolbarUtils.mainPath + '/')
+  //   );
+  // })
+  
     } catch (error) {
-    MNUtil.showHUD(error)
+    toolbarUtils.addErrorLog(error, "createWebviewInput")
   }
   if (superView) {
     this[superView].addSubview(this.webviewInput)
@@ -2018,7 +2041,6 @@ settingController.prototype.createWebviewInput = function (superView) {
  */
 settingController.prototype.createWebviewButtonReplace = function (superView) {
   try {
-  // this.popupEditView = MNUtil.createJsonEditor(this.mainPath + '/jsoneditor.html')
   this.popupEditView = new UIWebView(this.view.bounds);
   this.popupEditView.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",0.8)
   this.popupEditView.scalesPageToFit = false;

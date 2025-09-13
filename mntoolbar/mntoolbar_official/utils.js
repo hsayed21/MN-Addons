@@ -3980,57 +3980,8 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
 </html>
 `
   }
-  static jsonEditor(){
-    return `
-<!DOCTYPE HTML>
-<html lang="en">
-<head>
-    <!-- when using the mode "code", it's important to specify charset utf-8 -->
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
-    <title>Vditor</title>
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <link href="jsoneditor.css" rel="stylesheet" type="text/css">
-    <script src="jsoneditor.js"></script>
-</head>
-<style>
-body {
-    margin: 0;
-    padding: 0;
-    font-size: large;
-    height: 100vh !important;
-    min-height: 100vh !important;
-}
-</style>
-<body>
-    <div id="jsoneditor"></div>
-
-    <script>
-        // create the editor
-        const container = document.getElementById("jsoneditor")
-        const options = {}
-        const editor = new JSONEditor(container, options)
-
-        // set json
-        const initialJson = {}
-        editor.set(initialJson)
-
-        // get json
-        const updatedJson = editor.get()
-        function updateContent(data) {
-          let tem = decodeURIComponent(data)
-          // MNUtil.copy(tem)
-          editor.set(JSON.parse(tem))
-        }
-        function getContent() {
-          let tem = JSON.stringify(editor.get(),null,2)
-          return encodeURIComponent(tem)
-        }
-    </script>
-</body>
-</html>`
+  static log(message,detail){
+    MNUtil.log({message:message,detail:detail,source:"MN Toolbar"})
   }
   static html(content){
     return `<!DOCTYPE html>
@@ -5966,14 +5917,14 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         switch (source) {
           case "camera":
             this.imagePickerController = UIImagePickerController.new()
-            this.imagePickerController.delegate = this  // 设置代理
+            this.imagePickerController.delegate = controller  // 设置代理
             this.imagePickerController.sourceType = 1  // 设置图片源为相机
             // this.imagePickerController.allowsEditing = true  // 设置图片源为相册
             MNUtil.studyController.presentViewControllerAnimatedCompletion(this.imagePickerController,true,undefined)
             break;
           case "photo":
             this.imagePickerController = UIImagePickerController.new()
-            this.imagePickerController.delegate = this  // 设置代理
+            this.imagePickerController.delegate = controller  // 设置代理
             this.imagePickerController.sourceType = 0  // 设置图片源为相册
             // this.imagePickerController.allowsEditing = true  // 设置图片源为相册
             MNUtil.studyController.presentViewControllerAnimatedCompletion(this.imagePickerController,true,undefined)
@@ -6496,6 +6447,9 @@ class toolbarConfig {
     MNUtil.log("toolbarConfig initialized ("+(endTime-beginTime)+"ms)")
   }
   static checkCloudStore(notification = true){//用于替代initCloudStore
+    if (MNUtil.isMN3()) {
+      return
+    }
     if (!this.cloudStore) {
       this.cloudStore = NSUbiquitousKeyValueStore.defaultStore()
       if (notification) {
@@ -6504,6 +6458,9 @@ class toolbarConfig {
     }
   }
   static initCloudStore(){
+    if (MNUtil.isMN3()) {
+      return
+    }
     this.cloudStore = NSUbiquitousKeyValueStore.defaultStore()
     MNUtil.postNotification("NSUbiquitousKeyValueStoreDidChangeExternallyNotificationUI", {})
     // this.readCloudConfig(false)
