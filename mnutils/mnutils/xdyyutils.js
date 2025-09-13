@@ -11997,17 +11997,29 @@ class MNMath {
         const groups = this.getSynonymGroups();
         const options = [];
         
+        // 将操作按钮移到最前面
+        options.push("➕ 添加新同义词组");
+        options.push("🔍 搜索同义词组");
+        options.push("──────────────");
+        
         // 显示现有同义词组
         for (const group of groups) {
+          // 添加数据验证
+          if (!group || !group.name) {
+            MNUtil.log("警告：发现异常同义词组数据，已跳过");
+            continue;
+          }
+          
           const status = group.enabled ? "✅" : "⭕";
           const partialIcon = group.partialReplacement ? "🔄" : "";  // 局部替换标识
-          const wordsPreview = group.words.slice(0, 3).join(", ");
-          const moreText = group.words.length > 3 ? `... (共${group.words.length}个)` : "";
+          // 防御性检查 - 处理 words 可能为空的情况
+          const words = group.words || [];
+          const wordsPreview = words.slice(0, 3).join(", ");
+          const moreText = words.length > 3 ? `... (共${words.length}个)` : "";
           options.push(`${status} ${partialIcon} ${group.name}: ${wordsPreview}${moreText}`);
         }
         
-        // 添加操作选项
-        options.push("➕ 添加新同义词组");
+        // 导入导出选项
         options.push("──────────────");
         options.push("📤 导出同义词配置");
         options.push("📥 导入同义词配置");
@@ -12024,20 +12036,27 @@ class MNMath {
         
         const selectedIndex = result - 1; // userSelect 返回的索引从1开始
         
-        if (selectedIndex < groups.length) {
-          // 编辑现有组
-          await this.editSynonymGroup(groups[selectedIndex]);
-          continue; // 重新显示菜单，避免双弹窗
-        } else if (selectedIndex === groups.length) {
+        if (selectedIndex === 0) {
           // 添加新组
           await this.showAddSynonymDialog();
-        } else if (selectedIndex === groups.length + 1) {
-          // 分隔线，重新显示菜单
+        } else if (selectedIndex === 1) {
+          // 搜索同义词组
+          await this.searchSynonymGroups();
+        } else if (selectedIndex === 2) {
+          // 第一个分隔线，重新显示菜单
           continue;
-        } else if (selectedIndex === groups.length + 2) {
+        } else if (selectedIndex >= 3 && selectedIndex < 3 + groups.length) {
+          // 编辑现有组
+          const groupIndex = selectedIndex - 3;
+          await this.editSynonymGroup(groups[groupIndex]);
+          continue; // 重新显示菜单，避免双弹窗
+        } else if (selectedIndex === 3 + groups.length) {
+          // 第二个分隔线，重新显示菜单
+          continue;
+        } else if (selectedIndex === 3 + groups.length + 1) {
           // 导出配置
           await this.showExportSynonymDialog();
-        } else if (selectedIndex === groups.length + 3) {
+        } else if (selectedIndex === 3 + groups.length + 2) {
           // 导入配置
           await this.showImportSynonymDialog();
         }
@@ -12048,6 +12067,145 @@ class MNMath {
     }
   }
 
+  /**
+   * 搜索同义词组 - 支持按名称和词汇内容搜索
+   */
+  static async searchSynonymGroups() {
+    try {
+      const groups = this.getSynonymGroups();
+      if (groups.length === 0) {
+        MNUtil.showHUD("❌ 暂无同义词组");
+        return;
+      }
+
+      // 显示搜索输入框
+      const keyword = await new Promise((resolve) => {
+        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+          "搜索同义词组",
+          "请输入搜索关键词（支持搜索组名或词汇内容）：",
+          2, // 输入框样式
+          "取消",
+          ["搜索"],
+          (alert, buttonIndex) => {
+            if (buttonIndex === 0) {
+              resolve(null);
+              return;
+            }
+            
+            const text = alert.textFieldAtIndex(0).text.trim();
+            if (!text) {
+              MNUtil.showHUD("❌ 请输入搜索关键词");
+              resolve(null);
+              return;
+            }
+            
+            resolve(text);
+          }
+        );
+      });
+
+      if (!keyword) {
+        return; // 用户取消
+      }
+
+      // 执行搜索
+      const matchedGroups = [];
+      const lowerKeyword = keyword.toLowerCase();
+      
+      for (const group of groups) {
+        // 添加数据验证
+        if (!group || !group.name) {
+          MNUtil.log("警告：发现异常同义词组数据，已跳过搜索");
+          continue;
+        }
+        
+        // 搜索组名
+        if (group.name.toLowerCase().includes(lowerKeyword)) {
+          matchedGroups.push(group);
+          continue;
+        }
+        
+        // 搜索词汇内容 - 防御性检查
+        const words = group.words || [];
+        let hasMatchingWord = false;
+        for (const word of words) {
+          if (word && word.toLowerCase().includes(lowerKeyword)) {
+            hasMatchingWord = true;
+            break;
+          }
+        }
+        if (hasMatchingWord) {
+          matchedGroups.push(group);
+        }
+      }
+
+      // 显示搜索结果
+      if (matchedGroups.length === 0) {
+        MNUtil.showHUD(`❌ 未找到包含"${keyword}"的同义词组`);
+        return;
+      }
+
+      // 构建搜索结果选项
+      const searchOptions = [];
+      for (const group of matchedGroups) {
+        const status = group.enabled ? "✅" : "⭕";
+        const partialIcon = group.partialReplacement ? "🔄" : "";
+        // 防御性检查 - 处理 words 可能为空的情况
+        const words = group.words || [];
+        const wordsPreview = words.slice(0, 3).join(", ");
+        const moreText = words.length > 3 ? `... (共${words.length}个)` : "";
+        searchOptions.push(`${status} ${partialIcon} ${group.name}: ${wordsPreview}${moreText}`);
+      }
+
+      // 循环显示搜索结果，支持连续编辑
+      while (true) {
+        const result = await MNUtil.userSelect(
+          `搜索结果 (${matchedGroups.length}个)`,
+          `关键词："${keyword}"\n\n点击同义词组可编辑`,
+          searchOptions
+        );
+
+        if (result === null || result === 0) {
+          break; // 用户取消，返回
+        }
+
+        // 编辑选中的同义词组
+        const selectedGroup = matchedGroups[result - 1];
+        await this.editSynonymGroup(selectedGroup);
+        
+        // 询问是否继续编辑其他搜索结果
+        if (matchedGroups.length > 1) {
+          const continueEdit = await MNUtil.confirm(
+            "继续编辑？",
+            "是否继续编辑其他搜索结果？",
+            ["返回主菜单", "继续编辑"]
+          );
+          
+          if (continueEdit !== 1) {
+            break; // 用户选择返回主菜单
+          }
+          
+          // 重新构建搜索结果选项（可能有变化）
+          searchOptions.length = 0; // 清空数组
+          for (const group of matchedGroups) {
+            const status = group.enabled ? "✅" : "⭕";
+            const partialIcon = group.partialReplacement ? "🔄" : "";
+            const words = group.words || [];
+            const wordsPreview = words.slice(0, 3).join(", ");
+            const moreText = words.length > 3 ? `... (共${words.length}个)` : "";
+            searchOptions.push(`${status} ${partialIcon} ${group.name}: ${wordsPreview}${moreText}`);
+          }
+        } else {
+          // 只有一个搜索结果，编辑完成后直接返回
+          break;
+        }
+      }
+      
+    } catch (error) {
+      MNUtil.showHUD("搜索同义词组失败：" + error.message);
+      MNUtil.log("搜索同义词组错误: " + error.toString());
+    }
+  }
 
   /**
    * 添加同义词组（多层对话框方式）
