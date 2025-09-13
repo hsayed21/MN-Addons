@@ -634,7 +634,7 @@ if (typeof extendToolbarConfigInit === 'function') {
         
         # 获取所有需要更新的文件
         for file in os.listdir(new_version_path):
-            if file.endswith(('.js', '.html', '.json', '.css', '.svg')):
+            if file.endswith(('.js', '.html', '.json', '.css', '.svg', '.png')):
                 new_file = os.path.join(new_version_path, file)
                 old_file = os.path.join(target_dir, file)
                 
