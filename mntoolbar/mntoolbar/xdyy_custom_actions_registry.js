@@ -151,16 +151,15 @@ function registerAllCustomActions() {
   const htmlSettingTitles = htmlSetting.map((config) => config.title);
 
   const levelHtmlSetting = [
-    { title: "CHECK: 🔍", type: "check" },
-    { title: "Case: 📋", type: "case" },
-    { title: "Step: 👣", type: "step" },
-    { title: "方法: ✔", type: "method" },
     { title: "目标: 🎯", type: "goal" },
     { title: "level1: 🚩", type: "level1" },
     { title: "level2: ▸", type: "level2" },
     { title: "level3: ▪", type: "level3" },
     { title: "level4: •", type: "level4" },
     { title: "level5: ·", type: "level5" },
+    { title: "Case: 📋", type: "case" },
+    { title: "Step: 👣", type: "step" },
+    { title: "方法: ✔", type: "method" },
   ];
   const levelHtmlSettingTitles = levelHtmlSetting.map((config) => config.title);
 
