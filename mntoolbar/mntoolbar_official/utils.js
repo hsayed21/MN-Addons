@@ -472,7 +472,7 @@ class toolbarUtils {
       // 再将其它的空白符（除了换行符）替换为单个空格
       return tempStr.replace(/[\r\t\f\v ]+/g, ' ').trim();
   }
-static replaceAction(des){
+static async replaceAction(des){
 try {
   if (des.target === "globalVar") {
     if (!des.varName) {
@@ -480,7 +480,8 @@ try {
       return
     }
     let content = des.content ?? toolbarSandbox.getValue(des.varName)
-    content = this.detectAndReplace(content)
+    // content = this.detectAndReplace(content)
+    content = await this.render(content)
 
     if ("steps" in des) {//如果有steps则表示是多步替换,优先执行
       let nSteps = des.steps.length
@@ -499,7 +500,8 @@ try {
   }
   if (des.target === "clipboardText") {
     let content = des.content ?? MNUtil.clipboardText
-    content = this.detectAndReplace(content)
+    content = await this.render(content)
+    // content = this.detectAndReplace(content)
     if ("steps" in des) {//如果有steps则表示是多步替换,优先执行
       let nSteps = des.steps.length
       for (let i = 0; i < nSteps; i++) {
@@ -903,22 +905,25 @@ try {
     let copyContent = des.content
     if (copyContent) {
       let replacedText = ""
-      // let replacedText = this.detectAndReplace(copyContent,element)
       if (focusNote) {
         replacedText = await this.render(copyContent,{element:element,noteId:focusNote.noteId})
       }else{
         replacedText = await this.render(copyContent,{element:element})
       }
-      MNUtil.copy(replacedText)
-      MNUtil.showHUD("目标文本已复制")
+      if (replacedText && replacedText.trim()) {
+        MNUtil.copy(replacedText)
+        MNUtil.showHUD("目标文本已复制")
+      }else{
+        MNUtil.showHUD("目标文本为空")
+      }
       return true
     }else{//没有提供content参数则直接复制目标内容
-      if (element) {
+      if (element && element.trim()) {
         MNUtil.copy(element)
         MNUtil.showHUD("目标文本已复制")
         return true
       }else{
-        MNUtil.showHUD("无法获取目标文本")
+        MNUtil.showHUD("目标文本为空")
         return false
       }
     }
@@ -1416,9 +1421,10 @@ try {
    * @param {MNNote|MbBookNote} note 
    * @param {{target:string,type:string,index:number}} des 
    */
-  static setNoteContent(note,content,des){
+  static async setNoteContent(note,content,des){
     let target = des.target ?? "title"
-    let replacedText = this.detectAndReplace(content,undefined,note)
+    // let replacedText = this.detectAndReplace(content,undefined,note)
+    let replacedText = await this.render(content,{noteId:note.noteId})
     switch (target) {
       case "title":
         note.noteTitle = replacedText
@@ -1474,7 +1480,7 @@ try {
       })
     })
   }
-  static setContent(des){
+  static async setContent(des){
     try {
     let range = des.range ?? "currentNotes"
     let targetNotes = this.getNotesByRange(range)
@@ -1488,7 +1494,9 @@ try {
     }else{
       let content = des.content
       if (content && content.trim()) {
-        let replacedText = this.detectAndReplace(content)
+        // let replacedText = this.detectAndReplace(content)
+        let replacedText = await this.render(content)
+
         switch (des.target) {
           case "globalVar":
             let varName = des.varName
@@ -2038,6 +2046,7 @@ try {
   }
 
   static detectAndReplace(text,element=undefined,note = MNNote.getFocusNote()) {
+    // let vars = this.parseVars(text)
     let noteConfig = this.getNoteObject(note,{},{parent:true,child:true,parentLevel:3})
     // MNUtil.copy(noteConfig)
     let config = {date:this.getDateObject()}
@@ -2045,6 +2054,9 @@ try {
       config.note = noteConfig
       config.cursor = "{{cursor}}"
     }
+    // if (vars.hasTimer) {
+    //   config.timer = await this.getTimerStatus()
+    // }
     if (element !== undefined) {
       config.element = element
     }
@@ -2705,7 +2717,24 @@ try {
     }
   
   }
+  static async getTimerStatus(){
+    let now = Date.now()
+    MNUtil.postNotification("refreshTimerObject", {})
+    await MNUtil.delay(0.1)
+    let timerObject = timerUtils.timerObject
+    if (now > timerObject.refreshDate) {//刷新时间应该比现在晚
+      await MNUtil.delay(0.1)//延迟0.1秒再次获取
+      timerObject = timerUtils.timerObject
+    }
+    if (now > timerObject.refreshDate) {
+      MNUtil.showHUD("Refresh timer object failed")
+    }
+    // MNUtil.copy(timerObject)
+    return timerObject
+  }
   static setTimer(des){
+    // this.getTimerStatus()
+    // return
     let userInfo = {timerMode:des.timerMode}
     if (des.timerMode === "countdown") {
       userInfo.minutes = des.minutes
@@ -2817,14 +2846,16 @@ try {
 
 
   }
-  static showMessage(des){
-    let content = this.detectAndReplace(des.content)
+  static async showMessage(des){
+    let content = await this.render(des.content)
+    // let content = this.detectAndReplace(des.content)
     MNUtil.showHUD(content)
   }
   static async userConfirm(des){
     if (des.title) {
-      let confirmTitle = this.detectAndReplace(des.title)
-      let confirmSubTitle = des.subTitle ? this.detectAndReplace(des.subTitle) : ""
+      // let confirmTitle = this.detectAndReplace(des.title)
+      let confirmTitle = await this.render(des.title)
+      let confirmSubTitle = des.subTitle ? (await this.render(des.subTitle)) : ""
       let confirm = await MNUtil.confirm(confirmTitle, confirmSubTitle)
       if (confirm) {
         if ("onConfirm" in des) {
@@ -2842,11 +2873,16 @@ try {
   }
   static async userSelect(des){
     if (des.title && des.selectItems) {
-      let confirmTitle = toolbarUtils.detectAndReplace(des.title)
-      let confirmSubTitle = des.subTitle ? toolbarUtils.detectAndReplace(des.subTitle) : ""
-      let selectTitles = des.selectItems.map(item=>{
-        return toolbarUtils.detectAndReplace(item.selectTitle)
-      })
+      let confirmTitle = await this.render(des.title)
+      let confirmSubTitle = des.subTitle ? (await this.render(des.subTitle)) : ""
+      let selectTitles = []
+      for (let i = 0; i < des.selectItems.length; i++) {
+        const element = des.selectItems[i];
+        selectTitles.push(await this.render(element.selectTitle))
+      }
+      // des.selectItems.map(item=>{
+      //   return await this.render(item.selectTitle)
+      // })
       let select = await MNUtil.userSelect(confirmTitle, confirmSubTitle, selectTitles)
       if (select) {
         let targetDes = des.selectItems[select-1]
@@ -2862,8 +2898,9 @@ try {
   }
   static async userInput(des){
     if (des.title) {
-      let confirmTitle = toolbarUtils.detectAndReplace(des.title)
-      let confirmSubTitle = des.subTitle ? toolbarUtils.detectAndReplace(des.subTitle) : ""
+      let confirmTitle = await this.render(des.title)
+      let confirmSubTitle = des.subTitle ? (await this.render(des.subTitle)) : ""
+      // let confirmSubTitle = des.subTitle ? toolbarUtils.detectAndReplace(des.subTitle) : ""
       let res = await MNUtil.userInput(confirmTitle, confirmSubTitle)
       if (res.button) {
         if ("target" in des) {
@@ -2898,9 +2935,6 @@ try {
    */
   static chatAI(des,button){
     switch (des.target) {
-      case "openFloat":
-        MNUtil.postNotification("chatAIOpenFloat", {beginFrame:button.convertRectToView(button.bounds,MNUtil.studyView)})
-        return;
       case "openFloat":
         MNUtil.postNotification("chatAIOpenFloat", {beginFrame:button.convertRectToView(button.bounds,MNUtil.studyView)})
         return;
@@ -3103,7 +3137,8 @@ static async webSearchForZhipu (question,apikey) {
     }
     // let noteConfig = this.getNoteObject(MNNote.getFocusNote(),{},{parent:true,child:true})
 
-    let question = this.detectAndReplace(des.question)
+    let question = this.render(des.question)
+    // let question = this.detectAndReplace(des.question)
     // MNUtil.copy(noteConfig)
     // return
     MNUtil.waitHUD("Searching for ["+question+"] ")
@@ -4412,7 +4447,7 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
       this.addErrorLog(error, "openInEditor")
     }
   }
-  static insertSnippet(des){
+  static async insertSnippet(des){
     let target = des.target ?? "textview"
     let success = true
     switch (target) {
@@ -4423,14 +4458,16 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
           success = false
           break;
         }
-        let textContent = toolbarUtils.detectAndReplace(des.content)
+        let textContent = await this.render(des.content)
+        // let textContent = toolbarUtils.detectAndReplace(des.content)
         success = toolbarUtils.insertSnippetToTextView(textContent,textView)
         break;
       case "editor":
         let contents = [
           {
             type:"text",
-            content:toolbarUtils.detectAndReplace(des.content)
+            content:await this.render(des.content)
+            // content:toolbarUtils.detectAndReplace(des.content)
           }
         ]
         MNUtil.postNotification("editorInsert", {contents:contents})
@@ -4802,13 +4839,14 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
     MNUtil.showHUD("Download failed")
     return undefined
   }
-  static shortcut(name,des){
+  static async shortcut(name,des){
     let url = "shortcuts://run-shortcut?name="+encodeURIComponent(name)
     if (des && des.input) {
       url = url+"&input="+encodeURIComponent(des.input)
     }
     if (des && des.text) {
-      let text = this.detectAndReplace(des.text)
+      let text = await this.render(des.text)
+      // let text = this.detectAndReplace(des.text)
       url = url+"&text="+encodeURIComponent(text)
     }
     MNUtil.openURL(url)
@@ -5215,6 +5253,156 @@ static getButtonFrame(button){
     MNUtil.showHUD("No web url found")
     return false
   }
+  static hasNoteDoc(vars){
+    if (vars.includes("note.doc.content")) {
+      return true
+    }
+    if (vars.includes("note.parent.doc.content")) {
+      return true
+    }
+    if (vars.includes("note.parent.parent.doc.content")) {
+      return true
+    }
+    if (vars.includes("note.parent.parent.parent.doc.content")) {
+      return true
+    }
+  }
+  static getParentLevel(vars){
+    if (vars.some(v=>v.includes("note.parent.parent.parent."))) {
+      return 3
+    }
+    if (vars.some(v=>v.includes("note.parent.parent."))) {
+      return 2
+    }
+    if (vars.some(v=>v.includes("note.parent."))) {
+      return 1
+    }
+    return 0
+  }
+  static hasChild(vars){
+    if (vars.some(v=>v.includes("note.child"))) {
+      return true
+    }
+    return false
+  }
+  static hasNote(vars){
+    if (vars.some(v=>v.includes("note."))) {
+      return true
+    }
+    return false
+  }
+  /**
+   * 
+   * @param {string[]} vars 
+   * @returns 
+   */
+  static getNoteInfo(vars){
+    //parentLevel为最高的一个
+    let noteInfo = {hasNote:false,hasChildMindMap:false,hasParent:false,hasChild:false,parentLevel:0,hasNoteDoc:false}
+    vars.map(v=>{
+      if (v.startsWith("note.")) {
+        noteInfo.hasNote = true//只要有一个变量带note就行
+        if (v.startsWith("note.doc.content")) {
+          noteInfo.hasNoteDoc = true
+        }
+        if (v.startsWith("note.childMindMap.")) {
+          noteInfo.hasChildMindMap = true
+          if (v.startsWith("note.childMindMap.doc.content")) {
+            noteInfo.hasNoteDoc = true
+          }
+        }
+        if (v.startsWith("note.parent.")) {
+          noteInfo.hasParent = true
+          if (v.startsWith("note.parent.parent.parent.")) {
+            noteInfo.parentLevel = 3
+            if (v.startsWith("note.parent.parent.parent.doc.content")) {
+              noteInfo.hasNoteDoc = true
+            }
+          }else if (v.startsWith("note.parent.parent.")) {
+            if (noteInfo.parentLevel !== 3) {//如果为3则不覆盖
+              noteInfo.parentLevel = 2
+            }
+            if (v.startsWith("note.parent.parent.doc.content")) {
+              noteInfo.hasNoteDoc = true
+            }
+          }else {
+            if (noteInfo.parentLevel < 2) {//如果小于2则不覆盖
+              noteInfo.parentLevel = 1
+            }
+            if (v.startsWith("note.parent.doc.content")) {
+              noteInfo.hasNoteDoc = true
+            }
+          }
+        }
+        if (v.startsWith("note.child.")) {
+          noteInfo.hasChild = true
+        }
+      }
+    })
+    return noteInfo
+  }
+  static hasTimer(vars){
+    return vars.some(v=>v.startsWith("timer."))
+  }
+  static parseVars(template){
+  try {
+
+    let tokens = mustache.parse(template)
+    var pipelineRe = /\|\>?/;
+    let vars = []
+    function getChildToken(ele) {
+      if (ele[0] !== "text") {
+        let res = ele[1].split(pipelineRe)
+        vars.push(res[0].trim())
+      }
+      if (ele.length > 4) {
+        let newLevel = ele[4]
+        if (Array.isArray(newLevel)) {
+          newLevel.map(n=>{
+            getChildToken(n)
+          })
+        }
+      }
+    }
+    tokens.map((t)=>{
+      getChildToken(t)
+    })
+    // MNUtil.copy(vars)
+    // MNUtil.log({message:"vars",detail:vars})
+    let config = {
+      vars:MNUtil.unique(vars),
+      hasContext:vars.includes("context"),
+      hasOCR:vars.includes("textOCR"),
+      hasCard:vars.includes("card"),
+      hasCardOCR:vars.includes("cardOCR"),
+      hasCards:vars.includes("cards"),
+      hasCardsOCR:vars.includes("cardsOCR"),
+      hasNotesInMindmap:vars.includes("notesInMindmap"),
+      hasParentCard:vars.includes("parentCard"),
+      hasParentCardOCR:vars.includes("parentCardOCR"),
+      hasUserInput:vars.includes("userInput"),
+      hasCurrentDocInfo:vars.includes("currentDocInfo"),
+      hasCurrentPageInfo:vars.includes("hasCurrentPageInfo"),
+      hasCurrentDocContent:vars.includes("currentDoc.content"),
+      hasNoteDocInfo:vars.includes("noteDocInfo"),
+      hasNoteDocAttach:vars.includes("noteDocAttach"),
+      hasCurrentDocAttach:vars.includes("currentDocAttach"),
+      hasClipboardText:vars.includes("clipboardText"),
+      hasSelectionText:vars.includes("selectionText"),
+      hasKnowledge:vars.includes("knowledge"),
+      hasCurrentDocName:vars.includes("currentDocName"),
+      hasTimer:this.hasTimer(vars),
+      noteInfo:this.getNoteInfo(vars),
+      hasMindmapNotes:vars.includes("mindmap.allNotes"),
+      hasMindmapFocusNotes:vars.includes("mindmap.focusNotes"),
+    }
+    return config
+    
+  } catch (error) {
+    this.addErrorLog(error, "parseVars")
+    throw error;
+  }
+  }
   static async render(template,opt={}){
     try {
       if (opt.noteId) {
@@ -5232,7 +5420,14 @@ static getButtonFrame(button){
     let replaceText= text
     let note = MNNote.new(noteid)
     let noteConfig = this.getNoteObject(note)
-    let config = await this.getVarInfo(text,{userInput:userInput,note:noteConfig})
+    let vars = this.parseVars(replaceText)
+
+    let preConfig = {userInput:userInput,note:noteConfig}
+    if (vars.hasTimer) {
+      preConfig.timer = await this.getTimerStatus()
+    }
+
+    let config = await this.getVarInfo(text,preConfig)
     // MNUtil.copy(noteConfig)
     if (toolbarSandbox.hasGlobalVar()) {
       config.globalVar = toolbarSandbox.getGlobalVarObject()
@@ -5250,7 +5445,12 @@ static async getTextVarInfo(text,userInput) {
   try {
   let replaceText= text
   let noteConfig = this.getNoteObject(MNNote.getFocusNote())
-  let config = await this.getVarInfo(text,{note:noteConfig,userInput:userInput})
+  let vars = this.parseVars(replaceText)
+  let preConfig = {note:noteConfig,userInput:userInput}
+  if (vars.hasTimer) {
+    preConfig.timer = await this.getTimerStatus()
+  }
+  let config = await this.getVarInfo(text,preConfig)
   if (toolbarSandbox.hasGlobalVar()) {
     config.globalVar = toolbarSandbox.getGlobalVarObject()
   }
@@ -5572,7 +5772,7 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         this.searchInDict(des,button)
         break;
       case "insertSnippet":
-        success = this.insertSnippet(des)
+        success = await this.insertSnippet(des)
         break;
       case "importDoc":
         let docPath = await MNUtil.importFile(["com.adobe.pdf","public.text"])
@@ -5622,38 +5822,39 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         await MNUtil.delay(0.1)
         break;
       case "addChildNote"://不支持多选
-        if (!des.hideMessage) {
-          MNUtil.showHUD("addChildNote")
-        }
-        config = {}
-        if (des.title) {
-          config.title = this.detectAndReplace(des.title)
-        }
-        if (des.content) {
-          config.content = this.detectAndReplace(des.content)
-        }
-        if (des.markdown) {
-          config.markdown = des.content
-        }
-        color = undefined
-        if (des.color) {
-          switch (des.color) {
-            case "{{parent}}":
-            case "parent":
-              color = focusNote.colorIndex
-              break;
-            default:
-              if (typeof des.color === "number") {
-                color = des.color
-              }else{
-                color = parseInt(des.color.trim())
-              }
-              break;
-          }
-          config.color = color
-        }
-        let childNote = focusNote.createChildNote(config)
-        await childNote.focusInMindMap(0.5)
+        await this.addChildNote(des)
+        // if (!des.hideMessage) {
+        //   MNUtil.showHUD("addChildNote")
+        // }
+        // config = {}
+        // if (des.title) {
+        //   config.title = this.detectAndReplace(des.title)
+        // }
+        // if (des.content) {
+        //   config.content = this.detectAndReplace(des.content)
+        // }
+        // if (des.markdown) {
+        //   config.markdown = des.content
+        // }
+        // color = undefined
+        // if (des.color) {
+        //   switch (des.color) {
+        //     case "{{parent}}":
+        //     case "parent":
+        //       color = focusNote.colorIndex
+        //       break;
+        //     default:
+        //       if (typeof des.color === "number") {
+        //         color = des.color
+        //       }else{
+        //         color = parseInt(des.color.trim())
+        //       }
+        //       break;
+        //   }
+        //   config.color = color
+        // }
+        // let childNote = focusNote.createChildNote(config)
+        // await childNote.focusInMindMap(0.5)
         break;
       case "file2base64":
         let file = await MNUtil.importFile(["public.data"])
@@ -5661,42 +5862,43 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         MNUtil.copy(data.base64Encoding())
         break;
       case "addBrotherNote":
-        if (!des.hideMessage) {
-          MNUtil.showHUD("addBrotherNote")
-        }
-        config = {}
-        if (des.title) {
-          config.title = this.detectAndReplace(des.title)
-        }
-        if (des.content) {
-          config.content = this.detectAndReplace(des.content)
-        }
-        if (des.markdown) {
-          config.markdown = des.markdown
-        }
-        color = undefined
-        if (des.color) {
-          switch (des.color) {
-            case "{{parent}}":
-            case "parent":
-              color = focusNote.parentNote.colorIndex
-              break;
-            case "{{current}}":
-            case "current":
-              color = focusNote.colorIndex
-              break;
-            default:
-              if (typeof des.color === "number") {
-                color = des.color
-              }else{
-                color = parseInt(des.color.trim())
-              }
-              break;
-          }
-          config.color = color
-        }
-        let brotherNote = focusNote.createBrotherNote(config)
-        await brotherNote.focusInMindMap(0.5)
+        await this.addBrotherNote(des)
+        // if (!des.hideMessage) {
+        //   MNUtil.showHUD("addBrotherNote")
+        // }
+        // config = {}
+        // if (des.title) {
+        //   config.title = this.detectAndReplace(des.title)
+        // }
+        // if (des.content) {
+        //   config.content = this.detectAndReplace(des.content)
+        // }
+        // if (des.markdown) {
+        //   config.markdown = des.markdown
+        // }
+        // color = undefined
+        // if (des.color) {
+        //   switch (des.color) {
+        //     case "{{parent}}":
+        //     case "parent":
+        //       color = focusNote.parentNote.colorIndex
+        //       break;
+        //     case "{{current}}":
+        //     case "current":
+        //       color = focusNote.colorIndex
+        //       break;
+        //     default:
+        //       if (typeof des.color === "number") {
+        //         color = des.color
+        //       }else{
+        //         color = parseInt(des.color.trim())
+        //       }
+        //       break;
+        //   }
+        //   config.color = color
+        // }
+        // let brotherNote = focusNote.createBrotherNote(config)
+        // await brotherNote.focusInMindMap(0.5)
         break;
 
       case "crash":
@@ -5707,33 +5909,34 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         await MNUtil.delay(0.1)
         break;
       case "addComment":
-        if (!des.hideMessage) {
-          MNUtil.showHUD("addComment")
-        }
-        let comment = des.content?.trim()
-        if (comment) {
-          let focusNotes = MNNote.getFocusNotes()
-          let markdown = des.markdown ?? true
-          let commentIndex = des.index ?? 999
-          // MNUtil.copy("text"+focusNotes.length)
-          MNUtil.undoGrouping(()=>{
-            if (markdown) {
-              focusNotes.forEach(note => {
-                let replacedText = this.detectAndReplace(comment,undefined,note)
-                if (replacedText.trim()) {
-                  note.appendMarkdownComment(replacedText,commentIndex)
-                }
-              })
-            }else{
-              focusNotes.forEach(note => {
-                let replacedText = this.detectAndReplace(comment,undefined,note)
-                if (replacedText.trim()) {
-                  note.appendTextComment(replacedText,commentIndex)
-                }
-              })
-            }
-          })
-        }
+        await this.addComment(des)
+        // if (!des.hideMessage) {
+        //   MNUtil.showHUD("addComment")
+        // }
+        // let comment = des.content?.trim()
+        // if (comment) {
+        //   let focusNotes = MNNote.getFocusNotes()
+        //   let markdown = des.markdown ?? true
+        //   let commentIndex = des.index ?? 999
+        //   // MNUtil.copy("text"+focusNotes.length)
+        //   MNUtil.undoGrouping(()=>{
+        //     if (markdown) {
+        //       focusNotes.forEach(note => {
+        //         let replacedText = this.detectAndReplace(comment,undefined,note)
+        //         if (replacedText.trim()) {
+        //           note.appendMarkdownComment(replacedText,commentIndex)
+        //         }
+        //       })
+        //     }else{
+        //       focusNotes.forEach(note => {
+        //         let replacedText = this.detectAndReplace(comment,undefined,note)
+        //         if (replacedText.trim()) {
+        //           note.appendTextComment(replacedText,commentIndex)
+        //         }
+        //       })
+        //     }
+        //   })
+        // }
         await MNUtil.delay(0.1)
         break;
       case "addMarkdownLink":
@@ -5790,7 +5993,7 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         await MNUtil.delay(0.1)
         break;
       case "setContent":
-        this.setContent(des)
+        await this.setContent(des)
         await MNUtil.delay(0.1)
         break;
       case "showInFloatWindow":
@@ -5833,16 +6036,17 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         MNUtil.showHUD("No valid argument!")
         break
       case "shortcut":
-        let shortcutName = des.name
-        let url = "shortcuts://run-shortcut?name="+encodeURIComponent(shortcutName)
-        if (des.input) {
-          url = url+"&input="+encodeURIComponent(des.input)
-        }
-        if (des.text) {
-          let text = this.detectAndReplace(des.text)
-          url = url+"&text="+encodeURIComponent(text)
-        }
-        MNUtil.openURL(url)
+        await this.shortcut(des.name, des)
+        // let shortcutName = des.name
+        // let url = "shortcuts://run-shortcut?name="+encodeURIComponent(shortcutName)
+        // if (des.input) {
+        //   url = url+"&input="+encodeURIComponent(des.input)
+        // }
+        // if (des.text) {
+        //   let text = this.detectAndReplace(des.text)
+        //   url = url+"&text="+encodeURIComponent(text)
+        // }
+        // MNUtil.openURL(url)
         await MNUtil.delay(0.1)
         break
       case "toggleTextFirst":
@@ -5887,7 +6091,7 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         await MNUtil.delay(0.1)
         break;
       case "replace":
-        this.replaceAction(des)
+        await this.replaceAction(des)
         await MNUtil.delay(0.1)
         break;
       case "mergeText":
@@ -5950,7 +6154,7 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         await MNUtil.delay(0.1)
         break 
       case "showMessage":
-        this.showMessage(des)
+        await this.showMessage(des)
         await MNUtil.delay(0.1)
         break
       case "addWordsToEurdic":
@@ -6120,6 +6324,116 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
       MNUtil.postNotification("browserCustomAction", {action:action})
       return
     }
+  }
+  static async addComment(des){
+      if (!des.hideMessage) {
+          MNUtil.showHUD("addComment")
+        }
+        let comment = des.content?.trim()
+        if (comment) {
+          let focusNotes = MNNote.getFocusNotes()
+          let markdown = des.markdown ?? true
+          let commentIndex = des.index ?? 999
+          let noteConfig = {}
+          for (let i = 0; i < focusNotes.length; i++) {
+            const note = focusNotes[i];
+            noteConfig[note.noteId] = await this.render(comment,{noteId:note.noteId})
+          }
+          // MNUtil.copy("text"+focusNotes.length)
+          MNUtil.undoGrouping(()=>{
+            if (markdown) {
+              focusNotes.forEach(note => {
+                let replacedText = noteConfig[note.noteId]
+                // let replacedText = this.detectAndReplace(comment,undefined,note)
+                if (replacedText.trim()) {
+                  note.appendMarkdownComment(replacedText,commentIndex)
+                }
+              })
+            }else{
+              focusNotes.forEach(note => {
+                let replacedText = noteConfig[note.noteId]
+                // let replacedText = this.detectAndReplace(comment,undefined,note)
+                if (replacedText.trim()) {
+                  note.appendTextComment(replacedText,commentIndex)
+                }
+              })
+            }
+          })
+        }
+  }
+  static async addChildNote(des){
+        if (!des.hideMessage) {
+          MNUtil.showHUD("addChildNote")
+        }
+        let focusNote = MNNote.getFocusNote()
+        let config = {}
+        if (des.title) {
+          config.title = await this.render(des.title)
+        }
+        if (des.content) {
+          config.content = await this.render(des.content)
+        }
+        if (des.markdown) {
+          config.markdown = des.content
+        }
+        let color = undefined
+        if (des.color) {
+          switch (des.color) {
+            case "{{parent}}":
+            case "parent":
+              color = focusNote.colorIndex
+              break;
+            default:
+              if (typeof des.color === "number") {
+                color = des.color
+              }else{
+                color = parseInt(des.color.trim())
+              }
+              break;
+          }
+          config.color = color
+        }
+        let childNote = focusNote.createChildNote(config)
+        await childNote.focusInMindMap(0.5)
+  }
+  static async addBrotherNote(des){
+if (!des.hideMessage) {
+          MNUtil.showHUD("addBrotherNote")
+        }
+        let focusNote = MNNote.getFocusNote()
+        let config = {}
+        if (des.title) {
+          config.title = await this.render(des.title)
+        }
+        if (des.content) {
+          config.content = await this.render(des.content)
+        }
+        if (des.markdown) {
+          config.markdown = des.markdown
+        }
+        let color = undefined
+        if (des.color) {
+          switch (des.color) {
+            case "{{parent}}":
+            case "parent":
+              color = focusNote.parentNote.colorIndex
+              break;
+            case "{{current}}":
+            case "current":
+              color = focusNote.colorIndex
+              break;
+            default:
+              if (typeof des.color === "number") {
+                color = des.color
+              }else{
+                color = parseInt(des.color.trim())
+              }
+              break;
+          }
+          config.color = color
+        }
+        let brotherNote = focusNote.createBrotherNote(config)
+        await brotherNote.focusInMindMap(0.5)
   }
 }
 
@@ -7450,3 +7764,4 @@ class toolbarSandbox{
     }
   }
 }
+

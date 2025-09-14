@@ -646,7 +646,13 @@ if (typeof extendToolbarConfigInit === 'function') {
                     
                 # 检查文件是否存在
                 if os.path.exists(old_file):
-                    # 比较文件是否相同
+                    # PNG 文件特殊处理：如果已存在则跳过，不替换
+                    if file.endswith('.png'):
+                        print(f"⏭️  保留已有图片：{file}")
+                        skipped_files.append(file)
+                        continue
+                    
+                    # 其他文件比较是否相同
                     if filecmp.cmp(new_file, old_file):
                         skipped_files.append(file)
                         continue
@@ -654,10 +660,14 @@ if (typeof extendToolbarConfigInit === 'function') {
                     print(f"📝 更新文件：{file}")
                     updated_files.append(file)
                 else:
-                    print(f"➕ 新增文件：{file}")
+                    # 文件不存在，新增
+                    if file.endswith('.png'):
+                        print(f"➕ 新增图片：{file}")
+                    else:
+                        print(f"➕ 新增文件：{file}")
                     new_files.append(file)
                     
-                # 复制文件
+                # 复制文件（PNG 已存在时已在上面跳过，不会执行到这里）
                 shutil.copy2(new_file, old_file)
                 
         # 应用用户修改（仅在开发目录）
