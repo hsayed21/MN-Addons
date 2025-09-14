@@ -420,8 +420,13 @@ JSB.newAddon = function(mainPath){
 
   MNLiteratureClass.prototype.testAI = async function() {
     try {
+      let question = await MNUtil.input("请输入问题","")
+
+      if (!question || question.button !== 1 || !question.input || question.input.trim() === "") {
+        return;
+      }
       // 调用 MNAI 并等待结果
-      const output = await LiteraturePluginIntegration.callMNAIWithNotification("什么是算子")
+      const output = await literatureNetwork.callMNAIWithNotification(question.input)
       
       if (output) {
         // 记录结果
