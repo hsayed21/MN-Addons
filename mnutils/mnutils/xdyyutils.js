@@ -11498,8 +11498,7 @@ class MNMath {
     const result = await MNUtil.input(
       "保存群组",
       "请输入群组名称：",
-      ["取消", "确定"],
-      { placeholder: "例如：内积空间相关" }
+      ["取消", "确定"]
     );
     
     if (!result || result.button !== 1 || !result.input || result.input.trim() === "") {
