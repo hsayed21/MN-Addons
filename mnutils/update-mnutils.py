@@ -96,28 +96,27 @@ if os.path.exists(main_js_path):  # 判断 main.js 文件是否真实存在，�
     with open(main_js_path, 'r', encoding='utf-8') as f:  # 以只读方式打开 main.js，并指定 UTF-8 编码，避免中文或特殊字符乱码
         content = f.read()  # 一次性读取整个文件内容到内存中，后续基于字符串做正则替换
     
-    # 使用正则表达式查找并替换 JSB.require("mnutils") 调用
-    # 匹配模式：JSB.require("mnutils"),MNUtil.init(t) 或类似的调用
-    pattern = r'(JSB\.require\("mnutils"\)(?:,\s*JSB\.require\("xdyyutils"\))?)(,\s*MNUtil\.init\([^)]*\))'  # 分组1匹配 JSB.require("mnutils") 以及可能已存在的 xdyyutils 引用；分组2匹配紧随其后的 MNUtil.init(...) 调用
-    replacement = r'JSB.require("mnutils"),JSB.require("xdyyutils")\2'  # 在分组1后面强制插入 JSB.require("xdyyutils")，并保留原分组2（即 MNUtil.init(...)）
+    # 使用正则表达式查找并替换 JSB.require 调用
+    # 新格式：JSB.require("mnutils"),JSB.require("mnnote"),MNUtil.init(t)
+    # 需要在 mnutils 和 mnnote 之间插入 xdyyutils
+    pattern = r'JSB\.require\("mnutils"\),(?:JSB\.require\("xdyyutils"\),)?JSB\.require\("mnnote"\)'
+    replacement = r'JSB.require("mnutils"),JSB.require("xdyyutils"),JSB.require("mnnote")'
     
-    modified_content = re.sub(pattern, replacement, content)  # 执行第一次替换：确保引入 xdyyutils
+    modified_content = re.sub(pattern, replacement, content)  # 执行替换：确保引入 xdyyutils
     
-    # 新增功能：在 static checkSubscribed(t=!0,e=!1,i=!0){ 的后面插入 return true;
-    # 说明：
-    # 1) 使用分组把函数头部（含 {）捕获为分组1
-    # 2) (?!return true;) 是负向前瞻，保证只有在 { 后面“没有”紧跟 return true; 时才插入，避免重复插入
-    func_pattern = r'(static\s+checkSubscribed\(t=!0,e=!1,i=!0\)\{)(?!return true;)'  # 精确匹配函数签名与 {，允许 static 与函数名之间有空白
-    func_replacement = r'\1return true;'  # 在捕获的 { 后面立刻拼接 return true; 达到“{return true;”的效果
-    modified_content = re.sub(func_pattern, func_replacement, modified_content)  # 执行第二次替换：给函数强制返回 true
+    # 注释掉 checkSubscribed 相关代码，因为该函数可能不再存在于 main.js 中
+    # 如果后续需要，可以先搜索确认该函数的位置再决定是否恢复此功能
+    # func_pattern = r'(static\s+checkSubscribed\(t=!0,e=!1,i=!0\)\{)(?!return true;)'
+    # func_replacement = r'\1return true;'
+    # modified_content = re.sub(func_pattern, func_replacement, modified_content)
     
     # 检查是否成功修改（任意一处替换都会导致内容变化）
     if modified_content != content:  # 如果替换后的内容和原内容不同，说明至少有一处被成功修改
         with open(main_js_path, 'w', encoding='utf-8') as f:  # 以写入模式重新打开 main.js，覆盖写入修改后的内容
             f.write(modified_content)  # 将修改后的文本内容写回文件，完成落盘
-        print("✅ 已成功添加 JSB.require(\"xdyyutils\") 到 main.js")  # 打印成功提示（此处保持原有提示文案，表示修改已生效）
+        print("✅ 已成功添加 JSB.require(\"xdyyutils\") 到 main.js")  # 打印成功提示
     else:
-        print("❌ 未找到匹配的 JSB.require(\"mnutils\") 模式，可能需要手动添加")  # 如果两处替换都没有发生，统一提示可能需要手动处理
+        print("❌ 未找到匹配的 JSB.require 模式，请检查 main.js 格式")  # 如果替换未发生，提示检查格式
 else:
     print("❌ main.js 文件不存在")  # 如果路径不存在，提示用户检查路径与文件是否存在
 
