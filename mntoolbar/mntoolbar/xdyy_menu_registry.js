@@ -403,14 +403,6 @@ function registerAllMenuTemplates() {
           action: "splitCommentsByNotes",
           menuTitle: "    拆分评论为独立卡片",
         },
-        {
-          action: "forceOldCardMakeNote",
-          menuTitle: "    📋 强制按旧卡片制卡",
-        },
-        {
-          action: "handleOldCardWithoutMakeNote",
-          menuTitle: "    📋 旧卡片处理 & 不制卡",
-        },
         "⬇️ 合并到父卡片",
         {
           action: "mergeInParentNote",
@@ -442,12 +434,20 @@ function registerAllMenuTemplates() {
           menuTitle: "    更新知识点卡片到父卡片中",
         },
         {
-          action: "keepOnlyExcerpt",
-          menuTitle: "    只保留摘录",
+          action: "clearContentKeepExcerptWithTitle",
+          menuTitle: "    只保留摘录和标题",
         },
         {
-          action: "keepOnlyExcerptAndTitle",
-          menuTitle: "    只保留摘录和标题",
+          action: "clearContentKeepExcerpt",
+          menuTitle: "    只保留摘录，无标题",
+        },
+        {
+          action: "forceOldCardMakeNote",
+          menuTitle: "    📋 强制按旧卡片制卡",
+        },
+        {
+          action: "handleOldCardWithoutMakeNote",
+          menuTitle: "    📋 旧卡片处理 & 不制卡",
         },
         "⬇️ 修改标题",
         {

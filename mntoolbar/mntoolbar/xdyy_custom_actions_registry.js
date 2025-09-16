@@ -3205,15 +3205,7 @@ function registerAllCustomActions() {
       MNUtil.undoGrouping(() => {
         try {
           focusNotes.forEach((focusNote) => {
-            // 从最后往上删除，就不会出现前面删除后干扰后面的 index 的情况
-            for (let i = focusNote.comments.length - 1; i >= 0; i--) {
-              let comment = focusNote.comments[i];
-              if (comment.type !== "LinkNote") {
-                focusNote.removeCommentByIndex(i);
-              }
-            }
-
-            focusNote.title = focusNote.title.toNoBracketPrefixContent();
+            MNMath.keepOnlyExcerptAndTitle(focusNote)
           });
         } catch (error) {
           MNUtil.showHUD(error);
@@ -3230,15 +3222,7 @@ function registerAllCustomActions() {
       MNUtil.undoGrouping(() => {
         try {
           focusNotes.forEach((focusNote) => {
-            MNUtil.copy(focusNote.noteTitle);
-            focusNote.noteTitle = "";
-            // 从最后往上删除，就不会出现前面删除后干扰后面的 index 的情况
-            for (let i = focusNote.comments.length - 1; i >= 0; i--) {
-              let comment = focusNote.comments[i];
-              if (comment.type !== "LinkNote") {
-                focusNote.removeCommentByIndex(i);
-              }
-            }
+            MNMath.keepOnlyExcerpt(focusNote);
           });
         } catch (error) {
           MNUtil.showHUD(error);
@@ -3974,8 +3958,7 @@ function registerAllCustomActions() {
         MNMath.moveSummaryLinksToTop(focusNote); // 移动总结链接到卡片最上方
         MNMath.refreshNotes(focusNote); // 刷新卡片
         
-        // 3. 加入复习并聚焦
-        MNMath.addToReview(focusNote, true);
+        // MNMath.addToReview(focusNote, true);
         focusNote.focusInMindMap(0.3);
         
         MNUtil.showHUD("✅ 已按旧卡片模式处理");
