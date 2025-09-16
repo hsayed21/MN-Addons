@@ -91,41 +91,8 @@ let selectingTime = 0
 let editor
 let theme = "dark"
 // let preContent = `
-// ### 反馈与解析  
-// **选项A正确！**  
-// - 论文明确说明"Overbars and primes indicate basic-state quantities and perturbations"，即**上横线（$\\overline{}$）表示基本态，撇号（$'$）表示扰动量**，两者通过**加法分解**构成总变量（总涡度$\\zeta = \\overline{\\zeta} + \\zeta'$）。  
-// - 其他选项错误原因：  
-//   - B选项符号颠倒（应为$\T = \\overline{T} + T'$）；  
-//   - C选项使用乘法分解（不符合线性模型的加法分解假设）；  
-//   - D选项使用减法分解（应为$\\mathbf{u} = \\overline{\\mathbf{u}} + \\mathbf{u}'$）。  
+// ![Cute Kitten](https://google.datas.systems/fileSystem/response_images/287/2025/09/09/1757425177762498605_6504.png)
 
-
-// ### 第四步：识别涡度方程的核心项  
-// 论文给出的方程(1)是准地转涡度方程：  
-// $$
-
-
-
-// \\overline{\\mathbf{u}} \\cdot \\nabla \\zeta' + u' \\frac{\\partial \\overline{\\zeta}}{\\partial x} + v' \\left( \\beta + \\frac{\\partial \\overline{\\zeta}}{\\partial y} \\right) - f_0 \\frac{\\partial \\omega'}{\\partial p} = \\kappa \\nabla^2 \\zeta'
-// $$  
-
-// 其中哪一项代表**基本气流对扰动涡度的平流输送**？  
-
-// \`\`\`userSelect
-// A. $\\overline{\\mathbf{u}} \\cdot \\nabla \\zeta'$（基本态风速与扰动涡度梯度的点积）
-// \`\`\`
-
-// \`\`\`userSelect
-// B. $u' \\frac{\\partial \\overline{\\zeta}}{\\partial x}$（扰动经向风与基本态涡度经向梯度的乘积）
-// \`\`\`
-
-// \`\`\`userSelect
-// C. $v' \\left( \\beta + \\frac{\\partial \\overline{\\zeta}}{\\partial y} \\right)$（扰动纬向风与绝对涡度梯度的乘积）
-// \`\`\`
-
-// \`\`\`userSelect
-// D. $- f_0 \\frac{\\partial \\omega'}{\\partial p}$（科里奥利参数与垂直速度散度的乘积）
-// \`\`\`
 // `
 // preContent = replaceButtonCodeBlocks(preContent)
 let preContent = `🤔 I'm thinking...`
@@ -187,6 +154,7 @@ document.addEventListener('DOMContentLoaded', function () {
       image:{
         isPreview:false,
         preview:(element)=>{
+          console.log(element)
           window.location.href = "chataction://copyimage="+encodeURIComponent(element.src)
         }
       },
@@ -299,10 +267,18 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!allowEdit) {
           editor.disabled()
         }
+
+
         setTimeout(() => {
           notifyRefreshHeight()
         }, 0);
+        if (hasMarkdownImages(preContent)) {
+          setTimeout(() => {
+            notifyRefreshHeight()
+          }, 3000);
+        }
         setTimeout(() => {
+        
 
         const mermaidElements = document.querySelectorAll('.language-mermaid');
     

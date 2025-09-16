@@ -1,66 +1,26 @@
 
+改进函数调用的问题
+改进视觉模型识别的问题
 
-生图逻辑改进：
-* 默认模型为cogview-3-flash
-* 可选择模型：cogview-3-flash、cogview-4-250304、gemini-2.5-flash-image
-* 其中gemini-2.5-flash-image为订阅可用，每次0.01积分
-* 生图时自动调用MN Snipaste
+改进导入Prompt示例的弹窗内容
+尝试修复脑图为空时的bug
+修复一个工具调用问题
+优化变量渲染性能
 
-修复切换生图模型按钮初始化错误的问题
-生图模型新增MiniMax的Image-01和Image-01 Live以及OpenAI的gpt-image-1
-* 其中gpt-image-1为订阅可用，每次0.01积分
+通知模式下AI生成内容结束后发送通知MNCatAINotoficationResponse
+变量模板增加timer系列
+修复一些bug
+支持魔搭源
+尝试提供一个api：chatAIUtils.ask()
 
-在特定情况下的请求失败会触发重试机制
-改进模型不支持多模态情况下的报错
+改进{{card}}变量的结构组织
+改进模型刷新的问题
 
-改进重试和报错
-修复一个异常检查订阅的问题
+改进getToolsByIndex的逻辑和报错
+提供一个参数：narrowMode
+editNote工具支持传入指定noteId，可以实现同时编辑多个卡片
+添加变量的菜单中增加一个打开模板变量文档的选项
 
-Knowledge改为独立标签页
-新增AI整理知识库功能，目前仅支持glm-4.5-flash
-
-部分订阅场景增加订阅提醒
-改进AI整理知识库时的UI
-改进自定义按钮设置Toolbar后的兼容性
-修复一个删除卡片后可能导致的问题
-修复函数调用导致无参数或执行失败的问题
-尝试修复latex公式的问题
-改进函数调用时的UI显示
-修复一个不正确创建摘录的问题
-
-支持自动检测模型是否支持图片输入并弹窗提醒
-改进AutoOCR和AutoVision功能
-修复上版本带来的一点工具调用bug
-当对话的token消耗超过100k后，会弹窗提醒
-改进聊天模式引用相关的逻辑
-改进editNote工具，action支持：prependContent、prependTitle和prependComment
-
-修改reranker模型
-通过拖拽关闭按钮调整高度后，可临时将当前高度设定为最大高度，关闭窗口后解除限制
-
-生图模型支持qwen-image
-修复聊天模式冷启动的一些bug
-增加更多的报错检测位置
-聊天模式窗口自动置顶，防止被插件栏等遮挡
-聊天模式UI优化
-
-聊天模式UI优化
-改进引用逻辑
-修复选中图片/图片摘录情况下无法添加引用的问题
-修复通过URL Scheme调起AI的问题
-改进对留白卡片的兼容性，避免读取无效图片
-readNotes工具支持读取特定笔记的内容（通过id或url）
-修复organizeNotes的一些bug
-
-对于Built-in模型，禁止使用模型进行超长对话
-修复Butlt-in模型免费次数计算错误的问题
-修复添加引用导致的历史记录清空问题
-改进思考下的思考显示逻辑
-
-修复对引导式学习选择题按钮的一些问题
-
-修复导入配置时的一点bug
-改进聊天模式下token的检测和显示逻辑
 killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app"
 
 pgrep -x "MarginNote 4" > /dev/null && (killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app") || open "/Applications/MarginNote 4.app"

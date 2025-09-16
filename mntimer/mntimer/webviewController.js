@@ -229,7 +229,7 @@ viewWillLayoutSubviews: function() {
           self.webview.endEditing(true)
           break;
         case "stop":
-          MNUtil.showHUD("⏸ Pause")
+          self.showHUD("⏸️ Pause")
           if (self.miniMode) {
             MNUtil.delay(0.3).then(()=>{
               MNUtil.animate(()=>{ 
@@ -239,7 +239,7 @@ viewWillLayoutSubviews: function() {
           }
           break;
         case "start":
-          MNUtil.showHUD("▶ Resume")
+          self.showHUD("▶️ Resume")
           MNUtil.delay(0.3).then(()=>{
             MNUtil.animate(()=>{ 
               self.view.layer.opacity = 1
@@ -301,7 +301,7 @@ viewWillLayoutSubviews: function() {
         //   MNUtil.showHUD("pause/resume")
         //   break;
         default:
-          MNUtil.showHUD(text)
+          self.showHUD(text)
           break;
       }
       return false
@@ -358,7 +358,7 @@ viewWillLayoutSubviews: function() {
       let timerMode = await self.getTimerMode()
       if (timerMode > 0) {
         if ((Date.now() - button.clickDate) < 300) {
-          MNUtil.showHUD("⏰  Clock Mode")
+          self.showHUD("⏰  Clock Mode")
           MNUtil.delay(0.8).then(()=>{
             self.beginClockMode()
             MNUtil.animate(()=>{ 
@@ -382,6 +382,7 @@ viewWillLayoutSubviews: function() {
         {title:'⌛  Countdown: 40mins',object:self,selector:'beginCountDown:',param:40},
         {title:'⌛  Countdown: 60mins',object:self,selector:'beginCountDown:',param:60},
         {title:'⌛  Countdown: Custom',object:self,selector:'beginCountDown:',param:-1},
+        {title:'⌛  Timer Object',object:self,selector:'copyTimerObject:',param:-1},
       ];
     if (!self.miniMode) {
       commandTable.unshift({title:'⚙️  Setting',object:self,selector:'openSettingView:',param:'left'})
@@ -391,52 +392,15 @@ viewWillLayoutSubviews: function() {
     }
     self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,200,1)
   },
+  copyTimerObject: function(){
+    let self = getTimerController()
+    self.getTimerStatus()
+    // MNUtil.copy(timerUtils.getTimerObject())
+  },
   inputAnnotation: async function(){
     let self = getTimerController()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
     self.inputAnnotation()
-    // let res = await MNUtil.input(
-    //   "Input annotation","输入注释", ["⏰  Clock Mode",'⏱️  Count Up','⌛  Countdown: 5mins','⌛  Countdown: 10mins','⌛  Countdown: 15mins','🍅  Countdown: 25mins','⌛  Countdown: 40mins','⌛  Countdown: 60mins']
-    // )
-    // self.todoText.text = res.input
-    // self.hasTodoText = true
-    // if(self.miniMode){
-    //   let viewFrame = MNUtil.genFrame(0, 0, 200, 70)
-    //   self.currentFrame.height = 110
-    //   self.view.frame = self.currentFrame
-    //   self.webview.frame = viewFrame
-    //   self.todoText.frame = MNUtil.genFrame(0,75,200,35)
-    //   self.moveButton.frame = viewFrame
-    //   self.todoText.hidden = false
-    // }
-    // switch (res.button) {
-    //     case 0:
-    //       self.beginClockMode()
-    //       break;
-    //     case 1:
-    //       self.beginCountUp()
-    //       break;
-    //     case 2:
-    //       self.getTimer(5)
-    //       break;
-    //     case 3:
-    //       self.getTimer(10)
-    //       break;
-    //     case 4:
-    //       self.getTimer(15)
-    //       break;
-    //     case 5:
-    //       self.getTimer(25)
-    //       break;
-    //     case 6:
-    //       self.getTimer(40)
-    //       break;
-    //     case 7:
-    //       self.getTimer(60)
-    //       break;
-    //     default:
-    //       break;
-    //   }
 
   },
   exitMiniMode: function(){
@@ -569,7 +533,64 @@ viewWillLayoutSubviews: function() {
     self.settingView.hidden = true
   })
  },
+ resetConfigTapped: async function () {
+  let self = getTimerController()
+  let res = await MNUtil.confirm("🤖 MN Timer","Are you sure you want to reset the config?\n\n确定要重置配置吗？")
+  if (res) {
+    timerConfig.config = timerConfig.defaultConfig
+    timerConfig.save("MNTimer_config")
+    timerConfig.writeTimer()
+    self.reloadTimer()
+    self.moveButton.backgroundColor = timerConfig.themeColor()
+    self.closeButton.backgroundColor = timerConfig.themeColor()
+    self.minButton.backgroundColor = timerConfig.themeColor()
+    self.todoText.backgroundColor = timerConfig.themeColor()
+    self.todoText.textColor = timerConfig.annoTextColor()
+    self.todoText.font = timerConfig.annoFont()
+    // timerConfig.config = {}
+    // timerConfig.save()
+    // this.reloadTimer()
+  }
+ },
+configSaveTapped: async function (button) {
 
+    try {
+      
+
+    let self = getTimerController()
+    let config = JSON.parse(await self.getWebviewContent())
+    // MNUtil.log({message:"config",detail:config})
+    // MNUtil.log({message:"config",detail:timerConfig.config})
+    // let isSame = MNUtil.deepEqual(config, timerConfig.config)
+    let isSame = timerConfig.deepEqual(config, timerConfig.config,["annotation","customMinutes"])
+    if (isSame) {
+      self.showHUD("No changes to save")
+      return
+    }
+    if (!chatAIUtils.isSubscribed()) {
+      let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
+    };
+    timerConfig.config = config
+    if (!timerUtils.checkSubscribe()) {
+      return
+    }
+    timerConfig.save("MNTimer_config")
+    timerConfig.writeTimer()
+    self.reloadTimer()
+    self.moveButton.backgroundColor = timerConfig.themeColor()
+    self.closeButton.backgroundColor = timerConfig.themeColor()
+    self.minButton.backgroundColor = timerConfig.themeColor()
+    self.todoText.backgroundColor = timerConfig.themeColor()
+    self.todoText.textColor = timerConfig.annoTextColor()
+    self.todoText.font = timerConfig.annoFont()
+  } catch (error) {
+    timerUtils.addErrorLog(error, "configSaveTapped")
+  }
+    // MNUtil.copy(config)
+  },
   minButtonTapped: function() {
     self.miniMode = true
     let frame = self.view.frame
@@ -648,111 +669,6 @@ viewWillLayoutSubviews: function() {
     //  Application.sharedInstance().showHUD(`{x:${translation.x},y:${translation.y}}`, self.view.window, 2);
     //  self.view.frame = {x:frame.x,y:frame.y,width:frame.width+translationX,height:frame.height+translationY}
     self.setFrame(frame.x, frame.y, width,height)
-  },
-
-  advancedButtonTapped: function (params) {
-    self.configView.hidden = true
-    self.advanceView.hidden = false
-    self.syncView.hidden = true
-
-    MNButton.setColor(self.advancedButton, "#457bd3")
-    MNButton.setColor(self.configButton, "#9bb2d6")
-    MNButton.setColor(self.syncConfig, "#9bb2d6")
-  },
-  syncConfigTapped: function (params) {
-    self.configView.hidden = true
-    self.advanceView.hidden = true
-    self.syncView.hidden = false
-    MNButton.setColor(self.advancedButton, "#9bb2d6")
-    MNButton.setColor(self.configButton, "#9bb2d6")
-    MNButton.setColor(self.syncConfig, "#457bd3")
-    self.refreshView("syncView")
-  },
-  configButtonTapped: function (params) {
-    self.configView.hidden = false
-    self.advanceView.hidden = true
-    self.syncView.hidden = true
-    MNButton.setColor(self.advancedButton, "#9bb2d6")
-    MNButton.setColor(self.configButton, "#457bd3")
-    MNButton.setColor(self.syncConfig, "#9bb2d6")
-    self.refreshView("configView")
-
-  },
-  configSaveTapped: async function (button) {
-    if (!timerUtils.checkSubscribe()) {
-      return
-    }
-    try {
-      
-
-    let self = getTimerController()
-    let config = JSON.parse(await self.getWebviewContent())
-    timerConfig.config = config
-    timerConfig.save("MNTimer_config")
-    timerConfig.writeTimer()
-    self.reloadTimer()
-    self.moveButton.backgroundColor = timerConfig.themeColor()
-    self.closeButton.backgroundColor = timerConfig.themeColor()
-    self.minButton.backgroundColor = timerConfig.themeColor()
-    self.todoText.backgroundColor = timerConfig.themeColor()
-    self.todoText.textColor = timerConfig.annoTextColor()
-    self.todoText.font = timerConfig.annoFont()
-  } catch (error) {
-    timerUtils.addErrorLog(error, "configSaveTapped")
-  }
-    // MNUtil.copy(config)
-  },
-  syncConfig: function (params) {
-    let success = timerConfig.sync()
-    if (success) {
-      self.refreshView("syncView")
-      MNUtil.showHUD("Sync Success!")
-    }
-  },
-  focusConfigNoteId:function (params) {
-  try {
-    let syncNoteId = timerConfig.getConfig("syncNoteId")
-        let note = MNNote.new(syncNoteId)
-        if (note) {
-          note.focusInFloatMindMap()
-        }else{
-          MNUtil.showHUD("Note not exist!")
-        }
-  } catch (error) {
-    MNUtil.showHUD("Error in focusConfigNoteId: "+error)
-  }
-  },
-  toggleAutoExport: function (params) {
-  try {
-    timerConfig.config.autoExport = !timerConfig.getConfig("autoExport")
-    MNButton.setTitle(self.autoExportButton, "Auto Export: "+(timerConfig.getConfig("autoExport")?"✅":"❌"))
-    timerConfig.save("MNTimer_config")
-  } catch (error) {
-    MNUtil.showHUD(error)
-  }
-  },
-  toggleAutoImport: function (params) {
-    timerConfig.config.autoImport = !timerConfig.getConfig("autoImport")
-    MNButton.setTitle(self.autoImportButton, "Auto Import: "+(timerConfig.getConfig("autoImport")?"✅":"❌"))
-    timerConfig.save("MNTimer_config")
-  },
-  pasteConfigNoteId:function (params) {
-    let noteId = MNUtil.clipboardText
-    let note = MNNote.new(noteId)//MNUtil.getNoteById(noteId)
-    if (note) {
-      self.configNoteIdInput.text = note.noteId
-      timerConfig.config.syncNoteId = noteId.noteId
-      timerConfig.save("MNTimer_config")
-      MNUtil.showHUD("Save Config NoteId")
-    }else{
-      MNUtil.showHUD("Note not exist!")
-    }
-  },
-  clearConfigNoteId:function (params) {
-    self.configNoteIdInput.text = ""
-    timerConfig.config.syncNoteId = ""
-    timerConfig.save("MNTimer_config")
-    MNUtil.showHUD("Clear Config NoteId")
   }
 });
 
@@ -926,16 +842,19 @@ timerController.prototype.settingViewLayout = function (){
     let height = viewFrame.height
     this.settingView.frame = {x:12.5,y:20,width:width-25,height:height-32.5}
 
-    this.webviewInput.frame = {x:5,y:5,width:width-37.5,height:height-42.5}
+    this.webviewInput.frame = {x:0,y:0,width:width-25,height:height-32}
 
-    this.saveButton.frame = {x:width-177.5,y:height-75,width:this.saveButton.width,height:this.saveButton.height}
+    this.saveButton.frame = {x:width-91,y:height-70,width:this.saveButton.width,height:this.saveButton.height}
 
     let settingFrame = this.settingView.bounds
-    settingFrame.y = 8
+    settingFrame.y = 3
     settingFrame.height = 29
-    settingFrame.x = width - 65
+    settingFrame.x = width - 57
     settingFrame.width = 29
     this.closeConfig.frame = settingFrame
+    settingFrame.x = settingFrame.x - 65
+    settingFrame.width = 60
+    this.resetConfig.frame = settingFrame
 
   } catch (error) {
     timerUtils.addErrorLog(error, "settingViewLayout")
@@ -944,13 +863,11 @@ timerController.prototype.settingViewLayout = function (){
 
 /** @this {timerController} */
 timerController.prototype.createSettingView = function (){
-  // MNUtil.showHUD("Not implemented yet")
   // return
 try {
   let targetView = "settingView"
-  // MNUtil.showHUD("createSettingView")
   this.settingView = UIView.new()
-  this.settingView.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0.8)
+  this.settingView.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0.0)
   this.settingView.layer.cornerRadius = 13
   this.settingView.hidden = true
   this.view.addSubview(this.settingView)
@@ -962,14 +879,17 @@ try {
   this.createButton("saveButton","configSaveTapped:",targetView)
   // this.saveButton.layer.opacity = 1.0
   // this.saveButton.setTitleForState("Save",0)
-  MNButton.setConfig(this.saveButton, {opacity:0.8,color:"#e06c75",title:"Save & Reload","font":18,bold:true})
-  this.saveButton.width = 140
+  MNButton.setConfig(this.saveButton, {opacity:0.8,color:"#e06c75",title:"Save","font":18,bold:true})
+  this.saveButton.width = 60
   this.saveButton.height = 32
 
   this.createButton("closeConfig","closeConfigTapped:",targetView)
   this.closeConfig.setImageForState(timerUtils.stopImage,0)
   this.closeConfig.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0)
   MNButton.setColor(this.closeConfig, "#e06c75",0.8)
+
+  this.createButton("resetConfig","resetConfigTapped:",targetView)
+  MNButton.setConfig(this.resetConfig, {opacity:0.8,color:"#e06c75",title:"Reset","font":18,bold:true})
 
   // this.refreshView(targetView)
 } catch (error) {
@@ -991,11 +911,11 @@ timerController.prototype.createWebviewInput = function (superView) {
   this.webviewInput.delegate = this;
   // this.webviewInput.setValueForKey("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15","User-Agent")
   this.webviewInput.scrollView.delegate = this;
-  this.webviewInput.layer.cornerRadius = 8;
+  this.webviewInput.layer.cornerRadius = 10;
   this.webviewInput.layer.masksToBounds = true;
   this.webviewInput.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
   this.webviewInput.layer.borderWidth = 0
-  this.webviewInput.layer.opacity = 0.85
+  this.webviewInput.layer.opacity = 0.95
   this.webviewInput.scrollEnabled = false
   this.webviewInput.scrollView.scrollEnabled = false
   this.webviewInput.loadFileURLAllowingReadAccessToURL(
@@ -1004,7 +924,7 @@ timerController.prototype.createWebviewInput = function (superView) {
   );
   this.webviewInput.name = "webviewInput"
     } catch (error) {
-    MNUtil.showHUD(error)
+    timerUtils.addErrorLog(error, "createWebviewInput")
   }
   if (superView) {
     this[superView].addSubview(this.webviewInput)
@@ -1281,224 +1201,6 @@ timerController.prototype.getCurrentURL = async function(url) {
     );
   })
 };
-/** @this {timerController} */
-timerController.prototype.openOrJump = async function(bvid,time,p) {
-try {
-  
-
-  if (this.view.hidden) {
-    MNUtil.showHUD(`window is hidden`)
-    return
-  }
-  let timestamp = await this.getTimestamp()
-
-  // await this.getCurrentURL()
-
-  // let res = this.webview.url.match(/(?<=bilibili.com\/video\/)\w+/);
-  // // MNUtil.copy("bv:"+this.webview.url)
-  // if (res) {
-  //   this.currentBvid = res[0]
-  // }else{
-  //   this.currentBvid = ""
-  // }
-  let formatedVideoTime = timerUtils.formatSeconds(parseFloat(time))
-
-  // NSUserDefaults.standardUserDefaults().synchronize();
-  // let object = NSUserDefaults.standardUserDefaults().objectForKey("UserAgent");
-    //  Application.sharedInstance().showHUD(text, this.view.window, 2);
-    // MNUtil.copyJSON([this.currentP,p])
-  if (this.currentBvid && this.currentBvid === bvid && (this.currentP === p)) {
-    MNUtil.showHUD(`Jump to ${formatedVideoTime}`)
-    this.runJavaScript(`document.getElementsByTagName("video")[0].currentTime = ${time}`)
-  }else{
-    //  Application.sharedInstance().showHUD("should open", this.view.window, 2);
-    this.currentBvid = bvid
-    var url = `https://www.bilibili.com/`+bvid+`?t=`+time
-    if (p) {
-      url = url+"&p="+p
-    }
-    MNUtil.showHUD(url)
-    this.webview.customUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15'
-    this.runJavaScript(`window.location.href="${url}"`)
-    // MNConnection.loadRequest(this.webview, url)
-  }
-} catch (error) {
-  timerUtils.addErrorLog(error, "openOrJump")
-}
-};
-/** @this {timerController} */
-timerController.prototype.openOrJumpForYT = async function(Ytid,time) {
-try {
-  let parseTime = parseInt(time)
-  if (this.view.hidden) {
-     Application.sharedInstance().showHUD(`window is hidden`, this.view.window, 2);
-    return
-  }
-  await this.getCurrentURL()
-  let res = this.webview.url.match(/(?<=youtube.com\/watch\?t\=.*&v\=)\w+/);
-  if (res) {
-    this.currentYtid = res[0]
-  }else{
-    this.currentYtid = ""
-  }
-  let formatedVideoTime = timerUtils.formatSeconds(parseTime)
-  // NSUserDefaults.standardUserDefaults().synchronize();
-  // let object = NSUserDefaults.standardUserDefaults().objectForKey("UserAgent");
-    //  Application.sharedInstance().showHUD(text, this.view.window, 2);
-  if (this.currentYtid && this.currentYtid === Ytid) {
-    MNUtil.showHUD(`Jump to ${formatedVideoTime}`)
-    this.runJavaScript(`document.getElementsByTagName("video")[0].currentTime = ${parseTime}`)
-  }else{
-    //  Application.sharedInstance().showHUD("should open", this.view.window, 2);
-    this.currentYtid = Ytid
-    var url = `https://youtu.be/`+Ytid+`?t=`+parseTime
-    MNUtil.showHUD(url)
-    // MNUtil.copy(url)
-    // this.webview.customUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15'
-    MNConnection.loadRequest(this.webview, url)
-  }
-} catch (error) {
-  timerUtils.addErrorLog(error, "openOrJump")
-}
-};
-/** @this {timerController} */
-timerController.prototype.getTimestamp = async function(){
-  let videoTime = await this.runJavaScript(`document.getElementsByTagName('video')[0].currentTime.toFixed(2);`)
-  if (videoTime) {
-    let url = await this.runJavaScript(`window.location.href`)
-    let res = url.match(/(?<=bilibili.com\/video\/)\w+/);
-    if (res) {
-      let timestamp = {time:parseFloat(videoTime),bv:res[0]}
-      this.currentBvid = timestamp.bv
-      let testP = url.match(/(?<=bilibili.com\/video\/.+(\?|&)p\=)\d+/);
-      if (testP) {
-        timestamp.p = parseInt(testP[0])
-        this.currentP = timestamp.p
-      }else{
-        this.currentP = 0
-      }
-      // https://www.bilibili.com/video/BV1F34y1h7so/?p=4
-      // https://www.bilibili.com/video/BV1F34y1h7so?p=4
-      return timestamp
-    }
-    this.currentBvid = ""
-    this.currentP = 0
-    return {time:parseFloat(videoTime)}
-  }
-  return undefined
-}
-
-timerController.prototype.videoFrameAction= async function(target){
-    if (!timerUtils.checkSubscribe(true)) {
-      return
-    }
-    let videoFrameInfo= await self.getVideoFrameInfo()
-    if (!videoFrameInfo) {
-      return
-    }
-    let focusNote = MNNote.getFocusNote()
-try {
-  
-    switch (target) {
-      case "clipboard":
-        if ("image" in videoFrameInfo) {
-          let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(videoFrameInfo.image))
-          MNUtil.copyImage(imageData)
-          MNUtil.showHUD('视频截图已复制到剪贴板')
-        }
-        break;
-      case "editor":
-        if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoframe → Editor")
-          let formatedVideoTime = timerUtils.formatSeconds(videoFrameInfo.time)
-          if ("p" in videoFrameInfo && videoFrameInfo.p) {
-            MNUtil.postNotification("editorInsert", {contents:[
-              {type:"image",content:videoFrameInfo.image},
-              {type:"text",content:`[\[${formatedVideoTime}\] (${videoFrameInfo.bv}-${videoFrameInfo.p})](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}&p=${videoFrameInfo.p})`}
-            ]})
-            break;
-          }
-          MNUtil.postNotification("editorInsert", {contents:[
-            {type:"image",content:videoFrameInfo.image},
-            {type:"text",content:`[\[${formatedVideoTime}\] (${videoFrameInfo.bv})](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time})`}
-          ]})
-        }
-        break;
-      case "excerpt":
-        if (!focusNote) {
-          MNUtil.showHUD("No note selected!")
-          return
-        }
-        if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoframe → Excerpt")
-          if (focusNote.excerptPic && !focusNote.textFirst) {
-            self.webview.endEditing(true)
-            MNUtil.excuteCommand("EditTextMode")
-          }
-          let MDVideoInfo = timerUtils.videoInfo2MD(videoFrameInfo)
-          let excerptText = (focusNote.excerptText??"")+`\n`+MDVideoInfo
-            MNUtil.undoGrouping(()=>{
-              focusNote.excerptText = excerptText
-              focusNote.excerptTextMarkdown = true
-              focusNote.processMarkdownBase64Images()
-            })
-        }
-        break;
-      case "childNote":
-        if (!focusNote) {
-          MNUtil.showHUD("No note selected!")
-          return
-        }
-        if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoframe → ChildNote")
-          let MDVideoInfo = timerUtils.videoInfo2MD(videoFrameInfo)
-          let config = {excerptText:MDVideoInfo,excerptTextMarkdown:true}
-          let childNote = focusNote.createChildNote(config)
-          childNote.focusInMindMap(0.5)
-        }
-        break;
-      case "comment":
-        if (!focusNote) {
-          MNUtil.showHUD("No note selected!")
-          return
-        }
-        if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoframe → Comment")
-          let MDVideoInfo = timerUtils.videoInfo2MD(videoFrameInfo)
-            MNUtil.undoGrouping(()=>{
-              focusNote.excerptTextMarkdown = true
-              focusNote.appendMarkdownComment(MDVideoInfo)
-              focusNote.processMarkdownBase64Images()
-            })
-        }
-        break;
-      case "newNote":
-        if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoframe → ChildNote")
-          let MDVideoInfo = timerUtils.videoInfo2MD(videoFrameInfo)
-          let config = {excerptText:MDVideoInfo,excerptTextMarkdown:true}
-          let mindmap = MNUtil.mindmapView.mindmapNodes[0].note.childMindMap
-          // MNNote.new(mindmap).focusInMindMap()
-          if (mindmap) {
-            let childNote = MNNote.new(mindmap).createChildNote(config)
-            childNote.focusInMindMap(0.5)
-          }else{
-            MNUtil.showHUD("Create in main mindmap")
-            MNUtil.undoGrouping(()=>{
-              let newNote = MNNote.new(config)
-              newNote.focusInMindMap(0.5)
-            })
-          }
-        }
-        break;
-      default:
-        MNUtil.showHUD("Unsupported action: "+target)
-        break;
-    }
-  } catch (error) {
-  timerUtils.addErrorLog(error, "videoFrameAction",target)
-}
-  }
 
 timerController.prototype.animateTo = function(frame){
   this.onAnimate = true
@@ -1514,42 +1216,71 @@ timerController.prototype.checkPopover = function(){
 }
 
 timerController.prototype.pause = function () {
-  MNUtil.showHUD("Toogle Pause")
+  this.showHUD("Toogle Pause")
   this.runJavaScript("togglePause()")
 }
-timerController.prototype.beginTimer = function (params) {
-  
-}
-/** @this {timerController} */
-timerController.prototype.getTimer = async function (minutes) {
-  if (minutes < 0){
-    let res = await MNUtil.input("Enter minutes:", "输入倒计时分钟数:",["Cancel", "Confirm"])
-    if (res.button === 0){
-      MNUtil.showHUD("Canceled")
-      this.view.layer.opacity = 1
-    }else{
-      minutes = parseFloat(res.input)
-      if (minutes > 0) {
-        if(this.view.hidden){
-          await this.show()
-        }
-        MNUtil.showHUD("⌛ Countdown: "+minutes+" mins")
-        this.runJavaScript('window.timer.getTimer('+minutes+')')
-      }else{
-        MNUtil.showHUD("Invalid minutes: "+minutes)
-      }
-    }
-    return
-  }
-  if(this.view.hidden){
-    await this.show()
-  }
-  if (minutes === 25) {
-    MNUtil.showHUD("🍅 Countdown: "+minutes+" mins")
-  }else{
-    MNUtil.showHUD("⌛ Countdown: "+minutes+" mins")
-  }
+timerController.prototype.beginCountDown = function (minutes) {
+  let date = Date.now()
+  timerUtils.timerObject.isCountUp = false
+  timerUtils.timerObject.isCountDown = true
+  timerUtils.timerObject.isClockMode = false
+  timerUtils.timerObject.isRunning = true
+  timerUtils.timerObject.isPaused = false
+  timerUtils.timerObject.isFinished = false
+  timerUtils.timerObject.isCancelled = false
+  timerUtils.timerObject.dateBegin = date
+  timerUtils.timerObject.dateEnd = date + minutes * 60000
   this.runJavaScript('window.timer.getTimer('+minutes+')')
+}
+/** 
+* 开始倒计时
+* @this {timerController} 
+* @param {number} minutes 
+*/
+timerController.prototype.getTimer = async function (minutes) {
+  try {
+
+    if (minutes < 0){
+      let defaultMinutes = timerConfig.getConfig("customMinutes")
+      let option = {}
+      if (defaultMinutes) {
+        option.default = defaultMinutes.toString()
+      }
+      let res = await MNUtil.input("⏱ MN Timer","Enter minutes\n\n输入倒计时分钟数:",["Cancel", "Confirm"],option)
+      if (res.button === 0){
+        this.showHUD("❌ Cancelled")
+        this.view.layer.opacity = 1
+      }else{
+        minutes = parseFloat(res.input)
+        if (minutes > 0) {
+          if(this.view.hidden){
+            await this.show()
+          }
+          this.showHUD("⌛ Countdown: "+minutes+" mins")
+          this.beginCountDown(minutes)
+          // this.runJavaScript('window.timer.getTimer('+minutes+')')
+          timerConfig.config.customMinutes = minutes
+          timerConfig.save()
+        }else{
+          this.showHUD("❌ Invalid minutes: "+minutes)
+        }
+      }
+      return
+    }
+    if(this.view.hidden){
+      await this.show()
+    }
+    if (minutes === 25) {
+      this.showHUD("🍅 Countdown: "+minutes+" mins")
+    }else{
+      this.showHUD("⌛ Countdown: "+minutes+" mins")
+    }
+    this.beginCountDown(minutes)
+    // this.runJavaScript('window.timer.getTimer('+minutes+')')
+    
+  } catch (error) {
+    timerUtils.addErrorLog(error, "getTimer")
+  }
 }
 /** @this {timerController} */
 timerController.prototype.cancelTimer = function () {
@@ -1563,12 +1294,23 @@ timerController.prototype.beginClockMode = async function () {
   }
   this.runJavaScript('window.timer.beginClockMode()')
 }
-
-/** @this {timerController} */
+/** 
+* 开始正计时
+* @this {timerController} 
+*/
 timerController.prototype.stopWatch = async function () {
   if(this.view.hidden){
     await this.show()
   }
+  timerUtils.timerObject.isCountUp = true
+  timerUtils.timerObject.isCountDown = false
+  timerUtils.timerObject.isClockMode = false
+  timerUtils.timerObject.isRunning = true
+  timerUtils.timerObject.isPaused = false
+  timerUtils.timerObject.isFinished = false
+  timerUtils.timerObject.isCancelled = false
+  timerUtils.timerObject.dateBegin = Date.now()
+  timerUtils.timerObject.dateEnd = 0
   this.runJavaScript('window.timer.stopWatch()')
 }
 /** @this {timerController} */
@@ -1585,7 +1327,19 @@ timerController.prototype.getTimerMode = async function () {
   res = await this.runJavaScript('window.timer.getTimerMode()')
   return parseInt(res)
 }
-
+/**
+ * 
+ * @param {string} title 
+ * @param {number} duration 
+ * @param {UIView} view 
+ */
+timerController.prototype.showHUD = function (title,duration = 1.5,view = this.view) {
+  if (this.view.hidden) {
+    MNUtil.showHUD(title,duration)
+    return
+  }
+  MNUtil.showHUD(title,duration,view)
+}
 /**
  * @this {timerController}
  * @param {string} annotation 
@@ -1617,8 +1371,15 @@ timerController.prototype.setAnnotation = async function(annotation){
 
 /** @this {timerController} */
 timerController.prototype.inputAnnotation = async function(){
+  let option = {}
+  let annotation = timerConfig.getConfig("annotation")
+  if (annotation && annotation.trim()) {
+    option.default = annotation
+  }
   let res = await MNUtil.input(
-    "Input annotation","输入注释", ["⏰  Clock Mode",'⏱️  Count Up','⌛  Countdown: 5mins','⌛  Countdown: 10mins','⌛  Countdown: 15mins','🍅  Countdown: 25mins','⌛  Countdown: 40mins','⌛  Countdown: 60mins']
+    "⏱ MN Timer","Input annotation\n\n输入注释", 
+    ["⏰  Clock Mode",'⏱️  Count Up','⌛  Countdown: 5mins','⌛  Countdown: 10mins','⌛  Countdown: 15mins','🍅  Countdown: 25mins','⌛  Countdown: 40mins','⌛  Countdown: 60mins'],
+    option
   )
   this.todoText.text = res.input
   if(res.input.trim()){
@@ -1671,7 +1432,34 @@ timerController.prototype.inputAnnotation = async function(){
       default:
         break;
     }
-
+  timerConfig.config.annotation = this.todoText.text
+  timerConfig.save()
+}
+timerController.prototype.resetConfig = async function () {
+  MNUtil.showHUD("Resetting config...")
+  let res = await MNUtil.confirm("🤖 MN Timer","Are you sure you want to reset the config?\n\n确定要重置配置吗？")
+  if (res) {
+    // timerConfig.config = {}
+    // timerConfig.save()
+    // this.reloadTimer()
+  }
+}
+timerController.prototype.getTimerStatus = async function () {
+  let temp = await this.runJavaScript('getTimerStatus()')
+  let status = JSON.parse(temp)
+  let res = {
+    mode: status.mode,
+    timePassed: status.timePassed,
+    timeRemaining: status.timeRemaining,
+    currentClockTime: status.currentClockTime,
+    isRunning: status.isRunning,
+    isPaused: status.isPaused,
+    finished: status.isFinished,
+    watching: status.watching
+  }
+  timerUtils.timerObject = res
+  MNUtil.copy(res)
+  return res
 }
 // timerController.prototype.creatTextView = function (viewName,superview="view",color="#c0bfbf",alpha=0.8) {
 //   this[viewName] = UITextView.new()

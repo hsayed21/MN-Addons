@@ -2,7 +2,7 @@
     "addonid": "marginnote.extension.mnsnipaste",
     "author": "Feliks",
     "title": "MN Snipaste",
-    "version": "0.1.2.alpha0906",
+    "version": "0.1.2.alpha0910",
     "marginnote_version_min": "3.7.11",
     "cert_key": ""
 }

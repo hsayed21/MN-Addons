@@ -36,18 +36,34 @@ class timerUtils {
     }
     return folderExist
   }
+  static openURL(url){
+    if (!this.app) {
+      this.app = Application.sharedInstance()
+    }
+    this.app.openURL(NSURL.URLWithString(url));
+  }
   static async checkMNUtil(alert = false,delay = 0.01){
+  try {
     if (typeof MNUtil === 'undefined') {//如果MNUtil未被加载，则执行一次延时，然后再检测一次
       //仅在MNUtil未被完全加载时执行delay
       await this.delay(delay)
       if (typeof MNUtil === 'undefined') {
         if (alert) {
+          let res = await this.confirm("MN Timer:", "Install 'MN Utils' first\n\n请先安装'MN Utils'",["Cancel","Open URL"])
+          if (res) {
+            this.openURL("https://bbs.marginnote.com.cn/t/topic/49699")
+          }
+        }else{
           this.showHUD("MN Timer: Please install 'MN Utils' first!",5)
         }
         return false
       }
     }
     return true
+  } catch (error) {
+    this.copy(error.toString())
+    return false
+  }
   }
   static async delay (seconds) {
     return new Promise((resolve, reject) => {
@@ -83,7 +99,57 @@ class timerUtils {
         opacity: parseFloat(a.toFixed(2)) // 保留2位小数
     };
   }
-
+  static timerObject = {refreshDate:Date.now()}
+  // static getTimerObject(){
+  //   let date = Date.now()
+  //   let dateBegin = this.timerObject.dateBegin
+  //   let msPassed = date - dateBegin
+  //   if (this.timerObject.isCountUp) {
+  //     let hoursPassed = Math.floor(msPassed / 3600000)
+  //     let minutesPassed = Math.floor((msPassed % 3600000) / 60000)
+  //     let secondsPassed = Math.floor((msPassed % 60000) / 1000)
+  //     let timePassed = {
+  //       asString: `${hoursPassed.toString().padStart(2, '0')}:${minutesPassed.toString().padStart(2, '0')}:${secondsPassed.toString().padStart(2, '0')}`,
+  //       hour: hoursPassed,
+  //       minute: Math.floor(msPassed / 60000),
+  //       second: Math.floor(msPassed / 1000)
+  //     }
+  //     this.timerObject.timePassed = timePassed
+  //     //正计时没有剩余时间，重置
+  //     this.timerObject.timeRemaining = {
+  //       asString: "00:00:00",
+  //       hour: 0,
+  //       minute: 0,
+  //       second: 0
+  //     }
+  //     return this.timerObject
+  //   }
+  //   if (this.timerObject.isCountDown) {
+  //     let hoursPassed = Math.floor(msPassed / 3600000)
+  //     let minutesPassed = Math.floor((msPassed % 3600000) / 60000)
+  //     let secondsPassed = Math.floor((msPassed % 60000) / 1000)
+  //     let timePassed = {
+  //       asString: `${hoursPassed.toString().padStart(2, '0')}:${minutesPassed.toString().padStart(2, '0')}:${secondsPassed.toString().padStart(2, '0')}`,
+  //       hour: hoursPassed,
+  //       minute: Math.floor(msPassed / 60000),
+  //       second: Math.floor(msPassed / 1000)
+  //     }
+  //     this.timerObject.timePassed = timePassed
+  //     let msRemaining = this.timerObject.dateEnd - date
+  //     let hoursRemaining = Math.floor(msRemaining / 3600000)
+  //     let minutesRemaining = Math.floor((msRemaining % 3600000) / 60000)
+  //     let secondsRemaining = Math.floor((msRemaining % 60000) / 1000)
+  //     let timeRemaining = {
+  //       asString: `${hoursRemaining.toString().padStart(2, '0')}:${minutesRemaining.toString().padStart(2, '0')}:${secondsRemaining.toString().padStart(2, '0')}`,
+  //       hour: hoursRemaining,
+  //       minute: Math.floor(msRemaining / 60000),
+  //       second: Math.floor(msRemaining / 1000)
+  //     }
+  //     this.timerObject.timeRemaining = timeRemaining
+  //     return this.timerObject
+  //   }
+  //   return this.timerObject
+  // }
   /**
    * 
    * @param {string} hex 
@@ -218,12 +284,52 @@ class timerUtils {
 }
   static addErrorLog(error,source,info){
     MNUtil.showHUD("MN Timer Error ("+source+"): "+error)
-    if (info) {
-      this.errorLog.push({error:error.toString(),source:source,info:info,time:(new Date(Date.now())).toString()})
+    let tem = {source:source,time:(new Date(Date.now())).toString()}
+    if (error.detail) {
+      tem.error = {message:error.message,detail:error.detail}
     }else{
-      this.errorLog.push({error:error.toString(),source:source,time:(new Date(Date.now())).toString()})
+      tem.error = error.message
     }
-    MNUtil.copyJSON(this.errorLog)
+    if (info) {
+      tem.info = info
+    }
+    this.errorLog.push(tem)
+    MNUtil.copy(this.errorLog)
+    if (typeof MNUtil.log !== 'undefined') {
+      MNUtil.log({
+        source:"MN Timer",
+        level:"error",
+        message:source,
+        detail:tem,
+      })
+    }
+  }
+  /**
+   * Displays a confirmation dialog with a main title and a subtitle.
+   * 
+   * This method shows a confirmation dialog with the specified main title and subtitle.
+   * It returns a promise that resolves with the button index of the button clicked by the user.
+   * 
+   * @param {string} mainTitle - The main title of the confirmation dialog.
+   * @param {string} subTitle - The subtitle of the confirmation dialog.
+   * @param {string[]} items - The items of the confirmation dialog.
+   * @returns {Promise<number|undefined>} A promise that resolves with the button index of the button clicked by the user.
+   */
+  static async confirm(mainTitle,subTitle,items = ["Cancel","Confirm"]){
+    if (MNOnAlert) {
+      return
+    }
+    MNOnAlert = true
+    return new Promise((resolve, reject) => {
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        mainTitle,subTitle,0,items[0],items.slice(1),
+        (alert, buttonIndex) => {
+          MNOnAlert = false
+          // MNUtil.copyJSON({alert:alert,buttonIndex:buttonIndex})
+          resolve(buttonIndex)
+        }
+      )
+    })
   }
   static extractJSONFromMarkdown(markdown) {
     // 使用正则表达式匹配被```JSON```包裹的内容
@@ -322,6 +428,8 @@ class timerConfig{
         "bold":false
       },
       "lineColor":"#000000",
+      "customMinutes":0,
+      "annotation":""
     }
   }
   static init(){
@@ -435,7 +543,41 @@ class timerConfig{
   static remove(key){
     NSUserDefaults.standardUserDefaults().removeObjectForKey(key)
   }
-  static save(key,ignoreExport = false,synchronize = true){
+ static deepEqual(obj1, obj2,keysToIgnore) {
+    if (obj1 === obj2) return true;
+
+    if (typeof obj1 !== 'object' || obj1 === null ||
+        typeof obj2 !== 'object' || obj2 === null) {
+        // MNUtil.log({message:"obj not object",detail:{obj1:obj1,obj2:obj2}})
+        return false;
+    }
+
+    let keys1 = Object.keys(obj1);
+    let keys2 = Object.keys(obj2);
+    if (keysToIgnore && keysToIgnore.length) {
+      keys1 = keys1.filter(k => !keysToIgnore.includes(k));
+      keys2 = keys2.filter(k => !keysToIgnore.includes(k));
+    }
+    if (keys1.length !== keys2.length) {
+      // MNUtil.log({message:"keys length not equal",detail:{keys1:keys1,keys2:keys2}})
+      return false;
+    }
+
+    for (let key of keys1) {
+        if (!keys2.includes(key)) {
+          // MNUtil.log({message:"key not found",detail:{all:keys2,key:key}})
+            return false;
+        }
+        if (keysToIgnore && keysToIgnore.length && keysToIgnore.includes(key)) {
+          continue
+        }
+        if (!this.deepEqual(obj1[key], obj2[key])) {
+          return false;
+        }
+    }
+    return true;
+  }
+  static save(synchronize = true){
     NSUserDefaults.standardUserDefaults().setObjectForKey(this.config,"MNTimer_config")
     if (synchronize) {
       NSUserDefaults.standardUserDefaults().synchronize()

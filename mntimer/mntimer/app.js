@@ -878,6 +878,12 @@
                 timePicker: K
             },
             setup: function() {
+                function timeToNumber(time) {
+                  if (typeof time === "string") {
+                    return parseInt(time)
+                  }
+                  return time
+                }
                 var e = Object(c["h"])({
                     setRef: null,
                     num_h: "你",
@@ -897,8 +903,71 @@
                     my_s: 0,
                     setShow: null,
                     finished: !1
-                })
-                  , t = function(t) {
+                });
+                window.timerStatus = e
+                window.getTimerStatus = () => {
+                  let status = {
+                    num_h: e.num_h,
+                    num_m: e.num_m,
+                    num_s: e.num_s,
+                    hourFormat: e.hourFormat,
+                    scale: e.scale,
+                    brightness: e.brightness,
+                    showBg: e.showBg,
+                    showSecond: e.showSecond,
+                    timeMode: e.timeMode,
+                    tempTime: e.tempTime,
+                    stopTime: e.stopTime,
+                    watching: e.watching,
+                    my_h: e.my_h,
+                    my_m: e.my_m,
+                    my_s: e.my_s,
+                    finished: e.finished
+                  }
+                  status.isClockMode = e.timeMode === 0
+                  status.isCountUp = e.timeMode === 2
+                  status.isCountDown = e.timeMode === 1
+                  if (status.isCountDown) {
+                    status.mode = "countDown"
+                    if (status.num_h === "ok" && status.num_m === "ok" && status.num_s === "ok") {
+                      status.timeRemaining = {
+                        asString:`00:00:00`,
+                        hour: 0,
+                        minute: 0,
+                        second: 0
+                      }
+                    }else{
+                      status.timeRemaining = {
+                        asString:`${status.num_h}:${status.num_m}:${status.num_s}`,
+                        hour: timeToNumber(status.num_h),
+                        minute: timeToNumber(status.num_m),
+                        second: timeToNumber(status.num_s)
+                      }
+                    }
+                  }
+                  if (status.isCountUp) {
+                    status.mode = "countDown"
+                    status.timePassed = {
+                      asString:`${status.num_h}:${status.num_m}:${status.num_s}`,
+                      hour: timeToNumber(status.num_h),
+                      minute: timeToNumber(status.num_m),
+                      second: timeToNumber(status.num_s)
+                    }
+                  }
+                  if (status.isClockMode) {
+                    status.mode = "clock"
+                    status.currentClockTime = {
+                      asString:`${status.num_h}:${status.num_m}:${status.num_s}`,
+                      hour: timeToNumber(status.num_h),
+                      minute: timeToNumber(status.num_m),
+                      second: timeToNumber(status.num_s)
+                    }
+                  }
+                  return JSON.stringify(status)
+                }
+                // console.log("e", e);
+                
+                var t = function(t) {
                     return e.hourFormat < 2 ? t : Q(t)
                 }
                   , n = function(e) {
@@ -970,12 +1039,23 @@
                         var c = parseInt(n / 3600)
                           , i = parseInt(n / 60) % 60
                           , o = n % 60;
+                        // console.log("u", {
+                        //     h: c,
+                        //     m: i,
+                        //     s: o
+                        // });
+                        
                         return {
                             h: c,
                             m: i,
                             s: o
                         }
                     }
+                    // console.log("u", {
+                    //     h: e.num_h,
+                    //     m: e.num_m,
+                    //     s: e.num_s
+                    // });
                     return {
                         h: e.num_h,
                         m: e.num_m,
@@ -1019,7 +1099,12 @@
                     0 === c ? n = Z() : 1 === c ? n = l() : 2 === c && (n = u()),
                     e.num_h = t(n.h),
                     e.num_m = Q(n.m),
-                    e.num_s = Q(n.s)
+                    e.num_s = Q(n.s);
+                    // console.log("setInterval", {
+                    //     h: e.num_h,
+                    //     m: e.num_m,
+                    //     s: e.num_s
+                    // });
                 }
                 ), 200);
                 var f = function() {
@@ -1063,8 +1148,6 @@
         n("48b1");
         ee.render = x;
         var te = ee;
-        console.log = function() {}
-        ,
         window.timer = Object(c["b"])(te).mount("#app")
     },
     "834b": function(e, t, n) {

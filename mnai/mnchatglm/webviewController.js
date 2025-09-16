@@ -207,6 +207,7 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController <N
     menu.addMenuItem("🎶  Minimax", selector,'Minimax',source =='Minimax')
     menu.addMenuItem("🐳  Deepseek", selector,'Deepseek',source =='Deepseek')
     menu.addMenuItem("💡  SiliconFlow", selector,'SiliconFlow',source =='SiliconFlow')
+    menu.addMenuItem("💡  ModelScope", selector,'ModelScope',source =='ModelScope')
     menu.addMenuItem("💡  KimiChat", selector,'KimiChat',source =='KimiChat')
     menu.addMenuItem("💡  PPIO", selector,'PPIO',source =='PPIO')
     menu.addMenuItem("🐙  Github", selector,'Github',source =='Github')
@@ -886,12 +887,28 @@ try {
     self.showHUD("Auto OCR: "+(chatAIConfig.config.autoOCR?"✅":"❌"))
     chatAIConfig.save("MNChatglm_config")
   },
-  toggleAllowEdit: function (params) {
+  toggleAllowEdit: async function (params) {
+    let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+    if (!confirm) {
+      return currentFunc
+    }
     if (!chatAIUtils.checkSubscribe()) {
       return
     }
     chatAIConfig.config.allowEdit = !chatAIConfig.getConfig("allowEdit")
     MNButton.setTitle(self.allowEditButton, "Allow Edit: "+(chatAIConfig.getConfig("allowEdit")?"✅":"❌"))
+    chatAIConfig.save("MNChatglm_config")
+  },
+  toggleNarrowMode: async function (params) {
+    let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+    if (!confirm) {
+      return currentFunc
+    }
+    if (!chatAIUtils.checkSubscribe()) {
+      return
+    }
+    chatAIConfig.config.narrowMode = !chatAIConfig.getConfig("narrowMode")
+    MNButton.setTitle(self.narrowModeButton, "Narrow Mode: "+(chatAIConfig.getConfig("narrowMode")?"✅":"❌"))
     chatAIConfig.save("MNChatglm_config")
   },
   choosePDFExtractMode: function (button) {
@@ -1081,6 +1098,9 @@ try {
       // MNUtil.copy(res)
       self.waitHUD("✅ Refresh Success!")
       MNUtil.stopHUD(1)
+    }else{
+      self.waitHUD("❌ Refresh Failed!")
+      MNUtil.stopHUD(1)
     }
   },
   customButtonTabTapped: function (button) {
@@ -1201,7 +1221,7 @@ try {
         chatAIUtils.currentNoteId = focuseNote.noteId
       }
       chatAIUtils.notifyController.noteid = chatAIUtils.currentNoteId
-      chatAIUtils.notifyController.text = chatAIUtils.currentSelection
+      chatAIUtils.notifyController.text = chatAIUtils.currentSelectionText
       if (chatAIUtils.checkCouldAsk()) {
         self.ask()
       }
@@ -1266,7 +1286,7 @@ try {
         chatAIUtils.currentNoteId = focuseNote.noteId
       }
       chatAIUtils.notifyController.noteid = chatAIUtils.currentNoteId
-      chatAIUtils.notifyController.text = chatAIUtils.currentSelection
+      chatAIUtils.notifyController.text = chatAIUtils.currentSelectionText
       if (chatAIUtils.checkCouldAsk()) {
         self.ask()
       }
@@ -1423,9 +1443,17 @@ chatAIUtils.genUserMessage(`Please update the current knowledge`)
     let selector = 'improtAction:'
     menu.addMenuItem("➕   New Prompt",selector,"New")
     menu.addMenuItem("📋   From Clipboard",selector,"Paste")
-    menu.addMenuItem("🌐   From Example",selector,"Example")
+    menu.addMenuItem("🌐   From Example","openURLInBrowser:","https://mnaddon.craft.me/chatai/promptExample")
     menu.show()
     return
+  },
+  openURLInBrowser: function (url) {
+    Menu.dismissCurrentMenu()
+    if (typeof browserUtils !== "undefined") {
+      MNUtil.postNotification("openInBrowser", {url:url})
+    }else{
+      MNUtil.openURL(url)
+    }
   },
   improtAction: async function (params) {
     let self = getChatglmController()
@@ -1503,11 +1531,21 @@ chatAIUtils.genUserMessage(`Please update the current knowledge`)
     }
   },
   addVariable: function (sender) {
+    let self = getChatglmController()
+    let menu = new Menu(sender,self)
+    menu.preferredPosition = 4
+    menu.addMenuItem("❓  Variable Help","openURLInBrowser:","https://mnaddon.craft.me/chatai/template")
     let vars = ['{{!}}','{{card}}','{{cardOCR}}','{{cards}}','{{cardsOCR}}','{{parentCard}}','{{parentCardOCR}}','{{notesInMindmap}}','{{context}}','{{textOCR}}','{{userInput}}','{{knowledge}}','{{noteDocInfo}}','{{currentDocInfo}}','{{noteDocAttach}}','{{currentDocAttach}}','{{noteDocName}}','{{currentDocName}}','{{selectionText}}','{{clipboardText}}']
-    var commandTable = vars.map(variable=>{
-      return {title:variable,object:self,selector:'insert:',param:variable}
+    let selector = 'insert:'
+    vars.forEach(variable=>{
+      menu.addMenuItem(variable,selector,variable)
     })
-    self.popoverController = MNUtil.getPopoverAndPresent(sender,commandTable,200,4)
+    menu.show()
+    return
+    // var commandTable = vars.map(variable=>{
+    //   return {title:variable,object:self,selector:'insert:',param:variable}
+    // })
+    // self.popoverController = MNUtil.getPopoverAndPresent(sender,commandTable,200,4)
     // let self = getChatglmController()
     // let range = self.contextInput.selectedRange
     // let pre = self.contextInput.text.slice(0,range.location)
@@ -1517,6 +1555,7 @@ chatAIUtils.genUserMessage(`Please update the current knowledge`)
   },
   insert: function (variable) {
     let self = getChatglmController()
+    Menu.dismissCurrentMenu()
     if (!self.contextInput.hidden) {
       let range = self.contextInput.selectedRange
       let pre = self.contextInput.text.slice(0,range.location)
@@ -1632,6 +1671,10 @@ chatAIUtils.genUserMessage(`Please update the current knowledge`)
           self.openURL("https://cloud.siliconflow.cn/i/Jj66Qvv1")
         }
         break;
+      case "ModelScope":
+        self.openInBrowser("https://www.modelscope.cn/my/myaccesstoken", "desktop")
+        // self.openURL("https://www.modelscope.cn/my/myaccesstoken")
+        break;
       case "ChatGLM":
         confirm = await MNUtil.confirm("MN ChatAI", "是否已注册ChatGLM？",["未注册","已注册"])
         if (confirm) {
@@ -1742,6 +1785,11 @@ chatAIUtils.genUserMessage(`Please update the current knowledge`)
     }
   },
   saveConfig: async function (params) {
+    let source = chatAIConfig.config.source
+    let keyName = chatAIConfig.sourceKeyName(source)
+    if (keyName) {
+      chatAIConfig.config[keyName] = self.apiKeyInput.text.trim()
+    }
     switch (chatAIConfig.config.source) {
       case "Built-in":
         self.waitHUD("Refreshing...")
@@ -1753,61 +1801,25 @@ chatAIUtils.genUserMessage(`Please update the current knowledge`)
           // self.refreshButton.setTitleForState(`1️⃣: ${keys.key0.keys.length}, 2️⃣: ${keys.key1.keys.length}, 3️⃣: ${keys.key2.keys.length}, 4️⃣: ${keys.key3.keys.length}`,0)
           return
         }
+        self.waitHUD("❌ Refresh Failed!")
+        MNUtil.stopHUD(1)
         return;
-      case "ChatGLM":
-        chatAIConfig.config.apikey = self.apiKeyInput.text.trim()
-        break;
-      case "Claude":
-        chatAIConfig.config.claudeKey = self.apiKeyInput.text.trim()
-        break;
       case "Gemini":
-        chatAIConfig.config.geminiKey = self.apiKeyInput.text.trim()
         chatAIConfig.config.geminiUrl = self.URLInput.text.trim()
         break;
       case "ChatGPT":
-        chatAIConfig.config.openaiKey = self.apiKeyInput.text.trim()
         chatAIConfig.config.url = self.URLInput.text.trim()
         chatAIConfig.config.customModel = self.customModelInput.text
         break;
-      case "KimiChat":
-        chatAIConfig.config.moonshotKey = self.apiKeyInput.text.trim()
-        break;
-      case "Minimax":
-        chatAIConfig.config.miniMaxKey = self.apiKeyInput.text.trim()
-        break
       case "Custom":
-        chatAIConfig.config.customKey = self.apiKeyInput.text.trim()
         chatAIConfig.config.customUrl = self.URLInput.text.trim()
         chatAIConfig.config.customModel = self.customModelInput.text
         break
-      case "SiliconFlow":
-        chatAIConfig.config.siliconFlowKey = self.apiKeyInput.text.trim()
-        break
-      case "PPIO":
-        chatAIConfig.config.ppioKey = self.apiKeyInput.text.trim()
-        break
-      case "Volcengine":
-        chatAIConfig.config.volcengineKey = self.apiKeyInput.text.trim()
-        break
-      case "Deepseek":
-        chatAIConfig.config.deepseekKey = self.apiKeyInput.text.trim()
-        break;
-      case "Github":
-        chatAIConfig.config.githubKey = self.apiKeyInput.text.trim()
-        break;
-      case "Metaso":
-        chatAIConfig.config.metasoKey = self.apiKeyInput.text.trim()
-        break;
-      case "Qwen":
-        chatAIConfig.config.qwenKey = self.apiKeyInput.text.trim()
-        break;
       case "Subscription":
         chatAIConfig.config.customModel = self.customModelInput.text
         break;
-      case "Built-in":
-        break;
       default:
-        MNUtil.showHUD("Unspported source: "+chatAIConfig.config.source)
+        chatAIUtils.addErrorLog("Unspported source: "+chatAIConfig.config.source, "saveConfig")
         return
     }
     chatAIConfig.save('MNChatglm_config')
@@ -1900,7 +1912,7 @@ chatAIUtils.genUserMessage(`Please update the current knowledge`)
           break;
         case "Excute":
           self.showHUD("Excute prompt: "+prompt.title)
-          if (chatAIUtils.currentSelection === "") {
+          if (chatAIUtils.currentSelectionText === "") {
             self.showHUD("no text/card selected")
             return
           }
@@ -2878,10 +2890,8 @@ chatglmController.prototype.init = function () {
 chatglmController.prototype.getQuestionWithOutRender = async function(promptKey = chatAIConfig.currentPrompt,userInput) {
 try {
   let prompt = chatAIConfig.prompts[promptKey]
-  let selection = MNUtil.currentSelection
-  // MNUtil.copyJSON(selection)
+  let selection = chatAIUtils.currentSelection
   if (selection.onSelection) {
-    // MNUtil.showHUD("getQuestionOnText")
     let question = JSON.stringify(prompt)+"\n\n"+selection.text+(userInput?userInput:"")
     return question
   }
@@ -2905,10 +2915,8 @@ try {
 chatglmController.prototype.getQuestion = async function(promptKey = chatAIConfig.currentPrompt,userInput) {
   // MNUtil.log("getQuestion")
 try {
-  let selection = MNUtil.currentSelection
-  // MNUtil.copyJSON(selection)
+  let selection = chatAIUtils.currentSelection
   if (selection.onSelection) {
-    // MNUtil.showHUD("getQuestionOnText")
     let question = await this.getQuestionOnText(promptKey,userInput)
     return question
   }
@@ -2941,7 +2949,7 @@ chatglmController.prototype.getQuestionOnNote = async function(noteid,prompt = c
   // MNUtil.log("getQuestionOnNote")
   contextMessage = await chatAIUtils.render(context,opt)
   if (!contextMessage || !contextMessage.trim()) {
-    MNUtil.showHUD("User message is empty")
+    MNUtil.confirm("🤖 MN ChatAI","User message is empty\n\n用户提示词为空")
     return undefined
   }
   if (system) {//有system指令的情况
@@ -2978,10 +2986,9 @@ chatglmController.prototype.getQuestionOnText = async function(prompt = chatAICo
   let context = chatAIConfig.prompts[prompt].context
   let system = chatAIConfig.prompts[prompt].system
   let opt = {userInput:userInput,vision:(chatAIUtils.visionMode || !!vision)}
-  // MNUtil.log("getQuestionOnText")
   let contextMessage = await chatAIUtils.render(context,opt)
   if (!contextMessage || !contextMessage.trim()) {
-    MNUtil.showHUD("User message is empty")
+    MNUtil.confirm("🤖 MN ChatAI","User message is empty\n\n用户提示词为空")
     return undefined
   }
   let question
@@ -3078,6 +3085,7 @@ chatglmController.prototype.settingViewLayout = function (){
       this.autoThemeButton.frame = MNUtil.genFrame(5,125,width-10,35)
       this.pdfExtractModeButton.frame = MNUtil.genFrame(5,165,width-10,35)
       this.imageGenerationModelButton.frame = MNUtil.genFrame(5,205,width-10,35)
+      this.narrowModeButton.frame = MNUtil.genFrame(5,245,width-10,35)
       // configView
       this.scrollview.frame = {x:5,y:5,width:width-10,height:150}
       // this.scrollview.contentSize = {width:width-10,height:height};
@@ -3117,6 +3125,7 @@ chatglmController.prototype.settingViewLayout = function (){
       this.autoThemeButton.frame = MNUtil.genFrame(5,125,350,35)
       this.pdfExtractModeButton.frame = MNUtil.genFrame(5,165,350,35)
       this.imageGenerationModelButton.frame = MNUtil.genFrame(5,205,350,35)
+      this.narrowModeButton.frame = MNUtil.genFrame(5,245,350,35)
       // configView
       this.scrollview.frame = {x:5,y:5,width:350,height:height-75}
       // this.scrollview.contentSize = {width:350,height:height};
@@ -3434,6 +3443,9 @@ try {
 
   this.createButton("imageGenerationModelButton","chooseimageGenerationModel:",targetView)
   MNButton.setConfig(this.imageGenerationModelButton, {opacity:1.0,color:"#457bd3",alpha:0.8})
+
+  this.createButton("narrowModeButton","toggleNarrowMode:",targetView)
+  MNButton.setConfig(this.narrowModeButton, {opacity:1.0,color:"#457bd3",alpha:0.8,title:"Narrow Mode: "+(chatAIConfig.getConfig("narrowMode")?"✅":"❌")})
 
   this.createButton("allowEditButton","toggleAllowEdit:",targetView)
   MNButton.setConfig(this.allowEditButton, {opacity:1.0,color:"#457bd3",alpha:0.8})
@@ -4074,6 +4086,7 @@ chatglmController.prototype.setModel = function (source) {
     case "ChatGLM":
     case "Claude":
     case "SiliconFlow":
+    case "ModelScope":
     case "PPIO":
     case "Volcengine":
     case "Github":
@@ -4097,7 +4110,7 @@ chatglmController.prototype.setModel = function (source) {
     case "Built-in":
       break;
     default:
-      MNUtil.showHUD("Unspported source: "+source)
+      chatAIUtils.addErrorLog("Unspported source: "+source, "setModel")
       return
   }
   let viewFrame = this.view.bounds
@@ -4111,6 +4124,7 @@ chatglmController.prototype.setModel = function (source) {
     case "Claude":
     case "KimiChat":
     case "SiliconFlow":
+    case "ModelScope":
     case "PPIO":
     case "Volcengine":
     case "Github":
@@ -4157,7 +4171,7 @@ chatglmController.prototype.setModel = function (source) {
     case "Built-in":
       break;
     default:
-      MNUtil.showHUD("Unspported source: "+source)
+      chatAIUtils.addErrorLog("Unspported source: "+source, "setModel")
       return
   }
 
@@ -4535,6 +4549,12 @@ chatglmController.prototype.createWebviewInput = function (superView) {
     NSURL.fileURLWithPath(chatAIUtils.mainPath + '/buttonEditor.html'),
     NSURL.fileURLWithPath(chatAIUtils.mainPath + '/')
   );
+  // MNUtil.delay(1).then(()=>{
+  // this.webviewInput.loadFileURLAllowingReadAccessToURL(
+  //   NSURL.fileURLWithPath(chatAIUtils.mainPath + '/buttonEditor.html'),
+  //   NSURL.fileURLWithPath(chatAIUtils.mainPath + '/')
+  // );
+  // })
     } catch (error) {
     MNUtil.showHUD(error)
   }
@@ -4667,7 +4687,19 @@ chatglmController.prototype.refreshCustomButton = function (){
 chatglmController.prototype.showHUD = function (title,duration = 1.5,view = this.view) {
   MNUtil.showHUD(title,duration,view)
 }
-
+chatglmController.prototype.openInBrowser = function (url, desktop) {
+  if (typeof browserUtils !== "undefined") {
+    this.showHUD("Open in browser")
+    if (desktop === undefined) {
+      MNUtil.postNotification("openInBrowser", {url:url})
+    }else{
+      MNUtil.postNotification("openInBrowser", {url:url,desktop:desktop})
+    }
+  }else{
+    this.showHUD("Open in external browser")
+    MNUtil.openURL(url)
+  }
+}
 /**
  * @this {chatglmController}
  * @param {string} url 
@@ -4798,6 +4830,7 @@ try {
     case "Minimax":
     case "Deepseek":
     case "SiliconFlow":
+    case "ModelScope":
     case "PPIO":
     case "Github":
     case "Metaso":
@@ -4835,7 +4868,7 @@ try {
       }
       break;
     default:
-      MNUtil.showHUD("Unspported source: "+config.source)
+      chatAIUtils.addErrorLog("Unspported source: "+config.source, "baseAsk")
       return
   }
   this.sendStreamRequest(request)

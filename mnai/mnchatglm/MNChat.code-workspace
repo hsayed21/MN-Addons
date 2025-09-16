@@ -5,11 +5,9 @@
       "path": "."
     },
     {
-      "name": "mnaddonStore",
       "path": "../../mnaddonStore"
     },
     {
-      "name": "FeliksPro",
       "path": "../FeliksPro"
     }
   ],

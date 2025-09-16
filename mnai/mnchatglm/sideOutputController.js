@@ -931,8 +931,8 @@ try {
         }
         break
       case "importFromDocSelection":
-        if (MNUtil.currentSelection && MNUtil.currentSelection.onSelection) {
-          self.addToInput(MNUtil.currentSelection.text)
+        if (chatAIUtils.currentSelection && chatAIUtils.currentSelection.onSelection) {
+          self.addToInput(chatAIUtils.currentSelection.text)
         }else{
           MNUtil.showHUD("No selection")
         }
@@ -1448,6 +1448,7 @@ try {
     case "Minimax":
     case "Deepseek":
     case "SiliconFlow":
+    case "ModelScope":
     case "PPIO":
     case "Volcengine":
     case "Github":

@@ -189,6 +189,57 @@ function getQustionBlock(code) {
   </div>`
       return questionHTML
     }
+/**
+ * 检测Markdown字符串中是否包含图片链接
+ * @param {string} markdownText - 要检测的Markdown文本
+ * @param {boolean} [detailed=false] - 是否返回详细信息，默认只返回布尔值
+ * @returns {boolean|Object} - 若detailed=true，返回详细匹配信息；否则返回是否包含图片的布尔值
+ */
+function hasMarkdownImages(markdownText, detailed = false) {
+    // 确保输入是字符串
+    if (typeof markdownText !== 'string') {
+        throw new TypeError('输入必须是字符串');
+    }
+    // Markdown图片语法正则表达式
+    // 支持:
+    // - ![alt](url)
+    // - ![alt](url "title")
+    // - ![alt](url 'title')
+    // - ![alt](url (title))
+    // - ![alt](<url with spaces>)
+    const imageRegex = /!\[([^\]]*)\]\((\s*<?([^)>]+)?>?\s*)(?:["']([^"']*)["']|\(([^)]*)\))?\)/g;
+    // 查找所有匹配
+    const matches = [];
+    let match;
+    
+    while ((match = imageRegex.exec(markdownText)) !== null) {
+        // 提取匹配的各个部分
+        const fullMatch = match[0];
+        const altText = match[1] || '';
+        const urlPart = match[2].trim();
+        const url = match[3] || '';
+        const title = match[4] || match[5] || '';
+        
+        matches.push({
+            fullMatch,
+            altText,
+            url,
+            title,
+            startIndex: match.index,
+            endIndex: match.index + fullMatch.length
+        });
+    }
+    
+    if (detailed) {
+        return {
+            hasImages: matches.length > 0,
+            count: matches.length,
+            images: matches
+        };
+    }
+    
+    return matches.length > 0;
+}
 function codeBlockReplacer(lang,format,code){
     if (lang === "choiceQuestion") {
       return getQustionBlock(code)

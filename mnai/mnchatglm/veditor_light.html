@@ -245,6 +245,14 @@ document.addEventListener('DOMContentLoaded', function () {
           editor.disabled()
         }
         setTimeout(() => {
+          notifyRefreshHeight()
+        }, 0);
+        if (hasMarkdownImages(preContent)) {
+          setTimeout(() => {
+            notifyRefreshHeight()
+          }, 3000);
+        }
+        setTimeout(() => {
 
         const mermaidElements = document.querySelectorAll('.language-mermaid');
     
@@ -300,7 +308,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!allowEdit) {
           editor.disabled()
         }
-          notifyRefreshHeight()
         }, 1000);
       }
     })

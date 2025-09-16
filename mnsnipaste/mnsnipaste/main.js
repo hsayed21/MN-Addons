@@ -328,13 +328,16 @@ JSB.newAddon = function (mainPath) {
           // let scale = (imageSize.width < 600 || imageSize.height < 200)?1.0:0.5
           // Application.sharedInstance().showHUD("width: "+imageSize.width+" hiehgt: "+imageSize.height, self.window, 2)
           let viewFrame = self.addonController.view.frame
+          viewFrame.y = MNUtil.constrain(viewFrame.y, 30, MNUtil.windowHeight-30)
           if (self.isFirst) {
             self.addonController.view.frame = {x:viewFrame.x,y:viewFrame.y,width:imageSize.width*scale,height:imageSize.height*scale}
             self.addonController.currentFrame = {x:viewFrame.x,y:viewFrame.y,width:imageSize.width*scale,height:imageSize.height*scale}
           }
+          // MNUtil.log({message:"toggleAddon",pageIndex:selection.pageIndex})
           // style="transform:rotate(7deg)"
           self.addonController.htmlMode = false
           self.addonController.onSnipaste = true
+          self.addonController.pageIndex = selection.pageIndex
           self.addonController.snipasteFromImage(imageData)
 //           self.addonController.webview.loadHTMLStringBaseURL(html)
           // self.addonController.webview.loadHTMLStringBaseURL(`<a href="marginnote3app://note/C08E37FD-AC36-42BB-A8AB-739296E62F23">test</a>`)
@@ -349,9 +352,6 @@ JSB.newAddon = function (mainPath) {
             let currentNotebookType = MNUtil.currentNotebook.flags
             if (currentNotebookType === 1) {
               focusNote = MNNote.new(MNUtil.currentDocController.focusNote)
-            }else{
-              MNUtil.showHUD("Note not found")
-              return
             }
           }
           if (focusNote) {

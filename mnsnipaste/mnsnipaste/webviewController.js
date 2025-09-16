@@ -152,11 +152,11 @@ viewWillLayoutSubviews: function() {
     self.closeButton.frame = {x: xRight-19,y: yTop,width: 19,height: 19};
     self.maxButton.frame   = {x: xRight-43,y: yTop,width: 19,height: 19};
     self.minButton.frame   = {x: xRight-67,y: yTop,width: 19,height: 19};
-    self.firstPageButton.frame = {x: xRight- 35,y: yBottom - 205,width: 30,height: 30};
-    self.prevPageButton.frame = {x: xRight- 35,y: yBottom - 170,width: 30,height: 30};
-    self.pageIndexButton.frame = {x: xRight- 35,y: yBottom - 135,width: 30,height: 30};
-    self.nextPageButton.frame = {x: xRight- 35,y: yBottom - 100,width: 30,height: 30};
-    self.lastPageButton.frame = {x: xRight- 35,y: yBottom - 65,width: 30,height: 30};
+    self.firstPageButton.frame = {x: xRight- 40,y: yBottom - 225,width: 35,height: 30};
+    self.prevPageButton.frame = {x: xRight- 40,y: yBottom - 190,width: 35,height: 30};
+    self.pageIndexButton.frame = {x: xRight- 40,y: yBottom - 155,width: 35,height: 30};
+    self.nextPageButton.frame = {x: xRight- 40,y: yBottom - 120,width: 35,height: 30};
+    self.lastPageButton.frame = {x: xRight- 40,y: yBottom - 85,width: 35,height: 30};
     self.firstPageButton.hidden = self.mode !== "pdf"
     self.prevPageButton.hidden = self.mode !== "pdf"
     self.nextPageButton.hidden = self.mode !== "pdf"
@@ -179,7 +179,7 @@ viewWillLayoutSubviews: function() {
    * @param {UIScrollView} scrollview
    */
   scrollViewDidScroll: function(scrollview) {
-    if (!self.onLoading && scrollview.isDescendantOfView(self.webview)) {
+    if ((self.mode === "pdf") && !self.onLoading && scrollview.isDescendantOfView(self.webview)) {
       // MNUtil.log("scrollViewDidScroll")
       let height = scrollview.contentSize.height
       let pages = self.pageCount
@@ -192,7 +192,6 @@ viewWillLayoutSubviews: function() {
         self.pageIndexButton.setTitleForState(self.pageIndex+1,0)
         
       }
-      // MNUtil.log("setPage:"+pageNo)
 
       // MNUtil.showHUD("scrollViewDidScroll:"+pageNo)
     }
@@ -1209,7 +1208,7 @@ exportToPDF()
     }
     const frame = MNUtil.currentWindow.bounds
     self.lastFrame = self.view.frame
-    self.view.frame = {x:40,y:50,width:frame.width-80,height:frame.height-70}
+    self.view.frame = {x:40,y:30,width:frame.width-80,height:frame.height-50}
     self.customMode = "full"
     self.custom = true;
     self.dynamic = false;
@@ -1316,7 +1315,9 @@ exportToPDF()
         return
       }
     }
-    
+    if (y < 30) {
+      y = 30
+    }
     if (self.custom) {
 
       self.customMode = "None"
@@ -1345,6 +1346,7 @@ exportToPDF()
     if (height <= 200) {
       height = 200
     }
+
     self.view.frame = {x:frame.x,y:frame.y,width:width,height:height}
     self.currentFrame  = self.view.frame
   },
@@ -2467,6 +2469,9 @@ snipasteController.prototype.show = async function () {
   this.maxButton.hidden = true
   this.minButton.hidden = true
   this.webview.hidden = false
+  if (preFrame.y < 30) {
+    preFrame.y = 30
+  }
   if (this.toolbarOn) {
     this.engineButton.hidden = true
   }
@@ -2631,6 +2636,7 @@ snipasteController.prototype.getDataFromNote = function (note) {
   }
 snipasteController.prototype.snipasteFromImage = function (imageData) {
 // MNConnection.loadFile(this.webview,this.mainPath+"/pngToPDF.html",this.mainPath+"/")
+  // MNUtil.log({message:"snipasteFromImage",detail:{pageIndex:self.pageIndex}})
   let base64 = imageData.base64Encoding()
   let html = `<html lang="en">
 <head>

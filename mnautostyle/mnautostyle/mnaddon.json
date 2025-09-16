@@ -1,0 +1,8 @@
+{
+    "addonid": "marginnote.extension.mnautostyle",
+    "author": "Feliks",
+    "title": "MN AutoStyle",
+    "version": "0.0.7.alpha0816",
+    "marginnote_version_min": "3.7.11",
+    "cert_key": ""
+}

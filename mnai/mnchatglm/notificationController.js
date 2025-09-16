@@ -139,15 +139,11 @@ try {
     // self.view.frame = currentFrame
     self.currentFrame = currentFrame
 
-    if (self.onChat) {
-      self.setChatLayout()
-    }else{
-      viewFrame.width = chatAIUtils.getWidth()
-      viewFrame.height = height-35
-      self.webviewResponse.frame = viewFrame
-      // self.toolbar.frame = MNUtil.genFrame(0, height-30, chatAIUtils.getWidth(),buttonHeight)
-      self.setLayout()
-    }
+    viewFrame.width = chatAIUtils.getWidth()
+    viewFrame.height = height-35
+    self.webviewResponse.frame = viewFrame
+    // self.toolbar.frame = MNUtil.genFrame(0, height-30, chatAIUtils.getWidth(),buttonHeight)
+    self.setLayout()
 
   },
   closeButtonTapped:async function (params) {
@@ -174,7 +170,6 @@ try {
     self.webviewResponse.frame = MNUtil.genFrame(0, 0, chatAIUtils.getWidth(), 85)
     self.setNewResponse()
     self.maxHeight = 0
-    // chatAIUtils.clearCurrent()
   } catch (error) {
       chatAIUtils.addErrorLog(error, "closeButtonTapped")
   }
@@ -736,6 +731,7 @@ try {
     self.preHeight = 0
     self.autoHide = true
     self.errorLogged = false
+    self.onreceive = false
     if (!self.onChat) {
       self.sizeHeight = 0
     }
@@ -1080,6 +1076,7 @@ try {
     case "Minimax":
     case "Deepseek":
     case "SiliconFlow":
+    case "ModelScope":
     case "PPIO":
     case "Github":
     case "Metaso":
@@ -1117,7 +1114,7 @@ try {
       }
       break;
     default:
-      MNUtil.showHUD("Unspported source: "+config.source)
+      chatAIUtils.addErrorLog("Unspported source: "+config.source, "baseAsk")
       return
   }
   this.sendStreamRequest(request)
@@ -1552,6 +1549,7 @@ try {
       this.continueAfterToolCall(this.temperature)
     }
   }else{
+    //真正的响应结束
     if (this.reasoningResponse && this.reasoningResponse.trim()) {
       this.history.push({role:"assistant",content:this.response,reasoningContent:this.reasoningResponse})
     }else{
@@ -1571,6 +1569,7 @@ try {
       source:"MN ChatAI",
       detail:this.response
     })
+    MNUtil.postNotification("MNCatAINotoficationResponse", {response:this.response})
     this.response = ""
     this.preResponse = ""
     this.preFuncResponse = ""
@@ -1590,14 +1589,15 @@ try {
     // chatAIUtils.cache = {}
     // MNUtil.showHUD("message"+MNUtil.isDescendantOfStudyView(this.view))
   }
-  this.sizeHeight = await this.getWebviewHeight(true)+heightOffset
-  if (this.maxHeight) {
-    this.sizeHeight = Math.min(this.sizeHeight,this.maxHeight)
-  }
-  this.setNotiLayout()
-  if (this.scrollToBottom) {
-    this.scrollBottom()
-  }
+  this.updateHeight()
+  // this.sizeHeight = await this.getWebviewHeight(true)+heightOffset
+  // if (this.maxHeight) {
+  //   this.sizeHeight = Math.min(this.sizeHeight,this.maxHeight)
+  // }
+  // this.setNotiLayout()
+  // if (this.scrollToBottom) {
+  //   this.scrollBottom()
+  // }
   this.called = false
   this.onFinish = false
 } catch (error) {
@@ -1656,6 +1656,8 @@ notificationController.prototype.setNotiLayout = function (forceHeight) {
   }
 
   let currentFrame = this.currentFrame
+  let width = chatAIUtils.getWidth()
+  currentFrame.width = width
   let windowHeight = MNUtil.currentWindow.frame.height
   let webviewFrame
   if (sizeHeight+35<120) {
@@ -1766,32 +1768,36 @@ try {
     height = 120
   }
   this.notifyLoc = chatAIUtils.isIOS()?-1:notifyLoc
+  let x = chatAIUtils.getX()
+  let y = chatAIUtils.getY()
+  let width = chatAIUtils.getWidth()
   switch (this.notifyLoc) {
     case 0:
-      this.currentFrame.x = chatAIUtils.getX()
+      this.currentFrame.x = x
       if (fromOutside) {
-        this.view.frame = {x:-300,y:chatAIUtils.getY(),width:chatAIUtils.getWidth(),height:targetHeight}
+        this.view.frame = {x:-300,y:y,width:width,height:targetHeight}
       }
       break;
     case 1:
-      this.currentFrame.x = windowFrame.width-450
+      // this.currentFrame.x = windowFrame.width-450
+      this.currentFrame.x = x
       // MNUtil.showHUD("message"+this.currentFrame.x)
       if (fromOutside) {
-        this.view.frame = {x:windowFrame.width,y:chatAIUtils.getY(),width:chatAIUtils.getWidth(),height:targetHeight}
+        this.view.frame = {x:windowFrame.width,y:y,width:width,height:targetHeight}
       }
       break;
     case -1:
-      this.currentFrame.x = chatAIUtils.getX()
+      this.currentFrame.x = x
       if (fromOutside) {
-        this.view.frame = {x:0,y:chatAIUtils.getY()-120,width:chatAIUtils.getWidth(),height:targetHeight}
+        this.view.frame = {x:0,y:y-120,width:width,height:targetHeight}
       }
       break;
     default:
       break;
   }
-  this.currentFrame.y = chatAIUtils.getY()
+  this.currentFrame.y = y
   let preFrame = this.currentFrame
-  preFrame.width = chatAIUtils.getWidth()
+  preFrame.width = width
   preFrame.height = height
   // MNUtil.showHUD("message"+height)
   let preOpacity = this.view.layer.opacity
@@ -1926,14 +1932,15 @@ try {
       this.titleButton.frame = MNUtil.genFrame(105,0,30,30)
       this.copyButton.frame = MNUtil.genFrame(140,0,30,30)
       this.excerptButton.frame = MNUtil.genFrame(175,0,30,30)
-      this.reloadButton.frame = MNUtil.genFrame(245,0,30,30)
-      this.chatButton.frame = MNUtil.genFrame(viewFrame.width-120,0,30,30) 
       this.childButton.frame = MNUtil.genFrame(210,0,30,30) 
+      this.reloadButton.frame = MNUtil.genFrame(245,0,30,30)
+      this.chatButton.frame = MNUtil.genFrame(280,0,30,30) 
       this.promptButton.frame = MNUtil.genFrame(viewFrame.width-85,0,90,30)
       break;
     default:
       break;
   }
+  this.promptButton.hidden = chatAIConfig.getConfig("narrowMode")
 } catch (error) {
   chatAIUtils.addErrorLog(error, "setLayout")
 }
@@ -1944,6 +1951,7 @@ try {
 * @param {string} promptName - The name of the prompt to begin the notification with.
 */
 notificationController.prototype.beginNotification = async function (promptName) {
+    // chatAIUtils.log("beginNotification: "+Date.now())
     // chatAIUtils.ensureView(this.view)
     chatAIUtils.ensureViewInCurrentWindow(this.view)
     // if (chatAIUtils.forceToRefresh) {
@@ -2424,7 +2432,6 @@ notificationController.prototype.setResponseText = async function (funcResponse 
     // this.tem.push(funcResponse)
     // MNUtil.copy(this.tem)
     this.onResponse = true
-    this.onreceive = false
     // MNUtil.copy(this.response.trim())
     // let beginTime = Date.now()
     // let response = chatAIUtils.fixMarkdownLinks(this.response.trim())
@@ -2444,7 +2451,7 @@ notificationController.prototype.setResponseText = async function (funcResponse 
         option.reasoningResponse = option.reasoningResponse +"..."
       }
     }
-    chatAIUtils.log("setResponseText", option)
+    // chatAIUtils.log("setResponseText", option)
     this.setWebviewContentDev(option)
     // if (sizeHeight !== undefined) {
     //   this.sizeHeight = sizeHeight
@@ -3296,7 +3303,7 @@ function generateUrlScheme(scheme, host, path, query, fragment) {
 
     if (undoGrouping) {
       MNUtil.undoGrouping(()=>{
-        if (!note && MNUtil.currentSelection.onSelection) {
+        if (!note && chatAIUtils.currentSelection.onSelection) {
           note = MNNote.fromSelection()
           note = note.realGroupNoteForTopicId()
         }
@@ -3307,7 +3314,7 @@ function generateUrlScheme(scheme, host, path, query, fragment) {
         this.executeActionOnNote(note,action,text)
       })
     }else{
-      if (!note && MNUtil.currentSelection.onSelection) {
+      if (!note && chatAIUtils.currentSelection.onSelection) {
         note = MNNote.fromSelection()
         note = note.realGroupNoteForTopicId()
       }
@@ -3643,6 +3650,19 @@ notificationController.prototype.noteExists = function () {
     return false
   }
   return MNNote.new(this.noteid) !== undefined
+}
+notificationController.prototype.updateHeight = async function () {
+  if (this.view.hidden) {
+    return
+  }
+  this.sizeHeight = await this.getWebviewHeight(true)
+  if (this.maxHeight) {
+    this.sizeHeight = Math.min(this.sizeHeight,this.maxHeight)
+  }
+  this.setNotiLayout()
+  if (this.scrollToBottom) {
+    this.scrollBottom()
+  }
 }
 /**
  * @type {UIView}

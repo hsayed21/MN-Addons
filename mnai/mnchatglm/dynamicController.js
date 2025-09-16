@@ -201,7 +201,7 @@ var dynamicController = JSB.defineClass('dynamicController : UIViewController <N
         menu.show()
         return
       }
-      if (MNUtil.currentSelection.onSelection) {
+      if (chatAIUtils.currentSelection.onSelection) {
         menu.addMenuItem('📝 Text (OCR)', 'chooseInputFromSelection:', "OCR")
         menu.addMenuItem('📄 Text', 'chooseInputFromSelection:', "Text")
         menu.addMenuItem('🖼️ Image', 'chooseInputFromSelection:', "Image")
@@ -252,7 +252,7 @@ var dynamicController = JSB.defineClass('dynamicController : UIViewController <N
     }
     try {
     chatAIUtils.openSideOutput()
-    let selection = MNUtil.currentSelection
+    let selection = chatAIUtils.currentSelection
     let userInput = ''
     switch (target) {
       case "OCR":
@@ -329,7 +329,7 @@ var dynamicController = JSB.defineClass('dynamicController : UIViewController <N
           }
           return
         }
-        let selection = MNUtil.currentSelection
+        let selection = chatAIUtils.currentSelection
         if (selection.onSelection) {//文档上存在选区
           let imageData = selection.image
           chatAINetwork.getTextOCR(imageData).then(()=>{
@@ -420,8 +420,8 @@ var dynamicController = JSB.defineClass('dynamicController : UIViewController <N
       let tool = chatAITool.getToolByName(toolName)
       menu.addMenuItem(tool.toolTitle,        selector,toolIndex,currentFunc.includes(toolIndex))
     })
-    menu.addMenuItem("🗿 Old Tools (Free)", "showOldTools:",button)
-    menu.addMenuItem("❌ None",             selector,-1,currentFunc.length === 0)
+    menu.addMenuItem("🗿   Old Tools (Free)", "showOldTools:",button)
+    menu.addMenuItem("❌   None",             selector,-1,currentFunc.length === 0)
     menu.show()
     } catch (error) {
       chatAIUtils.addErrorLog(error, "changeDynamicFunc")
@@ -624,6 +624,7 @@ try {
     if (!chatAIUtils.checkCouldAsk()) {
       return
     }
+    // chatAIUtils.log("getQuestion: "+Date.now())
     // if (chatAIUtils.visionMode) {
     //   MNUtil.showHUD("Unavailable for vision mode")
     //   return
@@ -631,7 +632,7 @@ try {
     let self = getDynamicController()
     let userInput = await self.getInput()
     let title = sender.id
-    let selection = MNUtil.currentSelection
+    let selection = chatAIUtils.currentSelection
     if (selection.onSelection) {
       chatAIUtils.notifyController.text = selection.text
       chatAIUtils.notifyController.noteid = undefined
@@ -649,6 +650,7 @@ try {
     if (!question) {
       return
     }
+    // chatAIUtils.log("ask: "+Date.now())
     // MNUtil.copy(question)
     chatAIUtils.notifyController.ask(question,title)
     } catch (error) {
@@ -969,23 +971,16 @@ dynamicController.prototype.openInput = async function () {
     }
     this.setLayout()
   })
-  // let selection = MNUtil.currentSelection
-  // if (selection.onSelection) {
-  //   if (!selection.isText && chatAIConfig.getConfig("autoImage")) {
-  //     chatAIUtils.visionMode = true
-  //   }
-  // }else{
-  //   let focusNote = chatAIUtils.getFocusNote()
-  //   if (chatAIUtils.hasImageInNote(focusNote) && chatAIConfig.getConfig("autoImage")) {
-  //     chatAIUtils.visionMode = true
-  //   }
-  // }
   let model = chatAIConfig.getConfig("dynamicModel")
   let modelConfig = chatAIConfig.parseModelConfig(model)
-  if (modelConfig.source === "Built-in") {
-    MNButton.setTitle(this.modelButton, "Built-in",14,true)
+  if (modelConfig) {
+    if ("source" in modelConfig && modelConfig.source === "Built-in") {
+      MNButton.setTitle(this.modelButton, "Built-in",14,true)
+    }else{
+      MNButton.setTitle(this.modelButton, modelConfig.model,14,true)
+    }
   }else{
-    MNButton.setTitle(this.modelButton, modelConfig.model,14,true)
+    chatAIUtils.addErrorLog("Empty model config", "dynamicController.openInput")
   }
   await this.setLayout()
   this.view.backgroundColor = MNUtil.hexColorAlpha("#e4eeff",0)
@@ -1466,7 +1461,7 @@ dynamicController.prototype.sendMessage = async function (userInput) {
       // MNUtil.showHUD("No System Message")
       return
     }
-    if (MNUtil.currentSelection.onSelection || !currentNote) {
+    if (chatAIUtils.currentSelection.onSelection || !currentNote) {
       notifyController.askWithDynamicPromptOnText(userInput)
       // MNUtil.showHUD("askWithDynamicPromptOnText")
       return

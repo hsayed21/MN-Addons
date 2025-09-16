@@ -100,15 +100,16 @@ JSB.newAddon = function (mainPath) {
           let today = chatAIUtils.getToday()
           if (!chatAIConfig.modelConfig.refreshDay || today !== chatAIConfig.modelConfig.refreshDay) {
             chatAINetwork.fetchModelConfig().then((res)=>{
-              res.refreshDay = today
-              if (res && "Github" in res && !MNUtil.deepEqual(res,chatAIConfig.modelConfig, ["refreshDay"])) {
-                chatAIConfig.modelConfig = res
-                chatAIConfig.modelConfig.refreshDay = today
-                chatAIConfig.save("MNChatglm_modelConfig")
-                MNUtil.showHUD("模型已更新")
-              }else{
-                chatAIConfig.modelConfig.refreshDay = today
-                chatAIConfig.save("MNChatglm_modelConfig")
+              if (res && "Github" in res){
+                res.refreshDay = today
+                if (!MNUtil.deepEqual(res,chatAIConfig.modelConfig, ["refreshDay"])) {
+                  chatAIConfig.modelConfig = res
+                  chatAIConfig.save("MNChatglm_modelConfig")
+                  MNUtil.showHUD("模型已更新")
+                }else{
+                  chatAIConfig.modelConfig.refreshDay = today
+                  chatAIConfig.save("MNChatglm_modelConfig")
+                }
               }
             })
           }
@@ -195,7 +196,7 @@ JSB.newAddon = function (mainPath) {
           
 
         if (!chatAIUtils.checkSender(sender, self.window)) return; // Don't process message from other window
-        chatAIUtils.currentSelection = sender.userInfo.documentController.selectionText;
+        chatAIUtils.currentSelectionText = sender.userInfo.documentController.selectionText;
         chatAIUtils.blur()
 
         // if (chatAIUtils.dynamicController) {
@@ -228,7 +229,7 @@ JSB.newAddon = function (mainPath) {
         }
         chatAIUtils.notifyController.notShow = false
         chatAIUtils.currentNoteId = undefined
-        if (!self.checkShouldProceed(chatAIUtils.currentSelection,-1,"onSelection")) {
+        if (!self.checkShouldProceed(chatAIUtils.currentSelectionText,-1,"onSelection")) {
           // MNUtil.showHUD("should prevent")
           return
         }
@@ -286,13 +287,13 @@ JSB.newAddon = function (mainPath) {
         // copyJSON(comments)
         let text = await chatAIUtils.getTextForSearch(note)
         chatAIUtils.currentNoteId = currentNoteId
-        chatAIUtils.currentSelection = text
+        chatAIUtils.currentSelectionText = text
         self.dateGetText = Date.now();
         self.textProcessed = false
 
 
         if (self.viewTimer) self.viewTimer.invalidate();
-        if (!self.checkShouldProceed(chatAIUtils.currentSelection,note.colorIndex,"onNewExcerpt")) {
+        if (!self.checkShouldProceed(chatAIUtils.currentSelectionText,note.colorIndex,"onNewExcerpt")) {
           return
         }
         if (chatAIConfig.getConfig("newExcerptTagDetection")) {
@@ -374,7 +375,7 @@ JSB.newAddon = function (mainPath) {
         // showHUD(currentNoteId)
 
         let text = await chatAIUtils.getTextForSearch(note)
-        chatAIUtils.currentSelection = text
+        chatAIUtils.currentSelectionText = text
         if (!text) {
           return
         }
@@ -382,7 +383,7 @@ JSB.newAddon = function (mainPath) {
         self.textProcessed = false
         if (self.viewTimer) self.viewTimer.invalidate();
         // MNUtil.showHUD("message")
-        if (!self.checkShouldProceed(chatAIUtils.currentSelection,note.colorIndex+16,"onNote")) {
+        if (!self.checkShouldProceed(chatAIUtils.currentSelectionText,note.colorIndex+16,"onNote")) {
           return
         }
         self.currentTime = Date.now()
@@ -461,7 +462,7 @@ JSB.newAddon = function (mainPath) {
                 return
               }
               if (mode === "ocr") {
-                if (MNUtil.currentSelection.onSelection || !currentNoteId) {
+                if (chatAIUtils.currentSelection.onSelection || !currentNoteId) {
                   chatAIUtils.notifyController.askWithDynamicPromptOnText(user,true)
                 }else{
                   chatAIUtils.notifyController.askWithDynamicPromptOnNote(currentNoteId,user,true)
@@ -469,7 +470,7 @@ JSB.newAddon = function (mainPath) {
                 return
               }
             }
-            if (MNUtil.currentSelection.onSelection || !currentNoteId) {
+            if (chatAIUtils.currentSelection.onSelection || !currentNoteId) {
               chatAIUtils.notifyController.askWithDynamicPromptOnText(user)
             }else{
               chatAIUtils.notifyController.askWithDynamicPromptOnNote(currentNoteId,user)
@@ -531,11 +532,38 @@ JSB.newAddon = function (mainPath) {
           if (action === "importprompt") {
             let promptConfig = config.params.promptconfig
             if (promptConfig.title) {
+              let contentToShow = "➖➖ Title ➖➖\n"+promptConfig.title
+              if (promptConfig.system) {
+                if (promptConfig.system.length > 200) {
+                  contentToShow += "\n\n➖➖ System ➖➖\n"+promptConfig.system.slice(0,100)+"..."
+                }else{
+                  contentToShow += "\n\n➖➖ System ➖➖\n"+promptConfig.system
+                }
+              }
+              if (promptConfig.context) {
+                if (promptConfig.context.length > 200) {
+                  contentToShow += "\n\n➖➖ User ➖➖\n"+promptConfig.context.slice(0,100)+"..."
+                }else{
+                  contentToShow += "\n\n➖➖ User ➖➖\n"+promptConfig.context
+                }
+              }
+              if (promptConfig.model) {
+                contentToShow += "\n\n➖➖ Model ➖➖\n"+promptConfig.model
+              }
+              if (promptConfig.func && promptConfig.func.length > 0) {
+                let funcNames = promptConfig.func.map(funcIndex=>{
+                  let toolName = chatAITool.toolNames[funcIndex]
+      
+                  return chatAITool.toolConfig[toolName].toolTitle})
+                  
+                .join("\n")
+                contentToShow += "\n\n➖➖ Tools ➖➖\n"+funcNames
+              }
               let content = JSON.stringify(promptConfig,null,2)
               if (content.length > 1000) {
                 content = content.slice(0,1000)+"..."
               }
-              let confirm = await MNUtil.confirm("🤖 MN ChatAI","Import prompt ["+promptConfig.title+"]?\n\n是否导入 prompt ["+promptConfig.title+"]？\n"+content)
+              let confirm = await MNUtil.confirm("🤖 MN ChatAI","❓Import prompt? 是否导入 prompt？\n\n"+contentToShow)
               if (!confirm) {
                 MNUtil.showHUD("Cancel import")
                 return
@@ -585,7 +613,7 @@ JSB.newAddon = function (mainPath) {
         if (!text) {
           return
         }
-        chatAIUtils.currentSelection = text
+        chatAIUtils.currentSelectionText = text
         self.dateGetText = Date.now();
         self.textProcessed = false
         if (self.viewTimer) self.viewTimer.invalidate();
@@ -595,7 +623,7 @@ JSB.newAddon = function (mainPath) {
         chatAIUtils.notifyController.notifyLoc = chatAIUtils.chatController.notifyLoc
         chatAIUtils.chatController.ask()
       } catch (error) {
-        MNUtil.showHUD(error)
+        chatAIUtils.addErrorLog(error, "onChatOnNote")
       }
       },
       onCustomChat: async function (sender) {
@@ -606,32 +634,34 @@ JSB.newAddon = function (mainPath) {
         if (!chatAIUtils.checkCouldAsk()) {
           return
         }
-        // chatAIUtils.copyJSON(sender.userInfo)
-        if (sender.userInfo.prompt) {
-          let prompt = sender.userInfo.prompt
-          let promptKeys = chatAIConfig.config.promptNames
-          let promptNames = promptKeys.map(key=>chatAIConfig.prompts[key].title)
-          let similarPrompts = chatAIUtils.findSimilarPrompts(prompt, promptNames)
-          if (similarPrompts.length) {
-            let firstPrompt = similarPrompts[0]
-            let promptKey = chatAIUtils.findKeyByTitle(chatAIConfig.prompts, firstPrompt)
-            chatAIUtils.notifyController.noteid = chatAIUtils.currentNoteId
-            chatAIUtils.chatController.ask(promptKey)
-          }
-          return
-        }else if(sender.userInfo.user){
-          let contextMessage = await chatAIUtils.render(sender.userInfo.user,{})
-          let question = [{role:"user",content:contextMessage}]
-          if (sender.userInfo.system) {
-            let systemMessage = await chatAIUtils.render(sender.userInfo.system,{})
-            question.unshift({role:"system",content:systemMessage})
-          }
-          chatAIUtils.notifyController.customAsk(question)
-        }else{
-          chatAIUtils.notifyController.noteid = chatAIUtils.currentNoteId
-          chatAIUtils.notifyController.text = chatAIUtils.currentSelection
-          chatAIUtils.chatController.ask()
-        }
+        chatAIUtils.ask(sender.userInfo)
+        // if (sender.userInfo.prompt) {
+        //   let prompt = sender.userInfo.prompt
+        //   let promptKeys = chatAIConfig.config.promptNames
+        //   let promptNames = promptKeys.map(key=>chatAIConfig.prompts[key].title)
+        //   let similarPrompts = chatAIUtils.findSimilarPrompts(prompt, promptNames)
+        //   if (similarPrompts.length) {
+        //     let firstPrompt = similarPrompts[0]
+        //     let promptKey = chatAIUtils.findKeyByTitle(chatAIConfig.prompts, firstPrompt)
+        //     chatAIUtils.notifyController.noteid = chatAIUtils.currentNoteId
+        //     chatAIUtils.chatController.ask(promptKey)
+        //   }
+        //   return
+        // }else if(sender.userInfo.user){
+        //   let contextMessage = await chatAIUtils.render(sender.userInfo.user,{})
+        //   let question = [chatAIUtils.genUserMessage(contextMessage)]
+          
+        //   if (sender.userInfo.system) {
+        //     let systemMessage = await chatAIUtils.render(sender.userInfo.system,{})
+        //     // question.unshift({role:"system",content:systemMessage})
+        //     question.unshift(chatAIUtils.genSystemMessage(systemMessage))
+        //   }
+        //   chatAIUtils.notifyController.customAsk(question)
+        // }else{
+        //   chatAIUtils.notifyController.noteid = chatAIUtils.currentNoteId
+        //   chatAIUtils.notifyController.text = chatAIUtils.currentSelectionText
+        //   chatAIUtils.chatController.ask()
+        // }
       },
       onDefaultModelChanged: function (sender) {
         if (typeof MNUtil === 'undefined') return
@@ -698,7 +728,7 @@ JSB.newAddon = function (mainPath) {
         chatAIUtils.notifyController.called = true
         let question = sender.userInfo.question
         chatAIUtils.currentNoteId = undefined
-        chatAIUtils.currentSelection = ""
+        chatAIUtils.currentSelectionText = ""
         self.dateGetText = Date.now();
         self.textProcessed = false
         // Application.sharedInstance().showHUD(sender.userInfo.note,self.window,2)
@@ -829,7 +859,7 @@ ${knowledge}
         }
         if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
         try {
-          let selection = MNUtil.currentSelection
+          let selection = chatAIUtils.currentSelection
           if (selection.onSelection) {
             chatAIUtils.notifyController.text = selection.text
             chatAIUtils.notifyController.noteid = undefined
@@ -880,6 +910,9 @@ ${knowledge}
       },
       toggleAddon: async function (button) {
         let self = getMNChatglmClass()
+        // let res = await chatAIUtils.ask({prompt:"翻译"})
+        // MNUtil.copy(res)
+        // return 
         // MNUtil.copy(1)
         // return
 //         try {

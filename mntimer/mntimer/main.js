@@ -1,11 +1,13 @@
 
+if (typeof MNOnAlert === 'undefined') {
+  var MNOnAlert = false
+}
 JSB.newAddon = function (mainPath) {
   JSB.require('utils');
   if (!timerUtils.checkMNUtilsFolder(mainPath)) {return undefined}
   JSB.require('webviewController');
   JSB.require('settingController');
-  var temSender;
-  
+  // NSUserDefaults.standardUserDefaults().removeObjectForKey("MNTimer_config")
   /** @return {MNTimerClass} */
   const getMNTimerClass = ()=>self
   var MNTimerClass = JSB.defineClass(
@@ -13,21 +15,29 @@ JSB.newAddon = function (mainPath) {
     { /* Instance members */
       sceneWillConnect: async function () { //Window initialize
         if (!(await timerUtils.checkMNUtil(true))) return
-        let self = getMNTimerClass()
-        self.init(mainPath)
-        self.watchMode = false;
-        self.textSelected = ""
-        self.textProcessed = false;
-        self.dateGetText = Date.now();
-        self.dateNow = Date.now();
-        self.rect = '{{0, 0}, {10, 10}}';
-        self.arrow = 1;
-        self.isFirst = true;
-        self.linkDetected = false
+        try {
+          let self = getMNTimerClass()
+          self.init(mainPath)
+          self.watchMode = false;
+          self.textSelected = ""
+          self.textProcessed = false;
+          self.dateGetText = Date.now();
+          self.dateNow = Date.now();
+          self.rect = '{{0, 0}, {10, 10}}';
+          self.arrow = 1;
+          self.isFirst = true;
+          self.linkDetected = false
+        MNUtil.addObserver(self, 'onSetTimer:', 'setTimer');
+        MNUtil.addObserver(self, 'onRefreshSubview:', 'refreshSubview');
+        MNUtil.addObserver(self, 'onRefreshTimerObject:', 'refreshTimerObject');
+        } catch (error) {
+          timerUtils.addErrorLog(error, "sceneWillConnect")
+        }
       },
 
       sceneDidDisconnect: function () { // Window disconnect
-
+        MNUtil.removeObserver(self, 'onSetTimer:');
+        MNUtil.removeObserver(self, 'onRefreshSubview:');
       },
 
       sceneWillResignActive: function () { // Window resign active
@@ -54,8 +64,7 @@ JSB.newAddon = function (mainPath) {
         // MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt');
         // MNUtil.addObserver(self, 'receivedSearchInBrowser:', 'searchInBrowser');
         // MNUtil.addObserver(self, 'receivedOpenInBrowser:', 'openInBrowser');
-        MNUtil.addObserver(self, 'onSetTimer:', 'setTimer');
-        MNUtil.addObserver(self, 'onRefreshSubview:', 'refreshSubview');
+
         // MNUtil.addObserver(self, 'onAddonBroadcast:', 'AddonBroadcast');
         // MNUtil.addObserver(self, 'onPasteboardChange:', 'UIPasteboardChangedNotification');
         // MNUtil.addObserver(self, 'onPasteboardChange:', 'UIPasteboardChangedTypesAddedKey');
@@ -216,6 +225,16 @@ JSB.newAddon = function (mainPath) {
         // }
 
       },
+      onRefreshTimerObject: function (sender) {
+        if (typeof MNUtil === 'undefined') {
+          return
+        }
+        if (self.window!==MNUtil.currentWindow) {
+          return
+        }
+        self.addonController.getTimerStatus()
+        // self.refreshTimerObject()
+      },
       onRefreshSubview: function (sender) {
         if (typeof MNUtil === 'undefined') {
           return
@@ -285,21 +304,6 @@ JSB.newAddon = function (mainPath) {
         let self = getMNTimerClass()
         if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
         self.addonController.inputAnnotation()
-        // let res = await MNUtil.input("Input annotation","输入注释",["Cancel", "Confirm"])
-        // if (res.button === 1) {
-        //   let controller = self.addonController
-        //   controller.todoText.text = res.input
-        //   controller.hasTodoText = true
-        //   if(controller.miniMode){
-        //     let viewFrame = MNUtil.genFrame(0, 0, 200, 70)
-        //     controller.currentFrame.height = 110
-        //     controller.view.frame = controller.currentFrame
-        //     controller.webview.frame = viewFrame
-        //     controller.todoText.frame = MNUtil.genFrame(0,75,200,35)
-        //     controller.moveButton.frame = viewFrame
-        //     controller.todoText.hidden = false
-        //   }
-        // }
       },
       openSetting: async function(){
         let self = getMNTimerClass()
@@ -360,59 +364,6 @@ JSB.newAddon = function (mainPath) {
         } catch (error) {
           timerUtils.addErrorLog(error, "toggleAddon")
         }
-        return
-        try {
-          
-        self.ensureView()
-        if (!self.addonBar) {
-          self.addonBar = sender.superview.superview
-          self.addonController.addonBar = self.addonBar
-        }
-
-        if (self.addonController.view.hidden) {
-          if (self.isFirst) {
-            // Application.sharedInstance().showHUD("first",self.window,2)
-            let buttonFrame = self.addonBar.frame
-            let width = 500
-            if (buttonFrame.x === 0) {
-              self.addonController.setFrame(40,buttonFrame.y,width,350)
-            }else{
-              self.addonController.setFrame(buttonFrame.x-width,buttonFrame.y,width,350)
-            }
-            self.isFirst = false;
-          }
-        // MNUtil.showHUD("message"+timerConfig.toolbar)
-          MNUtil.studyView.bringSubviewToFront(self.addonBar)
-          // self.addonController.homePage()
-          self.addonController.show()
-          // self.addonController.view.hidden = false
-          // self.addonController.webview.hidden = false
-        } else {
-            // self.addonController.view.hidden = true;
-            if (self.addonController.miniMode) {
-              let preFrame = self.addonController.view.frame
-              self.addonController.showAllButton()
-              let studyFrame = MNUtil.currentWindow.bounds
-              if (self.addonController.view.frame.x < studyFrame.width*0.5) {
-                self.addonController.lastFrame.x = 0
-              }else{
-                self.addonController.lastFrame.x = studyFrame.width-self.addonController.lastFrame.width
-              }
-              self.addonController.setFrame(self.addonController.lastFrame)
-              MNUtil.studyView.bringSubviewToFront(self.addonBar)
-              self.addonController.show(preFrame)
-            }else{
-              await self.addonController.hide()
-              self.addonController.webview.removeFromSuperview();
-            }
-            self.watchMode = false;
-            MNUtil.refreshAddonCommands()
-            return;
-        }
-  
-} catch (error) {
-    timerUtils.addErrorLog(error, "toggleAddon")
-}
       },
     },
     { /* Class members */
@@ -494,7 +445,7 @@ JSB.newAddon = function (mainPath) {
       this.addonController = timerController.new();
     }
   } catch (error) {
-    chatAIUtils.addErrorLog(error, "init")
+    timerUtils.addErrorLog(error, "init")
   }
   }
   MNTimerClass.prototype.ensureView = function (refresh = true) {
