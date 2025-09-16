@@ -1489,10 +1489,27 @@ class MNMath {
    */
   static isOldTemplateCard(note) {
     let commentsObj = this.parseNoteComments(note);
+    let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
     let htmlCommentsTextArr = commentsObj.htmlCommentsTextArr;
     
     // 检查是否有 "Remark" 字段
-    return htmlCommentsTextArr.some(text => text.includes("Remark"));
+    if (htmlCommentsTextArr.some(text => text.includes("Remark"))) {
+      return true;
+    }
+    
+    // 检查"应用"字段是否存在且不在最后
+    for (let i = 0; i < htmlCommentsObjArr.length; i++) {
+      let fieldObj = htmlCommentsObjArr[i];
+      if (fieldObj.text.includes("应用")) {
+        // 如果找到"应用"字段且不是最后一个字段，则认为是旧卡片
+        if (i < htmlCommentsObjArr.length - 1) {
+          return true;
+        }
+        break;
+      }
+    }
+    
+    return false;
   }
 
   /**
@@ -1711,8 +1728,9 @@ class MNMath {
       return;
     }
 
-    // 将内容移动到最后
-    this.moveCommentsArrToField(note, contentIndices, null, true);
+    // 将字段和内容一起移动到最后（使用包含字段的索引）
+    let fullBlockIndices = applicationFieldObj.includingFieldBlockIndexArr;
+    this.moveCommentsArrToField(note, fullBlockIndices, null, true);
   }
 
   static removeUnnecessaryComments(note) {
