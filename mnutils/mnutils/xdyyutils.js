@@ -12662,26 +12662,33 @@ class MNMath {
           MNUtil.showHUD(group.partialReplacement ? "🔄 已开启局部替换" : "已关闭局部替换");
           break;
           
-        case 3: // 设置触发词
+        case 3: // 开启/关闭模式匹配
+          group.patternMode = !group.patternMode;
+          group.updatedAt = Date.now();
+          this.saveSearchConfig();
+          MNUtil.showHUD(group.patternMode ? "🔀 已开启模式匹配" : "已关闭模式匹配");
+          break;
+          
+        case 4: // 设置触发词
           await this.editContextTriggers(group);
           break;
           
-        case 4: // 大小写敏感
+        case 5: // 大小写敏感
           group.caseSensitive = !group.caseSensitive;
           group.updatedAt = Date.now();
           this.saveSearchConfig();
           MNUtil.showHUD(group.caseSensitive ? "🔠 已开启大小写敏感" : "已关闭大小写敏感");
           break;
           
-        case 5: // 编辑词汇
+        case 6: // 编辑词汇
           await this.editSynonymWords(group);
           break;
           
-        case 6: // 重命名
+        case 7: // 重命名
           await this.renameSynonymGroup(group);
           break;
           
-        case 7: // 删除
+        case 8: // 删除
           const confirmDelete = await this.confirmAction(
             "确认删除",
             `确定要删除"${group.name}"吗？\n此操作不可恢复。`
@@ -12692,15 +12699,15 @@ class MNMath {
           }
           break;
           
-        case 8: // 复制词汇
+        case 9: // 复制词汇
           MNUtil.copy(group.words.join(", "));
           MNUtil.showHUD("📋 已复制到剪贴板");
           break;
           
-        case 9: // 分隔线
+        case 10: // 分隔线
           break;
           
-        case 10: // 测试局部替换
+        case 11: // 测试匹配效果
           await this.testPartialReplacement(group);
           break;
       }
