@@ -1658,6 +1658,9 @@ class MNMath {
 
     // 去掉一些评论，比如“- ”
     this.removeUnnecessaryComments(note)
+
+    // 检测是否包含“应用”字段，但“应用”字段不是最后一个字段，如果不是最后一个字段，则将其移动到最后
+    this.moveApplicationFieldToEnd(note)
     
     switch (this.getNoteType(note)) {
       case "归类":
@@ -1673,6 +1676,43 @@ class MNMath {
         this.moveRelatedConceptsToRelatedThoughts(note);
         break;
     }
+  }
+
+  static moveApplicationFieldToEnd(note) {
+    let commentsObj = this.parseNoteComments(note);
+    let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
+    let applicationFieldObj = null;
+    let applicationFieldIndex = -1;
+    for (let i = 0; i < htmlCommentsObjArr.length; i++) {
+      let fieldObj = htmlCommentsObjArr[i];
+      if (fieldObj.text.includes("应用")) {
+        applicationFieldObj = fieldObj;
+        applicationFieldIndex = i;
+        break;
+      }
+    }
+
+    // 如果没有找到"应用"字段，直接返回
+    if (!applicationFieldObj) {
+      return;
+    }
+
+    // 检查"应用"字段是否已经是最后一个字段
+    if (applicationFieldIndex === htmlCommentsObjArr.length - 1) {
+      return; // 已经是最后一个字段，无需移动
+    }
+
+    // 获取"应用"字段下的内容索引（不包括字段本身）
+    let contentIndices = applicationFieldObj.excludingFieldBlockIndexArr;
+
+    // 如果该字段下没有内容，只移动字段本身
+    if (contentIndices.length === 0) {
+      note.moveComment(applicationFieldObj.index, note.comments.length - 1);
+      return;
+    }
+
+    // 将内容移动到最后
+    this.moveCommentsArrToField(note, contentIndices, null, true);
   }
 
   static removeUnnecessaryComments(note) {
