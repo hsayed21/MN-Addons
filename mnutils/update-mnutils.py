@@ -98,9 +98,9 @@ if os.path.exists(main_js_path):  # 判断 main.js 文件是否真实存在，�
     
     # 使用正则表达式查找并替换 JSB.require 调用
     # 新格式：JSB.require("mnutils"),JSB.require("mnnote"),MNUtil.init(t)
-    # 需要在 mnutils 和 mnnote 之间插入 xdyyutils
-    pattern = r'JSB\.require\("mnutils"\),(?:JSB\.require\("xdyyutils"\),)?JSB\.require\("mnnote"\)'
-    replacement = r'JSB.require("mnutils"),JSB.require("xdyyutils"),JSB.require("mnnote")'
+    # 需要在 mnnote 之后插入 xdyyutils
+    pattern = r'JSB\.require\("mnutils"\),(?:JSB\.require\("xdyyutils"\),)?JSB\.require\("mnnote"\)(?:,JSB\.require\("xdyyutils"\))?'
+    replacement = r'JSB.require("mnutils"),JSB.require("mnnote"),JSB.require("xdyyutils")'
     
     modified_content = re.sub(pattern, replacement, content)  # 执行替换：确保引入 xdyyutils
     
