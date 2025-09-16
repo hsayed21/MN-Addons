@@ -209,7 +209,7 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
     let selector = "resetConfig:"
     if (isEditingDynamic) {
       menu.addMenuItem('🔄   Reset all button configs', selector, "config")
-      menu.addMenuItem('🔄   Reset button order', selector, "dynamicOrder")
+      menu.addMenuItem('🔄   Reset dynamic button order', selector, "dynamicOrder")
       menu.addMenuItem('🔄   Reset all button images', selector, "image")
       menu.show()
     }else{
@@ -233,21 +233,27 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
           // self.toolbarController.actions = actions
           self.setButtonText()
           self.setTextview()
-          MNUtil.showHUD("Reset prompts")
+          self.showHUD("Reset prompts")
         }
         break;
       case "order":
         toolbarConfig.reset("order")
         if (!isEditingDynamic) {
           self.setButtonText()
-          MNUtil.showHUD("Reset fixed order")
+          self.showHUD("Reset fixed order")
+          MNUtil.postNotification("refreshToolbarButton", {})
         }
         break;
       case "dynamicOrder":
         toolbarConfig.reset("dynamicOrder")
         if (isEditingDynamic) {
-          self.setButtonText()
-          MNUtil.showHUD("Reset dynamic order")
+          let dynamicAction = toolbarConfig.dynamicAction
+          if (dynamicAction.length === 0) {
+            toolbarConfig.dynamicAction = toolbarConfig.action
+          }
+          self.setButtonText(dynamicAction)
+          self.showHUD("Reset dynamic order")
+          MNUtil.postNotification("refreshToolbarButton", {})
         }
         break;
       case "image":
@@ -258,7 +264,7 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
           toolbarConfig.imageConfigs[key] = MNUtil.getImage(toolbarConfig.mainPath+"/"+toolbarConfig.getAction(key).image+".png")
         })
         MNUtil.postNotification("refreshToolbarButton", {})
-        MNUtil.showHUD("Reset button image")
+        self.showHUD("Reset button image")
         break
       default:
         break;

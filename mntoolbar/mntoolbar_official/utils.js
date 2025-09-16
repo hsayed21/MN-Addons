@@ -1,141 +1,143 @@
-
-
-class Frame{
-  static gen(x,y,width,height){
-    return MNUtil.genFrame(x, y, width, height)
-  }
-  /**
-   * 
-   * @param {UIView} view 
-   * @param {number} x 
-   * @param {number} y 
-   * @param {number} width 
-   * @param {number} height 
-   */
-  static set(view,x,y,width,height){
-    let oldFrame = view.frame
-    let frame = view.frame
-    if (x !== undefined) {
+if (typeof Frame === "undefined") {
+  class Frame{
+    static gen(x,y,width,height){
+      return MNUtil.genFrame(x, y, width, height)
+    }
+    /**
+     * 
+     * @param {UIView} view 
+     * @param {number} x 
+     * @param {number} y 
+     * @param {number} width 
+     * @param {number} height 
+     */
+    static set(view,x,y,width,height){
+      let oldFrame = view.frame
+      let frame = view.frame
+      if (x !== undefined) {
+        frame.x = x
+      }else if (view.x !== undefined) {
+        frame.x = view.x
+      }
+      if (y !== undefined) {
+        frame.y = y
+      }else if (view.y !== undefined) {
+        frame.y = view.y
+      }
+      if (width !== undefined) {
+        frame.width = width
+      }else if (view.width !== undefined) {
+        frame.width = view.width
+      }
+      if (height !== undefined) {
+        frame.height = height
+      }else if (view.height !== undefined) {
+        frame.height = view.height
+      }
+      if (!this.sameFrame(oldFrame,frame)) {
+        view.frame = frame
+      }
+    }
+    static sameFrame(frame1,frame2){
+      if (frame1.x === frame2.x && frame1.y === frame2.y && frame1.width === frame2.width && frame1.height === frame2.height) {
+        return true
+      }
+      return false
+    }
+    /**
+     * 
+     * @param {UIView} view 
+     * @param {number} x
+     */
+    static setX(view,x){
+      let frame = view.frame
       frame.x = x
-    }else if (view.x !== undefined) {
-      frame.x = view.x
+      view.frame = frame
     }
-    if (y !== undefined) {
+    /**
+     * 
+     * @param {UIView} view 
+     * @param {number} y
+     */
+    static setY(view,y){
+      let frame = view.frame
       frame.y = y
-    }else if (view.y !== undefined) {
-      frame.y = view.y
+      view.frame = frame
     }
-    if (width !== undefined) {
+    /**
+     * 
+     * @param {UIView} view
+     * @param {number} x 
+     * @param {number} y 
+     */
+    static setLoc(view,x,y){
+      let frame = view.frame
+      frame.x = x
+      frame.y = y
+      if (view.width) {
+        frame.width = view.width
+      }
+      if (view.height) {
+        frame.height = view.height
+      }
+      view.frame = frame
+    }
+    /**
+     * 
+     * @param {UIView} view 
+     * @param {number} width 
+     * @param {number} height 
+     */
+    static setSize(view,width,height){
+      let frame = view.frame
       frame.width = width
-    }else if (view.width !== undefined) {
-      frame.width = view.width
-    }
-    if (height !== undefined) {
       frame.height = height
-    }else if (view.height !== undefined) {
-      frame.height = view.height
+      view.frame = frame
     }
-    if (!this.sameFrame(oldFrame,frame)) {
+    /**
+     * 
+     * @param {UIView} view 
+     * @param {number} width
+     */
+    static setWidth(view,width){
+      let frame = view.frame
+      frame.width = width
+      view.frame = frame
+    }
+    /**
+     * 
+     * @param {UIView} view 
+     * @param {number} height
+     */
+    static setHeight(view,height){
+      let frame = view.frame
+      frame.height = height
+      view.frame = frame
+    }
+    /**
+     * 
+     * @param {UIView} view 
+     * @param {number} xDiff
+     */
+    static moveX(view,xDiff){
+      let frame = view.frame
+      frame.x = frame.x+xDiff
+      view.frame = frame
+    }
+    /**
+     * 
+     * @param {UIView} view 
+     * @param {number} yDiff
+     */
+    static moveY(view,yDiff){
+      let frame = view.frame
+      frame.y = frame.y+yDiff
       view.frame = frame
     }
   }
-  static sameFrame(frame1,frame2){
-    if (frame1.x === frame2.x && frame1.y === frame2.y && frame1.width === frame2.width && frame1.height === frame2.height) {
-      return true
-    }
-    return false
-  }
-  /**
-   * 
-   * @param {UIView} view 
-   * @param {number} x
-   */
-  static setX(view,x){
-    let frame = view.frame
-    frame.x = x
-    view.frame = frame
-  }
-  /**
-   * 
-   * @param {UIView} view 
-   * @param {number} y
-   */
-  static setY(view,y){
-    let frame = view.frame
-    frame.y = y
-    view.frame = frame
-  }
-  /**
-   * 
-   * @param {UIView} view
-   * @param {number} x 
-   * @param {number} y 
-   */
-  static setLoc(view,x,y){
-    let frame = view.frame
-    frame.x = x
-    frame.y = y
-    if (view.width) {
-      frame.width = view.width
-    }
-    if (view.height) {
-      frame.height = view.height
-    }
-    view.frame = frame
-  }
-  /**
-   * 
-   * @param {UIView} view 
-   * @param {number} width 
-   * @param {number} height 
-   */
-  static setSize(view,width,height){
-    let frame = view.frame
-    frame.width = width
-    frame.height = height
-    view.frame = frame
-  }
-  /**
-   * 
-   * @param {UIView} view 
-   * @param {number} width
-   */
-  static setWidth(view,width){
-    let frame = view.frame
-    frame.width = width
-    view.frame = frame
-  }
-  /**
-   * 
-   * @param {UIView} view 
-   * @param {number} height
-   */
-  static setHeight(view,height){
-    let frame = view.frame
-    frame.height = height
-    view.frame = frame
-  }
-  /**
-   * 
-   * @param {UIView} view 
-   * @param {number} xDiff
-   */
-  static moveX(view,xDiff){
-    let frame = view.frame
-    frame.x = frame.x+xDiff
-    view.frame = frame
-  }
-  /**
-   * 
-   * @param {UIView} view 
-   * @param {number} yDiff
-   */
-  static moveY(view,yDiff){
-    let frame = view.frame
-    frame.y = frame.y+yDiff
-    view.frame = frame
-  }
+  globalThis.Frame = Frame
 }
+
 
 
 
@@ -159,6 +161,7 @@ class toolbarUtils {
   static previousNoteId
   static errorLog = []
   static version
+  
   static currentNoteId
   static currentSelection
   static isSubscribe = false
@@ -183,8 +186,9 @@ class toolbarUtils {
     this.data = Database.sharedInstance()
     this.focusWindow = this.app.focusWindow
     this.mainPath = mainPath
-    this.version = this.appVersion()
-    this.errorLog = [this.version]
+    this.version = this._version()
+    this.appVersion = this._appVersion()
+    this.errorLog = [this.appVersion]
     this.topOffset = MNUtil.isMacOS()?30:22
     this.bottomOffset = MNUtil.isMacOS()?0:10
     let endTime = Date.now()
@@ -199,8 +203,15 @@ class toolbarUtils {
   static refreshSubscriptionStatus(){
     this.isSubscribe = this.checkSubscribe(false,false,true)
   }
+  static _version(){
+    if (this.mainPath) {
+      let toolbarVersion = MNUtil.readJSON(this.mainPath+"/mnaddon.json").version
+      return toolbarVersion
+    }
+    return undefined
+  }
 
-  static appVersion() {
+  static _appVersion() {
     let info = {}
     let version = parseFloat(this.app.appVersion)
     if (version >= 4) {
@@ -221,12 +232,41 @@ class toolbarUtils {
       default:
         break;
     }
-    if (this.mainPath) {
-      let toolbarVersion = MNUtil.readJSON(this.mainPath+"/mnaddon.json").version
-      info.toolbarVersion = toolbarVersion
-    }
+    // if (this.mainPath) {
+    //   let toolbarVersion = MNUtil.readJSON(this.mainPath+"/mnaddon.json").version
+    //   info.toolbarVersion = toolbarVersion
+    // }
+    info.toolbarVersion = this.version
     return info
   }
+
+  // static appVersion() {
+  //   let info = {}
+  //   let version = parseFloat(this.app.appVersion)
+  //   if (version >= 4) {
+  //     info.version = "marginnote4"
+  //   }else{
+  //     info.version = "marginnote3"
+  //   }
+  //   switch (this.app.osType) {
+  //     case 0:
+  //       info.type = "iPadOS"
+  //       break;
+  //     case 1:
+  //       info.type = "iPhoneOS"
+  //       break;
+  //     case 2:
+  //       info.type = "macOS"
+  //       break;
+  //     default:
+  //       break;
+  //   }
+  //   if (this.mainPath) {
+  //     let toolbarVersion = MNUtil.readJSON(this.mainPath+"/mnaddon.json").version
+  //     info.toolbarVersion = toolbarVersion
+  //   }
+  //   return info
+  // }
   static  getNoteColors() {
     return ["#ffffb4","#ccfdc4","#b4d1fb","#f3aebe","#ffff54","#75fb4c","#55bbf9","#ea3323","#ef8733","#377e47","#173dac","#be3223","#ffffff","#dadada","#b4b4b4","#bd9fdc"]
   }
@@ -239,7 +279,7 @@ class toolbarUtils {
     return notebook
   }
   static getUrlByNoteId(noteid) {
-    let ver = this.appVersion()
+    let ver = this.appVersion
     return ver.version+'app://note/'+noteid
   }
   /**
@@ -1242,6 +1282,17 @@ try {
  */
   static async getVarInfo(text,preConfig = {}) {//对通用的部分先写好对应的值
     let config = preConfig
+    config.date = {
+      now: new Date(Date.now()).toLocaleString(),
+      tomorrow: new Date(Date.now()+86400000).toLocaleString(),
+      yesterday: new Date(Date.now()-86400000).toLocaleString(),
+      year: new Date().getFullYear(),
+      month: new Date().getMonth()+1,
+      day: new Date().getDate(),
+      hour: new Date().getHours(),
+      minute: new Date().getMinutes(),
+      second: new Date().getSeconds()
+    }
     let hasClipboardText = text.includes("{{clipboardText}}")
     let hasSelectionText = text.includes("{{selectionText}}")
     let hasCurrentDocName = text.includes("{{currentDocName}}")
@@ -1262,35 +1313,8 @@ try {
     if (hasChatAIOutput && chatAIUtils) {
       config.chatAIOutput = await chatAIUtils.notifyController.getTextForAction()
     }
-    return config
-  }
-  /**
-   * 
-   * @param {string} text 
-   * @param {MbBookNote|MNNote} note 
-   * @returns 
-   */
-  static getVarInfoWithNote(text,note) {
-    let config = {}
-    let hasClipboardText = text.includes("{{clipboardText}}")
-    let hasSelectionText = text.includes("{{selectionText}}")
-    let hasDocName = text.includes("{{currentDocName}}")
-    let hasTitle = text.includes("{{title}}")
-    let hasNoteId = text.includes("{{noteId}}")
-    if (hasTitle) {
-      config.title = note.noteTitle
-    }
-    if (hasClipboardText) {
-      config.clipboardText = MNUtil.clipboardText
-    }
-    if (hasSelectionText) {
-      config.selectionText = MNUtil.selectionText
-    }
-    if (hasDocName) {
-      config.currentDocName = MNUtil.getFileName(MNUtil.currentDocController.document.pathFile)
-    }
-    if (hasNoteId) {
-      config.noteId = note.noteId
+    if (toolbarSandbox.hasGlobalVar()) {
+      config.globalVar = toolbarSandbox.getGlobalVarObject()
     }
     return config
   }
@@ -2047,7 +2071,7 @@ try {
 
   static detectAndReplace(text,element=undefined,note = MNNote.getFocusNote()) {
     // let vars = this.parseVars(text)
-    let noteConfig = this.getNoteObject(note,{},{parent:true,child:true,parentLevel:3})
+    let noteConfig = this.getNoteObjectSync(note,{},{parent:true,child:true,parentLevel:3})
     // MNUtil.copy(noteConfig)
     let config = {date:this.getDateObject()}
     if (noteConfig) {
@@ -3624,10 +3648,113 @@ Image Text Extraction Specialist
     return dateObject
   }
   /**
+   * @param {{first:boolean,parentLevel:number,parent:boolean,child:boolean}} opt 
+   * @param {MNNote} note 
+   */
+  static async getNoteObject(note,opt={first:true,noteInfo:{}}) {
+    try {
+    if (!note) {
+      return undefined
+    }
+    // MNUtil.log("Parentlevel: "+opt.parentLevel)
+    let noteInfo = opt.noteInfo
+      
+    let noteConfig = {}
+    noteConfig.id = note.noteId
+    if (opt.first) {
+      noteConfig.notebook = {
+        id:note.notebookId,
+        name:MNUtil.getNoteBookById(note.notebookId).title,
+      }
+    }
+    noteConfig.title = note.noteTitle
+    noteConfig.url = note.noteURL
+    noteConfig.excerptText = note.excerptText
+    noteConfig.isMarkdownExcerpt = note.excerptTextMarkdown
+    let isBlankNote = this.isBlankNote(note)
+    if (note.excerptPic && !isBlankNote) {
+      noteConfig.isImageExcerpt = true
+    }else{
+      noteConfig.isImageExcerpt = false
+    }
+    noteConfig.date = {
+      create:note.createDate.toLocaleString(),
+      modify:note.modifiedDate.toLocaleString(),
+    }
+    noteConfig.allText = note.allNoteText()
+    noteConfig.content = note.allText
+    noteConfig.tags = note.tags
+    noteConfig.hashTags = note.tags.map(tag=> ("#"+tag)).join(" ")
+    noteConfig.hasTag = note.tags.length > 0
+    noteConfig.hasComment = note.comments.length > 0
+    noteConfig.hasChild = note.childNotes.length > 0
+    noteConfig.hasText = !!noteConfig.allText
+    let AllColors = ["LightYellow", "LightGreen", "LightBlue", "LightRed", "Yellow", "Green", "Blue", "Red", "Orange", "DarkGreen", "DarkBlue", "DeepRed", "White", "LightGray", "DarkGray", "Purple"]
+    noteConfig.colorString = AllColors[note.colorIndex] ?? "White"
+    if (note.colorIndex !== undefined) {
+      noteConfig.color = {}
+      noteConfig.color.lightYellow = note.colorIndex === 0
+      noteConfig.color.lightGreen = note.colorIndex === 1
+      noteConfig.color.lightBlue = note.colorIndex === 2
+      noteConfig.color.lightRed = note.colorIndex === 3
+      noteConfig.color.yellow = note.colorIndex === 4
+      noteConfig.color.green = note.colorIndex === 5
+      noteConfig.color.blue = note.colorIndex === 6
+      noteConfig.color.red = note.colorIndex === 7
+      noteConfig.color.orange = note.colorIndex === 8
+      noteConfig.color.darkGreen = note.colorIndex === 9
+      noteConfig.color.darkBlue = note.colorIndex === 10
+      noteConfig.color.deepRed = note.colorIndex === 11
+      noteConfig.color.white = note.colorIndex === 12
+      noteConfig.color.lightGray = note.colorIndex === 13
+      noteConfig.color.darkGray = note.colorIndex === 14
+      noteConfig.color.purple = note.colorIndex === 15
+    }
+    if (note.docMd5 && MNUtil.getDocById(note.docMd5)) {
+      let startPage = note.note.startPage
+      let endPage = note.note.endPage
+      let pageRange = undefined
+      if (startPage !== undefined && endPage !== undefined) {
+        pageRange = {startPage,endPage}
+      }
+      noteConfig.doc = await this.getDocObject(MNUtil.getDocById(note.docMd5),{withContent:false,pageRange:pageRange}) 
+      noteConfig.hasDoc = true
+    }else{
+      noteConfig.hasDoc = false
+    }
+    if (note.childMindMap) {
+      // noteInfo.hasChildMindMap = false
+      noteConfig.childMindMap = await this.getNoteObject(note.childMindMap,{first:false})
+    }
+    noteConfig.inMainMindMap = !noteConfig.childMindMap
+    noteConfig.inChildMindMap = !!noteConfig.childMindMap
+    if (opt.parent && note.parentNote) {
+      if ("parentLevel" in noteInfo) {
+        if (opt.parentLevel > 0) {
+      // MNUtil.log("Get parent: "+opt.parentLevel)
+          noteConfig.parent = await this.getNoteObject(note.parentNote,{parentLevel:opt.parentLevel-1,parent:true,first:false})
+        }
+      }else{
+      // MNUtil.log("Get parent: "+opt.parentLevel)
+        noteConfig.parent = await this.getNoteObject(note.parentNote,{first:false})
+      }
+    }
+    // noteConfig.hasParent = "parent" in noteConfig
+    if (opt.child && note.childNotes) {
+      // MNUtil.log("Get child")
+      noteConfig.child = await Promise.all(note.childNotes.map(note=>this.getNoteObject(note,{first:false})))
+    }
+    return noteConfig
+    } catch (error) {
+      this.addErrorLog(error, "getNoteObject")
+      return undefined
+    }
+  }
+  /**
    * 
    * @param {MNNote} note 
    */
-  static getNoteObject(note,config={},opt={first:true}) {
+  static getNoteObjectSync(note,config={},opt={first:true}) {
     try {
     if (!note) {
       return config
@@ -3681,24 +3808,24 @@ Image Text Extraction Specialist
     }
     noteConfig.hasDoc = !!noteConfig.docName
     if (note.childMindMap) {
-      noteConfig.childMindMap = this.getNoteObject(note.childMindMap,{},{first:false})
+      noteConfig.childMindMap = this.getNoteObjectSync(note.childMindMap,{},{first:false})
     }
     noteConfig.inMainMindMap = !noteConfig.childMindMap
     noteConfig.inChildMindMap = !!noteConfig.childMindMap
     if ("parent" in opt && opt.parent && note.parentNote) {
       if (opt.parentLevel && opt.parentLevel > 0) {
-        noteConfig.parent = this.getNoteObject(note.parentNote,{},{parentLevel:opt.parentLevel-1,parent:true,first:false})
+        noteConfig.parent = this.getNoteObjectSync(note.parentNote,{},{parentLevel:opt.parentLevel-1,parent:true,first:false})
       }else{
-        noteConfig.parent = this.getNoteObject(note.parentNote,{},{first:false})
+        noteConfig.parent = this.getNoteObjectSync(note.parentNote,{},{first:false})
       }
     }
     noteConfig.hasParent = "parent" in noteConfig
     if ("child" in opt && opt.child && note.childNotes) {
-      noteConfig.child = note.childNotes.map(note=>this.getNoteObject(note,{},{first:false}))
+      noteConfig.child = note.childNotes.map(note=>this.getNoteObjectSync(note,{},{first:false}))
     }
     return noteConfig
     } catch (error) {
-      this.addErrorLog(error, "getNoteObject")
+      this.addErrorLog(error, "getNoteObjectSync")
       return undefined
     }
   }
@@ -5341,9 +5468,61 @@ static getButtonFrame(button){
     })
     return noteInfo
   }
+    /**
+   * 
+   * @param {MbBook|string} doc 
+   * @returns 
+   */
+  static async getDocObject(doc,opt = {withContent:false}) {
+    if (typeof doc === "string") {
+      doc = MNUtil.getDocById(doc)
+    }
+    if (!doc) {
+      return undefined
+    }
+    let docConfig = {}
+    docConfig.id = doc.docMd5
+    docConfig.name = doc.docTitle
+    let tem = {
+      name:doc.docTitle,
+      path:doc.fullPathFileName,
+      md5:doc.docMd5,
+    }
+    let PDFExtractMode = chatAIConfig.getConfig("PDFExtractMode")
+    if (opt.withContent) {
+      toolbarUtils.log("getDocObject withContent", tem)
+      let fileInfo = await chatAIConfig.getFileContent(tem,PDFExtractMode === "local")
+      // MNUtil.log(typeof fileInfo)
+      docConfig.content = fileInfo.content
+    }
+    let notebookId = doc.currentTopicId
+    if (notebookId) {
+      docConfig.notebook = {
+        id:notebookId,
+        name:MNUtil.getNoteBookById(notebookId).title,
+      }
+    }
+    docConfig.pageCount = doc.pageCount
+    return docConfig
+  }
   static hasTimer(vars){
     return vars.some(v=>v.startsWith("timer."))
   }
+/**
+ * 
+ * @param {MNNote} note 
+ * @returns {boolean}
+ */
+static isBlankNote(note){//指有图片摘录但图片分辨率为1x1的空白图片
+  if (note.excerptPic) {
+    let imageData = MNUtil.getMediaByHash(note.excerptPic.paint)
+    let image = UIImage.imageWithData(imageData)
+    if (image.size.width === 1 && image.size.height === 1) {
+      return true
+    }
+  }
+  return false
+}
   static parseVars(template){
   try {
 
@@ -5415,23 +5594,35 @@ static getButtonFrame(button){
       throw error;
     }
   }
-  static async getNoteVarInfo(noteid,text,userInput) {
+  static async getNoteVarInfo(noteid,text,userInput,element) {
     try {
     let replaceText= text
     let note = MNNote.new(noteid)
-    let noteConfig = this.getNoteObject(note)
+    // let noteConfig = this.getNoteObject(note)
+    let noteConfig = undefined
     let vars = this.parseVars(replaceText)
+    let noteInfo = vars.noteInfo
 
-    let preConfig = {userInput:userInput,note:noteConfig}
+    let preConfig = {userInput:userInput,note:noteConfig,cursor:"{{cursor}}"}
     if (vars.hasTimer) {
       preConfig.timer = await this.getTimerStatus()
     }
-
+    if (element !== undefined) {
+      preConfig.element = element
+    }
+    // let docConfig = await this.getDocObject(MNUtil.currentDoc,{withContent:vars.hasCurrentDocContent})
+    let docConfig = await this.getDocObject(MNUtil.currentDoc,{withContent:false})
+    preConfig.currentDoc = docConfig
+    if (noteInfo.hasNote) {
+      noteConfig = await this.getNoteObject(note,{
+        noteInfo:noteInfo, parent:noteInfo.hasParent, child:noteInfo.hasChild,parentLevel:noteInfo.parentLevel
+      })
+    }
+    if (noteConfig) {
+      preConfig.note = noteConfig
+    }
     let config = await this.getVarInfo(text,preConfig)
     // MNUtil.copy(noteConfig)
-    if (toolbarSandbox.hasGlobalVar()) {
-      config.globalVar = toolbarSandbox.getGlobalVarObject()
-    }
     let prompt = MNUtil.render(replaceText, config)
     return prompt
       
@@ -5444,16 +5635,24 @@ static getButtonFrame(button){
 static async getTextVarInfo(text,userInput) {
   try {
   let replaceText= text
-  let noteConfig = this.getNoteObject(MNNote.getFocusNote())
+  let noteConfig = undefined
+
+  // let noteConfig = this.getNoteObjectSync(MNNote.getFocusNote())
   let vars = this.parseVars(replaceText)
+  let noteInfo = vars.noteInfo
+  if (noteInfo.hasNote) {
+    noteConfig = await this.getNoteObject(MNNote.getFocusNote(),{
+      noteInfo:vars.noteInfo,first:true,parentLevel:noteInfo.parentLevel,child:noteInfo.hasChild
+    })
+  }
   let preConfig = {note:noteConfig,userInput:userInput}
   if (vars.hasTimer) {
     preConfig.timer = await this.getTimerStatus()
   }
-  let config = await this.getVarInfo(text,preConfig)
-  if (toolbarSandbox.hasGlobalVar()) {
-    config.globalVar = toolbarSandbox.getGlobalVarObject()
+  if (noteConfig) {
+    preConfig.note = noteConfig
   }
+  let config = await this.getVarInfo(text,preConfig)
   let output = mustache.render(replaceText, config)
   return output
   // MNUtil.copy(output)
