@@ -18669,6 +18669,21 @@ MNNote.prototype.moveComment = function(fromIndex, toIndex, msg = false) {
   }
 }
 
+// 目前的子孙卡片会到主脑图去，特此打补丁修复一下
+MNNote.prototype.delete = function(withDescendant = false){
+  if (withDescendant) {
+    MNUtil.db.deleteBookNoteTree(this.note.noteId)
+  }else{
+    let childNotes = this.childNotes
+    if (childNotes.length > 0 && this.parentNote) {
+      childNotes.forEach(childNote => {
+        this.parentNote.addChild(childNote)
+      })
+    }
+    MNUtil.db.deleteBookNote(this.note.noteId)
+  }
+}
+
 /**
  * 夏大鱼羊 - MNNote 方法重写 - end
  */
