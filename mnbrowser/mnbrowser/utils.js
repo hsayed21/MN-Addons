@@ -1121,6 +1121,7 @@ class browserConfig{
         "copyCurrentURL",
         "copyAsMDLink",
         "openCopiedURL",
+        "uploadPDF",
         "uploadPDFToDoc2X",
         "uploadImageToDoc2X"
       ]
@@ -1186,6 +1187,7 @@ class browserConfig{
       case "copyAsMDLink":
       case "openCopiedURL":
         return "🌐";
+      case "uploadPDF":
       case "uploadPDFToDoc2X":
       case "uploadImageToDoc2X":
         return "📤";
@@ -1245,6 +1247,7 @@ class browserConfig{
       "copyCurrentURL":"copy current URL",
       "copyAsMDLink":"copy as MD link",
       "openCopiedURL":"open copied URL",
+      "uploadPDF":"upload PDF",
       "uploadPDFToDoc2X":"upload PDF to Doc2X",
       "uploadImageToDoc2X":"upload Image to Doc2X",
       "changeBilibiliVideoPart":"Change Bilibili Video part"

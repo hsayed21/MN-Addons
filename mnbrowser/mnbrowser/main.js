@@ -672,16 +672,22 @@ JSB.newAddon = function (mainPath) {
         if (self.window!==self.appInstance.focusWindow) {
           return
         }
+        let userInfo = sender.userInfo
+        if ("desktop" in userInfo) {
+          MNConnection.loadRequest(self.addonController.webview, userInfo.url, userInfo.desktop)
+          self.addonController.setWebMode(userInfo.desktop)
+        }else{
+          MNConnection.loadRequest(self.addonController.webview, userInfo.url)
+        }
         // MNUtil.showHUD("receivedOpenInBrowser")
-        MNConnection.loadRequest(self.addonController.webview, sender.userInfo.url)
         // self.addonController.webview.loadRequest(
         //     NSURLRequest.requestWithURL(NSURL.URLWithString(sender.userInfo.url))
         //   );
         if (!self.addonController.view.hidden) {
           return
         }
-        if (sender.userInfo.beginFrame && sender.userInfo.endFrame) {
-          self.addonController.show(sender.userInfo.beginFrame,sender.userInfo.endFrame)
+        if (userInfo.beginFrame && userInfo.endFrame) {
+          self.addonController.show(userInfo.beginFrame,userInfo.endFrame)
           return
         }
         self.addonController.show()

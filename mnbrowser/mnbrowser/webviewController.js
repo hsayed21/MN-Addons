@@ -222,13 +222,13 @@ viewWillLayoutSubviews: function() {
         case "uploadPDFToDoc2X":
           self.uploadOnDoc2X.enabled = false
           MNUtil.delay(1).then(()=>{
-            self.uploadPDFToDoc2X()
+            self.uploadPDF()
           })
           break;
         case "uploadImageToDoc2X":
           self.uploadOnDoc2X.enabled = false
           MNUtil.delay(1).then(()=>{
-            self.uploadImageToDoc2X()
+            self.uploadImage()
           })
           break;
       }
@@ -496,7 +496,27 @@ viewWillLayoutSubviews: function() {
             break;
         }
         return false
+      case "about":
+        return true
+      case "itms-appss":
+        return false
+      case "weixin":
+        self.openWX(config)
+        return false
+      case "imacopilot":
+        // MNUtil.openURL(requestURL)
+        // MNUtil.log({
+        //   message:"openIMA",
+        //   detail:requestURL
+        // })
+        self.openIMA(config)
+        return false
       default:
+        MNUtil.showHUD("Unknown scheme: "+config.scheme)
+        MNUtil.log({
+          message:"Unknown scheme: "+config.scheme,
+          detail:config
+        })
         break;
     }
     // MNUtil.copy(config)
@@ -654,10 +674,42 @@ viewWillLayoutSubviews: function() {
       menu.addMenuItem('🎬  VideoFrame → NewNote', 'videoFrameToNewNote:',true)
       menu.addMenuItem('🎬  VideoFrame → NewComment', 'videoFrameToComment:',true)
     }
-    // menu.addMenuItem('🎬  VideoFrame → NewComment', 'changeZoomScale:',true)
-    if ((await self.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
-      menu.addMenuItem('📤  Upload to Doc2X', 'uploadToDoc2X:',true)
+    let sourceInfo = await self.getWebSource()
+    if (sourceInfo) {
+      menu.addMenuItem(sourceInfo.title, sourceInfo.selector,sourceInfo.source)
     }
+    // let currentURL = await self.getCurrentURL()
+    // // menu.addMenuItem('🎬  VideoFrame → NewComment', 'changeZoomScale:',true)
+    // if (currentURL.startsWith("https://doc2x.noedgeai.com")) {
+    //   menu.addMenuItem('📤  Upload to Doc2X', 'uploadToDoc2X:','doc2x')
+    // }
+    // if (currentURL.startsWith("https://ima.qq.com")) {
+    //   menu.addMenuItem('📤  Upload to Ima', 'uploadToWebDefault:','ima')
+    // }
+    // if (currentURL.startsWith("https://www.kimi.com")) {
+    //   menu.addMenuItem('📤  Upload to Kimi', 'uploadToWebDefault:','kimi')
+    // }
+    // if (currentURL.startsWith("https://chat.qwen.ai")) {
+    //   menu.addMenuItem('📤  Upload to Qwen', 'uploadPDFToWebDefault:','qwen')
+    // }
+    // // if (currentURL.startsWith("https://www.doubao.com/chat/")) {
+    // //   menu.addMenuItem('📤  Upload to Doubao', 'uploadToWebDefault:','doubao')
+    // // }
+    // if (currentURL.startsWith("https://chat.z.ai")) {
+    //   menu.addMenuItem('📤  Upload to Z.ai', 'uploadPDFToWebDefault:','zhipu')
+    //   // menu.addMenuItem('📤  Upload to Z.ai', 'uploadToWebDefault:','zhipu')
+    // }
+    // if (currentURL.startsWith("https://chat.deepseek.com")) {
+    //   menu.addMenuItem('📤  Upload to DeepSeek', 'uploadToWebDefault:','deepseek')
+    // }
+    // if (currentURL.startsWith("https://yuanbao.tencent.com/chat")) {
+    //   menu.addMenuItem('📤  Upload to Yuanbao', 'uploadToWebDefault:','yuanbao')
+    //   // menu.addMenuItem('📤  Upload to Yuanbao', 'uploadPDFToWebDefault:','yuanbao')
+    // }
+    // if (currentURL.startsWith("https://space.coze.cn")) {
+    //   menu.addMenuItem('📤  Upload to Coze', 'uploadToWebDefault:','coze')
+    //   // menu.addMenuItem('📤  Upload to Yuanbao', 'uploadPDFToWebDefault:','yuanbao')
+    // }
     menu.show()
     // var commandTable = [
     //     {title:'🎛  Setting',object:self,selector:'openSettingView:',param:'right'},
@@ -758,72 +810,42 @@ viewWillLayoutSubviews: function() {
   uploadToDoc2X: async function (params) {
     let self = getBrowserController()
     Menu.dismissCurrentMenu()
-    let currentURL = await self.getCurrentURL()
     let currentImage = browserUtils.getCurrentImage()
     // MNUtil.copy(currentImage)
     if (currentImage) {
-      self.uploadImageToDoc2X(currentImage)
-      // self.waitHUD("Uploading file...")
-      // await MNUtil.delay(0.1)
-      // let fileName = "image.png"
-      // let fileBase64 = currentImage.base64Encoding().replace(/"/g, '\\"')
-      // self.uploadImageToDoc2X(fileBase64, fileName)
-      // await MNUtil.stopHUD(0.5)
-      // currentURL = await self.getCurrentURL()
-      // while (!currentURL.startsWith("https://doc2x.noedgeai.com/ocr?parseId_0=")) {
-      //   await MNUtil.delay(0.5)
-      //   currentURL = await self.getCurrentURL()
-      // }
-      // await MNUtil.delay(0.5)
-      // self.runJavaScript(`
-      // async function hideOriginalView() {
-      //   async function delay(seconds) {
-      //     return new Promise(resolve => setTimeout(resolve, seconds * 1000));
-      //   }
-      //   await delay(0.5);
-      //   document.getElementsByClassName("ant-splitter-panel")[0].style.display='none';
-      //   await delay(0.5);
-      //   document.getElementsByClassName("ant-splitter-panel")[0].style.display='none';
-      //   await delay(0.5);
-      //   document.getElementsByClassName("ant-splitter-panel")[0].style.display='none';
-      //   await delay(0.5);
-      //   document.getElementsByClassName("ant-splitter-panel")[0].style.display='none';
-      // }
-      // hideOriginalView();
-      // `)
+      self.uploadImage(currentImage)
     }else{
-      self.uploadPDFToDoc2X()
+      self.uploadPDF()
     }
     return
-    // MNUtil.copy(currentURL)
-    if (currentURL === "https://doc2x.noedgeai.com/") {
-
-    }else if (currentURL === "https://doc2x.noedgeai.com/ocrUpload") {
-      self.waitHUD("Uploading file...")
-      await MNUtil.delay(0.1)
-      let currentImage = MNUtil.currentSelection.image
-      let fileName = "image.png"
-      let fileBase64 = currentImage.base64Encoding().replace(/"/g, '\\"')
-      self.uploadImageToDoc2X(fileBase64, fileName)
-      MNUtil.stopHUD(0.5)
+  },
+  uploadToWebDefault: async function (params) {
+    let self = getBrowserController()
+    Menu.dismissCurrentMenu()
+    let currentImage = browserUtils.getCurrentImage()
+    // MNUtil.copy(currentImage)
+    if (currentImage) {
+      self.uploadImage(currentImage)
     }else{
-      // await self.runJavaScript(`window.location.href = 'https://doc2x.noedgeai.com/ocrUpload'`)
-      // currentURL = await self.getCurrentURL()
-      // while (currentURL !== "https://doc2x.noedgeai.com/ocrUpload") {
-      //   await MNUtil.delay(0.1)
-      //   currentURL = await self.getCurrentURL()
-      // }
-      // MNUtil.copy(currentURL)
-      await MNUtil.delay(0.1)
-      let currentImage = MNUtil.currentSelection.image
-      let fileName = "image.png"
-      let fileBase64 = currentImage.base64Encoding().replace(/"/g, '\\"')
-      self.uploadImageToDoc2X(fileBase64, fileName)
+      self.uploadPDF(undefined,params)
     }
-    // if (!currentURL.startsWith("https://doc2x.noedgeai.com")) {
-    //   MNUtil.showHUD("Please open Doc2X first")
-    //   return
-    // }
+  },
+  uploadPDFToWebDefault: async function (params) {
+    let self = getBrowserController()
+    Menu.dismissCurrentMenu()
+    self.uploadPDF(undefined,params)
+  },
+  uploadToKimi: async function (params) {
+    let self = getBrowserController()
+    Menu.dismissCurrentMenu()
+    let currentImage = browserUtils.getCurrentImage()
+    // MNUtil.copy(currentImage)
+    if (currentImage) {
+      self.uploadImage(currentImage)
+      
+    }else{
+      self.uploadPDF()
+    }
   },
   onLongPress: async function(gesture) {
     if (gesture.state === 1) {
@@ -1624,328 +1646,6 @@ exportToPDF()
       return
     }
     self.executeCustomAction(action)
-//     switch (action) {
-//       case "uploadPDFToDoc2X":
-//         if (!(await self.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
-//           MNUtil.waitHUD("Opening Doc2X...")
-//           self.setWebMode(true)
-//           MNConnection.loadRequest(self.webview, "https://doc2x.noedgeai.com")
-//           self.uploadOnDoc2X = {enabled:true,action:"uploadPDFToDoc2X"}
-//           return
-//         }
-//         self.uploadPDFToDoc2X()
-//         break;
-//       case "uploadImageToDoc2X":
-//         if (!(await self.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
-//           MNUtil.waitHUD("Opening Doc2X...")
-//           self.setWebMode(true)
-//           MNConnection.loadRequest(self.webview, "https://doc2x.noedgeai.com")
-//           self.uploadOnDoc2X = {enabled:true,action:"uploadImageToDoc2X"}
-//           return
-//         }
-//         self.uploadImageToDoc2X()
-//         break;
-//       case "changeBilibiliVideoPart":
-//         self.changeBilibiliVideoPart(button)
-//         break;
-//       case "screenshot":
-//         let width = self.view.frame.width>1000?self.view.frame.width:1000
-//         let imageData = await self.screenshot(width)
-//         MNUtil.copyImage(imageData)
-//         self.showHUD('截图已复制到剪贴板')
-//         break;
-//       case "videoFrame2Clipboard":
-//         self.videoFrameAction("clipboard")
-//         break;
-//       case "videoFrame2Editor":
-//         self.videoFrameAction("editor")
-//         break;
-//       case "videoFrame2Note":
-//         self.videoFrameAction("excerpt")
-//         break;
-//       case "videoFrame2ChildNote":
-//         self.videoFrameAction("childNote")
-//         break;
-//       case "videoFrameToNewNote":
-//         self.videoFrameAction("newNote")
-//         break;
-//       case "videoFrameToComment":
-//         self.videoFrameAction("comment")
-//         break;
-//       case "videoTime2Clipboard":
-//         self.videoTimeAction("clipboard")
-//         break;
-//       case "videoTime2Editor":
-//         self.videoTimeAction("editor")
-//         break;
-//       case "videoTime2Note":
-//         self.videoTimeAction("excerpt")
-//         break;
-//       case "videoTime2ChildNote":
-//         self.videoTimeAction("childNote")
-//         break;
-//       case "videoFrameToSnipaste":
-//         self.videoFrameAction("snipaste")
-//         break;
-//       case "videoTimeToNewNote":
-//         self.videoTimeAction("newNote")
-//         break;
-//       case "videoTimeToComment":
-//         self.videoTimeAction("comment")
-//         break;
-//       case "bigbang":
-//         url = await self.getCurrentURL()
-//         text = await self.getTextInWebview()
-//         MNUtil.postNotification('bigbangText', {text:text,url:url})
-//         break;
-//       case "copyCurrentURL":
-//         url = await self.getCurrentURL()
-//         MNUtil.copy(url)
-//         self.showHUD("链接已复制")
-//         break;
-//       case "copyAsMDLink":
-//         url = await self.getCurrentURL()
-//         text = await self.getSelectedTextInWebview()
-//         MNUtil.copy(`[${text}](${url})`)
-//         self.showHUD("链接已复制")
-//         break;
-//       case "openInNewWindow":
-//         if (browserUtils.checkSubscribe()) {
-//           let agent = self.webview.customUserAgent
-//           url = await self.getCurrentURL()
-//           MNUtil.postNotification('newWindow', {url:url,desktop:browserConfig.entries[browserConfig.engine].desktop,engine:browserConfig.engine,webApp:self.webApp,agent:agent})
-//           self.homePage();
-//         }
-//         break;
-//       case "openNewWindow":
-//         if (browserUtils.checkSubscribe()) {
-//           MNUtil.postNotification('newWindow', {url:browserConfig.getConfig("homePage").url,desktop:browserConfig.entries[browserConfig.engine].desktop,engine:browserConfig.engine,webApp:self.webApp})
-//         }
-//         break;
-//       case "openCopiedURL":
-//         MNConnection.loadRequest(self.webview, MNUtil.clipboardText)
-//         break;
-//       case "pauseOrPlay":
-//         self.runJavaScript(`
-// function togglePlayPause() {
-//   // 假设我们的video元素的id是'myVideo'
-//   const video = document.getElementsByTagName('video')[0];
-//   if (video.ended) {
-//     video.currentTime = 0
-//     video.play()
-//   }else if (video.paused) {
-//     video.play()
-//   }else{
-//     video.pause()
-//   }
-// };
-// togglePlayPause()
-// `)
-//         break;
-//       case "toggleMute":
-//         self.runJavaScript(`
-// function toggleMute() {
-//   const video = document.getElementsByTagName('video')[0];
-//   video.muted = !video.muted;
-// }
-// toggleMute()`)
-//         break;
-//       case "volumeUp":
-//         self.runJavaScript(`
-// function volumeUp() {
-//   const video = document.getElementsByTagName('video')[0];
-//   video.volume += 0.1;
-// }
-// volumeUp()`)
-//         break;
-//       case "volumeDown":
-//         self.runJavaScript(`
-// function volumeDown() {
-//   const video = document.getElementsByTagName('video')[0];
-//   video.volume -= 0.1;
-// }
-// volumeDown()`)
-//         break;
-//       case "play0.5x":
-//         self.runJavaScript(`
-// function changePlaybackRate(rate) {
-//   const video = document.getElementsByTagName('video')[0];
-//   if (video.playbackRate === rate) {
-//     video.playbackRate = 1;
-//   }else{
-//     video.playbackRate = rate;
-//   }
-// }
-// changePlaybackRate(0.5)`)
-//         break;
-//       case "play1.25x":
-//         self.runJavaScript(`
-// function changePlaybackRate(rate) {
-//   const video = document.getElementsByTagName('video')[0];
-//   if (video.playbackRate === rate) {
-//     video.playbackRate = 1;
-//   }else{
-//     video.playbackRate = rate;
-//   }
-// }
-// changePlaybackRate(1.25)`)
-//         break;
-//       case "play1.5x":
-//         self.runJavaScript(`
-// function changePlaybackRate(rate) {
-//   const video = document.getElementsByTagName('video')[0];
-//   if (video.playbackRate === rate) {
-//     video.playbackRate = 1;
-//   }else{
-//     video.playbackRate = rate;
-//   }
-// }
-// changePlaybackRate(1.5)`)
-//         break;
-//       case "play1.75x":
-//         self.runJavaScript(`
-// function changePlaybackRate(rate) {
-//   const video = document.getElementsByTagName('video')[0];
-//   if (video.playbackRate === rate) {
-//     video.playbackRate = 1;
-//   }else{
-//     video.playbackRate = rate;
-//   }
-// }
-// changePlaybackRate(1.75)`)
-//         break;
-//       case "play2x":
-//         self.runJavaScript(`
-// function changePlaybackRate(rate) {
-//   const video = document.getElementsByTagName('video')[0];
-//   if (video.playbackRate === rate) {
-//     video.playbackRate = 1;
-//   }else{
-//     video.playbackRate = rate;
-//   }
-// }
-// changePlaybackRate(2)`)
-//         break;
-//       case "play2.5x":
-//         self.runJavaScript(`
-// function changePlaybackRate(rate) {
-//   const video = document.getElementsByTagName('video')[0];
-//   if (video.playbackRate === rate) {
-//     video.playbackRate = 1;
-//   }else{
-//     video.playbackRate = rate;
-//   }
-// }
-// changePlaybackRate(2.5)`)
-//         break;
-//       case "play3x":
-//         self.runJavaScript(`
-// function changePlaybackRate(rate) {
-//   const video = document.getElementsByTagName('video')[0];
-//   if (video.playbackRate === rate) {
-//     video.playbackRate = 1;
-//   }else{
-//     video.playbackRate = rate;
-//   }
-// }
-// changePlaybackRate(3)`)
-//         break;
-//       case "play3.5x":
-//         self.runJavaScript(`
-// function changePlaybackRate(rate) {
-//   const video = document.getElementsByTagName('video')[0];
-//   if (video.playbackRate === rate) {
-//     video.playbackRate = 1;
-//   }else{
-//     video.playbackRate = rate;
-//   }
-// }
-// changePlaybackRate(3.5)`)
-//         break;
-//       case "play4x":
-//         self.runJavaScript(`
-// function changePlaybackRate(rate) {
-//   const video = document.getElementsByTagName('video')[0];
-//   if (video.playbackRate === rate) {
-//     video.playbackRate = 1;
-//   }else{
-//     video.playbackRate = rate;
-//   }
-// }
-// changePlaybackRate(4)`)
-//         break;
-//       case "forward10s":
-//         self.runJavaScript(`
-// function forwardSeconds(seconds) {
-//   const video = document.getElementsByTagName('video')[0];
-//   video.currentTime += seconds;
-//   video.play()
-// };
-// forwardSeconds(10)`);
-//         break;
-//       case "forward15s":
-//         self.runJavaScript(`
-// function forwardSeconds(seconds) {
-//   const video = document.getElementsByTagName('video')[0];
-//   video.currentTime += seconds;
-//   video.play()
-// };
-// forwardSeconds(15)`);
-//         break;
-//       case "forward30s":
-//         self.runJavaScript(`
-// function forwardSeconds(seconds) {
-//   const video = document.getElementsByTagName('video')[0];
-//   video.currentTime += seconds;
-//   video.play()
-// };
-// forwardSeconds(30)`);
-//         break;
-//       case "backward10s":
-//         self.runJavaScript(`
-// function backwardSeconds(seconds) {
-//   const video = document.getElementsByTagName('video')[0];
-//   let currentTime = video.currentTime;
-//   if (currentTime - seconds < 0) {
-//     video.currentTime = 0;
-//   }else{
-//     video.currentTime -= seconds;
-//   }
-//   video.play()
-// };
-// backwardSeconds(10)`);
-//         break;
-//       case "backward15s":
-//         self.runJavaScript(`
-// function backwardSeconds(seconds) {
-//   const video = document.getElementsByTagName('video')[0];
-//   let currentTime = video.currentTime;
-//   if (currentTime - seconds < 0) {
-//     video.currentTime = 0;
-//   }else{
-//     video.currentTime -= seconds;
-//   }
-//   video.play()
-// };
-// backwardSeconds(15)`);
-//         break;
-//       case "backward30s":
-//         self.runJavaScript(`
-// function backwardSeconds(seconds) {
-//   const video = document.getElementsByTagName('video')[0];
-//   let currentTime = video.currentTime;
-//   if (currentTime - seconds < 0) {
-//     video.currentTime = 0;
-//   }else{
-//     video.currentTime -= seconds;
-//   }
-//   video.play()
-// };
-// backwardSeconds(30)`);
-//         break;
-//         default:
-//         break;
-//     }
     } catch (error) {
       browserUtils.addErrorLog(error, "customButtonTapped")
     }
@@ -5481,11 +5181,30 @@ browserController.prototype.waitHUD = function (title,view = this.view) {
 /**
  * @this {browserController}
  */
-browserController.prototype.uploadPDFToDoc2XByBase64 = async function (fileBase64,fileName) {
+browserController.prototype.uploadPDFByBase64 = async function (fileBase64,fileName,source = "doc2x") {
+let dropZoneJS = ``
+switch (source) {
+  case "doc2x":
+  case "ima":
+  case "kimi":
+  case "deepseek":
+    dropZoneJS = `document.body;`
+    break;
+  case "qwen":
+  case "zhipu":
+    dropZoneJS = `document.getElementById("chat-container");`
+    break;
+  case "yuanbao":
+    dropZoneJS = `document.getElementsByClassName("agent-dialogue__content-wrapper")[0];`
+    break;
+  default:
+    dropZoneJS = `document.body;`
+    break;
+}
 this.runJavaScript(`
 function uploadPDFBase64(filebase64,fileName) {
   // 1. 获取页面的拖放区域
-  const dropZone = document.body;
+  const dropZone = ${dropZoneJS};
 
   // 2. 直接使用原始Base64数据
   const base64PDF = filebase64;
@@ -5504,6 +5223,152 @@ function uploadPDFBase64(filebase64,fileName) {
     const blob = new Blob([bytes.buffer], { type: 'application/pdf' });
     const file = new File([blob], fileName, { 
       type: 'application/pdf',
+      lastModified: Date.now()
+    });
+
+    // 5. 创建自定义DataTransfer对象
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+
+    // 6. 创建并触发拖拽事件序列
+    const events = [
+      new DragEvent('dragenter', { bubbles: true, dataTransfer, view: window }),
+      new DragEvent('dragover', { 
+        bubbles: true, 
+        dataTransfer, 
+        cancelable: true, 
+        view: window 
+      }),
+      new DragEvent('drop', { 
+        bubbles: true, 
+        dataTransfer, 
+        cancelable: true, 
+        view: window 
+      })
+    ];
+    
+    events.forEach(event => dropZone.dispatchEvent(event));
+    
+    console.log('✅ PDF文件重建成功，拖拽事件已触发');
+    
+  } catch (error) {
+    console.error('⚠️ 文件重建失败:', error);
+    console.warn('Base64长度:', base64PDF.length);
+    console.warn('前100字符:', base64PDF.substring(0, 100));
+  }
+}
+uploadPDFBase64("${fileBase64}","${fileName}")
+`)
+}
+/**
+ * 用不了
+ * @this {browserController}
+ */
+browserController.prototype.uploadPDFToDoubaoByBase64 = async function (fileBase64,fileName) {
+
+let js = `function uploadPDFBase64(filebase64,fileName) {
+  // 1. 获取页面的拖放区域
+  const dropZone = document.querySelector('[class*="drop-area-"]');
+try {
+    // ✅ Base64 解码（确保无header前缀）
+    let base64 = filebase64;
+    if (base64.includes(',')) {
+      base64 = base64.split(',')[1]; // 移除 data:application/pdf;base64,
+    }
+    const binaryStr = atob(base64);
+    const len = binaryStr.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    // 📄 构造 Blob 和 File
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const file = new File([blob], fileName || 'document.pdf', {
+      type: 'application/pdf',
+      lastModified: Date.now()
+    });
+    // 💾 创建 DataTransfer 并注入文件
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    // 🛠 添加临时监听器，强制阻止默认行为
+    ['dragenter', 'dragover', 'drop'].forEach(eventType => {
+      const listener = e => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer = dt;
+      };
+      dropZone.addEventListener(eventType, listener);
+      // 100ms后自动移除，防止干扰后续交互
+      setTimeout(() => dropZone.removeEventListener(eventType, listener), 100);
+    });
+    // 🚀 按顺序触发事件
+    const triggerEvent = (type, opts) => {
+      const event = new DragEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        dataTransfer: dt,
+        ...opts
+      });
+      dropZone.dispatchEvent(event);
+    };
+    triggerEvent('dragenter');
+    triggerEvent('dragover');
+    triggerEvent('drop');
+    console.log('📤 成功发送模拟拖拽上传事件');
+  } catch (err) {
+    console.error('❌ 文件构造失败:', err);
+  }
+}
+uploadPDFBase64("${fileBase64}","${fileName}")
+`
+this.runJavaScript(js)
+}
+/**
+ * @this {browserController}
+ */
+browserController.prototype.uploadImageByBase64 = async function (fileBase64,fileName,source = "doc2x") {
+let dropZoneJS = ``
+switch (source) {
+  case "doc2x":
+  case "ima":
+  case "kimi":
+  case "deepseek":
+    dropZoneJS = `document.body;`
+    break;
+  case "qwen":
+  case "zhipu":
+    dropZoneJS = `document.getElementById("chat-container");`
+    break;
+  case "yuanbao":
+    dropZoneJS = `document.getElementsByClassName("agent-dialogue__content-wrapper")[0];`
+    break;
+  default:
+    dropZoneJS = `document.body;`
+    break;
+}
+this.runJavaScript(`
+function uploadPDFBase64(filebase64,fileName) {
+  // 1. 获取页面的拖放区域
+  const dropZone = ${dropZoneJS};
+
+  // 2. 直接使用原始Base64数据
+  const base64PDF = filebase64;
+  
+  try {
+    // 3. 正确解析Base64并重建文件
+    const binaryString = atob(base64PDF);
+    const bytes = new Uint8Array(binaryString.length);
+    
+    // 逐个字符转换为字节值
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i) & 0xFF;
+    }
+    
+    // 4. 创建有效的PDF文件
+    const blob = new Blob([bytes.buffer], { type: 'image/png' });
+    const file = new File([blob], fileName, { 
+      type: 'image/png',
       lastModified: Date.now()
     });
 
@@ -5810,33 +5675,31 @@ blobUrlToBase64("${requestURL}")
 /**
  * @this {browserController}
  */
-browserController.prototype.uploadPDFToDoc2X = async function (document = MNUtil.currentDoc) {
+browserController.prototype.uploadPDF = async function (document = MNUtil.currentDoc,source = "doc2x") {
 
   this.waitHUD("Uploading file...")
   await MNUtil.delay(0.1)
   let fileName = document.docTitle.replace(/"/g, '\\"')+".pdf"
   let fileBase64 = MNUtil.getFile(document.fullPathFileName).base64Encoding().replace(/"/g, '\\"')
-  this.uploadPDFToDoc2XByBase64(fileBase64, fileName)
+  this.uploadPDFByBase64(fileBase64, fileName, source)
   MNUtil.stopHUD(0.5)
-  // self.runJavaScript(`
-  //   if(window.location.href !== 'https://doc2x.noedgeai.com/'){
-  //     window.location.href = 'https://doc2x.noedgeai.com/';
-  //   }
-  // `)
 }
+
 /**
  * @this {browserController}
  */
-browserController.prototype.uploadImageToDoc2X = async function (currentImage = browserUtils.getCurrentImage()) {
+browserController.prototype.uploadImage = async function (currentImage = browserUtils.getCurrentImage(),source = "doc2x") {
   if (!currentImage) {
     MNUtil.showHUD("No image selected")
     return
   }
-      this.waitHUD("Uploading file...")
-      await MNUtil.delay(0.1)
-      let fileName = "image.png"
-      let fileBase64 = currentImage.base64Encoding().replace(/"/g, '\\"')
-      await this.uploadImageToDoc2XByBase64(fileBase64, fileName)
+    this.waitHUD("Uploading file...")
+    await MNUtil.delay(0.1)
+    let fileName = "image.png"
+    let fileBase64 = currentImage.base64Encoding().replace(/"/g, '\\"')
+    await this.uploadImageByBase64(fileBase64, fileName, source)
+    // await this.uploadImageToDoc2XByBase64(fileBase64, fileName)
+    if (source === "doc2x") {
       await MNUtil.stopHUD(0.5)
       let currentURL = await this.getCurrentURL()
       // MNUtil.log(currentURL)
@@ -5869,6 +5732,8 @@ browserController.prototype.uploadImageToDoc2X = async function (currentImage = 
       let res = await this.runJavaScript(`document.getElementById("txta_input").textContent`)
       MNUtil.copy(res)
       this.showHUD("识别结果已复制")
+    }
+
 }
 /**
  * 
@@ -6078,6 +5943,14 @@ browserController.prototype.executeCustomAction = async function(action) {
     let res = ""
     let success = true
     switch (action) {
+      case "uploadPDF":
+        let sourceInfo = await this.getWebSource()
+        if (!sourceInfo) {
+          this.showHUD("No source found")
+          return false
+        }
+        this.uploadPDF(undefined,sourceInfo.source)
+        break;
       case "uploadPDFToDoc2X":
         if (!(await this.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
           MNUtil.waitHUD("Opening Doc2X...")
@@ -6086,7 +5959,17 @@ browserController.prototype.executeCustomAction = async function(action) {
           this.uploadOnDoc2X = {enabled:true,action:"uploadPDFToDoc2X"}
           return success
         }
-        this.uploadPDFToDoc2X()
+        this.uploadPDF()
+        break;
+      case "uploadPDFToIma":
+        if (!(await this.currentURLStartsWith("https://ima.qq.com"))) {
+          MNUtil.waitHUD("Opening Doc2X...")
+          this.setWebMode(true)
+          MNConnection.loadRequest(this.webview, "https://ima.qq.com")
+          this.uploadOnIma = {enabled:true,action:"uploadPDFToIma"}
+          return success
+        }
+        this.uploadPDF()
         break;
       case "uploadImageToDoc2X":
         if (!(await this.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
@@ -6096,7 +5979,7 @@ browserController.prototype.executeCustomAction = async function(action) {
           this.uploadOnDoc2X = {enabled:true,action:"uploadImageToDoc2X"}
           return success
         }
-        this.uploadImageToDoc2X()
+        this.uploadImage()
         break;
       case "changeBilibiliVideoPart":
         this.changeBilibiliVideoPart(button)
@@ -6359,4 +6242,87 @@ browserController.prototype.configMoreOption = function(button) {
  */
 browserController.prototype.currentNote = function () {
   return MNNote.new(this.currentNoteId)
+}
+
+browserController.prototype.getWebSource = async function () {
+    let currentURL = await this.getCurrentURL()
+    // menu.addMenuItem('🎬  VideoFrame → NewComment', 'changeZoomScale:',true)
+    if (currentURL.startsWith("https://doc2x.noedgeai.com")) {
+      return {
+        title: '📤  Upload to Doc2X',
+        source: 'doc2x',
+        selector: 'uploadToDoc2X:'
+      }
+    }
+    if (currentURL.startsWith("https://ima.qq.com")) {
+      return {
+        title: '📤  Upload to Ima',
+        source: 'ima',
+        selector: 'uploadToWebDefault:'
+      }
+    }
+    if (currentURL.startsWith("https://www.kimi.com")) {
+      return {
+        title: '📤  Upload to Kimi',
+        source: 'kimi',
+        selector: 'uploadToWebDefault:'
+      }
+    }
+    if (currentURL.startsWith("https://chat.qwen.ai")) {
+      return {
+        title: '📤  Upload to Qwen',
+        source: 'qwen',
+        selector: 'uploadPDFToWebDefault:'
+      }
+    }
+    // if (currentURL.startsWith("https://www.doubao.com/chat/")) {
+    //   menu.addMenuItem('📤  Upload to Doubao', 'uploadToWebDefault:','doubao')
+    // }
+    if (currentURL.startsWith("https://chat.z.ai")) {
+      return {
+        title: '📤  Upload to Z.ai',
+        source: 'zhipu',
+        selector: 'uploadPDFToWebDefault:'
+      }
+      // menu.addMenuItem('📤  Upload to Z.ai', 'uploadToWebDefault:','zhipu')
+    }
+    if (currentURL.startsWith("https://chat.deepseek.com")) {
+      return {
+        title: '📤  Upload to DeepSeek',
+        source: 'deepseek',
+        selector: 'uploadToWebDefault:'
+      }
+    }
+    if (currentURL.startsWith("https://yuanbao.tencent.com/chat")) {
+      return {
+        title: '📤  Upload to Yuanbao',
+        source: 'yuanbao',
+        selector: 'uploadToWebDefault:'
+      }
+      // menu.addMenuItem('📤  Upload to Yuanbao', 'uploadPDFToWebDefault:','yuanbao')
+    }
+    if (currentURL.startsWith("https://space.coze.cn")) {
+      return {
+        title: '📤  Upload to Coze',
+        source: 'coze',
+        selector: 'uploadToWebDefault:'
+      }
+      // menu.addMenuItem('📤  Upload to Yuanbao', 'uploadPDFToWebDefault:','yuanbao')
+    }
+    return undefined
+}
+browserController.prototype.openIMA = async function (config) {
+  let confirm = await MNUtil.confirm("MN Browser","Open IMA?\n\n是否打开IMA？")
+  if (confirm) {
+    // MNUtil.copy(config.url)
+    MNUtil.openURL(config.url)
+  }
+}
+
+browserController.prototype.openWX = async function (config) {
+  let confirm = await MNUtil.confirm("MN Browser","Open WeiXin?\n\n是否打开微信？")
+  if (confirm) {
+    // MNUtil.copy(config.url)
+    MNUtil.openURL(config.url)
+  }
 }
