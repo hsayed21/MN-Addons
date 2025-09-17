@@ -1968,7 +1968,6 @@ class MNMath {
           // 获取归类卡片
           let classificationNote = this.getFirstClassificationParentNote(note);
           if (classificationNote) {
-            let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
             // 生成新的前缀内容（不包含【】）
             let newPrefixContent = this.createChildNoteTitlePrefixContent(classificationNote);
             
@@ -1988,11 +1987,11 @@ class MNMath {
             // 构建最终标题
             let finalPrefix;
             if (shouldUpdatePrefix) {
-              // 使用新前缀
-              finalPrefix = this.createTitlePrefix(classificationNoteTitleParts.type, newPrefixContent);
+              // 使用新前缀 - 使用当前卡片的类型而不是归类卡片的类型
+              finalPrefix = this.createTitlePrefix(noteType, newPrefixContent);
             } else {
               // 保留现有前缀
-              finalPrefix = this.createTitlePrefix(noteTitleParts.type || classificationNoteTitleParts.type, noteTitleParts.prefixContent);
+              finalPrefix = this.createTitlePrefix(noteTitleParts.type || noteType, noteTitleParts.prefixContent);
             }
             
             // 定义类 noteTitleParts.content 前要加 `; `
@@ -2892,63 +2891,32 @@ class MNMath {
       noteType = "归类"
     } else {
       /**
-       * 优先检查标题中是否包含明确的类型标识
+       * 如果是
+       * 【xx：yy】zz
+       * 则根据 xx 作为 prefixName 在 types 搜索类型
        */
+      let match = title.match(/^【(.{2,4})\s*(?:>>|：)\s*.*】(.*)/)
       let matchResult
-      
-      // 方法1：匹配【类型 >> xxx】或【类型：xxx】格式
-      let match = title.match(/^【([^】]+?)\s*(?:>>|：)\s*[^】]*】(.*)/)
       if (match) {
         matchResult = match[1].trim();
-        // 提取类型部分（去掉 >> 或 : 后面的内容）
-        let typeMatch = matchResult.match(/^([^>:：]+)/);
-        if (typeMatch) {
-          matchResult = typeMatch[1].trim();
-        }
-      }
-      
-      // 方法2：匹配简单的【类型】格式
-      if (!matchResult) {
-        match = title.match(/^【([^】]+)】/)
+      } else {
+        match = title.match(/^【(.*)】(.*)/)
         if (match) {
           matchResult = match[1].trim();
-          // 提取类型部分（去掉可能的后缀内容）
-          let typeMatch = matchResult.match(/^([^>:：]+)/);
-          if (typeMatch) {
-            matchResult = typeMatch[1].trim();
+        } else {
+          // 从标题判断不了的话，就从卡片的归类卡片来判断
+          let classificationNote = this.getFirstClassificationParentNote(note);
+          if (classificationNote) {
+            let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
+            matchResult = classificationNoteTitleParts.type;
           }
         }
       }
-      
-      // 方法3：检查是否包含特定类型的标识（用于处理格式不完全标准的情况）
-      if (!matchResult) {
-        const typeKeywords = ["定义", "命题", "例子", "反例", "思路", "总结", "思想方法", "问题"];
-        for (let keyword of typeKeywords) {
-          if (title.includes(`【${keyword} >>`) || title.includes(`【${keyword}：`)) {
-            matchResult = keyword;
-            break;
-          }
-        }
-      }
-      
-      // 方法4：最后才从归类卡片来判断（避免误判）
-      if (!matchResult) {
-        // 从标题判断不了的话，就从卡片的归类卡片来判断
-        let classificationNote = this.getFirstClassificationParentNote(note);
-        if (classificationNote) {
-          let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
-          matchResult = classificationNoteTitleParts.type;
-        }
-      }
-      
-      // 根据 matchResult 查找对应的类型
-      if (matchResult) {
-        for (let typeKey in this.types) {
-          let type = this.types[typeKey];
-          if (type.prefixName === matchResult) {
-            noteType = String(typeKey);
-            break;
-          }
+      for (let typeKey in this.types) {
+        let type = this.types[typeKey];
+        if (type.prefixName === matchResult) {
+          noteType = String(typeKey);
+          break;
         }
       }
     }
