@@ -18673,9 +18673,8 @@ MNNote.prototype.moveComment = function(fromIndex, toIndex, msg = false) {
 MNNote.prototype.delete = function(withDescendant = false){
   if (withDescendant) {
     MNUtil.db.deleteBookNoteTree(this.note.noteId)
-  }else{
-    let childNotes = this.childNotes
-    if (childNotes.length > 0 && this.parentNote) {
+  } else {
+    if (this.childNotes.length > 0 && this.parentNote) {
       childNotes.forEach(childNote => {
         this.parentNote.addChild(childNote)
       })
