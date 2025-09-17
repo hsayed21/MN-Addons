@@ -1968,6 +1968,7 @@ class MNMath {
           // 获取归类卡片
           let classificationNote = this.getFirstClassificationParentNote(note);
           if (classificationNote) {
+            let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
             // 生成新的前缀内容（不包含【】）
             let newPrefixContent = this.createChildNoteTitlePrefixContent(classificationNote);
             
@@ -1987,11 +1988,11 @@ class MNMath {
             // 构建最终标题
             let finalPrefix;
             if (shouldUpdatePrefix) {
-              // 使用新前缀 - 使用当前卡片的类型而不是归类卡片的类型
-              finalPrefix = this.createTitlePrefix(noteType, newPrefixContent);
+              // 使用新前缀
+              finalPrefix = this.createTitlePrefix(classificationNoteTitleParts.type, newPrefixContent);
             } else {
               // 保留现有前缀
-              finalPrefix = this.createTitlePrefix(noteTitleParts.type || noteType, noteTitleParts.prefixContent);
+              finalPrefix = this.createTitlePrefix(noteTitleParts.type || classificationNoteTitleParts.type, noteTitleParts.prefixContent);
             }
             
             // 定义类 noteTitleParts.content 前要加 `; `
@@ -2882,12 +2883,12 @@ class MNMath {
     let title = note.title || "";
     /**
      * 如果是
-     * "xxx"："yyy"相关 zz
+     * “xxx”：“yyy”相关 zz
      * 或者是
-     * "yyy"相关 zz
+     * “yyy”相关 zz
      * 则是归类卡片
      */
-    if (/^"[^"]*"："[^"]*"\s*相关[^"]*$/.test(title) || /^"[^"]+"\s*相关[^"]*$/.test(title)) {
+    if (/^“[^”]*”：“[^”]*”\s*相关[^“]*$/.test(title) || /^“[^”]+”\s*相关[^“]*$/.test(title)) {
       noteType = "归类"
     } else {
       /**
