@@ -3773,6 +3773,48 @@ function registerAllCustomActions() {
     });
   });
 
+  // addNewDefinitionNote
+  global.registerCustomAction("addNewDefinitionNote", async function (context) {
+    const { button, des, focusNote, focusNotes, self } = context;
+    
+    MNUtil.undoGrouping(() => {
+      if (!focusNote) {
+        MNUtil.showHUD("请先选择卡片");
+        return;
+      }
+      
+      // 检查是否是支持的父卡片类型
+      const parentType = MNMath.getNoteType(focusNote);
+      const supportedTypes = ["命题", "例子"];
+      
+      if (!supportedTypes.includes(parentType)) {
+        MNUtil.showHUD("只能在命题或例子卡片上生成定义卡片");
+        return;
+      }
+      
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        "生成定义卡片",
+        "请输入定义卡片的内容：",
+        2, // UIAlertViewStylePlainTextInput
+        "取消",
+        ["确定"],
+        (alert, buttonIndex) => {
+          if (buttonIndex === 1) {
+            const userInput = alert.textFieldAtIndex(0).text.trim();
+            if (!userInput) {
+              MNUtil.showHUD("内容不能为空");
+              return;
+            }
+            
+            MNUtil.undoGrouping(() => {
+              MNMath.addNewDefinitionNote(focusNote, userInput);
+            });
+          }
+        }
+      );
+    });
+  });
+
   // addNewCounterexampleNote
   global.registerCustomAction("addNewCounterexampleNote", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;

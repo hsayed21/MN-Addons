@@ -561,6 +561,10 @@ function registerAllMenuTemplates() {
           menuTitle: "    生成「总结」卡片",
         },
         {
+          action: "addNewDefinitionNote",
+          menuTitle: "    生成「定义」卡片",
+        },
+        {
           action: "addNewCounterexampleNote",
           menuTitle: "    生成「反例」卡片",
         },

@@ -376,6 +376,7 @@ class MNMath {
     this.autoMoveNewContent(note) // 自动移动新内容到对应字段
     this.moveTaskCardLinksToRelatedField(note) // 移动任务卡片链接到"相关链接"字段
     this.moveSummaryLinksToTop(note) // 移动总结链接到卡片最上方
+    this.handleDefinitionPropositionLinks(note) // 处理定义-命题/例子之间的链接
     this.refreshNotes(note) // 刷新卡片
     if (addToReview) {
       this.addToReview(note, reviewEverytime) // 加入复习
@@ -384,6 +385,69 @@ class MNMath {
       MNUtil.undoGrouping(()=>{
         note.focusInMindMap()
       })
+    }
+  }
+
+  /**
+   * 处理定义卡片与命题/例子卡片之间的链接
+   * 
+   * @param {MNNote} note - 要处理的卡片
+   */
+  static handleDefinitionPropositionLinks(note) {
+    const noteType = this.getNoteType(note);
+    const parentNote = note.parentNote;
+    
+    if (!parentNote) return;
+    
+    const parentType = this.getNoteType(parentNote);
+    const supportedCombinations = [
+      { child: "定义", parents: ["命题", "例子"] },
+      { child: "命题", parents: ["定义"] },
+      { child: "例子", parents: ["定义"] }
+    ];
+    
+    // 检查是否是需要处理的组合
+    let shouldProcess = false;
+    let isDefinitionChild = false;
+    
+    for (let combo of supportedCombinations) {
+      if (noteType === combo.child && combo.parents.includes(parentType)) {
+        shouldProcess = true;
+        isDefinitionChild = (combo.child === "定义");
+        break;
+      }
+    }
+    
+    if (!shouldProcess) return;
+    
+    // 获取双方的链接索引
+    let parentInChildIndex = this.getNoteIndexInAnotherNote(parentNote, note);
+    let childInParentIndex = this.getNoteIndexInAnotherNote(note, parentNote);
+    
+    // 确保双向链接
+    if (parentInChildIndex === -1) {
+      note.appendNoteLink(parentNote, "To");
+      parentInChildIndex = this.getNoteIndexInAnotherNote(parentNote, note);
+    }
+    
+    if (childInParentIndex === -1) {
+      parentNote.appendNoteLink(note, "To");
+      childInParentIndex = this.getNoteIndexInAnotherNote(note, parentNote);
+    }
+    
+    // 根据类型移动链接到相应字段
+    if (isDefinitionChild) {
+      // 定义是子卡片：在父卡片（命题/例子）中移动定义链接到"相关链接"字段
+      if (childInParentIndex !== -1) {
+        this.moveCommentsArrToField(parentNote, [childInParentIndex], "相关链接", true);
+      }
+      // 定义卡片中的父链接保持在末尾（相关链接字段本身就是最后）
+    } else {
+      // 命题/例子是子卡片：在定义卡片（父）中移动命题/例子链接到末尾
+      // 在命题/例子卡片中移动定义链接到"相关链接"字段
+      if (parentInChildIndex !== -1) {
+        this.moveCommentsArrToField(note, [parentInChildIndex], "相关链接", true);
+      }
     }
   }
 
@@ -2737,6 +2801,48 @@ class MNMath {
   }
 
   /**
+   * 增加定义卡片
+   * 
+   * @param {MNNote} note - 当前卡片（命题或例子卡片）
+   * @param {string} title - 定义卡片的标题
+   */
+  static addNewDefinitionNote(note, title) {
+    // 检查父卡片类型
+    const supportedParentTypes = ["命题", "例子"];
+    const parentType = this.getNoteType(note);
+    
+    if (!supportedParentTypes.includes(parentType)) {
+      MNUtil.showHUD("只能在命题或例子卡片上生成定义卡片");
+      return;
+    }
+    
+    // 生成定义卡片
+    let definitionNote = MNNote.clone(this.types.定义.templateNoteId);
+    
+    // 处理标题
+    let prefixContent = this.createChildNoteTitlePrefixContent(note);
+    definitionNote.title = this.createTitlePrefix(this.types.定义.prefixName, prefixContent) + title;
+    
+    // 设置完标题后再添加为子卡片
+    note.addChild(definitionNote);
+    
+    // 处理链接（不需要添加 markdown 评论）
+    note.appendNoteLink(definitionNote, "Both");  // 双向链接
+    
+    // 在父卡片（命题/例子）中，移动定义卡片的链接到"相关链接"字段
+    this.moveCommentsArrToField(note, "Z", "相关链接");  // 只移动最后一个评论（链接）
+    
+    // 定义卡片的相关链接本身就在最后，无需移动
+    
+    // 延迟聚焦，确保所有操作完成后再定位
+    MNUtil.delay(0.5).then(() => {
+      if (MNUtil.mindmapView) {
+        definitionNote.focusInMindMap(0.3)
+      }
+    })
+  }
+
+  /**
    * 根据卡片类型确定思路链接内容要移动到哪个字段下
    */
   static getIdeaLinkMoveToField(note) {
@@ -2777,41 +2883,72 @@ class MNMath {
     let title = note.title || "";
     /**
      * 如果是
-     * “xxx”：“yyy”相关 zz
+     * "xxx"："yyy"相关 zz
      * 或者是
-     * “yyy”相关 zz
+     * "yyy"相关 zz
      * 则是归类卡片
      */
-    if (/^“[^”]*”：“[^”]*”\s*相关[^“]*$/.test(title) || /^“[^”]+”\s*相关[^“]*$/.test(title)) {
+    if (/^"[^"]*"："[^"]*"\s*相关[^"]*$/.test(title) || /^"[^"]+"\s*相关[^"]*$/.test(title)) {
       noteType = "归类"
     } else {
       /**
-       * 如果是
-       * 【xx：yy】zz
-       * 则根据 xx 作为 prefixName 在 types 搜索类型
+       * 优先检查标题中是否包含明确的类型标识
        */
-      let match = title.match(/^【(.{2,4})\s*(?:>>|：)\s*.*】(.*)/)
       let matchResult
+      
+      // 方法1：匹配【类型 >> xxx】或【类型：xxx】格式
+      let match = title.match(/^【([^】]+?)\s*(?:>>|：)\s*[^】]*】(.*)/)
       if (match) {
         matchResult = match[1].trim();
-      } else {
-        match = title.match(/^【(.*)】(.*)/)
+        // 提取类型部分（去掉 >> 或 : 后面的内容）
+        let typeMatch = matchResult.match(/^([^>:：]+)/);
+        if (typeMatch) {
+          matchResult = typeMatch[1].trim();
+        }
+      }
+      
+      // 方法2：匹配简单的【类型】格式
+      if (!matchResult) {
+        match = title.match(/^【([^】]+)】/)
         if (match) {
           matchResult = match[1].trim();
-        } else {
-          // 从标题判断不了的话，就从卡片的归类卡片来判断
-          let classificationNote = this.getFirstClassificationParentNote(note);
-          if (classificationNote) {
-            let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
-            matchResult = classificationNoteTitleParts.type;
+          // 提取类型部分（去掉可能的后缀内容）
+          let typeMatch = matchResult.match(/^([^>:：]+)/);
+          if (typeMatch) {
+            matchResult = typeMatch[1].trim();
           }
         }
       }
-      for (let typeKey in this.types) {
-        let type = this.types[typeKey];
-        if (type.prefixName === matchResult) {
-          noteType = String(typeKey);
-          break;
+      
+      // 方法3：检查是否包含特定类型的标识（用于处理格式不完全标准的情况）
+      if (!matchResult) {
+        const typeKeywords = ["定义", "命题", "例子", "反例", "思路", "总结", "思想方法", "问题"];
+        for (let keyword of typeKeywords) {
+          if (title.includes(`【${keyword} >>`) || title.includes(`【${keyword}：`)) {
+            matchResult = keyword;
+            break;
+          }
+        }
+      }
+      
+      // 方法4：最后才从归类卡片来判断（避免误判）
+      if (!matchResult) {
+        // 从标题判断不了的话，就从卡片的归类卡片来判断
+        let classificationNote = this.getFirstClassificationParentNote(note);
+        if (classificationNote) {
+          let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
+          matchResult = classificationNoteTitleParts.type;
+        }
+      }
+      
+      // 根据 matchResult 查找对应的类型
+      if (matchResult) {
+        for (let typeKey in this.types) {
+          let type = this.types[typeKey];
+          if (type.prefixName === matchResult) {
+            noteType = String(typeKey);
+            break;
+          }
         }
       }
     }
