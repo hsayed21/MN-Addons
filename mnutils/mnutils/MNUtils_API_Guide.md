@@ -1746,7 +1746,6 @@ xdyyutils.js 为 MNNote 原型添加了 70+ 个扩展方法：
 // === 笔记类型判断 ===
 note.ifReferenceNote()          // 是否文献笔记（标题以【文献或【参考文献开头）
 note.ifOldReferenceNote()       // 是否旧版文献笔记
-note.ifTemplateOldVersion()     // 是否旧模板制作的卡片
 note.ifReferenceNoteToMove()    // 是否需要移动的文献笔记
 note.lastTwoCommentsType()      // 获取最后两个评论的类型
 

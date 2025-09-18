@@ -283,6 +283,10 @@ try {
 
 # MN-Addon 开发经验与常见问题
 
+## 关于 self 和 this
+
+在 JSB.defineClass 内部严禁使用 `let self = this;`，这是错误的写法。直接用 `self` 指向当前插件实例即可。
+
 ## note.MNComments 与 note.comments 的关键区别
 
 ### 问题背景

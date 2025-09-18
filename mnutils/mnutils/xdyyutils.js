@@ -369,15 +369,7 @@ class MNMath {
   static makeCard(note, addToReview = true, reviewEverytime = true, focusInMindMap = true) {
     this.renewNote(note) // 处理旧卡片
     this.mergeTemplateAndAutoMoveNoteContent(note) // 合并模板卡片并自动移动内容
-    this.changeTitle(note) // 修改卡片标题
-    this.changeNoteColor(note) // 修改卡片颜色
-    this.linkParentNote(note) // 链接广义的父卡片（可能是链接归类卡片）
-    // this.refreshNote(note) // 刷新卡片
-    this.autoMoveNewContent(note) // 自动移动新内容到对应字段
-    this.moveTaskCardLinksToRelatedField(note) // 移动任务卡片链接到"相关链接"字段
-    this.moveSummaryLinksToTop(note) // 移动总结链接到卡片最上方
-    this.handleDefinitionPropositionLinks(note) // 处理定义-命题/例子之间的链接
-    this.refreshNotes(note) // 刷新卡片
+    this.templateMergedCardMake(note)
     if (addToReview) {
       this.addToReview(note, reviewEverytime) // 加入复习
     }
@@ -386,6 +378,23 @@ class MNMath {
         note.focusInMindMap()
       })
     }
+  }
+
+  /**
+   * 已合并模板的卡片制卡
+   * 
+   * 暂不在这处理复习
+   * @param note 
+   */
+  static templateMergedCardMake(note) {
+    this.changeTitle(note) // 修改卡片标题
+    this.changeNoteColor(note) // 修改卡片颜色
+    this.linkParentNote(note) // 链接广义的父卡片（可能是链接归类卡片）
+    this.autoMoveNewContent(note) // 自动移动新内容到对应字段
+    this.moveTaskCardLinksToRelatedField(note) // 移动任务卡片链接到"相关链接"字段
+    this.moveSummaryLinksToTop(note) // 移动总结链接到卡片最上方
+    this.handleDefinitionPropositionLinks(note) // 处理定义-命题/例子之间的链接
+    this.refreshNotes(note) // 刷新卡片
   }
 
   /**
@@ -2467,6 +2476,10 @@ class MNMath {
       MNUtil.log("🔗 开始处理合并模板前提取的 MarginNote 链接...");
       this.processExtractedMarginNoteLinks(note, marginNoteLinks);
     }
+  }
+
+  static ifTemplateMerged(note) {
+    return note.MNComments.some(comment => comment.type === "HtmlComment");
   }
 
   /**
@@ -17525,14 +17538,6 @@ MNNote.prototype.getRenewProofHtmlCommentByNoteType = function(type){
 
 
 /**
- * 判断卡片是不是旧模板制作的
- */
-MNNote.prototype.ifTemplateOldVersion = function(){
-  // let remarkHtmlCommentIndex = this.getHtmlCommentIndex("Remark：")
-  return this.getHtmlCommentIndex("Remark：") !== -1 || (this.getHtmlCommentIndex("所属") !== -1 && this.getNoteTypeZh()!== "归类" && this.getNoteTypeZh()!== "顶层")
-}
-
-/**
  * 根据类型去掉评论
  */
 MNNote.prototype.removeCommentsByTypes = function(types){
@@ -17858,220 +17863,6 @@ MNNote.prototype.LinkIfDouble = function(link){
   return this.LinkGetType(link) === "Double"
 }
 
-MNNote.prototype.renew = function(){
-  let noteType = this.getNoteTypeZh()
-  /**
-   * 更新链接
-   */
-  this.renewLinks()
-
-  /**
-   * 转换为非摘录版本
-   */
-  if (this.excerptText) {
-    this.toNoExcerptVersion()
-  }
-
-  if (noteType == "文献") {
-    if (this.ifOldReferenceNote()) {
-      /**
-       * 重新处理旧文献卡片
-       * 
-       * 只保留
-       * 1. 标题（去掉前面的【】）
-       * 2. 摘录
-       * 
-       * 也就是去掉所有文本
-       */
-
-      // 处理标题
-      // 此处不处理标题，否则后续
-      // this.title = this.title.toReferenceNoteTitle()
-
-      // 去掉文本
-      this.removeCommentsByTypes(["text","link"])
-    }
-  } else {
-    /**
-     * 检测是否是旧模板制作的卡片
-     */
-    if (this.ifTemplateOldVersion()) {
-      /**
-       * 旧模板卡片则只保留
-       * 1. 标题
-       * 2. 摘录
-       * 3. 手写
-       * 4. 图片
-       * 也就是要去掉
-       * 1. 文本
-       * 2. 链接
-       * i.e. 去掉所有的 TextNote
-       * 但是保留原本的部分的链接
-       *   - 原本的证明中相关知识的部分
-       *   - 原本的证明中体现的思想方法的部分
-       * 
-       * 检测标题是否是知识类卡片的标题，如果是的话要把前缀去掉，否则会影响后续的添加到复习
-       */
-      if (this.noteTitle.ifKnowledgeNoteTitle()) {
-        this.noteTitle = this.noteTitle.toKnowledgeNoteTitle()
-      }
-
-      // // 获取"证明过程相关知识："的 block 内容
-      // let proofKnowledgeBlockTextContentArr = this.getHtmlBlockTextContentArr("证明过程相关知识：")
-      
-      // // 获取"证明体现的思想方法："的 block 内容
-      // let proofMethodBlockTextContentArr = this.getHtmlBlockTextContentArr("证明体现的思想方法：")
-
-      // // 获取"应用："的 block 内容
-      // let applicationBlockTextContentArr = this.getHtmlBlockTextContentArr("应用：")
-
-      // 去掉所有的文本评论和链接
-      this.removeCommentsByTypes(["text","link"])
-
-      // // 重新添加两个 block 的内容
-      // proofKnowledgeBlockTextContentArr.forEach(text => {
-      //   this.appendMarkdownComment(text)
-      // })
-
-      // proofMethodBlockTextContentArr.forEach(text => {
-      //   this.appendMarkdownComment(text)
-      // })
-
-      // applicationBlockTextContentArr.forEach(text => {
-      //   this.appendMarkdownComment(text)
-      // })
-    } else {
-      /**
-       * 其它类型的旧卡片
-       */
-
-      if (
-        this.noteTitle.ifKnowledgeNoteTitle() &&
-        (
-          this.getCommentIndex("由来/背景：") !== -1 ||
-          this.getCommentIndex("- ") !== -1 ||
-          this.getCommentIndex("-") !== -1 ||
-          this.getHtmlCommentIndex("所属") !== -1
-        )
-      ) {
-        this.noteTitle = this.noteTitle.toKnowledgeNoteTitle()
-      }
-
-      /**
-       * 删除一些特定的文本
-       */
-      if (noteType!== "归类" && noteType!== "顶层") {
-        this.removeCommentsByText(
-          [
-            "零层",
-            "一层",
-            "两层",
-            "三层",
-            "四层",
-            "五层",
-            "由来/背景：",
-            "- 所属",
-            "所属"
-          ]
-        )
-      } else {
-        this.removeCommentsByText(
-          [
-            "零层",
-            "一层",
-            "两层",
-            "三层",
-            "四层",
-            "五层",
-            "由来/背景：",
-            "- 所属",
-          ]
-        )
-      }
-
-      this.removeCommentsByTrimText(
-        "-"
-      )
-
-      /**
-       * 更新 Html 评论
-       */
-      this.renewHtmlCommentFromId("关键词：", "13D040DD-A662-4EFF-A751-217EE9AB7D2E")
-      this.renewHtmlCommentFromId("相关定义：", "341A7B56-8B5F-42C8-AE50-61F7A1276FA1")
-
-      /**
-       * 根据父卡片或者是卡片颜色（取决于有没有归类的父卡片）来修改 Html 版本
-       */
-      if (noteType !== "归类" && noteType !== "顶层") {
-        // 修改对应 "证明："的版本
-        let proofHtmlCommentIndex = this.getProofHtmlCommentIndexByNoteType(noteType)
-        if (proofHtmlCommentIndex == -1) {
-          // 此时要先找到不正确的 proofHtmlComment 的 Index，然后删除掉
-          this.getRenewProofHtmlCommentByNoteType(noteType)
-        }
-      } else {
-        // 去掉"相关xx：" 改成"相关思考："
-        let oldRelatedHtmlCommentIndex = this.getIncludingHtmlCommentIndex("相关")
-        let includeHtmlCommentIndex = this.getHtmlCommentIndex("包含：")
-        if (includeHtmlCommentIndex !== -1) { // 原本合并过模板的才需要处理
-          if (oldRelatedHtmlCommentIndex == -1) {
-            this.mergeClonedNoteById("B3CAC635-F507-4BCF-943C-B3F9D4BF6D1D")
-            this.moveComment(this.comments.length-1, includeHtmlCommentIndex)
-          } else {
-            this.removeCommentByIndex(oldRelatedHtmlCommentIndex)
-            this.mergeClonedNoteById("B3CAC635-F507-4BCF-943C-B3F9D4BF6D1D")
-            this.moveComment(this.comments.length-1, oldRelatedHtmlCommentIndex)
-          }
-        }
-      }
-
-      /**
-       * 调整 Html Block 的结构
-       */
-      if (this.getNoteTypeZh() == "定义") {
-        /**
-         * 定义类卡片，按照
-         * - 相关概念：
-         * - 相关思考：
-         * - 相关链接：
-         * 的顺序
-         */
-        this.moveHtmlBlockToBottom("相关概念：")
-        this.moveHtmlBlockToBottom("相关思考：")
-        this.moveHtmlBlockToBottom("相关链接：")
-      } else {
-        // 非定义类卡片
-        /**
-         * 将"应用："及下方的内容移动到最下方
-         */
-        if (this.getNoteTypeZh()!== "归类" && this.getNoteTypeZh() !== "顶层"){
-          this.moveHtmlBlockToBottom("相关思考：")
-        }
-        // this.moveHtmlBlockToBottom("关键词：")
-        let keywordHtmlCommentIndex = this.getIncludingHtmlCommentIndex("关键词：")
-        if (keywordHtmlCommentIndex !== -1) {
-          this.moveComment(keywordHtmlCommentIndex, this.comments.length-1)
-        }
-        this.moveHtmlBlockToBottom("相关链接：")
-        this.moveHtmlBlockToBottom("应用：")
-      }
-
-      /**
-       * 刷新卡片
-       */
-      this.refresh()
-    }
-  }
-
-}
-
-MNNote.prototype.renewNote = function(){
-  this.renew()
-}
-
-MNNote.prototype.renewCard = function(){
-  this.renew()
-}
 
 MNNote.prototype.getIncludingHtmlCommentIndex = function(htmlComment){
   const comments = this.note.comments
@@ -18202,39 +17993,6 @@ MNNote.prototype.refresh = async function(delay = 0){
   this.note.removeCommentByIndex(this.note.comments.length-1)
 }
 
-/**
- * 更新卡片里的链接
- * 1. 将 MN3 链接转化为 MN4 链接
- * 2. 去掉所有失效链接
- * 3. 修复合并造成的链接失效问题
- * 4. "应用"下方去重
- */
-MNNote.prototype.LinkRenew = function(){
-  this.convertLinksToNewVersion()
-  this.clearFailedLinks()
-  this.fixProblemLinks()
-
-  // 应用去重
-  let applicationHtmlCommentIndex = Math.max(
-    this.getIncludingHtmlCommentIndex("应用："),
-    this.getIncludingCommentIndex("的应用")
-  )
-  if (applicationHtmlCommentIndex !== -1) {
-    this.linkRemoveDuplicatesAfterIndex(applicationHtmlCommentIndex)
-  }
-}
-
-MNNote.prototype.renewLink = function(){
-  this.LinkRenew()
-}
-
-MNNote.prototype.renewLinks = function(){
-  this.LinkRenew()
-}
-
-MNNote.prototype.LinksRenew = function(){
-  this.LinkRenew()
-}
 
 MNNote.prototype.clearFailedLinks = function(){
   for (let i = this.comments.length-1; i >= 0; i--) {

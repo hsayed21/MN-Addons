@@ -3886,7 +3886,11 @@ function registerAllCustomActions() {
         } else if (toolbarConfig.windowState.preprocess) {
           // 预处理模式：简化处理
           let newnote = MNMath.toNoExcerptVersion(focusNote);
-          MNMath.changeTitle(newnote);
+          if (MNMath.ifTemplateMerged(newnote)) {
+            MNMath.templateMergedCardMake(newnote)
+          } else {
+            MNMath.changeTitle(newnote);
+          }
           newnote.focusInMindMap(0.2);
         } else {
           // 正常模式：完整制卡流程
