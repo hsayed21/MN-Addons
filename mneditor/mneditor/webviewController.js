@@ -123,6 +123,15 @@ var editorController = JSB.defineClass('editorController : UIViewController <UIW
     // self.saveButton.addGestureRecognizer(self.resizeGesture)
     // self.resizeGesture.view.hidden = false
     // self.resizeGesture.addTargetAction(self,"onResizeGesture:")
+    // self.creatTextView("inlineLinkInput")
+    self.creatView("inlineLinkView")
+    self.inlineLinkView.hidden = true
+    self.creatTextView("inlineLinkInput","inlineLinkView")
+    self.inlineLinkInput.id = "inlineLinkInput"
+    self.createButton("closeInlineLink","closeInlineLinkTapped:","inlineLinkView")
+    self.closeInlineLink.setImageForState(editorUtils.stopImage,0)
+    MNButton.setColor(self.closeInlineLink, "#e06c75")
+    self.inlineLinkScrollview = self.createScrollview("inlineLinkView")
   } catch (error) {
     MNUtil.showHUD("Error in viewDidLoad: "+error)
   }
@@ -135,7 +144,37 @@ var editorController = JSB.defineClass('editorController : UIViewController <UIW
     self.webview.delegate = null;
     UIApplication.sharedApplication().networkActivityIndicatorVisible = false;
   },
+  /**
+   * 
+   * @param {UITextView} textview 
+   */
+  textViewDidChange:function (textview) {
+    let self = getEditorController()
+    try {
+      if (textview.id !== "inlineLinkInput") {
+        return
+      }
 
+    let text = textview.text.trim()
+    if (text.length < 2) {
+      return
+    }
+    // MNUtil.showHUD("should search: "+text)
+    let allNotes = MNUtil.currentNotebook.notes
+    let filteredNotes = allNotes.filter((note)=>{
+      if (note.noteTitle) {
+        return note.noteTitle.includes(text)
+      }
+      return false
+    })
+    // MNUtil.showHUD("filteredNotes: "+filteredNotes.length)
+    self.setButtonText(filteredNotes.map((note)=>{
+      return note.noteTitle
+    }))
+    } catch (error) {
+      editorUtils.addErrorLog(error, "textViewDidChange")
+    }
+  },
 viewWillLayoutSubviews: function() {
   let self = getEditorController()
     if (self.miniMode) {
@@ -217,6 +256,19 @@ viewWillLayoutSubviews: function() {
       MNUtil.showHUD("Empty URL")
       return false
     }
+    let config = MNUtil.parseURL(requestURL)
+    switch (config.scheme) {
+      case "file":
+        return true
+      case "marginnote4app":
+      case "marginnote3app":
+        self.openMNURL(config)
+        // MNUtil.openURL(requestURL)
+        return false
+      default:
+        editorUtils.log("config", config)
+        break;
+    }
     
     // if (/^marginnote4app\:\/\//.test(requestURL)) {
     //   MNUtil.showHUD("message")
@@ -249,6 +301,7 @@ viewWillLayoutSubviews: function() {
       MNUtil.copy(text)
       return false
     }
+    
     if (/^editordroptext\:\/\//.test(requestURL)) {
       if(self.editorNoteId){
         let text = decodeURIComponent(requestURL.split("content=")[1])
@@ -352,6 +405,20 @@ viewWillLayoutSubviews: function() {
       }
       MNUtil.showHUD("Can't save on free mode!")
       return false
+    }
+    if (/^editorinlinelink\:\/\//.test(requestURL)) {
+      // self.exit()
+      // MNUtil.showHUD("Inline link")
+      self.inlineLinkView.hidden = false
+      let frame = self.view.frame
+      self.inlineLinkView.frame = {x:frame.width/2-200,y:frame.height/2-150,width:400,height:300}
+      self.inlineLinkInput.frame = {x:10,y:10,width:340,height:35}
+      self.closeInlineLink.frame = {x:355,y:10,width:35,height:35}
+      self.inlineLinkScrollview.frame = {x:10,y:50,width:380,height:240}
+      self.inlineLinkInput.becomeFirstResponder()
+      return false
+      // let text = decodeURIComponent(requestURL.split("content=")[1])
+      // MNUtil.copy(text)
     }
     if (/^editorexit\:\/\//.test(requestURL)) {
       self.exit()
@@ -734,6 +801,23 @@ viewWillLayoutSubviews: function() {
     editorUtils.addErrorLog(error, "saveTo")
   }
   },
+
+  saveToMindmap: async function (){
+    let self = getEditorController()
+    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    let content = await self.getContent()
+    let ast = editorUtils.markdown2AST(content)
+    let focusNote = MNNote.getFocusNote()
+    MNUtil.showHUD("Creating mindmap...")
+    await MNUtil.delay(0.1)
+    MNUtil.undoGrouping(()=>{
+      if (!focusNote) {
+        focusNote = editorUtils.newNoteInCurrentChildMap({title:newNoteTitle})
+        focusNote.focusInFloatMindMap(0.5)
+      }
+      editorUtils.AST2Mindmap(focusNote,ast)
+    })
+  },
   saveToAttach(md5){
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
     if (typeof md5 === "string") {
@@ -1074,9 +1158,62 @@ viewWillLayoutSubviews: function() {
       {title:'Line',object:self,selector:'addMoreWithType:',param:"Line"},
       {title:'Latex block',object:self,selector:'addMoreWithType:',param:"Latex"},
       {title:'Mindmap block',object:self,selector:'addMoreWithType:',param:"Mindmap"},
+      {title:'Remove link',object:self,selector:'removeLinkFormat:',param:"Mindmap"},
+      {title:'➕  Create Subpage',object:self,selector:'createChildNote:',param:"selection"},
+      {title:'➕  Create Subpage & Edit',object:self,selector:'createChildNote:',param:"selectionAndEdit"},
       // {title:'Html Block',object:self,selector:'addMoreWithType:',param:"Html Block"}
     ];
     self.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,200)
+  },
+  removeLinkFormat: async function () {
+    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    self.runJavaScript(`editor.updateValue(editor.getSelection())`)
+    // await self.runJavaScript(`editor.updateValue(\`${selection}\`)`)
+    // MNUtil.copy(selection)
+    // //对于markdown链接，只保留文本，移除链接格式
+    // if (/^\[.*?\]\(.+?\)/.test(selection)) {
+    // }else{
+    //   MNUtil.showHUD("No link found")
+    // }
+  },
+  createChildNote: async function (source) {
+    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    if (self.editorNoteId) {
+      let note = MNNote.new(self.editorNoteId)
+      let selection = await self.runJavaScript(`editor.getSelection()`)
+      if (!selection || selection.trim() === "") {
+        MNUtil.showHUD("No selection")
+        return
+      }
+      let child = note.createChildNote({title:selection,color:note.colorIndex})
+      switch (source) {
+        case "selection":
+          await self.runJavaScript(`editor.updateValue(\`[${selection}](${child.noteURL})\`)`)
+          break;
+        case "selectionAndEdit":
+          await self.runJavaScript(`editor.updateValue(\`[${selection}](${child.noteURL})\`)`)
+          await self.save(self.editorNoteId)
+          self.setContent(child)
+          break;
+        default:
+          break;
+      }
+      // let note = MNNote.new(self.editorNoteId)
+      // let selection = await self.runJavaScript(`editor.getSelection()`)
+      // let child = note.createChildNote({title:selection})
+      // await self.runJavaScript(`editor.updateValue(\`[${selection}](${child.noteURL})\`)`)
+      // await self.save(self.editorNoteId)
+      // self.setContent(child)
+    }
+  },
+  replaceSelection: async function (content) {
+    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    if (self.editorNoteId) {
+      let note = MNNote.new(self.editorNoteId)
+      let selection = await self.runJavaScript(`editor.getSelection()`)
+      let child = note.createChildNote({title:selection})
+      self.runJavaScript(`editor.updateValue(\`[${selection}](${child.noteURL})\`)`)
+    }
   },
   addMoreWithType: async function (type) {
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
@@ -1339,6 +1476,13 @@ viewWillLayoutSubviews: function() {
 // return
     self.exit()
   },
+  closeInlineLinkTapped: function () {
+    self.inlineLinkView.hidden = true
+    // self.inlineLinkInput.resignFirstResponder()
+    MNUtil.delay(0.01).then(()=>{
+      self.focus()
+    })
+  },
  closeConfigTapped: function () {
     let preOpacity = self.settingView.layer.opacity
     UIView.animateWithDurationAnimationsCompletion(0.2,()=>{
@@ -1516,18 +1660,31 @@ viewWillLayoutSubviews: function() {
         let mdContents = content.filter(file=>(/\.md$/.test(file) && file.length > 60))
         let docInfo = mdContents.map(file=>{
           let res = editorUtils.getDocNameFromAttach(file)
+          // MNUtil.log({message:"getDocNameFromAttach: "+res.name,detail:res})
           return res
         })
         let currentDocmd5 = MNUtil.currentDocmd5
         let hasCurrentDoc = false
         // let currentDocFileURL = editorUtils.bufferFolder+currentDocmd5+".md"
-        var commandTable = docInfo.map(doc=>{
-          if (doc.md5 === currentDocmd5) {
-            hasCurrentDoc = true
+        var commandTable = []
+        docInfo.forEach(doc=>{
+          if (doc.exists) {
+            if (doc.md5 === currentDocmd5) {
+              hasCurrentDoc = true
+            }
+            let targetFileURL = editorUtils.bufferFolder+doc.md5+".md"
+            commandTable.push({title:"📝  "+doc.name,object:self,selector:'openAttach:',param:doc.md5,checked:targetFileURL === self.targetURL})
+          }else{
+            MNUtil.log({message:"ignore: "+doc.name,detail:doc})
           }
-          let targetFileURL = editorUtils.bufferFolder+doc.md5+".md"
-          return {title:"📝  "+doc.name,object:self,selector:'openAttach:',param:doc.md5,checked:targetFileURL === self.targetURL}
         })
+        // var commandTable = docInfo.map(doc=>{
+        //   if (doc.md5 === currentDocmd5) {
+        //     hasCurrentDoc = true
+        //   }
+        //   let targetFileURL = editorUtils.bufferFolder+doc.md5+".md"
+        //   return {title:"📝  "+doc.name,object:self,selector:'openAttach:',param:doc.md5,checked:targetFileURL === self.targetURL}
+        // })
         // if (commandTable.length === 0) {
         //   MNUtil.showHUD("No attachments")
         //   return
@@ -1555,8 +1712,9 @@ viewWillLayoutSubviews: function() {
         {title:'Save as NewNote',object:self,selector:'saveTo:',param:"NewNote"},
         {title:'Save as ChildNote',object:self,selector:'saveTo:',param:"ChildNote"},
         {title:'Save as BrotherNote',object:self,selector:'saveTo:',param:"BrotherNote"},
-        {title:'Save as Comment',object:self,selector:'saveTo:',param:"Comment"},
-        {title:'Save as Attachment',object:self,selector:'saveToAttach:',param:button}
+        {title:'Save as Attachment',object:self,selector:'saveToAttach:',param:button},
+        {title:'➡️ Mindmap',object:self,selector:'saveToMindmap:',param:button},
+        {title:'➡️ Comment',object:self,selector:'saveTo:',param:"Comment"},
       ];
       self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,200)
       return
@@ -1681,6 +1839,7 @@ editorController.prototype.setContent = async function (note,delay = 0) {
   if(delay){
     await MNUtil.delay(delay)
   }
+  // MNUtil.copy(note)
   if (note) {
     if (note.groupNoteId || (note.note && note.note.groupNoteId)) {
       if (note.groupNoteId) {
@@ -1688,7 +1847,11 @@ editorController.prototype.setContent = async function (note,delay = 0) {
       }else{
         this.editorNoteId = note.note.groupNoteId
       }
-      note = new MNNote(this.editorNoteId)
+      let temNote = MNNote.new(this.editorNoteId)
+      if (temNote) {
+        note = temNote
+      }
+      // MNUtil.copy(note)
       // MNUtil.copy(this.editorNoteId)
     }else{
       this.editorNoteId = note.noteId
@@ -1698,7 +1861,6 @@ editorController.prototype.setContent = async function (note,delay = 0) {
     return
   }
 try {
-
   this.targetURL = undefined
   let hasBase64 = false
   let title = note.noteTitle ?? ""
@@ -1734,13 +1896,13 @@ try {
         if (imageSize.width === 1 && imageSize.height === 1) {
           //do nothing
         }else{
-          excerptText = `![image.png](${editorUtils.getLocalBufferFromImageData(imageData)})\n`
+          let imageURL = editorUtils.getMNImageURL(note.excerptPic.paint)
+          excerptText = `![image.png](${imageURL})\n`
         }
       }
     }
   }
   if (editorConfig.getConfig("includingComments") && note.comments.length) {
-    // MNUtil.copyJSON(note.comments)
     note.comments.forEach(comment=>{
       switch (comment.type) {
         case "TextNote":
@@ -1753,7 +1915,8 @@ try {
         case 'PaintNote':
           if (comment.paint && !comment.drawing) {
             hasBase64 = true
-            excerptText = excerptText+"\n\n"+`![image.png](${editorUtils.getLocalBufferFromImageData(MNUtil.getMediaByHash(comment.paint))})\n`
+            let imageURL = editorUtils.getMNImageURL(comment.paint)
+            excerptText = excerptText+"\n\n"+`![image.png](${imageURL})\n`
           }
           break;
         //合并的卡片
@@ -1767,7 +1930,8 @@ try {
             if (imageSize.width === 1 && imageSize.height === 1) {
               //do nothing
             }else{
-              excerptText = excerptText+`\n\n---\n![image.png](${editorUtils.getLocalBufferFromImageData(imageData)})\n`
+              let imageURL = editorUtils.getMNImageURL(comment.q_hpic.paint)
+              excerptText = excerptText+`\n\n---\n![image.png](${imageURL})\n`
               break;
             }
           }
@@ -2190,6 +2354,7 @@ editorController.prototype.hide = async function (endFrame,checkSave = true) {
   await MNUtil.animate(()=>{
     this.view.layer.opacity = 0.2
     if (endFrame) {
+      // MNUtil.copy(endFrame)
       let adjustEndFrame = MNUtil.genFrame(endFrame.x, endFrame.y-5, endFrame.width, endFrame.height+40)
       this.setFrame(adjustEndFrame)
     }
@@ -2340,14 +2505,53 @@ try {
       }
     }
     if (hasTitle) {
-      let newTitle = content.split("\n")[0].replace(/^#+\s?/g,"")
-      focusNote.noteTitle = newTitle
-      let contentRemain = content.split("\n").slice(1).join("\n")
-      if (targetToSet.length) {
-        contents = contentRemain.split("\n---\n")
-        focusNote.excerptText = contents[0]
+      let newTitle = content.split("\n")[0].replace(/^#\s?/g,"")
+      let contentRemain = content.split("\n").slice(1).join("\n").trim()
+      let headingNames = editorUtils.headingNamesFromMarkdown(contentRemain)
+      if (headingNames.length) {
+        focusNote.noteTitle = newTitle+";"+headingNames.map(h=>"{{"+h+"}}").join(";")
       }else{
-        focusNote.excerptText = contentRemain
+        focusNote.noteTitle = newTitle
+      }
+      if (focusNote.excerptPic?.paint) {
+        // MNUtil.copy(contentRemain)
+        let hash = focusNote.excerptPic.paint
+        let imageURL = editorUtils.getMNImageURL(hash)
+        let imageURL2 = `![image.png](${imageURL})`
+        if (contentRemain.startsWith(imageURL2)) {
+          // MNUtil.showHUD("Should save image")
+          contentRemain = contentRemain.slice(imageURL2.length).trim()
+          shouldTextFirst = false
+          focusNote.textFirst = false
+          focusNote.excerptTextMarkdown = false
+          focusNote.excerptsText = ""
+          // contentRemain = contentRemain.split("\n").slice(1).join("\n").trim()
+          if (targetToSet.length) {
+            contents = contentRemain.split("\n---\n")
+            if (contents[0].trim()) {
+              focusNote.appendMarkdownComment(contents[0],0)
+            }
+            // focusNote.excerptText = contents[0]
+          }else{
+            if (contentRemain.trim()) {
+              focusNote.appendMarkdownComment(contentRemain,0)
+            }
+          }
+        }else{
+          if (targetToSet.length) {
+            contents = contentRemain.split("\n---\n")
+            focusNote.excerptText = contents[0]
+          }else{
+            focusNote.excerptText = contentRemain
+          }
+        }
+      }else{
+        if (targetToSet.length) {
+          contents = contentRemain.split("\n---\n")
+          focusNote.excerptText = contents[0]
+        }else{
+          focusNote.excerptText = contentRemain
+        }
       }
     }else{
       focusNote.noteTitle = ""
@@ -2502,20 +2706,15 @@ try {
 
 /** @this {editorController} */
 editorController.prototype.replaceMNImagesWithBase64 = function(markdown,checkConfig = true) {
-  // if (/!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/) {
-
-  //   // ![image.png](marginnote4app://markdownimg/png/eebc45f6b237d8abf279d785e5dcda20)
-  // }
 try {
     // let shouldOverWritten = false
-    // 匹配 base64 图片链接的正则表达式
-    const MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/g;
     let images = []
     // 处理 Markdown 字符串，替换每个 base64 图片链接
-    const result = markdown.replace(MNImagePattern, (match, MNImageURL,p2) => {
+    const result = markdown.replace(editorUtils.MNImagePattern, (match, MNImageURL,p2) => {
       // 你可以在这里对 base64Str 进行替换或处理
       // shouldOverWritten = true
-      let hash = MNImageURL.split("markdownimg/png/")[1]
+      let imageConfig = editorUtils.parseMNImageURL(MNImageURL)
+      let hash = imageConfig.hash
       let base64 = MNUtil.getMediaByHash(hash).base64Encoding()
       // let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(base64Str))
       // let md5 = MNUtil.MD5(imageData.base64Encoding())
@@ -2526,7 +2725,7 @@ try {
       // }
       // editorUtils.sendRequest(request)
       // let compressedImageBase64 = `data:image/jpeg;base64,`+editorUtils.compressedImageDataBase64FromBase64(base64Str)
-      return match.replace(MNImageURL, `data:image/png;base64,`+base64);
+      return match.replace(MNImageURL, `data:image/${imageConfig.type};base64,`+base64);
       // return
       // let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(base64Str))
       // let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.5).base64Encoding()
@@ -2565,25 +2764,21 @@ try {
 }
 /** @this {editorController} */
 editorController.prototype.replaceMNImagesWithLocalBuffer = function(markdown,checkConfig = true) {
-  // if (/!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/) {
-
-  //   // ![image.png](marginnote4app://markdownimg/png/eebc45f6b237d8abf279d785e5dcda20)
-  // }
 try {
     // let shouldOverWritten = false
-    // 匹配 base64 图片链接的正则表达式
-    const MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/g;
     let images = []
     // 处理 Markdown 字符串，替换每个 base64 图片链接
-    const result = markdown.replace(MNImagePattern, (match, MNImageURL,p2) => {
+    const result = markdown.replace(editorUtils.MNImagePattern, (match, MNImageURL,p2) => {
       // 你可以在这里对 base64Str 进行替换或处理
       // shouldOverWritten = true
-      let hash = MNImageURL.split("markdownimg/png/")[1]
+      let imageConfig = editorUtils.parseMNImageURL(MNImageURL)
+      let hash = imageConfig.hash
       let imageData = MNUtil.getMediaByHash(hash)
+      let fileName = hash+"."+imageConfig.ext
       if (!imageData) {
-        return match.replace(MNImageURL, hash+".png");
+        return match.replace(MNImageURL, fileName);
       }
-      imageData.writeToFileAtomically(editorUtils.bufferFolder+hash+".png", false)
+      imageData.writeToFileAtomically(editorUtils.bufferFolder+fileName, false)
       // let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(base64Str))
       // let md5 = MNUtil.MD5(imageData.base64Encoding())
       // if (md5 in editorUtils.imageBuffer) {
@@ -2593,7 +2788,7 @@ try {
       // }
       // editorUtils.sendRequest(request)
       // let compressedImageBase64 = `data:image/jpeg;base64,`+editorUtils.compressedImageDataBase64FromBase64(base64Str)
-      return match.replace(MNImageURL, hash+".png");
+      return match.replace(MNImageURL, fileName);
       // return
       // let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(base64Str))
       // let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.5).base64Encoding()
@@ -2608,17 +2803,9 @@ try {
 }
 /** @this {editorController} */
 editorController.prototype.replaceBase64WithLocalBuffer = function(markdown,checkConfig = true) {
-  // if (/!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/) {
-
-  //   // ![image.png](marginnote4app://markdownimg/png/eebc45f6b237d8abf279d785e5dcda20)
-  // }
 try {
-    // let shouldOverWritten = false
     // 匹配 base64 图片链接的正则表达式
     const base64ImagePattern = /!\[.*?\]\((data:image\/png;base64,.*?)(\))/g;
-
-    // const MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/g;
-    let images = []
     // 处理 Markdown 字符串，替换每个 base64 图片链接
     const result = markdown.replace(base64ImagePattern, (match, base64Str,p2) => {
       // 你可以在这里对 base64Str 进行替换或处理
@@ -2658,10 +2845,6 @@ try {
 }
 /** @this {editorController} */
 editorController.prototype.replaceLocalBufferWithBase64OrMNImage = function(markdown,checkConfig = true) {
-  // if (/!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/) {
-
-  //   // ![image.png](marginnote4app://markdownimg/png/eebc45f6b237d8abf279d785e5dcda20)
-  // }
 try {
     // let shouldOverWritten = false
     // 匹配 缓存图片链接的正则表达式
@@ -2669,13 +2852,12 @@ try {
     const result = markdown.replace(MNImagePattern, (match, MNImageURL,p2) => {
       // 你可以在这里对 base64Str 进行替换或处理
       // shouldOverWritten = true
-      let url = MNImageURL.replace(".png","")
+      let url = MNImageURL.replace(".png","").replace(".jpg","")
       if (url.startsWith("local_")) {
         let imageData = NSData.dataWithContentsOfFile(editorUtils.bufferFolder+MNImageURL)
-
         url = "data:image/png;base64,"+imageData.base64Encoding()
       }else{
-        url = "marginnote4app://markdownimg/png/"+url
+        url = editorUtils.getMNImageURL(url)
       }
       return match.replace(MNImageURL, url);
     });
@@ -2698,6 +2880,16 @@ editorController.prototype.getURLFromImage = async function (imageData,md5) {
   return editorUtils.getR2URL(fileName)
 }
 /** @this {editorController} */
+editorController.prototype.focus = async function (delay=0) {
+  if (delay) {
+    MNUtil.delay(delay).then(()=>{
+      this.runJavaScript(`editor.focus();`)
+    })
+  }else{
+    this.runJavaScript(`editor.focus();`)
+  }
+}
+/** @this {editorController} */
 editorController.prototype.blur = async function (delay=0) {
   if (delay) {
     MNUtil.delay(delay).then(()=>{
@@ -2712,6 +2904,7 @@ editorController.prototype.blur = async function (delay=0) {
 /** @this {editorController} */
 editorController.prototype.getContent = async function (mode,replace=true) {
   let content = await this.runJavaScript('editor.getValue()')
+  // MNUtil.log({message:"getContent.before",content:content})
   // let content = await this.runJavaScript(`
   // try {
   //   getMarkdown()
@@ -2733,6 +2926,7 @@ editorController.prototype.getContent = async function (mode,replace=true) {
     content = await this.replaceBase64ImagesWithR2(content)
     content = await this.replaceLocalBufferWithBase64OrMNImage(content)
   }
+  // MNUtil.log({message:"getContent.after",content:content})
 
   return content
 }
@@ -2795,7 +2989,11 @@ try {
       if (target) {
         let noteView = target.view
         let endFrame = noteView.convertRectToView(noteView.bounds, MNUtil.studyView)
-        this.hide(endFrame,confirm)
+        if (endFrame.x > 0 && endFrame.y > 0) {
+          this.hide(endFrame,confirm)
+          return
+        }
+        this.hide(this.endFrame,confirm)
         return
       }
     }
@@ -2909,4 +3107,91 @@ editorController.prototype.refreshBackgroundColor = function () {
     return
   }
   this.setBackgroundColor("#9bb2d6")
+}
+/** @this {editorController} */
+editorController.prototype.creatTextView = function (viewName,superview="view",color="#b3bbc0",alpha=0.7) {
+  this[viewName] = UITextView.new()
+  this[viewName].font = UIFont.systemFontOfSize(15);
+  this[viewName].layer.cornerRadius = 8
+  this[viewName].backgroundColor = MNUtil.hexColorAlpha(color,alpha)
+  this[viewName].textColor = UIColor.blackColor()
+  this[viewName].delegate = this
+  this[viewName].bounces = true
+  this[superview].addSubview(this[viewName])
+}
+
+/**
+ * @this {editorController}
+ * @param {string} viewName
+ * @param {string} superview
+ * @param {string} color
+ * @param {number} alpha
+ * @returns {UITextView}
+ */
+editorController.prototype.creatView = function (viewName,superview="view",color="#9bb2d6",alpha=0.8) {
+  this[viewName] = UIView.new()
+  this[viewName].backgroundColor = MNUtil.hexColorAlpha(color,alpha)
+  this[viewName].layer.cornerRadius = 12
+  this[superview].addSubview(this[viewName])
+}
+
+/**
+ * @this {editorController}
+ * @param {string} superview
+ * @param {string} color
+ * @param {number} alpha
+ * @returns {UIScrollView}
+ */
+editorController.prototype.createScrollview = function (superview="view",color="#c0bfbf",alpha=0.8) {
+  let scrollview = UIScrollView.new()
+  scrollview.hidden = false
+  scrollview.delegate = this
+  scrollview.bounces = true
+  // scrollview.alwaysBounceVertical = true
+  scrollview.layer.cornerRadius = 8
+  scrollview.backgroundColor = MNUtil.hexColorAlpha(color,alpha)
+  this[superview].addSubview(scrollview)
+  return scrollview
+}
+
+/**
+ * @this {editorController}
+ */
+editorController.prototype.setButtonText = function (names) {
+  try {
+    this.words = names
+    // MNUtil.copyJSON(names)
+    names.map((word,index)=>{
+      if (!this["nameButton"+index]) {
+        // this["nameButton"+index] = this.createButton("selectNoteAsInlineLink:","inlineLinkScrollview")
+        this.createButton("nameButton"+index,"selectNoteAsInlineLink:","inlineLinkScrollview")
+        this["nameButton"+index].titleLabel.font = UIFont.systemFontOfSize(16);
+      }
+      this["nameButton"+index].hidden = false
+      this["nameButton"+index].setTitleForState(word,0) 
+      this["nameButton"+index].id = word
+      this["nameButton"+index].backgroundColor = MNUtil.hexColorAlpha("#7093cb",0.75);
+      this["nameButton"+index].isSelected = false
+    })
+    this.refreshLayout()
+  } catch (error) {
+    editorUtils.addErrorLog(error, "editorController.setButtonText",{names:names})
+  }
+}
+
+/**
+ * @this {editorController}
+ * @param {Object} config
+ */
+editorController.prototype.openMNURL = async function (config) {
+  let noteId = config.pathComponents[0]
+  let note = MNNote.new(noteId)
+  // editorUtils.log(noteId)
+  if (note.parentNoteId === this.editorNoteId) {
+    await this.save(this.editorNoteId)
+    this.setContent(note)
+    // editorUtils.log("should edit")
+  }else{
+    note.focusInFloatMindMap()
+  }
 }

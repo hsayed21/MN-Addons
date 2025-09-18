@@ -48,7 +48,13 @@ document.addEventListener('DOMContentLoaded', function () {
           console.log(error)
         }
       },
-      // input: (value)=>{window.location.href = "editorinput://content="+encodeURIComponent(value)},
+      input: (value)=>{
+        if (value.trim() === "[[") {
+          window.location.href = "editorinlinelink://content"
+        }
+        
+        // window.location.href = "editorinput://content="+encodeURIComponent(value)
+        },
       preview:{
         math:{
           engine:"MathJax",
@@ -87,6 +93,8 @@ document.addEventListener('DOMContentLoaded', function () {
             'insert-after',
             'insert-before',
             'br',
+            'outdent',
+            'indent',
     {
       hotkey: '⌘S',
       name: 'sponsor',
@@ -100,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function () {
       ctrlEnter: ()=>{window.location.href = "nativeCopy://test" ;},
       image:{isPreview:false,preview:(element)=>{window.location.href = element.src}},
       hint: {
-        delay:200,
+        delay:20,
        extend: [
           {
             key: '/',

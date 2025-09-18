@@ -30,6 +30,7 @@ JSB.newAddon = function (mainPath) {
         MNUtil.addObserver(self, 'receivedOpenInEditor:', 'openInEditor');
         MNUtil.addObserver(self, 'receivedEditorInsert:', 'editorInsert');
         MNUtil.addObserver(self, 'onTextDidBeginEditing:', 'UITextViewTextDidBeginEditingNotification')
+        // MNUtil.addObserver(self, 'onPasteboardChange:', 'UIPasteboardChangedNotification')
       },
 
       sceneDidDisconnect: function () { // Window disconnect
@@ -208,7 +209,7 @@ onClosePopupMenuOnNote: function (params) {
         //   return
         // }
         // try {
-        //   NSNotificationCenter.defaultCenter().addObserverSelectorName(self, 'onPasteboardChange:', 'UIPasteboardChangdNotification');
+          // NSNotificationCenter.defaultCenter().addObserverSelectorName(self, 'onPasteboardChange:', 'UIPasteboardChangdNotification');
           
         // } catch (error) {
         // Application.sharedInstance().showHUD(error,self.window,2)
@@ -325,7 +326,7 @@ onClosePopupMenuOnNote: function (params) {
         if (typeof MNUtil === 'undefined') {
           return
         }
-        MNUtil.showHUD("check:")
+        MNUtil.showHUD("PasteboardChange")
 
       },
       receivedSearchInBrowser: function (sender) {
@@ -360,6 +361,7 @@ onClosePopupMenuOnNote: function (params) {
         }
     try {
         if (self.addonController.view.hidden) {
+          // MNUtil.copy(sender.userInfo)
           if (sender.userInfo.beginFrame) {
             if (sender.userInfo.endFrame) {
               let endFrame = sender.userInfo.endFrame
@@ -391,7 +393,9 @@ onClosePopupMenuOnNote: function (params) {
         }
         // MNUtil.copyJSON(sender.userInfo)
         if (sender.userInfo.noteId) {
+          // MNUtil.copy(sender.userInfo.noteId)
           let note = MNNote.new(sender.userInfo.noteId)
+          // MNUtil.copy(note)
           if (note) {
             self.addonController.setContent(note)
             // self.addonController.view.hidden = false;
@@ -440,6 +444,7 @@ onClosePopupMenuOnNote: function (params) {
               return content.content
             }
           }).join("\n")+"\n"
+          MNUtil.copyJSON(sender.userInfo.contents)
           // let replacedContent = await self.addonController.replaceBase64ImagesWithR2(contents)
           // MNUtil.copy(contents)
           self.addonController.runJavaScript(`insertValue(\`${encodeURIComponent(contents)}\`,true)`)

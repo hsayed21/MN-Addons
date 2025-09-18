@@ -3656,6 +3656,7 @@ Image Text Extraction Specialist
     if (!note) {
       return undefined
     }
+    // toolbarUtils.log("getNoteObject", opt)
     // MNUtil.log("Parentlevel: "+opt.parentLevel)
     let noteInfo = opt.noteInfo
       
@@ -3729,7 +3730,7 @@ Image Text Extraction Specialist
     noteConfig.inMainMindMap = !noteConfig.childMindMap
     noteConfig.inChildMindMap = !!noteConfig.childMindMap
     if (opt.parent && note.parentNote) {
-      if ("parentLevel" in noteInfo) {
+      if (noteInfo && "parentLevel" in noteInfo) {
         if (opt.parentLevel > 0) {
       // MNUtil.log("Get parent: "+opt.parentLevel)
           noteConfig.parent = await this.getNoteObject(note.parentNote,{parentLevel:opt.parentLevel-1,parent:true,first:false})

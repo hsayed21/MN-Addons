@@ -631,14 +631,29 @@ JSB.newAddon = function (mainPath) {
         let info = sender.userInfo
         // MNUtil.copyJSON(sender.userInfo)
         if (info.noteid) {
-          let note = MNUtil.getNoteById(info.noteid)
-          let text = encodeURIComponent(self.getTextForSearch(note))
-          self.addonController.selectedText = text
-          if ("engine" in info) {
-            let engine = Object.keys(browserConfig.entries).find(key=>browserConfig.entries[key].engine===info.engine)
-            self.addonController.search(text,engine)
+          let note = MNNote.new(info.noteid)
+          let result = browserUtils.extractBilibiliLinks(note.allNoteText())
+          if (result && result.length) {
+            let delay = 0
+            if (self.addonController.view.hidden) {
+              delay = 0.5
+            }
+            MNUtil.delay(0).then(()=>{
+              if ("p" in result[0]) {
+                self.addonController.openOrJump(result[0].videoId,result[0].t,result[0].p)
+              }else{
+                self.addonController.openOrJump(result[0].videoId,result[0].t,0)
+              }
+            })
           }else{
-            self.addonController.search(text)
+            let text = encodeURIComponent(self.getTextForSearch(note))
+            self.addonController.selectedText = text
+            if ("engine" in info) {
+              let engine = Object.keys(browserConfig.entries).find(key=>browserConfig.entries[key].engine===info.engine)
+              self.addonController.search(text,engine)
+            }else{
+              self.addonController.search(text)
+            }
           }
         }else if(info.text){
           self.textSelected = encodeURIComponent(info.text.replaceAll('/', '\\/'));
@@ -784,7 +799,47 @@ JSB.newAddon = function (mainPath) {
           self.addonController.addonBar = self.addonBar
         }
         if (self.checkWatchMode()) { return }
+        if (self.addonController.currentNote()) {//自动提取哔哩哔哩链接
+          // let text = self.getTextForSearch(self.addonController.currentNoteId)
+          // MNUtil.copy(text)
+          let result = browserUtils.extractBilibiliLinks(self.addonController.currentNote().allNoteText())
+          // browserUtils.log("links",result)
+          if (result && result.length) {
+            // MNUtil.copy(result)
+            if (result.length === 1) {
+              if (self.addonController.view.hidden) {
+                self.addonController.show()
+              }
+              if ("p" in result[0]) {
+                self.addonController.openOrJump(result[0].videoId,result[0].t,result[0].p)
+              }else{
+                self.addonController.openOrJump(result[0].videoId,result[0].t,0)
+              }
+            }else{
+              let menu = new Menu(sender,self)
+              let selector = "openBilibiliLink:"
+              menu.preferredPosition = 0
+              result.forEach(item=>{
+                let formatedVideoTime = browserUtils.formatSeconds(parseFloat(item.t))
+                if (!item.p) {
+                  delete item.p
+                }
+                menu.addItem(formatedVideoTime+" | "+item.videoId,selector,item)
+              })
+              menu.show()
+              return
+              // MNUtil.showHUD("multiple link")
+            }
+            // if (arguments.length > 2) {
+            //   let p = arguments[2].match(/(?<=p\=).*/)[0]
+            //   self.addonController.openOrJump(id,time,parseInt(p))
+            // }else{
+            //   self.addonController.openOrJump(id,time,0)
+            // }
 
+            return
+          }
+        }
         if (self.addonController.view.hidden) {
           if (self.isFirst) {
             // Application.sharedInstance().showHUD("first",self.window,2)
@@ -836,29 +891,7 @@ JSB.newAddon = function (mainPath) {
         if (self.viewTimer) self.viewTimer.invalidate();
 
 
-        if (self.addonController.currentNote()) {//自动提取哔哩哔哩链接
-          let text = self.getTextForSearch(self.addonController.currentNoteId)
-          // MNUtil.copy(text)
-          let result = browserUtils.extractBilibiliLinks(text)
-          if (result && result.length) {
-            // MNUtil.copy(result)
-            if (self.addonController.view.hidden) {
-              self.addonController.show()
-            }
-            // if (arguments.length > 2) {
-            //   let p = arguments[2].match(/(?<=p\=).*/)[0]
-            //   self.addonController.openOrJump(id,time,parseInt(p))
-            // }else{
-            //   self.addonController.openOrJump(id,time,0)
-            // }
-            if ("p" in result[0]) {
-              self.addonController.openOrJump(result[0].videoId,result[0].t,result[0].p)
-            }else{
-              self.addonController.openOrJump(result[0].videoId,result[0].t,0)
-            }
-            return
-          }
-        }
+
         // Application.sharedInstance().showHUD("process:1",self.window,2)
         var text = self.textSelected;
         //五秒内点击了logo
@@ -905,6 +938,14 @@ JSB.newAddon = function (mainPath) {
 } catch (error) {
     browserUtils.addErrorLog(error, "toggleAddon")
 }
+      },
+      openBilibiliLink: function (params) {
+        Menu.dismissCurrentMenu()
+        if (self.addonController.view.hidden) {
+          self.addonController.show()
+        }
+        // browserUtils.log("openBilibiliLink", params)
+        self.addonController.openOrJump(params.videoId,params.t,params.p)
       },
     },
     { /* Class members */

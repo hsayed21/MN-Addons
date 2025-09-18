@@ -25,6 +25,34 @@ class browserUtils {
     this.webappImage = MNUtil.getImage(mainPath + `/webapp.png`)
     this.moreImage = MNUtil.getImage(mainPath + `/more.png`,2.5)
   }
+  // static cdn = {
+  //   "html2canvas":"https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js",
+  //   "win11":"https://vip.123pan.cn/1836303614/dl/win11.jpg",
+  //   "webapp":"https://vip.123pan.cn/1836303614/dl/icon/webapp.png",
+  //   "search":"https://vip.123pan.cn/1836303614/dl/icon/search.png",
+  // }
+  static cdn = {
+    "html2canvas":"https://alist.feliks.top/d/cdn/js/html2canvas.js",
+    "win11":"https://alist.feliks.top/d/cdn/icon/win11.jpg",
+    "webapp":"https://alist.feliks.top/d/cdn/icon/webapp.png",
+    "search":"https://alist.feliks.top/d/cdn/icon/search.png",
+    "setting":"https://alist.feliks.top/d/cdn/icon/settings.png",
+    "www.bilibili.com":"https://alist.feliks.top/d/cdn/icon/bilibili.png",
+    "www.notion.so":"https://alist.feliks.top/d/cdn/icon/notion.png",
+    "pan.baidu.com":"https://alist.feliks.top/d/cdn/icon/baidupan.png",
+    "docs.craft.do":"https://alist.feliks.top/d/cdn/icon/craft.png",
+    "www.doubao.com":"https://alist.feliks.top/d/cdn/icon/doubao.png",
+    "chat.deepseek.com":"https://alist.feliks.top/d/cdn/icon/deepseek.png",
+    "chat.qwen.ai":"https://alist.feliks.top/d/cdn/icon/qwen.png",
+    "www.wolai.com":"https://alist.feliks.top/d/cdn/icon/wolai.png",
+    "www.yinian.pro":"https://alist.feliks.top/d/cdn/icon/yinian.png",
+    "yuanbao.tencent.com":"https://alist.feliks.top/d/cdn/icon/yuanbao.png",
+    "ima.qq.com":"https://alist.feliks.top/d/cdn/icon/ima.png",
+    "flowus.cn":"https://alist.feliks.top/d/cdn/icon/flowus.png",
+    "www.kimi.com":"https://alist.feliks.top/d/cdn/icon/kimi.png",
+    "chat.z.ai":"https://alist.feliks.top/d/cdn/icon/zai.png",
+    "v.flomoapp.com":"https://alist.feliks.top/d/cdn/icon/flomo.png"
+  }
   /**
    * 
    * @param {string} fullPath 
@@ -804,21 +832,21 @@ static extractBilibiliLinks(markdownText) {
   }
   static genBilibiliExcerptLink(videoFrameInfo){
     if ("p" in videoFrameInfo && videoFrameInfo.p) {
-      return `[${videoFrameInfo.bv}-${videoFrameInfo.p}](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}&p=${videoFrameInfo.p})`
+      return `marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}&p=${videoFrameInfo.p}`
     }else{
-      return `[${videoFrameInfo.bv}](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time})`
+      return `marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}`
     }
   }
   static videoTime2MD(videoFrameInfo){
     let link = this.genBilibiliExcerptLink(videoFrameInfo)
     let formatedVideoTime = this.formatSeconds(videoFrameInfo.time)
-    // if ("p" in videoFrameInfo && videoFrameInfo.p) {
-    //   if (browserConfig.getConfig("timestampDetail")) {
-    //     return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv}-${videoFrameInfo.p})](${link})`
-    //   }else{
-    //     return `[${formatedVideoTime}](${link})`
-    //   }
-    // }
+    if ("p" in videoFrameInfo && videoFrameInfo.p) {
+      if (browserConfig.getConfig("timestampDetail")) {
+        return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv}-${videoFrameInfo.p})](${link})`
+      }else{
+        return `[${formatedVideoTime}](${link})`
+      }
+    }
     if (browserConfig.getConfig("timestampDetail")) {
       return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv})](${link})`
     }else{
@@ -1057,7 +1085,7 @@ class browserConfig{
       Baidu:            { title: '🔍 Baidu',          symbol: "🔍", engine: "Baidu",    desktop:false, link: "https://www.baidu.com/s?wd=%s" },
       Zhihu:            { title: '🔍 Zhihu',          symbol: "🔍", engine: "Zhihu",    desktop:false, link: "https://www.zhihu.com/search?type=content&q=%s" },
       Google:           { title: '🔍 Google',         symbol: "🔍", engine: "Google",   desktop:false, link: "https://www.google.com/search?q=%s" },
-      BaiduTranslate:   { title: '📔 Baidu',          symbol: "📔", engine: "Baidu",    desktop:false, link: "https://fanyi.baidu.com/#en/zh/%s" },
+      BaiduTranslate:   { title: '📔 Baidu',          symbol: "📔", engine: "Baidu",    desktop:false, link: "https://fanyi.baidu.com/m/trans?from=en&to=zh&query=%s"},
       Deepl:            { title: '📔 Deepl',          symbol: "📔", engine: "Deepl",    desktop:false, link: "https://www.deepl.com/translator#en/zh/%s" },
       Youdao:           { title: '📔 Youdao',         symbol: "📔", engine: "Youdao",   desktop:false, link: "https://dict.youdao.com/m/result?word=%s&lang=en" },
       GoogleTranslate:  { title: '📔 Google',         symbol: "📔", engine: "Google",   desktop:false, link: "https://translate.google.com/?sl=en&tl=zh-CN&text=%s&op=translate" },
@@ -1319,6 +1347,9 @@ class browserConfig{
   static init(){
     this.config = this.getByDefault('MNBrowser_config', this.defaultConfig)
     this.entries = this.getByDefault('MNBrowser_entries', this.defaultEntries)
+    if ("BaiduTranslate" in this.entries && this.entries.BaiduTranslate.link === "https://fanyi.baidu.com/#en/zh/%s") {
+      this.entries.BaiduTranslate.link = "https://fanyi.baidu.com/m/trans?from=en&to=zh&query=%s"
+    }
     this.entrieNames = this.getByDefault('MNBrowser_entrieNames',Object.keys(this.entries));
     this.webAppEntries = this.getByDefault('MNBrowser_webAppEntries', this.defaultWebAppEntries)
     this.webAppEntrieNames = this.getByDefault('MNBrowser_webAppEntrieNames', Object.keys(this.webAppEntries))
@@ -2329,6 +2360,24 @@ class browserConfig{
  } catch (error) {
   MNUtil.showHUD(error)
  }
+ }
+ static getWebAppEntriesWithIcon(){
+  let webapp = JSON.parse(JSON.stringify(this.webAppEntries))
+  let webappWithIcon = {}
+  Object.keys(webapp).map(item=>{
+    let entry = webapp[item]
+    if (!entry.icon){//如果icon为空，则从link中提取域名
+      let url = MNUtil.genNSURL(entry.link)
+      let host = url.host
+      let icon = browserUtils.cdn[host]
+      if (icon) {
+        entry.icon = icon
+      }
+    }
+    webappWithIcon[item] = entry
+    return entry
+  })
+  return webappWithIcon
  }
    /**
    * 

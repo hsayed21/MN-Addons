@@ -1100,6 +1100,30 @@ try {
       self.showHUD("❌ Watch Mode: OFF")
     }
   },
+  setCustomIcon:async function (params) {
+    let self = getBrowserController()
+    Menu.dismissCurrentMenu()
+    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
+    let res = await MNUtil.input("Custom Icon", "Enter the custom icon URL\n\n请输入自定义图标URL\n\nURL must starts with https:// and ends with .png")
+    if (res.button) {
+      let input = res.input
+      if (!input.startsWith("https://") || !input.endsWith(".png")) {
+        MNUtil.confirm("MN Browser", "Invalid icon URL\n\n请输入正确的图标URL\n\nURL must starts with https:// and ends with .png")
+        return
+      }
+      let confirm = await MNUtil.confirm(" MN Browser", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
+      if (!browserUtils.checkSubscribe(true)) {
+        return
+      }
+      browserConfig.webAppEntries[params.id].icon = input
+      browserConfig.save("MNBrowser_webAppEntries")
+      self.setTextview(params.id)
+    }
+    // self.setCustomIcon(params.id)
+  },
   toggleDesktop:function (params) {
   try {
 
@@ -1326,7 +1350,7 @@ try {
     self.runJavaScript(`
            // 动态加载脚本的函数
         function loadScript( callback) {
-            let url = 'https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js'
+            let url = '${browserUtils.cdn.html2canvas}'
             const script = document.createElement('script');
             script.type = 'text/javascript';
             script.src = url;
@@ -1462,7 +1486,7 @@ exportToPDF()
     self.runJavaScript(`
            // 动态加载脚本的函数
         function loadScript( callback) {
-            let url = 'https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js'
+            let url = '${browserUtils.cdn.html2canvas}'
             const script = document.createElement('script');
             script.type = 'text/javascript';
             script.src = url;
@@ -1852,8 +1876,17 @@ exportToPDF()
       self.hideAllButton()
       MNUtil.animate(()=>{
         self.setFrame(self.lastFrame)
-      },0.3).then(()=>{
+      },0.3).then(async ()=>{
         self.showAllButton()
+        let webInfo = await self.getCurrentWebInfo()
+        // browserUtils.log("getCurrentWebInfo", webInfo)
+        if (webInfo.hasVideo && webInfo.urlConfig.host === "www.bilibili.com") {
+          if (self.view.frame.width < 700) {
+            self.enableWideMode()
+          }else if (self.view.frame.width > 800) {
+            self.exitWideMode()
+          }
+        }
       })
       return
     }
@@ -1866,8 +1899,17 @@ exportToPDF()
     self.hideAllButton()
     MNUtil.animate(()=>{
       self.setFrame(40,50,frame.width-80,frame.height-70)
-    },0.3).then(()=>{
+    },0.3).then(async ()=>{
       self.showAllButton()
+      let webInfo = await self.getCurrentWebInfo()
+      // browserUtils.log("getCurrentWebInfo", webInfo)
+      if (webInfo.hasVideo && webInfo.urlConfig.host === "www.bilibili.com") {
+        if (self.view.frame.width < 700) {
+          self.enableWideMode()
+        }else if (self.view.frame.width > 800) {
+          self.exitWideMode()
+        }
+      }
     })
   },
   minButtonTapped: function() {
@@ -2035,7 +2077,11 @@ exportToPDF()
       let webInfo = await self.getCurrentWebInfo()
       // browserUtils.log("getCurrentWebInfo", webInfo)
       if (webInfo.hasVideo && webInfo.urlConfig.host === "www.bilibili.com") {
-        self.enableWideMode()
+        if (self.view.frame.width < 700) {
+          self.enableWideMode()
+        }else if (self.view.frame.width > 800) {
+          self.exitWideMode()
+        }
       }
 //       self.runJavaScript(`(function() {
 //     let resizeTimer;
@@ -2201,23 +2247,53 @@ exportToPDF()
       MNUtil.confirm("🌐 MN Browser", "Invalid JSON format:\n\n"+configText)
     }
   },
-  configSaveTapped: function (params) {
+  configSaveTapped: async function (params) {
     // self.appInstance.showHUD(123, self.view.window, 2);
     try {
     self.textviewInput.text = self.textviewInput.text.replaceAll(`”`,`"`)
     let config = MNUtil.getValidJSON(self.textviewInput.text)
-    if (Object.keys(config).length > 0) {
+    // browserUtils.log("config", config)
+
+    if (config && Object.keys(config).length > 0) {
       if (self.configMode === 0) {
         browserConfig.entries[self.configEngine] = config
         self.setButtonText(browserConfig.entrieNames,self.configEngine)
         browserConfig.save("MNBrowser_entries")
-        MNUtil.showHUD("Saved engine: "+config.title)
+        MNUtil.showHUD("✅ Save engine: "+config.title)
         self.setTextview(self.configEngine)
       }else{
+        if ("icon" in config) {
+          browserUtils.log("check icon", config)
+          if (!config.icon.startsWith("https://") || !config.icon.endsWith(".png")) {
+            MNUtil.confirm("MN Browser", "Invalid icon URL\n\n请输入正确的图标URL\n\nURL must starts with https:// and ends with .png")
+            return
+          }
+          let preIcon = self.currentConfigBeforeSave.icon
+          if (preIcon !== config.icon) {
+            let res = await MNUtil.userSelect("MN Browser", "The Custom Icon has been changed. Using new icon requires subscription or free usage. Do you want to continue?\n\n自定义图标已更改，使用新图标需要订阅或免费额度，是否继续？",["Keep Icon / 保留原图标","Use New Icon / 使用新图标"])
+            switch (res) {
+              case 0: // Cancel
+                return
+              case 1: // Keep Icon
+
+                config.icon = preIcon
+                break
+              case 2: // Use New Icon
+                if (!browserUtils.checkSubscribe(true)) {
+                  return
+                }
+                break
+              default:
+                break;
+            }
+          }
+        }
+        // browserUtils.log("config after check icon", config)
+
         browserConfig.webAppEntries[self.configEngine] = config
         self.setButtonText(browserConfig.webAppEntrieNames,self.configEngine)
         browserConfig.save("MNBrowser_webAppEntries")
-        MNUtil.showHUD("Saved webapp: "+config.title)
+        MNUtil.showHUD("✅ Save webapp: "+config.title)
         self.setTextview(self.configEngine)
       }
       self.refreshLayout(true)
@@ -2228,40 +2304,66 @@ exportToPDF()
       browserUtils.addErrorLog(error, "configSaveTapped")
     }
   },
-  configAddTapped: function (params) {
-    if (self.configMode === 0) {
-      self.textviewInput.text = 
-`{
-  "title":   "🔍 new engine",
-  "symbol":  "🔍",
-  "engine":  "engine name",
-  "desktop": false,
-  "link":    "https://www.bing.com/search?q=%s"
-}`
-      let entryKey = browserConfig.getAvailableEngineEntryKey()
-      browserConfig.entries[entryKey] = MNUtil.getValidJSON(self.textviewInput.text)
-      browserConfig.entrieNames = browserConfig.entrieNames.concat((entryKey))
-      browserConfig.save("MNBrowser_entrieNames")
-      browserConfig.save("MNBrowser_entries")
-      self.setButtonText(browserConfig.entrieNames,entryKey)
-      self.configEngine = entryKey
-      self.refreshLayout()
-    }else{
-      self.textviewInput.text = 
-`{
-  "title":   "📝 new webapp",
-  "desktop": false,
-  "link":    "https://www.bing.com"
-}`
-      let entryKey = browserConfig.getAvailableWebAppEntryKey()
-      browserConfig.webAppEntries[entryKey] = MNUtil.getValidJSON(self.textviewInput.text)
-      browserConfig.webAppEntrieNames = browserConfig.webAppEntrieNames.concat((entryKey))
-      browserConfig.save("MNBrowser_webAppEntrieNames")
-      browserConfig.save("MNBrowser_webAppEntries")
-      self.setButtonText(browserConfig.webAppEntrieNames,entryKey)
-      self.configEngine = entryKey
-      self.refreshLayout()
+  openURLInBrowser: function (url) {
+    Menu.dismissCurrentMenu()
+    MNConnection.loadRequest(self.webview, url)
+    let preOpacity = self.settingView.layer.opacity
+    UIView.animateWithDurationAnimationsCompletion(0.2,()=>{
+      self.settingView.layer.opacity = 0
+    },()=>{
+      self.settingView.layer.opacity = preOpacity
+      self.settingView.hidden = true
+    })
+  },
+  importAction: function (action) {
+    let self = getBrowserController()
+    Menu.dismissCurrentMenu()
+    if (action === "New") {
+      self.newConfig()
     }
+  },
+  configAddTapped: function (button) {
+    let self = getBrowserController()
+    let menu = new Menu(button,self,200)
+    menu.preferredPosition = 0
+    let selector = 'importAction:'
+    menu.addMenuItem("➕   New",selector,"New")
+    // menu.addMenuItem("📋   From Clipboard",selector,"Paste")
+    menu.addMenuItem("🌐   From Example","openURLInBrowser:","https://mnaddon.craft.me/browser/template")
+    menu.show()
+//     if (self.configMode === 0) {
+//       self.textviewInput.text = 
+// `{
+//   "title":   "🔍 new engine",
+//   "symbol":  "🔍",
+//   "engine":  "engine name",
+//   "desktop": false,
+//   "link":    "https://www.bing.com/search?q=%s"
+// }`
+//       let entryKey = browserConfig.getAvailableEngineEntryKey()
+//       browserConfig.entries[entryKey] = MNUtil.getValidJSON(self.textviewInput.text)
+//       browserConfig.entrieNames = browserConfig.entrieNames.concat((entryKey))
+//       browserConfig.save("MNBrowser_entrieNames")
+//       browserConfig.save("MNBrowser_entries")
+//       self.setButtonText(browserConfig.entrieNames,entryKey)
+//       self.configEngine = entryKey
+//       self.refreshLayout()
+//     }else{
+//       self.textviewInput.text = 
+// `{
+//   "title":   "📝 new webapp",
+//   "desktop": false,
+//   "link":    "https://www.bing.com"
+// }`
+//       let entryKey = browserConfig.getAvailableWebAppEntryKey()
+//       browserConfig.webAppEntries[entryKey] = MNUtil.getValidJSON(self.textviewInput.text)
+//       browserConfig.webAppEntrieNames = browserConfig.webAppEntrieNames.concat((entryKey))
+//       browserConfig.save("MNBrowser_webAppEntrieNames")
+//       browserConfig.save("MNBrowser_webAppEntries")
+//       self.setButtonText(browserConfig.webAppEntrieNames,entryKey)
+//       self.configEngine = entryKey
+//       self.refreshLayout()
+//     }
   },
   configDeleteTapped: async function (params) {
   try {
@@ -2877,7 +2979,7 @@ browserController.prototype.homePageCSS = function(){
 body {
       margin: 0;
       padding: 0;
-      background: url('https://vip.123pan.cn/1836303614/dl/win11.jpg') no-repeat center center fixed;
+      background: url('${browserUtils.cdn.win11}') no-repeat center center fixed;
       background-size: cover;
       font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
       min-height: 100vh;
@@ -3029,7 +3131,12 @@ body {
     .shortcut:hover .shortcut-icon {
       background: rgba(255,255,255,0.9);
     }
-    .shortcut img {
+    .shortcut .custom-img {
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+    }
+    .shortcut .default-img {
       width: 32px;
       height: 32px;
     }
@@ -3066,6 +3173,8 @@ body {
 }
 /** @this {browserController} */
 browserController.prototype.homePageHtml = function(){
+  let webAppEntriesWithIcon = browserConfig.getWebAppEntriesWithIcon()
+  // MNUtil.copy(webAppEntriesWithIcon)
   return `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -3093,11 +3202,11 @@ browserController.prototype.homePageHtml = function(){
     </div>
   </div>
   <div class="settings-button" onclick="openSetting()">
-    <img src="https://img.icons8.com/ios/50/000000/settings.png" alt="设置">
+    <img src="${browserUtils.cdn.setting}" alt="设置">
   </div>
   <script>
     // 快捷方式数据
-    const webapps = ${JSON.stringify(browserConfig.webAppEntries)};
+    const webapps = ${JSON.stringify(webAppEntriesWithIcon)};
     const webappOrder = ${JSON.stringify(browserConfig.webAppEntrieNames)};
 
     // 渲染快捷方式
@@ -3152,9 +3261,9 @@ browserController.prototype.homePageHtml = function(){
         name = name.slice(0,10)
         let nameSpan = \`<span style="font-weight: bold; font-size: 14px;">\${name}</span>\`
         if ("icon" in webapp) {
-          div.innerHTML = \`<div class="shortcut-icon"><img src="\${webapp.icon}" alt="\${name}"></div>\${nameSpan}\`;
+          div.innerHTML = \`<div class="shortcut-icon"><img src="\${webapp.icon}" alt="\${name}" class="custom-img"></div>\${nameSpan}\`;
         } else {
-          div.innerHTML = \`<div class="shortcut-icon"><img src="https://vip.123pan.cn/1836303614/dl/icon/webapp.png" alt="\${name}"></div>\${nameSpan}\`;
+          div.innerHTML = \`<div class="shortcut-icon"><img src="${browserUtils.cdn.webapp}" alt="\${name}" class="default-img"></div>\${nameSpan}\`;
           // 从URL中提取域名
           const url = new URL(webapp.link);
           const baseUrl = \`\${url.protocol}//\${url.hostname}\`;
@@ -3179,7 +3288,7 @@ browserController.prototype.homePageHtml = function(){
           function tryNextIcon() {
             if (currentPathIndex >= iconPaths.length) {
               // 如果所有路径都失败，使用默认图标
-              div.innerHTML = \`<div class="shortcut-icon"><img src="https://vip.123pan.cn/1836303614/dl/icon/webapp.png" alt="\${name}"></div>\${nameSpan}\`;
+              div.innerHTML = \`<div class="shortcut-icon"><img src="${browserUtils.cdn.webapp}" alt="\${name}" class="default-img"></div>\${nameSpan}\`;
               return;
             }
             
@@ -3187,7 +3296,7 @@ browserController.prototype.homePageHtml = function(){
             
             img.onload = function() {
               // 找到可用的图标，使用它
-              div.innerHTML = \`<div class="shortcut-icon"><img src="\${img.src}" alt="\${name}"></div>\${nameSpan}\`;
+              div.innerHTML = \`<div class="shortcut-icon"><img src="\${img.src}" alt="\${name}" class="default-img"></div>\${nameSpan}\`;
             };
             
             img.onerror = function() {
@@ -3224,7 +3333,7 @@ browserController.prototype.homePageHtml = function(){
       if (searchEngines[engine].icon) {
         selector.src = searchEngines[engine].icon;
       } else {
-        selector.src = 'https://vip.123pan.cn/1836303614/dl/icon/search.png';
+        selector.src = '${browserUtils.cdn.search}';
       }
       nameElement.textContent = searchEngines[engine].engine;
       document.getElementById('searchEngineDropdown').classList.remove('show');
@@ -3248,7 +3357,7 @@ browserController.prototype.homePageHtml = function(){
         if (item.icon) {
           icon = item.icon;
         } else {
-          icon = 'https://vip.123pan.cn/1836303614/dl/icon/search.png';
+          icon = '${browserUtils.cdn.search}';
         }
         dropdown.innerHTML += \`<div class="search-engine-option" onclick="changeSearchEngine('\${key}')">
           <img src="\${icon}" alt="\${item.engine}">
@@ -3308,6 +3417,8 @@ browserController.prototype.homePageHtml = function(){
 /** @this {browserController} */
 browserController.prototype.homePage = function() {
 try {
+
+
   MNUtil.stopHUD()
   this.webview.stopLoading();
   let homePage = browserConfig.getConfig("homePage")
@@ -3353,6 +3464,16 @@ try {
     MNUtil.showHUD("No text to search")
     return
   }
+  // MNUtil.log({message:"text",detail:url})
+  // url = "https://fanyi.baidu.com/m/trans?from=en&to=zh&query=%E5%90%B4%E5%BF%97%E4%BC%9F%3B%2BAn%20empirical%2Bseasonal%2Bprediction%2Bmodel%2Bof%2Bthe%2Beast%2BAsian%2Bsummer%2Bmonsoon%2Busing%2BENSO%2Band%2BNAO%3B%2B2009"
+  // MNUtil.log({message:"text",detail:url})
+  // let host = MNUtil.genNSURL(browserConfig.entries[engine].link).host
+  // MNUtil.log("host: "+host)
+  // if (host === "fanyi.baidu.com") {
+  //   MNUtil.log({message:"old url",detail:url})
+  //   url = url.replace(/%20/g,"+")
+  //   MNUtil.log({message:"new url",detail:url})
+  // }
   this.setWebMode(browserConfig.entries[engine].desktop)
   if (this.webview.url !== url ) {
     this.webview.stopLoading()
@@ -4153,6 +4274,7 @@ browserController.prototype.setTextview = function (name) {
       if ("icon" in text) {
         config.icon = text.icon
       }
+      this.currentConfigBeforeSave = config
       this.textviewInput.text = JSON.stringify(config,null,2)
     }else{
       // let entries           = NSUserDefaults.standardUserDefaults().objectForKey('MNBrowser_webAppEntries');
@@ -4168,6 +4290,9 @@ browserController.prototype.setTextview = function (name) {
       if ("icon" in text) {
         config.icon = text.icon
       }
+      // browserUtils.log("setTextview", config)
+
+      this.currentConfigBeforeSave = config
       this.textviewInput.text = JSON.stringify(config,null,2)
     }
 
@@ -4567,6 +4692,26 @@ try {
   browserUtils.addErrorLog(error, "refreshView")
 }
 }
+browserController.prototype.sameVideo = function (bvid,p) {
+  // browserUtils.log("openOrJump", {currentBvid:this.currentBvid,bvid:bvid,p:p})
+  if (!this.currentBvid) {
+    return false
+  }
+  if (this.currentBvid !== bvid) {
+    // browserUtils.log("not same videoId")
+    return false
+  }
+  if (this.currentP) {
+    // browserUtils.log("is same p: "+(this.currentP === p))
+    return this.currentP === p
+  }else{
+    if (p) {
+      return false
+    }
+  }
+  // browserUtils.log("is same videoId and p")
+  return true
+}
 /** @this {browserController} */
 browserController.prototype.openOrJump = async function(bvid,time = 0,p) {
 try {
@@ -4586,7 +4731,7 @@ try {
   //   this.currentBvid = ""
   // }
   let formatedVideoTime = browserUtils.formatSeconds(parseFloat(time))
-  if (this.currentBvid && this.currentBvid === bvid && (this.currentP === p)) {
+  if (this.sameVideo(bvid, p)) {
     this.showHUD(`Jump to ${formatedVideoTime}`)
     this.runJavaScript(`document.getElementsByTagName("video")[0].currentTime = ${time}`)
   }else{
@@ -5883,28 +6028,17 @@ let encodedPartInfo = await this.runJavaScript(`
 }
 
 browserController.prototype.enableWideMode = async function() {
-    let scrollview = this.webview.scrollView
-    let webWidth = scrollview.contentSize.width
-    let notWide = (scrollview.zoomScale - scrollview.minimumZoomScale < 0.01) && (webWidth/this.view.frame.width > 1.1)
-    // MNUtil.log({
-    //   message:"enableWideMode",
-    //   detail:{
-    //     maximumZoomScale:scrollview.maximumZoomScale,
-    //     minimumZoomScale:scrollview.minimumZoomScale,
-    //     zoomScale:scrollview.zoomScale,
-    //     possibleZoomScales:webWidth/this.view.frame.width,
-    //     notWide:notWide
-    //   }
-    // })
-
-  // MNUtil.log(webWidth)
-  // MNUtil.log(this.view.frame.width)
-  // MNUtil.log("enableWideMode: "+notWide)
-    if (this.view.frame.width < 700 && !notWide) {
-                
-      this.runJavaScript(`
+  if (this.view.frame.width < 700) {
+    await this.runJavaScript(`
 function enableWideMode() {
-  
+  let isFullScreen = document.getElementsByClassName("mode-webscreen").length > 0
+  if (isFullScreen) {
+    return
+  }
+  let isWideMode = document.querySelectorAll('[data-screen="wide"]').length > 0
+  if (isWideMode) {
+    return
+  }
 // 存储 interval ID
 const intervalId = setInterval(() => {
   const wideButton = document.querySelector('.bpx-player-ctrl-btn.bpx-player-ctrl-wide');
@@ -5917,9 +6051,36 @@ const intervalId = setInterval(() => {
 }
 enableWideMode()
 `)
-  
+    }
+  this.updateBilibiliOffset()
+
+}
+browserController.prototype.exitWideMode = async function() {
+  if (this.view.frame.width > 800) {
+    await this.runJavaScript(`
+function exitWideMode() {
+  let isFullScreen = document.getElementsByClassName("mode-webscreen").length > 0
+  if (isFullScreen) {
+    return
+  }
+  let isWideMode = document.querySelectorAll('[data-screen="wide"]').length > 0
+  if (!isWideMode) {
+    return
+  }
+// 存储 interval ID
+const intervalId = setInterval(() => {
+  const wideButton = document.querySelector('.bpx-player-ctrl-btn.bpx-player-ctrl-wide');
+  if (wideButton) {
+    wideButton.click(); // 点击按钮
+    clearInterval(intervalId); // 取消 interval
+    document.getElementById("biliMainHeader").style.display = 'none'
+  }
+}, 1000);
+}
+exitWideMode()
+`)
               }
-                this.updateBilibiliOffset()
+  this.updateBilibiliOffset()
 }
 browserController.prototype.changeWebAppTo = function(webApp) {
     if (webApp) {
@@ -6233,6 +6394,7 @@ browserController.prototype.configMoreOption = function(button) {
   }else{
     let config = browserConfig.webAppEntries[id]
     menu.addMenuItem('🖥️  Desktop', 'toggleDesktop:',{type:'webApp',id:id},config.desktop)
+    menu.addMenuItem('🖼️  Custom Icon', 'setCustomIcon:',{type:'webApp',id:id})
   }
   menu.show()
 }
@@ -6325,4 +6487,58 @@ browserController.prototype.openWX = async function (config) {
     // MNUtil.copy(config.url)
     MNUtil.openURL(config.url)
   }
+}
+browserController.prototype.newConfig = async function () {
+try {
+
+    if (this.configMode === 0) {
+      let res = await MNUtil.input("New Engine","Engine name?\n\n请输入新搜索引擎的名称",["❌ Cancel / 取消","📱 Mobile / 移动端","🖥️ Desktop / 桌面端"])
+      if (!res.button) {
+        return
+      }
+      let desktop = res.button === 2
+      let engineName = res.input
+      this.textviewInput.text = 
+`{
+  "title":   "🔍 ${engineName}",
+  "symbol":  "🔍",
+  "engine":  "${engineName}",
+  "desktop": ${desktop},
+  "link":    "https://www.bing.com/search?q=%s"
+}`
+      let entryKey = browserConfig.getAvailableEngineEntryKey()
+      browserConfig.entries[entryKey] = MNUtil.getValidJSON(this.textviewInput.text)
+      browserConfig.entrieNames = browserConfig.entrieNames.concat((entryKey))
+      browserConfig.save("MNBrowser_entrieNames")
+      browserConfig.save("MNBrowser_entries")
+      this.setButtonText(browserConfig.entrieNames,entryKey)
+      this.configEngine = entryKey
+      this.refreshLayout()
+    }else{
+      let res = await MNUtil.input("New Webapp","Webapp name?\n\n请输入新网页应用的名称",["❌ Cancel / 取消","📱 Mobile / 移动端","🖥️ Desktop / 桌面端"])
+      if (!res.button) {
+        return
+      }
+      let webappName = res.input
+      let desktop = res.button === 2
+      this.textviewInput.text = 
+`{
+  "title":   "🌐 ${webappName}",
+  "desktop": ${desktop},
+  "link":    "https://www.bing.com"
+}`
+      let entryKey = browserConfig.getAvailableWebAppEntryKey()
+      browserConfig.webAppEntries[entryKey] = MNUtil.getValidJSON(this.textviewInput.text)
+      browserConfig.webAppEntrieNames = browserConfig.webAppEntrieNames.concat((entryKey))
+      browserConfig.save("MNBrowser_webAppEntrieNames")
+      browserConfig.save("MNBrowser_webAppEntries")
+      this.setButtonText(browserConfig.webAppEntrieNames,entryKey)
+      this.configEngine = entryKey
+      this.refreshLayout()
+    }
+  
+} catch (error) {
+  browserUtils.addErrorLog(error, "newConfig")
+  return undefined
+}
 }

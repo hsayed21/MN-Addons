@@ -3,6 +3,16 @@ class editorUtils {
   static errorLog = []
   static imageBuffer = {}
   static bufferFolder
+  /**
+   * 缓存图片类型
+   * {
+   *  "xxxx": "png",
+   *  "xxxx": "jpeg",
+   * }
+   */
+  static imageTypeCache = {}
+  static MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/(png|jpeg)\/.*?)(\))/g;
+
   static init(mainPath){
     this.mainPath = mainPath
     this.screenImage = MNUtil.getImage(mainPath + `/screen.png`)
@@ -307,7 +317,7 @@ static checkLogo(){
   }
   static isTagComment(comment){
     if (comment.type === "TextNote") {
-      if (/^#\S/.test(comment.text)) {
+      if (/^#\w/.test(comment.text.trim())) {
         return true
       }else{
         return false
@@ -340,12 +350,46 @@ static checkLogo(){
     }
     return fileName
   }
+  /**
+   * 
+   * @param {string} file 
+   * @returns 
+   */
   static getDocNameFromAttach(file){
+
+    let data = MNUtil.getFile(MNUtil.dbFolder+"/veditor/"+file)
+    let dataSize = data? data.length(): 0
     let fileName = MNUtil.getFileName(file)
     let md5 = fileName.replace(".md", "")
     let doc = MNUtil.getDocById(md5)
     let docName = doc? doc.docTitle: md5
-    return {md5:md5,name:docName}
+    return {md5:md5,name:docName,exists:dataSize > 1}
+  }
+  static getMNImageURL(hash,type = "png"){
+    if (hash in this.imageTypeCache) {
+      type = this.imageTypeCache[hash]
+    }
+    return `marginnote4app://markdownimg/${type}/${hash}`
+  }
+  static parseMNImageURL(MNImageURL){
+    if (MNImageURL.includes("markdownimg/png/")) {
+      let hash = MNImageURL.split("markdownimg/png/")[1]
+      this.imageTypeCache[hash] = "png"
+      return {
+        hash: hash,
+        type: "png",
+        ext: "png"
+      }
+    }else if (MNImageURL.includes("markdownimg/jpeg/")) {
+      let hash = MNImageURL.split("markdownimg/jpeg/")[1]
+      this.imageTypeCache[hash] = "jpeg"
+      return {
+        hash: hash,
+        type: "jpeg",
+        ext: "jpg"
+      }
+    }
+    return undefined
   }
   static setCommentIndices(arr, fromIndex, toIndex) {
       let from = fromIndex
@@ -421,9 +465,13 @@ static checkLogo(){
     if (/^#\s+\n/.test(str2)) {
       convertedStr2 = str2.slice(2).trim()
     }
+    let isDifferent = convertedStr1 !== convertedStr2
+    // if (isDifferent) {
+    //   MNUtil.log({message:"checkIsDifferent",detail:{before:convertedStr1,after:convertedStr2}})
+    // }
     // MNUtil.copy("before: "+convertedStr1+"\nafter: "+convertedStr2)
 
-    return convertedStr1 !== convertedStr2
+    return isDifferent
   }
   static getAttachContentByMD5(md5){
     let fileURL = editorUtils.bufferFolder+md5+".md"
@@ -555,6 +603,358 @@ static checkLogo(){
     } catch (error) {
       return false
     }
+  }
+  /**
+   * 递归解析列表项及其子列表
+   * @param {object[]} items 
+   * @returns 
+   */
+  static processList(items) {
+  return items.map(item => {
+    // 提取当前列表项文本（忽略内部格式如粗体、斜体）
+    const text = item.text.trim();
+    const node = { name: text, children: [] ,type:item.type};
+
+    // 检查列表项内部是否包含子列表（嵌套结构）
+    const subLists = item.tokens.filter(t => t.type === 'list');
+    if (subLists.length) {
+      node.hasList = true
+      node.listText = subLists[0].raw
+      node.listStart = subLists[0].start
+      node.listOrdered = subLists[0].ordered
+      node.name = item.tokens[0].text
+    }
+    subLists.forEach(subList => {
+      // 递归处理子列表的 items
+      node.children.push(...this.processList(subList.items));
+    });
+
+    return node;
+  });
+}
+static getUnformattedText(token) {
+  if ("tokens" in token && token.tokens.length === 1) {
+    return this.getUnformattedText(token.tokens[0])
+  }else{
+    return token.text
+  }
+}
+/**
+ * 构建树结构（整合标题和列表解析）
+ * @param {object[]} tokens 
+ * @returns 
+ */
+  static buildTree(tokens) {
+  const root = { name: '中心主题', children: [] };
+  const stack = [{ node: root, depth: 0 }]; // 用栈跟踪层级
+  let filteredTokens = tokens.filter(token => token.type !== 'space' && token.type !== 'hr')
+
+  filteredTokens.forEach((token,index) => {
+    let current = stack[stack.length - 1];
+
+    if (token.type === 'heading') {
+      // 标题层级比栈顶浅，则回退栈到对应层级
+      while (stack.length > 1 && token.depth <= current.depth) {
+        stack.pop();
+        current = stack[stack.length - 1]
+      }
+      const newNode = { name: this.getUnformattedText(token), children: [] ,type:'heading'};
+      current.node.children.push(newNode);
+      stack.push({ node: newNode, depth: token.depth });
+    } else if (token.type === 'list') {
+      // 处理列表（可能包含多级嵌套）
+      const listNodes = this.processList(token.items);
+      if(index && filteredTokens[index-1].type === 'paragraph'){
+        if (current.node.type === 'paragraph') {
+          stack.pop();
+        }
+        stack.push({ node: current.node.children.at(-1), depth: 100 });
+        current = stack[stack.length - 1];
+        // current.node.children.at(-1).hasList = true;
+        // current.node.children.at(-1).listText = token.raw;
+        // current.node.children.at(-1).listStart = token.start;
+        // current.node.children.at(-1).ordered = token.ordered;
+        // current.node.children.at(-1).children.push(...listNodes)
+      }
+      current.node.hasList = true;
+      current.node.listText = token.raw;
+      current.node.listStart = token.start;
+      current.node.ordered = token.ordered;
+      current.node.children.push(...listNodes);
+      
+    } else {
+      if (token.type === 'paragraph' && current.node.type === 'paragraph') {
+        stack.pop();
+        current = stack[stack.length - 1];
+      }
+      current.node.children.push({ name: token.raw, raw: token.raw, children: [] ,type:token.type});
+    }
+  });
+  return root;
+}
+static extractHeadingNames(node) {
+  try {
+    
+
+  let result = [];
+  
+  // 检查当前节点是否是 heading 类型
+  if (node.type && node.type === 'heading') {
+    result.push(node.name);
+  }
+  
+  // 递归处理子节点
+  if (node.children && node.children.length > 0) {
+    for (const child of node.children) {
+      result = result.concat(this.extractHeadingNames(child));
+    }
+  }
+  
+  return result;
+  } catch (error) {
+    this.addErrorLog(error, "extractHeadingNames")
+    return []
+  }
+}
+  static markdown2AST(markdown){
+    let tokens = marked.lexer(markdown)
+    // MNUtil.copy(tokens)
+    return this.buildTree(tokens)
+  }
+  static headingNamesFromMarkdown(markdown){
+    let ast = this.markdown2AST(markdown)
+    return this.extractHeadingNames(ast)
+  }
+static  containsMathFormula(markdownText) {
+    // 正则表达式匹配单美元符号包裹的公式
+    const inlineMathRegex = /\$[^$]+\$/;
+    // 正则表达式匹配双美元符号包裹的公式
+    const blockMathRegex = /\$\$[^$]+\$\$/;
+    // 检查是否包含单美元或双美元符号包裹的公式
+    return inlineMathRegex.test(markdownText) || blockMathRegex.test(markdownText);
+}
+static  containsUrl(markdownText) {
+    // 正则表达式匹配常见的网址格式
+    const urlPattern = /https?:\/\/[^\s]+|www\.[^\s]+/i;
+    
+    // 使用正则表达式测试文本
+    return urlPattern.test(markdownText);
+}
+
+static removeMarkdownFormat(markdownStr) {
+  return markdownStr
+    // 移除加粗 ** ** 和 __ __
+    .replace(/\*\*(\S(.*?\S)?)\*\*/g, '$1')
+    .replace(/__(\S(.*?\S)?)__/g, '$1')
+    // 移除斜体 * * 和 _ _
+    .replace(/\*(\S(.*?\S)?)\*/g, '$1')
+    .replace(/_(\S(.*?\S)?)_/g, '$1')
+    // 移除删除线 ~~ ~~
+    .replace(/~~(\S(.*?\S)?)~~/g, '$1')
+    // 移除内联代码 ` `
+    .replace(/`([^`]+)`/g, '$1')
+    // 移除链接 [text](url)
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // 移除图片 ![alt](url)
+    .replace(/!\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // 移除标题 # 和 ##
+    .replace(/^#{1,6}\s+/gm, '')
+    // 移除部分列表符号（*、-、+.）
+    .replace(/^[\s\t]*([-*+]\.)\s+/gm, '')
+    // 移除块引用 >
+    .replace(/^>\s+/gm, '')
+    // 移除水平线 ---
+    .replace(/^[-*]{3,}/gm, '')
+    // 移除HTML标签（简单处理）
+    .replace(/<[^>]+>/g, '')
+    // 合并多个空行
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+static getConfig(text){
+  let hasMathFormula = this.containsMathFormula(text)
+  if (hasMathFormula) {
+    if (/\:/.test(text)) {
+      let splitedText = text.split(":")
+      if (this.containsMathFormula(splitedText[0])) {
+        let config = {excerptText:text,excerptTextMarkdown:true}
+        return config
+      }
+      if (this.containsMathFormula(splitedText[1])) {
+        let config = {title:splitedText[0],excerptText:splitedText[1],excerptTextMarkdown:true}
+        return config
+      }
+      let config = {title:splitedText[0],excerptText:splitedText[1]}
+      return config
+    }
+    if (/\：/.test(text)) {
+      let splitedText = text.split("：")
+      if (this.containsMathFormula(splitedText[0])) {
+        let config = {excerptText:text,excerptTextMarkdown:true}
+        return config
+      }
+      if (this.containsMathFormula(splitedText[1])) {
+        let config = {title:splitedText[0],excerptText:splitedText[1],excerptTextMarkdown:true}
+        return config
+      }
+      let config = {title:splitedText[0],excerptText:splitedText[1]}
+      return config
+    }
+    let config = {excerptText:text,excerptTextMarkdown:true}
+    return config
+  }
+  if (this.containsUrl(text)) {
+    let config = {excerptText:text,excerptTextMarkdown:true}
+    return config
+  }
+    if (/\:/.test(text)) {
+      let splitedText = text.split(":")
+      if (splitedText[0].length > 50) {
+        let config = {excerptText:text}
+        return config
+      }
+      let config = {title:splitedText[0],excerptText:splitedText[1]}
+      return config
+    }
+    if (/\：/.test(text)) {
+      let splitedText = text.split("：")
+      if (splitedText[0].length > 50) {
+        let config = {excerptText:text}
+        return config
+      }
+      let config = {title:splitedText[0],excerptText:splitedText[1]}
+      return config
+    }
+  if (text.length > 50) {
+    return {excerptText:text}
+  }
+  return {title:text}
+}  
+static newNoteInCurrentChildMap(config){
+    let childMap = MNNote.currentChildMap()
+    if (childMap) {
+      let child = childMap.createChildNote(config)
+      return child
+    }else{
+      let newNote = MNNote.new(config)
+      return newNote
+    }
+  }
+  static log(message,detail){
+    MNUtil.log({message:message,detail:detail,source:"MN ChatAI"})
+  }
+/**
+ * 
+ * @param {MNNote} note 
+ * @param {Object} ast 
+ */
+static AST2Mindmap(note,ast,level = "all") {
+try {
+  if (ast.children && ast.children.length) {
+    let hasList = ast.hasList
+    let listOrdered = ast.listOrdered || ast.ordered
+    ast.children.forEach((c,index)=>{
+      if (c.type === 'hr') {
+        return
+      }
+      let text = this.removeMarkdownFormat(c.name)
+      // let text = c.name
+      if (text.endsWith(":") || text.endsWith("：")) {
+        text = text.slice(0,-1)
+      }
+      let config = this.getConfig(text)
+      if ((text.startsWith('$') && text.endsWith('$')) || /\:/.test(text) || /：/.test(text)) {
+
+      }else{
+        if (c.children.length === 1 && !(/\:/.test(c.children[0].name) || /：/.test(c.children[0].name))) {
+          if (text.endsWith(":") || text.endsWith("：")) {
+            config = {excerptText:text+"\n"+c.children[0].name}
+          }else{
+            config = {title:text,excerptText:c.children[0].name}
+          }
+          let childNote = note.createChildNote(config)
+          if (c.children[0].children.length) {
+            this.AST2Mindmap(childNote,c.children[0])
+          }
+          return
+        }
+        if (c.children.length > 1 && c.children[0].type === 'paragraph' && c.children[1].type === 'heading') {
+          if (text.endsWith(":") || text.endsWith("：")) {
+            config = {excerptText:text+"\n"+c.children[0].name}
+          }else{
+            config = {title:text,excerptText:c.children[0].name}
+          }
+          c.children.shift()
+        }
+      }
+      if (hasList && listOrdered) {
+        if (ast.listStart == 0) {
+          ast.listStart = 1
+        }
+        if (config.title) {
+          config.title = (ast.listStart+index)+". "+config.title
+        }else{
+          config.excerptText = (ast.listStart+index)+". "+config.excerptText
+        }
+      }
+      // MNUtil.showHUD("message")
+      //继续创建子节点
+      let childNote = note.createChildNote(config)
+      this.AST2Mindmap(childNote,c)
+    })
+  }else{
+    // MNUtil.showHUD("No children found")
+  }
+  } catch (error) {
+  this.addErrorLog(error, "AST2Mindmap")
+}
+}
+ static async markdown2Mindmap(des){
+ try {
+  
+
+    let markdown = ``
+    let source = des.source ?? "currentNote"
+    let focusNote = MNNote.getFocusNote()
+    let newNoteTitle = "Mindmap"
+    switch (source) {
+      case "currentNote":
+        if (!focusNote) {
+          MNUtil.showHUD("No note found")
+          return
+        }
+        markdown = this.mergeWhitespace(await this.getMDFromNote(focusNote))
+        break;
+      case "file":
+        let filePath = await MNUtil.importFile(["public.text"])
+        if (filePath) {
+          markdown = MNUtil.readText(filePath)
+        }
+        newNoteTitle = MNUtil.getFileName(filePath).split(".")[0]
+        break;
+      case "clipboard":
+        markdown = MNUtil.clipboardText
+        break;
+      default:
+        break;
+    }
+    // let markdown = des.markdown
+    MNUtil.showHUD("Creating Mindmap...")
+    await MNUtil.delay(0.1)
+    let res = toolbarUtils.markdown2AST(markdown)
+    // MNUtil.copy(res)
+    MNUtil.undoGrouping(()=>{
+      if (!focusNote) {
+        focusNote = this.newNoteInCurrentChildMap({title:newNoteTitle})
+        focusNote.focusInFloatMindMap(0.5)
+      }
+      toolbarUtils.AST2Mindmap(focusNote,res)
+    })
+    return
+ } catch (error) {
+  this.addErrorLog(error, "markdown2Mindmap")
+  return
+ }
   }
 }
 class editorConfig{
