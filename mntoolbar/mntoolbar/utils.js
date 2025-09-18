@@ -304,6 +304,9 @@ class toolbarUtils {
     if (actionName) {
       
     switch (actionName) {
+      case "loadImageToExcalidraw":
+        menuItems = ["method","source"]
+        break;
       case "browserCustomAction":
         menuItems = ["browserAction"]
         break;
@@ -2544,6 +2547,11 @@ try {
   this.addErrorLog(error, "markdown2Mindmap")
   return
  }
+  }
+  static async loadImageToExcalidraw(des){
+    let source = des.source ?? "selection"
+    let method = des.method ?? "replace"
+    MNUtil.postNotification("loadImageToExcalidraw", {imageSource:source,method:method})
   }
   static async getStudylist(key){
         let options = {
@@ -5854,8 +5862,13 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//è
     let notebookid = focusNote ? focusNote.notebookId : MNUtil.currentNotebookId
     let title,content,color,config
     let targetNoteId
-    MNUtil.log(des.action)
+    toolbarUtils.log(des.action)
+    // MNUtil.log(des.action)
     switch (des.action) {
+      case "loadImageToExcalidraw":
+        this.loadImageToExcalidraw(des)
+        await MNUtil.delay(0.1)
+        break;
       case "browserCustomAction":
         this.browserCustomAction(des)
         await MNUtil.delay(0.1)

@@ -25,7 +25,7 @@ body {
 <body>
   <div id="jsoneditor"></div>
   <script>
-  let actionNames = ['addChildNote','addBrotherNote','addComment','addImageComment','addTags','addMarkdownLink','addWordsToEurdic','bigbang','browserCustomAction','crash','clearContent','clearFormat','cloneAndMerge','cloneAsChildNote','confirm','chatAI','copy','command','export','focus','insertSnippet','importDoc','link','markdown2Mindmap','moveNote','mergeText','moveComment','menu','noteHighlight','ocr','openURL','openWebURL','openWebApp','openInEditor','openSetting','paste','redo','replace','removeComment','removeTags','search','searchInDict','setContent','setColor','setTimer','snipaste','showInFloatWindow','switchTitleOrExcerpt','showMessage','setButtonImage','shortcut','triggerButton','toggleView','toggleTextFirst','toggleMarkdown','toggleSidebar','undo','userSelect','userInput','webSearch']
+  let actionNames = ['addChildNote','addBrotherNote','addComment','addImageComment','addTags','addMarkdownLink','addWordsToEurdic','bigbang','browserCustomAction','crash','clearContent','clearFormat','cloneAndMerge','cloneAsChildNote','confirm','chatAI','copy','command','export','focus','insertSnippet','importDoc','link','loadImageToExcalidraw','markdown2Mindmap','moveNote','mergeText','moveComment','menu','noteHighlight','ocr','openURL','openWebURL','openWebApp','openInEditor','openSetting','paste','redo','replace','removeComment','removeTags','search','searchInDict','setContent','setColor','setTimer','snipaste','showInFloatWindow','switchTitleOrExcerpt','showMessage','setButtonImage','shortcut','triggerButton','toggleView','toggleTextFirst','toggleMarkdown','toggleSidebar','undo','userSelect','userInput','webSearch']
   function generalActionProperties(params) {
     return {
       "action": {
@@ -457,6 +457,10 @@ function getSchemaByActionName(actionName) {
     case "command":
       properties.command = stringEnum(commandNames)
       properties.commands = arrayType(stringEnum(commandNames))
+      break;
+    case "loadImageToExcalidraw":
+      properties.method = stringEnum(['replace','overlay'])
+      properties.source = stringEnum(['selection','clipboard','focusNote'])
       break;
     case "copy":
       properties.target = stringEnum(['auto','comment','textComments','excerpt','excerptOCR','menu','notesText','noteId','noteURL','noteMarkdown','noteMarkdownOCR','noteWithDecendentsMarkdown','selectionText','selectionImage','title','chatAIOutput'])
