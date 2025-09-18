@@ -2821,7 +2821,7 @@ class MNMath {
     
     // 处理标题
     let prefixContent = this.createChildNoteTitlePrefixContent(note);
-    definitionNote.title = this.createTitlePrefix(this.types.定义.prefixName, prefixContent) + title;
+    definitionNote.title = this.createTitlePrefix(this.types.定义.prefixName, prefixContent) + "; " + title;
     
     // 设置完标题后再添加为子卡片
     note.addChild(definitionNote);
