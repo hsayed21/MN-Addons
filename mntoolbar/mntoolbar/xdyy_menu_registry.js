@@ -380,6 +380,10 @@ function registerAllMenuTemplates() {
       menuItems: [
         "⬇️ 卡片处理",
         {
+          action: "sendNotesToInboxArea",
+          menuTitle: "    ⇨ Inbox",
+        },
+        {
           action: "sendNotesToRoughReadingArea",
           menuTitle: "    ⇨ 粗读区",
         },
@@ -428,6 +432,10 @@ function registerAllMenuTemplates() {
         {
           action: "batchChangeClassificationTitles",
           menuTitle: "    批量更新归类卡片标题",
+        },
+        {
+          action: "removeAllClassificationNotes",
+          menuTitle: "    删除所有归类卡片，保留知识点",
         },
         {
           action: "renewKnowledgeNoteIntoParentNote",

@@ -3214,6 +3214,28 @@ function registerAllCustomActions() {
     },
   );
 
+  // removeAllClassificationNotes - 删除所有归类卡片，保留知识点
+  global.registerCustomAction(
+    "removeAllClassificationNotes",
+    async function (context) {
+      const { button, des, focusNote, focusNotes, self } = context;
+      
+      // 检查是否选中了卡片
+      if (!focusNote) {
+        MNUtil.showHUD("请先选择一个根卡片", 2);
+        return;
+      }
+      
+      // 调用 MNMath 中的新方法
+      try {
+        MNMath.removeAllClassificationNotes(focusNote);
+      } catch (error) {
+        MNUtil.copyJSON(error);
+        MNUtil.showHUD("操作失败：" + error.message, 3);
+      }
+    },
+  );
+
   // clearContentKeepExcerpt
   global.registerCustomAction(
     "clearContentKeepExcerpt",
@@ -3884,7 +3906,7 @@ function registerAllCustomActions() {
           // 粗读模式：使用颜色判断类型，不加入复习，自动移动到根目录
           toolbarUtils.roughReadingMakeNote(focusNote);
         } else if (toolbarConfig.windowState.preprocess) {
-          // 预处理模式：简化处理
+          MNMath.renewNote(focusNote)
           let newnote = MNMath.toNoExcerptVersion(focusNote);
           if (MNMath.ifTemplateMerged(newnote)) {
             MNMath.templateMergedCardMake(newnote)
@@ -3909,6 +3931,20 @@ function registerAllCustomActions() {
       MNMath.makeNote(focusNote, false);
     });
   });
+
+    global.registerCustomAction("sendNotesToInboxArea", async function (context) {
+    const { focusNotes } = context;
+    MNUtil.undoGrouping(() => {
+      try {
+        let rootNote = MNNote.new("marginnote4app://note/74785805-661C-4836-AFA6-C85697056B0C");
+        focusNotes.forEach((note) => {
+          rootNote.addChild(note);
+        })
+      } catch (error) {
+        MNUtil.showHUD(error);
+      }
+    })
+  })
 
   global.registerCustomAction("sendNotesToRoughReadingArea", async function (context) {
     const { focusNotes } = context;

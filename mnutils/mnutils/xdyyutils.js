@@ -1736,9 +1736,12 @@ class MNMath {
     this.toNoExcerptVersion(note)
     
     // 处理链接相关问题
-    this.convertLinksToNewVersion(note)
-    this.cleanupBrokenLinks(note)
-    this.fixMergeProblematicLinks(note)
+    // this.convertLinksToNewVersion(note)
+    // this.cleanupBrokenLinks(note)
+    // this.fixMergeProblematicLinks(note)
+    note.convertLinksToNewVersion()
+    note.cleanupBrokenLinks()
+    note.fixMergeProblematicLinks()
     
     // 处理空的"关键词："字段
     this.processEmptyKeywordField(note)
@@ -6152,6 +6155,131 @@ class MNMath {
     
     // MNUtil.showHUD(`已将"${fieldB}"字段的内容移动到"${fieldA}"字段下，并删除了"${fieldA}"原有内容`);
   }
+  
+  /**
+   * 删除根卡片下所有归类卡片，保留非归类卡片
+   * 
+   * 该函数会遍历根卡片的所有子孙卡片，将归类卡片删除，
+   * 同时将归类卡片下的非归类子孙卡片提升到根卡片下。
+   * 
+   * 工作流程：
+   * 1. 遍历根卡片的每个直接子卡片
+   * 2. 如果是归类卡片，深度优先搜索其子孙卡片
+   * 3. 找到第一个非归类卡片后，将其移动到根卡片下
+   * 4. 最后删除所有归类卡片链
+   * 
+   * @param {MNNote} rootNote - 根卡片，其子孙中的归类卡片将被删除
+   * @returns {void}
+   * 
+   * @example
+   * // 假设有如下结构：
+   * // A (根卡片)
+   * // ├── 归类1
+   * // │   ├── 归类1.1
+   * // │   │   └── 知识点1
+   * // │   └── 知识点2
+   * // └── 归类2
+   * //     └── 知识点3
+   * 
+   * let rootNote = MNNote.getFocusNote();
+   * MNMath.removeAllClassificationNotes(rootNote);
+   * 
+   * // 执行后结构变为：
+   * // A (根卡片)
+   * // ├── 知识点1
+   * // ├── 知识点2
+   * // └── 知识点3
+   */
+  static removeAllClassificationNotes(rootNote) {
+    // 参数检查
+    if (!rootNote) {
+      MNUtil.showHUD("请先选择一个根卡片", 2);
+      return;
+    }
+    
+    // 获取所有直接子卡片
+    const childNotes = rootNote.childNotes || [];
+    if (childNotes.length === 0) {
+      MNUtil.showHUD("根卡片没有子卡片", 2);
+      return;
+    }
+    
+    // 记录需要删除的归类卡片和需要保留的非归类卡片
+    const classificationNotesToDelete = [];
+    const nonClassificationNotesToKeep = [];
+    
+    /**
+     * 深度优先搜索，找到归类卡片链中的所有非归类卡片
+     * @param {MNNote} note - 当前处理的卡片
+     * @param {Array} result - 收集的非归类卡片数组
+     */
+    function findNonClassificationNotes(note, result) {
+      if (!note || !note.childNotes) return;
+      
+      for (const child of note.childNotes) {
+        if (MNMath.isClassificationNote(child)) {
+          // 如果是归类卡片，继续递归搜索
+          findNonClassificationNotes(child, result);
+        } else {
+          // 找到非归类卡片，添加到结果中
+          // 注意：这里只添加卡片本身，其子孙会跟着一起移动
+          result.push(child);
+        }
+      }
+    }
+    
+    // 第一步：分析每个直接子卡片
+    for (const childNote of childNotes) {
+      if (MNMath.isClassificationNote(childNote)) {
+        // 记录归类卡片以便后续删除
+        classificationNotesToDelete.push(childNote);
+        
+        // 搜索该归类卡片下的所有非归类卡片
+        const nonClassificationInBranch = [];
+        findNonClassificationNotes(childNote, nonClassificationInBranch);
+        
+        // 记录找到的非归类卡片
+        nonClassificationNotesToKeep.push(...nonClassificationInBranch);
+      }
+      // 如果不是归类卡片，保持原样（已经是根卡片的子卡片）
+    }
+    
+    // 如果没有找到任何归类卡片
+    if (classificationNotesToDelete.length === 0) {
+      MNUtil.showHUD("没有找到归类卡片", 2);
+      return;
+    }
+    
+    // 使用 undoGrouping 包装所有操作，使其可以一次撤销
+    MNUtil.undoGrouping(() => {
+      try {
+        // 第二步：将所有非归类卡片移动到根卡片下
+        for (const note of nonClassificationNotesToKeep) {
+          // 使用 addChild 将卡片移动到根卡片下
+          // 这会自动处理从原父卡片移除的操作
+          rootNote.addChild(note);
+        }
+        
+        // 第三步：删除所有归类卡片（及其剩余的子孙归类卡片）
+        for (const classificationNote of classificationNotesToDelete) {
+          // 使用 delete(true) 删除整个子树
+          classificationNote.delete(true);
+        }
+        
+        // 刷新根卡片显示
+        rootNote.refresh();
+        
+        // 显示操作结果
+        const message = `已删除 ${classificationNotesToDelete.length} 个归类卡片，保留了 ${nonClassificationNotesToKeep.length} 个知识点卡片`;
+        MNUtil.showHUD(message, 2);
+        
+      } catch (error) {
+        MNUtil.copyJSON(error);
+        MNUtil.showHUD("操作失败：" + error.message, 3);
+      }
+    });
+  }
+  
   /**
    * 获取 Note 的摘录区的 indexArr
    */
@@ -6484,79 +6612,6 @@ class MNMath {
     note.addChild(templateNote.note);
     this.linkParentNote(templateNote);
     return templateNote;
-  }
-
-  /**
-   * 将旧版本的 marginnote3app:// 链接转换为 marginnote4app:// 链接
-   * 
-   * @param {MNNote} note - 要处理的卡片
-   */
-  static convertLinksToNewVersion(note) {
-    for (let i = note.comments.length - 1; i >= 0; i--) {
-      let comment = note.comments[i]
-      if (
-        comment.type === "TextNote" &&
-        comment.text.startsWith("marginnote3app://note/")
-      ) {
-        let targetNoteId = comment.text.match(/marginnote3app:\/\/note\/(.*)/)[1]
-        let targetNote = MNNote.new(targetNoteId, false) // 不弹出警告
-        if (targetNote) {
-          note.removeCommentByIndex(i)
-          note.appendNoteLink(targetNote, "To")
-          note.moveComment(note.comments.length - 1, i)
-        } else {
-          note.removeCommentByIndex(i)
-        }
-      }
-    }
-  }
-
-  /**
-   * 清理失效的链接（目标卡片不存在的链接）
-   * 
-   * @param {MNNote} note - 要清理的卡片
-   */
-  static cleanupBrokenLinks(note) {
-    for (let i = note.comments.length - 1; i >= 0; i--) {
-      let comment = note.comments[i]
-      if (
-        comment &&
-        comment.type === "TextNote" &&
-        (
-          comment.text.startsWith("marginnote3app://note/") ||
-          comment.text.startsWith("marginnote4app://note/")
-        )
-      ) {
-        let targetNoteId = comment.text.match(/marginnote[34]app:\/\/note\/(.*)/)[1]
-        if (!targetNoteId.includes("/summary/")) {  // 防止把概要的链接删掉了
-          let targetNote = MNNote.new(targetNoteId, false) // 不弹出警告
-          if (!targetNote) {
-            note.removeCommentByIndex(i)
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * 修复合并造成的链接问题
-   * 当卡片被合并后，链接可能指向旧的 noteId，需要更新为 groupNoteId
-   * 
-   * @param {MNNote} note - 要修复的卡片
-   */
-  static fixMergeProblematicLinks(note) {
-    let comments = note.MNComments
-    comments.forEach((comment) => {
-      if (comment && comment.type === "linkComment") {
-        let targetNote = MNNote.new(comment.text, false) // 不弹出警告
-        if (targetNote && targetNote.groupNoteId) {
-          if (targetNote.groupNoteId !== comment.text) {
-            // 更新链接为正确的 groupNoteId
-            comment.text = `marginnote${MNUtil.isMN4() ? '4' : '3'}app://note/${targetNote.groupNoteId}`
-          }
-        }
-      }
-    })
   }
 
   /**
@@ -14825,25 +14880,147 @@ class MNMath {
       MNUtil.showHUD(`❌ 重置模板失败: ${error.message}`);
     }
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
+
+/**
+ * 夏大鱼羊 MNNote 扩展 - Begin
+ */
+// 目前的子孙卡片会到主脑图去，特此打补丁修复一下
+MNNote.prototype.delete = function(withDescendant = false){
+  if (withDescendant) {
+    MNUtil.db.deleteBookNoteTree(this.note.noteId)
+  } else {
+    if (this.childNotes.length > 0 && this.parentNote) {
+      childNotes.forEach(childNote => {
+        this.parentNote.addChild(childNote)
+      })
+    }
+    MNUtil.db.deleteBookNote(this.note.noteId)
+  }
+}
+/**
+ * 将旧版本的 marginnote3app:// 链接转换为 marginnote4app:// 链接
+ * 
+ */
+MNNote.prototype.convertLinksToNewVersion = function() {
+  for (let i = this.comments.length - 1; i >= 0; i--) {
+    let comment = this.comments[i]
+    if (
+      comment.type === "TextNote" &&
+      comment.text.startsWith("marginnote3app://note/")
+    ) {
+      let targetNoteId = comment.text.match(/marginnote3app:\/\/note\/(.*)/)[1]
+      let targetNote = MNNote.new(targetNoteId, false) // 不弹出警告
+      if (targetNote) {
+        this.removeCommentByIndex(i)
+        this.appendNoteLink(targetNote, "To")
+        this.moveComment(this.comments.length - 1, i)
+      } else {
+        this.removeCommentByIndex(i)
+      }
+    }
+  }
+}
+
+/**
+ * 清理失效的链接（目标卡片不存在的链接）
+ */
+MNNote.prototype.cleanupBrokenLinks = function() {
+  for (let i = this.comments.length - 1; i >= 0; i--) {
+    let comment = this.comments[i]
+    if (
+      comment &&
+      comment.type === "TextNote" &&
+      (
+        comment.text.startsWith("marginnote3app://note/") ||
+        comment.text.startsWith("marginnote4app://note/")
+      )
+    ) {
+      let targetNoteId = comment.text.match(/marginnote[34]app:\/\/note\/(.*)/)[1]
+      if (!targetNoteId.includes("/summary/")) {  // 防止把概要的链接删掉了
+        let targetNote = MNNote.new(targetNoteId, false) // 不弹出警告
+        if (!targetNote) {
+          this.removeCommentByIndex(i)
+        }
+      }
+    }
+  }
+}
+
+/**
+ * 修复合并造成的链接问题
+ * 当卡片被合并后，链接可能指向旧的 noteId，需要更新为 groupNoteId
+ */
+MNNote.prototype.fixMergeProblematicLinks = function() {
+  let comments = this.MNComments
+  comments.forEach((comment) => {
+    if (comment && comment.type === "linkComment") {
+      let targetNote = MNNote.new(comment.text, false) // 不弹出警告
+      if (targetNote && targetNote.groupNoteId) {
+        if (targetNote.groupNoteId !== comment.text) {
+          // 更新链接为正确的 groupNoteId
+          comment.text = `marginnote${MNUtil.isMN4() ? '4' : '3'}app://note/${targetNote.groupNoteId}`
+        }
+      }
+    }
+  })
+}
+/**
+ * 合并到目标卡片并更新链接
+ * 1. 更新新卡片里的链接（否则会丢失蓝色箭头）
+ * 2. 双向链接对应的卡片里的链接要更新，否则合并后会消失
+ * 
+ * 不足
+ * - this 出发的单向链接无法处理
+ * 
+ * 注意：和 MN 自己的合并不同，this 的标题会处理为评论，而不是添加到 targetNote 的标题
+ */
+MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
+  // 合并之前先更新链接
+  this.convertLinksToNewVersion()
+  this.cleanupBrokenLinks()
+  this.fixMergeProblematicLinks()
+
+  let oldComments = this.MNComments
+  oldComments.forEach((comment, index) => {
+    if (comment.type == "linkComment" && this.LinkIfDouble(comment.text)) {
+      let linkedNote = MNNote.new(comment.text.toNoteId())
+      let indexArrInLinkedNote = linkedNote.getLinkCommentsIndexArr(this.noteId.toNoteURL())
+      // 把 this 的链接更新为 targetNote 的链接
+      indexArrInLinkedNote.forEach(index => {
+        linkedNote.replaceWithMarkdownComment(targetNote.noteURL, index)
+      })
+    }
+  })
+
+  if (this.title) {
+    targetNote.appendMarkdownComment(
+      HtmlMarkdownUtils.createHtmlMarkdownText(this.title.toNoBracketPrefixContent(), htmlType)
+    )
+    this.title = ""
+  }
+
+  // 检测 this 的第一条评论对应是否是 targetNote 是的话就去掉
+  if (this.comments[0] && this.comments[0].text && (this.comments[0].text == targetNote.noteURL)) {
+    this.removeCommentByIndex(0)
+  }
+
+
+  // 合并到目标卡片
+  targetNote.merge(this)
+
+  // 最后更新一下合并后的链接
+  let targetNoteComments = targetNote.MNComments
+  for (let i = 0; i < targetNoteComments.length; i++) {
+    let targetNotecomment = targetNoteComments[i]
+    if (targetNotecomment.type == "linkComment") {
+      targetNotecomment.text = targetNotecomment.text
+    }
+  }
+}
+/**
+ * 夏大鱼羊 MNNote 扩展 - End
+ */
 
 
 class HtmlMarkdownUtils {
@@ -17707,57 +17884,7 @@ MNNote.prototype.removeCommentsByOneType = function(type){
   }
 }
 
-/**
- * 合并到目标卡片并更新链接
- * 1. 更新新卡片里的链接（否则会丢失蓝色箭头）
- * 2. 双向链接对应的卡片里的链接要更新，否则合并后会消失
- * 
- * 不足
- * - this 出发的单向链接无法处理
- * 
- * 注意：和 MN 自己的合并不同，this 的标题会处理为评论，而不是添加到 targetNote 的标题
- */
-MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
-  // 合并之前先更新链接
-  this.renewLinks()
 
-  let oldComments = this.MNComments
-  oldComments.forEach((comment, index) => {
-    if (comment.type == "linkComment" && this.LinkIfDouble(comment.text)) {
-      let linkedNote = MNNote.new(comment.text.toNoteId())
-      let indexArrInLinkedNote = linkedNote.getLinkCommentsIndexArr(this.noteId.toNoteURL())
-      // 把 this 的链接更新为 targetNote 的链接
-      indexArrInLinkedNote.forEach(index => {
-        linkedNote.replaceWithMarkdownComment(targetNote.noteURL, index)
-      })
-    }
-  })
-
-  if (this.title) {
-    targetNote.appendMarkdownComment(
-      HtmlMarkdownUtils.createHtmlMarkdownText(this.title.toNoBracketPrefixContent(), htmlType)
-    )
-    this.title = ""
-  }
-
-  // 检测 this 的第一条评论对应是否是 targetNote 是的话就去掉
-  if (this.comments[0] && this.comments[0].text && (this.comments[0].text == targetNote.noteURL)) {
-    this.removeCommentByIndex(0)
-  }
-
-
-  // 合并到目标卡片
-  targetNote.merge(this)
-
-  // 最后更新一下合并后的链接
-  let targetNoteComments = targetNote.MNComments
-  for (let i = 0; i < targetNoteComments.length; i++) {
-    let targetNotecomment = targetNoteComments[i]
-    if (targetNotecomment.type == "linkComment") {
-      targetNotecomment.text = targetNotecomment.text
-    }
-  }
-}
 
 /**
  * 把 this 合并到 targetNote, 然后移动到 targetIndex 位置
@@ -18054,41 +18181,7 @@ MNNote.prototype.linkRemoveDuplicatesAfterIndex = function(startIndex){
   }
 }
 
-MNNote.prototype.LinkClearFailedLinks = function(){
-  this.clearFailedLinks()
-}
 
-MNNote.prototype.LinksConvertToMN4Version = function(){
-  for (let i = this.comments.length-1; i >= 0; i--) {
-    let comment = this.comments[i]
-    if (
-      comment.type == "TextNote" &&
-      comment.text.startsWith("marginnote3app://note/")
-    ) {
-      let targetNoteId = comment.text.match(/marginnote3app:\/\/note\/(.*)/)[1]
-      let targetNote = MNNote.new(targetNoteId)
-      if (targetNote) {
-        this.removeCommentByIndex(i)
-        this.appendNoteLink(targetNote, "To")
-        this.moveComment(this.comments.length-1, i)
-      } else {
-        this.removeCommentByIndex(i)
-      }
-    }
-  }
-}
-
-MNNote.prototype.convertLinksToMN4Version = function(){
-  this.LinksConvertToMN4Version()
-}
-
-MNNote.prototype.LinksConvertToNewVersion = function(){
-  this.LinksConvertToMN4Version()
-}
-
-MNNote.prototype.convertLinksToNewVersion = function(){
-  this.LinksConvertToMN4Version()
-}
 
 
 /**
@@ -18577,20 +18670,6 @@ MNNote.prototype.moveComment = function(fromIndex, toIndex, msg = false) {
   } catch (error) {
     MNNote.addErrorLog(error, "moveComment")
     return this
-  }
-}
-
-// 目前的子孙卡片会到主脑图去，特此打补丁修复一下
-MNNote.prototype.delete = function(withDescendant = false){
-  if (withDescendant) {
-    MNUtil.db.deleteBookNoteTree(this.note.noteId)
-  } else {
-    if (this.childNotes.length > 0 && this.parentNote) {
-      childNotes.forEach(childNote => {
-        this.parentNote.addChild(childNote)
-      })
-    }
-    MNUtil.db.deleteBookNote(this.note.noteId)
   }
 }
 
