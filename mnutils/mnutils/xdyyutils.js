@@ -7175,25 +7175,23 @@ class MNMath {
           if (targetNote) {
             const targetMNNote = MNNote.new(targetNote);
             const targetCommentsObj = this.parseNoteComments(targetMNNote);
+            const currentNoteId = note.noteId;
             
-            // 查找"应用"或"应用:"字段
+            // 优先查找"应用"字段（保持向后兼容）
             const applicationField = targetCommentsObj.htmlCommentsObjArr.find(field => {
               const fieldText = field.text.trim();
               return fieldText === "应用" || fieldText === "应用:" || fieldText === "应用：";
             });
             
             if (applicationField) {
-              // 查找该字段下指向当前笔记的链接
-              const currentNoteId = note.noteId;
+              // 在应用字段下查找反向链接
               const fieldIndices = applicationField.excludingFieldBlockIndexArr;
               
-              // 从后往前删除，避免索引变化问题
               for (let i = fieldIndices.length - 1; i >= 0; i--) {
                 const index = fieldIndices[i];
-                const comment = targetMNNote.MNComments[index];  // 使用 MNComments
+                const comment = targetMNNote.MNComments[index];
                 if (comment && comment.text) {
                   const commentText = comment.text.trim();
-                  // 使用封装的 API 判断链接并提取 ID
                   if (commentText.isValidNoteURL() && 
                       commentText.toNoteId() === currentNoteId) {
                     targetMNNote.removeCommentByIndex(index);
@@ -7202,10 +7200,32 @@ class MNMath {
                   }
                 }
               }
+            }
+            
+            // 如果应用字段没找到，遍历所有字段查找反向链接
+            let linkFound = false;
+            for (const field of targetCommentsObj.htmlCommentsObjArr) {
+              const fieldIndices = field.excludingFieldBlockIndexArr;
               
-              MNUtil.showHUD("已删除链接（对方笔记的应用字段下未找到反向链接）");
-            } else {
-              MNUtil.showHUD("已删除链接（对方笔记没有应用字段）");
+              for (let i = fieldIndices.length - 1; i >= 0; i--) {
+                const index = fieldIndices[i];
+                const comment = targetMNNote.MNComments[index];
+                if (comment && comment.text) {
+                  const commentText = comment.text.trim();
+                  if (commentText.isValidNoteURL() && 
+                      commentText.toNoteId() === currentNoteId) {
+                    targetMNNote.removeCommentByIndex(index);
+                    MNUtil.showHUD(`已删除双向链接（在"${field.text}"字段下找到）`);
+                    linkFound = true;
+                    break;
+                  }
+                }
+              }
+              if (linkFound) break;
+            }
+            
+            if (!linkFound) {
+              MNUtil.showHUD("已删除链接（对方笔记未找到反向链接）");
             }
           } else {
             MNUtil.showHUD("已删除链接（对方笔记不存在）");
@@ -7651,6 +7671,7 @@ class MNMath {
   /**
    * 重新排序"相关链接"字段下的归类卡片链接
    * 按照类型（命题、反例、例子等）对链接进行分组排序
+   * 保持父卡片（归类卡片）链接在第一条位置
    * 
    * @param {MNNote} defNote - 定义类卡片
    * @returns {boolean} 是否进行了重新排序
@@ -7686,33 +7707,54 @@ class MNMath {
         return false
       }
       
+      // 获取定义卡片的父卡片ID（如果存在且是归类卡片）
+      let parentNoteId = null
+      const parentNote = defNote.parentNote
+      if (parentNote) {
+        const parentType = this.parseNoteTitle(parentNote).type
+        if (parentType === "归类") {
+          parentNoteId = parentNote.noteId
+        }
+      }
+      
       // 获取每个链接对应的笔记并解析类型
-      const typedLinks = linkComments.map(link => {
+      let parentLink = null  // 保存父卡片链接
+      const typedLinks = []  // 保存其他链接
+      
+      linkComments.forEach(link => {
         try {
           const noteId = link.comment.text.toNoteId()
           const linkedNote = MNUtil.getNoteById(noteId)
-          if (!linkedNote) return null
+          if (!linkedNote) return
           
           const parsedTitle = this.parseNoteTitle(MNNote.new(linkedNote))
-          return {
+          const linkData = {
             ...link,
             note: linkedNote,
             noteId: noteId,
             type: parsedTitle.type || "其他",
             content: parsedTitle.content || ""
           }
+          
+          // 判断是否是父卡片链接
+          if (parentNoteId && noteId === parentNoteId) {
+            parentLink = linkData
+            MNUtil.log("识别到父卡片（归类）链接，将保持在第一条位置")
+          } else {
+            typedLinks.push(linkData)
+          }
         } catch (e) {
           MNUtil.log("解析链接失败: " + e.toString())
-          return null
         }
-      }).filter(Boolean)
+      })
       
-      if (typedLinks.length === 0) {
+      // 如果没有任何有效链接，返回
+      if (!parentLink && typedLinks.length === 0) {
         MNUtil.log("没有有效的链接")
         return false
       }
       
-      // 按类型分组
+      // 对非父卡片链接按类型分组排序
       const typeOrder = ["命题", "反例", "例子", "问题", "思路", "思想方法"]
       const groupedLinks = {}
       
@@ -7723,17 +7765,22 @@ class MNMath {
         groupedLinks[link.type].push(link)
       })
       
-      // 重新排序
+      // 重新排序（父卡片链接在最前面）
       const orderedLinks = []
       
-      // 先添加预定义顺序的类型
+      // 如果有父卡片链接，放在第一位
+      if (parentLink) {
+        orderedLinks.push(parentLink)
+      }
+      
+      // 然后添加预定义顺序的类型
       typeOrder.forEach(type => {
         if (groupedLinks[type]) {
           orderedLinks.push(...groupedLinks[type])
         }
       })
       
-      // 添加其他类型
+      // 最后添加其他类型
       Object.keys(groupedLinks).forEach(type => {
         if (!typeOrder.includes(type)) {
           orderedLinks.push(...groupedLinks[type])
@@ -7761,7 +7808,7 @@ class MNMath {
           })
         })
         
-        MNUtil.log(`重新排序了 ${orderedLinks.length} 个链接`)
+        MNUtil.log(`重新排序了 ${orderedLinks.length} 个链接，父卡片链接${parentLink ? "已保持在第一条" : "不存在"}`)
         return true
       }
       
