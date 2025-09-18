@@ -8066,6 +8066,11 @@ class MNMath {
   static initSearchConfig() {
     if (!this.searchRootConfigs) {
       this.searchRootConfigs = this.loadSearchConfig();
+      
+      // 恢复临时根目录信息
+      if (this.searchRootConfigs.tempRoot) {
+        this.tempRootInfo = this.searchRootConfigs.tempRoot;
+      }
     }
     return this.searchRootConfigs;
   }
@@ -8243,6 +8248,13 @@ class MNMath {
   static getLastUsedRootIds() {
     this.initSearchConfig();
     
+    // 优先检查是否有临时根目录
+    if (this.searchRootConfigs.tempRoot) {
+      // 恢复临时根目录信息
+      this.tempRootInfo = this.searchRootConfigs.tempRoot;
+      return [this.tempRootInfo.id];
+    }
+    
     // 优先使用新的多选字段
     if (this.searchRootConfigs.lastUsedRoots && this.searchRootConfigs.lastUsedRoots.length > 0) {
       const rootIds = [];
@@ -8298,6 +8310,52 @@ class MNMath {
   static getAllSearchRoots() {
     this.initSearchConfig();
     return this.searchRootConfigs.roots;
+  }
+  
+  /**
+   * 设置临时根目录
+   * @param {MNNote} note - 要设为临时根目录的卡片
+   */
+  static setTempRoot(note) {
+    try {
+      this.initSearchConfig();
+      
+      // 保存临时根目录信息
+      this.tempRootInfo = {
+        id: note.noteId,
+        name: note.noteTitle || "无标题",
+        isTemp: true
+      };
+      
+      // 将临时根目录信息保存到配置中，以便下次打开时仍然有效
+      this.searchRootConfigs.tempRoot = this.tempRootInfo;
+      
+      // 清空正式根目录的选择
+      this.searchRootConfigs.lastUsedRoots = [];
+      
+      this.saveSearchConfig();
+      
+      MNUtil.showHUD(`📍 已设置临时根目录：${this.tempRootInfo.name}`);
+      return true;
+    } catch (error) {
+      MNUtil.log("设置临时根目录失败: " + error.toString());
+      MNUtil.showHUD("设置失败：" + error.message);
+      return false;
+    }
+  }
+  
+  /**
+   * 清除临时根目录
+   */
+  static clearTempRoot() {
+    this.initSearchConfig();
+    
+    if (this.tempRootInfo || this.searchRootConfigs.tempRoot) {
+      this.tempRootInfo = null;
+      this.searchRootConfigs.tempRoot = null;
+      this.saveSearchConfig();
+      MNUtil.log("已清除临时根目录");
+    }
   }
   
   /**
@@ -11135,7 +11193,7 @@ class MNMath {
         message,
         0,
         "取消",
-        ["✅ 确定使用", "🔄 切换根目录", "➕ 添加根目录"],
+        ["✅ 确定使用", "🔄 切换根目录", "➕ 添加根目录", "📍 设为临时根目录"],
         async (alert, buttonIndex) => {
           if (buttonIndex === 0) {
             resolve(null); // 取消
@@ -11150,6 +11208,8 @@ class MNMath {
             case 2: // 切换根目录
               const newRootIds = await this.showRootSelectionWithGroups([], allRoots); // 清空选择
               if (newRootIds && newRootIds.length > 0) {
+                // 切换到正式根目录时，清除临时根目录
+                this.clearTempRoot();
                 resolve(newRootIds);
               } else {
                 // 如果用户在切换界面取消，重新显示当前步骤
@@ -11231,6 +11291,22 @@ class MNMath {
               // 重新显示当前步骤
               const result = await this.showRootSelectionStep(currentRootIds, allRoots);
               resolve(result);
+              break;
+              
+            case 4: // 设为临时根目录
+              const currentNote = MNNote.getFocusNote();
+              if (!currentNote) {
+                MNUtil.showHUD("请先选择一个卡片作为临时根目录");
+                const result = await this.showRootSelectionStep(currentRootIds, allRoots);
+                resolve(result);
+                return;
+              }
+              
+              // 设置临时根目录
+              this.setTempRoot(currentNote);
+              
+              // 返回临时根目录作为搜索根目录
+              resolve([currentNote.noteId]);
               break;
           }
         }
