@@ -1733,8 +1733,7 @@ class MNMath {
     // 首先判断并处理旧模板卡片
     if (this.isOldTemplateCard(note)) {
       this.processOldTemplateCard(note);
-      // 旧模板卡片处理完成后，不再执行后续处理
-      return;
+      return this.toNoExcerptVersion(note);
     }
     
     let newNote = this.toNoExcerptVersion(note)
@@ -15152,6 +15151,30 @@ class MNMath {
     }
   }
 
+  /**
+   * 卡片的预处理
+   */
+  static preprocessNote(note) {
+    if (this.isOldTemplateCard(note)) {
+      // MNUtil.showHUD("旧卡片")
+      let newNote = this.renewNote(note)
+      this.changeTitle(newNote)
+      return newNote
+    } else {
+      if (this.ifTemplateMerged(note)) {
+        // MNUtil.showHUD("模板！")
+        this.renewNote(note)
+        this.changeTitle(note)
+        this.linkParentNote(note)
+        return note
+      } else {
+        // MNUtil.showHUD("不是模板")
+        this.changeTitle(note)
+        return this.toNoExcerptVersion(note)
+      }
+    }
+  }
+
 
   /**
    * 选中卡片的旧子孙卡片批量制卡
@@ -15168,6 +15191,7 @@ class MNMath {
               if (this.isOldTemplateCard(descendant)) {
                 // 旧卡片
                 this.processOldTemplateCard(descendant)
+                this.changeTitle(descendant)
               } else {
                 // 非旧卡片
                 this.renewNote(descendant)
@@ -15188,6 +15212,20 @@ class MNMath {
 /**
  * 夏大鱼羊 MNNote 扩展 - Begin
  */
+MNNote.prototype.getIncludingHtmlCommentIndex = function(htmlComment){
+  const comments = this.note.comments
+  for (let i = 0; i < comments.length; i++) {
+    const _comment = comments[i]
+    if (
+      typeof htmlComment == "string" &&
+      _comment.type == "HtmlNote" &&
+      _comment.text.includes(htmlComment)
+    ) {
+      return i
+    }
+  }
+  return -1
+}
 // 目前的子孙卡片会到主脑图去，特此打补丁修复一下
 MNNote.prototype.delete = function(withDescendant = false){
   if (withDescendant) {
@@ -18271,20 +18309,7 @@ MNNote.prototype.LinkIfDouble = function(link){
 }
 
 
-MNNote.prototype.getIncludingHtmlCommentIndex = function(htmlComment){
-  const comments = this.note.comments
-  for (let i = 0; i < comments.length; i++) {
-    const _comment = comments[i]
-    if (
-      typeof htmlComment == "string" &&
-      _comment.type == "HtmlNote" &&
-      _comment.text.includes(htmlComment)
-    ) {
-      return i
-    }
-  }
-  return -1
-}
+
 
 MNNote.prototype.renewHtmlCommentFromId = function(comment, id) {
   if (typeof comment == "string") {

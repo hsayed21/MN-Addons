@@ -3946,13 +3946,8 @@ function registerAllCustomActions() {
           // 粗读模式：使用颜色判断类型，不加入复习，自动移动到根目录
           toolbarUtils.roughReadingMakeNote(focusNote);
         } else if (toolbarConfig.windowState.preprocess) {
-          let newnote = MNMath.renewNote(focusNote)
-          if (MNMath.ifTemplateMerged(newnote)) {
-            MNMath.templateMergedCardMake(newnote)
-          } else {
-            MNMath.changeTitle(newnote);
-          }
-          newnote.focusInMindMap(0.4);
+          let processedNote = MNMath.preprocessNote(focusNote)
+          processedNote.focusInMindMap(0.4);
         } else {
           // 正常模式：完整制卡流程
           MNMath.makeNote(focusNote);
