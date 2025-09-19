@@ -12,23 +12,27 @@ let literatureController = JSB.defineClass('literatureController : UIViewControl
    * 视图加载完成的生命周期方法
    */
   viewDidLoad: function() {
-    try { 
-      // === 初始化状态变量 ===
-      self.moveDate = Date.now()  // 用于拖动手势的时间跟踪
-      
-      // === 设置主视图的外观 ===
-      self.view.layer.shadowOffset = {width: 0, height: 0};
-      self.view.layer.shadowRadius = 15;
-      self.view.layer.shadowOpacity = 0.5;
-      self.view.layer.shadowColor = UIColor.colorWithWhiteAlpha(0.5, 1);
-      
-      self.view.layer.opacity = 1.0
-      self.view.layer.cornerRadius = 15
-      self.view.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0.8)
-      self.highlightColor = UIColor.blendedColor(MNUtil.hexColorAlpha("#2c4d81", 0.8),
-        MNUtil.app.defaultTextColor,
-        0.8
-      );
+    try {
+      self.init()
+      self.view.frame = {x:50, y:50, width:400, height: 450}  // TODO: 适配不同的宽度
+      self.lastFrame = self.view.frame;
+      self.currentFrame = self.view.frame
+      if (!self.settingView) {
+        self.createSettingView()  // TOOD: 待写
+        // self.settingView.hidden = false  // 加载主 view 的时候就显示 settingView
+      }
+      self.settingViewLayout()  // TODO: 待写
+      self.setButtonText()  // TODO: 待写
+      self.setTextview()  // TODO: 待写
+
+
+      /**
+       * 开始创建按钮
+       */
+      self.createButton("moveButton","moveButtonTapped:")  // 创建移动按钮
+      self.moveButton.clickDate = 0  // 用于点击时间跟踪
+      MNButton.setColor(self.moveButton, "#3a81fb",0.5)
+      MNButton.addPanGesture(self.moveButton, self, "onMoveGesture:")  // 为移动按钮添加拖动手势
 
       // === 关闭按钮 ===
       self.closeButton = MNButton.new({
@@ -71,7 +75,10 @@ let literatureController = JSB.defineClass('literatureController : UIViewControl
   viewWillLayoutSubviews: function() {
     let viewFrame = self.view.bounds;
     let xLeft = viewFrame.x
-    self.closeButton.frame = {x: xLeft+225,y: 5,width: 30,height: 30};
+    let width    = viewFrame.width
+    let height   = viewFrame.height
+    self.closeButton.frame = {x: xLeft+225,y: 5,width: 30, height: 30};
+    self.moveButton.frame = {x: width*0.5-75, y: 0,  width: 150, height: 16,};
   },
   
   scrollViewDidScroll: function() {
@@ -91,42 +98,22 @@ let literatureController = JSB.defineClass('literatureController : UIViewControl
   /**
    * 处理拖动手势
    */
-  onMoveGesture:function (gesture) {
-    let locationToMN = gesture.locationInView(MNUtil.studyView)
-    
-    if ( (Date.now() - self.moveDate) > 100) {
-      let translation = gesture.translationInView(MNUtil.studyView)
-      let locationToBrowser = gesture.locationInView(self.view)
-      
-      if (gesture.state === 1 ) {
-        gesture.locationToBrowser = {
-          x:locationToBrowser.x-translation.x,
-          y:locationToBrowser.y-translation.y
-        }
-      }
+  onMoveGesture: function (gesture) {
+    if (gesture.state === 1) {
+      self.originalLocationToMN = gesture.locationInView(MNUtil.studyView)
+      self.originalFrame = self.view.frame
     }
-    self.moveDate = Date.now()
-    
-    let location = {
-      x:locationToMN.x - gesture.locationToBrowser.x,
-      y:locationToMN.y -gesture.locationToBrowser.y
+    if (gesture.state === 2) {
+      let locationToMN = gesture.locationInView(MNUtil.studyView)
+      let locationDiff = {x:locationToMN.x - self.originalLocationToMN.x,y:locationToMN.y - self.originalLocationToMN.y}
+      let frame = self.view.frame
+      frame.x = self.originalFrame.x + locationDiff.x
+      frame.y = self.originalFrame.y + locationDiff.y
+      self.setFrame(frame)
     }
-    
-    let frame = self.view.frame
-    let viewFrame = self.view.bounds;
-    let studyFrame = MNUtil.studyView.bounds
-    
-    let y = location.y
-    if (y<=0) {
-      y = 0
+    if (gesture.state === 3) {
+      MNUtil.studyView.bringSubviewToFront(self.view)
     }
-    if (y>=studyFrame.height-15) {
-      y = studyFrame.height-15
-    }
-    
-    let x = location.x
-    
-    literatureUtils.setFrame(self, {x:x,y:y,width:frame.width,height:frame.height})
   },
 
   /**
@@ -187,7 +174,17 @@ let literatureController = JSB.defineClass('literatureController : UIViewControl
   webViewDidFailLoadWithError: function(webView, error) {
     MNUtil.showHUD("WebView 加载失败: " + error.localizedDescription)
     MNUtil.log("WebView 加载错误: " + JSON.stringify(error))
-  }
+  },
+
+
+  moveButtonTapped: async function (button) {
+    var commandTable = [
+        {title:'😄 我是菜单',object:self,selector:'',param:[1,2,3]}
+      ];
+      self.popoverController = MNUtils.getPopoverAndPresent(button,commandTable,200,1)
+    return
+  },
+  
 });
 
 // ========== 原型方法 ==========
@@ -274,7 +271,7 @@ literatureController.prototype.show = function (frame) {
   
   // 设置初始状态
   this.view.hidden = false              // 显示主视图
-  this.setAllButton(true)               // 隐藏所有按钮（动画期间）
+  // this.setAllButton(true)               // 隐藏所有按钮（动画期间）
   // this.literatureView.hidden = true     // 隐藏子视图
   // this.settingView.hidden = true
   
@@ -293,7 +290,7 @@ literatureController.prototype.show = function (frame) {
     ()=>{
       // 动画完成回调
       this.view.layer.borderWidth = 0
-      this.setAllButton(false)                // 显示所有按钮
+      // this.setAllButton(false)                // 显示所有按钮
       // this.literatureView.hidden = false      // 显示主功能视图
       // this.settingView.hidden = true          // 确保设置视图隐藏
       // MNButton.setColor(this.settingButton, "#89a6d5")  // 重置设置按钮颜色
@@ -333,7 +330,7 @@ literatureController.prototype.hide = function (frame) {
   // Application.sharedInstance().showHUD(JSON.stringify(frame),this.view.window,2)
   
   // 隐藏所有子视图（动画前）
-  this.setAllButton(true)        // 隐藏所有按钮
+  // this.setAllButton(true)        // 隐藏所有按钮
   // this.literatureView.hidden = true
   // this.settingView.hidden = true
   
@@ -559,3 +556,47 @@ literatureController.prototype.updateCardTitle = function(cardId, newTitle) {
     )
   }
 }
+
+literatureController.prototype.setFrame = function (frame) {
+  let lastFrame = frame
+  this.view.frame = lastFrame
+  this.currentFrame = lastFrame
+}
+
+literatureController.prototype.init = function () {
+  // === 初始化状态变量 ===
+  self.moveDate = Date.now()  // 用于拖动手势的时间跟踪
+}
+
+literatureController.prototype.settingViewLayout = function () {
+}
+literatureController.prototype.refreshLayout = function () {
+}
+literatureController.prototype.setButtonText = function () {
+}
+literatureController.prototype.setTextview = function () {
+}
+literatureController.prototype.createSettingView = function () {
+}
+
+literatureController.prototype.createButton = function (buttonName, targetAction, superview) {
+  this[buttonName] = UIButton.buttonWithType(0);
+  this[buttonName].autoresizingMask = (1 << 0 | 1 << 3);
+  this[buttonName].setTitleColorForState(UIColor.whiteColor(),0);
+  this[buttonName].setTitleColorForState(this.highlightColor, 1);
+  this[buttonName].backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
+  this[buttonName].layer.cornerRadius = 8;
+  this[buttonName].layer.masksToBounds = true;
+  this[buttonName].titleLabel.font = UIFont.systemFontOfSize(16);
+
+  if (targetAction) {
+    this[buttonName].addTargetActionForControlEvents(this, targetAction, 1 << 6);
+  }
+  if (superview) {
+    this[superview].addSubview(this[buttonName])
+  } else {
+    this.view.addSubview(this[buttonName]);
+  }
+}
+// literatureController.prototype. = function () {
+// }
