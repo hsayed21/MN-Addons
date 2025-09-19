@@ -3941,7 +3941,7 @@ function registerAllCustomActions() {
           } else {
             MNMath.changeTitle(newnote);
           }
-          newnote.focusInMindMap(0.2);
+          newnote.focusInMindMap(0.4);
         } else {
           // 正常模式：完整制卡流程
           MNMath.makeNote(focusNote);
