@@ -1737,7 +1737,7 @@ class MNMath {
       return;
     }
     
-    this.toNoExcerptVersion(note)
+    let newNote = this.toNoExcerptVersion(note)
     
     // 处理链接相关问题
     // this.convertLinksToNewVersion(note)
@@ -1773,6 +1773,8 @@ class MNMath {
         this.moveRelatedConceptsToRelatedThoughts(note);
         break;
     }
+
+    return newNote
   }
 
   static moveApplicationFieldToEnd(note) {

@@ -3935,8 +3935,7 @@ function registerAllCustomActions() {
           // 粗读模式：使用颜色判断类型，不加入复习，自动移动到根目录
           toolbarUtils.roughReadingMakeNote(focusNote);
         } else if (toolbarConfig.windowState.preprocess) {
-          MNMath.renewNote(focusNote)
-          let newnote = MNMath.toNoExcerptVersion(focusNote);
+          let newnote = MNMath.renewNote(focusNote)
           if (MNMath.ifTemplateMerged(newnote)) {
             MNMath.templateMergedCardMake(newnote)
           } else {
