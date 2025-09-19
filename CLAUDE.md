@@ -78,7 +78,7 @@ MNUtils 是 MarginNote 插件生态的**核心基础设施层**：
 - 10 个核心类，500+ API 方法
 - 主要类：
   - `MNUtil`：系统工具类（400+ 方法）
-  - `MNNote`：笔记操作类（180+ 方法）
+  - `MNNote`：笔记操作类（180+ 方法）（已迁移到 `mnnote.js`）
   - `MNComment`：评论管理
   - `MNDocument`：文档操作
   - `MNNotebook`：笔记本管理
@@ -109,7 +109,7 @@ MNUtil.showHUD("Hello MarginNote!");
    - 包含所有类和方法说明
    - 提供丰富的使用示例
 
-2. **确认方法存在**：在 `mnutils.js` 或 `xdyyutils.js` 中搜索
+2. **确认方法存在**：在 `mnutils.js`, `mnnote.js` 和 `xdyyutils.js` 中搜索
    - 文档可能有遗漏，以源码为准
    - 使用 Cmd+F 快速定位方法
 
