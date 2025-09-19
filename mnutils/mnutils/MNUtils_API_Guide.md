@@ -1672,7 +1672,6 @@ xdyyutils.js 为 String 原型添加了 95+ 个扩展方法：
 ```javascript
 // === 判断类方法 ===
 str.isPositiveInteger()         // 是否正整数
-str.ifKnowledgeNoteTitle()      // 是否知识卡片标题格式【xxx >> xxx】
 str.isKnowledgeNoteTitle()      // 同上
 str.ifReferenceNoteTitle()      // 是否文献笔记标题【文献：xxx】
 str.ifWithBracketPrefix()       // 是否有【】前缀
@@ -1693,8 +1692,6 @@ str.isLink()                   // 是否链接（同 isValidNoteURL）
 str.ifNoteBookId()             // 是否笔记本 ID
 
 // === 转换类方法 ===
-str.toKnowledgeNotePrefix()     // 获取知识卡片的前缀部分
-str.toKnowledgeNoteTitle()      // 获取知识卡片的标题部分（去除【】前缀）
 str.toReferenceNoteTitle()      // 获取文献笔记的标题部分
 str.toReferenceNoteTitlePrefixContent() // 获取文献卡片标题的前缀内容
 str.toNoBracketPrefixContent()  // 获取无前缀的部分
@@ -1723,7 +1720,6 @@ str.toTitleCasePro()            // 智能标题大小写转换
 **使用示例**:
 ```javascript
 // 1. 判断和验证
-"【定义 >> 函数】连续性".ifKnowledgeNoteTitle()  // true
 "marginnote4app://note/xxx".isNoteIdorURL()     // true
 "123".isPositiveInteger()                        // true
 
@@ -1733,7 +1729,6 @@ str.toTitleCasePro()            // 智能标题大小写转换
 "hello world".toTitleCasePro()  // "Hello World"
 
 // 3. 文本处理
-"【定义 >> 函数】连续性".toKnowledgeNoteTitle()  // "函数"
 "- 内容".removeDotPrefix()  // "内容"
 "a,b；c;d".splitStringByFourSeparators()  // ["a", "b", "c", "d"]
 ```

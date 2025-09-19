@@ -2565,6 +2565,73 @@ class MNMath {
   }
 
   /**
+   * 合并两个卡片的标题链接词
+   * 将源卡片的标题链接词不重复地合并到目标卡片
+   * 
+   * @param {MNNote} targetNote - 目标卡片（A）
+   * @param {MNNote} sourceNote - 源卡片（B）
+   */
+  static mergeTitleLinkWords(targetNote, sourceNote) {
+    // 如果任一卡片没有标题，不处理
+    if (!targetNote.noteTitle || !sourceNote.noteTitle) {
+      return;
+    }
+    
+    // 解析两个卡片的标题
+    const targetParts = this.parseNoteTitle(targetNote);
+    const sourceParts = this.parseNoteTitle(sourceNote);
+    
+    // 获取标题链接词数组
+    let targetWords = targetParts.titleLinkWordsArr || [];
+    let sourceWords = sourceParts.titleLinkWordsArr || [];
+    
+    // 如果源卡片没有标题链接词，直接返回
+    if (sourceWords.length === 0) {
+      return;
+    }
+    
+    // 合并并去重（保持顺序：先目标的，再源的新增部分）
+    const mergedWords = [...targetWords];
+    for (const word of sourceWords) {
+      if (!mergedWords.includes(word)) {
+        mergedWords.push(word);
+      }
+    }
+    
+    // 如果没有新增词，直接返回
+    if (mergedWords.length === targetWords.length) {
+      return;
+    }
+    
+    // 构建新标题
+    let newTitle = "";
+    
+    // 保留目标卡片的前缀部分
+    if (targetParts.type) {
+      if (targetParts.prefixContent) {
+        newTitle = `【${targetParts.type} >> ${targetParts.prefixContent}】`;
+      } else {
+        newTitle = `【${targetParts.type}】`;
+      }
+    }
+    
+    // 添加合并后的链接词
+    if (mergedWords.length > 0) {
+      // 判断原标题是否在】后有分号
+      const hasLeadingSemicolon = targetNote.noteTitle.includes("】; ");
+      if (hasLeadingSemicolon && newTitle) {
+        newTitle += "; ";
+      }
+      newTitle += mergedWords.join("; ");
+    }
+    
+    // 更新目标卡片标题
+    targetNote.noteTitle = newTitle;
+    
+    MNUtil.log(`✅ 标题链接词合并完成: ${sourceWords.length} 个源词中有 ${mergedWords.length - targetWords.length} 个新增词`);
+  }
+
+  /**
    * 合并知识卡片
    * 将 sourceNote (B) 的内容按字段合并到 targetNote (A) 中
    * 
@@ -2580,26 +2647,49 @@ class MNMath {
     try {
       MNUtil.log("🔀 开始合并知识卡片...");
       
-      // 1. 获取两个卡片的类型
+      // 1. 先处理标题合并（在任何其他操作之前）
+      this.mergeTitleLinkWords(targetNote, sourceNote);
+      
+      // 2. 获取两个卡片的类型
       const targetType = this.getNoteType(targetNote);
       const sourceType = this.getNoteType(sourceNote);
       
       MNUtil.log(`📋 目标卡片类型: ${targetType || '未知'}, 源卡片类型: ${sourceType || '未知'}`);
       
-      // 2. 解析源卡片的评论结构
-      const sourceCommentsObj = this.parseNoteComments(sourceNote);
-      const sourceHtmlComments = sourceCommentsObj.htmlCommentsObjArr;
-      
-      if (sourceHtmlComments.length === 0) {
-        MNUtil.showHUD("源卡片没有字段结构，无法进行字段合并");
-        return;
-      }
-      
-      // 3. 建立字段映射关系
-      const fieldMapping = this.buildFieldMapping(sourceType, targetType);
+      // 3. 使用 ifTemplateMerged 判断源卡片是否有字段结构
+      const sourceHasTemplate = this.ifTemplateMerged(sourceNote);
       
       // 4. 使用 undoGrouping 包装所有修改操作
       MNUtil.undoGrouping(() => {
+        // 清除源卡片的标题
+        sourceNote.noteTitle = "";
+        
+        // 根据是否有模板分别处理
+        if (!sourceHasTemplate) {
+          // 无字段结构的特殊处理
+          MNUtil.log("📝 源卡片无字段结构，将内容移动到摘录区");
+          
+          // 执行合并
+          sourceNote.mergeInto(targetNote);
+          
+          // 将新内容移动到摘录区
+          this.autoMoveNewContentToField(targetNote, "摘录", true, false);
+          
+          // 刷新卡片显示
+          targetNote.refresh();
+          
+          MNUtil.showHUD("✅ 知识卡片合并完成（内容已移至摘录区）");
+          return;
+        }
+        
+        // 有字段结构的处理
+        // 解析源卡片的评论结构
+        const sourceCommentsObj = this.parseNoteComments(sourceNote);
+        const sourceHtmlComments = sourceCommentsObj.htmlCommentsObjArr;
+        
+        // 建立字段映射关系
+        const fieldMapping = this.buildFieldMapping(sourceType, targetType);
+        
         // 先删除"相关链接"字段（包括字段标记和内容）
         const relatedLinkField = sourceHtmlComments.find(htmlComment => {
           const fieldName = this.normalizeFieldName(htmlComment.text);
@@ -2647,9 +2737,6 @@ class MNMath {
             MNUtil.log(`📌 字段 "${fieldName}" → "${targetFieldName}": ${contentIndices.length} 条内容`);
           }
         });
-        
-        // 清除源卡片的标题
-        sourceNote.noteTitle = "";
         
         // 移除源卡片的所有字段标记（从后往前删除）
         const htmlCommentIndices = sourceHtmlComments.map(obj => obj.index).sort((a, b) => b - a);
@@ -3116,6 +3203,8 @@ class MNMath {
             titleParts.titleLinkWordsArr = titleParts.content.split(/; /).map(word => word.trim()).filter(word => word.length > 0);
           } else {
             titleParts.content = title.trim();
+            // 即使没有前缀也要解析链接词
+            titleParts.titleLinkWordsArr = titleParts.content.split(/; /).map(word => word.trim()).filter(word => word.length > 0);
           }
         }
         break;
