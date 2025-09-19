@@ -548,6 +548,10 @@ class MNMath {
   }
 
   /**
+   * 强制重新弄标题前缀
+   */
+
+  /**
    * 用选中卡片的摘录更新父卡片的摘录
    * 
    * 功能说明：
@@ -1957,7 +1961,7 @@ class MNMath {
    * []强制修改前缀
    * []如果有补充内容，则不修改前缀，防止条件内容被清除
    */
-  static changeTitle(note) {
+  static changeTitle(note, forced = false) {
     /**
      * 不在制卡时修改卡片标题的类型
      * 
@@ -1987,14 +1991,27 @@ class MNMath {
             // 解析当前笔记的标题
             let noteTitleParts = this.parseNoteTitle(note);
             
+            // 强制修改前缀的处理
+            if (forced === true) {
+              // 先移除现有前缀
+              this.removeTitlePrefix(note);
+              // 重新解析标题
+              noteTitleParts = this.parseNoteTitle(note);
+            }
+            
             // 智能前缀比较逻辑
             let shouldUpdatePrefix = true;
-            if (noteTitleParts.prefixContent) {
+            if (!forced && noteTitleParts.prefixContent) {
               // 如果现有前缀包含新前缀内容，则保留现有前缀
               // 例如：现有前缀 "AB" 包含新前缀 "A"，则不更新
               if (noteTitleParts.prefixContent.includes(newPrefixContent)) {
                 shouldUpdatePrefix = false;
               }
+            }
+            
+            // 如果是强制模式，总是更新前缀
+            if (forced === true) {
+              shouldUpdatePrefix = true;
             }
             
             // 构建最终标题
@@ -2019,6 +2036,54 @@ class MNMath {
     }
 
     note.title = Pangu.spacing(note.title)
+  }
+
+  /**
+   * 批量更新归类卡片下所有知识点子孙卡片的前缀
+   * 点击归类卡片后调用此函数，会强制更新所有符合条件的子孙卡片前缀
+   * 
+   * @param {MNNote} classificationNote - 归类卡片
+   */
+  static batchUpdateChildrenPrefixes(classificationNote) {
+    // 检查是否为归类卡片
+    if (!this.isClassificationNote(classificationNote)) {
+      MNUtil.showHUD("请选择一个归类卡片");
+      return;
+    }
+    
+    // 获取所有子孙卡片
+    const descendants = this.getAllDescendantNotes(classificationNote);
+    
+    let processedCount = 0;
+    let skippedCount = 0;
+    
+    // 批量处理
+    MNUtil.undoGrouping(() => {
+      descendants.forEach(note => {
+        const mnNote = MNNote.new(note);
+        
+        // 跳过没有标题的卡片
+        if (!mnNote.noteTitle) {
+          skippedCount++;
+          return;
+        }
+        
+        // 跳过非知识点卡片（使用已有的 isKnowledgeNote 函数）
+        if (!this.isKnowledgeNote(mnNote)) {
+          skippedCount++;
+          return;
+        }
+        
+        // 强制更新前缀
+        this.changeTitle(mnNote, true);
+        processedCount++;
+      });
+
+      classificationNote.refreshAll()
+    });
+    
+    // 显示处理结果
+    MNUtil.showHUD(`已更新 ${processedCount} 个知识点卡片的前缀，跳过 ${skippedCount} 个卡片`, 2);
   }
 
   /**
@@ -16966,29 +17031,6 @@ class Pangu {
 String.prototype.isPositiveInteger = function() {
   const regex = /^[1-9]\d*$/;
   return regex.test(this);
-}
-/**
- * 判断是否是知识点卡片的标题
- */
-String.prototype.ifKnowledgeNoteTitle = function () {
-  return /^【.{2,4}：.*】/.test(this)
-}
-String.prototype.isKnowledgeNoteTitle = function () {
-  return this.ifKnowledgeNoteTitle()
-}
-/**
- * 获取知识点卡片的前缀
- */
-String.prototype.toKnowledgeNotePrefix = function () {
-  let match = this.match(/^【.{2,4}：(.*)】/)
-  return match ? match[1] : this  // 如果匹配不到，返回原字符串
-}
-/**
- * 获取知识点卡片的标题
- */
-String.prototype.toKnowledgeNoteTitle = function () {
-  let match = this.match(/^【.{2,4}：.*】(.*)/)
-  return match ? match[1] : this  // 如果匹配不到，返回原字符串
 }
 /**
  * 获取参考文献的标题

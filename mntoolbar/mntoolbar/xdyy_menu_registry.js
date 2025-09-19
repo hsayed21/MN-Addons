@@ -407,6 +407,14 @@ function registerAllMenuTemplates() {
           action: "splitCommentsByNotes",
           menuTitle: "    拆分评论为独立卡片",
         },
+        {
+          action: "updateChildrenPrefixes",
+          menuTitle: "    🔄 更新子孙卡片前缀（归类卡片）",
+        },
+        {
+          action: "forceUpdateTitlePrefix",
+          menuTitle: "    ⚡ 强制修改标题前缀",
+        },
         "⬇️ 合并到父卡片",
         {
           action: "mergeInParentNote",

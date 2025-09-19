@@ -2885,6 +2885,35 @@ function registerAllCustomActions() {
     MNMath.splitComments(focusNote);
   });
 
+  // updateChildrenPrefixes - 批量更新子孙卡片前缀
+  global.registerCustomAction("updateChildrenPrefixes", async function(context) {
+    const { button, des, focusNote, focusNotes, self } = context;
+    
+    if (!focusNote) {
+      MNUtil.showHUD("请先选择一个归类卡片");
+      return;
+    }
+    
+    // 调用 MNMath 的批量更新函数
+    MNMath.batchUpdateChildrenPrefixes(focusNote);
+  });
+
+  // forceUpdateTitlePrefix - 强制修改选中卡片标题前缀
+  global.registerCustomAction("forceUpdateTitlePrefix", async function(context) {
+    const { button, des, focusNote, focusNotes, self } = context;
+    
+    if (!focusNote) {
+      MNUtil.showHUD("请先选择一张卡片");
+      return;
+    }
+    
+    // 强制更新选中卡片的标题前缀
+    MNUtil.undoGrouping(() => {
+      MNMath.changeTitle(focusNote, true);
+      MNUtil.showHUD("✅ 已强制更新标题前缀");
+    });
+  });
+
   // changeHtmlMarkdownCommentTypeByPopup
   global.registerCustomAction(
     "changeHtmlMarkdownCommentTypeByPopup",
