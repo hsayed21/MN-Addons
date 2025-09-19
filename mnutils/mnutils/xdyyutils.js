@@ -2683,7 +2683,7 @@ class MNMath {
           return;
         }
         
-        // 有字段结构的处理
+        // 有字段结构的处理 - 采用逐字段处理策略
         // 解析源卡片的评论结构
         const sourceCommentsObj = this.parseNoteComments(sourceNote);
         const sourceHtmlComments = sourceCommentsObj.htmlCommentsObjArr;
@@ -2691,95 +2691,158 @@ class MNMath {
         // 建立字段映射关系
         const fieldMapping = this.buildFieldMapping(sourceType, targetType);
         
-        // 先删除"相关链接"字段（包括字段标记和内容）
-        const relatedLinkField = sourceHtmlComments.find(htmlComment => {
-          const fieldName = this.normalizeFieldName(htmlComment.text);
-          return fieldName === "相关链接";
-        });
+        // 记录所有已处理的内容索引
+        const processedIndices = new Set();
         
-        if (relatedLinkField) {
-          // 获取"相关链接"字段的完整索引范围（包括字段本身）
-          const indicesToDelete = relatedLinkField.includingFieldBlockIndexArr;
-          
-          MNUtil.log(`🗑️ 将删除"相关链接"字段及其 ${indicesToDelete.length - 1} 条内容`);
-          
-          // 从后往前删除，避免索引变化
-          const sortedIndices = indicesToDelete.sort((a, b) => b - a);
-          sortedIndices.forEach(index => {
-            sourceNote.removeCommentByIndex(index);
-          });
-          
-          // 重新解析评论结构（因为删除操作改变了结构）
-          const updatedCommentsObj = this.parseNoteComments(sourceNote);
-          sourceHtmlComments.length = 0;
-          sourceHtmlComments.push(...updatedCommentsObj.htmlCommentsObjArr);
-        }
-        
-        // 5. 记录剩余字段的内容信息
-        const fieldContentInfo = [];
-        
+        // 逐个处理每个字段（不要一次性删除所有字段标记）
         sourceHtmlComments.forEach(htmlComment => {
-          // 标准化字段名（去除多余的冒号）
-          const fieldName = this.normalizeFieldName(htmlComment.text);
-          const contentIndices = htmlComment.excludingFieldBlockIndexArr;
-          
-          if (contentIndices.length > 0) {
-            // 获取目标字段名
+          try {
+            // 标准化字段名（去除多余的冒号）
+            const fieldName = this.normalizeFieldName(htmlComment.text);
+            
+            // 跳过"相关链接"字段
+            if (fieldName === "相关链接") {
+              MNUtil.log(`⏭️ 跳过"相关链接"字段`);
+              // 记录相关链接字段的所有索引（包括标记和内容）
+              processedIndices.add(htmlComment.index);
+              htmlComment.excludingFieldBlockIndexArr.forEach(idx => {
+                processedIndices.add(idx);
+              });
+              return;
+            }
+            
+            // 获取字段内容的索引（不包括字段标记本身）
+            const contentIndices = htmlComment.excludingFieldBlockIndexArr;
+            
+            // 记录已处理的索引
+            processedIndices.add(htmlComment.index); // 字段标记本身
+            contentIndices.forEach(idx => processedIndices.add(idx)); // 字段内容
+            
+            if (contentIndices.length === 0) {
+              MNUtil.log(`ℹ️ 字段 "${fieldName}" 无内容，跳过`);
+              return;
+            }
+            
+            // 确定目标字段名
             const targetFieldName = fieldMapping[fieldName] || fieldName;
             
-            fieldContentInfo.push({
-              sourceField: fieldName,
-              targetField: targetFieldName,
-              contentCount: contentIndices.length,
-              startIndex: contentIndices[0],
-              endIndex: contentIndices[contentIndices.length - 1]
+            MNUtil.log(`📋 处理字段 "${fieldName}" → "${targetFieldName}": ${contentIndices.length} 条内容`);
+            
+            // 记录合并前目标卡片的评论数量
+            const targetCommentsCountBefore = targetNote.comments.length;
+            
+            // 克隆源卡片用于提取字段内容（借鉴 performExtract 的思路）
+            const tempNote = sourceNote.clone();
+            tempNote.noteTitle = "";
+            
+            // 删除子卡片（如果有的话）
+            if (tempNote.childNotes && tempNote.childNotes.length > 0) {
+              for (let i = tempNote.childNotes.length - 1; i >= 0; i--) {
+                tempNote.childNotes[i].removeFromParent();
+              }
+            }
+            
+            // 只保留当前字段的内容
+            const allIndices = Array.from({length: tempNote.comments.length}, (_, i) => i);
+            const indicesToDelete = allIndices.filter(i => !contentIndices.includes(i));
+            
+            // 从后往前删除，避免索引变化
+            indicesToDelete.sort((a, b) => b - a);
+            indicesToDelete.forEach(index => {
+              tempNote.removeCommentByIndex(index);
             });
             
-            MNUtil.log(`📌 字段 "${fieldName}" → "${targetFieldName}": ${contentIndices.length} 条内容`);
+            // 将提取的内容合并到目标卡片
+            tempNote.mergeInto(targetNote);
+            
+            // 计算新增内容的索引（新内容被添加到目标卡片的末尾）
+            const newContentIndices = [];
+            const newContentCount = contentIndices.length;
+            for (let i = 0; i < newContentCount; i++) {
+              newContentIndices.push(targetCommentsCountBefore + i);
+            }
+            
+            // 立即将新内容移动到对应的目标字段
+            if (newContentIndices.length > 0) {
+              // 先检查目标字段是否存在
+              const targetFieldIndex = targetNote.getIncludingHtmlCommentIndex(targetFieldName);
+              
+              if (targetFieldIndex === -1 && targetFieldName !== "摘录" && targetFieldName !== "摘录区") {
+                // 如果目标字段不存在且不是摘录区，先创建字段
+                targetNote.appendHtmlComment(targetFieldName, targetFieldName, 14, "HtmlComment");
+                MNUtil.log(`📝 创建新字段 "${targetFieldName}"`);
+              }
+              
+              // 移动内容到目标字段
+              this.moveCommentsArrToField(targetNote, newContentIndices, targetFieldName, true);
+              
+              MNUtil.log(`✅ 已将 ${newContentIndices.length} 条内容移动到 "${targetFieldName}" 字段`);
+            }
+            
+          } catch (fieldError) {
+            MNUtil.log(`⚠️ 处理字段 "${htmlComment.text}" 时出错: ${fieldError.message}`);
+            // 继续处理下一个字段
           }
         });
         
-        // 移除源卡片的所有字段标记（从后往前删除）
-        const htmlCommentIndices = sourceHtmlComments.map(obj => obj.index).sort((a, b) => b - a);
-        htmlCommentIndices.forEach(index => {
-          sourceNote.removeCommentByIndex(index);
-        });
+        // 处理摘录区：源卡片中未被处理的内容就是摘录区
+        const allSourceIndices = Array.from({length: sourceNote.comments.length}, (_, i) => i);
+        const excerptIndices = allSourceIndices.filter(i => !processedIndices.has(i));
         
-        // 7. 记录合并前目标卡片的评论数量
-        const targetCommentsCountBefore = targetNote.comments.length;
-        
-        // 8. 执行合并
-        sourceNote.mergeInto(targetNote);
-        
-        // 9. 计算新增评论的起始位置
-        const newCommentsStartIndex = targetCommentsCountBefore;
-        
-        // 10. 按字段移动内容到正确位置
-        // 注意：每次移动后，后续内容的索引会发生变化
-        // 因此我们需要从后往前处理，或者每次都使用最新的索引
-        fieldContentInfo.forEach((info, fieldIndex) => {
-          // 获取当前要移动的评论索引
-          // 由于之前的移动可能改变了索引，我们需要重新计算
-          const indicesToMove = [];
+        if (excerptIndices.length > 0) {
+          MNUtil.log(`📝 处理摘录区: ${excerptIndices.length} 条内容`);
           
-          // 计算这个字段的内容在当前评论数组中的起始位置
-          // 新增的内容总是在评论数组的末尾
-          const remainingNewComments = targetNote.comments.length - targetCommentsCountBefore;
-          const startOffset = fieldContentInfo.slice(0, fieldIndex).reduce((sum, field) => sum + field.contentCount, 0);
+          // 记录合并前的评论数量
+          const targetCommentsCountBefore = targetNote.comments.length;
           
-          for (let i = 0; i < info.contentCount; i++) {
-            // 新内容在当前评论数组中的位置
-            const currentPos = targetNote.comments.length - remainingNewComments + startOffset + i;
-            indicesToMove.push(currentPos);
+          // 克隆源卡片处理摘录区
+          const tempNote = sourceNote.clone();
+          tempNote.noteTitle = "";
+          
+          // 删除子卡片（如果有的话）
+          if (tempNote.childNotes && tempNote.childNotes.length > 0) {
+            for (let i = tempNote.childNotes.length - 1; i >= 0; i--) {
+              tempNote.childNotes[i].removeFromParent();
+            }
           }
           
-          MNUtil.log(`🔄 移动 ${indicesToMove.length} 条内容到字段 "${info.targetField}"`);
+          // 删除已处理的内容，只保留摘录区
+          const indicesToDelete = Array.from(processedIndices).sort((a, b) => b - a);
+          indicesToDelete.forEach(index => {
+            tempNote.removeCommentByIndex(index);
+          });
           
-          // 移动到目标字段
-          this.moveCommentsArrToField(targetNote, indicesToMove, info.targetField, true);
-        });
+          // 合并到目标卡片
+          tempNote.mergeInto(targetNote);
+          
+          // 计算新增内容的索引并移动到摘录区
+          const newContentIndices = [];
+          const excerptContentCount = excerptIndices.length;
+          for (let i = 0; i < excerptContentCount; i++) {
+            newContentIndices.push(targetCommentsCountBefore + i);
+          }
+          
+          this.moveCommentsArrToField(targetNote, newContentIndices, "摘录区", true);
+          MNUtil.log(`✅ 已将摘录区内容移动到目标卡片的摘录区`);
+        }
         
-        // 11. 刷新卡片显示
+        // 所有内容处理完成后，删除源卡片
+        try {
+          // 使用 MNNote 的 delete 方法删除源卡片
+          if (sourceNote.delete) {
+            sourceNote.delete(false); // false 表示不删除子卡片
+            MNUtil.log("✅ 已删除源卡片");
+          } else {
+            // 备用删除方法
+            MNUtil.db.deleteBookNote(sourceNote.noteId);
+            MNUtil.log("✅ 已删除源卡片（使用备用方法）");
+          }
+        } catch (deleteError) {
+          MNUtil.log(`⚠️ 删除源卡片失败: ${deleteError.message}`);
+          // 不影响合并结果，继续执行
+        }
+        
+        // 刷新目标卡片显示
         targetNote.refresh();
       });
       
