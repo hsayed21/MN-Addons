@@ -5394,12 +5394,51 @@ class MNMath {
                   MNUtil.addErrorLog(error, "performExtract.deleteOriginal", {noteId: note.noteId});
                 }
               });
+              
+              // 询问是否制卡
+              this.showMakeNoteDialog(clonedNote);
+            } else {
+              // 用户选择"保留原评论"
+              // 询问是否制卡
+              this.showMakeNoteDialog(clonedNote);
             }
-            // 如果选择"保留原评论"，则不做任何操作
           }
         );
       });
     }
+  }
+
+  /**
+   * 显示制卡确认对话框
+   * @param {MNNote} extractedNote - 提取出的卡片
+   */
+  static showMakeNoteDialog(extractedNote) {
+    // 延迟显示对话框，确保前面的操作完成
+    MNUtil.delay(0.3).then(() => {
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        "制卡确认",
+        "是否对提取的卡片进行制卡处理？",
+        0,
+        "取消",
+        ["制卡"],
+        (alert, buttonIndex) => {
+          if (buttonIndex === 1) {
+            // 用户选择制卡
+            MNUtil.undoGrouping(() => {
+              try {
+                // 调用 MNMath.makeNote 进行制卡
+                MNMath.makeNote(extractedNote);
+                MNUtil.showHUD("制卡完成");
+              } catch (error) {
+                MNUtil.showHUD("制卡失败: " + error.message);
+                MNUtil.addErrorLog(error, "showMakeNoteDialog", {noteId: extractedNote.noteId});
+              }
+            });
+          }
+          // 如果选择取消，则不做任何操作
+        }
+      );
+    });
   }
 
   /**
