@@ -45,6 +45,11 @@ function registerAllMenuTemplates() {
       action: "menu",
       menuWidth: 300,
       menuItems: [
+        "✂️ 拆分评论",
+        {
+          action: "splitCommentsByNotes",
+          menuTitle: "    拆分卡片评论为独立卡片",
+        },
         "🔗 链接处理",
         {
           action: "removeBidirectionalLinks",
@@ -60,7 +65,7 @@ function registerAllMenuTemplates() {
         },
         {
           action: "reorderContainsFieldLinks",
-          menuTitle: "  定义“相关链接”下方的链接重新排序",
+          menuTitle: "    定义卡片“相关链接”下方的链接重新排序",
         },
         "⬇️ 字段处理",
         {
@@ -85,11 +90,6 @@ function registerAllMenuTemplates() {
           action: "moveLastCommentToBelongArea",
           menuTitle: "    移动到所属区",
         },
-        "✂️ 拆分评论",
-        {
-          action: "splitCommentsByNotes",
-          menuTitle: "    拆分评论为独立卡片",
-        },
       ],
     },
   });
@@ -97,11 +97,11 @@ function registerAllMenuTemplates() {
   // menu_think
   global.registerMenuTemplate("menu_think", {
     action: "moveUpThoughtPointsToBottom",
-    onLongPress: {
-      action: "menu",
-      menuWidth: 330,
-      menuItems: [],
-    },
+    // onLongPress: {
+    //   action: "menu",
+    //   menuWidth: 330,
+    //   menuItems: [],
+    // },
   });
 
   // menu_study
@@ -376,9 +376,9 @@ function registerAllMenuTemplates() {
     action: "copyMarkdownVersionFocusNoteURL",
     onLongPress: {
       action: "menu",
-      menuWidth: 350,
+      menuWidth: 360,
       menuItems: [
-        "⬇️ 卡片处理",
+        "⬇️ 卡片移动",
         {
           action: "sendNotesToInboxArea",
           menuTitle: "    ⇨ Inbox",
@@ -395,25 +395,32 @@ function registerAllMenuTemplates() {
           action: "toBeIndependent",
           menuTitle: "    ⇨ 独立",
         },
-        {
-          action: "convertNoteToNonexcerptVersion",
-          menuTitle: "    转化为非摘录版本",
-        },
+        "⬇️ 拆卡",
         {
           action: "splitMarkdownTextInFocusNote",
           menuTitle: "    基于 Markdown 拆卡",
         },
         {
           action: "splitCommentsByNotes",
-          menuTitle: "    拆分评论为独立卡片",
+          menuTitle: "    拆分卡片评论为独立卡片",
         },
+        "⬇️ 卡片处理",
+        {
+          action: "convertNoteToNonexcerptVersion",
+          menuTitle: "    转化为非摘录版本",
+        },
+        "⬇️ 处理子孙卡片",
         {
           action: "updateChildrenPrefixes",
           menuTitle: "    🔄 更新子孙卡片前缀（点击归类卡片）",
         },
         {
-          action: "forceUpdateTitlePrefix",
-          menuTitle: "    ⚡ 强制修改标题前缀",
+          action: "oldChildrenMakeNotes",
+          menuTitle: "    🔄 子孙卡片批量制卡",
+        },
+        {
+          action: "removeAllClassificationNotes",
+          menuTitle: "    ❌ 删除归类子孙卡片，保留知识点",
         },
         "⬇️ 合并到父卡片",
         {
@@ -432,22 +439,14 @@ function registerAllMenuTemplates() {
           action: "mergIntoParenNoteAndRenewReplaceholderWithPopup",
           menuTitle: "    合并到父卡片 & 替换占位符: 弹窗选择类型",
         },
-        {
-          action: "renewExcerptInParentNoteByFocusNote",
-          menuTitle: "    父卡片的摘录替换为选中卡片的摘录",
-        },
         "🔄 处理旧卡片",
         {
-          action: "oldChildrenMakeNotes",
-          menuTitle: "    🔄 旧子孙卡片批量制卡",
-        },
-        {
-          action: "removeAllClassificationNotes",
-          menuTitle: "    ❌ 删除归类子孙卡片，保留知识点",
-        },
-        {
           action: "renewKnowledgeNoteIntoParentNote",
-          menuTitle: "    更新知识点卡片到父卡片中",
+          menuTitle: "    合并重复知识点",
+        },
+        {
+          action: "renewExcerptInParentNoteByFocusNote",
+          menuTitle: "    摘录替换父卡片的摘录",
         },
         {
           action: "clearContentKeepExcerptWithTitle",
@@ -465,14 +464,18 @@ function registerAllMenuTemplates() {
           action: "handleOldCardWithoutMakeNote",
           menuTitle: "    📋 旧卡片处理 & 不制卡",
         },
-        {
-          action: "batchChangeClassificationTitles",
-          menuTitle: "    批量更新归类卡片标题",
-        },
+        // {
+        //   action: "batchChangeClassificationTitles",
+        //   menuTitle: "    批量更新归类卡片标题",
+        // },
         "⬇️ 修改标题",
         {
           action: "removeTitlePrefix",
           menuTitle: "    去掉卡片前缀",
+        },
+        {
+          action: "forceUpdateTitlePrefix",
+          menuTitle: "    ⚡ 强制修改标题前缀",
         },
         "ℹ️ 获取卡片信息",
         {
