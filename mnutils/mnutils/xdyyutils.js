@@ -284,6 +284,28 @@ class MNMath {
   }
 
   /**
+   * 关键词到卡片类型的映射表
+   */
+  static keywordTypeMapping = {
+    "基本性质": "命题",
+    "判定": "命题"
+  }
+
+  /**
+   * 根据用户输入文本智能识别卡片类型
+   * @param {string} userInputText - 用户输入的文本
+   * @returns {string|null} - 识别出的类型，未匹配时返回null
+   */
+  static getTypeFromInputText(userInputText) {
+    for (const [keyword, type] of Object.entries(this.keywordTypeMapping)) {
+      if (userInputText.includes(keyword)) {
+        return type;
+      }
+    }
+    return null;
+  }
+
+  /**
    * 知识点卡片类型
    */
   static knowledgeNoteTypes = [
@@ -6795,13 +6817,15 @@ class MNMath {
                   return;
                 }
                 
-                // 获取对应类型的模板ID
-                let templateNoteId = this.types["归类"].templateNoteId;
+                // 智能识别类型（仅用于标题）
+                let intelligentType = this.getTypeFromInputText(userInputTitle);
+                let titleType = intelligentType || noteType;  // 标题中显示的类型
+                let templateNoteId = this.types["归类"].templateNoteId;  // 始终使用归类模板
                 
                 MNUtil.undoGrouping(() => {
                   // 1. 创建新的归类卡片
                   let newClassificationNote = MNNote.clone(templateNoteId);
-                  newClassificationNote.note.noteTitle = `“${userInputTitle}”相关${noteType}`;
+                  newClassificationNote.note.noteTitle = `"${userInputTitle}"相关${titleType}`;
                   
                   // 3. 建立层级关系：新卡片作为父卡片的子卡片
                   parentNote.addChild(newClassificationNote.note);
@@ -6827,15 +6851,19 @@ class MNMath {
               // 增加兄弟层级模板
               type = this.parseNoteTitle(note).type
               if (type) {
+                // 智能识别类型（仅用于标题）
+                let intelligentType = this.getTypeFromInputText(userInputTitle);
+                let titleType = intelligentType || type;  // 标题中显示的类型
+                
                 // 分割输入，支持通过//创建多个兄弟卡片链
                 let titlePartsArray = userInputTitle.split("//")
                 
                 MNUtil.undoGrouping(()=>{
                   let lastNote = null
                   
-                  // 创建第一个兄弟卡片
+                  // 创建第一个兄弟卡片（始终使用归类模板）
                   let firstNote = MNNote.clone(this.types["归类"].templateNoteId)
-                  firstNote.noteTitle = "“" + titlePartsArray[0] + "”相关" + type
+                  firstNote.noteTitle = "“" + titlePartsArray[0] + "”相关" + titleType
                   note.parentNote.addChild(firstNote.note)
                   this.linkParentNote(firstNote)
                   lastNote = firstNote
@@ -6846,7 +6874,7 @@ class MNMath {
                     let childNote = MNNote.clone(this.types["归类"].templateNoteId)
                     // 累积标题：上一个标题 + 当前部分
                     let accumulatedTitle = previousTitle + titlePartsArray[i]
-                    childNote.noteTitle = "“" + accumulatedTitle + "”相关" + type
+                    childNote.noteTitle = "“" + accumulatedTitle + "”相关" + titleType
                     lastNote.addChild(childNote.note)
                     this.linkParentNote(childNote)
                     lastNote = childNote
@@ -6896,24 +6924,39 @@ class MNMath {
                     })
                     break;
                   default:
-                    let typeArr = ["定义","命题","例子","反例","思想方法","问题"]
-                    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-                      "增加归类卡片",
-                      "选择类型",
-                      0,
-                      "取消",
-                      typeArr,
-                      (alert, buttonIndex) => {
-                        if (buttonIndex == 0) { return }
-                        type = typeArr[buttonIndex-1]
-                        MNUtil.undoGrouping(()=>{
-                          titlesArray.forEach(title => {
-                          let newClassificationNote = this.createClassificationNote(lastNote, title, type)
-                            lastNote = newClassificationNote
+                    // 智能识别类型
+                    let intelligentType = this.getTypeFromInputText(userInputTitle);
+                    if (intelligentType) {
+                      type = intelligentType;
+                      // 直接执行创建逻辑，无需弹窗选择
+                      MNUtil.undoGrouping(() => {
+                        titlesArray.forEach(title => {
+                          let newClassificationNote = this.createClassificationNote(lastNote, title, type);
+                          lastNote = newClassificationNote;
+                        });
+                        lastNote.focusInMindMap(0.3);
+                      });
+                    } else {
+                      // 原有的弹窗选择逻辑
+                      let typeArr = ["定义","命题","例子","反例","思想方法","问题"]
+                      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+                        "增加归类卡片",
+                        "选择类型",
+                        0,
+                        "取消",
+                        typeArr,
+                        (alert, buttonIndex) => {
+                          if (buttonIndex == 0) { return }
+                          type = typeArr[buttonIndex-1]
+                          MNUtil.undoGrouping(()=>{
+                            titlesArray.forEach(title => {
+                            let newClassificationNote = this.createClassificationNote(lastNote, title, type)
+                              lastNote = newClassificationNote
+                            })
+                            lastNote.focusInMindMap(0.3)
                           })
-                          lastNote.focusInMindMap(0.3)
                         })
-                      })
+                    }
                     break;
                 }
               } catch (error) {
@@ -6950,24 +6993,39 @@ class MNMath {
                     })
                     break;
                   default:
-                    let typeArr = ["定义","命题","例子","反例","思想方法","问题"]
-                    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-                      "增加归类卡片",
-                      "选择类型",
-                      0,
-                      "取消",
-                      typeArr,
-                      (alert, buttonIndex) => {
-                        if (buttonIndex == 0) { return }
-                        type = typeArr[buttonIndex-1]
-                        MNUtil.undoGrouping(()=>{
-                          titlesArray.forEach(title => {
-                          let newClassificationNote = this.createClassificationNote(lastNote, title, type)
-                            lastNote = newClassificationNote
+                    // 智能识别类型
+                    let intelligentType = this.getTypeFromInputText(userInputTitle);
+                    if (intelligentType) {
+                      type = intelligentType;
+                      // 直接执行创建逻辑，无需弹窗选择
+                      MNUtil.undoGrouping(() => {
+                        titlesArray.forEach(title => {
+                          let newClassificationNote = this.createClassificationNote(lastNote, title, type);
+                          lastNote = newClassificationNote;
+                        });
+                        lastNote.focusInMindMap(0.3);
+                      });
+                    } else {
+                      // 原有的弹窗选择逻辑
+                      let typeArr = ["定义","命题","例子","反例","思想方法","问题"]
+                      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+                        "增加归类卡片",
+                        "选择类型",
+                        0,
+                        "取消",
+                        typeArr,
+                        (alert, buttonIndex) => {
+                          if (buttonIndex == 0) { return }
+                          type = typeArr[buttonIndex-1]
+                          MNUtil.undoGrouping(()=>{
+                            titlesArray.forEach(title => {
+                            let newClassificationNote = this.createClassificationNote(lastNote, title, type)
+                              lastNote = newClassificationNote
+                            })
+                            lastNote.focusInMindMap(0.3)
                           })
-                          lastNote.focusInMindMap(0.3)
                         })
-                      })
+                    }
                     break;
                 }
               } catch (error) {
