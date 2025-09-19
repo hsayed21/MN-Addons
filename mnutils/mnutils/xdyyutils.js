@@ -1591,139 +1591,255 @@ class MNMath {
 
   /**
    * 处理旧模板卡片
-   * - 保留摘录和手写
-   * - 收集文本和有效链接
-   * - 创建子卡片存放文本和链接
-   * - 清理原卡片的其他评论
+   * - 使用 clone 技巧提取手写和图片
+   * - 每张图片单独一张卡
+   * - 手写内容单独一张卡
+   * - 应用字段内容单独一张卡
+   * - 其余内容一张卡
    * 
-   * @param {MNNote} note - 要处理的旧模板卡片
+   * @param {MNNote} oldNote - 要处理的旧模板卡片
    */
-  static processOldTemplateCard(note) {
+  static processOldTemplateCard(oldNote) {
+    let note = this.toNoExcerptVersion(oldNote) // 先转为非摘录模式
     // 使用 MNComments 获取更精准的类型
     let MNComments = note.MNComments;
+    let excerptBlockIndexArr = this.getExcerptBlockIndexArr(note)
+    let startIndex = 0
+    if (excerptBlockIndexArr && excerptBlockIndexArr.length > 0) {
+      startIndex = excerptBlockIndexArr[excerptBlockIndexArr.length-1]!==-1?excerptBlockIndexArr[excerptBlockIndexArr.length-1] + 1:0;
+    }
     
-    // 收集文本和链接，按字段分组
-    let fieldContents = {}; // { fieldName: { texts: [], links: [] } }
-    let applicationLinks = []; // 专门收集"应用"字段的链接
+    // 分类收集不同类型内容的索引
+    let handwritingIndices = [];  // 手写内容索引
+    let imageIndices = [];  // 图片索引（每个元素代表一张图片）
+    let applicationFieldIndices = [];  // 应用字段相关内容索引
+    let otherContentIndices = [];  // 其他文本内容索引
+    let htmlFieldIndices = [];  // HTML字段标记索引
+    
+    // 字段内容映射
+    let fieldContents = {};  // { fieldName: { indices: [], texts: [], links: [] } }
     let currentField = null;
     
-    // 遍历所有评论
-    for (let i = 0; i < MNComments.length; i++) {
+    // 遍历所有评论进行分类
+    for (let i = startIndex; i < MNComments.length; i++) {
       let mnComment = MNComments[i];
       
       // 检查是否是 HtmlComment（字段标记）
       if (mnComment.type === "HtmlComment") {
         currentField = mnComment.text.trim();
+        htmlFieldIndices.push(i);
         if (!fieldContents[currentField]) {
-          fieldContents[currentField] = { texts: [], links: [] };
+          fieldContents[currentField] = { indices: [], texts: [], links: [] };
         }
         continue;
       }
       
-      // 跳过图片摘录和手写/绘图
-      if (mnComment.type.toLowerCase().includes("image") || 
-          mnComment.type.toLowerCase().includes("drawing")) {
-        continue;  // 保留这些内容
-      }
-      
-      // 收集文本和链接评论
-      if (currentField) {
-        // 处理链接类型（linkComment 和 summaryComment）
+      // 分类处理不同类型的评论
+      if (mnComment.type === "drawingComment" || 
+          mnComment.type === "imageCommentWithDrawing" || 
+          mnComment.type === "mergedImageCommentWithDrawing") {
+        // 手写内容
+        handwritingIndices.push(i);
+      } else if (mnComment.type === "imageComment" || 
+                 mnComment.type === "mergedImageComment") {
+        // 纯图片内容（每张图片单独记录）
+        imageIndices.push(i);
+      } else if (currentField && currentField.includes("应用")) {
+        // 应用字段的内容
+        applicationFieldIndices.push(i);
+        fieldContents[currentField].indices.push(i);
+        
+        // 记录内容
         if (mnComment.type === "linkComment" || mnComment.type === "summaryComment") {
-          // 如果是"应用"字段的链接，单独收集
-          if (currentField === "应用") {
-            applicationLinks.push(mnComment.text);
-          } else {
-            fieldContents[currentField].links.push(mnComment.text);
-          }
+          fieldContents[currentField].links.push(mnComment.text);
+        } else if (mnComment.type === "textComment" || 
+                   mnComment.type === "markdownComment" || 
+                   mnComment.type === "mergedTextComment" ||
+                   mnComment.type === "tagComment") {
+          fieldContents[currentField].texts.push(mnComment.text);
         }
-        // 处理文本类型
-        else if (mnComment.type === "textComment" || 
-                 mnComment.type === "markdownComment" || 
-                 mnComment.type === "mergedTextComment" ||
-                 mnComment.type === "tagComment") {
-          // 所有字段的文本都放到 fieldContents
+      } else if (currentField) {
+        // 其他字段的内容
+        otherContentIndices.push(i);
+        fieldContents[currentField].indices.push(i);
+        
+        // 记录内容
+        if (mnComment.type === "linkComment" || mnComment.type === "summaryComment") {
+          fieldContents[currentField].links.push(mnComment.text);
+        } else if (mnComment.type === "textComment" || 
+                   mnComment.type === "markdownComment" || 
+                   mnComment.type === "mergedTextComment" ||
+                   mnComment.type === "tagComment") {
           fieldContents[currentField].texts.push(mnComment.text);
         }
       }
     }
     
-    // 检查是否有需要迁移的内容
-    let hasFieldContent = Object.values(fieldContents).some(field => 
-      field.texts.length > 0 || field.links.length > 0
-    );
+    // 创建的所有子卡片
+    let createdChildNotes = [];
     
-    // 创建第一个子卡片：包含所有非应用链接的内容
-    if (hasFieldContent) {
-      let config = {
-        title: "旧模板内容",
-        content: "",
-        markdown: false,
-        color: note.colorIndex
-      };
-      let childNote = note.createChildNote(config);
-      
-      // 按字段添加内容到子卡片
-      MNUtil.undoGrouping(() => {
-        Object.keys(fieldContents).forEach(fieldName => {
-          let field = fieldContents[fieldName];
-          
-          // 只添加有内容的字段（应用字段的链接已被排除）
-          if (field.texts.length > 0 || field.links.length > 0) {
-            // 添加字段标题
-            childNote.appendMarkdownComment(`- ${fieldName}`);
-            
-            // 添加文本
-            field.texts.forEach(text => {
-              childNote.appendMarkdownComment(text);
-            });
-            
-            // 添加链接（应用字段不会有链接在这里）
-            field.links.forEach(link => {
-              childNote.appendTextComment(link);
-            });
-          }
-        });
-      });
-    }
-    
-    // 创建第二个子卡片：专门存放应用字段的链接
-    if (applicationLinks.length > 0) {
-      let config = {
-        title: "", // 无标题
-        content: "",
-        markdown: false,
-        color: note.colorIndex
-      };
-      let applicationCard = note.createChildNote(config);
-      
-      // 添加所有应用链接
-      MNUtil.undoGrouping(() => {
-        applicationLinks.forEach(link => {
-          applicationCard.appendTextComment(link);
-        });
-      });
-    }
-    
-    // 清理原卡片：删除除图片摘录和手写/绘图外的所有评论
     MNUtil.undoGrouping(() => {
-      // 使用原始 comments 数组进行删除操作（因为需要按索引删除）
-      let comments = note.comments;
-      for (let i = comments.length - 1; i >= 0; i--) {
-        let mnComment = MNComments[i];
-        let shouldKeep = false;
-        
-        // 判断是否应该保留（图片和手写）
-        if (mnComment.type.toLowerCase().includes("image") || 
-            mnComment.type.toLowerCase().includes("drawing")) {
-          shouldKeep = true;
-        }
-        
-        if (!shouldKeep) {
-          note.removeCommentByIndex(i);
+      // 1. 为手写内容创建独立卡片
+      if (handwritingIndices.length > 0) {
+        try {
+          let clonedNote = note.clone();
+          clonedNote.title = "";
+          
+          // 删除克隆卡片的所有子卡片
+          if (clonedNote.childNotes && clonedNote.childNotes.length > 0) {
+            for (let i = clonedNote.childNotes.length - 1; i >= 0; i--) {
+              clonedNote.childNotes[i].removeFromParent();
+            }
+          }
+          
+          // 计算需要删除的索引（保留手写内容）
+          let allIndices = Array.from({length: clonedNote.comments.length}, (_, i) => i);
+          let indicesToDelete = allIndices.filter(i => !handwritingIndices.includes(i));
+          indicesToDelete.sort((a, b) => b - a);
+          
+          // 删除非手写内容
+          clonedNote.removeCommentsByIndexArr(indicesToDelete);
+          
+          // 添加为子卡片
+          note.addChild(clonedNote);
+          createdChildNotes.push(clonedNote);
+          clonedNote.refresh();
+        } catch (error) {
+          MNUtil.showHUD("创建手写卡片失败: " + error.message);
         }
       }
+      
+      // 2. 为每张图片创建独立卡片
+      imageIndices.forEach((imageIndex, idx) => {
+        try {
+          let clonedNote = note.clone();
+          clonedNote.title = "";
+          
+          // 删除克隆卡片的所有子卡片
+          if (clonedNote.childNotes && clonedNote.childNotes.length > 0) {
+            for (let i = clonedNote.childNotes.length - 1; i >= 0; i--) {
+              clonedNote.childNotes[i].removeFromParent();
+            }
+          }
+          
+          // 计算需要删除的索引（只保留当前图片）
+          let allIndices = Array.from({length: clonedNote.comments.length}, (_, i) => i);
+          let indicesToDelete = allIndices.filter(i => i !== imageIndex);
+          indicesToDelete.sort((a, b) => b - a);
+          
+          // 删除其他内容
+          clonedNote.removeCommentsByIndexArr(indicesToDelete);
+          
+          // 添加为子卡片
+          note.addChild(clonedNote);
+          createdChildNotes.push(clonedNote);
+          clonedNote.refresh();
+        } catch (error) {
+          MNUtil.showHUD(`创建图片卡片 ${idx + 1} 失败: ` + error.message);
+        }
+      });
+      
+      // 3. 为应用字段内容创建独立卡片
+      if (applicationFieldIndices.length > 0) {
+        try {
+          let clonedNote = note.clone();
+          clonedNote.title = "";
+          
+          // 删除克隆卡片的所有子卡片
+          if (clonedNote.childNotes && clonedNote.childNotes.length > 0) {
+            for (let i = clonedNote.childNotes.length - 1; i >= 0; i--) {
+              clonedNote.childNotes[i].removeFromParent();
+            }
+          }
+          
+          // 计算需要删除的索引（保留应用字段内容）
+          let allIndices = Array.from({length: clonedNote.comments.length}, (_, i) => i);
+          let indicesToDelete = allIndices.filter(i => !applicationFieldIndices.includes(i));
+          indicesToDelete.sort((a, b) => b - a);
+          
+          // 删除其他内容
+          clonedNote.removeCommentsByIndexArr(indicesToDelete);
+          
+          // 添加为子卡片
+          note.addChild(clonedNote);
+          createdChildNotes.push(clonedNote);
+          clonedNote.refresh();
+        } catch (error) {
+          MNUtil.showHUD("创建应用字段卡片失败: " + error.message);
+        }
+      }
+      
+      // 4. 为其他文本内容创建卡片
+      if (otherContentIndices.length > 0) {
+        // 检查是否有实际内容（不只是HTML字段标记）
+        let hasActualContent = Object.keys(fieldContents).some(fieldName => {
+          if (fieldName && fieldName.includes("应用")) return false;  // 跳过应用字段
+          let field = fieldContents[fieldName];
+          return field.texts.length > 0 || field.links.length > 0;
+        });
+        
+        if (hasActualContent) {
+          let config = {
+            title: "",
+            content: "",
+            markdown: false,
+            color: note.colorIndex
+          };
+          let textCard = note.createChildNote(config);
+          
+          // 按字段添加内容
+          Object.keys(fieldContents).forEach(fieldName => {
+            if (fieldName && fieldName.includes("应用")) return;  // 跳过应用字段
+            
+            let field = fieldContents[fieldName];
+            if (field.texts.length > 0 || field.links.length > 0) {
+              // 添加字段标题
+              textCard.appendMarkdownComment(`- ${fieldName}`);
+              
+              // 添加文本
+              field.texts.forEach(text => {
+                textCard.appendTextComment(text);
+              });
+              
+              // 添加链接
+              field.links.forEach(link => {
+                textCard.appendTextComment(link);
+              });
+            }
+          });
+          
+          createdChildNotes.push(textCard);
+          textCard.refresh();
+        }
+      }
+      
+      // 5. 清理原卡片：删除所有已处理的评论
+      let allProcessedIndices = [
+        ...handwritingIndices,
+        ...imageIndices,
+        ...applicationFieldIndices,
+        ...otherContentIndices,
+        ...htmlFieldIndices
+      ];
+      
+      // 去重并排序
+      allProcessedIndices = [...new Set(allProcessedIndices)].sort((a, b) => b - a);
+      
+      // 删除已处理的评论
+      if (allProcessedIndices.length > 0) {
+        note.removeCommentsByIndexArr(allProcessedIndices);
+      }
+      
+      // 刷新原卡片
+      note.refresh();
     });
+    
+    // // 显示处理结果
+    // if (createdChildNotes.length > 0) {
+    //   MNUtil.showHUD(`✅ 成功处理旧模板卡片，创建了 ${createdChildNotes.length} 张子卡片`);
+    // }
+
+    return note
   }
 
   /**
@@ -1732,8 +1848,9 @@ class MNMath {
   static renewNote(note) {
     // 首先判断并处理旧模板卡片
     if (this.isOldTemplateCard(note)) {
-      this.processOldTemplateCard(note);
-      return this.toNoExcerptVersion(note);
+      let newNote = this.processOldTemplateCard(note);
+      this.changeTitle(newNote)
+      return newNote
     }
     
     let newNote = this.toNoExcerptVersion(note)
@@ -2045,15 +2162,19 @@ class MNMath {
    * 
    * @param {MNNote} classificationNote - 归类卡片
    */
-  static batchUpdateChildrenPrefixes(classificationNote) {
+  static batchUpdateChildrenPrefixes(classificationNote, descendant = false) {
     // 检查是否为归类卡片
     if (!this.isClassificationNote(classificationNote)) {
       MNUtil.showHUD("请选择一个归类卡片");
       return;
     }
-    
-    // 获取所有子孙卡片
-    const descendants = this.getAllDescendantNotes(classificationNote);
+    if (descendant) {
+      // 获取所有子孙卡片
+      const descendants = this.getAllDescendantNotes(classificationNote);
+    } else {
+      // 只获取子卡片
+      const descendants = classificationNote.childNotes
+    }
     
     let processedCount = 0;
     let skippedCount = 0;
@@ -6632,7 +6753,6 @@ class MNMath {
 
 
   static addTemplate(note) {
-    let templateNote
     let type
     let contentInTitle
     let titleParts = this.parseNoteTitle(note)
@@ -15229,6 +15349,7 @@ class MNMath {
         this.renewNote(note)
         this.changeTitle(note)
         this.linkParentNote(note)
+        this.autoMoveNewContent(note) // 自动移动新内容到对应字段
         return note
       } else {
         // MNUtil.showHUD("不是模板")
