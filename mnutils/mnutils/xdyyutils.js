@@ -15151,6 +15151,38 @@ class MNMath {
       MNUtil.showHUD(`❌ 重置模板失败: ${error.message}`);
     }
   }
+
+
+  /**
+   * 选中卡片的旧子孙卡片批量制卡
+   * 
+   * 1. 只处理已经制过卡的卡片
+   */
+  static oldChildrenMakeNotes(note) {
+    let childDescendants = note.descendantNodes.descendant
+    if (childDescendants.length>0) {
+      MNUtil.undoGrouping(()=>{
+        try {
+          childDescendants.forEach(
+            descendant => {
+              if (this.isOldTemplateCard(descendant)) {
+                // 旧卡片
+                this.processOldTemplateCard(descendant)
+              } else {
+                // 非旧卡片
+                this.renewNote(descendant)
+                this.changeTitle(descendant)
+                this.linkParentNote(descendant)
+              }
+            }
+          )
+        } catch (error) {
+          MNUtil.showHUD(error);
+          MNLog.error(error, "MNMath: oldChildrenMakeNotes");
+        }
+      })
+    }
+  }
 }
 
 /**

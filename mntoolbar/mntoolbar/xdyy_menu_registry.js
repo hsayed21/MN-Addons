@@ -409,7 +409,7 @@ function registerAllMenuTemplates() {
         },
         {
           action: "updateChildrenPrefixes",
-          menuTitle: "    🔄 更新子孙卡片前缀（归类卡片）",
+          menuTitle: "    🔄 更新子孙卡片前缀（点击归类卡片）",
         },
         {
           action: "forceUpdateTitlePrefix",
@@ -438,12 +438,12 @@ function registerAllMenuTemplates() {
         },
         "🔄 处理旧卡片",
         {
-          action: "batchChangeClassificationTitles",
-          menuTitle: "    批量更新归类卡片标题",
+          action: "oldChildrenMakeNotes",
+          menuTitle: "    🔄 旧子孙卡片批量制卡",
         },
         {
           action: "removeAllClassificationNotes",
-          menuTitle: "    删除所有归类卡片，保留知识点",
+          menuTitle: "    ❌ 删除归类子孙卡片，保留知识点",
         },
         {
           action: "renewKnowledgeNoteIntoParentNote",
@@ -464,6 +464,10 @@ function registerAllMenuTemplates() {
         {
           action: "handleOldCardWithoutMakeNote",
           menuTitle: "    📋 旧卡片处理 & 不制卡",
+        },
+        {
+          action: "batchChangeClassificationTitles",
+          menuTitle: "    批量更新归类卡片标题",
         },
         "⬇️ 修改标题",
         {

@@ -3243,6 +3243,17 @@ function registerAllCustomActions() {
     },
   );
 
+  global.registerCustomAction(
+    "oldChildrenMakeNotes",
+    async function (context) {
+      const { focusNotes } = context;
+      focusNotes.forEach(
+        focusNote => {
+          MNMath.oldChildrenMakeNotes(focusNote)
+        }
+      )
+    }
+  )
   // removeAllClassificationNotes - 删除所有归类卡片，保留知识点
   global.registerCustomAction(
     "removeAllClassificationNotes",
