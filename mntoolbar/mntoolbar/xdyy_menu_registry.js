@@ -380,6 +380,10 @@ function registerAllMenuTemplates() {
       menuItems: [
         "⬇️ 卡片移动",
         {
+          action: "addAsBrotherNoteofParentNote",
+          menuTitle: "    ⇨ 成为父卡片的兄弟卡片",
+        },
+        {
           action: "sendNotesToInboxArea",
           menuTitle: "    ⇨ Inbox",
         },
@@ -411,7 +415,11 @@ function registerAllMenuTemplates() {
         },
         "⬇️ 处理子孙卡片",
         {
-          action: "updateChildrenPrefixes",
+          action: "updateChildNotesPrefixes",
+          menuTitle: "    🔄 更新子卡片前缀（点击归类卡片）",
+        },
+        {
+          action: "updateDescentNotesPrefixes",
           menuTitle: "    🔄 更新子孙卡片前缀（点击归类卡片）",
         },
         {

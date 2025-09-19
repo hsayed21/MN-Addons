@@ -2885,8 +2885,7 @@ function registerAllCustomActions() {
     MNMath.splitComments(focusNote);
   });
 
-  // updateChildrenPrefixes - 批量更新子孙卡片前缀
-  global.registerCustomAction("updateChildrenPrefixes", async function(context) {
+  global.registerCustomAction("updateChildNotesPrefixes", async function(context) {
     const { button, des, focusNote, focusNotes, self } = context;
     
     if (!focusNote) {
@@ -2897,6 +2896,30 @@ function registerAllCustomActions() {
     // 调用 MNMath 的批量更新函数
     MNMath.batchUpdateChildrenPrefixes(focusNote);
   });
+
+  global.registerCustomAction("updateDescentNotesPrefixes", async function(context) {
+    const { button, des, focusNote, focusNotes, self } = context;
+    
+    if (!focusNote) {
+      MNUtil.showHUD("请先选择一个归类卡片");
+      return;
+    }
+    
+    // 调用 MNMath 的批量更新函数
+    MNMath.batchUpdateChildrenPrefixes(focusNote, true);
+  });
+
+  global.registerCustomAction("addAsBrotherNoteofParentNote", async function(context) {
+    const { button, des, focusNote, focusNotes, self } = context;
+      let parentNote = focusNote.parentNote
+      MNUtil.undoGrouping(()=>{
+        if (parentNote.parentNote) {
+          parentNote.parentNote.addChild(focusNote)
+          focusNote.focusInMindMap(0.3)
+        }
+      })
+    }
+  )
 
   // forceUpdateTitlePrefix - 强制修改选中卡片标题前缀
   global.registerCustomAction("forceUpdateTitlePrefix", async function(context) {
