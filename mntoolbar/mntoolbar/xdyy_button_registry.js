@@ -87,13 +87,7 @@ function registerAllButtons() {
     image: "card",
     templateName: "menu_card"
   });
-  
-  // 学习和模板
-  global.registerButton("custom2", {
-    name: "学习",
-    image: "study",
-    templateName: "menu_study"
-  });
+
 
   global.registerButton("custom9", {
     name: "思考",
@@ -107,7 +101,20 @@ function registerAllButtons() {
     image: "excerpt",
     templateName: "menu_excerpt"
   });
+
+  global.registerButton("custom17", {
+    name: "Pin",
+    image: "pin",
+    templateName: "menu_pin"
+  });
   
+  // 学习和模板
+  global.registerButton("custom2", {
+    name: "学习",
+    image: "study",
+    templateName: "menu_study"
+  });
+
   global.registerButton("custom4", {
     name: "文献",
     image: "reference",
@@ -131,12 +138,6 @@ function registerAllButtons() {
     name: "文本",
     image: "text",
     templateName: "menu_text"
-  });
-  
-  global.registerButton("custom17", {
-    name: "卡片储存",
-    image: "pin_white",
-    templateName: "menu_card_pin"
   });
   
   // 其他功能

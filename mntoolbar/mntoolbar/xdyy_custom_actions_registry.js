@@ -5224,6 +5224,14 @@ function registerAllCustomActions() {
       );
     }
   );
+
+  global.registerCustomAction("temporarilyPinFocusNote", async function(context) {
+      const { focusNote } = context;
+      MNUtil.postNotification("AddonBroadcast", {
+        message: `mnpinner?action=temporarilyPin&id=${encodeURIComponent(focusNote.noteId)}`
+      });
+    }
+  )
 }
 
 // 立即注册

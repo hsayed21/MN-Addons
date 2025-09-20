@@ -517,24 +517,6 @@ function registerAllMenuTemplates() {
     },
   });
 
-  // menu_card_pin
-  global.registerMenuTemplate("menu_card_pin", {
-    action: "menu",
-    menuItems: [
-      {
-        action: "openPinnedNote-1",
-        menuTitle: "Hᵖ(𝔻)",
-      },
-      {
-        action: "openPinnedNote-2",
-        menuTitle: "Lᵖ(𝕋)",
-      },
-      {
-        action: "openPinnedNote-3",
-        menuTitle: "Hᵖ(𝕋)",
-      },
-    ],
-  });
 
   // menu_makeCards
   global.registerMenuTemplate("menu_makeCards", {
@@ -806,6 +788,22 @@ function registerAllMenuTemplates() {
         menuTitle: "    ⚙️ 切换 OCR 源"
       }
     ]
+  });
+
+
+  global.registerMenuTemplate("menu_pin", {
+    action: "temporarilyPinFocusNote",
+    onLongPress: {
+      // 长按：显示菜单
+      action: "menu",
+      menuWidth: 350,
+      menuItems: [
+        {
+          action: "showPinBoard",
+          menuTitle: "📋 打开 Pin 卡片库",
+        }
+      ]
+    }
   });
 
   if (typeof MNUtil !== "undefined" && MNUtil.log) {

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!-- 设置字符编码为 UTF-8，支持中文显示 -->
+    <meta charset="utf-8">
+    <!-- 设置视口，让网页在移动设备上正确显示 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡片编辑器</title>
+    <style>
+        /* CSS 样式部分：控制网页元素的外观 */
+        
+        /* body 是整个网页的主体 */
+        body {
+            /* 使用 iOS 系统字体，让界面更原生 */
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto;
+            /* margin: 外边距，设为 0 让内容贴边 */
+            margin: 0;
+            /* padding: 内边距，给内容留出空间 */
+            padding: 15px;
+            /* background: 背景颜色，浅灰色 */
+            background: #f5f5f7;
+        }
+        
+        /* 卡片编辑器的容器 */
+        .card-editor {
+            /* 白色背景 */
+            background: white;
+            /* 内边距 15 像素 */
+            padding: 15px;
+            /* 圆角 8 像素，让边角更柔和 */
+            border-radius: 8px;
+            /* 阴影效果，让卡片有立体感 */
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        /* 标题样式 */
+        h3 {
+            /* 标题颜色：深灰色 */
+            color: #333;
+            /* 标题大小 */
+            font-size: 18px;
+            /* 下边距 */
+            margin-bottom: 15px;
+        }
+        
+        /* 卡片信息显示区域 */
+        #cardInfo {
+            /* 浅蓝色背景 */
+            background: #e8f4fd;
+            /* 内边距 */
+            padding: 10px;
+            /* 圆角 */
+            border-radius: 6px;
+            /* 下边距 */
+            margin-bottom: 15px;
+            /* 最小高度，避免内容为空时塌陷 */
+            min-height: 40px;
+        }
+        
+        /* 卡片信息中的段落 */
+        #cardInfo p {
+            /* 去掉默认的上下边距 */
+            margin: 5px 0;
+            /* 文字颜色 */
+            color: #666;
+            /* 文字大小 */
+            font-size: 14px;
+        }
+        
+        /* 输入框样式 */
+        input[type="text"] {
+            /* 宽度占满容器 */
+            width: 100%;
+            /* 内边距，让输入的文字不贴边 */
+            padding: 10px;
+            /* 字体大小 */
+            font-size: 16px;
+            /* 边框：1像素实线，灰色 */
+            border: 1px solid #ddd;
+            /* 圆角 */
+            border-radius: 4px;
+            /* box-sizing: 让 padding 包含在宽度内 */
+            box-sizing: border-box;
+            /* 下边距 */
+            margin-bottom: 10px;
+        }
+        
+        /* 输入框获得焦点时的样式 */
+        input[type="text"]:focus {
+            /* 去掉默认的聚焦轮廓 */
+            outline: none;
+            /* 蓝色边框 */
+            border-color: #007AFF;
+        }
+        
+        /* 按钮样式 */
+        button {
+            /* iOS 标准蓝色背景 */
+            background: #007AFF;
+            /* 白色文字 */
+            color: white;
+            /* 内边距：上下10px，左右20px */
+            padding: 10px 20px;
+            /* 去掉默认边框 */
+            border: none;
+            /* 圆角 */
+            border-radius: 6px;
+            /* 字体大小 */
+            font-size: 16px;
+            /* 鼠标悬停时显示手型 */
+            cursor: pointer;
+            /* 宽度占满容器 */
+            width: 100%;
+            /* 上边距 */
+            margin-top: 5px;
+        }
+        
+        /* 按钮按下时的样式 */
+        button:active {
+            /* 稍微深一点的蓝色 */
+            background: #0056CC;
+        }
+        
+        /* 成功消息样式 */
+        .success-message {
+            /* 绿色文字 */
+            color: #4CAF50;
+            /* 字体大小 */
+            font-size: 14px;
+            /* 上边距 */
+            margin-top: 10px;
+            /* 动画效果：淡入 */
+            animation: fadeIn 0.3s;
+        }
+        
+        /* 淡入动画定义 */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* 无卡片选中时的提示样式 */
+        .no-card {
+            /* 灰色文字 */
+            color: #999;
+            /* 居中对齐 */
+            text-align: center;
+            /* 内边距 */
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 主容器 -->
+    <div class="card-editor">
+        <!-- 标题，📝 是 emoji 图标 -->
+        <h3>📝 卡片标题编辑</h3>
+        
+        <!-- 卡片信息显示区域 -->
+        <!-- id="cardInfo" 用于 JavaScript 获取这个元素 -->
+        <div id="cardInfo">
+            <p class="no-card">请先选择一个卡片</p>
+        </div>
+        
+        <!-- 标题输入框 -->
+        <!-- id="titleInput" 用于 JavaScript 获取输入的值 -->
+        <!-- placeholder 是输入框为空时显示的提示文字 -->
+        <!-- disabled 属性让输入框初始状态不可编辑 -->
+        <input type="text" id="titleInput" placeholder="选择卡片后可编辑标题" disabled>
+        
+        <!-- 保存按钮 -->
+        <!-- onclick="saveTitle()" 表示点击时调用 saveTitle 函数 -->
+        <!-- disabled 属性让按钮初始状态不可点击 -->
+        <button id="saveButton" onclick="saveTitle()" disabled>保存标题</button>
+        
+        <!-- 成功消息显示区域（初始隐藏） -->
+        <div id="successMessage" style="display: none;" class="success-message"></div>
+    </div>
+    
+    <!-- 引入 JavaScript 文件 -->
+    <!-- 这个文件包含所有的交互逻辑 -->
+    <script src="app.js"></script>
+</body>
+</html>
