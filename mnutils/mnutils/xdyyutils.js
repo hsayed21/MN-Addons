@@ -1623,6 +1623,7 @@ class MNMath {
    */
   static processOldTemplateCard(oldNote) {
     let note = this.toNoExcerptVersion(oldNote) // 先转为非摘录模式
+    this.removeUnnecessaryComments(note)
     note.convertLinksToNewVersion()
     note.cleanupBrokenLinks()
     note.fixMergeProblematicLinks()
@@ -2216,14 +2217,15 @@ class MNMath {
           return;
         }
         
-        // 跳过非知识点卡片（使用已有的 isKnowledgeNote 函数）
-        if (!this.isKnowledgeNote(mnNote)) {
-          skippedCount++;
-          return;
-        }
+        // // 跳过非知识点卡片（使用已有的 isKnowledgeNote 函数）
+        // if (!this.isKnowledgeNote(mnNote)) {
+        //   skippedCount++;
+        //   return;
+        // }
         
         // 强制更新前缀
         this.changeTitle(mnNote, true);
+        this.linkParentNote(mnNote)
         processedCount++;
       });
 
@@ -2724,6 +2726,8 @@ class MNMath {
     if (!targetNote.noteTitle || !sourceNote.noteTitle) {
       return;
     }
+
+    if (this.getNoteType(sourceNote)!=="定义") { return }
     
     // 解析两个卡片的标题
     const targetParts = this.parseNoteTitle(targetNote);
@@ -2914,14 +2918,11 @@ class MNMath {
               // 先检查目标字段是否存在
               const targetFieldIndex = targetNote.getIncludingHtmlCommentIndex(targetFieldName);
               
-              if (targetFieldIndex === -1 && targetFieldName !== "摘录" && targetFieldName !== "摘录区") {
-                // 如果目标字段不存在且不是摘录区，先创建字段
-                targetNote.appendHtmlComment(targetFieldName, targetFieldName, 14, "HtmlComment");
-                MNUtil.log(`📝 创建新字段 "${targetFieldName}"`);
+              if (targetFieldIndex !== -1) {
+                // 移动内容到目标字段
+                this.moveCommentsArrToField(targetNote, newContentIndices, targetFieldName, true);
               }
               
-              // 移动内容到目标字段
-              this.moveCommentsArrToField(targetNote, newContentIndices, targetFieldName, true);
               
               MNUtil.log(`✅ 已将 ${newContentIndices.length} 条内容移动到 "${targetFieldName}" 字段`);
             }
@@ -2977,7 +2978,7 @@ class MNMath {
         try {
           // 使用 MNNote 的 delete 方法删除源卡片
           if (sourceNote.delete) {
-            sourceNote.delete(false); // false 表示不删除子卡片
+            sourceNote.delete(false); // false 表示不删除子孙卡片
             MNUtil.log("✅ 已删除源卡片");
           } else {
             // 备用删除方法
@@ -6806,12 +6807,7 @@ class MNMath {
           "向上层增加模板",  // 4
         ],
         (alert, buttonIndex) => {
-          let userInputTitle
-          if (typeof Pangu !== undefined) {
-            userInputTitle = Pangu.spacing(alert.textFieldAtIndex(0).text)
-          } else {
-            userInputTitle = alert.textFieldAtIndex(0).text;
-          }
+          let userInputTitle = alert.textFieldAtIndex(0).text;
           switch (buttonIndex) {
             case 4:
               try {
@@ -6834,7 +6830,7 @@ class MNMath {
                 MNUtil.undoGrouping(() => {
                   // 1. 创建新的归类卡片
                   let newClassificationNote = MNNote.clone(templateNoteId);
-                  newClassificationNote.note.noteTitle = `"${userInputTitle}"相关${titleType}`;
+                  newClassificationNote.note.noteTitle = `“${userInputTitle}”相关${titleType}`;
                   
                   // 3. 建立层级关系：新卡片作为父卡片的子卡片
                   parentNote.addChild(newClassificationNote.note);
@@ -6847,7 +6843,7 @@ class MNMath {
                   this.linkParentNote(note);
                   
                   // 6. 聚焦到新创建的卡片
-                  MNUtil.delay(0.8).then(() => {
+                  MNUtil.delay(0.5).then(() => {
                     newClassificationNote.focusInMindMap();
                   });
                 });

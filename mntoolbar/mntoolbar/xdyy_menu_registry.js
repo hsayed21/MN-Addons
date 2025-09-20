@@ -416,11 +416,11 @@ function registerAllMenuTemplates() {
         "⬇️ 处理子孙卡片",
         {
           action: "updateChildNotesPrefixes",
-          menuTitle: "    🔄 更新子卡片前缀（点击归类卡片）",
+          menuTitle: "    🔄 更新「子卡片」前缀和链接",
         },
         {
           action: "updateDescentNotesPrefixes",
-          menuTitle: "    🔄 更新子孙卡片前缀（点击归类卡片）",
+          menuTitle: "    🔄 更新「子孙卡片」前缀和链接",
         },
         {
           action: "oldChildrenMakeNotes",
