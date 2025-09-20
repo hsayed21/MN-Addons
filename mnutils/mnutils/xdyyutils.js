@@ -2879,6 +2879,27 @@ class MNMath {
             
             MNUtil.log(`📋 处理字段 "${fieldName}" → "${targetFieldName}": ${contentIndices.length} 条内容`);
             
+            // 在克隆和合并之前，先维护链接关系
+            // 将其他卡片中指向源卡片B的链接替换为指向目标卡片A
+            contentIndices.forEach(index => {
+              const comment = sourceNote.MNComments[index];
+              if (comment && comment.type === "linkComment") {
+                const linkedNote = MNNote.new(comment.text);
+                if (linkedNote) {
+                  // 找到被链接卡片C中所有指向源卡片B的链接
+                  const sourceLinkIndices = linkedNote.getLinkCommentsIndexArr(sourceNote.noteURL);
+                  if (sourceLinkIndices.length > 0) {
+                    MNUtil.log(`🔗 在卡片 ${linkedNote.noteId} 中找到 ${sourceLinkIndices.length} 个指向源卡片的链接，正在替换...`);
+                    // 直接替换为指向目标卡片A的链接
+                    sourceLinkIndices.forEach(linkIndex => {
+                      linkedNote.replaceWithMarkdownComment(targetNote.noteURL, linkIndex);
+                    });
+                    linkedNote.refresh();
+                  }
+                }
+              }
+            });
+            
             // 记录合并前目标卡片的评论数量
             const targetCommentsCountBefore = targetNote.comments.length;
             
@@ -2939,6 +2960,26 @@ class MNMath {
         
         if (excerptIndices.length > 0) {
           MNUtil.log(`📝 处理摘录区: ${excerptIndices.length} 条内容`);
+          
+          // 在处理摘录区内容之前，同样维护链接关系
+          excerptIndices.forEach(index => {
+            const comment = sourceNote.MNComments[index];
+            if (comment && comment.type === "linkComment") {
+              const linkedNote = MNNote.new(comment.text);
+              if (linkedNote) {
+                // 找到被链接卡片中所有指向源卡片B的链接
+                const sourceLinkIndices = linkedNote.getLinkCommentsIndexArr(sourceNote.noteURL);
+                if (sourceLinkIndices.length > 0) {
+                  MNUtil.log(`🔗 摘录区：在卡片 ${linkedNote.noteId} 中找到 ${sourceLinkIndices.length} 个指向源卡片的链接，正在替换...`);
+                  // 直接替换为指向目标卡片A的链接
+                  sourceLinkIndices.forEach(linkIndex => {
+                    linkedNote.replaceWithMarkdownComment(targetNote.noteURL, linkIndex);
+                  });
+                  linkedNote.refresh();
+                }
+              }
+            }
+          });
           
           // 记录合并前的评论数量
           const targetCommentsCountBefore = targetNote.comments.length;
