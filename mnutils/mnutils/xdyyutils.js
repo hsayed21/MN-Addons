@@ -1623,6 +1623,9 @@ class MNMath {
    */
   static processOldTemplateCard(oldNote) {
     let note = this.toNoExcerptVersion(oldNote) // 先转为非摘录模式
+    note.convertLinksToNewVersion()
+    note.cleanupBrokenLinks()
+    note.fixMergeProblematicLinks()
     // 使用 MNComments 获取更精准的类型
     let MNComments = note.MNComments;
     let excerptBlockIndexArr = this.getExcerptBlockIndexArr(note)
@@ -2190,12 +2193,13 @@ class MNMath {
       MNUtil.showHUD("请选择一个归类卡片");
       return;
     }
+    let descendants
     if (descendant) {
       // 获取所有子孙卡片
-      const descendants = this.getAllDescendantNotes(classificationNote);
+      descendants = this.getAllDescendantNotes(classificationNote);
     } else {
       // 只获取子卡片
-      const descendants = classificationNote.childNotes
+      descendants = classificationNote.childNotes
     }
     
     let processedCount = 0;
@@ -6802,7 +6806,12 @@ class MNMath {
           "向上层增加模板",  // 4
         ],
         (alert, buttonIndex) => {
-          let userInputTitle = alert.textFieldAtIndex(0).text;
+          let userInputTitle
+          if (typeof Pangu !== undefined) {
+            userInputTitle = Pangu.spacing(alert.textFieldAtIndex(0).text)
+          } else {
+            userInputTitle = alert.textFieldAtIndex(0).text;
+          }
           switch (buttonIndex) {
             case 4:
               try {
@@ -15400,18 +15409,21 @@ class MNMath {
       // MNUtil.showHUD("旧卡片")
       let newNote = this.renewNote(note)
       this.changeTitle(newNote)
+      this.changeNoteColor(newNote)
       return newNote
     } else {
       if (this.ifTemplateMerged(note)) {
         // MNUtil.showHUD("模板！")
         this.renewNote(note)
         this.changeTitle(note)
+        this.changeNoteColor(newNote)
         this.linkParentNote(note)
         this.autoMoveNewContent(note) // 自动移动新内容到对应字段
         return note
       } else {
         // MNUtil.showHUD("不是模板")
         this.changeTitle(note)
+        this.changeNoteColor(newNote)
         return this.toNoExcerptVersion(note)
       }
     }
