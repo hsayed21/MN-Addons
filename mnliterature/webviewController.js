@@ -178,11 +178,15 @@ let literatureController = JSB.defineClass('literatureController : UIViewControl
 
 
   moveButtonTapped: async function (button) {
-    var commandTable = [
-        {title:'😄 我是菜单',object:self,selector:'',param:[1,2,3]}
+    let commandTable = [
+        {title:'😄 我是?', object:self, selector:'showName:', param:"夏康玮"}
       ];
-      self.popoverController = MNUtils.getPopoverAndPresent(button,commandTable,200,1)
+      self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,200,1)
     return
+  },
+
+  showName: function(name) {
+    MNUtil.showHUD("我是" + name)
   },
   
 });
