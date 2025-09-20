@@ -5226,12 +5226,24 @@ function registerAllCustomActions() {
   );
 
   global.registerCustomAction("temporarilyPinFocusNote", async function(context) {
-      const { focusNote } = context;
-      MNUtil.postNotification("AddonBroadcast", {
-        message: `mnpinner?action=temporarilyPin&id=${encodeURIComponent(focusNote.noteId)}`
-      });
-    }
-  )
+    const { focusNote } = context;
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=temporarilyPin&id=${encodeURIComponent(focusNote.noteId)}`
+    });
+  })
+
+  global.registerCustomAction("permanentlyPinFocusNote", async function(context) {
+    const { focusNote } = context;
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=permanentlyPin&id=${encodeURIComponent(focusNote.noteId)}`
+    });
+  })
+
+  global.registerCustomAction("showPinBoard", async function(context) {
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=showPinBoard`
+    });
+  })
 }
 
 // 立即注册

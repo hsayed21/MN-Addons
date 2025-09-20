@@ -212,7 +212,7 @@ JSB.newAddon = function(mainPath){
         let message = "marginnote4app://addon/"+sender.userInfo.message
         let config = MNUtil.parseURL(message)
         let addon = config.pathComponents[0]
-        MNUtil.copyJSON(config)
+        // MNUtil.copyJSON(config)
         if (addon === "mnpinner") {
           let action = config.params.action
           switch (action) {
@@ -225,6 +225,9 @@ JSB.newAddon = function(mainPath){
               break;
             case "permanentlyPin":
               MNUtil.showHUD("收到永久固定卡片请求")
+              break;
+            case "showPinBoard":
+              MNUtil.showHUD("收到打开卡片固定库请求")
               break;
             default:
               MNUtil.showHUD('Unsupported action: '+config.action)

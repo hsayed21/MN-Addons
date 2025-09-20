@@ -796,12 +796,16 @@ function registerAllMenuTemplates() {
     onLongPress: {
       // 长按：显示菜单
       action: "menu",
-      menuWidth: 350,
+      menuWidth: 300,
       menuItems: [
         {
           action: "showPinBoard",
           menuTitle: "📋 打开 Pin 卡片库",
-        }
+        },
+        {
+          action: "permanentlyPinFocusNote",
+          menuTitle: "📍 长期 Pin",
+        },
       ]
     }
   });
