@@ -219,6 +219,54 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   permanentPinTabTapped: function (button) {
     self.switchView("permanentPinView")
   },
+
+  // === temporaryPinView 的事件处理方法 ===
+  tempClearCards: function() {
+    // 清空卡片行（使用维护的数组）
+    if (self.tempCardRows) {
+      self.tempCardRows.forEach(view => {
+        view.removeFromSuperview()
+      })
+      self.tempCardRows = []
+    }
+    
+    // 更新计数显示（使用按钮的方法）
+    if (self.tempCountLabel) {
+      self.tempCountLabel.setTitleForState("共 0 张卡片", 0)
+    }
+    MNUtil.showHUD("已清空")
+  },
+
+  tempRefreshCards: function() {
+    // 触发 refreshView 机制，而不是直接调用 prototype 方法
+    self.refreshView("temporaryPinView")
+    MNUtil.showHUD("已刷新")
+  },
+
+  tempSelectAllCards: function() {
+    MNUtil.showHUD("全选功能开发中...")
+  },
+
+  tempDeleteSelectedCards: function() {
+    MNUtil.showHUD("删除功能开发中...")
+  },
+
+  tempCopyCardList: function() {
+    // 收集所有卡片标题
+    let titles = []
+    for (let i = 0; i < 3; i++) {
+      titles.push(`${i+1}. 示例卡片${i+1}`)
+    }
+    MNUtil.copy(titles.join("\n"))
+    MNUtil.showHUD("已复制卡片列表")
+  },
+
+  /**
+   * 查看卡片方法
+   */
+  viewTempCard: function(button) {
+    MNUtil.showHUD(`查看卡片 ${button.tag + 1}`)
+  },
 });
 
 // ========== 原型方法 ==========
@@ -642,11 +690,20 @@ pinnerController.prototype.settingViewLayout = function () {
     settingFrame.x = this.tabView.frame.width + 5
     settingFrame.width = 30
     this.closeButton.frame = settingFrame
+    
+    // 布局 temporaryPinView 的子视图
+    if (!this.temporaryPinView.hidden) {
+      this.layoutTemporaryPinView()
+    }
   } catch (error) {
     pinnerUtils.addErrorLog(error, "settingViewLayout")
   }
 }
 pinnerController.prototype.refreshLayout = function () {
+  // 添加临时固定视图的布局刷新
+  if (!this.temporaryPinView.hidden) {
+    this.layoutTemporaryPinView()
+  }
 }
 pinnerController.prototype.setButtonText = function () {
 }
@@ -691,6 +748,52 @@ pinnerController.prototype.createSettingView = function () {
 
     this.createView("permanentPinView","settingView","#9bb2d6",0)
     this.permanentPinView.hidden = true  // 隐藏其他视图
+
+    // === 为 temporaryPinView 添加子视图 ===
+    // 顶部操作按钮
+    this.createButton("tempClearButton", "tempClearCards:", "temporaryPinView")
+    MNButton.setConfig(this.tempClearButton, {
+      color: "#e06c75", alpha: 0.8, opacity: 1.0, title: "🗑 清空", radius: 10, font: 15
+    })
+
+    this.createButton("tempRefreshButton", "tempRefreshCards:", "temporaryPinView")  
+    MNButton.setConfig(this.tempRefreshButton, {
+      color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "🔄 刷新", radius: 10, font: 15
+    })
+
+    // 计数标签 - 使用禁用的按钮代替 UILabel
+    this.createButton("tempCountLabel", "", "temporaryPinView")
+    this.tempCountLabel.enabled = false  // 禁用交互
+    this.tempCountLabel.backgroundColor = UIColor.clearColor()
+    this.tempCountLabel.setTitleForState("共 0 张卡片", 0)
+    MNButton.setConfig(this.tempCountLabel, {
+      color: "#666666", alpha: 1.0, opacity: 1.0, font: 14
+    })
+
+    // 中间滚动视图 - 注意接收返回值
+    this.tempCardScrollView = this.createScrollview("temporaryPinView", "#f5f5f5", 0.9)
+    this.tempCardScrollView.layer.cornerRadius = 12
+    this.tempCardScrollView.alwaysBounceVertical = true
+    this.tempCardScrollView.showsVerticalScrollIndicator = true
+    
+    // 初始化卡片行数组
+    this.tempCardRows = []
+
+    // 右侧操作按钮
+    this.createButton("tempSelectAllButton", "tempSelectAllCards:", "temporaryPinView")
+    MNButton.setConfig(this.tempSelectAllButton, {
+      title: "☑️", color: "#457bd3", alpha: 0.8, radius: 15, font: 20
+    })
+
+    this.createButton("tempDeleteButton", "tempDeleteSelectedCards:", "temporaryPinView")  
+    MNButton.setConfig(this.tempDeleteButton, {
+      title: "🗑", color: "#e06c75", alpha: 0.8, radius: 15, font: 20
+    })
+
+    this.createButton("tempCopyButton", "tempCopyCardList:", "temporaryPinView")
+    MNButton.setConfig(this.tempCopyButton, {
+      title: "📋", color: "#9bb2d6", alpha: 0.8, radius: 15, font: 20
+    })
 
     this.refreshView(targetView)
 
@@ -764,6 +867,8 @@ pinnerController.prototype.refreshView = function (targetView) {
         break;
       case "temporaryPinView":
         MNUtil.log("refresh temporaryPinView")
+        this.refreshTemporaryPinCards()  // 刷新卡片列表
+        break;
       default:
         break;
     }
@@ -771,5 +876,122 @@ pinnerController.prototype.refreshView = function (targetView) {
     pinnerUtils.addErrorLog(error, "chatglmController.refreshView")
   }
 }
-// pinnerController.prototype. = function () {
-// }
+/**
+ * 布局 temporaryPinView 的子视图
+ */
+pinnerController.prototype.layoutTemporaryPinView = function() {
+  // 增强防御性检查
+  if (!this.temporaryPinView || this.temporaryPinView.hidden) return
+  if (!this.tempCardScrollView) return
+  
+  let frame = this.temporaryPinView.bounds
+  let width = frame.width
+  let height = frame.height
+  
+  // 顶部按钮和标签（检查存在性）
+  if (this.tempClearButton) {
+    this.tempClearButton.frame = {x: 10, y: 10, width: 70, height: 32}
+  }
+  if (this.tempRefreshButton) {
+    this.tempRefreshButton.frame = {x: 85, y: 10, width: 70, height: 32}
+  }
+  if (this.tempCountLabel) {
+    this.tempCountLabel.frame = {x: 165, y: 10, width: 120, height: 32}
+  }
+  
+  // 中间滚动视图（留出右侧按钮空间）
+  this.tempCardScrollView.frame = {x: 10, y: 50, width: width - 70, height: height - 65}
+  
+  // 右侧按钮（垂直排列，检查存在性）
+  let rightX = width - 50
+  if (this.tempSelectAllButton) {
+    this.tempSelectAllButton.frame = {x: rightX, y: 50, width: 40, height: 40}
+  }
+  if (this.tempDeleteButton) {
+    this.tempDeleteButton.frame = {x: rightX, y: 100, width: 40, height: 40}
+  }
+  if (this.tempCopyButton) {
+    this.tempCopyButton.frame = {x: rightX, y: 150, width: 40, height: 40}
+  }
+}
+
+/**
+ * 刷新临时固定卡片列表
+ */
+pinnerController.prototype.refreshTemporaryPinCards = function() {
+  // 初始化卡片行数组
+  if (!this.tempCardRows) {
+    this.tempCardRows = []
+  }
+  
+  // 模拟数据
+  let mockCards = [
+    {id: "note001", title: "JavaScript 异步编程基础"},
+    {id: "note002", title: "React Hooks 最佳实践"},
+    {id: "note003", title: "TypeScript 类型体操入门"}
+  ]
+  
+  // 更新计数（使用按钮的方法）
+  if (this.tempCountLabel) {
+    this.tempCountLabel.setTitleForState(`共 ${mockCards.length} 张卡片`, 0)
+  }
+  
+  // 清空现有卡片（使用维护的数组）
+  this.tempCardRows.forEach(view => {
+    view.removeFromSuperview()
+  })
+  this.tempCardRows = []
+  
+  // 检查滚动视图是否存在
+  if (!this.tempCardScrollView) return
+  
+  // 添加卡片行
+  let yOffset = 10
+  let scrollWidth = this.tempCardScrollView.frame.width
+  
+  mockCards.forEach((card, index) => {
+    let cardRow = this.createTempCardRow(card, index, scrollWidth - 20)
+    this.tempCardScrollView.addSubview(cardRow)
+    this.tempCardRows.push(cardRow)  // 保存引用
+    yOffset += 55
+  })
+  
+  // 设置滚动区域
+  this.tempCardScrollView.contentSize = {width: 0, height: yOffset + 10}
+}
+
+/**
+ * 创建单个卡片行视图
+ */
+pinnerController.prototype.createTempCardRow = function(card, index, width) {
+  // 创建卡片行容器
+  let rowView = UIView.new()
+  rowView.frame = {x: 10, y: 10 + index * 55, width: width, height: 45}
+  rowView.backgroundColor = MNUtil.hexColorAlpha("#ffffff", 0.95)
+  rowView.layer.cornerRadius = 8
+  rowView.layer.borderWidth = 1
+  rowView.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6", 0.3)
+  
+  // 添加序号和标题（使用禁用的按钮代替 UILabel）
+  let titleButton = UIButton.buttonWithType(0)
+  titleButton.setTitleForState(`${index + 1}. ${card.title || "未命名卡片"}`, 0)
+  titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
+  titleButton.frame = {x: 10, y: 5, width: width - 70, height: 35}
+  titleButton.enabled = false  // 禁用以模拟标签效果
+  titleButton.setTitleColorForState(UIColor.blackColor(), 0)
+  titleButton.contentHorizontalAlignment = 1  // 左对齐
+  rowView.addSubview(titleButton)
+  
+  // 查看按钮
+  let viewBtn = UIButton.buttonWithType(0)
+  viewBtn.setTitleForState("👁", 0)
+  viewBtn.frame = {x: width - 50, y: 7, width: 30, height: 30}
+  viewBtn.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+  viewBtn.layer.cornerRadius = 5
+  viewBtn.tag = index  // 用 tag 存储索引
+  viewBtn.addTargetActionForControlEvents(this, "viewTempCard:", 1 << 6)
+  rowView.addSubview(viewBtn)
+  
+  return rowView
+}
+
