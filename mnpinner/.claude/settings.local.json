@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnai/mnchatglm/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

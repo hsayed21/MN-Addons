@@ -456,11 +456,6 @@ pinnerController.prototype.creatTextView = function (superview="view",color="#c0
   this[superview].addSubview(view)
   return view
 }
-/**
- * @this {pinnerController}
- */
-pinnerController.prototype.refreshView = function (source){
-}
 
 pinnerController.prototype.createView = function (viewName, superview="view", color="#9bb2d6", alpha=0.8) {
   this[viewName] = UIView.new()
@@ -613,7 +608,7 @@ pinnerController.prototype.updateCardTitle = function(cardId, newTitle) {
       let jsCode = `showResult('标题已更新为: ${escapedTitle}', true)`
       
       // 使用 runJavaScript 替代 evaluateJavaScript
-      self.runJavaScript(jsCode, self.webView).then(() => {
+      this.runJavaScript(jsCode, this.webView).then(() => {
         MNUtil.log("JavaScript 执行完成，标题更新成功")
       })
     })
