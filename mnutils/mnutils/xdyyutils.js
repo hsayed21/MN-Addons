@@ -15416,14 +15416,14 @@ class MNMath {
         // MNUtil.showHUD("模板！")
         this.renewNote(note)
         this.changeTitle(note)
-        this.changeNoteColor(newNote)
+        this.changeNoteColor(note)
         this.linkParentNote(note)
         this.autoMoveNewContent(note) // 自动移动新内容到对应字段
         return note
       } else {
         // MNUtil.showHUD("不是模板")
         this.changeTitle(note)
-        this.changeNoteColor(newNote)
+        this.changeNoteColor(note)
         return this.toNoExcerptVersion(note)
       }
     }
