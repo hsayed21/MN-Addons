@@ -149,4 +149,6 @@ class pinnerConfig {
       MNLog.error(error, "pinnerConfig:init")
     }
   }
+
+  static temparilyPinNotes = []
 }

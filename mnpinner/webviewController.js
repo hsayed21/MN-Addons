@@ -617,10 +617,6 @@ pinnerController.prototype.settingViewLayout = function () {
     this.temporaryPinView.frame = MNUtil.genFrame(0, 0,width, height-65)
     this.permanentPinView.frame = MNUtil.genFrame(0, 0,width, height-65)
 
-    // === permanentPinView 布局 ===
-    this.permanentPinInput.frame = {x:5,y:5,width:width-10,height:height-115}
-    this.savepermanentPinButton.frame = {x:width-150,y:height-105,width:145,height:35}
-
     let settingFrame = this.settingView.bounds
     settingFrame.x = 0
     settingFrame.y = 20
@@ -675,7 +671,7 @@ pinnerController.prototype.createSettingView = function () {
     this.temporaryPinTab.layer.cornerRadius = radius;
     this.temporaryPinTab.isSelected = true  // 默认选中第一个 tab
     MNButton.setConfig(this.temporaryPinTab, 
-      {color:"#457bd3",alpha:0.9,opacity:1.0,title:"Button",font:17,bold:true}  // 使用选中颜色
+      {color:"#457bd3",alpha:0.9,opacity:1.0,title:"temporary",font:17,bold:true}  // 使用选中颜色
     )
     let size = this.temporaryPinTab.sizeThatFits({width:100,height:100})
     this.temporaryPinTab.width = size.width+15
@@ -684,7 +680,7 @@ pinnerController.prototype.createSettingView = function () {
     this.permanentPinTab.layer.cornerRadius = radius;
     this.permanentPinTab.isSelected = false
     MNButton.setConfig(this.permanentPinTab, 
-      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"permanentPin",font:17,bold:true}
+      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"permanent",font:17,bold:true}
     )
     size = this.permanentPinTab.sizeThatFits({width:120,height:100})
     this.permanentPinTab.width = size.width+15
@@ -695,13 +691,6 @@ pinnerController.prototype.createSettingView = function () {
 
     this.createView("permanentPinView","settingView","#9bb2d6",0)
     this.permanentPinView.hidden = true  // 隐藏其他视图
-
-    targetView = "permanentPinView"
-    this.permanentPinInput = this.creatTextView(targetView)
-    this.permanentPinInput.layer.cornerRadius = 11
-
-    this.createButton("savepermanentPinButton","savepermanentPin:", targetView)
-    MNButton.setConfig(this.savepermanentPinButton, {opacity: 1.0,color:"#e06c75",alpha:0.8,title:"Save",radius:11})
 
     this.refreshView(targetView)
 
