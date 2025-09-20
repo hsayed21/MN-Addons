@@ -6907,7 +6907,7 @@ class MNMath {
                 if (titlePartsArray.length > 1) {
                   // 生成倒序组合
                   // 把 item1+itemn, item1+itemn-1+itemn, item1+itemn-2+itemn-1+itemn, ... , item1+item2+item3+...+itemn 依次加入数组
-                  // 比如 “赋范空间上的//有界//线性//算子” 得到的 titlePartsArray 是
+                  // 比如 "赋范空间上的//有界//线性//算子" 得到的 titlePartsArray 是
                   // ["赋范空间上的", "有界", "线性", "算子"]
                   // 则 titleArray = ["赋范空间上的算子", "赋范空间上的线性算子", "赋范空间上的有界线性算子"]
                   const prefix = titlePartsArray[0];
@@ -6923,10 +6923,13 @@ class MNMath {
                 let lastNote = note
                 switch (this.getNoteType(note)) {
                   case "归类":
-                    type = this.parseNoteTitle(note).type
+                    let defaultType = this.parseNoteTitle(note).type  // 默认类型
                     MNUtil.undoGrouping(()=>{
                       titlesArray.forEach(title => {
-                      let newClassificationNote = this.createClassificationNote(lastNote, title, type)
+                        // 对每个标题尝试智能识别
+                        let intelligentType = this.getTypeFromInputText(title);
+                        let finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
+                        let newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
                         lastNote = newClassificationNote
                       })
                       lastNote.focusInMindMap(0.3)
@@ -6992,10 +6995,13 @@ class MNMath {
                 let lastNote = note
                 switch (this.getNoteType(note)) {
                   case "归类":
-                    type = this.parseNoteTitle(note).type
+                    let defaultType = this.parseNoteTitle(note).type  // 默认类型
                     MNUtil.undoGrouping(()=>{
                       titlesArray.forEach(title => {
-                      let newClassificationNote = this.createClassificationNote(lastNote, title, type)
+                        // 对每个标题尝试智能识别
+                        let intelligentType = this.getTypeFromInputText(title);
+                        let finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
+                        let newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
                         lastNote = newClassificationNote
                       })
                       lastNote.focusInMindMap(0.3)
@@ -15424,6 +15430,9 @@ class MNMath {
         // MNUtil.showHUD("不是模板")
         this.changeTitle(note)
         this.changeNoteColor(note)
+        note.convertLinksToNewVersion()
+        note.cleanupBrokenLinks()
+        note.fixMergeProblematicLinks()
         return this.toNoExcerptVersion(note)
       }
     }
