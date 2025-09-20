@@ -1430,7 +1430,8 @@ dynamicController.prototype.sendMessage = async function (userInput) {
       let imageDatas
       let system
       if (currentNote) {
-        imageDatas = MNNote.getImagesFromNote(currentNote,true)
+        imageDatas = chatAIUtils.getImagesFromNote(currentNote,true)
+        // MNUtil.log({message:"imageDatas",detail:imageDatas.length})
         system = chatAIConfig.dynamicPrompt.note
       }else{
         imageDatas = [MNUtil.getDocImage(true,true)]
@@ -1443,11 +1444,17 @@ dynamicController.prototype.sendMessage = async function (userInput) {
       //   return
       // }
       if (system.trim()) {
-        let systemMessage = await chatAIUtils.getTextVarInfo(system,userInput)
-        let question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(userInput, imageDatas)]
-        // MNUtil.copy(question)
-        notifyController.askByVision(question)
-        return
+        if (currentNote) {
+          let systemMessage = await chatAIUtils.getNoteVarInfo(currentNote,system,userInput)
+          let question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(userInput, imageDatas)]
+          notifyController.askByVision(question)
+          return
+        }else{
+          let systemMessage = await chatAIUtils.getTextVarInfo(system,userInput)
+          let question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(userInput, imageDatas)]
+          notifyController.askByVision(question)
+          return
+        }
       }
       let question = chatAIUtils.genUserMessage(userInput, imageDatas)
       notifyController.askByVision(question)

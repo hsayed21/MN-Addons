@@ -444,7 +444,7 @@ JSB.newAddon = function (mainPath) {
                 let imageDatas
                 let system
                 if (chatAIUtils.currentNote()) {
-                  imageDatas = MNNote.getImagesFromNote(chatAIUtils.currentNote(),true)
+                  imageDatas = chatAIUtils.getImagesFromNote(chatAIUtils.currentNote(),true)
                   system = chatAIConfig.dynamicPrompt.note
                 }else{
                   imageDatas = [MNUtil.getDocImage(true,true)]
@@ -634,7 +634,7 @@ JSB.newAddon = function (mainPath) {
         if (!chatAIUtils.checkCouldAsk()) {
           return
         }
-        chatAIUtils.ask(sender.userInfo)
+        chatAIUtils.ask(sender.userInfo,false)
         // if (sender.userInfo.prompt) {
         //   let prompt = sender.userInfo.prompt
         //   let promptKeys = chatAIConfig.config.promptNames

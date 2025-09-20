@@ -21,6 +21,14 @@
 editNote工具支持传入指定noteId，可以实现同时编辑多个卡片
 添加变量的菜单中增加一个打开模板变量文档的选项
 
+改进文档解析的报错逻辑
+修复开启视觉模式后变量失效的问题
+修复不能正常识别卡片中markdown图片的问题
+保存dynamic的系统提示词时增加变量检查
+
+聊天模式的图片默认使用jpeg格式
+修复通过toolbar调用的回答一直提示的问题
+
 killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app"
 
 pgrep -x "MarginNote 4" > /dev/null && (killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app") || open "/Applications/MarginNote 4.app"

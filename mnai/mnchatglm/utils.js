@@ -3096,6 +3096,7 @@ class chatAIUtils {
   static errorLog = []
   static cache = {}
   static cacheInfo = {number:0,times:0,enabled:true}
+  static MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/(png|jpeg)\/.*?)(\))/g;
   /**
    * @type {{version:String,type:String}}
    * @static
@@ -3821,50 +3822,6 @@ try {
   return []
 }
 }
-  /**
-   * Retrieves the image data from the current document controller or other document controllers if the document map split mode is enabled.
-   * 
-   * This method checks for image data in the current document controller's selection. If no image is found, it checks the focused note within the current document controller.
-   * If the document map split mode is enabled, it iterates through all document controllers to find the image data. If a pop-up selection info is available, it also checks the associated document controller.
-   * 
-   * @param {MNNote} [note] - Whether to check the focused note for image data.
-   * @param {boolean} [checkTextFirst=false] - Whether to check other document controllers if the document map split mode is enabled.
-   * @returns {NSData[]|undefined} The image data if found, otherwise undefined.
-   */
-  static getImagesFromNote(note,checkTextFirst = false) {
-    let imageDatas = []
-    if (note.excerptPic) {
-      if (checkTextFirst && note.textFirst) {
-        if (note.excerptTextMarkdown) {
-          let images = this.getImagesFromMarkdown(note.excerptText)
-          if (images.length) {
-            imageDatas = imageDatas.concat(images)
-          }
-        }
-        //检查发现图片已经转为文本，因此略过
-      }else{
-        imageDatas.push(MNUtil.getMediaByHash(note.excerptPic.paint))
-      }
-    }else{
-      if (note.excerptTextMarkdown) {
-        let images = this.getImagesFromMarkdown(note.excerptText)
-        if (images.length) {
-          imageDatas = imageDatas.concat(images)
-        }
-      }
-    }
-    if (note.comments.length) {
-      for (let i = 0; i < note.comments.length; i++) {
-        const comment = note.comments[i];
-        if (comment.type === 'PaintNote' && comment.paint) {
-          imageDatas.push(MNUtil.getMediaByHash(comment.paint))
-        }else if (comment.type === "LinkNote" && comment.q_hpic && comment.q_hpic.paint) {
-          imageDatas.push(MNUtil.getMediaByHash(comment.q_hpic.paint))
-        }
-      }
-    }
-    return imageDatas
-  }
   static getFocusNote(allowSelection = true) {
   try {
 
@@ -4584,6 +4541,125 @@ try {
     }
     return undefined
   }
+  static hasMNImages(markdown) {
+    try {
+      if (!markdown) {
+        return false
+      }
+      if (!markdown.trim()) {
+        return false
+      }
+      // 匹配 base64 图片链接的正则表达式，支持png和jpeg
+      // let res = markdown.match(this.MNImagePattern)
+      // let link = markdown.match(MNImagePattern)
+      // console.log(link);
+      
+      // MNUtil.copyJSON({"a":link,"b":markdown})
+      return markdown.match(this.MNImagePattern)?true:false
+    } catch (error) {
+      this.addErrorLog(error, "hasMNImages")
+      return false
+    }
+  }
+  /**
+   * 只返回第一个图片
+   * @param {string} markdown 
+   * @returns {NSData}
+   */
+  static getMNImageFromMarkdown(markdown) {
+    try {
+      let res = markdown.match(this.MNImagePattern)
+      if (!res || !res.length) {
+        return undefined
+      }
+      let link = res[0]
+      let hash = undefined
+      // this.log("getMNImageFromMarkdown", link)
+      if (link.includes("markdownimg/jpeg/")) {
+        hash = link.split("markdownimg/jpeg/")[1].slice(0,-1)
+      }else if (link.includes("markdownimg/png/")) {
+        hash = link.split("markdownimg/png/")[1].slice(0,-1)
+      }
+      if (!hash) {
+        return undefined
+      }
+      let imageData = MNUtil.getMediaByHash(hash)
+      return imageData
+    } catch (error) {
+      this.addErrorLog(error, "getMNImageFromMarkdown")
+      return undefined
+    }
+  }
+  /**
+   * Retrieves the image data from the current document controller or other document controllers if the document map split mode is enabled.
+   * 
+   * This method checks for image data in the current document controller's selection. If no image is found, it checks the focused note within the current document controller.
+   * If the document map split mode is enabled, it iterates through all document controllers to find the image data. If a pop-up selection info is available, it also checks the associated document controller.
+   * @param {MbBookNote|MNNote} note 
+   * @param {boolean} [checkTextFirst = false] - Whether to check the text first.
+   * @returns {NSData[]|undefined} The image data if found, otherwise undefined.
+   */
+  static getImagesFromNote(note,checkTextFirst = false) {
+    let imageDatas = []
+    if (note.excerptPic) {
+      let isBlankNote = MNUtil.isBlankNote(note)
+      if (isBlankNote) {//实际为文字留白
+        let text = note.excerptText
+        if (note.excerptTextMarkdown) {
+          if (this.hasMNImages(text.trim())) {
+            imageDatas.push(this.getMNImageFromMarkdown(text))
+          }
+        }
+      }else{
+        if (checkTextFirst && note.textFirst) {
+          //检查发现图片已经转为文本，因此略过
+        }else{
+          imageDatas.push(MNUtil.getMediaByHash(note.excerptPic.paint))
+        }
+      }
+    }else{
+      let text = note.excerptText
+      if (note.excerptTextMarkdown) {
+        if (this.hasMNImages(text.trim())) {
+          imageDatas.push(this.getMNImageFromMarkdown(text))
+        }else{
+          // MNUtil.log("No images found in excerptTextMarkdown")
+        }
+      }
+    }
+    if (note.comments.length) {
+      for (let i = 0; i < note.comments.length; i++) {
+        const comment = note.comments[i];
+        switch (comment.type) {
+          case "PaintNote":
+            if (comment.paint) {
+              imageDatas.push(MNUtil.getMediaByHash(comment.paint))
+            }
+            break;
+          case "LinkNote":
+            if (comment.q_hpic && comment.q_hpic.paint) {
+              imageDatas.push(MNUtil.getMediaByHash(comment.q_hpic.paint))
+            };
+            break;
+          case "TextNote":
+            if (comment.markdown) {
+              if (this.hasMNImages(comment.text)) {
+                imageDatas.push(this.getMNImageFromMarkdown(comment.text))
+              }
+            }
+            break;
+          default:
+            break;
+        }
+        // if (comment.type === 'PaintNote' && comment.paint) {
+        //   imageDatas.push(MNUtil.getMediaByHash(comment.paint))
+        // }else if (comment.type === "LinkNote" && comment.q_hpic && comment.q_hpic.paint) {
+        //   imageDatas.push(MNUtil.getMediaByHash(comment.q_hpic.paint))
+        // }
+      }
+    }
+    return imageDatas
+  }
   static async getInfoForReference(dynamic = false,returnAfterOCR = true) {
     try {
       let info = {userInput:"",ocr:false}
@@ -4591,7 +4667,7 @@ try {
       if (note) {
         info.userInput = `{{note:${this.currentNoteId}}}`
         // let hasImage = chatAIUtils.hasImageInNote(note)
-        let imageDatas = MNNote.getImagesFromNote(note,true)
+        let imageDatas = this.getImagesFromNote(note,true)
         let numberOfImages = imageDatas.length
         // let imageData = note.imageData
         if (numberOfImages) {//检查是否包含图片
@@ -4665,7 +4741,7 @@ try {
       note = chatAIUtils.getFocusNote()
       if (note) {
         info.userInput = `{{note:${note.noteId}}}`
-        let imageDatas = MNNote.getImagesFromNote(note,true)
+        let imageDatas = this.getImagesFromNote(note,true)
         // let imageData = note.imageData
         let numberOfImages = imageDatas.length
         if (numberOfImages) {//检查是否包含图片
@@ -5924,17 +6000,17 @@ code.hljs {
    * @param {NSData|NSData[]|string|string[]} imageData
    * @returns 
    */
-  static genUserMessage(context,imageData){
+  static genUserMessage(context,imageData,imageType = "png"){
     let compression = chatAIConfig.getConfig("imageCompression")
     if (imageData) {
       let imageBase64Array = []
       if (Array.isArray(imageData)) {
         if (typeof imageData[0] === "string") {
           imageData.map((base64)=>{
-            if (base64.startsWith("data:image/png;base64,")) {
+            if (base64.startsWith("data:image/"+imageType+";base64,")) {
               imageBase64Array.push(base64)
             }else{
-              imageBase64Array.push("data:image/png;base64,"+base64)
+              imageBase64Array.push("data:image/"+imageType+";base64,"+base64)
             }
           })
         }else{
@@ -5944,10 +6020,10 @@ code.hljs {
         }
       }else{
         if (typeof imageData === "string") {
-          if (imageData.startsWith("data:image/png;base64,")) {
+          if (imageData.startsWith("data:image/"+imageType+";base64,")) {
             imageBase64Array.push(imageData)
           }else{
-            imageBase64Array.push("data:image/png;base64,"+imageData)
+            imageBase64Array.push("data:image/"+imageType+";base64,"+imageData)
           }
         }else{
           imageBase64Array.push(this.getURLFromImageData(imageData,compression))
@@ -6583,6 +6659,31 @@ code.hljs {
   static hasTimer(vars){
     return vars.some(v=>v.startsWith("timer."))
   }
+  static getVars(template){
+    let tokens = mustache.parse(template)
+    this.log("tokens",tokens)
+    var pipelineRe = /\|\>?/;
+    let vars = []
+    function getChildToken(ele) {
+      let type = ele[0]
+      if (type !== "text" && type !== "!") {
+        let res = ele[1].split(pipelineRe)
+        vars.push(res[0].trim())
+      }
+      if (ele.length > 4) {
+        let newLevel = ele[4]
+        if (Array.isArray(newLevel)) {
+          newLevel.map(n=>{
+            getChildToken(n)
+          })
+        }
+      }
+    }
+    tokens.map((t)=>{
+      getChildToken(t)
+    })
+    return vars
+  }
   static parseVars(template){
   try {
 
@@ -6674,9 +6775,18 @@ static getLineByIndex(str, index) {
     return str.substring(lineStart, lineEnd);
 }
 
-  static checkTemplate(prompt){
+  static checkTemplate(prompt,needVars = false){
     try {
-      let res = MNUtil.render(prompt, {})
+      let vars = this.getVars(prompt)
+      // this.log("vars",vars)
+      if (needVars && vars.length === 0) {
+        MNUtil.confirm("🤖 MN ChatAI","No variables found in template\n\n未查找到任何变量，请检查模板是否正确")
+        return false
+      }
+      // if (vars.includes("note")) {
+      //   return true
+      // }
+      // let res = MNUtil.render(prompt, {})
       return true
     } catch (error) {
       let message = error.message
@@ -6941,6 +7051,7 @@ static getLineByIndex(str, index) {
     }
     // MNUtil.copy(vars)
     // MNUtil.copy(config)
+    // chatAIUtils.log("getNoteVarInfo", config)
     let prompt = MNUtil.render(replaceText, config)
     return prompt
     } catch (error) {
@@ -7087,6 +7198,7 @@ static async getTextVarInfo(text,userInput,vision=false,ocr=this.OCREnhancedMode
     }
   }
   // MNUtil.copy(config)
+  // chatAIUtils.log("getTextVarInfo", config)
   let output = MNUtil.render(replaceText, config)
   return output
   // MNUtil.copy(output)
@@ -7852,7 +7964,7 @@ static isVisionModel(model) {
     // MNUtil.log({message:"Checking vision model in history",detail:{history:history,config:config}})
     let hasImage = this.hasImageInHistory(history)
     if (hasImage) {
-      MNUtil.log("History contains image message")
+      // MNUtil.log("History contains image message")
       let model = config.model
       if (!("model" in config) && config.source === "Built-in") {
         let keyInfo = chatAIConfig.keys["key"+chatAIConfig.getConfig("tunnel")]
@@ -7906,9 +8018,9 @@ static isVisionModel(model) {
             resolve()
           }else{
             if (this.notifyController.onreceive) {
-              MNUtil.showHUD("Receiving response...")
+              MNUtil.waitHUD("Receiving response...")
             }else{
-              MNUtil.showHUD("Connecting...")
+              MNUtil.waitHUD("Connecting...")
             }
           }
         }, interval);
@@ -7964,16 +8076,20 @@ static isVisionModel(model) {
    * @param {String} option.interval 轮询间隔时间
    * @returns {Promise<String>}
    */
-  static async ask(option){
+  static async ask(option,waitForResponse=true){
     try {
     let proceed = await this.beginAsk(option)
     if (!proceed) {
       return undefined
     }
+    if (!waitForResponse) {
+      return
+    }
     // this.notifyController.customAsk(question)
     await this.waitForResponseFinish(option.interval)
-    MNUtil.showHUD("✅ Finish")
+    MNUtil.waitHUD("✅ Finish")
     let response = await this.getCurrentResponse()
+    MNUtil.stopHUD(0.5)
     return response
 
     } catch (error) {
@@ -10810,7 +10926,7 @@ static async getFileIdFromMoonshot (fileObject){
     MNUtil.delay(1).then(()=>{
       MNUtil.stopHUD()
     })
-    throw new Error("Upload file failed: "+res.statusCode);
+    return undefined
   }
   let fileId = res.id
   if (!fileId) {
@@ -10887,70 +11003,40 @@ static async getFilePageContents(fileObject,pageRange = undefined){//目前只�
   }
 }
 
-/**
- * @param {{name:String,path:String,md5:String}} fileObject
- * @param {boolean} local
- * @returns {Promise<{content:string,file_type:string,type:string,filename:string,pageCount:number}>}
- */
-static async getFileContent(fileObject,local = false){
-  try {
-    let fileMd5 = fileObject.md5
-    let cachedFile = this.getLocalFileCache(fileObject)
-    if (local) {
-      if ("pdfjs" in cachedFile && cachedFile.pdfjs.content.trim()) {
-        MNUtil.log("read file content from local cache")
-        return cachedFile.pdfjs
-      }
-      // if (this.fileContent[fileMd5]) {
-      //   return JSON.stringify(this.fileContent[fileMd5],null,2)
-      // }
-      let pageContents = await chatAIUtils.notifyController.getLocalFileContent(fileObject.path)
-      let content = pageContents.join("\n\n")
-      if (content.trim()) {
-        let fileInfo = {
-          content:pageContents.join("\n\n"),
-          file_type: "application/pdf",
-          type: "file",
-          filename: fileObject.name,
-        }
-        let doc = MNUtil.getDocById(fileObject.md5)
-        fileInfo.pageCount = doc.pageCount
-        cachedFile.pdfjs = fileInfo
-        cachedFile.pdfjsPageContents = pageContents
-        MNUtil.writeJSON(this.dataFolder+"/"+fileObject.md5+".json", cachedFile)
-        // MNUtil.copy(fileInfo)
-        return fileInfo;
-      }else{
-        // 如果本地没有缓存，则尝试从moonshot获取
-        if ("moonshot" in cachedFile) {
-          MNUtil.log("read file content from moonshot cache")
-          return cachedFile.moonshot
-        }
-        let key = this.config.moonshotKey
-        if (key && fileObject.fileExists) {//如果用户配置了moonshot key，则提示用户是否重新获取
-          let confirm = await MNUtil.confirm("🤖 MN ChatAI","File content is empty from local extraction, do you want to retry with moonshot?\n\n本地文档内容抽取失败，是否重新使用Moonshot获取？")
-          if (!confirm) {
-            // 如果用户选择不重新获取，则返回空内容
-            return {
-              content:"",
-              file_type: "application/pdf",
-              type: "file",
-              filename: fileObject.name,
-            }
-          }
-        }else{
-          chatAIUtils.addErrorLog("getFileContent", "file not exists", fileObject.path)
-          return {
-            content:"",
-            file_type: "application/pdf",
-            type: "file",
-            filename: fileObject.name,
-          }
-        }
-      }
+static async getFileContentFromLocal(fileObject){
+  let cachedFile = this.getLocalFileCache(fileObject)
+  if ("pdfjs" in cachedFile && cachedFile.pdfjs.content.trim()) {
+    MNUtil.log("read file content from local cache")
+    return cachedFile.pdfjs
+  }
+  //开始本地解析文件
+  let pageContents = await chatAIUtils.notifyController.getLocalFileContent(fileObject.path)
+  let content = pageContents.join("\n\n")
+  if (content.trim()) {
+    let fileInfo = {
+      content:pageContents.join("\n\n"),
+      file_type: "application/pdf",
+      type: "file",
+      filename: fileObject.name,
     }
-    if ("moonshot" in cachedFile) {
-      MNUtil.log("read file content from local cache")
+    let doc = MNUtil.getDocById(fileObject.md5)
+    fileInfo.pageCount = doc.pageCount
+    cachedFile.pdfjs = fileInfo
+    cachedFile.pdfjsPageContents = pageContents
+    //写入本地缓存
+    MNUtil.writeJSON(this.dataFolder+"/"+fileObject.md5+".json", cachedFile)
+    // MNUtil.copy(fileInfo)
+    return fileInfo;
+  }
+  //如果本地解析失败，则返回空内容
+  return undefined
+}
+static async getFileContentFromMoonshot(fileObject){
+try {
+
+  let cachedFile = this.getLocalFileCache(fileObject)
+  if ("moonshot" in cachedFile) {
+      MNUtil.log("read file content from moonshot cache")
       return cachedFile.moonshot
     }
     let file_id = await this.getFileIdFromMoonshot(fileObject)
@@ -10974,7 +11060,7 @@ static async getFileContent(fileObject,local = false){
         Authorization: "Bearer "+key,
         "Content-Type": "application/json"
     }
-    const res = await MNConnection.fetch(url,
+    let res = await MNConnection.fetch(url,
       {
         method: "Get",
         timeout: 60,
@@ -10999,6 +11085,120 @@ static async getFileContent(fileObject,local = false){
     MNUtil.writeJSON(this.dataFolder+"/"+fileObject.md5+".json", cachedFile)
     // MNUtil.copyJSON(res)
     return res;
+  
+} catch (error) {
+  chatAIUtils.addErrorLog(error, "getFileContentFromMoonshot")
+  return undefined
+}
+}
+/**
+ * @param {{name:String,path:String,md5:String}} fileObject
+ * @param {boolean} local
+ * @returns {Promise<{content:string,file_type:string,type:string,filename:string,pageCount:number}>}
+ */
+static async getFileContent(fileObject,local = false){
+  try {
+    let fileMd5 = fileObject.md5
+    let cachedFile = this.getLocalFileCache(fileObject)
+    if (local) {
+      let fileInfo = await this.getFileContentFromLocal(fileObject)
+      if (fileInfo) {
+        return fileInfo
+      }
+      // 如果本地解析失败，则尝试从moonshot获取
+      if ("moonshot" in cachedFile) {
+        MNUtil.log("read file content from moonshot cache")
+        return cachedFile.moonshot
+      }
+      let key = this.config.moonshotKey
+      if (key && fileObject.fileExists) {//如果用户配置了moonshot key，则提示用户是否重新获取
+        let confirm = await MNUtil.confirm("🤖 MN ChatAI","File content is empty from local extraction, do you want to retry with moonshot?\n\n本地文档内容抽取失败，是否重新使用Moonshot获取？")
+        if (!confirm) {
+          // 如果用户选择不重新获取，则返回空内容
+          return {
+            content:"",
+            file_type: "application/pdf",
+            type: "file",
+            filename: fileObject.name,
+          }
+        }
+        return await this.getFileContentFromMoonshot(fileObject)
+      }else{
+        chatAIUtils.addErrorLog("getFileContent", "file not exists", fileObject.path)
+        return {
+          content:"",
+          file_type: "application/pdf",
+          type: "file",
+          filename: fileObject.name,
+        }
+      }
+    }
+    let fileInfo = await this.getFileContentFromMoonshot(fileObject)
+    chatAIUtils.log("getFileContentFromMoonshot", fileInfo)
+    if (!fileInfo) {
+        let confirm = await MNUtil.confirm("🤖 MN ChatAI","❌ Moonshot Extraction Failed! Do you want to retry with local extraction?\n\nMoonshot文档内容抽取失败，是否使用本地解析重试？")
+        if (!confirm) {
+          // 如果用户选择不重新获取，则返回空内容
+          return {
+            content:"",
+            file_type: "application/pdf",
+            type: "file",
+            filename: fileObject.name,
+          }
+        }
+        return await this.getFileContentFromLocal(fileObject)
+    }
+    return fileInfo
+    // if ("moonshot" in cachedFile) {
+    //   MNUtil.log("read file content from local cache")
+    //   return cachedFile.moonshot
+    // }
+    // let file_id = await this.getFileIdFromMoonshot(fileObject)
+    // if (!file_id) {
+    //   return undefined
+    // }
+    // if (this.fileContent[file_id]) {
+    //   cachedFile.moonshot = this.fileContent[file_id]
+    //   MNUtil.writeJSON(this.dataFolder+"/"+fileObject.md5+".json", cachedFile)
+    //   return this.fileContent[file_id]
+    // }
+
+    // let key = this.config.moonshotKey
+    // if (!key) {
+    //   MNUtil.showHUD("No Moonshot ApiKey!")
+    //   return undefined
+    // }
+    // MNUtil.waitHUD("Get file content: "+fileObject.name)
+    // let url = `https://api.moonshot.cn/v1/files/${file_id}/content`
+    // let headers = {
+    //     Authorization: "Bearer "+key,
+    //     "Content-Type": "application/json"
+    // }
+    // let res = await MNConnection.fetch(url,
+    //   {
+    //     method: "Get",
+    //     timeout: 60,
+    //     headers: headers
+    //   }
+    // )
+    // if ("statusCode" in res && res.statusCode >= 400) {
+    //   if("body" in res && res.body.error && res.body.error.message){
+    //     chatAIUtils.addErrorLog(MNUtil.getStatusCodeDescription(res.statusCode), "getFileContent", res.body.error.message)
+    //   }
+    //   this.deleteFileId(fileObject)
+    //   return await this.getFileContent(fileObject,false)
+    // }
+    // // res.file_type = "application/pdf"
+    // res.filename = fileObject.name
+    // this.fileContent[file_id] = res
+    // let doc = MNUtil.getDocById(fileObject.md5)
+    // res.pageCount = doc.pageCount
+    // cachedFile.moonshot = res
+    // // copyJSON(res)
+    // MNUtil.stopHUD()
+    // MNUtil.writeJSON(this.dataFolder+"/"+fileObject.md5+".json", cachedFile)
+    // // MNUtil.copyJSON(res)
+    // return res;
   } catch (error) {
     chatAIUtils.addErrorLog(error, "chatAIConfig.getFileContent")
     throw new Error(error.message)

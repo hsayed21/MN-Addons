@@ -1199,14 +1199,15 @@ try {
     
     let self = getChatglmController()
     if (self.contextButton.currentTitle === "Text") {
-      if (!chatAIUtils.checkTemplate(self.contextInput.text ?? "")) {
+      if (!chatAIUtils.checkTemplate(self.contextInput.text ?? "",true)) {
         return
       }
-      if (!chatAIUtils.checkTemplate(self.systemInput.text ?? "")) {
+      if (!chatAIUtils.checkTemplate(self.systemInput.text ?? "",true)) {
         return
       }
       chatAIConfig.dynamicPrompt.text = self.contextInput.text
       chatAIConfig.dynamicPrompt.note = self.systemInput.text
+
       self.contextInput.endEditing(true)
       self.systemInput.endEditing(true)
       chatAIConfig.save("MNChatglm_dynamicPrompt")
@@ -2955,7 +2956,7 @@ chatglmController.prototype.getQuestionOnNote = async function(noteid,prompt = c
   if (system) {//有system指令的情况
     systemMessage = await chatAIUtils.render(system,opt)
     if (chatAIUtils.visionMode || vision) {
-      let imageDatas = MNNote.getImagesFromNote(MNNote.new(noteid),true)
+      let imageDatas = chatAIUtils.getImagesFromNote(MNNote.new(noteid),true)
       question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(contextMessage, imageDatas)]
     }else{
       question = [{role:"system",content:systemMessage},{role: "user", content: contextMessage}]
@@ -2965,7 +2966,7 @@ chatglmController.prototype.getQuestionOnNote = async function(noteid,prompt = c
   //无system指令的情况
   if (chatAIUtils.visionMode || vision) {
     // let imageData = MNNote.getImageFromNote(MNNote.new(noteid))
-    let imageDatas = MNNote.getImagesFromNote(MNNote.new(noteid),true)
+    let imageDatas = chatAIUtils.getImagesFromNote(MNNote.new(noteid),true)
     question = [chatAIUtils.genUserMessage(contextMessage, imageDatas)]
   }else{
     question = [{role: "user", content: contextMessage}]

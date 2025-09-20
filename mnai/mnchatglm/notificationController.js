@@ -464,7 +464,7 @@ try {
         self.screenButton.setImageForState(chatAIConfig.closeImage,0)
       }
     }else{
-      self.view.frame = {x:MNUtil.currentWindow.frame.width-450,y:chatAIUtils.getY(),width:chatAIUtils.getWidth(),height:height}
+      self.view.frame = {x:chatAIUtils.getX(),y:chatAIUtils.getY(),width:chatAIUtils.getWidth(),height:height}
       self.currentFrame  = self.view.frame
       temX = locationToBrowser.x-gesture.view.frame.width*0.5
       if (temX < -200 && !chatAIUtils.isIOS()) {

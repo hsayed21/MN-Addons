@@ -751,7 +751,7 @@ try {
           MNUtil.showHUD("No note selected")
           return
         }
-        let images = MNNote.getImagesFromNote(focusNote,true)
+        let images = chatAIUtils.getImagesFromNote(focusNote,true)
         // imageData = MNNote.getImageFromNote(focusNote)
         if (images.length) {
           imageData = images[0]
@@ -1725,7 +1725,7 @@ try {
   }
 
   if (this.currentImageBase64) {
-    this.history.push(chatAIUtils.genUserMessage(question,this.currentImageBase64))
+    this.history.push(chatAIUtils.genUserMessage(question,this.currentImageBase64,"jpeg"))
     // this.history.push({
     //       role: "user", 
     //       content: [
@@ -3320,7 +3320,7 @@ sideOutputController.prototype.addImageInChat = function (imageData) {
     this.imageButton.setImageForState(this.currentImage, 0)
     this.imageButton.layer.opacity = 0.8
     this.currentImageFile = chatAIUtils.getLocalBufferFromImageData(imageData)
-    this.currentImageBase64 = this.currentImage.jpegData(0.).base64Encoding()
+    this.currentImageBase64 = this.currentImage.jpegData(0.8).base64Encoding()
   }
 }
 /**
