@@ -159,15 +159,14 @@ class pinnerConfig {
     return []
   }
   
-  static get defaultConfig() {
-    return {
-      version: "1.0.0",
-      modifiedTime: 0,
-      lastSyncTime: null,
-      autoImport: false,  // 预留自动导入功能
-      autoExport: false,  // 预留自动导出功能
-    }
-  }
+  // 会造成 iPad 闪退，先去掉
+  // static defaultConfig = {
+  //   version: "1.0.0",
+  //   modifiedTime: 0,
+  //   lastSyncTime: null,
+  //   autoImport: false,  // 预留自动导入功能
+  //   autoExport: false,  // 预留自动导出功能
+  // }
   
   /**
    * 初始化配置管理
@@ -188,9 +187,24 @@ class pinnerConfig {
         let backupConfig = MNUtil.readJSON(this.backUpFile)
         this.importConfig(backupConfig)
       } else {
-        // NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_config")
-        pinnerUtils.log("使用 getByDefault 加载数据")
-        this.config = this.getByDefault('MNPinner_config', this.defaultConfig)  // 会造成闪退！
+        pinnerUtils.log("直接初始化配置数据")
+        
+        // 直接初始化默认配置，避免 getByDefault 的兼容性问题
+        this.config = {
+          version: "1.0.0",
+          modifiedTime: 0,
+          lastSyncTime: null,
+          autoImport: false,
+          autoExport: false,
+        }
+        
+        // 尝试从 NSUserDefaults 读取已存储的配置
+        let storedConfig = NSUserDefaults.standardUserDefaults().objectForKey('MNPinner_config')
+        if (storedConfig && typeof storedConfig === 'object' && !Array.isArray(storedConfig)) {
+          this.config = storedConfig
+        }
+        
+        // Pins 仍使用 getByDefault（它们返回数组，没有问题）
         this.temporaryPins = this.getByDefault('MNPinner_temporaryPins', this.defaultTemporaryPins)
         this.permanentPins = this.getByDefault('MNPinner_permanentPins', this.defaultPermanentPins)
       }
