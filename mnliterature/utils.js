@@ -240,3 +240,17 @@ class literatureNetwork {
     }
   }
 }
+
+
+class literatureConfig {
+  static mainPath
+  static init(mainPath) {
+    try {
+      this.mainPath = mainPath
+
+      this.closeImage = this.mainPath + "/close.png"
+    } catch (error) {
+      MNLog.error(error, "literatureConfig:init")
+    }
+  }
+}

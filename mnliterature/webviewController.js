@@ -18,48 +18,45 @@ let literatureController = JSB.defineClass('literatureController : UIViewControl
       self.lastFrame = self.view.frame;
       self.currentFrame = self.view.frame
       if (!self.settingView) {
-        self.createSettingView()  // TOOD: 待写
-        // self.settingView.hidden = false  // 加载主 view 的时候就显示 settingView
+        self.createSettingView()  // 创建设置视图和所有子视图
+        self.settingView.hidden = false  // 加载主 view 的时候就显示 settingView
       }
-      self.settingViewLayout()  // TODO: 待写
-      self.setButtonText()  // TODO: 待写
-      self.setTextview()  // TODO: 待写
+      self.settingViewLayout()  // 布局设置视图
+      self.setButtonText()  // 设置按钮文本
+      self.setTextview()  // 设置文本视图
 
 
       /**
        * 开始创建按钮
        */
+      // TODO: 为什么 moveButton 要放在这创建，而 closeButton 放在 createSettingView 里创建？
       self.createButton("moveButton","moveButtonTapped:")  // 创建移动按钮
       self.moveButton.clickDate = 0  // 用于点击时间跟踪
       MNButton.setColor(self.moveButton, "#3a81fb",0.5)
       MNButton.addPanGesture(self.moveButton, self, "onMoveGesture:")  // 为移动按钮添加拖动手势
 
       // === 关闭按钮 ===
-      self.closeButton = MNButton.new({
-        image: literatureUtils.mainPath + `/close.png`,
-        radius: 12,
-        color: "#e06c75",
-        opacity: .8,
-      }, self.view)
-      self.closeButton.addClickAction(self, "closeButtonTapped:")
+      // self.closeButton = MNButton.new({
+      //   image: literatureUtils.mainPath + `/close.png`,
+      //   radius: 12,
+      //   color: "#e06c75",
+      //   opacity: .8,
+      // }, self.view)
+      // self.closeButton.addClickAction(self, "closeButtonTapped:")
       
-      // 为关闭按钮添加拖动手势
-      self.moveGesture = new UIPanGestureRecognizer(self, "onMoveGesture:")
-      self.closeButton.addGestureRecognizer(self.moveGesture)
-      self.moveGesture.view.hidden = false
-      self.moveGesture.addTargetAction(self, "onMoveGesture:")
+      // 为关闭按钮添加拖动手势（移到 createSettingView 中，在按钮创建后添加）
 
     
       // === 创建 WebView ===
-      self.webView = new UIWebView({x: 10, y: 50, width: 240, height: 280})
-      self.webView.backgroundColor = UIColor.whiteColor()
-      self.webView.delegate = self
-      self.webView.scalesPageToFit = true
-      self.view.addSubview(self.webView)
-      self.webViewLoaded = false
+      // self.webView = new UIWebView({x: 10, y: 50, width: 240, height: 280})
+      // self.webView.backgroundColor = UIColor.whiteColor()
+      // self.webView.delegate = self
+      // self.webView.scalesPageToFit = true
+      // self.view.addSubview(self.webView)
+      // self.webViewLoaded = false
     
     } catch (error) {
-      MNUtil.showHUD("Error in viewDidLoad: "+error)  
+      literatureUtils.addErrorLog(error, "viewDidLoad")
     }
   },
   
@@ -73,12 +70,18 @@ let literatureController = JSB.defineClass('literatureController : UIViewControl
    * 视图即将布局子视图
    */
   viewWillLayoutSubviews: function() {
-    let viewFrame = self.view.bounds;
-    let xLeft = viewFrame.x
-    let width    = viewFrame.width
-    let height   = viewFrame.height
-    self.closeButton.frame = {x: xLeft+225,y: 5,width: 30, height: 30};
-    self.moveButton.frame = {x: width*0.5-75, y: 0,  width: 150, height: 16,};
+    try {
+      let viewFrame = self.view.bounds;
+      let width    = viewFrame.width
+      let height   = viewFrame.height
+      self.moveButton.frame = {x: width*0.5-75, y: 0, width: 150, height: 16};
+      // TODO: 这个 -36 是有什么用吗？
+      height = height-36
+      self.settingViewLayout()
+      self.refreshLayout()
+    } catch (error) {
+      literatureUtils.addErrorLog(error, "viewWillLayoutSubviews")
+    }
   },
   
   scrollViewDidScroll: function() {
@@ -111,6 +114,50 @@ let literatureController = JSB.defineClass('literatureController : UIViewControl
       frame.y = self.originalFrame.y + locationDiff.y
       self.setFrame(frame)
     }
+    if (gesture.state === 3) {
+      MNUtil.studyView.bringSubviewToFront(self.view)
+    }
+  },
+
+  onResizeGesture:function (gesture) {
+    try {
+      if (gesture.state === 1) {
+        self.originalLocationToMN = gesture.locationInView(MNUtil.studyView)
+        self.originalFrame = self.view.frame
+      }
+      if (gesture.state === 2) {
+        let locationToMN = gesture.locationInView(MNUtil.studyView)
+        let locationDiff = {x:locationToMN.x - self.originalLocationToMN.x,y:locationToMN.y - self.originalLocationToMN.y}
+        let frame = self.view.frame
+        frame.width = self.originalFrame.width + locationDiff.x
+        frame.height = self.originalFrame.height + locationDiff.y
+        if (frame.width <= 330) {
+          frame.width = 330
+        }
+        if (frame.height <= 465) {
+          frame.height = 465
+        }
+        self.setFrame(frame)
+      }
+      if (gesture.state === 3) {
+        MNUtil.studyView.bringSubviewToFront(self.view)
+      }
+    } catch (error) {
+      literatureUtils.addErrorLog(error, "onResizeGesture")
+    }
+  },
+
+  onResizeGesture0:function (gesture) {
+    let baseframe = gesture.view.frame
+    let locationToBrowser = gesture.locationInView(self.view)
+    let frame = self.view.frame
+    let width = locationToBrowser.x+baseframe.width*0.5
+    let height = self.view.frame.height
+    if (width <= 330) {
+      width = 330
+    }
+    self.view.frame = {x:frame.x, y:frame.y, width:width, height:height}
+    self.currentFrame = self.view.frame
     if (gesture.state === 3) {
       MNUtil.studyView.bringSubviewToFront(self.view)
     }
@@ -179,19 +226,28 @@ let literatureController = JSB.defineClass('literatureController : UIViewControl
 
   moveButtonTapped: async function (button) {
     let commandTable = [
-        {title:'😄 我是?', object:self, selector:'showName:', param:"夏康玮"}
-      ];
-      self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,200,1)
+      {title:'😄 我是?', object:self, selector:'showName:', param:"夏康玮"}
+    ];
+    self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,200,1)
     return
   },
 
   showName: function(name) {
+    self.checkPopover()
     MNUtil.showHUD("我是" + name)
   },
   
+  customButtonTabTapped: function(button) {
+    self.switchView("customButtonView")
+  },
+
+  knowledgeTabTapped: function (button) {
+    self.switchView("knowledgeView")
+  },
 });
 
 // ========== 原型方法 ==========
+
 
 /**
  * 加载 HTML 文件到 WebView
@@ -383,35 +439,29 @@ literatureController.prototype.creatTextView = function (superview="view",color=
 literatureController.prototype.refreshView = function (source){
 }
 
-literatureController.prototype.createView = function (superview="view",color="#9bb2d6",alpha=0.8) {
-  let view = UIView.new()
-  view.backgroundColor = MNUtil.hexColorAlpha(color,alpha)
-  view.layer.cornerRadius = 12
-  this[superview].addSubview(view)
-  return view
+literatureController.prototype.createView = function (viewName, superview="view", color="#9bb2d6", alpha=0.8) {
+  this[viewName] = UIView.new()
+  this[viewName].backgroundColor = MNUtil.hexColorAlpha(color,alpha)
+  this[viewName].layer.cornerRadius = 12
+  this[superview].addSubview(this[viewName])
 }
 
 /**
  * @this {literatureController}
  */
-literatureController.prototype.createWebviewInput = function (superView,content) {
+literatureController.prototype.createWebviewInput = function (superView, content) {
   try {
     this.webviewInput = new UIWebView(this.view.bounds);
     this.webviewInput.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",0.8)
     this.webviewInput.scalesPageToFit = false;
     this.webviewInput.autoresizingMask = (1 << 1 | 1 << 4);
     this.webviewInput.delegate = this;
-    // this.webviewInput.setValueForKey("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15","User-Agent")
     this.webviewInput.scrollView.delegate = this;
     this.webviewInput.layer.cornerRadius = 8;
     this.webviewInput.layer.masksToBounds = true;
     this.webviewInput.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
     this.webviewInput.layer.borderWidth = 0
     this.webviewInput.layer.opacity = 0.9
-    // this.webviewInput.loadFileURLAllowingReadAccessToURL(
-    //   NSURL.fileURLWithPath(this.mainPath + '/test.html'),
-    //   NSURL.fileURLWithPath(this.mainPath + '/')
-    // );
     this.webviewInput.loadHTMLStringBaseURL(literatureUtils.html(content))
   } catch (error) {
     MNUtil.showHUD(error)
@@ -568,11 +618,62 @@ literatureController.prototype.setFrame = function (frame) {
 }
 
 literatureController.prototype.init = function () {
-  // === 初始化状态变量 ===
-  self.moveDate = Date.now()  // 用于拖动手势的时间跟踪
+  this.isFirst = true      // 标记是否是第一次显示
+  this.view.layer.shadowOffset = {width: 0, height: 0};
+  this.view.layer.shadowRadius = 15;
+  this.view.layer.shadowOpacity = 0.5;
+  this.view.layer.shadowColor = UIColor.colorWithWhiteAlpha(0.5, 1);
+  this.view.layer.cornerRadius = 11
+  this.view.layer.opacity = 1.0
+  this.view.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
+  this.view.layer.borderWidth = 0
+  this.highlightColor = UIColor.blendedColor( MNUtil.hexColorAlpha("#2c4d81",0.8),
+    MNUtil.app.defaultTextColor,
+    0.8
+  );
 }
 
 literatureController.prototype.settingViewLayout = function () {
+  try {
+    let viewFrame = this.view.bounds
+    let width = viewFrame.width+10
+    let height = viewFrame.height
+    this.settingView.frame = MNUtil.genFrame(-5, 55, width, height-65)
+    this.customButtonView.frame = MNUtil.genFrame(0, 0,width, height-65)
+    this.knowledgeView.frame = MNUtil.genFrame(0, 0,width, height-65)
+
+    // === knowledgeView 布局 ===
+    this.knowledgeInput.frame = {x:5,y:5,width:width-10,height:height-115}
+    this.saveKnowledgeButton.frame = {x:width-150,y:height-105,width:145,height:35}
+
+    let settingFrame = this.settingView.bounds
+    settingFrame.x = 0
+    settingFrame.y = 20
+    settingFrame.height = 30
+    settingFrame.width = settingFrame.width-45
+    this.tabView.frame = settingFrame
+    
+    // 布局 tab 按钮
+    let tabX = 10
+    if (this.customButtonTab) {
+      this.customButtonTab.frame = {x: tabX, y: 2, width: this.customButtonTab.width, height: 26}
+      tabX += this.customButtonTab.width + 5
+    }
+    if (this.knowledgeTab) {
+      this.knowledgeTab.frame = {x: tabX, y: 2, width: this.knowledgeTab.width, height: 26}
+      tabX += this.knowledgeTab.width + 5
+    }
+    
+    this.tabView.contentSize = {width: tabX + 10, height: 30}
+    
+    // 布局关闭按钮
+    settingFrame.y = 20
+    settingFrame.x = this.tabView.frame.width + 5
+    settingFrame.width = 30
+    this.closeButton.frame = settingFrame
+  } catch (error) {
+    literatureUtils.addErrorLog(error, "settingViewLayout")
+  }
 }
 literatureController.prototype.refreshLayout = function () {
 }
@@ -581,6 +682,66 @@ literatureController.prototype.setButtonText = function () {
 literatureController.prototype.setTextview = function () {
 }
 literatureController.prototype.createSettingView = function () {
+  try {
+    /**
+     * settingView 配置
+     */
+    let targetView = "settingView"
+    this.createView(targetView, "view","#f1f6ff",0.9)
+    this.settingView.hidden = true
+    this.settingView.layer.cornerRadius = 15
+    this.tabView = this.createScrollview("view","#ffffff", 0)  // settingView 和 tabView 是兄弟视图，隶属于 this.view
+    this.tabView.alwaysBounceHorizontal = true
+    this.tabView.showsHorizontalScrollIndicator = false
+
+    // === 创建 tab 切换按钮 ===
+    let radius = 10
+    this.createButton("customButtonTab","customButtonTabTapped:","tabView")
+    this.customButtonTab.layer.cornerRadius = radius;
+    this.customButtonTab.isSelected = true  // 默认选中第一个 tab
+    MNButton.setConfig(this.customButtonTab, 
+      {color:"#457bd3",alpha:0.9,opacity:1.0,title:"Button",font:17,bold:true}  // 使用选中颜色
+    )
+    let size = this.customButtonTab.sizeThatFits({width:100,height:100})
+    this.customButtonTab.width = size.width+15
+    
+    this.createButton("knowledgeTab","knowledgeTabTapped:","tabView")
+    this.knowledgeTab.layer.cornerRadius = radius;
+    this.knowledgeTab.isSelected = false
+    MNButton.setConfig(this.knowledgeTab, 
+      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"Knowledge",font:17,bold:true}
+    )
+    size = this.knowledgeTab.sizeThatFits({width:120,height:100})
+    this.knowledgeTab.width = size.width+15
+
+    // === 创建各个分页===
+    this.createView("customButtonView","settingView","#9bb2d6",0)
+    this.customButtonView.hidden = false  // 默认显示第一个视图
+
+    this.createView("knowledgeView","settingView","#9bb2d6",0)
+    this.knowledgeView.hidden = true  // 隐藏其他视图
+
+    targetView = "knowledgeView"
+    this.knowledgeInput = this.creatTextView(targetView)
+    this.knowledgeInput.layer.cornerRadius = 11
+
+    this.createButton("saveKnowledgeButton","saveKnowledge:", targetView)
+    MNButton.setConfig(this.saveKnowledgeButton, {opacity: 1.0,color:"#e06c75",alpha:0.8,title:"Save",radius:11})
+
+    this.refreshView(targetView)
+
+
+    // === 创建关闭按钮 ===
+    this.createButton("closeButton","closeButtonTapped:")
+    this.closeButton.layer.cornerRadius = 10;
+    MNButton.setImage(this.closeButton, literatureConfig.closeImage)
+    MNButton.setColor(this.closeButton, "#e06c75")
+    
+    // 为关闭按钮添加拖动手势（用于调整面板大小）
+    MNButton.addPanGesture(this.closeButton, this, "onResizeGesture:")
+  } catch (error) {
+    literatureUtils.addErrorLog(error, "createSettingView")
+  }
 }
 
 literatureController.prototype.createButton = function (buttonName, targetAction, superview) {
@@ -600,6 +761,50 @@ literatureController.prototype.createButton = function (buttonName, targetAction
     this[superview].addSubview(this[buttonName])
   } else {
     this.view.addSubview(this[buttonName]);
+  }
+}
+/**
+ * 关闭弹出菜单
+ */
+literatureController.prototype.checkPopover = function () {
+  if (this.popoverController) {
+    this.popoverController.dismissPopoverAnimated(true)
+  }
+}
+literatureController.prototype.createScrollview = function (superview="view", color="#c0bfbf", alpha=0.8) {
+  let scrollview = UIScrollView.new()
+  scrollview.hidden = false
+  scrollview.delegate = this
+  scrollview.bounces = true
+  scrollview.layer.cornerRadius = 8
+  scrollview.backgroundColor = MNUtil.hexColorAlpha(color,alpha)
+  this[superview].addSubview(scrollview)
+  return scrollview
+}
+literatureController.prototype.switchView = function (targetView) {
+  let allViews = ["customButtonView", "knowledgeView"]
+  let allButtons = ["customButtonTab","knowledgeTab"]
+  allViews.forEach((k, index) => {
+    let isTargetView = k === targetView
+    this[k].hidden = !isTargetView
+    this[allButtons[index]].isSelected = isTargetView
+    this[allButtons[index]].backgroundColor = MNUtil.hexColorAlpha(isTargetView?"#457bd3":"#9bb2d6",0.8)
+  })
+  this.refreshView(targetView)
+}
+literatureController.prototype.refreshView = function (targetView) {
+  try {
+    switch (targetView) {
+      case "knowledgeView":
+        MNUtil.log("refresh knowledgeView")
+        break;
+      case "customButtonView":
+        MNUtil.log("refresh customButtonView")
+      default:
+        break;
+    }
+  } catch (error) {
+    literatureUtils.addErrorLog(error, "chatglmController.refreshView")
   }
 }
 // literatureController.prototype. = function () {

@@ -267,38 +267,6 @@ JSB.newAddon = function(mainPath){
           // 传入 addonBar.frame 作为动画的终点位置参考
           literatureUtils.literatureController.hide(self.addonBar.frame)
         }
-
-        // 检查 WebView 是否已加载 HTML 文件
-        // 只在第一次打开时加载，避免重复加载
-        if (!literatureUtils.literatureController.webViewLoaded) {
-          // 调用控制器的加载方法
-          literatureUtils.literatureController.loadHTMLFile()
-          
-          // 延迟一下，等待页面加载完成后再发送卡片信息
-          MNUtil.delay(0.5).then(()=>{
-            // 获取当前选中的卡片
-            let focusNote = MNNote.getFocusNote()
-            
-            if (focusNote) {
-              // 将卡片信息发送给 WebView
-              literatureUtils.literatureController.sendCardInfoToWebView(focusNote)
-              MNUtil.log("已发送卡片标题" + focusNote.title + "到 WebView")
-            } else {
-              MNUtil.log("没有选中的卡片")
-            }
-          })
-        } else {
-          // WebView 已加载，且面板是显示状态才发送
-          if (!literatureUtils.literatureController.hidden) {
-            let focusNote = MNNote.getFocusNote()
-            
-            // 立即发送卡片信息（不需要延迟）
-            if (focusNote) {
-              literatureUtils.literatureController.sendCardInfoToWebView(focusNote)
-              MNUtil.log("卡片标题：" + focusNote.title)
-            }
-          }
-        }
       } catch (error) {
         literatureUtils.addErrorLog(error, "openSetting")
       }
@@ -398,7 +366,11 @@ JSB.newAddon = function(mainPath){
   });
 
   MNLiteratureClass.prototype.init = function(mainPath) {
-    literatureUtils.init(mainPath)
+    if (!this.initialized) {
+      literatureUtils.init(mainPath)
+      literatureConfig.init(mainPath)
+      this.initialized = true
+    }
   }
 
   MNLiteratureClass.prototype.closeMenu = function() {
