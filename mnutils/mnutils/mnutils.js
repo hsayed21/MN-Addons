@@ -464,10 +464,19 @@ class MNUtil {
     Green: UIColor.colorWithHexString("#E9FBC7"),
     Sepia: UIColor.colorWithHexString("#F5EFDC")
   }
+  /**
+   * 缓存图片类型
+   * {
+   *  "xxxx": "png",
+   *  "xxxx": "jpeg",
+   * }
+   */
+  static imageTypeCache = {}
   static popUpNoteInfo = undefined;
   static popUpSelectionInfo = undefined;
   static mainPath
   static initialized = false
+  static MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/(png|jpeg)\/.*?)(\))/g;
   /**
    * @type {string}
    */
@@ -771,6 +780,7 @@ class MNUtil {
    * @type {UITextView|undefined}
    */
   static activeTextView = undefined
+  static selectionRefreshTime = 0
   /**
    * 返回选中的内容，如果没有选中，则onSelection属性为false
    * 如果有选中内容，则同时包括text和image，并通过isText属性表明当时是选中的文字还是图片
@@ -785,7 +795,7 @@ class MNUtil {
    * 
    * @returns {{onSelection: boolean, image: null|undefined|NSData, text: null|undefined|string, isText: null|undefined|boolean,docMd5:string|undefined,pageIndex:number|undefined}} The current selection details.
    */
-  static get currentSelection(){
+  static get _currentSelection(){
     if (this.activeTextView && this.activeTextView.selectedRange.length>0) {
       let range = this.activeTextView.selectedRange
       return {onSelection:true,image:undefined,text:this.activeTextView.text.slice(range.location,range.location+range.length),isText:true,docMd5:undefined,pageIndex:undefined,source:"textview"}
@@ -814,6 +824,21 @@ class MNUtil {
       }
     }
     return {onSelection:false}
+  }
+  static get currentSelection() {
+    if (this.selectionRefreshTime) {
+      if (Date.now() - this.selectionRefreshTime > 100) {//超过100ms，重新获取选区信息
+        this.selectionRefreshTime = Date.now()
+        this._currentSelection = this.currentSelection
+        return this._currentSelection
+      }else{
+        return this._currentSelection
+      }
+    }else{
+      this.selectionRefreshTime = Date.now()
+      this._currentSelection = this.currentSelection
+      return this._currentSelection
+    }
   }
   static get currentNotebookId() {
     return this.studyController.notebookController.notebookId
@@ -2766,32 +2791,49 @@ static getValidJSON(jsonString,debug = false) {
     let md5 = CryptoJS.MD5(data).toString();
     return md5
   }
-
+  static parseMNImageURL(MNImageURL){
+    if (MNImageURL.includes("markdownimg/png/")) {
+      let hash = MNImageURL.split("markdownimg/png/")[1]
+      this.imageTypeCache[hash] = "png"
+      return {
+        hash: hash,
+        type: "png",
+        ext: "png"
+      }
+    }else if (MNImageURL.includes("markdownimg/jpeg/")) {
+      let hash = MNImageURL.split("markdownimg/jpeg/")[1]
+      this.imageTypeCache[hash] = "jpeg"
+      return {
+        hash: hash,
+        type: "jpeg",
+        ext: "jpg"
+      }
+    }
+    return undefined
+  }
   static replaceMNImagesWithBase64(markdown) {
   // if (/!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/) {
 
   //   // ![image.png](marginnote4app://markdownimg/png/eebc45f6b237d8abf279d785e5dcda20)
   // }
 try {
-    // let shouldOverWritten = false
-    // 匹配 base64 图片链接的正则表达式
-    const MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/g;
-    let images = []
     // 处理 Markdown 字符串，替换每个 base64 图片链接
-    const result = markdown.replace(MNImagePattern, (match, MNImageURL,p2) => {
+    const result = markdown.replace(this.MNImagePattern, (match, MNImageURL,p2) => {
       // 你可以在这里对 base64Str 进行替换或处理
       // shouldOverWritten = true
-      let hash = MNImageURL.split("markdownimg/png/")[1]
+      let imageConfig = this.parseMNImageURL(MNImageURL)
+      let hash = imageConfig.hash
       let imageData = MNUtil.getMediaByHash(hash)
       let imageBase64 = imageData.base64Encoding()
       // if (!imageData) {
       //   return match.replace(MNImageURL, hash+".png");
       // }
       // imageData.writeToFileAtomically(editorUtils.bufferFolder+hash+".png", false)
-      return match.replace(MNImageURL, "data:image/png;base64,"+imageBase64);
+      return match.replace(MNImageURL, "data:image/"+imageConfig.type+";base64,"+imageBase64);
     });
   return result;
 } catch (error) {
+  this.addErrorLog(error, "replaceMNImagesWithBase64")
   return undefined
 }
 }
@@ -3394,9 +3436,8 @@ try {
   static isPureMNImages(markdown) {
     try {
       // 匹配 base64 图片链接的正则表达式
-      const MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/g;
-      let res = markdown.match(MNImagePattern)
-      if (res) {
+      let res = markdown.match(this.MNImagePattern)
+      if (res && res.length) {
         return markdown === res[0]
       }else{
         return false
@@ -3414,17 +3455,23 @@ try {
       if (!markdown.trim()) {
         return false
       }
-      // 匹配 base64 图片链接的正则表达式
-      const MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/g;
+      // 匹配 base64 图片链接的正则表达式，支持png和jpeg
+      // let res = markdown.match(this.MNImagePattern)
       // let link = markdown.match(MNImagePattern)
       // console.log(link);
       
       // MNUtil.copyJSON({"a":link,"b":markdown})
-      return markdown.match(MNImagePattern)?true:false
+      return markdown.match(this.MNImagePattern)?true:false
     } catch (error) {
       this.addErrorLog(error, "hasMNImages")
       return false
     }
+  }
+  static getMNImageURL(hash,type = "png"){
+    if (hash in this.imageTypeCache) {
+      type = this.imageTypeCache[hash]
+    }
+    return `marginnote4app://markdownimg/${type}/${hash}`
   }
   /**
    * 只返回第一个图片
@@ -3433,33 +3480,70 @@ try {
    */
   static getMNImageFromMarkdown(markdown) {
     try {
-      const MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/g;
-      let link = markdown.match(MNImagePattern)[0]
-      // MNUtil.copyJSON(link)
-      let hash = link.split("markdownimg/png/")[1].slice(0,-1)
-      let imageData = MNUtil.getMediaByHash(hash)
-      return imageData
+      let imageId = this.getMNImageIdFromMarkdown(markdown)
+      if (imageId) {
+        let imageData = MNUtil.getMediaByHash(imageId)
+        return imageData
+      }
+      return undefined
     } catch (error) {
       this.addErrorLog(error, "getMNImageFromMarkdown")
       return undefined
     }
   }
   /**
+   * 返回所有图片
+   * @param {string} markdown 
+   * @returns {NSData[]}
+   */
+  static getMNImagesFromMarkdown(markdown) {
+    let imageIds = this.getMNImageIdsFromMarkdown(markdown)
+    if (imageIds.length) {
+      let imageDatas = imageIds.map(imageId=>MNUtil.getMediaByHash(imageId))
+      return imageDatas
+    }
+    return []
+  }
+  /**
    * 只返回第一个图片
    * @param {string} markdown 
-   * @returns {NSData}
+   * @returns {string[]}
+   */
+  static getMNImageIdsFromMarkdown(markdown) {
+  try {
+
+    let imageIds = []
+    markdown.replace(this.MNImagePattern, (match, MNImageURL,p2) => {
+      // 你可以在这里对 base64Str 进行替换或处理
+      // shouldOverWritten = true
+      let imageConfig = this.parseMNImageURL(MNImageURL)
+      let hash = imageConfig.hash
+      imageIds.push(hash)
+      return ""
+    });
+    return imageIds
+    
+  } catch (error) {
+    this.addErrorLog(error, "getMNImageIdsFromMarkdown")
+    return undefined
+  }
+  }
+  /**
+   * 只返回第一个图片
+   * @param {string} markdown 
+   * @returns {string}
    */
   static getMNImageIdFromMarkdown(markdown) {
-    try {
-      const MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/png\/.*?)(\))/g;
-      let link = markdown.match(MNImagePattern)[0]
-      // MNUtil.copyJSON(link)
-      let hash = link.split("markdownimg/png/")[1].slice(0,-1)
-      return hash
-    } catch (error) {
-      this.addErrorLog(error, "getMNImageFromMarkdown")
-      return undefined
+  try {
+    let imageIds = this.getMNImageIdsFromMarkdown(markdown)
+    if (imageIds.length) {
+      return imageIds[0]
     }
+    return undefined
+  } catch (error) {
+    this.addErrorLog(error, "getMNImageIdFromMarkdown")
+    return undefined
+  }
   }
   /**
    * 

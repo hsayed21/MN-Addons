@@ -1161,13 +1161,42 @@ try {
    * The deletion can be grouped within an undo operation if the `undoGrouping` parameter is set to `true`.
    * 
    * @param {boolean} [withDescendant=false] - Whether to delete the descendant notes along with the current note.
-   * @param {boolean} [undoGrouping=false] - Whether to group the deletion within an undo operation.
    */
-  delete(withDescendant = false){
+  _delete(withDescendant = false){
     if (withDescendant) {
       MNUtil.db.deleteBookNoteTree(this.note.noteId)
     }else{
+      let childNotes = this.childNotes
+      let parentNote = this.parentNote
+      for (let i = 0; i < childNotes.length; i++) {
+        const childNote = childNotes[i];
+        parentNote.addAsChildNote(childNote)
+      }
       MNUtil.db.deleteBookNote(this.note.noteId)
+    }
+  }
+  /**
+   * Deletes the current note, optionally including its descendant notes.
+   * 
+   * This method deletes the current note from the database. If the `withDescendant` parameter is set to `true`, it will also delete all descendant notes of the current note.
+   * The deletion can be grouped within an undo operation if the `undoGrouping` parameter is set to `true`.
+   * 
+   * @param {boolean} [withDescendant=false] - Whether to delete the descendant notes along with the current note.
+   * @param {boolean} [undoGrouping=false] - Whether to group the deletion within an undo operation.
+   */
+  async delete(withDescendant = false,undoGrouping = false,needConfrim = false){
+    if (needConfrim) {
+      let confirm = await MNUtil.confirm("Delete Note", "Are you sure you want to delete this note?")
+      if (!confirm) {
+        return
+      }
+    }
+    if (undoGrouping) {
+      MNUtil.undoGrouping(()=>{
+        this._delete(withDescendant)
+      })
+    }else{
+      this._delete(withDescendant)
     }
   }
   /**
@@ -2108,7 +2137,6 @@ try {
     if (!note) {
       return undefined
     }
-      
     let noteConfig = config
     noteConfig.id = note.noteId
     if (opt.first) {
@@ -2792,6 +2820,8 @@ try {
       if (note.excerptTextMarkdown) {
         if (MNUtil.hasMNImages(text.trim())) {
           imageDatas.push(MNUtil.getMNImageFromMarkdown(text))
+        }else{
+          MNUtil.log("No images found in excerptTextMarkdown")
         }
       }
     }
