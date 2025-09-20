@@ -162,7 +162,7 @@ class pinnerConfig {
   static get defaultConfig() {
     return {
       version: "1.0.0",
-      modifiedTime: Date.now(),
+      modifiedTime: 0,
       lastSyncTime: null,
       autoImport: false,  // 预留自动导入功能
       autoExport: false,  // 预留自动导出功能
@@ -188,8 +188,9 @@ class pinnerConfig {
         let backupConfig = MNUtil.readJSON(this.backUpFile)
         this.importConfig(backupConfig)
       } else {
+        // NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_config")
         pinnerUtils.log("使用 getByDefault 加载数据")
-        // this.config = this.getByDefault('MNPinner_config', this.defaultConfig)  // 会造成闪退！
+        this.config = this.getByDefault('MNPinner_config', this.defaultConfig)  // 会造成闪退！
         this.temporaryPins = this.getByDefault('MNPinner_temporaryPins', this.defaultTemporaryPins)
         this.permanentPins = this.getByDefault('MNPinner_permanentPins', this.defaultPermanentPins)
       }
@@ -390,7 +391,7 @@ class pinnerConfig {
       return false
     }
     
-    // 验证 pin 数据格式
+    // 验证 pin 数据格式 (只需要 noteId 和 title)
     let validatePins = (pins) => {
       if (!Array.isArray(pins)) return true
       return pins.every(pin => 
@@ -510,8 +511,7 @@ class pinnerConfig {
       // 添加新的 pin
       pins.push({
         noteId: noteId,
-        title: title || "Untitled",
-        pinnedAt: Date.now()
+        title: title || "Untitled"
       })
       
       // 保存

@@ -219,22 +219,141 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   permanentPinTabTapped: function (button) {
     self.switchView("permanentPinView")
   },
+  
+  // === permanentPinView 的事件处理方法 ===
+  permClearCards: function() {
+    try {
+      // 调用数据层清空方法
+      let success = pinnerConfig.clearPins(false)  // false = 永久固定
+      
+      if (success) {
+        // 刷新视图显示
+        self.refreshPermanentPinCards()
+        MNUtil.showHUD("已清空永久固定卡片")
+      } else {
+        MNUtil.showHUD("清空失败")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "permClearCards")
+      MNUtil.showHUD("清空失败: " + error)
+    }
+  },
+  
+  permRefreshCards: function() {
+    self.refreshView("permanentPinView")
+    MNUtil.showHUD("已刷新")
+  },
+  
+  permCopyCardList: function() {
+    try {
+      // 从 pinnerConfig 获取永久固定数据
+      let realCards = pinnerConfig.getPins(false) || []  // false = 永久固定
+      
+      if (realCards.length === 0) {
+        MNUtil.showHUD("没有可复制的卡片")
+        return
+      }
+      
+      // 收集所有卡片标题
+      let titles = realCards.map((card, index) => {
+        return `${index + 1}. ${card.title || "未命名卡片"}`
+      })
+      
+      MNUtil.copy(titles.join("\n"))
+      MNUtil.showHUD(`已复制 ${titles.length} 张卡片列表`)
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "permCopyCardList")
+      MNUtil.showHUD("复制失败: " + error)
+    }
+  },
+  
+  deletePermanentCard: function(button) {
+    try {
+      let noteId = button.noteId
+      if (!noteId) {
+        MNUtil.showHUD("无法获取卡片ID")
+        return
+      }
+      
+      // 调用数据层删除方法
+      let success = pinnerConfig.removePin(noteId, false)  // false = 永久固定
+      
+      if (success) {
+        // 刷新视图
+        self.refreshPermanentPinCards()
+        MNUtil.showHUD("已删除")
+      } else {
+        MNUtil.showHUD("删除失败")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "deletePermanentCard")
+      MNUtil.showHUD("删除失败: " + error)
+    }
+  },
+  
+  viewPermanentCard: function(button) {
+    try {
+      let noteId = button.noteId
+      if (!noteId) {
+        MNUtil.showHUD("无法获取卡片ID")
+        return
+      }
+      
+      // 使用 MNNote 跳转到卡片
+      let note = MNNote.new(noteId)
+      if (note) {
+        note.focusInMindMap()
+        MNUtil.showHUD("已跳转到卡片")
+      } else {
+        MNUtil.showHUD("找不到该卡片")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "viewPermanentCard")
+      MNUtil.showHUD("查看失败: " + error)
+    }
+  },
+  
+  makePermanentFromTemp: function(button) {
+    try {
+      let noteId = button.noteId
+      if (!noteId) {
+        MNUtil.showHUD("无法获取卡片ID")
+        return
+      }
+      
+      // 调用数据层转换方法
+      let success = pinnerConfig.makePermanent(noteId)
+      
+      if (success) {
+        // 刷新视图
+        self.refreshTemporaryPinCards()
+        MNUtil.showHUD("已转为永久固定")
+      } else {
+        MNUtil.showHUD("转换失败")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "makePermanentFromTemp")
+      MNUtil.showHUD("转换失败: " + error)
+    }
+  },
 
   // === temporaryPinView 的事件处理方法 ===
   tempClearCards: function() {
-    // 清空卡片行（使用维护的数组）
-    if (self.tempCardRows) {
-      self.tempCardRows.forEach(view => {
-        view.removeFromSuperview()
-      })
-      self.tempCardRows = []
+    try {
+      // 调用数据层清空方法
+      let success = pinnerConfig.clearPins(true)
+      
+      if (success) {
+        // 刷新视图显示
+        self.refreshTemporaryPinCards()
+        MNUtil.showHUD("已清空临时固定卡片")
+      } else {
+        MNUtil.showHUD("清空失败")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "tempClearCards")
+      MNUtil.showHUD("清空失败: " + error)
     }
-    
-    // 更新计数显示（使用按钮的方法）
-    if (self.tempCountLabel) {
-      self.tempCountLabel.setTitleForState("共 0 张卡片", 0)
-    }
-    MNUtil.showHUD("已清空")
   },
 
   tempRefreshCards: function() {
@@ -252,20 +371,81 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   tempCopyCardList: function() {
-    // 收集所有卡片标题
-    let titles = []
-    for (let i = 0; i < 3; i++) {
-      titles.push(`${i+1}. 示例卡片${i+1}`)
+    try {
+      // 从 pinnerConfig 获取真实数据
+      let realCards = pinnerConfig.getPins(true) || []
+      
+      if (realCards.length === 0) {
+        MNUtil.showHUD("没有可复制的卡片")
+        return
+      }
+      
+      // 收集所有卡片标题
+      let titles = realCards.map((card, index) => {
+        return `${index + 1}. ${card.title || "未命名卡片"}`
+      })
+      
+      MNUtil.copy(titles.join("\n"))
+      MNUtil.showHUD(`已复制 ${titles.length} 张卡片列表`)
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "tempCopyCardList")
+      MNUtil.showHUD("复制失败: " + error)
     }
-    MNUtil.copy(titles.join("\n"))
-    MNUtil.showHUD("已复制卡片列表")
   },
 
+  /**
+   * 删除单个卡片
+   */
+  deleteTempCard: function(button) {
+    try {
+      let noteId = button.noteId
+      if (!noteId) {
+        MNUtil.showHUD("无法获取卡片ID")
+        return
+      }
+      
+      // 调用数据层删除方法
+      let success = pinnerConfig.removePin(noteId, true)
+      
+      if (success) {
+        // 刷新视图
+        self.refreshTemporaryPinCards()
+        MNUtil.showHUD("已删除")
+      } else {
+        MNUtil.showHUD("删除失败")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "deleteTempCard")
+      MNUtil.showHUD("删除失败: " + error)
+    }
+  },
+  
   /**
    * 查看卡片方法
    */
   viewTempCard: function(button) {
-    MNUtil.showHUD(`查看卡片 ${button.tag + 1}`)
+    try {
+      let noteId = button.noteId
+      if (!noteId) {
+        MNUtil.showHUD("无法获取卡片ID")
+        return
+      }
+      
+      // 使用 MNNote 跳转到卡片
+      let note = MNNote.new(noteId)
+      if (note) {
+        note.focusInMindMap()
+        MNUtil.showHUD("已跳转到卡片")
+        
+        // 隐藏面板（可选）
+        // self.hide()
+      } else {
+        MNUtil.showHUD("找不到该卡片")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "viewTempCard")
+      MNUtil.showHUD("查看失败: " + error)
+    }
   },
 });
 
@@ -699,6 +879,10 @@ pinnerController.prototype.refreshLayout = function () {
   if (!this.temporaryPinView.hidden) {
     this.layoutTemporaryPinView()
   }
+  // 添加永久固定视图的布局刷新
+  if (!this.permanentPinView.hidden) {
+    this.layoutPermanentPinView()
+  }
 }
 pinnerController.prototype.setButtonText = function () {
 }
@@ -743,6 +927,42 @@ pinnerController.prototype.createSettingView = function () {
 
     this.createView("permanentPinView","settingView","#9bb2d6",0)
     this.permanentPinView.hidden = true  // 隐藏其他视图
+    
+    // === 为 permanentPinView 添加子视图 ===
+    // 顶部操作按钮
+    this.createButton("permClearButton", "permClearCards:", "permanentPinView")
+    MNButton.setConfig(this.permClearButton, {
+      color: "#e06c75", alpha: 0.8, opacity: 1.0, title: "🗑 清空", radius: 10, font: 15
+    })
+    
+    this.createButton("permRefreshButton", "permRefreshCards:", "permanentPinView")
+    MNButton.setConfig(this.permRefreshButton, {
+      color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "🔄 刷新", radius: 10, font: 15
+    })
+    
+    // 计数标签
+    this.createButton("permCountLabel", "", "permanentPinView")
+    this.permCountLabel.enabled = false
+    this.permCountLabel.backgroundColor = UIColor.clearColor()
+    this.permCountLabel.setTitleForState("共 0 张卡片", 0)
+    MNButton.setConfig(this.permCountLabel, {
+      color: "#666666", alpha: 1.0, opacity: 1.0, font: 14
+    })
+    
+    // 中间滚动视图
+    this.permCardScrollView = this.createScrollview("permanentPinView", "#f5f5f5", 0.9)
+    this.permCardScrollView.layer.cornerRadius = 12
+    this.permCardScrollView.alwaysBounceVertical = true
+    this.permCardScrollView.showsVerticalScrollIndicator = true
+    
+    // 初始化卡片行数组
+    this.permCardRows = []
+    
+    // 右侧复制按钮
+    this.createButton("permCopyButton", "permCopyCardList:", "permanentPinView")
+    MNButton.setConfig(this.permCopyButton, {
+      title: "📋", color: "#9bb2d6", alpha: 0.8, radius: 15, font: 20
+    })
 
     // === 为 temporaryPinView 添加子视图 ===
     // 顶部操作按钮
@@ -859,10 +1079,11 @@ pinnerController.prototype.refreshView = function (targetView) {
     switch (targetView) {
       case "permanentPinView":
         MNUtil.log("refresh permanentPinView")
+        this.refreshPermanentPinCards()  // 刷新永久固定卡片列表
         break;
       case "temporaryPinView":
         MNUtil.log("refresh temporaryPinView")
-        this.refreshTemporaryPinCards()  // 刷新卡片列表
+        this.refreshTemporaryPinCards()  // 刷新临时固定卡片列表
         break;
       default:
         break;
@@ -914,45 +1135,207 @@ pinnerController.prototype.layoutTemporaryPinView = function() {
  * 刷新临时固定卡片列表
  */
 pinnerController.prototype.refreshTemporaryPinCards = function() {
-  // 初始化卡片行数组
-  if (!this.tempCardRows) {
+  try {
+    // 初始化卡片行数组
+    if (!this.tempCardRows) {
+      this.tempCardRows = []
+    }
+    
+    // 从 pinnerConfig 获取真实数据
+    let realCards = pinnerConfig.getPins(true) || []
+    
+    // 更新计数（使用按钮的方法）
+    if (this.tempCountLabel) {
+      this.tempCountLabel.setTitleForState(`共 ${realCards.length} 张卡片`, 0)
+    }
+    
+    // 清空现有卡片（使用维护的数组）
+    this.tempCardRows.forEach(view => {
+      view.removeFromSuperview()
+    })
     this.tempCardRows = []
+    
+    // 检查滚动视图是否存在
+    if (!this.tempCardScrollView) return
+    
+    // 如果没有卡片，显示提示
+    if (realCards.length === 0) {
+      // 创建空状态提示
+      let emptyLabel = UIButton.buttonWithType(0)
+      emptyLabel.setTitleForState("暂无固定的卡片", 0)
+      emptyLabel.titleLabel.font = UIFont.systemFontOfSize(14)
+      emptyLabel.frame = {x: 10, y: 50, width: this.tempCardScrollView.frame.width - 20, height: 40}
+      emptyLabel.enabled = false
+      emptyLabel.setTitleColorForState(MNUtil.hexColorAlpha("#999999", 1.0), 0)
+      this.tempCardScrollView.addSubview(emptyLabel)
+      this.tempCardRows.push(emptyLabel)
+      this.tempCardScrollView.contentSize = {width: 0, height: 100}
+      return
+    }
+    
+    // 添加卡片行
+    let yOffset = 10
+    let scrollWidth = this.tempCardScrollView.frame.width
+    
+    realCards.forEach((card, index) => {
+      let cardRow = this.createTempCardRow(card, index, scrollWidth - 20)
+      this.tempCardScrollView.addSubview(cardRow)
+      this.tempCardRows.push(cardRow)  // 保存引用
+      yOffset += 55
+    })
+    
+    // 设置滚动区域
+    this.tempCardScrollView.contentSize = {width: 0, height: yOffset + 10}
+    
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "refreshTemporaryPinCards")
+    MNUtil.showHUD("刷新卡片列表失败")
+  }
+}
+
+/**
+ * 刷新永久固定卡片列表
+ */
+pinnerController.prototype.refreshPermanentPinCards = function() {
+  try {
+    // 初始化卡片行数组
+    if (!this.permCardRows) {
+      this.permCardRows = []
+    }
+    
+    // 从 pinnerConfig 获取真实数据
+    let realCards = pinnerConfig.getPins(false) || []  // false = 永久固定
+    
+    // 更新计数（使用按钮的方法）
+    if (this.permCountLabel) {
+      this.permCountLabel.setTitleForState(`共 ${realCards.length} 张卡片`, 0)
+    }
+    
+    // 清空现有卡片（使用维护的数组）
+    this.permCardRows.forEach(view => {
+      view.removeFromSuperview()
+    })
+    this.permCardRows = []
+    
+    // 检查滚动视图是否存在
+    if (!this.permCardScrollView) return
+    
+    // 如果没有卡片，显示提示
+    if (realCards.length === 0) {
+      // 创建空状态提示
+      let emptyLabel = UIButton.buttonWithType(0)
+      emptyLabel.setTitleForState("暂无永久固定的卡片", 0)
+      emptyLabel.titleLabel.font = UIFont.systemFontOfSize(14)
+      emptyLabel.frame = {x: 10, y: 50, width: this.permCardScrollView.frame.width - 20, height: 40}
+      emptyLabel.enabled = false
+      emptyLabel.setTitleColorForState(MNUtil.hexColorAlpha("#999999", 1.0), 0)
+      this.permCardScrollView.addSubview(emptyLabel)
+      this.permCardRows.push(emptyLabel)
+      this.permCardScrollView.contentSize = {width: 0, height: 100}
+      return
+    }
+    
+    // 添加卡片行
+    let yOffset = 10
+    let scrollWidth = this.permCardScrollView.frame.width
+    
+    realCards.forEach((card, index) => {
+      let cardRow = this.createPermCardRow(card, index, scrollWidth - 20)
+      this.permCardScrollView.addSubview(cardRow)
+      this.permCardRows.push(cardRow)  // 保存引用
+      yOffset += 55
+    })
+    
+    // 设置滚动区域
+    this.permCardScrollView.contentSize = {width: 0, height: yOffset + 10}
+    
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "refreshPermanentPinCards")
+    MNUtil.showHUD("刷新永久固定卡片失败")
+  }
+}
+
+/**
+ * 创建永久固定卡片行视图
+ */
+pinnerController.prototype.createPermCardRow = function(card, index, width) {
+  // 创建卡片行容器
+  let rowView = UIView.new()
+  rowView.frame = {x: 10, y: 10 + index * 55, width: width, height: 45}
+  rowView.backgroundColor = MNUtil.hexColorAlpha("#fffff0", 0.95)  // 淡黄色区分
+  rowView.layer.cornerRadius = 8
+  rowView.layer.borderWidth = 1
+  rowView.layer.borderColor = MNUtil.hexColorAlpha("#d4af37", 0.3)  // 金色边框
+  
+  // 保存 noteId 到 rowView（供删除时使用）
+  rowView.noteId = card.noteId
+  
+  // 添加序号和标题（使用禁用的按钮代替 UILabel）
+  let titleButton = UIButton.buttonWithType(0)
+  titleButton.setTitleForState(`⭐ ${index + 1}. ${card.title || "未命名卡片"}`, 0)
+  titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
+  titleButton.frame = {x: 10, y: 5, width: width - 100, height: 35}
+  titleButton.enabled = false  // 禁用以模拟标签效果
+  titleButton.setTitleColorForState(UIColor.blackColor(), 0)
+  titleButton.contentHorizontalAlignment = 1  // 左对齐
+  rowView.addSubview(titleButton)
+  
+  // 删除按钮
+  let deleteBtn = UIButton.buttonWithType(0)
+  deleteBtn.setTitleForState("🗑", 0)
+  deleteBtn.frame = {x: width - 80, y: 7, width: 30, height: 30}
+  deleteBtn.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 0.8)
+  deleteBtn.layer.cornerRadius = 5
+  deleteBtn.tag = index  // 用 tag 存储索引
+  deleteBtn.noteId = card.noteId  // 直接保存 noteId
+  deleteBtn.addTargetActionForControlEvents(this, "deletePermanentCard:", 1 << 6)
+  rowView.addSubview(deleteBtn)
+  
+  // 查看按钮
+  let viewBtn = UIButton.buttonWithType(0)
+  viewBtn.setTitleForState("👁", 0)
+  viewBtn.frame = {x: width - 40, y: 7, width: 30, height: 30}
+  viewBtn.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+  viewBtn.layer.cornerRadius = 5
+  viewBtn.tag = index  // 用 tag 存储索引
+  viewBtn.noteId = card.noteId  // 保存 noteId
+  viewBtn.addTargetActionForControlEvents(this, "viewPermanentCard:", 1 << 6)
+  rowView.addSubview(viewBtn)
+  
+  return rowView
+}
+
+/**
+ * 布局 permanentPinView 的子视图
+ */
+pinnerController.prototype.layoutPermanentPinView = function() {
+  // 增强防御性检查
+  if (!this.permanentPinView || this.permanentPinView.hidden) return
+  if (!this.permCardScrollView) return
+  
+  let frame = this.permanentPinView.bounds
+  let width = frame.width
+  let height = frame.height
+  
+  // 顶部按钮和标签（检查存在性）
+  if (this.permClearButton) {
+    this.permClearButton.frame = {x: 10, y: 10, width: 70, height: 32}
+  }
+  if (this.permRefreshButton) {
+    this.permRefreshButton.frame = {x: 85, y: 10, width: 70, height: 32}
+  }
+  if (this.permCountLabel) {
+    this.permCountLabel.frame = {x: 165, y: 10, width: 120, height: 32}
   }
   
-  // 模拟数据
-  let mockCards = [
-    {id: "note001", title: "JavaScript 异步编程基础"},
-    {id: "note002", title: "React Hooks 最佳实践"},
-    {id: "note003", title: "TypeScript 类型体操入门"}
-  ]
+  // 中间滚动视图（留出右侧按钮空间）
+  this.permCardScrollView.frame = {x: 10, y: 50, width: width - 70, height: height - 65}
   
-  // 更新计数（使用按钮的方法）
-  if (this.tempCountLabel) {
-    this.tempCountLabel.setTitleForState(`共 ${mockCards.length} 张卡片`, 0)
+  // 右侧复制按钮
+  let rightX = width - 50
+  if (this.permCopyButton) {
+    this.permCopyButton.frame = {x: rightX, y: 50, width: 40, height: 40}
   }
-  
-  // 清空现有卡片（使用维护的数组）
-  this.tempCardRows.forEach(view => {
-    view.removeFromSuperview()
-  })
-  this.tempCardRows = []
-  
-  // 检查滚动视图是否存在
-  if (!this.tempCardScrollView) return
-  
-  // 添加卡片行
-  let yOffset = 10
-  let scrollWidth = this.tempCardScrollView.frame.width
-  
-  mockCards.forEach((card, index) => {
-    let cardRow = this.createTempCardRow(card, index, scrollWidth - 20)
-    this.tempCardScrollView.addSubview(cardRow)
-    this.tempCardRows.push(cardRow)  // 保存引用
-    yOffset += 55
-  })
-  
-  // 设置滚动区域
-  this.tempCardScrollView.contentSize = {width: 0, height: yOffset + 10}
 }
 
 /**
@@ -967,23 +1350,49 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   rowView.layer.borderWidth = 1
   rowView.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6", 0.3)
   
+  // 保存 noteId 到 rowView（供删除时使用）
+  rowView.noteId = card.noteId
+  
   // 添加序号和标题（使用禁用的按钮代替 UILabel）
   let titleButton = UIButton.buttonWithType(0)
   titleButton.setTitleForState(`${index + 1}. ${card.title || "未命名卡片"}`, 0)
   titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
-  titleButton.frame = {x: 10, y: 5, width: width - 70, height: 35}
+  titleButton.frame = {x: 10, y: 5, width: width - 130, height: 35}  // 调整宽度给按钮留空间
   titleButton.enabled = false  // 禁用以模拟标签效果
   titleButton.setTitleColorForState(UIColor.blackColor(), 0)
   titleButton.contentHorizontalAlignment = 1  // 左对齐
   rowView.addSubview(titleButton)
   
+  // 转为永久按钮
+  let permanentBtn = UIButton.buttonWithType(0)
+  permanentBtn.setTitleForState("⭐", 0)
+  permanentBtn.frame = {x: width - 110, y: 7, width: 30, height: 30}
+  permanentBtn.backgroundColor = MNUtil.hexColorAlpha("#d4af37", 0.8)  // 金色
+  permanentBtn.layer.cornerRadius = 5
+  permanentBtn.tag = index
+  permanentBtn.noteId = card.noteId
+  permanentBtn.addTargetActionForControlEvents(this, "makePermanentFromTemp:", 1 << 6)
+  rowView.addSubview(permanentBtn)
+  
+  // 删除按钮
+  let deleteBtn = UIButton.buttonWithType(0)
+  deleteBtn.setTitleForState("🗑", 0)
+  deleteBtn.frame = {x: width - 75, y: 7, width: 30, height: 30}
+  deleteBtn.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 0.8)
+  deleteBtn.layer.cornerRadius = 5
+  deleteBtn.tag = index  // 用 tag 存储索引
+  deleteBtn.noteId = card.noteId  // 直接保存 noteId
+  deleteBtn.addTargetActionForControlEvents(this, "deleteTempCard:", 1 << 6)
+  rowView.addSubview(deleteBtn)
+  
   // 查看按钮
   let viewBtn = UIButton.buttonWithType(0)
   viewBtn.setTitleForState("👁", 0)
-  viewBtn.frame = {x: width - 50, y: 7, width: 30, height: 30}
+  viewBtn.frame = {x: width - 40, y: 7, width: 30, height: 30}
   viewBtn.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
   viewBtn.layer.cornerRadius = 5
   viewBtn.tag = index  // 用 tag 存储索引
+  viewBtn.noteId = card.noteId  // 保存 noteId
   viewBtn.addTargetActionForControlEvents(this, "viewTempCard:", 1 << 6)
   rowView.addSubview(viewBtn)
   
