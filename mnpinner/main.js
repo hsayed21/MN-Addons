@@ -100,9 +100,14 @@ JSB.newAddon = function(mainPath){
      */
     notebookWillOpen: function(notebookid) {
       try {
-
+        // 确保 pinnerConfig 已初始化
+        if (!self.initialized) {
+          self.init(mainPath)
+        }
+        
+        pinnerUtils.log("Notebook opened: " + notebookid, "notebookWillOpen")
       } catch (error) {
-        MNLog.error(error, "notebookWillOpen")
+        pinnerUtils.addErrorLog(error, "notebookWillOpen")
       }
     },
     
@@ -192,6 +197,10 @@ JSB.newAddon = function(mainPath){
         let commandTable = [
           self.tableItem('⚙️   Setting', 'openSetting:'),
           self.tableItem('🗄️   卡片固定库', 'openPinnerLibrary:'),
+          self.tableItem('📥   导入配置', 'importConfig:'),
+          self.tableItem('📤   导出配置', 'exportConfig:'),
+          self.tableItem('🗑️   清空临时固定', 'clearTemporaryPins:'),
+          self.tableItem('🗑️   清空永久固定', 'clearPermanentPins:'),
         ];
 
         // 显示菜单
@@ -219,18 +228,22 @@ JSB.newAddon = function(mainPath){
             case "temporarilyPin":
               let noteId = decodeURIComponent(config.params.id)
               let pinNote = MNNote.new(noteId)
-              if (pinNote) {
-                MNUtil.showHUD("收到临时固定卡片请求: " + pinNote.title)
+              if (pinNote && pinnerConfig.addPin(noteId, pinNote.title, true)) {
+                MNUtil.showHUD("已临时固定: " + pinNote.title)
               }
               break;
             case "permanentlyPin":
-              MNUtil.showHUD("收到永久固定卡片请求")
+              let permanentNoteId = decodeURIComponent(config.params.id)
+              let permanentNote = MNNote.new(permanentNoteId)
+              if (permanentNote && pinnerConfig.addPin(permanentNoteId, permanentNote.title, false)) {
+                MNUtil.showHUD("已永久固定: " + permanentNote.title)
+              }
               break;
             case "showPinBoard":
-              MNUtil.showHUD("收到打开卡片固定库请求")
+              self.openPinnerLibrary()
               break;
             default:
-              MNUtil.showHUD('Unsupported action: '+config.action)
+              MNUtil.showHUD('Unsupported action: '+action)
               break;
           }
         }
@@ -392,6 +405,46 @@ JSB.newAddon = function(mainPath){
     if (this.menuPopoverController) {
       this.menuPopoverController.dismissPopoverAnimated(true);
     }
+  }
+  
+  /**
+   * 导入配置
+   */
+  MNPinnerClass.prototype.importConfig = function() {
+    this.closeMenu()
+    pinnerConfig.importFromFile()
+  }
+  
+  /**
+   * 导出配置
+   */
+  MNPinnerClass.prototype.exportConfig = function() {
+    this.closeMenu()
+    pinnerConfig.exportToFile()
+  }
+  
+  /**
+   * 清空临时固定
+   */
+  MNPinnerClass.prototype.clearTemporaryPins = function() {
+    this.closeMenu()
+    MNUtil.confirm("清空临时固定", "确定要清空所有临时固定的卡片吗？", ["取消", "确定"]).then((result) => {
+      if (result) {
+        pinnerConfig.clearPins(true)
+      }
+    })
+  }
+  
+  /**
+   * 清空永久固定
+   */
+  MNPinnerClass.prototype.clearPermanentPins = function() {
+    this.closeMenu()
+    MNUtil.confirm("清空永久固定", "确定要清空所有永久固定的卡片吗？", ["取消", "确定"]).then((result) => {
+      if (result) {
+        pinnerConfig.clearPins(false)
+      }
+    })
   }
 
   MNPinnerClass.prototype.tableItem = function (title, selector, param = "", checked = false) {
