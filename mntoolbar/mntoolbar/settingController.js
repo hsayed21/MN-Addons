@@ -785,9 +785,7 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
       MNUtil.showHUD("Cancel")
       return
     }
-    if (!toolbarUtils.checkSubscribe(true)) {
-      return
-    }
+
     let beginFrame = self.view.frame
     let endFrame = self.view.frame
     if (endFrame.width < 800) {
@@ -802,6 +800,9 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
           MNUtil.showHUD("Not supported")
           return
         }
+        if (!toolbarUtils.checkSubscribe(true)) {
+          return
+        }
         self.imagePickerController = UIImagePickerController.new()
         self.imagePickerController.buttonName = buttonName
         self.imagePickerController.delegate = self  // 设置代理
@@ -810,15 +811,28 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
         MNUtil.studyController.presentViewControllerAnimatedCompletion(self.imagePickerController,true,undefined)
         break;
       case 2:
+        if (!toolbarUtils.checkSubscribe(true)) {
+          return
+        }
         let UTI = ["public.image"]
         let path = await MNUtil.importFile(UTI)
         let image = MNUtil.getImage(path,1)
         toolbarConfig.setButtonImage(buttonName, image,true)
         break;
       case 3:
+        if (typeof browserUtils === 'undefined') {
+          MNUtil.confirm("MN Toolbar","❌ MN Browser not installed\n\n请先安装'MN Browser'")
+          return
+        }
+
         MNUtil.postNotification("openInBrowser", {url:"https://zhangyu1818.github.io/appicon-forge/",beginFrame:beginFrame,endFrame:endFrame})
         break;
       case 4:
+        if (typeof browserUtils === 'undefined') {
+          MNUtil.confirm("MN Toolbar","❌ MN Browser not installed\n\n请先安装'MN Browser'")
+          return
+        }
+
         MNUtil.postNotification("openInBrowser", {url:"https://www.iconfont.cn/",beginFrame:beginFrame,endFrame:endFrame})
         break;
       default:
@@ -887,6 +901,10 @@ ${input}
   },
   changeIconFromWeb: function (url) {
     self.checkPopoverController()
+    if (typeof browserUtils === 'undefined') {
+      MNUtil.confirm("MN Toolbar","❌ MN Browser not installed\n\n请先安装'MN Browser'")
+      return
+    }
     if (toolbarUtils.checkSubscribe(false)) {
       let beginFrame = self.view.frame
       let endFrame = self.view.frame
@@ -901,7 +919,17 @@ ${input}
   }, 
   changeIconScale:async function (buttonName) {
     self.checkPopoverController()
-    let res = await MNUtil.input("Custom scale","自定义图片缩放比例",["cancel","1","2","3","confirm"])
+    if (!(buttonName in toolbarConfig.imageScale)) {
+      MNUtil.showHUD("Not supported")
+      Menu.dismissCurrentMenu()
+      return
+    }
+    try {
+
+    let currentScale = toolbarConfig.imageScale[buttonName].scale
+    let image = toolbarConfig.imageConfigs[buttonName]
+    let size = UIImage.imageWithDataScale(image.pngData(), 1).size
+    let res = await MNUtil.input("MN Toolbar","Custom Icon Scale\n\n自定义图标缩放比例\n\nImage size: "+size.width+"x"+size.height,["cancel","1","2","3","4","5","confirm"],{default:currentScale})
     if (res.button === 0) {
       MNUtil.showHUD("Cancel")
       return
@@ -910,26 +938,37 @@ ${input}
     switch (res.button) {
       case 1:
         scale = 1
-        toolbarConfig.imageScale[buttonName].scale = 1
         break;
       case 2:
         scale = 2
-        toolbarConfig.imageScale[buttonName].scale = 2
         break;
       case 3:
         scale = 3
-        toolbarConfig.imageScale[buttonName].scale = 3
+        break;
+      case 4:
+        scale = 4
+        break;
+      case 5:
+        scale = 5
+        break;
+      case 6:
+        if (res.input.trim()) {
+          scale = parseFloat(res.input.trim())
+        }
         break;
       default:
         break;
     }
-    if (res.button === 4 && res.input.trim()) {
-      scale = parseFloat(res.input.trim())
-      toolbarConfig.imageScale[buttonName].scale = scale
-    }
-    let image = toolbarConfig.imageConfigs[buttonName]
-    toolbarConfig.imageConfigs[buttonName] = UIImage.imageWithDataScale(image.pngData(), scale)
+    // toolbarUtils.log("iconScale:"+scale)
+    // toolbarUtils.log("res.button:"+res.button)
+    toolbarConfig.imageScale[buttonName].scale = scale
+    toolbarConfig.imageConfigs[buttonName] = UIImage.imageWithDataScale(image.jpegData(1.0), scale)
     MNUtil.postNotification("refreshToolbarButton", {})
+    toolbarConfig.save("MNToolbar_imageScale")
+      
+    } catch (error) {
+      toolbarUtils.addErrorLog(error, "changeIconScale")
+    }
   },
   resetIcon:function (buttonName) {
     try {

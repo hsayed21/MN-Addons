@@ -541,11 +541,22 @@ JSB.newAddon = function (mainPath) {
           return
         }
         if (sender.userInfo.imageBase64) {
+          if (!toolbarUtils.checkSubscribe(true)) {
+            return
+          }
           let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(sender.userInfo.imageBase64))
           let image = UIImage.imageWithData(imageData)
           let selected = self.settingController.selectedItem
-
           toolbarConfig.setButtonImage(selected, image,true)
+        }else if(sender.userInfo.imageData){
+          if (!toolbarUtils.checkSubscribe(true)) {
+            return
+          }
+          let image = UIImage.imageWithData(sender.userInfo.imageData)
+          let selected = self.settingController.selectedItem
+          toolbarConfig.setButtonImage(selected, image,true)
+        }else{
+          toolbarUtils.addErrorLog("ImageBase64 not found", "onNewIconImage")
         }
       },
       onOpenToolbarSetting:function (params) {

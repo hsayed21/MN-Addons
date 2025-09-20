@@ -7427,8 +7427,8 @@ class toolbarConfig {
   static setButtonImage(action,image,refresh = false,scale = 3) {
   try {
     let size = image.size
-    if (size.width > 500 || size.height > 500) {
-      MNUtil.showHUD("Image size is too large")
+    if (size.width * size.height > 250000) {
+      MNUtil.confirm("MN Toolbar","Image size is too large\n\n图片尺寸过大")
       return
     }
 
