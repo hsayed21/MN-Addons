@@ -799,6 +799,10 @@ function registerAllMenuTemplates() {
       menuWidth: 300,
       menuItems: [
         {
+          action: "temporarilyPinFocusNoteWithTitle",
+          menuTitle: "📍 临时 Pin & 自定义标题",
+        },
+        {
           action: "showPinBoard",
           menuTitle: "📋 打开 Pin 卡片库",
         },

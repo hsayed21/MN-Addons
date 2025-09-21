@@ -5232,6 +5232,28 @@ function registerAllCustomActions() {
     });
   })
 
+  global.registerCustomAction("temporarilyPinFocusNoteWithTitle", async function(context) {
+    const { focusNote } = context;
+    try {
+      MNUtil.copy(MNMath.removeTitlePrefix(focusNote))
+      let title = await MNUtil.input(
+        "请输入标题",
+        "临时 Pin",
+        ['取消', '确定']
+      )
+      if (title.button) {
+        if (title.input && title.input.trim()) {
+          MNUtil.postNotification("AddonBroadcast", {
+            message: `mnpinner?action=temporarilyPin&id=${encodeURIComponent(focusNote.noteId)}&title=${encodeURIComponent(title.input.trim())}`
+          });
+        }
+      }
+    } catch (error) {
+      MNLog.error("临时 Pin 失败: " + error.message);
+      MNUtil.showHUD("临时 Pin 失败: " + error.message);
+    }
+  })
+
   global.registerCustomAction("permanentlyPinFocusNote", async function(context) {
     const { focusNote } = context;
     MNUtil.postNotification("AddonBroadcast", {
