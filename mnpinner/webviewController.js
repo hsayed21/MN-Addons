@@ -106,15 +106,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     }
     self.moveDate = Date.now()
     
-    // 双击恢复检测
-    if (self.miniMode && gesture.state === 1) {
-      let now = Date.now()
-      if (self.lastTapTime && now - self.lastTapTime < 300) {
-        self.fromMinimode()
-        return
-      }
-      self.lastTapTime = now
-    }
+    // Mini 模式下不需要双击检测，因为单击按钮就能恢复
     
     // 计算新位置
     let location = {
@@ -127,29 +119,31 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     let y = MNUtil.constrain(location.y, 0, studyFrame.height - 15)
     let x = location.x
     
-    // 🎯 完全抄袭 mnbrowser 的边缘检测逻辑
+    // 🎯 优化后的边缘检测逻辑
     if (!self.miniMode) {
+      // 非 mini 模式：靠近边缘 40px 内触发吸附
       if (locationToMN.x < 40) {
-        if (!self.settingView || self.settingView.hidden) {
-          self.toMinimode(MNUtil.genFrame(0, locationToMN.y, 40, 40))
-        }
+        // 无条件触发左边缘吸附
+        self.toMinimode(MNUtil.genFrame(0, locationToMN.y - 20, 40, 40))
         return
       }
       if (locationToMN.x > studyFrame.width - 40) {
-        if (!self.settingView || self.settingView.hidden) {
-          self.toMinimode(MNUtil.genFrame(studyFrame.width - 40, locationToMN.y, 40, 40))
-        }
+        // 无条件触发右边缘吸附
+        self.toMinimode(MNUtil.genFrame(studyFrame.width - 40, locationToMN.y - 20, 40, 40))
         return
       }
     } else {
+      // mini 模式：增加缓冲区，避免抖动
       if (locationToMN.x < 50) {
+        // 保持左边缘吸附
         self.view.frame = MNUtil.genFrame(0, locationToMN.y - 20, 40, 40)
         return
       } else if (locationToMN.x > studyFrame.width - 50) {
+        // 保持右边缘吸附
         self.view.frame = MNUtil.genFrame(studyFrame.width - 40, locationToMN.y - 20, 40, 40)
         return
-      } else if (locationToMN.x > 50) {
-        // 从 mini 模式恢复 - 直接调用 fromMinimode 方法
+      } else if (locationToMN.x > 80 && locationToMN.x < studyFrame.width - 80) {
+        // 离开边缘 80px 才恢复（增加缓冲区）
         self.fromMinimode()
         return
       }
@@ -287,10 +281,16 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
   moveButtonTapped: async function (button) {
     try {
-      // 检查是否在 mini 模式 - 参考 mnbrowser 的实现
+      // Mini 模式下单击恢复 - 更直观的交互
       if (self.miniMode) {
-        // Mini 模式下点击直接恢复正常模式
-        self.fromMinimode()
+        // 添加一个小动画反馈
+        MNUtil.animate(() => {
+          self.view.layer.opacity = 0.7
+        }, 0.1, () => {
+          self.view.layer.opacity = 0.95
+          // 恢复正常模式
+          self.fromMinimode()
+        })
         return
       }
       
@@ -1583,10 +1583,11 @@ pinnerController.prototype.toMinimode = function(frame) {
       this.lastFrame = this.view.frame
     }
     
+    // 标记进入动画状态
     this.miniMode = true
     this.onAnimate = true
     
-    // 🎯 修复1：隐藏 webview 内容（抄袭 mnbrowser）
+    // 隐藏主要内容视图
     if (this.webviewInput) {
       this.webviewInput.hidden = true
     }
@@ -1598,29 +1599,33 @@ pinnerController.prototype.toMinimode = function(frame) {
     this.setAllButton(true)
     this.moveButton.hidden = false
     
-    // 🎯 修复2：设置背景色（抄袭 mnbrowser）
+    // 设置 mini 模式的背景色和边框
     this.view.layer.borderWidth = 0
-    let color = "#9bb2d6"
-    this.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.8)
-    this.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.8)
+    let color = "#457bd3"  // 使用更鲜明的蓝色
+    this.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.85)
+    this.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.85)
     
-    // 动画转换到 mini 模式
+    // 添加磁吸动画效果
     MNUtil.animate(() => {
       this.view.frame = frame
       this.currentFrame = frame
-      // this.view.layer.opacity = 0.8  // 不需要透明度，背景色已足够
-    }, 0.3, () => {
-      // 🎯 修复3：设置 40x40 按钮（抄袭 mnbrowser）
+      this.view.layer.opacity = 0.95  // 略微透明增加层次感
+    }, 0.25, () => {
+      // 设置迷你按钮样式
       this.moveButton.frame = MNUtil.genFrame(0, 0, 40, 40)
       this.moveButton.hidden = false
-      // 🎯 修复4：为移动按钮设置颜色
-      MNButton.setColor(this.moveButton, "#457bd3", 0.9)
+      // 设置按钮图标或颜色
+      MNButton.setColor(this.moveButton, "#ffffff", 0.9)
+      // 可选：设置一个迷你图标
+      this.moveButton.setTitleForState("📌", 0)
+      this.moveButton.titleLabel.font = UIFont.systemFontOfSize(20)
       this.onAnimate = false
     })
   } catch (error) {
     pinnerUtils.addErrorLog(error, "toMinimode")
     // 确保重置状态，防止界面卡死
     this.onAnimate = false
+    this.miniMode = false
     MNUtil.showHUD("Mini模式切换失败")
   }
 }
@@ -1632,6 +1637,7 @@ pinnerController.prototype.fromMinimode = function() {
   try {
     if (!this.miniMode) return
     
+    // 标记开始恢复
     this.miniMode = false
     this.onAnimate = true
     
@@ -1645,29 +1651,49 @@ pinnerController.prototype.fromMinimode = function() {
       this.lastFrame = {x: 50, y: 50, width: 450, height: 200}
     }
     
-    // 动画恢复到正常模式
+    // 先清除 mini 模式的样式
+    this.view.layer.opacity = 0.5  // 先变半透明
+    
+    // 流畅的恢复动画
     MNUtil.animate(() => {
       this.view.frame = this.lastFrame
       this.currentFrame = this.lastFrame
       this.view.layer.opacity = 1.0
+      // 渐变清除背景色
+      this.view.layer.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.0)
+      this.view.layer.borderColor = MNUtil.hexColorAlpha("#457bd3", 0.0)
     }, 0.3, () => {
       this.onAnimate = false
-      // 恢复按钮显示
+      
+      // 恢复所有视图和按钮
       this.setAllButton(false)
-      // 🎯 关键：恢复 webview 显示
+      
+      // 恢复内容视图
       if (this.webviewInput) {
         this.webviewInput.hidden = false
       }
-      // 恢复内容视图
       if (this.settingView) {
         this.settingView.hidden = false
       }
-      // 🎯 关键：清除背景色（恢复透明）
+      
+      // 完全清除背景
       this.view.layer.backgroundColor = MNUtil.hexColorAlpha("#000000", 0.0)
       this.view.layer.borderColor = MNUtil.hexColorAlpha("#000000", 0.0)
       this.view.layer.borderWidth = 0
-      // 恢复按钮颜色
+      
+      // 恢复移动按钮的原始样式
       MNButton.setColor(this.moveButton, "#3a81fb", 0.5)
+      this.moveButton.setTitleForState("", 0)  // 清除图标
+      
+      // 重新布局按钮位置
+      let viewFrame = this.view.bounds
+      this.moveButton.frame = {
+        x: viewFrame.width * 0.5 - 75, 
+        y: 0, 
+        width: 150, 
+        height: 16
+      }
+      
       // 刷新当前视图
       this.refreshView(pinnerConfig.config.source)
     })
