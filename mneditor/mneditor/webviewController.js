@@ -91,7 +91,7 @@ var editorController = JSB.defineClass('editorController : UIViewController <UIW
     self.minButton.setTitleForState('➖', 0);
     self.minButton.titleLabel.font = UIFont.systemFontOfSize(10);
 
-    self.createButton("saveButton","saveToNote:","toolbar")
+    self.createButton("saveButton","saveButtonTapped:","toolbar")
     self.saveButton.setTitleForState('Save', 0);
     self.saveButton.titleLabel.font = UIFont.boldSystemFontOfSize(17);
 
@@ -314,7 +314,8 @@ viewWillLayoutSubviews: function() {
             let currentNote = MNNote.new(self.editorNoteId)
             currentNote.merge(note)
             MNUtil.delay(0.5).then(()=>{
-              self.save(self.editorNoteId)
+              // self.save(self.editorNoteId)
+              self.saveDev(self.editorNoteId)
             })
             // self.setContent(currentNote,0.5)
           })
@@ -394,7 +395,8 @@ viewWillLayoutSubviews: function() {
     }
     if (/^nativecommand\:\/\/save/.test(requestURL)) {
       if (self.editorNoteId) {
-        self.save(self.editorNoteId)
+        // self.save(self.editorNoteId)
+        self.saveDev(self.editorNoteId)
         MNUtil.showHUD("Note saved")
         return false
       }
@@ -642,7 +644,7 @@ viewWillLayoutSubviews: function() {
     let note = MNUtil.getNoteById(self.currentNoteId)
     self.setContent(note)
   },
-  saveToNote: async function(sender) {
+  saveButtonTapped: async function(sender) {
     let self = getEditorController()
     if (self.editorNoteId) {
       if (MNUtil.db.getNoteById(self.editorNoteId)) {
@@ -656,7 +658,8 @@ viewWillLayoutSubviews: function() {
             return
           }
         }
-        self.save(self.editorNoteId)
+        // self.save(self.editorNoteId)
+        self.saveDev(self.editorNoteId)
         return
       }else{
         self.editorNoteId = undefined
@@ -689,7 +692,8 @@ viewWillLayoutSubviews: function() {
     switch (target) {
       case "CurrentNote":
         if (focusNote) {
-          self.save(focusNote.noteId,false)
+          // self.save(focusNote.noteId,false)
+          self.saveDev(focusNote.noteId,false)
           self.editorNoteId = focusNote.noteId
           self.refreshBackgroundColor()
         }else{
@@ -1192,7 +1196,8 @@ viewWillLayoutSubviews: function() {
           break;
         case "selectionAndEdit":
           await self.runJavaScript(`editor.updateValue(\`[${selection}](${child.noteURL})\`)`)
-          await self.save(self.editorNoteId)
+          // await self.save(self.editorNoteId)
+          self.saveDev(self.editorNoteId)
           self.setContent(child)
           break;
         default:
@@ -2381,7 +2386,8 @@ editorController.prototype.hide = async function (endFrame,checkSave = true) {
       }
       if (editorUtils.checkIsDifferent(this.contentOnOpen, content)) {
         // MNUtil.showHUD("different")
-        await this.save(this.editorNoteId)
+        // await this.save(this.editorNoteId)
+        await this.saveDev(this.editorNoteId)
       }
     }
     if (this.targetURL) {
@@ -2554,12 +2560,45 @@ try {
         }
       }
     }else{
-      focusNote.noteTitle = ""
-      if (targetToSet.length) {
-        contents = content.split("\n---\n")
-        focusNote.excerptText = contents[0]
+      if (focusNote.excerptPic?.paint) {
+        let hash = focusNote.excerptPic.paint
+        let imageURL = editorUtils.getMNImageURL(hash)
+        let imageURL2 = `![image.png](${imageURL})`
+        if (contentRemain.startsWith(imageURL2)) {
+          // MNUtil.showHUD("Should save image")
+          contentRemain = contentRemain.slice(imageURL2.length).trim()
+          shouldTextFirst = false
+          focusNote.textFirst = false
+          focusNote.excerptTextMarkdown = false
+          focusNote.excerptsText = ""
+          // contentRemain = contentRemain.split("\n").slice(1).join("\n").trim()
+          if (targetToSet.length) {
+            contents = contentRemain.split("\n---\n")
+            if (contents[0].trim()) {
+              focusNote.appendMarkdownComment(contents[0],0)
+            }
+            // focusNote.excerptText = contents[0]
+          }else{
+            if (contentRemain.trim()) {
+              focusNote.appendMarkdownComment(contentRemain,0)
+            }
+          }
+        }else{
+          if (targetToSet.length) {
+            contents = contentRemain.split("\n---\n")
+            focusNote.excerptText = contents[0]
+          }else{
+            focusNote.excerptText = contentRemain
+          }
+        }
       }else{
-        focusNote.excerptText = content
+        focusNote.noteTitle = ""
+        if (targetToSet.length) {
+          contents = content.split("\n---\n")
+          focusNote.excerptText = contents[0]
+        }else{
+          focusNote.excerptText = content
+        }
       }
     }
     if (targetToSet.length) {
@@ -2584,6 +2623,147 @@ try {
     // focusNote.note.excerptTextMarkdown = true
 
 
+  })
+
+  return
+} catch (error) {
+  editorUtils.addErrorLog(error, "save")
+}
+  // MNUtil.delay(3).then(()=>{
+  //   MNUtil.app.refreshAfterDBChanged(MNUtil.currentNotebookId)
+  // })
+}
+
+/** @this {editorController} */
+editorController.prototype.saveDev  = async function(noteId,removeComment = true) {
+try {
+  if (!noteId || !MNUtil.db.getNoteById(noteId)) {
+    MNUtil.showHUD("No note to save")
+    return
+  }
+  let content = await this.getContent()
+  this.blur()
+  let contentConfig = editorUtils.parseContent(content)
+  // editorUtils.log("contentConfig", contentConfig)
+
+  this.contentOnOpen = content
+  let focusNote = MNNote.new(noteId)
+  let res = editorUtils.shouldAsImageExcerpt(focusNote, contentConfig.content)
+  let shouldAsImageExcerpt = res.shouldAsImageExcerpt
+  if (shouldAsImageExcerpt) {
+    //去掉摘录图片链接
+    content = res.content
+  }
+  let shouldTextFirst = false
+  if (shouldAsImageExcerpt) {
+    shouldTextFirst = false
+  }else if (focusNote.excerptPic && !focusNote.textFirst) {
+    shouldTextFirst = true
+  }
+  let contents
+  let indexToEdit = editorUtils.getIndexToEdit(focusNote,removeComment)
+  let indexToRemove = indexToEdit.indexToRemove
+  let targetToSet = indexToEdit.targetToSet
+    // if (editorConfig.getConfig("includingComments") && removeComment && focusNote.comments.length) {
+    //   focusNote.comments.map((comment,index)=>{
+    //     switch (comment.type) {
+    //       case "TextNote":
+    //         if (editorUtils.isLinkComment(comment) || editorUtils.isTagComment(comment)) {
+    //           //do nothing
+    //         }else{
+    //           indexToRemove.push(index)
+    //         }
+    //         break;
+    //       case 'PaintNote':
+    //         if (comment.paint && !comment.drawing) {
+    //           indexToRemove.push(index)
+    //         }
+    //         break;
+    //       case "LinkNote":
+    //         let commentNote = MNUtil.db.getNoteById(comment.noteid)
+    //         if (!commentNote) {
+    //           indexToRemove.push(index)
+    //           break
+    //         }
+    //         if (comment.q_htext && comment.q_htext.trim()) {
+    //           targetToSet.push(index)
+    //         }
+    //         // if (comment.q_hpic && !comment.q_hpic.mask && !comment.q_hpic.drawing) {
+    //         //   shouldTextFirst = true
+    //         // }
+    //         // if (comment.q_htext && !comment.q_hpic) {
+    //         //   indexToRemove.push(index)
+    //         // }
+    //         break;
+    //       default:
+    //         break;
+    //     }
+    //   })
+    // }
+
+  MNUtil.undoGrouping(()=>{
+    focusNote.excerptTextMarkdown = true
+    if (/!\[.*?\]\((data:image\/.*;base64,.*?)(\))/.test(content)) {
+      focusNote.excerptText = content
+      focusNote.note.processMarkdownBase64Images()
+      content = focusNote.excerptText
+    }
+    if (indexToRemove.length) {
+      let commentsLength = focusNote.comments.length
+      for (let i = commentsLength-1; i >= 0; i--) {
+        if (indexToRemove.includes(i)) {
+          focusNote.removeCommentByIndex(i)
+        }
+      }
+    }
+    let contentRemain = content
+    if (contentConfig.hasTitle) {
+      focusNote.noteTitle = contentConfig.title
+    }
+    if (shouldAsImageExcerpt) {
+      shouldTextFirst = false
+      focusNote.textFirst = false
+      focusNote.excerptTextMarkdown = false
+      focusNote.excerptsText = ""
+      // contentRemain = contentRemain.split("\n").slice(1).join("\n").trim()
+      if (targetToSet.length) {
+        contents = contentRemain.split("\n---\n")
+        if (contents[0].trim()) {
+          focusNote.appendMarkdownComment(contents[0],0)
+        }
+        // focusNote.excerptText = contents[0]
+      }else{
+        if (contentRemain.trim()) {
+          focusNote.appendMarkdownComment(contentRemain,0)
+        }
+      }
+    }else{
+      if (targetToSet.length) {
+        contents = contentRemain.split("\n---\n")
+        focusNote.excerptText = contents[0]
+      }else{
+        focusNote.excerptText = contentRemain
+      }
+    }
+    if (targetToSet.length) {
+      targetToSet.map((targetIndex,contentsIndex)=>{
+        let comment = focusNote.comments[targetIndex]
+        let mergedNote = MNNote.new(comment.noteid)
+        if (mergedNote) {
+          mergedNote.note.excerptTextMarkdown = true
+          // mergedNote.focusInMindMap()
+          // let temNote = MNNote.new(mergedNote.note.originNoteId)
+          // MNUtil.copyJSON({a:mergedNote.excerptTextMarkdown,b:temNote.excerptTextMarkdown})
+          // temNote.focusInMindMap()
+          // temNote.note.excerptTextMarkdown = true
+          // temNote.excerptText = contents[contentsIndex+1]
+          mergedNote.excerptText = contents[contentsIndex+1]
+          // mergedNote.note.processMarkdownBase64Images()
+        }
+
+      })
+    }
+    this.editorNoteTime = Date.now()
   })
 
   return
@@ -3188,7 +3368,8 @@ editorController.prototype.openMNURL = async function (config) {
   let note = MNNote.new(noteId)
   // editorUtils.log(noteId)
   if (note.parentNoteId === this.editorNoteId) {
-    await this.save(this.editorNoteId)
+    // await this.save(this.editorNoteId)
+    await this.saveDev(this.editorNoteId)
     this.setContent(note)
     // editorUtils.log("should edit")
   }else{

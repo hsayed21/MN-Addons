@@ -61,6 +61,104 @@ class editorUtils {
       })
     })
   }
+  static shouldAsImageExcerpt(note,content){
+    if (note.excerptPic && !note.textFirst) {
+      if (note.excerptPic.paint) {
+        let hash = note.excerptPic.paint
+        let imageURL = this.getMNImageURL(hash)
+        let imageURL2 = `![image.png](${imageURL})`
+        if (content.startsWith(imageURL2)) {
+          return {
+            shouldAsImageExcerpt:true,
+            imageURL:imageURL,
+            content:content.slice(imageURL2.length).trim()
+          }
+        }
+      }
+      return {
+        shouldAsImageExcerpt:false,
+        content:content
+      }
+    }
+  }
+  static parseContent(content){
+    let hasTitle = /^#/.test(content)
+    if (hasTitle) {
+      let newTitle = content.split("\n")[0].replace(/^#\s?/g,"")
+      let contentRemain = content.split("\n").slice(1).join("\n").trim()
+      let headingNames = this.headingNamesFromMarkdown(contentRemain)//解析标题链接
+      if (headingNames.length) {
+        newTitle = newTitle+";"+headingNames.map(h=>"{{"+h+"}}").join(";")
+      }else{
+        newTitle = newTitle
+      }
+      return {
+        hasTitle:true,
+        title:newTitle,
+        content:this.highlightEqualsContent(contentRemain)
+      }
+    }else{
+      let newTitle = ""
+      let headingNames = this.headingNamesFromMarkdown(content)//解析标题链接
+      if (headingNames.length) {
+        newTitle = headingNames.map(h=>"{{"+h+"}}").join(";")
+        return {
+          hasTitle:true,
+          title:newTitle,
+          content:this.highlightEqualsContent(content)
+        }
+      }
+      return {
+        hasTitle:false,
+        title:"",
+        content:this.highlightEqualsContent(content)
+      }
+    }
+  }
+  static getIndexToEdit(note,removeComment = true){
+    let indexToRemove = []
+    let targetToSet = []
+    if (editorConfig.getConfig("includingComments") && removeComment && note.comments.length) {
+      note.comments.map((comment,index)=>{
+        switch (comment.type) {
+          case "TextNote":
+            if (this.isLinkComment(comment) || this.isTagComment(comment)) {
+              //do nothing
+            }else{
+              indexToRemove.push(index)
+            }
+            break;
+          case 'PaintNote':
+            if (comment.paint && !comment.drawing) {
+              indexToRemove.push(index)
+            }
+            break;
+          case "LinkNote":
+            let commentNote = MNUtil.db.getNoteById(comment.noteid)
+            if (!commentNote) {
+              indexToRemove.push(index)
+              break
+            }
+            if (comment.q_htext && comment.q_htext.trim()) {
+              targetToSet.push(index)
+            }
+            // if (comment.q_hpic && !comment.q_hpic.mask && !comment.q_hpic.drawing) {
+            //   shouldTextFirst = true
+            // }
+            // if (comment.q_htext && !comment.q_hpic) {
+            //   indexToRemove.push(index)
+            // }
+            break;
+          default:
+            break;
+        }
+      })
+    }
+    return {
+      indexToRemove:indexToRemove,
+      targetToSet:targetToSet
+    }
+  }
   static getOrderText(order) {
     if (order[0] == 4) {
       return 'Order: (Title) + (Excerpt → Comment)'
@@ -317,7 +415,7 @@ static checkLogo(){
   }
   static isTagComment(comment){
     if (comment.type === "TextNote") {
-      if (/^#\w/.test(comment.text.trim())) {
+      if (/^#\S/.test(comment.text.trim())) {
         return true
       }else{
         return false

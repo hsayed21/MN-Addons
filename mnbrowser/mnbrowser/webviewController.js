@@ -388,6 +388,7 @@ viewWillLayoutSubviews: function() {
               return false
             case "s1.hdslb.com":
               if (currentURL.startsWith("https://www.bilibili.com/video/")) {
+
                 self.enableWideMode()
               }
               return true
@@ -511,6 +512,13 @@ viewWillLayoutSubviews: function() {
         // })
         self.openIMA(config)
         return false
+      case "data":
+        if (browserUtils.isAllowedIconLibrary(currentURL) && /data:image\/png;base64/.test(requestURL)) {
+          //此时type为0
+          MNUtil.postNotification("newIconImage", {imageBase64:requestURL})
+          return false
+        }
+        break;
       default:
         MNUtil.showHUD("Unknown scheme: "+config.scheme)
         MNUtil.log({
@@ -532,13 +540,7 @@ viewWillLayoutSubviews: function() {
     // if (requestURL.startsWith("https://graph.qq.com/jsdkproxy/PMProxy.html")) {
     //   return false
     // }
-    if (browserUtils.isAllowedIconLibrary(currentURL) && /data:image\/png;base64/.test(requestURL)) {
-      //此时type为0
-      MNUtil.postNotification("newIconImage", {imageBase64:requestURL})
-      // let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(requestURL))
-      // MNUtil.copyImage(imageData)
-      return false
-    }
+
     if (type === 0) {
       let isLink = browserUtils.parseLink(requestURL)
       if (isLink.isPdfDownload) {
@@ -2075,7 +2077,7 @@ exportToPDF()
       browserConfig.config.size = size
       browserConfig.save("MNBrowser_config")
       let webInfo = await self.getCurrentWebInfo()
-      // browserUtils.log("getCurrentWebInfo", webInfo)
+      browserUtils.log("getCurrentWebInfo", webInfo)
       if (webInfo.hasVideo && webInfo.urlConfig.host === "www.bilibili.com") {
         if (self.view.frame.width < 700) {
           self.enableWideMode()
@@ -3720,6 +3722,8 @@ browserController.prototype.getCurrentWebInfo = async function() {
   info.desktop = this.desktop ?? false
   info.urlConfig = MNUtil.parseURL(info.url)
   this.webview.url = info.url
+  // info.contentWidth = this.webview.scrollView.contentSize.width
+  // info.webviewWidth = this.webview.frame.width
   return info
 };
 
@@ -6028,7 +6032,9 @@ let encodedPartInfo = await this.runJavaScript(`
 }
 
 browserController.prototype.enableWideMode = async function() {
-  if (this.view.frame.width < 700) {
+  let contentWidth = this.webview.scrollView.contentSize.width
+  let webviewWidth = this.webview.frame.width
+  if (this.view.frame.width < 700 && (contentWidth/webviewWidth) < 1.1) {
     await this.runJavaScript(`
 function enableWideMode() {
   let isFullScreen = document.getElementsByClassName("mode-webscreen").length > 0

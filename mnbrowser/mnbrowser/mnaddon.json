@@ -2,7 +2,7 @@
     "addonid": "marginnote.extension.mnbrowser",
     "author": "Feliks",
     "title": "MN Browser",
-    "version": "0.2.3.alpha0916",
+    "version": "0.2.3.alpha0918",
     "marginnote_version_min": "3.7.11",
     "cert_key": ""
 }
