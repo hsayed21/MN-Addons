@@ -338,10 +338,10 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   // === temporaryPinView 的事件处理方法 ===
-  tempClearCards: function() {
+  tempClearCards: async function() {
     try {
       // 调用数据层清空方法
-      let success = pinnerConfig.clearPins(true)
+      let success = await pinnerConfig.clearPins(true)
       
       if (success) {
         // 刷新视图显示
@@ -1173,10 +1173,10 @@ pinnerController.prototype.refreshTemporaryPinCards = function() {
     // 从 pinnerConfig 获取真实数据
     let realCards = pinnerConfig.getPins(true) || []
     
-    // 更新计数（使用按钮的方法）
-    if (this.tempCountLabel) {
-      this.tempCountLabel.setTitleForState(`共 ${realCards.length} 张卡片`, 0)
-    }
+    // // 更新计数（使用按钮的方法）
+    // if (this.tempCountLabel) {
+    //   this.tempCountLabel.setTitleForState(`共 ${realCards.length} 张卡片`, 0)
+    // }
     
     // 清空现有卡片（使用维护的数组）
     this.tempCardRows.forEach(view => {

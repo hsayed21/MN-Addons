@@ -593,8 +593,10 @@ class pinnerConfig {
    * 清空 Pins
    * @param {boolean} isTemporary - 是否为临时固定
    */
-  static clearPins(isTemporary = true) {
+  static async clearPins(isTemporary = true) {
     try {
+      let confirm = await MNUtil.confirm(`Clear all ${isTemporary ? 'temporary' : 'permanent'} pins?`, "")
+      if (!confirm) return false;
       if (isTemporary) {
         this.temporaryPins = []
         // this.save("MNPinner_temporaryPins")
@@ -602,7 +604,9 @@ class pinnerConfig {
         this.permanentPins = []
         // this.save("MNPinner_permanentPins")
       }
-      
+      if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
+        pinnerUtils.pinnerController.refreshView(isTemporary ? "temporaryPinView" : "permanentPinView")
+      }
       MNUtil.showHUD(`Cleared ${isTemporary ? 'temporary' : 'permanent'} pins`)
       return true
       

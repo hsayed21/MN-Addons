@@ -57,7 +57,7 @@ JSB.newAddon = function(mainPath){
       MNUtil.undoGrouping(()=>{
         try {
           MNUtil.removeObserver(self, 'AddonBroadcast')
-          // MNUtil.removeObserver(self,'PopupMenuOnNote')
+          // MNUtil.removeObserver(self, 'PopupMenuOnNote')
         } catch (error) {
           pinnerUtils.addErrorLog(error, "sceneDidDisconnect")
         }
@@ -328,7 +328,10 @@ JSB.newAddon = function(mainPath){
     onPopupMenuOnNote: async function (sender) {
       MNUtil.undoGrouping(()=>{
         try {
-          self.note = MNNote.new(sender.userInfo.note.noteId)
+          // self.note = MNNote.new(sender.userInfo.note.noteId)
+          if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
+            pinnerUtils.pinnerController.refreshView("temporaryPinView")
+          }
         } catch (error) {
           MNUtil.showHUD(error);
         }
