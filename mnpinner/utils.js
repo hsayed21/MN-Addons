@@ -177,42 +177,44 @@ class pinnerConfig {
       if (mainPath) {
         this.mainPath = mainPath
       }
-      this.checkDataDir()
-      this.dataDir = this.mainPath + "/data"
-      this.backUpFile = this.dataDir + "/MNPinner_totalConfig.json"
+      this.temporaryPins = this.defaultTemporaryPins
+      this.permanentPins = this.defaultPermanentPins
+      // this.checkDataDir()
+      // this.dataDir = this.mainPath + "/data"
+      // this.backUpFile = this.dataDir + "/MNPinner_totalConfig.json"
       
-      // 初始化加载流程（参考 mnai）
-      if (!this.isLocalConfigExists("MNPinner_config") && this.isBackUpConfigExists()) {
-        pinnerUtils.log("不存在本地配置但存在备份，从备份恢复")
-        let backupConfig = MNUtil.readJSON(this.backUpFile)
-        this.importConfig(backupConfig)
-      } else {
-        pinnerUtils.log("直接初始化配置数据")
+      // // 初始化加载流程（参考 mnai）
+      // if (!this.isLocalConfigExists("MNPinner_config") && this.isBackUpConfigExists()) {
+      //   pinnerUtils.log("不存在本地配置但存在备份，从备份恢复")
+      //   let backupConfig = MNUtil.readJSON(this.backUpFile)
+      //   this.importConfig(backupConfig)
+      // } else {
+      //   pinnerUtils.log("直接初始化配置数据")
         
-        // 直接初始化默认配置，避免 getByDefault 的兼容性问题
-        this.config = {
-          version: "1.0.0",
-          modifiedTime: 0,
-          lastSyncTime: null,
-          autoImport: false,
-          autoExport: false,
-        }
+      //   // 直接初始化默认配置，避免 getByDefault 的兼容性问题
+      //   this.config = {
+      //     version: "1.0.0",
+      //     modifiedTime: 0,
+      //     lastSyncTime: null,
+      //     autoImport: false,
+      //     autoExport: false,
+      //   }
         
-        // 尝试从 NSUserDefaults 读取已存储的配置
-        let storedConfig = NSUserDefaults.standardUserDefaults().objectForKey('MNPinner_config')
-        if (storedConfig && typeof storedConfig === 'object' && !Array.isArray(storedConfig)) {
-          this.config = storedConfig
-        }
+      //   // 尝试从 NSUserDefaults 读取已存储的配置
+      //   let storedConfig = NSUserDefaults.standardUserDefaults().objectForKey('MNPinner_config')
+      //   if (storedConfig && typeof storedConfig === 'object' && !Array.isArray(storedConfig)) {
+      //     this.config = storedConfig
+      //   }
         
-        // Pins 仍使用 getByDefault（它们返回数组，没有问题）
-        this.temporaryPins = this.getByDefault('MNPinner_temporaryPins', this.defaultTemporaryPins)
-        this.permanentPins = this.getByDefault('MNPinner_permanentPins', this.defaultPermanentPins)
-      }
+      //   // Pins 仍使用 getByDefault（它们返回数组，没有问题）
+      //   this.temporaryPins = this.getByDefault('MNPinner_temporaryPins', this.defaultTemporaryPins)
+      //   this.permanentPins = this.getByDefault('MNPinner_permanentPins', this.defaultPermanentPins)
+      // }
       
       // 加载图片资源
       this.closeImage = this.mainPath + "/close.png"
       
-      pinnerUtils.log("pinnerConfig initialized", "pinnerConfig:init")
+      // pinnerUtils.log("pinnerConfig initialized", "pinnerConfig:init")
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:init")
     }
@@ -300,7 +302,7 @@ class pinnerConfig {
    */
   static setConfig(key, value) {
     this.config[key] = value
-    this.save("MNPinner_config")
+    // this.save("MNPinner_config")
   }
   
   /**
@@ -313,7 +315,6 @@ class pinnerConfig {
     try {
       if (key === undefined) {
         // 保存所有数据
-        this.config.modifiedTime = Date.now()
         NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, "MNPinner_config")
         NSUserDefaults.standardUserDefaults().setObjectForKey(this.temporaryPins, "MNPinner_temporaryPins")
         NSUserDefaults.standardUserDefaults().setObjectForKey(this.permanentPins, "MNPinner_permanentPins")
@@ -327,16 +328,11 @@ class pinnerConfig {
         switch(key) {
           case "MNPinner_temporaryPins":
             NSUserDefaults.standardUserDefaults().setObjectForKey(this.temporaryPins, key)
-            this.config.modifiedTime = Date.now()
-            NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, "MNPinner_config")
             break
           case "MNPinner_permanentPins":
             NSUserDefaults.standardUserDefaults().setObjectForKey(this.permanentPins, key)
-            this.config.modifiedTime = Date.now()
-            NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, "MNPinner_config")
             break
           case "MNPinner_config":
-            this.config.modifiedTime = Date.now()
             NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, key)
             break
           default:
@@ -448,7 +444,7 @@ class pinnerConfig {
       this.config.lastSyncTime = Date.now()
       
       // 保存并刷新
-      this.saveAfterImport()
+      // this.saveAfterImport()
       
       MNUtil.showHUD("Import success!")
       return true
@@ -529,7 +525,7 @@ class pinnerConfig {
       })
       
       // 保存
-      this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
+      // this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
       
       pinnerUtils.log(`Added ${isTemporary ? 'temporary' : 'permanent'} pin: ${title}`, "pinnerConfig:addPin")
       return true
@@ -555,7 +551,7 @@ class pinnerConfig {
       }
       
       pins.splice(index, 1)
-      this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
+      // this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
       
       pinnerUtils.log(`Removed ${isTemporary ? 'temporary' : 'permanent'} pin`, "pinnerConfig:removePin")
       return true
@@ -584,7 +580,7 @@ class pinnerConfig {
       let [item] = pins.splice(oldIndex, 1)
       pins.splice(newIndex, 0, item)
       
-      this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
+      // this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
       return true
       
     } catch (error) {
@@ -601,10 +597,10 @@ class pinnerConfig {
     try {
       if (isTemporary) {
         this.temporaryPins = []
-        this.save("MNPinner_temporaryPins")
+        // this.save("MNPinner_temporaryPins")
       } else {
         this.permanentPins = []
-        this.save("MNPinner_permanentPins")
+        // this.save("MNPinner_permanentPins")
       }
       
       MNUtil.showHUD(`Cleared ${isTemporary ? 'temporary' : 'permanent'} pins`)
@@ -645,7 +641,7 @@ class pinnerConfig {
       this.temporaryPins.splice(index, 1)
       this.permanentPins.push(pin)
       
-      this.save()
+      // this.save()
       
       MNUtil.showHUD("Moved to permanent pins")
       return true
