@@ -37,6 +37,7 @@ JSB.newAddon = function(mainPath){
       MNUtil.undoGrouping(()=>{
         try {
           self.init(mainPath)
+          pinnerUtils.checkPinnerController()
           MNUtil.addObserver(self, 'onAddonBroadcast:', 'AddonBroadcast');
           // MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
         } catch (error) {
@@ -195,12 +196,11 @@ JSB.newAddon = function(mainPath){
         MNUtil.refreshAddonCommands()
 
         let commandTable = [
-          self.tableItem('⚙️   Setting', 'openSetting:'),
-          // self.tableItem('🗄️   卡片固定库', 'openPinnerLibrary:'),
+          self.tableItem('🗄️   卡片固定库', 'openPinnerLibrary:'),
           self.tableItem('📥   导入配置', 'importConfig:'),
           self.tableItem('📤   导出配置', 'exportConfig:'),
-          self.tableItem('🗑️   清空临时固定', 'clearTemporaryPins:'),
-          self.tableItem('🗑️   清空永久固定', 'clearPermanentPins:'),
+          // self.tableItem('🗑️   清空临时固定', 'clearTemporaryPins:'),
+          // self.tableItem('🗑️   清空永久固定', 'clearPermanentPins:'),
         ];
 
         // 显示菜单
@@ -267,7 +267,7 @@ JSB.newAddon = function(mainPath){
      * 这是整个视图显示流程的入口
      * @param {UIButton} button - 菜单中的设置按钮
      */
-    openSetting: function(button) {
+    openPinnerLibrary: function(button) {
       // MNUtil.showHUD("打开设置界面")
       // 重置插件图标的选中状态
       self.toggled = false
@@ -275,49 +275,26 @@ JSB.newAddon = function(mainPath){
       MNUtil.refreshAddonCommands()
       self.closeMenu()
       try {
-        // 确保视图控制器已创建并添加到 studyView 中
-        // 这是一个单例模式的实现，只会创建一次实例
-        pinnerUtils.checkPinnerController()
-        // 初始化时隐藏面板，等待用户手动打开
-        pinnerUtils.pinnerController.view.hidden = true;
-        // 设置面板的初始位置和大小
-        // frame 是 iOS 中视图的位置和大小属性：{x, y, width, height}
-        // pinnerUtils.pinnerController.view.frame = { x: 50, y: 100, width: 260, height: 345 }
-        // currentFrame 是自定义属性，用于记录当前位置（动画时使用）
-        // pinnerUtils.pinnerController.currentFrame = { x: 50, y: 100, width: 260, height: 345 }
-        // 延迟 0.2 秒后让 studyView 成为第一响应者
         // 这是 iOS 的机制，用于确保键盘正确隐藏
         MNUtil.delay(0.2).then(()=>{
           MNUtil.studyView.becomeFirstResponder(); //For dismiss keyboard on iOS
         })
-
-        // 确保视图在正确的父视图中
         pinnerUtils.ensureView(pinnerUtils.pinnerController.view)
         
-        // 第一次打开时，设置面板的初始位置
+
+        let firstFrame = {x:50, y:50, width:450, height: 200} 
+        // 第一次打开时，设置面板的初始位置和大小
         if (self.isFirst) {
-          let buttonFrame = self.addonBar.frame
-          // 根据插件栏的位置决定面板显示在左侧还是右侧
-          // 如果插件栏在左边（x < 100），面板显示在右边
-          // 如果插件栏在右边，面板显示在左边（x - 面板宽度）
-          let frame = buttonFrame.x < 100 ? 
-            {x:40, y:buttonFrame.y, width:260, height: 345} : 
-            {x:buttonFrame.x-260, y:buttonFrame.y, width:260, height:345}
+          // MNUtil.showHUD("First")
           // 设置面板的位置（同时设置 frame 和 currentFrame）
-          pinnerUtils.setFrame(pinnerUtils.pinnerController, frame)
+          pinnerUtils.setFrame(pinnerUtils.pinnerController, firstFrame)
+          pinnerUtils.pinnerController.show(firstFrame)
           self.isFirst = false;
-        }
-        
-        // 判断面板的显示状态，执行显示或隐藏
-        if (pinnerUtils.pinnerController.view.hidden) {
-          // 显示面板（带动画效果）
-          // 传入 addonBar.frame 作为动画的起始位置参考
-          pinnerUtils.pinnerController.show(self.addonBar.frame)
         } else {
-          // 如果面板已显示，则隐藏它（带动画效果）
-          // 传入 addonBar.frame 作为动画的终点位置参考
-          pinnerUtils.pinnerController.hide(self.addonBar.frame)
+          // MNUtil.showHUD("Not First")
+          pinnerUtils.pinnerController.show(pinnerUtils.pinnerController.lastFrame)
         }
+        pinnerUtils.pinnerController.refreshView("temporaryPinView")
       } catch (error) {
         pinnerUtils.addErrorLog(error, "openSetting")
       }
@@ -398,21 +375,10 @@ JSB.newAddon = function(mainPath){
     },
   });
 
-  MNPinnerClass.prototype.openPinnerLibrary = function() {
-    // TODO: 要在当前卡片的位置处出现
-    if (!this.addonBar) {
-      MNUtil.showHUD("请先点击插件图标以初始化")
-      return
-    }
-    if (pinnerUtils.pinnerController) {
-      pinnerUtils.pinnerController.show(this.addonBar.frame)
-      pinnerUtils.pinnerController.refreshView("temporaryPinView")
-    }
-  }
-
   MNPinnerClass.prototype.init = function(mainPath) {
     // 插件栏图标的选中状态
     this.toggled = false
+    this.isFirst = true
     if (!this.initialized) {
       pinnerUtils.init(mainPath)
       pinnerConfig.init(mainPath)
@@ -441,30 +407,6 @@ JSB.newAddon = function(mainPath){
   MNPinnerClass.prototype.exportConfig = function() {
     this.closeMenu()
     pinnerConfig.exportToFile()
-  }
-  
-  /**
-   * 清空临时固定
-   */
-  MNPinnerClass.prototype.clearTemporaryPins = function() {
-    this.closeMenu()
-    MNUtil.confirm("清空临时固定", "确定要清空所有临时固定的卡片吗？", ["取消", "确定"]).then((result) => {
-      if (result) {
-        pinnerConfig.clearPins(true)
-      }
-    })
-  }
-  
-  /**
-   * 清空永久固定
-   */
-  MNPinnerClass.prototype.clearPermanentPins = function() {
-    this.closeMenu()
-    MNUtil.confirm("清空永久固定", "确定要清空所有永久固定的卡片吗？", ["取消", "确定"]).then((result) => {
-      if (result) {
-        pinnerConfig.clearPins(false)
-      }
-    })
   }
 
   MNPinnerClass.prototype.tableItem = function (title, selector, param = "", checked = false) {
