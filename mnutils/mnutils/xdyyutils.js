@@ -5844,7 +5844,7 @@ class MNMath {
             MNUtil.undoGrouping(() => {
               try {
                 // 调用 MNMath.makeNote 进行制卡
-                MNMath.makeNote(extractedNote);
+                MNMath.makeNote(extractedNote, false);
                 MNUtil.showHUD("制卡完成");
               } catch (error) {
                 MNUtil.showHUD("制卡失败: " + error.message);
