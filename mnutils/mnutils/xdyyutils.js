@@ -564,9 +564,19 @@ class MNMath {
 
   // 去掉卡片的 【】 前缀
   static removeTitlePrefix(note) {
-    if (note && note.noteTitle) {
-      note.noteTitle = note.noteTitle.replace(/^【.*?】/, "");
+    if (typeof note === "string") {
+      return note.replace(/^【.*?】/, "");
+    } else {
+      if (note && note.noteTitle && note.noteTitle.trim()) {
+        note.noteTitle = note.noteTitle.replace(/^【.*?】/, "");
+        return note.noteTitle;
+      }
     }
+    return "";
+  }
+
+  static removePrefix(note){
+    this.removeTitlePrefix(note)
   }
 
   /**
