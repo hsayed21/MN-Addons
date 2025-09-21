@@ -3426,18 +3426,20 @@ function registerAllCustomActions() {
     });
   });
 
-  // AddToReview
-  // deleteCommentsByPopup
-  // deleteCommentsByPopupAndMoveNewContentToExcerptAreaBottom
-  // deleteCommentsByPopupAndMoveNewContentToExcerptAreaTop
-  // sameLevel
-  // nextLevel
-  // lastLevel
-  // topestLevel
-  // generateCustomTitleLink
-  // generateCustomTitleLinkFromFocusNote
-  // pasteNoteAsChildNote
-  // linkRemoveDuplicatesAfterApplication
+  global.registerCustomAction("descendNotesToBeIndependent", async function(context) {
+    const { focusNote } = context;
+      if (focusNote) {
+        let descendantNotes = focusNote.descendantNodes.descendant;
+        if (descendantNotes.length > 0) {
+          MNUtil.undoGrouping(() => {
+            descendantNotes.forEach((note) => {
+              focusNote.addChild(note)
+            })
+          })
+        }
+      }
+    }
+  )
   global.registerCustomAction(
     "linkRemoveDuplicatesAfterApplication",
     async function (context) {

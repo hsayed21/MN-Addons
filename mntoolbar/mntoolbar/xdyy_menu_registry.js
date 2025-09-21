@@ -399,6 +399,10 @@ function registerAllMenuTemplates() {
           action: "toBeIndependent",
           menuTitle: "    ⇨ 独立",
         },
+        {
+          action: "descendNotesToBeIndependent",
+          menuTitle: "    ⇨ 子孙卡片独立为单张",
+        },
         "⬇️ 拆卡",
         {
           action: "splitMarkdownTextInFocusNote",
