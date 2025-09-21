@@ -3,7 +3,9 @@
     "allow": [
       "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnai/mnchatglm/**)",
       "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnutils/**)",
-      "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/**)"
+      "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/**)",
+      "mcp__serena__find_symbol",
+      "mcp__serena__activate_project"
     ],
     "deny": [],
     "ask": []

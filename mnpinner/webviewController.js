@@ -119,32 +119,56 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     let y = MNUtil.constrain(location.y, 0, studyFrame.height - 15)
     let x = location.x
     
-    // 🎯 优化后的边缘检测逻辑
+    // 照抄 mnbrowser 的边缘检测逻辑（1983-2033）
     if (!self.miniMode) {
       // 非 mini 模式：靠近边缘 40px 内触发吸附
       if (locationToMN.x < 40) {
-        // 无条件触发左边缘吸附
-        self.toMinimode(MNUtil.genFrame(0, locationToMN.y - 20, 40, 40))
+        self.toMinimode(MNUtil.genFrame(0, locationToMN.y, 40, 40), self.lastFrame)
         return
       }
       if (locationToMN.x > studyFrame.width - 40) {
-        // 无条件触发右边缘吸附
-        self.toMinimode(MNUtil.genFrame(studyFrame.width - 40, locationToMN.y - 20, 40, 40))
+        self.toMinimode(MNUtil.genFrame(studyFrame.width - 40, locationToMN.y, 40, 40), self.lastFrame)
         return
       }
     } else {
-      // mini 模式：增加缓冲区，避免抖动
+      // mini 模式的处理（照抄 mnbrowser 1995-2032）
       if (locationToMN.x < 50) {
-        // 保持左边缘吸附
         self.view.frame = MNUtil.genFrame(0, locationToMN.y - 20, 40, 40)
         return
       } else if (locationToMN.x > studyFrame.width - 50) {
-        // 保持右边缘吸附
         self.view.frame = MNUtil.genFrame(studyFrame.width - 40, locationToMN.y - 20, 40, 40)
         return
-      } else if (locationToMN.x > 80 && locationToMN.x < studyFrame.width - 80) {
-        // 离开边缘 80px 才恢复（增加缓冲区）
-        self.fromMinimode()
+      } else if (locationToMN.x > 50) {
+        // 从 mini 模式恢复（照抄 mnbrowser 2002-2032）
+        let preOpacity = self.view.layer.opacity
+        self.view.layer.opacity = 0
+        self.setAllButton(true)  // 先隐藏所有按钮
+        self.onAnimate = true
+        let color = "#9bb2d6"
+        self.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.8)
+        self.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.8)
+        
+        MNUtil.animate(() => {
+          self.view.layer.opacity = preOpacity
+          self.setFrame(x, y, self.lastFrame.width, self.lastFrame.height)
+        }).then(() => {
+          self.onAnimate = false
+          let viewFrame = self.view.bounds
+          self.moveButton.frame = {x: viewFrame.width * 0.5 - 75, y: 5, width: 150, height: 10}
+          self.view.layer.borderWidth = 0
+          self.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.0)
+          self.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.0)
+          self.view.hidden = false
+          if (self.webviewInput) {
+            self.webviewInput.hidden = false
+          }
+          if (self.settingView) {
+            self.settingView.hidden = false
+          }
+          self.setAllButton(false)  // 显示所有按钮
+          self.moveButton.setTitleForState("", 0)  // 清除图标
+        })
+        self.miniMode = false
         return
       }
     }
@@ -712,10 +736,16 @@ pinnerController.prototype.show = function (frame) {
   )
 }
 pinnerController.prototype.setAllButton = function (hidden) {
-  // this.moveButton.hidden = hidden
-  this.closeButton.hidden = hidden
-  // this.settingButton.hidden = hidden
-  
+  // 关键：必须隐藏 moveButton（照抄 mnbrowser）
+  if (this.moveButton) {
+    this.moveButton.hidden = hidden
+  }
+  if (this.closeButton) {
+    this.closeButton.hidden = hidden
+  }
+  if (this.tabView) {
+    this.tabView.hidden = hidden
+  }
 }
 /**
  * 隐藏面板（带动画效果）
@@ -1576,58 +1606,46 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
  * 转换到迷你模式
  * @param {Object} frame - 迷你模式的目标位置
  */
-pinnerController.prototype.toMinimode = function(frame) {
-  try {
-    // 保存当前 frame（如果还没保存的话）
-    if (!this.miniMode && this.view.frame.width > 100) {
-      this.lastFrame = this.view.frame
-    }
-    
-    // 标记进入动画状态
-    this.miniMode = true
-    this.onAnimate = true
-    
-    // 隐藏主要内容视图
-    if (this.webviewInput) {
-      this.webviewInput.hidden = true
-    }
-    if (this.settingView) {
-      this.settingView.hidden = true
-    }
-    
-    // 隐藏除了移动按钮外的其他按钮
-    this.setAllButton(true)
-    this.moveButton.hidden = false
-    
-    // 设置 mini 模式的背景色和边框
-    this.view.layer.borderWidth = 0
-    let color = "#457bd3"  // 使用更鲜明的蓝色
-    this.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.85)
-    this.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.85)
-    
-    // 添加磁吸动画效果
-    MNUtil.animate(() => {
-      this.view.frame = frame
-      this.currentFrame = frame
-      this.view.layer.opacity = 0.95  // 略微透明增加层次感
-    }, 0.25, () => {
-      // 设置迷你按钮样式
-      this.moveButton.frame = MNUtil.genFrame(0, 0, 40, 40)
-      this.moveButton.hidden = false
-      // 设置按钮图标或颜色
-      MNButton.setColor(this.moveButton, "#ffffff", 0.9)
-      // 可选：设置一个迷你图标
-      this.moveButton.setTitleForState("📌", 0)
-      this.moveButton.titleLabel.font = UIFont.systemFontOfSize(20)
-      this.onAnimate = false
-    })
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "toMinimode")
-    // 确保重置状态，防止界面卡死
-    this.onAnimate = false
-    this.miniMode = false
-    MNUtil.showHUD("Mini模式切换失败")
+pinnerController.prototype.toMinimode = function(frame, lastFrame) {
+  // 完全照抄 mnbrowser 的实现（line 4333-4354）
+  this.miniMode = true
+  if (lastFrame) {
+    this.lastFrame = lastFrame
+  } else {
+    this.lastFrame = this.view.frame
   }
+  
+  // 隐藏 webview 和其他视图
+  if (this.webviewInput) {
+    this.webviewInput.hidden = true
+  }
+  if (this.settingView) {
+    this.settingView.hidden = true
+  }
+  
+  this.currentFrame = this.view.frame
+  
+  // 隐藏所有按钮（包括 moveButton）
+  this.setAllButton(true)
+  
+  // 设置背景色
+  this.view.layer.borderWidth = 0
+  let color = "#9bb2d6"  // 使用 mnbrowser 的颜色
+  this.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.8)
+  this.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.8)
+  
+  // 执行动画
+  MNUtil.animate(() => {
+    this.setFrame(frame)
+  }).then(() => {
+    // 动画完成后，重新设置 moveButton
+    this.moveButton.frame = MNUtil.genFrame(0, 0, 40, 40)
+    this.moveButton.hidden = false
+    // 设置图标（如果有的话）
+    // this.moveButton.setImageForState(pinnerConfig.homeImage, 0)
+    this.moveButton.setTitleForState("📌", 0)
+    this.moveButton.titleLabel.font = UIFont.systemFontOfSize(20)
+  })
 }
 
 /**
@@ -1651,8 +1669,9 @@ pinnerController.prototype.fromMinimode = function() {
       this.lastFrame = {x: 50, y: 50, width: 450, height: 200}
     }
     
-    // 先清除 mini 模式的样式
-    this.view.layer.opacity = 0.5  // 先变半透明
+    // 开始恢复动画
+    // 先让背景色变淡
+    this.view.layer.opacity = 0.7
     
     // 流畅的恢复动画
     MNUtil.animate(() => {
@@ -1660,30 +1679,19 @@ pinnerController.prototype.fromMinimode = function() {
       this.currentFrame = this.lastFrame
       this.view.layer.opacity = 1.0
       // 渐变清除背景色
-      this.view.layer.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.0)
-      this.view.layer.borderColor = MNUtil.hexColorAlpha("#457bd3", 0.0)
+      this.view.layer.backgroundColor = MNUtil.hexColorAlpha("#000000", 0.0)
+      this.view.layer.borderColor = MNUtil.hexColorAlpha("#000000", 0.0)
     }, 0.3, () => {
       this.onAnimate = false
       
-      // 恢复所有视图和按钮
-      this.setAllButton(false)
-      
-      // 恢复内容视图
-      if (this.webviewInput) {
-        this.webviewInput.hidden = false
-      }
-      if (this.settingView) {
-        this.settingView.hidden = false
-      }
-      
-      // 完全清除背景
-      this.view.layer.backgroundColor = MNUtil.hexColorAlpha("#000000", 0.0)
-      this.view.layer.borderColor = MNUtil.hexColorAlpha("#000000", 0.0)
+      // 清除 mini 模式样式
+      this.view.layer.backgroundColor = null
+      this.view.layer.borderColor = null
       this.view.layer.borderWidth = 0
       
       // 恢复移动按钮的原始样式
-      MNButton.setColor(this.moveButton, "#3a81fb", 0.5)
       this.moveButton.setTitleForState("", 0)  // 清除图标
+      MNButton.setColor(this.moveButton, "#3a81fb", 0.5)
       
       // 重新布局按钮位置
       let viewFrame = this.view.bounds
@@ -1694,8 +1702,19 @@ pinnerController.prototype.fromMinimode = function() {
         height: 16
       }
       
-      // 刷新当前视图
-      this.refreshView(pinnerConfig.config.source)
+      // 恢复所有视图和按钮（在动画完成后）
+      this.setAllButton(false)  // 显示所有按钮和 tabView
+      
+      // 恢复内容视图
+      if (this.webviewInput) {
+        this.webviewInput.hidden = false
+      }
+      if (this.settingView) {
+        this.settingView.hidden = false
+      }
+      
+      // 刷新视图内容
+      this.refreshView(pinnerConfig.config.source || "temporaryPinView")
     })
     
     // 确保视图在最前面
