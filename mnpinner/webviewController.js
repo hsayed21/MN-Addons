@@ -79,28 +79,124 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
   
   /**
-   * 处理拖动手势
+   * 处理拖动手势（带边缘吸附功能）
    */
   onMoveGesture: function (gesture) {
+    // 如果正在动画中，忽略拖动操作
+    if (self.onAnimate) {
+      return
+    }
+    
+    // 如果在 mini 模式，双击恢复
+    if (self.miniMode && gesture.state === 1) {
+      let now = Date.now()
+      if (self.lastTapTime && now - self.lastTapTime < 300) {
+        // 双击恢复
+        self.fromMinimode()
+        return
+      }
+      self.lastTapTime = now
+    }
+    
+    // 手势开始：记录初始位置并保存 lastFrame
     if (gesture.state === 1) {
+      // 保存当前 frame 作为 lastFrame（重要！）
+      if (!self.miniMode) {
+        self.lastFrame = self.view.frame
+      }
       self.originalLocationToMN = gesture.locationInView(MNUtil.studyView)
       self.originalFrame = self.view.frame
     }
+    
+    // 手势进行中：实时更新位置
     if (gesture.state === 2) {
       let locationToMN = gesture.locationInView(MNUtil.studyView)
       let locationDiff = {x:locationToMN.x - self.originalLocationToMN.x,y:locationToMN.y - self.originalLocationToMN.y}
       let frame = self.view.frame
       frame.x = self.originalFrame.x + locationDiff.x
       frame.y = self.originalFrame.y + locationDiff.y
+      
+      // 添加边界限制，防止面板移出屏幕
+      let studyFrame = MNUtil.studyView.bounds
+      frame.y = MNUtil.constrain(frame.y, 20, studyFrame.height - frame.height - 20)  // 顶部最小 20，底部留 20
+      
       self.setFrame(frame)
     }
+    
+    // 手势结束：检测边缘并执行吸附或转换为 mini 模式
     if (gesture.state === 3) {
+      let locationToMN = gesture.locationInView(MNUtil.studyView)
+      let frame = self.view.frame
+      let studyFrame = MNUtil.studyView.bounds
+      let miniThreshold = 40  // mini 模式触发阈值
+      let snapThreshold = 50  // 吸附阈值
+      
+      // 检测是否应该转换为 mini 模式
+      if (locationToMN.x < miniThreshold) {
+        // 左边缘 mini 模式
+        if (!self.settingView || self.settingView.hidden) {
+          self.toMinimode(MNUtil.genFrame(0, locationToMN.y - 20, 40, 40))
+        }
+        return
+      }
+      
+      if (locationToMN.x > studyFrame.width - miniThreshold) {
+        // 右边缘 mini 模式
+        if (!self.settingView || self.settingView.hidden) {
+          self.toMinimode(MNUtil.genFrame(studyFrame.width - 40, locationToMN.y - 20, 40, 40))
+        }
+        return
+      }
+      
+      // 普通吸附逻辑
+      let targetFrame = {x: frame.x, y: frame.y, width: frame.width, height: frame.height}
+      let shouldAnimate = false
+      
+      // 左边缘吸附
+      if (frame.x < snapThreshold) {
+        targetFrame.x = 0
+        shouldAnimate = true
+      }
+      // 右边缘吸附
+      else if (frame.x + frame.width > studyFrame.width - snapThreshold) {
+        targetFrame.x = studyFrame.width - frame.width
+        shouldAnimate = true
+      }
+      
+      // 顶部边界限制（不是吸附，是防止超出）
+      if (targetFrame.y < 20) {
+        targetFrame.y = 20
+        shouldAnimate = true
+      }
+      // 底部边界限制
+      else if (targetFrame.y + frame.height > studyFrame.height - 20) {
+        targetFrame.y = studyFrame.height - frame.height - 20
+        shouldAnimate = true
+      }
+      
+      // 如果需要吸附或调整位置，使用动画
+      if (shouldAnimate) {
+        self.onAnimate = true  // 设置动画状态
+        MNUtil.animate(() => {
+          self.view.frame = targetFrame
+          self.currentFrame = targetFrame
+        }, 0.2, () => {
+          self.onAnimate = false  // 动画完成后重置状态
+        })
+      }
+      
+      // 确保视图在最前面
       MNUtil.studyView.bringSubviewToFront(self.view)
     }
   },
 
   onResizeGesture:function (gesture) {
     try {
+      // 如果正在动画中，忽略调整大小操作
+      if (self.onAnimate) {
+        return
+      }
+      
       if (gesture.state === 1) {
         self.originalLocationToMN = gesture.locationInView(MNUtil.studyView)
         self.originalFrame = self.view.frame
@@ -109,14 +205,30 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         let locationToMN = gesture.locationInView(MNUtil.studyView)
         let locationDiff = {x:locationToMN.x - self.originalLocationToMN.x,y:locationToMN.y - self.originalLocationToMN.y}
         let frame = self.view.frame
+        let studyFrame = MNUtil.studyView.bounds
+        
+        // 计算新的宽度和高度
         frame.width = self.originalFrame.width + locationDiff.x
         frame.height = self.originalFrame.height + locationDiff.y
+        
+        // 最小尺寸限制
         if (frame.width <= 100) {
           frame.width = 100
         }
         if (frame.height <= 150) {
           frame.height = 150
         }
+        
+        // 确保调整大小后不超出屏幕右边界
+        if (frame.x + frame.width > studyFrame.width) {
+          frame.width = studyFrame.width - frame.x
+        }
+        
+        // 确保调整大小后不超出屏幕底部
+        if (frame.y + frame.height > studyFrame.height - 20) {
+          frame.height = studyFrame.height - frame.y - 20
+        }
+        
         self.setFrame(frame)
       }
       if (gesture.state === 3) {
@@ -550,6 +662,25 @@ pinnerController.prototype.show = function (frame) {
   let preFrame = this.view.frame
   preFrame.width = 260  // 确保宽度正确
   
+  // 获取屏幕边界，确保显示位置合理
+  let studyFrame = MNUtil.studyView.bounds
+  
+  // 检查并调整目标位置，确保不会显示在屏幕外
+  if (preFrame.x < 0) {
+    preFrame.x = 20  // 左边缘留出空间
+  } else if (preFrame.x + preFrame.width > studyFrame.width) {
+    preFrame.x = studyFrame.width - preFrame.width - 20  // 右边缘留出空间
+  }
+  
+  if (preFrame.y < 20) {
+    preFrame.y = 20  // 顶部留出空间
+  } else if (preFrame.y + preFrame.height > studyFrame.height - 20) {
+    preFrame.y = studyFrame.height - preFrame.height - 20  // 底部留出空间
+  }
+  
+  // 标记动画状态，防止动画期间的用户操作干扰
+  this.onAnimate = true
+  
   // 保存当前透明度，并设置初始透明度为 0.2（半透明）
   let preOpacity = this.view.layer.opacity
   this.view.layer.opacity = 0.2
@@ -580,6 +711,7 @@ pinnerController.prototype.show = function (frame) {
     },
     ()=>{
       // 动画完成回调
+      this.onAnimate = false  // 重置动画状态
       this.view.layer.borderWidth = 0
       // this.setAllButton(false)                // 显示所有按钮
       // this.pinnerView.hidden = false      // 显示主功能视图
@@ -838,13 +970,20 @@ pinnerController.prototype.updateCardTitle = function(cardId, newTitle) {
 }
 
 pinnerController.prototype.setFrame = function (frame) {
-  let lastFrame = frame
-  this.view.frame = lastFrame
-  this.currentFrame = lastFrame
+  // 支持对象参数或分离参数（像 mnbrowser 那样）
+  if (typeof frame === "object") {
+    this.view.frame = frame
+  } else if (arguments.length === 4) {
+    // 支持 setFrame(x, y, width, height) 形式
+    this.view.frame = MNUtil.genFrame(arguments[0], arguments[1], arguments[2], arguments[3])
+  }
+  this.currentFrame = this.view.frame
+  // 不要在这里更新 lastFrame，lastFrame 应该在特定时机保存
 }
 
 pinnerController.prototype.init = function () {
   this.isFirst = true      // 标记是否是第一次显示
+  this.miniMode = false    // 迷你模式状态
   this.view.layer.shadowOffset = {width: 0, height: 0};
   this.view.layer.shadowRadius = 15;
   this.view.layer.shadowOpacity = 0.5;
@@ -1427,5 +1566,84 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   rowView.addSubview(viewBtn)
   
   return rowView
+}
+
+/**
+ * 转换到迷你模式
+ * @param {Object} frame - 迷你模式的目标位置
+ */
+pinnerController.prototype.toMinimode = function(frame) {
+  // 保存当前 frame（如果还没保存的话）
+  if (!this.miniMode && this.view.frame.width > 100) {
+    this.lastFrame = this.view.frame
+  }
+  
+  this.miniMode = true
+  this.onAnimate = true
+  
+  // 隐藏内容视图
+  if (this.settingView) {
+    this.settingView.hidden = true
+  }
+  
+  // 隐藏除了移动按钮外的其他按钮
+  this.setAllButton(true)
+  this.moveButton.hidden = false
+  
+  // 为移动按钮添加一个 mini 图标（可选）
+  MNButton.setColor(this.moveButton, "#457bd3", 0.9)
+  
+  // 动画转换到 mini 模式
+  MNUtil.animate(() => {
+    this.view.frame = frame
+    this.currentFrame = frame
+    this.view.layer.opacity = 0.8
+  }, 0.3, () => {
+    this.onAnimate = false
+    // 可选：显示一个提示
+    // MNUtil.showHUD("📌")
+  })
+}
+
+/**
+ * 从迷你模式恢复
+ */
+pinnerController.prototype.fromMinimode = function() {
+  if (!this.miniMode) return
+  
+  this.miniMode = false
+  this.onAnimate = true
+  
+  // 确保 lastFrame 在屏幕范围内
+  let studyFrame = MNUtil.studyView.bounds
+  if (this.lastFrame) {
+    this.lastFrame.x = MNUtil.constrain(this.lastFrame.x, 0, studyFrame.width - this.lastFrame.width)
+    this.lastFrame.y = MNUtil.constrain(this.lastFrame.y, 20, studyFrame.height - this.lastFrame.height - 20)
+  } else {
+    // 如果没有 lastFrame，使用默认位置
+    this.lastFrame = {x: 50, y: 50, width: 450, height: 200}
+  }
+  
+  // 动画恢复到正常模式
+  MNUtil.animate(() => {
+    this.view.frame = this.lastFrame
+    this.currentFrame = this.lastFrame
+    this.view.layer.opacity = 1.0
+  }, 0.3, () => {
+    this.onAnimate = false
+    // 恢复按钮显示
+    this.setAllButton(false)
+    // 恢复内容视图
+    if (this.settingView) {
+      this.settingView.hidden = false
+    }
+    // 恢复按钮颜色
+    MNButton.setColor(this.moveButton, "#3a81fb", 0.5)
+    // 刷新当前视图
+    this.refreshView(pinnerConfig.config.source)
+  })
+  
+  // 确保视图在最前面
+  MNUtil.studyView.bringSubviewToFront(this.view)
 }
 
