@@ -3433,13 +3433,17 @@ function registerAllCustomActions() {
         if (descendantNotes.length > 0) {
           MNUtil.undoGrouping(() => {
             descendantNotes.forEach((note) => {
-              focusNote.addChild(note)
+              if (note.title && note.title.trim()) {
+                focusNote.addChild(note)
+              }
             })
           })
         }
       }
     }
   )
+
+
   global.registerCustomAction(
     "linkRemoveDuplicatesAfterApplication",
     async function (context) {
@@ -5268,6 +5272,16 @@ function registerAllCustomActions() {
       message: `mnpinner?action=showPinBoard`
     });
   })
+
+  global.registerCustomAction("focusLastChildNote", async function(context) {
+    const { focusNote } = context;
+      if (focusNote) {
+        if (focusNote.childNotes && focusNote.childNotes.length > 0) {
+          focusNote.childNotes[focusNote.childNotes.length - 1].focusInMindMap(0.1)
+        }
+      }
+    }
+  )
 }
 
 // 立即注册

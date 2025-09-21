@@ -378,6 +378,10 @@ function registerAllMenuTemplates() {
       action: "menu",
       menuWidth: 360,
       menuItems: [
+        {
+          "action": "focusLastChildNote",
+          "menuTitle": "⇨ 定位最后一张子卡片",
+        },
         "⬇️ 卡片移动",
         {
           action: "addAsBrotherNoteofParentNote",
