@@ -1,6 +1,6 @@
 > 如果你没听懂我的需求或者有任何觉得我没说清楚的地方，请不要随便猜测，直接问我。
 > 严禁自己凭空捏造 API！
-> 如果我让你分析任何功能代码，并且让你生成文档的话，如果我没告诉你具体的文档路径，请把这个 `.md` 文档生成到 [另一个路径](/Users/xiakangwei/Nutstore/Obsidian/IOTO/1-输入/碎片笔记/MarginNote) 中。
+> 如果我让你分析任何功能代码，并且让你生成 Markdown 文档的话，如果我没告诉你具体的文档路径，默认把这个 `.md` 文档生成到 [另一个路径](/Users/xiakangwei/Nutstore/Obsidian/IOTO/1-输入/碎片笔记/MarginNote) 中。
 > Markdown 文档编写严格用 UTF-8 编码！
 
 # MarginNote 4 插件开发指南
