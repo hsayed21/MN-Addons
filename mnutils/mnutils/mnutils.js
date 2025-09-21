@@ -795,7 +795,7 @@ class MNUtil {
    * 
    * @returns {{onSelection: boolean, image: null|undefined|NSData, text: null|undefined|string, isText: null|undefined|boolean,docMd5:string|undefined,pageIndex:number|undefined}} The current selection details.
    */
-  static get _currentSelection(){
+  static getCurrentSelection(){
     if (this.activeTextView && this.activeTextView.selectedRange.length>0) {
       let range = this.activeTextView.selectedRange
       return {onSelection:true,image:undefined,text:this.activeTextView.text.slice(range.location,range.location+range.length),isText:true,docMd5:undefined,pageIndex:undefined,source:"textview"}
@@ -825,18 +825,19 @@ class MNUtil {
     }
     return {onSelection:false}
   }
+  static _currentSelection = {}
   static get currentSelection() {
     if (this.selectionRefreshTime) {
       if (Date.now() - this.selectionRefreshTime > 100) {//超过100ms，重新获取选区信息
         this.selectionRefreshTime = Date.now()
-        this._currentSelection = this.currentSelection
+        this._currentSelection = this.getCurrentSelection()
         return this._currentSelection
       }else{
         return this._currentSelection
       }
     }else{
       this.selectionRefreshTime = Date.now()
-      this._currentSelection = this.currentSelection
+      this._currentSelection = this.getCurrentSelection()
       return this._currentSelection
     }
   }

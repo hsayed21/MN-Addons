@@ -101,6 +101,7 @@ function update(plugins) {
             installBtn.className = "reinstall-btn";
             installBtn.addEventListener("click", (event) => {
                 event.stopPropagation(); // 阻止点击事件冒泡到 li
+                // showNotification("Reinstalling...")
                 postMessageToAddon("mnaddonAction", "reinstall", {id:plugin.id,version:plugin.version})
                 // window.location.href = `mnaddon://action=reinstall?id=${plugin.id}?version=${plugin.version}`
             });
@@ -111,6 +112,7 @@ function update(plugins) {
             installBtn.className = "install-btn";
             installBtn.addEventListener("click", (event) => {
                 event.stopPropagation(); // 阻止点击事件冒泡到 li
+                showNotification("Installing...")
                 postMessageToAddon("mnaddonAction", "install", {id:plugin.id,version:plugin.version})
                 // window.location.href = `mnaddon://action=install?id=${plugin.id}?version=${plugin.version}`
             });
@@ -121,6 +123,7 @@ function update(plugins) {
             installBtn.className = "update-btn";
             installBtn.addEventListener("click", (event) => {
                 event.stopPropagation(); // 阻止点击事件冒泡到 li
+                showNotification("Updating...")
                 postMessageToAddon("mnaddonAction", "update", {id:plugin.id,version:plugin.version})
                 // window.location.href = `mnaddon://action=update?id=${plugin.id}?version=${plugin.version}`
             });
