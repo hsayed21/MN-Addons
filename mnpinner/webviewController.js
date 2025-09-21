@@ -51,6 +51,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   viewWillLayoutSubviews: function() {
     try {
+      // 关键：mini 模式时不要重新布局（照抄 mnbrowser）
+      if (self.miniMode) {
+        return
+      }
+      
       let viewFrame = self.view.bounds;
       let width    = viewFrame.width
       let height   = viewFrame.height
@@ -305,16 +310,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
   moveButtonTapped: async function (button) {
     try {
-      // Mini 模式下单击恢复 - 更直观的交互
+      // Mini 模式下单击恢复
       if (self.miniMode) {
-        // 添加一个小动画反馈
-        MNUtil.animate(() => {
-          self.view.layer.opacity = 0.7
-        }, 0.1, () => {
-          self.view.layer.opacity = 0.95
-          // 恢复正常模式
-          self.fromMinimode()
-        })
+        MNUtil.log("Mini 模式点击，准备恢复")
+        // 直接恢复，不需要额外动画
+        self.fromMinimode()
         return
       }
       
@@ -1641,10 +1641,15 @@ pinnerController.prototype.toMinimode = function(frame, lastFrame) {
     // 动画完成后，重新设置 moveButton
     this.moveButton.frame = MNUtil.genFrame(0, 0, 40, 40)
     this.moveButton.hidden = false
-    // 设置图标（如果有的话）
-    // this.moveButton.setImageForState(pinnerConfig.homeImage, 0)
+    this.moveButton.enabled = true  // 确保按钮可点击
+    
+    // 设置图标并居中
     this.moveButton.setTitleForState("📌", 0)
     this.moveButton.titleLabel.font = UIFont.systemFontOfSize(20)
+    this.moveButton.titleLabel.textAlignment = 1  // 文字居中对齐
+    
+    // 确保按钮在最上层
+    this.view.bringSubviewToFront(this.moveButton)
   })
 }
 
