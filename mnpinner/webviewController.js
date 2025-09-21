@@ -1660,10 +1660,6 @@ pinnerController.prototype.fromMinimode = function() {
   try {
     if (!this.miniMode) return
     
-    // 标记开始恢复
-    this.miniMode = false
-    this.onAnimate = true
-    
     // 确保 lastFrame 在屏幕范围内
     let studyFrame = MNUtil.studyView.bounds
     if (this.lastFrame) {
@@ -1674,53 +1670,36 @@ pinnerController.prototype.fromMinimode = function() {
       this.lastFrame = {x: 50, y: 50, width: 450, height: 200}
     }
     
-    // 开始恢复动画
-    // 先让背景色变淡
-    this.view.layer.opacity = 0.7
+    // 完全照抄拖拽恢复的代码（lines 147-176）
+    let preOpacity = this.view.layer.opacity
+    this.view.layer.opacity = 0
+    this.setAllButton(true)  // 先隐藏所有按钮
+    this.onAnimate = true
+    let color = "#9bb2d6"
+    this.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.8)
+    this.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.8)
     
-    // 流畅的恢复动画
     MNUtil.animate(() => {
-      this.view.frame = this.lastFrame
-      this.currentFrame = this.lastFrame
-      this.view.layer.opacity = 1.0
-      // 渐变清除背景色
-      this.view.layer.backgroundColor = MNUtil.hexColorAlpha("#000000", 0.0)
-      this.view.layer.borderColor = MNUtil.hexColorAlpha("#000000", 0.0)
-    }, 0.3, () => {
+      this.view.layer.opacity = preOpacity
+      this.setFrame(this.lastFrame.x, this.lastFrame.y, this.lastFrame.width, this.lastFrame.height)
+    }).then(() => {
       this.onAnimate = false
-      
-      // 清除 mini 模式样式
-      this.view.layer.backgroundColor = null
-      this.view.layer.borderColor = null
-      this.view.layer.borderWidth = 0
-      
-      // 恢复移动按钮的原始样式
-      this.moveButton.setTitleForState("", 0)  // 清除图标
-      MNButton.setColor(this.moveButton, "#3a81fb", 0.5)
-      
-      // 重新布局按钮位置
       let viewFrame = this.view.bounds
-      this.moveButton.frame = {
-        x: viewFrame.width * 0.5 - 75, 
-        y: 0, 
-        width: 150, 
-        height: 16
-      }
-      
-      // 恢复所有视图和按钮（在动画完成后）
-      this.setAllButton(false)  // 显示所有按钮和 tabView
-      
-      // 恢复内容视图
+      this.moveButton.frame = {x: viewFrame.width * 0.5 - 75, y: 5, width: 150, height: 10}
+      this.view.layer.borderWidth = 0
+      this.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.0)
+      this.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.0)
+      this.view.hidden = false
       if (this.webviewInput) {
         this.webviewInput.hidden = false
       }
       if (this.settingView) {
         this.settingView.hidden = false
       }
-      
-      // 刷新视图内容
-      this.refreshView(pinnerConfig.config.source || "temporaryPinView")
+      this.setAllButton(false)  // 显示所有按钮
+      this.moveButton.setTitleForState("", 0)  // 清除图标
     })
+    this.miniMode = false
     
     // 确保视图在最前面
     MNUtil.studyView.bringSubviewToFront(this.view)
