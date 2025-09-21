@@ -196,7 +196,7 @@ JSB.newAddon = function(mainPath){
 
         let commandTable = [
           self.tableItem('⚙️   Setting', 'openSetting:'),
-          self.tableItem('🗄️   卡片固定库', 'openPinnerLibrary:'),
+          // self.tableItem('🗄️   卡片固定库', 'openPinnerLibrary:'),
           self.tableItem('📥   导入配置', 'importConfig:'),
           self.tableItem('📤   导出配置', 'exportConfig:'),
           self.tableItem('🗑️   清空临时固定', 'clearTemporaryPins:'),
@@ -313,11 +313,6 @@ JSB.newAddon = function(mainPath){
       }
     },
 
-    openPinnerLibrary: function() {
-      MNUtil.showHUD("打开卡片固定库")
-      self.closeMenu()
-    },
-
     // 生命周期测试
 
     onPopupMenuOnNote: async function (sender) {
@@ -389,6 +384,13 @@ JSB.newAddon = function(mainPath){
 
     },
   });
+
+  MNPinnerClass.prototype.openPinnerLibrary = function() {
+    // TODO: 要在当前卡片的位置处出现
+    if (pinnerUtils.pinnerController) {
+      pinnerUtils.pinnerController.show(this.addonBar.frame)
+    }
+  }
 
   MNPinnerClass.prototype.init = function(mainPath) {
     // 插件栏图标的选中状态
