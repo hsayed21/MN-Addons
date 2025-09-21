@@ -14,7 +14,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   viewDidLoad: function() {
     try {
       self.init()
-      self.view.frame = {x:50, y:50, width:400, height: 450}  // TODO: 适配不同的宽度
+      self.view.frame = {x:50, y:50, width:450, height: 200}  // TODO: 适配不同的宽度
       self.lastFrame = self.view.frame;
       self.currentFrame = self.view.frame
       if (!self.settingView) {
@@ -111,11 +111,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         let frame = self.view.frame
         frame.width = self.originalFrame.width + locationDiff.x
         frame.height = self.originalFrame.height + locationDiff.y
-        if (frame.width <= 330) {
-          frame.width = 330
+        if (frame.width <= 100) {
+          frame.width = 100
         }
-        if (frame.height <= 465) {
-          frame.height = 465
+        if (frame.height <= 150) {
+          frame.height = 150
         }
         self.setFrame(frame)
       }
@@ -303,7 +303,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       let note = MNNote.new(noteId)
       if (note) {
         note.focusInMindMap()
-        MNUtil.showHUD("已跳转到卡片")
+        // MNUtil.showHUD("已跳转到卡片")
       } else {
         MNUtil.showHUD("找不到该卡片")
       }
@@ -421,9 +421,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
   
   /**
-   * 查看卡片方法
+   * 单击定位卡片
+   * 
+   * 目前是脑图定位
    */
-  viewTempCard: function(button) {
+  viewTempCardTapped: function(button) {
     try {
       let noteId = button.noteId
       if (!noteId) {
@@ -435,7 +437,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       let note = MNNote.new(noteId)
       if (note) {
         note.focusInMindMap()
-        MNUtil.showHUD("已跳转到卡片")
+        // MNUtil.showHUD("已跳转到卡片")
         
         // 隐藏面板（可选）
         // self.hide()
@@ -443,7 +445,33 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         MNUtil.showHUD("找不到该卡片")
       }
     } catch (error) {
-      pinnerUtils.addErrorLog(error, "viewTempCard")
+      pinnerUtils.addErrorLog(error, "viewTempCardTapped")
+      MNUtil.showHUD("查看失败: " + error)
+    }
+  },
+
+  /**
+   * 双击定位卡片
+   * 
+   * 目前是定位
+   */
+  viewTempCardDoubleTapped: function(button) {
+    try {
+      let noteId = button.noteId
+      if (!noteId) {
+        MNUtil.showHUD("无法获取卡片ID")
+        return
+      }
+      
+      // 使用 MNNote 跳转到卡片
+      let note = MNNote.new(noteId)
+      if (note) {
+        note.focusInFloatMindMap()
+      } else {
+        MNUtil.showHUD("找不到该卡片")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "viewTempCardTapped")
       MNUtil.showHUD("查看失败: " + error)
     }
   },
@@ -976,14 +1004,14 @@ pinnerController.prototype.createSettingView = function () {
       color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "🔄 刷新", radius: 10, font: 15
     })
 
-    // 计数标签 - 使用禁用的按钮代替 UILabel
-    this.createButton("tempCountLabel", "", "temporaryPinView")
-    this.tempCountLabel.enabled = false  // 禁用交互
-    this.tempCountLabel.backgroundColor = UIColor.clearColor()
-    this.tempCountLabel.setTitleForState("共 0 张卡片", 0)
-    MNButton.setConfig(this.tempCountLabel, {
-      color: "#666666", alpha: 1.0, opacity: 1.0, font: 14
-    })
+    // // 计数标签 - 使用禁用的按钮代替 UILabel
+    // this.createButton("tempCountLabel", "", "temporaryPinView")
+    // this.tempCountLabel.enabled = false  // 禁用交互
+    // this.tempCountLabel.backgroundColor = UIColor.clearColor()
+    // this.tempCountLabel.setTitleForState("共 0 张卡片", 0)
+    // MNButton.setConfig(this.tempCountLabel, {
+    //   color: "#666666", alpha: 1.0, opacity: 1.0, font: 14
+    // })
 
     // 中间滚动视图 - 注意接收返回值
     this.tempCardScrollView = this.createScrollview("temporaryPinView", "#f5f5f5", 0.9)
@@ -1111,24 +1139,25 @@ pinnerController.prototype.layoutTemporaryPinView = function() {
   if (this.tempRefreshButton) {
     this.tempRefreshButton.frame = {x: 85, y: 10, width: 70, height: 32}
   }
-  if (this.tempCountLabel) {
-    this.tempCountLabel.frame = {x: 165, y: 10, width: 120, height: 32}
-  }
+  // if (this.tempCountLabel) {
+  //   this.tempCountLabel.frame = {x: 165, y: 10, width: 120, height: 32}
+  // }
   
   // 中间滚动视图（留出右侧按钮空间）
   this.tempCardScrollView.frame = {x: 10, y: 50, width: width - 70, height: height - 65}
   
   // 右侧按钮（垂直排列，检查存在性）
-  let rightX = width - 50
-  if (this.tempSelectAllButton) {
-    this.tempSelectAllButton.frame = {x: rightX, y: 50, width: 40, height: 40}
-  }
-  if (this.tempDeleteButton) {
-    this.tempDeleteButton.frame = {x: rightX, y: 100, width: 40, height: 40}
-  }
-  if (this.tempCopyButton) {
-    this.tempCopyButton.frame = {x: rightX, y: 150, width: 40, height: 40}
-  }
+  // 暂时隐藏右侧按钮
+  // let rightX = width - 50
+  // if (this.tempSelectAllButton) {
+  //   this.tempSelectAllButton.frame = {x: rightX, y: 50, width: 40, height: 40}
+  // }
+  // if (this.tempDeleteButton) {
+  //   this.tempDeleteButton.frame = {x: rightX, y: 100, width: 40, height: 40}
+  // }
+  // if (this.tempCopyButton) {
+  //   this.tempCopyButton.frame = {x: rightX, y: 150, width: 40, height: 40}
+  // }
 }
 
 /**
@@ -1355,29 +1384,29 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   
   // 添加序号和标题（使用禁用的按钮代替 UILabel）
   let titleButton = UIButton.buttonWithType(0)
-  titleButton.setTitleForState(`${index + 1}. ${card.title || "未命名卡片"}`, 0)
+  titleButton.setTitleForState(`${card.title || "未命名卡片"}`, 0)
   titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
-  titleButton.frame = {x: 10, y: 5, width: width - 130, height: 35}  // 调整宽度给按钮留空间
+  titleButton.frame = {x: 40, y: 5, width: width - 80, height: 35}  // 调整宽度给按钮留空间
   titleButton.enabled = false  // 禁用以模拟标签效果
   titleButton.setTitleColorForState(UIColor.blackColor(), 0)
   titleButton.contentHorizontalAlignment = 1  // 左对齐
   rowView.addSubview(titleButton)
   
-  // 转为永久按钮
-  let permanentBtn = UIButton.buttonWithType(0)
-  permanentBtn.setTitleForState("⭐", 0)
-  permanentBtn.frame = {x: width - 110, y: 7, width: 30, height: 30}
-  permanentBtn.backgroundColor = MNUtil.hexColorAlpha("#d4af37", 0.8)  // 金色
-  permanentBtn.layer.cornerRadius = 5
-  permanentBtn.tag = index
-  permanentBtn.noteId = card.noteId
-  permanentBtn.addTargetActionForControlEvents(this, "makePermanentFromTemp:", 1 << 6)
-  rowView.addSubview(permanentBtn)
+  // // 转为永久按钮
+  // let permanentBtn = UIButton.buttonWithType(0)
+  // permanentBtn.setTitleForState("⭐", 0)
+  // permanentBtn.frame = {x: width - 110, y: 7, width: 30, height: 30}
+  // permanentBtn.backgroundColor = MNUtil.hexColorAlpha("#d4af37", 0.8)  // 金色
+  // permanentBtn.layer.cornerRadius = 5
+  // permanentBtn.tag = index
+  // permanentBtn.noteId = card.noteId
+  // permanentBtn.addTargetActionForControlEvents(this, "makePermanentFromTemp:", 1 << 6)
+  // rowView.addSubview(permanentBtn)
   
   // 删除按钮
   let deleteBtn = UIButton.buttonWithType(0)
   deleteBtn.setTitleForState("🗑", 0)
-  deleteBtn.frame = {x: width - 75, y: 7, width: 30, height: 30}
+  deleteBtn.frame = {x: width - 40, y: 7, width: 30, height: 30}
   deleteBtn.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 0.8)
   deleteBtn.layer.cornerRadius = 5
   deleteBtn.tag = index  // 用 tag 存储索引
@@ -1385,15 +1414,16 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   deleteBtn.addTargetActionForControlEvents(this, "deleteTempCard:", 1 << 6)
   rowView.addSubview(deleteBtn)
   
-  // 查看按钮
+  // 定位按钮
   let viewBtn = UIButton.buttonWithType(0)
-  viewBtn.setTitleForState("👁", 0)
-  viewBtn.frame = {x: width - 40, y: 7, width: 30, height: 30}
+  viewBtn.setTitleForState("📍", 0)
+  viewBtn.frame = {x: 5, y: 7, width: 30, height: 30}
   viewBtn.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
   viewBtn.layer.cornerRadius = 5
   viewBtn.tag = index  // 用 tag 存储索引
   viewBtn.noteId = card.noteId  // 保存 noteId
-  viewBtn.addTargetActionForControlEvents(this, "viewTempCard:", 1 << 6)
+  viewBtn.addTargetActionForControlEvents(this, "viewTempCardTapped:", 1 << 6)
+  // viewBtn.addTargetActionForControlEvents(this, "viewTempCardDoubleTapped:", 1 << 1)
   rowView.addSubview(viewBtn)
   
   return rowView
