@@ -210,8 +210,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         frame.height = self.originalFrame.height + locationDiff.y
         
         // 最小尺寸限制
-        if (frame.width <= 100) {
-          frame.width = 100
+        if (frame.width <= 180) {  // 提升最小宽度，确保按钮不会溢出
+          frame.width = 180
         }
         if (frame.height <= 150) {
           frame.height = 150
@@ -1101,13 +1101,21 @@ pinnerController.prototype.createSettingView = function () {
     })
 
     // === 为 temporaryPinView 添加子视图 ===
-    // 顶部操作按钮
-    this.createButton("tempClearButton", "tempClearCards:", "temporaryPinView")
+    // 创建顶部按钮的滚动容器
+    this.tempButtonScrollView = UIScrollView.new()
+    this.tempButtonScrollView.alwaysBounceHorizontal = true
+    this.tempButtonScrollView.showsHorizontalScrollIndicator = false
+    this.tempButtonScrollView.backgroundColor = UIColor.clearColor()
+    this.tempButtonScrollView.bounces = false
+    this.temporaryPinView.addSubview(this.tempButtonScrollView)
+    
+    // 顶部操作按钮 - 添加到滚动容器中
+    this.createButton("tempClearButton", "tempClearCards:", "tempButtonScrollView")
     MNButton.setConfig(this.tempClearButton, {
       color: "#e06c75", alpha: 0.8, opacity: 1.0, title: "🗑 清空", radius: 10, font: 15
     })
 
-    this.createButton("tempRefreshButton", "tempRefreshCards:", "temporaryPinView")  
+    this.createButton("tempRefreshButton", "tempRefreshCards:", "tempButtonScrollView")  
     MNButton.setConfig(this.tempRefreshButton, {
       color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "🔄 刷新", radius: 10, font: 15
     })
@@ -1241,12 +1249,20 @@ pinnerController.prototype.layoutTemporaryPinView = function() {
   let width = frame.width
   let height = frame.height
   
-  // 顶部按钮和标签（检查存在性）
-  if (this.tempClearButton) {
-    this.tempClearButton.frame = {x: 10, y: 10, width: 70, height: 32}
-  }
-  if (this.tempRefreshButton) {
-    this.tempRefreshButton.frame = {x: 85, y: 10, width: 70, height: 32}
+  // 设置按钮滚动容器的frame
+  if (this.tempButtonScrollView) {
+    // 容器占据顶部区域，宽度自适应，最多显示160px内容
+    this.tempButtonScrollView.frame = {x: 10, y: 10, width: Math.min(width - 20, 160), height: 32}
+    // 设置内容大小，允许滚动查看所有按钮
+    this.tempButtonScrollView.contentSize = {width: 160, height: 32}
+    
+    // 按钮相对于滚动容器的位置
+    if (this.tempClearButton) {
+      this.tempClearButton.frame = {x: 0, y: 0, width: 70, height: 32}
+    }
+    if (this.tempRefreshButton) {
+      this.tempRefreshButton.frame = {x: 75, y: 0, width: 70, height: 32}
+    }
   }
   
   // 中间滚动视图（留出右侧按钮空间）
