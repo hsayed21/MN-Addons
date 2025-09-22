@@ -577,6 +577,73 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       MNUtil.showHUD("查看失败: " + error)
     }
   },
+  
+  /**
+   * 点击临时卡片标题
+   * 显示操作菜单
+   */
+  tempCardTitleTapped: function(button) {
+    try {
+      // 创建菜单选项
+      let commandTable = [
+        self.tableItem("✏️  修改标题", "renameTempCard:", button)
+      ]
+      
+      // 显示弹出菜单
+      self.popoverController = MNUtil.getPopoverAndPresent(
+        button, 
+        commandTable, 
+        120,  // 宽度
+        1     // 箭头方向
+      )
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "tempCardTitleTapped")
+      MNUtil.showHUD("操作失败")
+    }
+  },
+  
+  /**
+   * 重命名临时卡片
+   */
+  renameTempCard: function(button) {
+    try {
+      self.checkPopover()  // 关闭菜单
+      let noteId = button.noteId
+      
+      // 显示输入对话框
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        "修改卡片标题",
+        "请输入新的标题：",
+        2,  // alertViewStyle: 2 = 文本输入框
+        "确定",
+        ["取消"],
+        (alertView, buttonIndex) => {
+          if (buttonIndex === 0) {  // 确定按钮
+            let textField = alertView.textFieldAtIndex(0)
+            let newTitle = textField.text
+            
+            // 验证输入
+            if (!newTitle || newTitle.trim() === "") {
+              MNUtil.showHUD("标题不能为空")
+              return
+            }
+            
+            // 更新数据
+            if (pinnerConfig.updatePinTitle(noteId, newTitle.trim())) {
+              // 刷新视图
+              self.refreshTemporaryPinCards()
+              MNUtil.showHUD("标题已更新")
+            } else {
+              MNUtil.showHUD("更新失败")
+            }
+          }
+        }
+      )
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "renameTempCard")
+      MNUtil.showHUD("改名失败: " + error)
+    }
+  },
 
   /**
    * 双击定位卡片
@@ -907,18 +974,6 @@ pinnerController.prototype.getWebviewContent = async function () {
   return content
 }
 
-/**
- * 
- * @param {string} title 
- * @param {string} selector 
- * @param {any} param 
- * @param {boolean|undefined} checked 
- * @this {pinnerController}
- * @returns 
- */
-pinnerController.prototype.tableItem = function (title,selector,param = "",checked = false) {
-  return {title:title,object:this,selector:selector,param:param,checked:checked}
-}
 /**
  * 
  * @this {pinnerController}
@@ -1504,13 +1559,18 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   // 保存 noteId 到 rowView（供删除时使用）
   rowView.noteId = card.noteId
   
-  // 添加序号和标题（使用禁用的按钮代替 UILabel）
+  // 添加序号和标题（可点击的按钮）
   let titleButton = UIButton.buttonWithType(0)
   titleButton.setTitleForState(`${card.title || "未命名卡片"}`, 0)
   titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
   titleButton.frame = {x: 40, y: 5, width: width - 80, height: 35}  // 调整宽度给按钮留空间
-  titleButton.enabled = false  // 禁用以模拟标签效果
-  titleButton.setTitleColorForState(UIColor.blackColor(), 0)
+  // 改为可点击，添加点击事件
+  titleButton.addTargetActionForControlEvents(this, "tempCardTitleTapped:", 1 << 6)
+  titleButton.noteId = card.noteId  // 保存卡片ID
+  titleButton.cardTitle = card.title  // 保存当前标题
+  // 设置颜色表示可点击
+  titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#007AFF", 1.0), 0)  // 蓝色
+  titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#0051D5", 1.0), 1)  // 按下时深蓝色
   titleButton.contentHorizontalAlignment = 1  // 左对齐
   rowView.addSubview(titleButton)
   
@@ -1647,12 +1707,12 @@ pinnerController.prototype.fromMinimode = function() {
       }
       this.setAllButton(false)  // 显示所有按钮
       this.moveButton.setTitleForState("", 0)  // 清除图标
+      this.refreshTemporaryPinCards()
     })
     this.miniMode = false
     
     // 确保视图在最前面
     MNUtil.studyView.bringSubviewToFront(this.view)
-    this.refreshTemporaryPinCards()
   } catch (error) {
     pinnerUtils.addErrorLog(error, "fromMinimode")
     // 确保重置状态，防止界面卡死
@@ -1716,3 +1776,27 @@ pinnerController.prototype.refreshCurrentView = function() {
   }
 }
 
+/**
+ * 
+ * @param {string} title 
+ * @param {string} selector 
+ * @param {any} param 
+ * @param {boolean|undefined} checked 
+ * @this {pinnerController}
+ * @returns 
+ */
+pinnerController.prototype.tableItem = function (title, selector, param = "", checked = false) {
+  return {
+    title: title,        // 菜单项显示的文字
+    object: this,        // 执行方法的对象（重要！）
+    selector: selector,  // 点击后要调用的方法名
+    param: param,        // 传递给方法的参数
+    checked: checked     // 是否显示勾选状态
+  }
+}
+
+pinnerController.prototype.checkPopover = function () {
+  if (this.popoverController) {
+    this.popoverController.dismissPopoverAnimated(true)
+  }
+}

@@ -177,7 +177,8 @@ class pinnerConfig {
       if (mainPath) {
         this.mainPath = mainPath
       }
-      this.temporaryPins = this.defaultTemporaryPins
+      // this.temporaryPins = this.defaultTemporaryPins
+      this.temporaryPins = this.getByDefault('MNPinner_temporaryPins', this.defaultTemporaryPins)
       this.permanentPins = this.defaultPermanentPins
       // this.checkDataDir()
       // this.dataDir = this.mainPath + "/data"
@@ -319,10 +320,10 @@ class pinnerConfig {
         NSUserDefaults.standardUserDefaults().setObjectForKey(this.temporaryPins, "MNPinner_temporaryPins")
         NSUserDefaults.standardUserDefaults().setObjectForKey(this.permanentPins, "MNPinner_permanentPins")
         
-        // 触发自动导出（预留功能）
-        if (!ignoreExport && this.getConfig("autoExport")) {
-          // this.export(false)
-        }
+        // // 触发自动导出（预留功能）
+        // if (!ignoreExport && this.getConfig("autoExport")) {
+        //   // this.export(false)
+        // }
       } else {
         // 保存特定项
         switch(key) {
@@ -341,18 +342,18 @@ class pinnerConfig {
         }
       }
       
-      // 同步到磁盘
-      if (synchronize) {
-        NSUserDefaults.standardUserDefaults().synchronize()
-      }
+      // // 同步到磁盘
+      // if (synchronize) {
+      //   NSUserDefaults.standardUserDefaults().synchronize()
+      // }
       
-      // 设置备份定时器（1秒后执行）
-      if (this.backUpTimer) {
-        this.backUpTimer.invalidate()
-      }
-      this.backUpTimer = NSTimer.scheduledTimerWithTimeInterval(1, false, function() {
-        pinnerConfig.backUp()
-      })
+      // // 设置备份定时器（1秒后执行）
+      // if (this.backUpTimer) {
+      //   this.backUpTimer.invalidate()
+      // }
+      // this.backUpTimer = NSTimer.scheduledTimerWithTimeInterval(1, false, function() {
+      //   pinnerConfig.backUp()
+      // })
       
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:save")
@@ -525,7 +526,7 @@ class pinnerConfig {
       })
       
       // 保存
-      // this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
+      this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
       
       pinnerUtils.log(`Added ${isTemporary ? 'temporary' : 'permanent'} pin: ${title}`, "pinnerConfig:addPin")
       return true
@@ -551,7 +552,7 @@ class pinnerConfig {
       }
       
       pins.splice(index, 1)
-      // this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
+      this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
       
       pinnerUtils.log(`Removed ${isTemporary ? 'temporary' : 'permanent'} pin`, "pinnerConfig:removePin")
       return true
@@ -580,7 +581,11 @@ class pinnerConfig {
       let [item] = pins.splice(oldIndex, 1)
       pins.splice(newIndex, 0, item)
       
-      // this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
+      this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
+
+      if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
+        pinnerUtils.pinnerController.refreshView(isTemporary ? "temporaryPinView" : "permanentPinView")
+      }
       return true
       
     } catch (error) {
@@ -599,10 +604,10 @@ class pinnerConfig {
       if (!confirm) return false;
       if (isTemporary) {
         this.temporaryPins = []
-        // this.save("MNPinner_temporaryPins")
+        this.save("MNPinner_temporaryPins")
       } else {
         this.permanentPins = []
-        // this.save("MNPinner_permanentPins")
+        this.save("MNPinner_permanentPins")
       }
       if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
         pinnerUtils.pinnerController.refreshView(isTemporary ? "temporaryPinView" : "permanentPinView")
@@ -652,6 +657,36 @@ class pinnerConfig {
       
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:makePermanent")
+      return false
+    }
+  }
+  
+  /**
+   * 更新 Pin 的标题
+   * @param {string} noteId - 笔记ID
+   * @param {string} newTitle - 新标题
+   * @param {boolean} isTemporary - 是否为临时固定
+   */
+  static updatePinTitle(noteId, newTitle, isTemporary = true) {
+    try {
+      let pins = isTemporary ? this.temporaryPins : this.permanentPins
+      let pin = pins.find(p => p.noteId === noteId)
+      
+      if (!pin) {
+        return false
+      }
+      
+      // 更新标题
+      pin.title = newTitle
+      
+      // 保存到本地存储
+      this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
+      
+      pinnerUtils.log(`Updated pin title: ${newTitle}`, "pinnerConfig:updatePinTitle")
+      return true
+      
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:updatePinTitle")
       return false
     }
   }
