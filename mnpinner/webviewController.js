@@ -69,7 +69,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     }
   },
   
-  scrollViewDidScroll: function() {
+  scrollViewDidScroll: function(scrollview) {
+    if (scrollview.id && scrollview.id === "tempCardScrollView") {
+      // MNUtil.showHUD("临时固定视图滚动")
+      self.refreshTemporaryPinCards()
+    }
   },
   
   /**
@@ -180,6 +184,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     
     // 正常拖动
     self.setFrame(x, y, frame.width, frame.height)
+    // MNUtil.studyView.bringSubviewToFront(self.view)
+    self.refreshTemporaryPinCards()
   },
 
   onResizeGesture:function (gesture) {
@@ -225,6 +231,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       }
       if (gesture.state === 3) {
         MNUtil.studyView.bringSubviewToFront(self.view)
+        
+        self.refreshTemporaryPinCards()
       }
     } catch (error) {
       pinnerUtils.addErrorLog(error, "onResizeGesture")
@@ -918,79 +926,6 @@ pinnerController.prototype.tableItem = function (title,selector,param = "",check
 pinnerController.prototype.checkPopover = function () {
   if (this.popoverController) {this.popoverController.dismissPopoverAnimated(true);}
 }
-/** 
- * 更新卡片标题
- * 
- * 这个方法由 WebView 通过自定义 URL 调用
- * 负责更新 MarginNote 中卡片的标题
- * 
- * @param {string} cardId - 卡片的唯一标识符
- * @param {string} newTitle - 新的标题
- */
-pinnerController.prototype.updateCardTitle = function(cardId, newTitle) {
-  try {
-    MNUtil.log("开始更新卡片标题: " + cardId + " -> " + newTitle)
-    
-    // 检查参数
-    if (!cardId || !newTitle) {
-      MNUtil.showHUD("参数不完整")
-      return
-    }
-    
-    // 获取卡片对象
-    // 使用 MNNote.new 创建卡片对象
-    let note = MNNote.new(cardId)
-    
-    if (!note) {
-      MNUtil.showHUD("找不到卡片: " + cardId)
-      
-      // 通知网页显示错误
-      // 使用 runJavaScript 替代 evaluateJavaScript
-      self.runJavaScript(
-        "showResult('找不到卡片', false)",
-        self.webView
-      )
-      return
-    }
-    
-    // 使用 undoGrouping 包装，使操作可以撤销
-    MNUtil.undoGrouping(() => {
-      // 更新卡片标题
-      note.title = newTitle
-      
-      // 显示成功提示
-      MNUtil.showHUD("标题已更新")
-      
-      // 通知网页显示成功信息
-      // 注意：需要转义特殊字符
-      let escapedTitle = newTitle.replace(/\\/g, '\\\\')  // 反斜杠要先转义
-      escapedTitle = escapedTitle.replace(/'/g, "\\'")     // 单引号
-      escapedTitle = escapedTitle.replace(/"/g, '\\"')     // 双引号
-      escapedTitle = escapedTitle.replace(/\n/g, '\\n')    // 换行符
-      
-      let jsCode = `showResult('标题已更新为: ${escapedTitle}', true)`
-      
-      // 使用 runJavaScript 替代 evaluateJavaScript
-      this.runJavaScript(jsCode, this.webView).then(() => {
-        MNUtil.log("JavaScript 执行完成，标题更新成功")
-      })
-    })
-    
-  } catch (error) {
-    MNUtil.showHUD("更新失败: " + error)
-    MNUtil.log("更新卡片标题错误: " + error)
-    
-    // 通知网页显示错误
-    // 转义错误信息中的特殊字符
-    let escapedError = String(error).replace(/'/g, "\\'")
-    
-    // 使用 runJavaScript 替代 evaluateJavaScript
-    self.runJavaScript(
-      `showResult('更新失败: ${escapedError}', false)`,
-      self.webView
-    )
-  }
-}
 
 pinnerController.prototype.setFrame = function (frame) {
   // 支持对象参数或分离参数（像 mnbrowser 那样）
@@ -1191,6 +1126,7 @@ pinnerController.prototype.createSettingView = function () {
     this.tempCardScrollView.layer.cornerRadius = 12
     this.tempCardScrollView.alwaysBounceVertical = true
     this.tempCardScrollView.showsVerticalScrollIndicator = true
+    this.tempCardScrollView.id = "tempCardScrollView"
     
     // 初始化卡片行数组
     this.tempCardRows = []
@@ -1312,9 +1248,6 @@ pinnerController.prototype.layoutTemporaryPinView = function() {
   if (this.tempRefreshButton) {
     this.tempRefreshButton.frame = {x: 85, y: 10, width: 70, height: 32}
   }
-  // if (this.tempCountLabel) {
-  //   this.tempCountLabel.frame = {x: 165, y: 10, width: 120, height: 32}
-  // }
   
   // 中间滚动视图（留出右侧按钮空间）
   this.tempCardScrollView.frame = {x: 10, y: 50, width: width - 70, height: height - 65}
@@ -1366,7 +1299,7 @@ pinnerController.prototype.refreshTemporaryPinCards = function() {
       let emptyLabel = UIButton.buttonWithType(0)
       emptyLabel.setTitleForState("暂无固定的卡片", 0)
       emptyLabel.titleLabel.font = UIFont.systemFontOfSize(14)
-      emptyLabel.frame = {x: 10, y: 50, width: this.tempCardScrollView.frame.width - 20, height: 40}
+      emptyLabel.frame = {x: 10, y: 10, width: this.tempCardScrollView.frame.width - 20, height: 40}
       emptyLabel.enabled = false
       emptyLabel.setTitleColorForState(MNUtil.hexColorAlpha("#999999", 1.0), 0)
       this.tempCardScrollView.addSubview(emptyLabel)
@@ -1703,6 +1636,7 @@ pinnerController.prototype.fromMinimode = function() {
     
     // 确保视图在最前面
     MNUtil.studyView.bringSubviewToFront(this.view)
+    this.refreshTemporaryPinCards()
   } catch (error) {
     pinnerUtils.addErrorLog(error, "fromMinimode")
     // 确保重置状态，防止界面卡死

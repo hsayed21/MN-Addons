@@ -282,13 +282,12 @@ JSB.newAddon = function(mainPath){
         pinnerUtils.ensureView(pinnerUtils.pinnerController.view)
         
 
-        let firstFrame = {x:50, y:50, width:450, height: 200} 
         // 第一次打开时，设置面板的初始位置和大小
         if (self.isFirst) {
           // MNUtil.showHUD("First")
           // 设置面板的位置（同时设置 frame 和 currentFrame）
-          pinnerUtils.setFrame(pinnerUtils.pinnerController, firstFrame)
-          pinnerUtils.pinnerController.show(firstFrame)
+          pinnerUtils.setFrame(pinnerUtils.pinnerController, self.firstFrame)
+          pinnerUtils.pinnerController.show(self.firstFrame)
           self.isFirst = false;
         } else {
           // MNUtil.showHUD("Not First")
@@ -375,10 +374,18 @@ JSB.newAddon = function(mainPath){
     },
   });
 
+  MNPinnerClass.prototype.openPinnerLibrary = function() {
+    if (pinnerUtils.pinnerController.lastFrame) {
+      pinnerUtils.pinnerController.show(pinnerUtils.pinnerController.lastFrame)
+      pinnerUtils.pinnerController.refreshView("temporaryPinView")
+    }
+  }
+
   MNPinnerClass.prototype.init = function(mainPath) {
     // 插件栏图标的选中状态
     this.toggled = false
     this.isFirst = true
+    this.firstFrame = {x:50, y:50, width:450, height: 200} 
     if (!this.initialized) {
       pinnerUtils.init(mainPath)
       pinnerConfig.init(mainPath)
