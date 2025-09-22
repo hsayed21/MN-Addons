@@ -1605,6 +1605,15 @@ class MNMath {
     if (htmlCommentsTextArr.some(text => text.includes("Remark"))) {
       return true;
     }
+
+    // 若同时存在 “证明” 和 “所属” 字段
+    if (
+      htmlCommentsTextArr.some(text => text.includes("证明")) &&
+      htmlCommentsTextArr.some(text => text.includes("所属"))
+    ) {
+      return true;
+    }
+
     
     // 检查"应用"字段是否存在且不在最后
     for (let i = 0; i < htmlCommentsObjArr.length; i++) {
