@@ -386,23 +386,23 @@ function registerAllMenuTemplates() {
         "⬇️ 卡片处理",
         {
           action: "renewKnowledgeNoteIntoParentNote",
-          menuTitle: "🔀 合并重复知识点",
-        },
-        {
-          action: "convertNoteToNonexcerptVersion",
-          menuTitle: "    转化为非摘录版本",
-        },
-        {
-          action: "descendNotesToBeIndependent",
-          menuTitle: "    子孙卡片独立为单张",
+          menuTitle: "    🔀 合并重复知识点",
         },
         {
           action: "mergeInParentNote",
-          menuTitle: "    合并到父卡片",
+          menuTitle: "    🔀 合并到父卡片",
+        },
+        {
+          action: "convertNoteToNonexcerptVersion",
+          menuTitle: "    🔄 转化为非摘录版本",
+        },
+        {
+          action: "descendNotesToBeIndependent",
+          menuTitle: "    ✂️ 子孙卡片独立为单张",
         },
         {
           action: "splitCommentsByNotes",
-          menuTitle: "    拆分卡片评论为独立卡片",
+          menuTitle: "    ✂️ 拆分卡片评论为独立卡片",
         },
         {
           "action": "menu",
