@@ -214,6 +214,7 @@ class pinnerConfig {
       
       // 加载图片资源
       this.closeImage = this.mainPath + "/close.png"
+      this.resizeImage = this.mainPath + "/resize.png"
       
       // pinnerUtils.log("pinnerConfig initialized", "pinnerConfig:init")
     } catch (error) {

@@ -14,7 +14,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   viewDidLoad: function() {
     try {
       self.init()
-      self.view.frame = {x:50, y:50, width:450, height: 200}  // TODO: 适配不同的宽度
+      self.view.frame = {x:50, y:30, width:450, height: 200}  // TODO: 适配不同的宽度
       self.lastFrame = self.view.frame;
       self.currentFrame = self.view.frame
       if (!self.settingView) {
@@ -560,6 +560,9 @@ pinnerController.prototype.setAllButton = function (hidden) {
   if (this.closeButton) {
     this.closeButton.hidden = hidden
   }
+  if (this.resizeButton) {
+    this.resizeButton.hidden = hidden
+  }
   if (this.tabView) {
     this.tabView.hidden = hidden
   }
@@ -709,6 +712,10 @@ pinnerController.prototype.settingViewLayout = function () {
     settingFrame.x = this.tabView.frame.width + 5
     settingFrame.width = 30
     this.closeButton.frame = settingFrame
+
+
+    // 布局调整大小按钮
+    this.resizeButton.frame = {x: this.view.bounds.width - 30, y: this.view.bounds.height - 40, width: 30, height: 30}
     
     // 布局 temporaryPinView 的子视图
     if (!this.temporaryPinView.hidden) {
@@ -735,8 +742,7 @@ pinnerController.prototype.createSettingView = function () {
     /**
      * settingView 配置
      */
-    let targetView = "settingView"
-    this.createView(targetView, "view","#f1f6ff",0.9)
+    this.createView("settingView", "view","#f1f6ff",0.9)
     this.settingView.hidden = true
     this.settingView.layer.cornerRadius = 15
     this.tabView = this.createScrollview("view","#ffffff", 0)  // settingView 和 tabView 是兄弟视图，隶属于 this.view
@@ -806,7 +812,7 @@ pinnerController.prototype.createSettingView = function () {
     //   title: "☑️", color: "#457bd3", alpha: 0.8, radius: 15, font: 20
     // })
 
-    this.refreshView(targetView)
+    this.refreshView("settingView")
 
 
     // === 创建关闭按钮 ===
@@ -814,9 +820,17 @@ pinnerController.prototype.createSettingView = function () {
     this.closeButton.layer.cornerRadius = 10;
     MNButton.setImage(this.closeButton, pinnerConfig.closeImage)
     MNButton.setColor(this.closeButton, "#e06c75")
-    
-    // 为关闭按钮添加拖动手势（用于调整面板大小）
+  // 为关闭按钮添加拖动手势（用于调整面板大小）
     MNButton.addPanGesture(this.closeButton, this, "onResizeGesture:")
+
+    // == 右下角的调整大小按钮 ==
+    this.createButton("resizeButton")
+    this.resizeButton.layer.cornerRadius = 10;
+    this.resizeButton.backgroundColor = UIColor.clearColor()
+    MNButton.setImage(this.resizeButton, pinnerConfig.resizeImage)
+    MNButton.setColor(this.resizeButton, "#457bd3")
+    MNButton.addPanGesture(this.resizeButton, this, "onResizeGesture:") 
+    
   } catch (error) {
     pinnerUtils.addErrorLog(error, "createSettingView")
   }
