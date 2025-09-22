@@ -385,6 +385,10 @@ function registerAllMenuTemplates() {
         },
         "⬇️ 卡片处理",
         {
+          action: "renewKnowledgeNoteIntoParentNote",
+          menuTitle: "🔀 合并重复知识点",
+        },
+        {
           action: "convertNoteToNonexcerptVersion",
           menuTitle: "    转化为非摘录版本",
         },
