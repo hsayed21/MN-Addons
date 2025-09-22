@@ -3914,39 +3914,63 @@ class MNMath {
         return;
       }
       
-      // 步骤2: 解析当前笔记的所有字段
+      // 步骤2: 解析当前笔记的所有字段和链接
       const commentsObj = this.parseNoteComments(note);
       const htmlFields = commentsObj.htmlCommentsObjArr;
+      const allLinks = commentsObj.linksObjArr;
       
-      if (htmlFields.length === 0) {
-        MNUtil.showHUD("当前笔记没有字段");
+      // 检查是否有链接
+      if (allLinks.length === 0) {
+        MNUtil.showHUD("当前笔记没有链接");
         return;
       }
       
-      // 步骤3: 让用户选择要处理的字段
-      const fieldNames = htmlFields.map(field => field.text);
-      const selectedFieldIndex = await MNUtil.userSelect(
-        "选择要查找链接的字段", 
-        "", 
-        fieldNames
-      );
+      let links = [];
       
-      if (selectedFieldIndex === 0) return; // 用户取消
-      
-      const selectedField = htmlFields[selectedFieldIndex - 1];
-      
-      // 步骤4: 获取所选字段下的纯链接
-      const links = this.getLinksInField(note, selectedField);
-      
-      if (links.length === 0) {
-        MNUtil.showHUD(`字段"${selectedField.text}"下没有找到链接`);
-        return;
+      // 步骤3: 根据是否有字段决定处理方式
+      if (htmlFields.length > 0) {
+        // 有字段时，让用户选择处理方式
+        const options = ["查看所有链接", ...htmlFields.map(field => field.text)];
+        const selectedIndex = await MNUtil.userSelect(
+          "选择查看方式", 
+          "选择要查找链接的字段，或查看所有链接", 
+          options
+        );
+        
+        if (selectedIndex === 0) return; // 用户取消
+        
+        if (selectedIndex === 1) {
+          // 查看所有链接
+          links = allLinks.map(linkObj => ({
+            index: linkObj.index,
+            url: linkObj.link,
+            noteId: linkObj.link.toNoteId(),
+            type: note.MNComments[linkObj.index].type
+          }));
+        } else {
+          // 选择了特定字段
+          const selectedField = htmlFields[selectedIndex - 2];
+          links = this.getLinksInField(note, selectedField);
+          
+          if (links.length === 0) {
+            MNUtil.showHUD(`字段"${selectedField.text}"下没有找到链接`);
+            return;
+          }
+        }
+      } else {
+        // 没有字段时，直接使用所有链接
+        links = allLinks.map(linkObj => ({
+          index: linkObj.index,
+          url: linkObj.link,
+          noteId: linkObj.link.toNoteId(),
+          type: note.MNComments[linkObj.index].type
+        }));
       }
       
-      // 步骤5: 获取链接对应的笔记标题（使用优化的显示格式）
+      // 步骤4: 获取链接对应的笔记标题（使用优化的显示格式）
       const linkDisplayNames = await this.formatLinksForDisplay(links);
       
-      // 步骤6: 让用户选择要替换的链接
+      // 步骤5: 让用户选择要替换的链接
       const selectedLinkIndex = await MNUtil.userSelect(
         "选择要替换的链接",
         `将替换为剪贴板中的链接`,
@@ -3957,7 +3981,7 @@ class MNMath {
       
       const selectedLink = links[selectedLinkIndex - 1];
       
-      // 步骤7: 执行替换操作
+      // 步骤6: 执行替换操作
       await this.performLinkReplacement(note, selectedLink, newLinkUrl);
       
     } catch (error) {
