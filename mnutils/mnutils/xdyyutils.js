@@ -4111,6 +4111,7 @@ class MNMath {
   static removeApplicationFieldLink(targetNote, sourceNoteId) {
     const targetMNNote = MNNote.new(targetNote);
     const commentsObj = this.parseNoteComments(targetMNNote);
+    const sourceNoteUrl = sourceNoteId.toNoteURL();
     
     // 查找"应用"或"应用:"字段
     const applicationField = commentsObj.htmlCommentsObjArr.find(field => {
@@ -4118,19 +4119,44 @@ class MNMath {
       return fieldText === "应用" || fieldText === "应用:" || fieldText === "应用：";
     });
     
-    if (!applicationField) return;
+    if (applicationField) {
+      // 有"应用"字段：在字段中查找并删除链接
+      const fieldIndices = applicationField.excludingFieldBlockIndexArr;
+      
+      // 从后往前删除，避免索引变化问题
+      for (let i = fieldIndices.length - 1; i >= 0; i--) {
+        const index = fieldIndices[i];
+        const comment = targetMNNote.MNComments[index];
+        if (comment && comment.text) {
+          const commentText = comment.text.trim();
+          if (commentText === sourceNoteUrl) {
+            targetMNNote.removeCommentByIndex(index);
+            return; // 找到并删除后直接返回
+          }
+        }
+      }
+    }
     
-    const fieldIndices = applicationField.excludingFieldBlockIndexArr;
-    const sourceNoteUrl = sourceNoteId.toNoteURL();
+    // 没有"应用"字段或在字段中没找到：遍历所有评论查找链接
+    const allComments = targetMNNote.MNComments;
     
-    // 从后往前删除，避免索引变化问题
-    for (let i = fieldIndices.length - 1; i >= 0; i--) {
-      const index = fieldIndices[i];
-      const comment = targetMNNote.MNComments[index];
-      if (comment && comment.text) {
+    for (let i = allComments.length - 1; i >= 0; i--) {
+      const comment = allComments[i];
+      
+      // 跳过 HTML 字段
+      if (comment && comment.type === "HtmlComment") {
+        continue;
+      }
+      
+      // 只处理链接类型的评论
+      if (comment && comment.type === "linkComment" && comment.text) {
         const commentText = comment.text.trim();
-        if (commentText === sourceNoteUrl) {
-          targetMNNote.removeCommentByIndex(index);
+        
+        // 使用 includes 进行更灵活的匹配（支持部分 URL 匹配）
+        if (commentText.isValidNoteURL() && 
+            (commentText === sourceNoteUrl || commentText.includes(sourceNoteUrl.toNoteId()))) {
+          targetMNNote.removeCommentByIndex(i);
+          return; // 找到并删除后返回
         }
       }
     }
@@ -4145,6 +4171,7 @@ class MNMath {
   static addApplicationFieldLink(targetNote, sourceNote) {
     const targetMNNote = MNNote.new(targetNote);
     const commentsObj = this.parseNoteComments(targetMNNote);
+    const sourceNoteUrl = sourceNote.noteId.toNoteURL();
     
     // 查找"应用"字段
     const applicationField = commentsObj.htmlCommentsObjArr.find(field => {
@@ -4152,25 +4179,47 @@ class MNMath {
       return fieldText === "应用" || fieldText === "应用:" || fieldText === "应用：";
     });
     
-    if (!applicationField) return;
-    
-    // 检查是否已存在
-    const sourceNoteUrl = sourceNote.noteId.toNoteURL();
-    const fieldIndices = applicationField.excludingFieldBlockIndexArr;
-    
-    for (const index of fieldIndices) {
-      const comment = targetMNNote.MNComments[index];
-      if (comment && comment.text && comment.text.trim() === sourceNoteUrl) {
-        // 已存在，不需要添加
-        return;
+    if (applicationField) {
+      // 有"应用"字段：检查是否已存在
+      const fieldIndices = applicationField.excludingFieldBlockIndexArr;
+      
+      for (const index of fieldIndices) {
+        const comment = targetMNNote.MNComments[index];
+        if (comment && comment.text && comment.text.trim() === sourceNoteUrl) {
+          // 已存在，不需要添加
+          return;
+        }
       }
+      
+      // 添加链接到字段
+      targetMNNote.appendNoteLink(sourceNote, "To");
+      
+      // 调用去重功能
+      this.removeDuplicateLinksInLastField(targetMNNote);
+    } else {
+      // 没有"应用"字段：先检查是否已存在该链接
+      const allComments = targetMNNote.MNComments;
+      
+      for (const comment of allComments) {
+        // 跳过 HTML 字段
+        if (comment && comment.type === "HtmlComment") {
+          continue;
+        }
+        
+        // 检查是否已存在该链接
+        if (comment && comment.text) {
+          const commentText = comment.text.trim();
+          
+          if (commentText.isValidNoteURL() && commentText === sourceNoteUrl) {
+            // 链接已存在，不需要添加
+            return;
+          }
+        }
+      }
+      
+      // 链接不存在，直接添加到笔记末尾
+      targetMNNote.appendNoteLink(sourceNote, "To");
     }
-    
-    // 添加链接
-    targetMNNote.appendNoteLink(sourceNote, "To");
-    
-    // 调用去重功能
-    this.removeDuplicateLinksInLastField(targetMNNote);
   }
 
   /**
@@ -7655,72 +7704,106 @@ class MNMath {
 
   /**
    * 删除双向链接
-   * 解析笔记中任意字段下的链接，并支持双向删除（同时删除对方笔记中的反向链接）
+   * 解析笔记中的链接（可以在字段下或直接在评论中），并支持双向删除（同时删除对方笔记中的反向链接）
    * @param {MNNote} note - 要处理的笔记
    */
   static async removeBidirectionalLinks(note) {
     try {
-      // 1. 解析当前笔记的所有字段
+      // 1. 解析当前笔记的所有字段和评论
       const commentsObj = this.parseNoteComments(note);
       const htmlFields = commentsObj.htmlCommentsObjArr;
       
-      if (htmlFields.length === 0) {
-        MNUtil.showHUD("当前笔记没有字段");
-        return;
-      }
+      let links = [];
+      let selectedFieldText = null; // 用于记录选中的字段名称（如果有）
       
-      // 2. 让用户选择要处理的字段
-      const fieldNames = htmlFields.map(field => field.text);
-      const selectedFieldIndex = await MNUtil.userSelect(
-        "选择要处理链接的字段", 
-        "", 
-        fieldNames
-      );
-      
-      if (selectedFieldIndex === 0) {
-        return; // 用户取消
-      }
-      
-      const selectedField = htmlFields[selectedFieldIndex - 1];
-      
-      // 3. 获取所选字段下的纯链接
-      const fieldCommentIndices = selectedField.excludingFieldBlockIndexArr;
-      const links = [];
-      
-      for (const index of fieldCommentIndices) {
-        const comment = note.MNComments[index];  // 使用 MNComments 而不是 comments
-        if (comment && comment.text) {
-          const commentText = comment.text.trim();
-          
-          // 使用封装的 API 判断是否为有效的笔记链接
-          if (commentText.isValidNoteURL()) {
-            // 检查是否为纯链接（不在 Markdown 格式中）
-            if (!commentText.includes("](") && !commentText.includes("[")) {
-              links.push({
-                index: index,
-                url: commentText,
-                noteId: commentText.toNoteId(), // 使用封装的 API 提取笔记 ID
-                type: comment.type
-              });
+      // 2. 根据是否有字段采用不同的处理策略
+      if (htmlFields.length > 0) {
+        // 有字段的情况：让用户选择要处理的字段
+        const fieldNames = htmlFields.map(field => field.text);
+        const selectedFieldIndex = await MNUtil.userSelect(
+          "选择要处理链接的字段", 
+          "", 
+          fieldNames
+        );
+        
+        if (selectedFieldIndex === 0) {
+          return; // 用户取消
+        }
+        
+        const selectedField = htmlFields[selectedFieldIndex - 1];
+        selectedFieldText = selectedField.text;
+        
+        // 获取所选字段下的纯链接
+        const fieldCommentIndices = selectedField.excludingFieldBlockIndexArr;
+        
+        for (const index of fieldCommentIndices) {
+          const comment = note.MNComments[index];
+          if (comment && comment.text) {
+            const commentText = comment.text.trim();
+            
+            // 使用封装的 API 判断是否为有效的笔记链接
+            if (commentText.isValidNoteURL()) {
+              // 检查是否为纯链接（不在 Markdown 格式中）
+              if (!commentText.includes("](") && !commentText.includes("[")) {
+                links.push({
+                  index: index,
+                  url: commentText,
+                  noteId: commentText.toNoteId(),
+                  type: comment.type
+                });
+              }
             }
           }
         }
-      }
-      
-      if (links.length === 0) {
-        // 调试信息：显示字段下的所有评论
-        MNUtil.log(`字段"${selectedField.text}"的评论索引: ${fieldCommentIndices.join(', ')}`);
-        for (const index of fieldCommentIndices) {
-          const comment = note.MNComments[index];  // 使用 MNComments
-          if (comment) {
-            MNUtil.log(`索引${index}: 类型=${comment.type}, 内容="${comment.text}"`);
+        
+        if (links.length === 0) {
+          // 调试信息：显示字段下的所有评论
+          MNUtil.log(`字段"${selectedField.text}"的评论索引: ${fieldCommentIndices.join(', ')}`);
+          for (const index of fieldCommentIndices) {
+            const comment = note.MNComments[index];
+            if (comment) {
+              MNUtil.log(`索引${index}: 类型=${comment.type}, 内容="${comment.text}"`);
+            }
+          }
+          MNUtil.showHUD(`字段"${selectedField.text}"下没有找到纯链接`);
+          return;
+        }
+      } else {
+        // 没有字段的情况：扫描所有评论查找链接
+        const allComments = note.MNComments;
+        
+        for (let index = 0; index < allComments.length; index++) {
+          const comment = allComments[index];
+          if (comment && comment.text) {
+            const commentText = comment.text.trim();
+            
+            // 跳过字段本身（虽然这里应该没有字段）
+            if (comment.type === "HtmlComment") {
+              continue;
+            }
+            
+            // 使用封装的 API 判断是否为有效的笔记链接
+            if (commentText.isValidNoteURL()) {
+              // 检查是否为纯链接（不在 Markdown 格式中）
+              if (!commentText.includes("](") && !commentText.includes("[")) {
+                links.push({
+                  index: index,
+                  url: commentText,
+                  noteId: commentText.toNoteId(),
+                  type: comment.type
+                });
+              }
+            }
           }
         }
-        MNUtil.showHUD(`字段"${selectedField.text}"下没有找到纯链接`);
-        return;
+        
+        if (links.length === 0) {
+          MNUtil.showHUD("当前笔记没有找到任何纯链接");
+          return;
+        }
       }
       
-      // 4. 获取链接对应的笔记标题
+      // 3. 获取链接对应的笔记标题
       const linkDisplayNames = [];
       for (const link of links) {
         try {
@@ -7749,10 +7832,14 @@ class MNMath {
         }
       }
       
-      // 5. 让用户选择要删除的链接
+      // 4. 让用户选择要删除的链接
+      const subtitle = selectedFieldText 
+        ? `在"${selectedFieldText}"字段下找到 ${links.length} 个链接`
+        : `在笔记中找到 ${links.length} 个链接`;
+      
       const selectedLinkIndex = await MNUtil.userSelect(
         "选择要删除的链接",
-        `在"${selectedField.text}"字段下找到 ${links.length} 个链接`,
+        subtitle,
         linkDisplayNames
       );
       
@@ -7762,7 +7849,7 @@ class MNMath {
       
       const selectedLink = links[selectedLinkIndex - 1];
       
-      // 6. 执行双向删除
+      // 5. 执行双向删除
       MNUtil.undoGrouping(() => {
         // 删除当前笔记中的链接
         note.removeCommentByIndex(selectedLink.index);
@@ -7788,10 +7875,12 @@ class MNMath {
               for (let i = fieldIndices.length - 1; i >= 0; i--) {
                 const index = fieldIndices[i];
                 const comment = targetMNNote.MNComments[index];
-                if (comment && comment.text) {
+                // 添加类型检查
+                if (comment && comment.type === "linkComment" && comment.text) {
                   const commentText = comment.text.trim();
+                  // 使用 includes 而不是完全匹配
                   if (commentText.isValidNoteURL() && 
-                      commentText.toNoteId() === currentNoteId) {
+                      commentText.includes(currentNoteId)) {
                     targetMNNote.removeCommentByIndex(index);
                     MNUtil.showHUD("已删除双向链接");
                     return;
@@ -7808,10 +7897,12 @@ class MNMath {
               for (let i = fieldIndices.length - 1; i >= 0; i--) {
                 const index = fieldIndices[i];
                 const comment = targetMNNote.MNComments[index];
-                if (comment && comment.text) {
+                // 添加类型检查，只处理链接类型的评论
+                if (comment && comment.type === "linkComment" && comment.text) {
                   const commentText = comment.text.trim();
+                  // 使用 includes 进行更灵活的匹配
                   if (commentText.isValidNoteURL() && 
-                      commentText.toNoteId() === currentNoteId) {
+                      commentText.includes(currentNoteId)) {
                     targetMNNote.removeCommentByIndex(index);
                     MNUtil.showHUD(`已删除双向链接（在"${field.text}"字段下找到）`);
                     linkFound = true;
@@ -7820,6 +7911,35 @@ class MNMath {
                 }
               }
               if (linkFound) break;
+            }
+            
+            // 如果在字段中没找到（或根本没有HTML字段），遍历所有评论查找链接
+            if (!linkFound) {
+              const allComments = targetMNNote.MNComments;
+              for (let i = allComments.length - 1; i >= 0; i--) {
+                const comment = allComments[i];
+                
+                // 跳过 HTML 字段本身
+                if (comment && comment.type === "HtmlComment") {
+                  continue;
+                }
+                
+                // 只处理链接类型的评论
+                if (comment && comment.type === "linkComment" && comment.text) {
+                  const commentText = comment.text.trim();
+                  
+                  // 使用灵活匹配：检查链接是否指向当前笔记
+                  if (commentText.isValidNoteURL()) {
+                    const linkNoteId = commentText.toNoteId();
+                    if (linkNoteId === currentNoteId) {
+                      targetMNNote.removeCommentByIndex(i);
+                      MNUtil.showHUD("已删除双向链接");
+                      linkFound = true;
+                      break;
+                    }
+                  }
+                }
+              }
             }
             
             if (!linkFound) {
