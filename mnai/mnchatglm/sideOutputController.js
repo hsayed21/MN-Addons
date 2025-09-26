@@ -1098,6 +1098,12 @@ try {
     if (config.scheme === "userselect") {
       // chatAIUtils.log("config", config)
       switch (config.host) {
+        case "showanswer":
+          let correctAnswer = config.params.content.correctAnswer
+          let explanation = config.params.content.explanation
+          MNUtil.confirm(correctAnswer,explanation)
+          // MNUtil.copy(config)
+          return false
         case "choice":
           if ("content" in config.params) {
             if (self.preCheck()) {
@@ -1398,7 +1404,13 @@ try {
 
     MNUtil.stopHUD()
   },
+  /**
+   * 
+   * @param {NSURLConnection} connection 
+   * @param {NSError} error 
+   */
   connectionDidFailWithError: function (connection,error) {
+    chatAIUtils.log("sideOutputController.connectionDidFailWithError",{config:self.config,error:error.userInfo},"ERROR")
     MNUtil.copyJSON(error.userInfo)
     MNUtil.showHUD("Network error")
     MNUtil.stopHUD()
@@ -2649,7 +2661,7 @@ sideOutputController.prototype.createChatWebview = function (superview) {
   webview.scrollEnabled = false
   webview.scrollView.scrollEnabled = false
   webview.loadFileURLAllowingReadAccessToURL(
-    NSURL.fileURLWithPath(chatAIConfig.mainPath + `/index.html`),
+    NSURL.fileURLWithPath(chatAIConfig.mainPath + `/sideOutput.html`),
     NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
   );
   if (superview) {
@@ -3489,8 +3501,20 @@ try {
       let title = content.title
       let description = content.description+"\n\n"+chatAIUtils.getChoicesHTML(content.choices)
       // let choices = content.choices
-      let childNote = note.createChildNote({title:title,excerptText:description,excerptTextMarkdown:true})
-      childNote.focusInMindMap(1.5)
+      MNUtil.undoGrouping(()=>{
+        let childNote = note.createChildNote({title:title,excerptText:description,excerptTextMarkdown:true},false)
+        if ("correctAnswer" in content) {
+          // chatAIUtils.log("correctAnswer", content.correctAnswer)
+          childNote.appendMarkdownComment(content.correctAnswer)
+        }
+        if ("explanation" in content) {
+          // chatAIUtils.log("explanation", content.explanation)
+          childNote.appendMarkdownComment(content.explanation)
+        }
+        childNote.focusInMindMap(1.5)
+      })
+      // let childNote = note.createChildNote({title:title,excerptText:description,excerptTextMarkdown:true})
+      // childNote.focusInMindMap(1.5)
       return
     }
     content = content.replace(/\\n/g,"\n")

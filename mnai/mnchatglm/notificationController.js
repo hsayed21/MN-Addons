@@ -557,6 +557,12 @@ try {
     if (config.scheme === "userselect") {
       // chatAIUtils.log("config", config)
       switch (config.host) {
+        case "showanswer":
+          let correctAnswer = config.params.content.correctAnswer
+          let explanation = config.params.content.explanation
+          MNUtil.confirm(correctAnswer,explanation)
+          // MNUtil.copy(config)
+          return false
         case "choice":
           if ("content" in config.params) {
             let content = config.params.content
@@ -573,6 +579,7 @@ try {
           break;
         case "addnote":
           // MNUtil.copy(config)
+          // return false
           let type = ("type" in config.params) ? config.params.type : "plainText"
           if (type === "choiceQuestion") {
             // MNUtil.showHUD("Create note")
@@ -823,6 +830,10 @@ try {
         self.errorMessage = res
         if ("error" in res && "message" in res.error) {
           contentToShow = contentToShow+" "+res.error.message
+          if (res.error.message.startsWith("Insufficient Balance")) {
+            message = "DeepSeek 额度不足，请充值"
+            self.retried = true//没必要重试的情况
+          }
           if (res.error.message.startsWith("Model do not support image input")) {
             message = "该模型不支持图片输入/视觉模式"
             self.retried = true//没必要重试的情况
@@ -968,6 +979,8 @@ try {
       message:message,
       info: self.config
     }
+    chatAIUtils.log("notificationController.connectionDidFailWithError",{config:self.config,error:error.userInfo},"ERROR")
+
     MNLog.error(message,self.config)
     if (!self.retried && self.isSubscription()) {
       //仅订阅下需要重试,没重试过才需要重试
@@ -2337,8 +2350,8 @@ notificationController.prototype.getWebviewContent = async function (webview){
   })
   // MNUtil.copy(selection)
   if (!selection || !selection.trim()) {
-    // let text = this.lastResponse
-    let text = await this.runJavaScript(`editor.getValue();`,webview)
+    let text = this.lastResponse
+    // let text = await this.runJavaScript(`editor.getValue();`,webview)
     return text
   }else{
     return selection
@@ -3517,8 +3530,18 @@ try {
       let title = content.title
       let description = content.description+"\n\n"+chatAIUtils.getChoicesHTML(content.choices)
       // let choices = content.choices
-      let childNote = note.createChildNote({title:title,excerptText:description,excerptTextMarkdown:true})
-      childNote.focusInMindMap(1.5)
+      MNUtil.undoGrouping(()=>{
+        let childNote = note.createChildNote({title:title,excerptText:description,excerptTextMarkdown:true},false)
+        if ("correctAnswer" in content) {
+          // chatAIUtils.log("correctAnswer", content.correctAnswer)
+          childNote.appendMarkdownComment(content.correctAnswer)
+        }
+        if ("explanation" in content) {
+          // chatAIUtils.log("explanation", content.explanation)
+          childNote.appendMarkdownComment(content.explanation)
+        }
+        childNote.focusInMindMap(1.5)
+      })
       return
     }
     content = content.replace(/\\n/g,"\n")
@@ -3589,7 +3612,8 @@ ${message}
 "
 >
 ${customMessage}
-</a></div>`
+</a></div>
+`
       }
       if (Object.keys(errorMessage).length) {
         contentToShow = contentToShow+`\n\`\`\`json\n${JSON.stringify(errorMessage,null,2)}\n\`\`\``

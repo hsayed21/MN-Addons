@@ -1734,7 +1734,7 @@ exportToPDF()
   goBackButtonTapped: function() {
     self.webview.goBack();
   },
-  goForwardButtonTapµped: function() {
+  goForwardButtonTapped: function() {
     self.webview.goForward();
   },
   refreshButtonTapped: async function(para) {
@@ -2085,36 +2085,6 @@ exportToPDF()
           self.exitWideMode()
         }
       }
-//       self.runJavaScript(`(function() {
-//     let resizeTimer;
-//     const container = document.documentElement; // 根元素作为基准（可替换为其他容器）
-
-//     function adjustScale() {
-//         // 1. 获取内容的实际宽度
-//         const contentWidth = container.scrollWidth; 
-        
-//         // 2. 计算动态缩放比例（限制最小比例为1，避免放大导致模糊）
-//         const windowWidth = window.innerWidth;
-//         const scale = Math.min(1, windowWidth / contentWidth); 
-        
-//         // 3. 应用缩放并同步占位尺寸
-//         container.style.transform = \`scale(\${scale})\`;
-//         container.style.transformOrigin = '0 0';
-//         container.style.width = \`\${contentWidth * scale}px\`;
-//         container.style.height = \`\${container.scrollHeight * scale}px\`; // 可选，防止纵向挤压
-//     }
-
-//     // 4. 防抖优化性能
-//     window.addEventListener('resize', () => {
-//         clearTimeout(resizeTimer);
-//         resizeTimer = setTimeout(adjustScale, 50);
-//     });
-
-//     // 初始化时执行一次调整
-//     adjustScale();
-// })();
-// `)
-      // MNUtil.showHUD("End")
     }
   },
   changeWebAppTo:function(webApp) {
@@ -5659,7 +5629,8 @@ browserController.prototype.importImageFromBase64 = async function(imageBase64,b
  */
 browserController.prototype.importPDFFromBase64Doc2X = async function(base64PDF,blobUrl) {
   // MNUtil.copy(base64PDF)
-  let tem = base64PDF.split(",")
+  // let tem = base64PDF.split(",")
+  // browserUtils.log("tem",tem)
   // let type = this.fileTypeFromBase64(tem[0])
   // if (type !== "pdf") {
   //   MNUtil.confirm("MN Browser","Not support file type: "+type)
@@ -5668,10 +5639,16 @@ browserController.prototype.importPDFFromBase64Doc2X = async function(base64PDF,
   this.runJavaScript(`window.URL.revokeObjectURL("${blobUrl}");`)
   MNUtil.waitHUD("Importing PDF...")
   await MNUtil.delay(0.1)
-  let pdfData = NSData.dataWithContentsOfURL(NSURL.URLWithString("data:application/pdf;base64,"+tem[1]))
+  // let pdfData = NSData.dataWithContentsOfURL(NSURL.URLWithString("data:application/pdf;base64,"+tem[1]))
+  let pdfData = NSData.dataWithContentsOfURL(NSURL.URLWithString(base64PDF))
+  // let size = pdfData.length()
+  // MNUtil.log("PDF Size: "+size)
   let fileName = await this.runJavaScript(`document.getElementsByClassName("doc2x-cander-breadcrumbs-item")[0].childNodes[0].textContent;`)
   fileName = fileName.replace(".pdf","")+"_translated.pdf"
-  let userInput = await MNUtil.input("🌐 MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:\n\n${fileName}`, ["Cancel / 取消","Default / 默认","Confirm / 确认"])
+  let option = {
+    default:fileName,
+  }
+  let userInput = await MNUtil.input("🌐 MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:`, ["Cancel / 取消","Confirm / 确认"],option)
   // MNUtil.copy(userInput)
   switch (userInput.button) {
     case 0:
@@ -5682,11 +5659,10 @@ browserController.prototype.importPDFFromBase64Doc2X = async function(base64PDF,
         fileName = userInput.input.trim().replace(".pdf","").replace(" ","_")+".pdf"
       }
       break;
-    case 2:
-      break;
     default:
       break;
   }
+  MNUtil.createFolderDev(MNUtil.documentFolder+"/WebDownloads")
   let targetPath = MNUtil.documentFolder+"/WebDownloads/"+fileName
   pdfData.writeToFileAtomically(targetPath, false)
   let docMd5 = MNUtil.importDocument(targetPath)
@@ -5695,7 +5671,7 @@ browserController.prototype.importPDFFromBase64Doc2X = async function(base64PDF,
   }else{
     let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
     if (confirm) {
-      MNUtil.openDoc(md5,MNUtil.currentNotebookId)
+      MNUtil.openDoc(docMd5,MNUtil.currentNotebookId)
       if (MNUtil.docMapSplitMode === 0) {
         MNUtil.studyController.docMapSplitMode = 1
       }

@@ -300,6 +300,12 @@ function setValue(content) {
   editor.setValue(decodedContent,true)
   
 }
+function updateValue(content) {
+  let decodedContent = decodeURIComponent(content)
+  // let contentWithMarkdownLink = convertLinksToMarkdown(decodedContent)
+  editor.setValue(decodedContent,false)
+  
+}
 function insertValue(content) {
   editor.insertValue(decodeURIComponent(content),true)
 }

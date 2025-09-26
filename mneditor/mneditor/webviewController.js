@@ -17,7 +17,8 @@ var editorController = JSB.defineClass('editorController : UIViewController <UIW
     self.webApp = "Bilibili"
     self.isLoading = false;
     self.theme = "light"
-    self.view.frame = {x:50,y:50,width:(self.appInstance.osType !== 1) ? 450 : 365,height:500}
+    self.size = editorConfig.getConfig("size")
+    self.view.frame = {x:50,y:50,width:editorUtils.isIOS() ? 365 : self.size.width,height:self.size.height}
     self.lastFrame = self.view.frame;
     self.currentFrame = self.view.frame
     self.isMainWindow = true
@@ -257,33 +258,84 @@ viewWillLayoutSubviews: function() {
       return false
     }
     let config = MNUtil.parseURL(requestURL)
+    // editorUtils.log("config", config)
     switch (config.scheme) {
       case "file":
+        if (requestURL.endsWith(".png") || requestURL.endsWith(".jpg") || requestURL.endsWith(".jpeg")) {
+          let url = decodeURI(requestURL).replace("file://", "")
+          let imageData = NSData.dataWithContentsOfFile(url)
+          MNUtil.postNotification("snipasteImage", {imageData:imageData})
+          return false
+        }
         return true
       case "marginnote4app":
       case "marginnote3app":
         self.openMNURL(config)
         // MNUtil.openURL(requestURL)
         return false
+      case "http":
+      case "https":
+        if (requestURL.endsWith(".png") || requestURL.endsWith(".jpg") || requestURL.endsWith(".jpeg")) {
+          self.snipasteImage(requestURL)
+          return false
+        }
+        let beginFrame = self.view.frame
+        let endFrame = beginFrame
+        let studyFrame = MNUtil.studyView.bounds
+        if ((beginFrame.x+beginFrame.width*2) < studyFrame.width) {
+          endFrame.x = beginFrame.x+beginFrame.width
+          MNUtil.postNotification("openInBrowser", {url:requestURL,beginFrame:beginFrame,endFrame:endFrame})
+          return false
+        }
+        if ((beginFrame.x-beginFrame.width) > 0) {
+          endFrame.x = beginFrame.x-beginFrame.width
+          MNUtil.postNotification("openInBrowser", {url:requestURL,beginFrame:beginFrame,endFrame:endFrame})
+          return false
+        }
+        MNUtil.postNotification("openInBrowser", {url:requestURL})
+        return false
+      case "editor":
+        switch (config.host) {
+          case "downloadpdf":
+            self.downloadPDF(config.params)
+            return false
+          default:
+            break;
+        }
+      case "editorexit":
+        self.exit()
+        return false
+      case "data":
+        self.snipasteImage(requestURL)
+        return false
+      case "craftdocs":
+      case "zotero":
+        MNUtil.openURL(requestURL)
+        return false
+      case "nativecommand":
+        switch (config.host) {
+          case "save":
+            if (self.editorNoteId) {        
+              self.saveDev(self.editorNoteId,true,false)
+              MNUtil.showHUD("Note saved")
+              return false
+            }
+            if (self.targetURL) {
+              self.saveToAttach(self.targetURL)
+              MNUtil.showHUD("File saved")
+              return false
+            }
+            MNUtil.showHUD("Can't save on free mode!")
+            return false
+          default:
+            break;
+        }
+        return false
       default:
         editorUtils.log("config", config)
         break;
     }
-    
-    // if (/^marginnote4app\:\/\//.test(requestURL)) {
-    //   MNUtil.showHUD("message")
-    //   // MNUtil.openURL(requestURL)
-    //   return true
-    // }
-    // if(/^externalfile:\/\//.test(requestURL)) {
-    //   MNUtil.copy(requestURL.slice(15))
-    //   MNUtil.openURL(requestURL.slice(15))
-    //   return false
-    // }
-    if(/^craftdocs:\/\//.test(requestURL) || /^zotero:\/\//.test(requestURL)) {
-      MNUtil.openURL(requestURL)
-      return false
-    }
+  
     if (/^browservideo\:\/\//.test(requestURL)) {
       let tem = decodeURIComponent(requestURL).split("time=")[1].split("?source=")
       let time = tem[0]
@@ -396,7 +448,7 @@ viewWillLayoutSubviews: function() {
     if (/^nativecommand\:\/\/save/.test(requestURL)) {
       if (self.editorNoteId) {
         // self.save(self.editorNoteId)
-        self.saveDev(self.editorNoteId)
+        self.saveDev(self.editorNoteId,true,false)
         MNUtil.showHUD("Note saved")
         return false
       }
@@ -422,12 +474,6 @@ viewWillLayoutSubviews: function() {
       // let text = decodeURIComponent(requestURL.split("content=")[1])
       // MNUtil.copy(text)
     }
-    if (/^editorexit\:\/\//.test(requestURL)) {
-      self.exit()
-      return false
-      // let text = decodeURIComponent(requestURL.split("content=")[1])
-      // MNUtil.copy(text)
-    }
     if (/^editorinput\:\/\//.test(requestURL)) {
       let text = decodeURIComponent(requestURL.split("content=")[1])
       self.checkAndPrepareR2URL(text)
@@ -435,64 +481,60 @@ viewWillLayoutSubviews: function() {
       // MNUtil.showHUD("message")
       // MNUtil.copy(text)
     }
-    if (/^(marginnote\dapp)\:\/\/note/.test(requestURL)) {
-      let targetNote = MNNote.new(requestURL)
-      targetNote.focusInFloatMindMap()
-      // MNUtil.openURL(requestURL)
-      // Application.sharedInstance().openURL(NSURL.URLWithString(requestURL));
-      return false
-    }
-    if (/^(marginnote\dapp)\:\/\/addon/.test(requestURL)) {
-      // MNUtil.openURL(requestURL)
-      // Application.sharedInstance().openURL(NSURL.URLWithString(requestURL));
-      MNUtil.postNotification("AddonBroadcast", {message:requestURL})
-      return false
-    }
-    if (/^http/.test(requestURL) || /^data\:image\//.test(requestURL)) {
-      let beginFrame = self.view.frame
-      let endFrame = beginFrame
-      let studyFrame = MNUtil.studyView.bounds
-      if ((beginFrame.x+beginFrame.width*2) < studyFrame.width) {
-        endFrame.x = beginFrame.x+beginFrame.width
-        MNUtil.postNotification("openInBrowser", {url:requestURL,beginFrame:beginFrame,endFrame:endFrame})
-        return false
-      }
-      if ((beginFrame.x-beginFrame.width) > 0) {
-        endFrame.x = beginFrame.x-beginFrame.width
-        MNUtil.postNotification("openInBrowser", {url:requestURL,beginFrame:beginFrame,endFrame:endFrame})
-        return false
-      }
-      MNUtil.postNotification("openInBrowser", {url:requestURL})
-      return false
-    }
-    if (/^file\:\/\//.test(requestURL)) {
-      let url = decodeURI(requestURL).replace("file://", "")
-      if (url.endsWith(".png") && MNUtil.isfileExists(url)) {
-        let imageData = NSData.dataWithContentsOfFile(url)
-        url = "data:image/png;base64,"+imageData.base64Encoding()
-        MNUtil.postNotification("openInBrowser", {url:url})
-        return false
-      }
-    }
     return true;
     } catch (error) {
       editorUtils.addErrorLog(error, "webViewShouldStartLoadWithRequestNavigationType")
       return false
     }
   },
-  changeHeading: function (sender) {
-    var commandTable = [
-      {title:'Heading 1',object:self,selector:'setHeading:',param:1},
-      {title:'Heading 2',object:self,selector:'setHeading:',param:2},
-      {title:'Heading 3',object:self,selector:'setHeading:',param:3},
-      {title:'Heading 4',object:self,selector:'setHeading:',param:4},
-      {title:'Heading 5',object:self,selector:'setHeading:',param:5},
-      {title:'Heading 6',object:self,selector:'setHeading:',param:6},
-      {title:'No Heading',object:self,selector:'setHeading:',param:7},
-    ];
-    self.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,150,2)
+  changeHeading: async function (button) {
+    let self = getEditorController()
+    let menu = Menu.new(button, self,200,2)
+    menu.addMenuItem('1️⃣ Heading 1', 'setHeading:', 1)
+    menu.addMenuItem('2️⃣ Heading 2', 'setHeading:', 2)
+    menu.addMenuItem('3️⃣ Heading 3', 'setHeading:', 3)
+    menu.addMenuItem('4️⃣ Heading 4', 'setHeading:', 4)
+    menu.addMenuItem('5️⃣ Heading 5', 'setHeading:', 5)
+    menu.addMenuItem('6️⃣ Heading 6', 'setHeading:', 6)
+    // menu.show()
+    let selection = await self.getSelection()
+    let content = await self.getContent()
+    if (selection && selection.trim()) {
+      let hasTitle = /^#/.test(content)
+      if (hasTitle) {
+        menu.addMenuItem('➡️ Append to Title', 'titleAction:', 'appendTitle')
+        menu.addMenuItem('⬅️ Prepend to Title', 'titleAction:', 'prependTitle')
+      }
+      menu.addMenuItem('#️⃣ As Title', 'titleAction:', 'setTitle')
+    }
+    menu.addMenuItem('❌ No Heading', 'setHeading:', 7)
+    menu.show()
+  },
+  titleAction: async function (action) {
+    let self = getEditorController()
+    Menu.dismissCurrentMenu()
+    let selection = await self.getSelection()
+    let content = await self.getContent()
+    let config = editorUtils.parseContent(content,false)
+    let title = content.split("\n")[0].replace(/^#\s?/g,"")
+    switch (action) {
+      case 'appendTitle':
+        title = title+"; "+selection
+        break;
+      case 'prependTitle':
+        title = selection+"; "+title
+        break;
+      case 'setTitle':
+        title = selection
+        break;
+      default:
+        break;
+    }
+    let newContent = "# "+title+"\n"+config.content
+    self.runJavaScript(`updateValue(\`${encodeURIComponent(newContent)}\`)`)
   },
   setHeading: function (index) {
+    Menu.dismissCurrentMenu()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
     switch (index) {
       case 7:
@@ -558,7 +600,7 @@ viewWillLayoutSubviews: function() {
       ];
     self.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,250,2)
   },
-  moveButtonTapped: function(sender) {
+  moveButtonTapped: function(button) {
     if (self.miniMode) {
       let preFrame = self.view.frame
       self.view.hidden = true
@@ -583,8 +625,9 @@ viewWillLayoutSubviews: function() {
     }
     commandTable  = commandTable.concat([
         {title:'🎛 Setting',object:self,selector:'openSettingView:',param:'right'},
-        {title:'🎛 Export → File',object:self,selector:'exportMd:',param:'right'},
-        {title:'🎛 Export → Clipboard',object:self,selector:'saveTo:',param:'Clipboard'},
+        {title:'📤 Export',object:self,selector:'chooseExportAction:',param:button},
+        // {title:'🎛 Export → File',object:self,selector:'exportMd:',param:'right'},
+        // {title:'🎛 Export → Clipboard',object:self,selector:'saveTo:',param:'Clipboard'},
         {title:'🌗 Left',object:self,selector:'splitScreen:',param:'left',checked:self.customMode==="left"},
         {title:'🌘 Left 1/3',object:self,selector:'splitScreen:',param:'left13',checked:self.customMode==="left13"},
         {title:'🌓 Right',object:self,selector:'splitScreen:',param:'right',checked:self.customMode==="right"},
@@ -592,15 +635,52 @@ viewWillLayoutSubviews: function() {
         {title:'🎬 Screenshot',object:self,selector:'screenshot:',param:self.view.frame.width>1000?self.view.frame.width:1000},
         {title:'📝 New Document',object:self,selector:'homeButtonTapped:',param:self.view.frame.width>1000?self.view.frame.width:1000},
         {title:'📝 Open Attachment',object:self,selector:'openAttach:',param:MNUtil.currentDocmd5},
-        {title:'📝 Show Attachments',object:self,selector:'showAttachs:',param:sender},
+        {title:'📝 Show Attachments',object:self,selector:'showAttachs:',param:button},
         {title:'📝 Mode: ir',object:self,selector:'changeMode:',param:"ir",checked:editorConfig.getConfig("mode")==="ir"},
         {title:'📝 Mode: wysiwyg',object:self,selector:'changeMode:',param:"wysiwyg",checked:editorConfig.getConfig("mode")==="wysiwyg"},
         {title:'📝 Mode: sv',object:self,selector:'changeMode:',param:"sv",checked:editorConfig.getConfig("mode")==="sv"},
-        {title:'🌓 Theme',object:self,selector:'changeTheme:',param:sender},
-        {title:'❌ Force close',object:self,selector:'forceToClose:',param:sender}
+        {title:'🌓 Theme',object:self,selector:'changeTheme:',param:button},
+        {title:'❌ Force close',object:self,selector:'forceToClose:',param:button}
       ]);
 
-    self.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,250,1)
+    self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,250,1)
+  },
+  chooseExportAction: function (button) {
+    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    let menu = Menu.new(button, self)
+    menu.preferredPosition = 1
+    menu.addItem("Markdown (.md)", "exportAction:", "Markdown")
+    menu.addItem("Markdown (.zip)", "exportAction:", "MarkdownZip")
+    menu.addItem("Clipboard", "exportAction:", "Clipboard")
+    menu.show()
+  },
+  exportAction: async function (type) {
+    Menu.dismissCurrentMenu()
+    if (!editorUtils.checkSubscribe(true)) {
+      MNUtil.showHUD("Please subscribe to export")
+      return
+    }
+    let content = await self.getContent()
+    switch (type) {
+      case "Markdown":
+        let docPath = MNUtil.cacheFolder+"/export.md"
+        MNUtil.writeText(docPath, content)
+        let UTI = ["public.md"]
+        MNUtil.saveFile(docPath, UTI)
+        // MNUtil.writeText(content, "Markdown")
+        break;
+      case "MarkdownZip":
+        MNUtil.showHUD("Not supported yet...")
+        break;
+      case "PDF":
+
+        self.export2PDF()
+        break;
+      case "Clipboard":
+        MNUtil.copy(content)
+        break;
+    }
+
   },
   copyDocName: function (docName) {
     MNUtil.copy(docName)
@@ -957,25 +1037,54 @@ viewWillLayoutSubviews: function() {
       MNUtil.showHUD('截图已复制到剪贴板')
     })
   },
-  addLink: function (sender) {
-    var commandTable = [
-      {title:'image link',object:self,selector:'addLinkWithType:',param:"imageLink"},
-      {title:'pure link',object:self,selector:'addLinkWithType:',param:"textLink"},
-      {title:'image from selection',object:self,selector:'addLinkWithType:',param:"focusImage"},
-      {title:'image from clipboard',object:self,selector:'addLinkWithType:',param:"clipborad"},
-      {title:'link from focusNote',object:self,selector:'addLinkWithType:',param:"focusNote"},
-      {title:'Footnote',object:self,selector:'addLinkWithType:',param:"Footnote"},
-    ];
-    self.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,200)
-    // self.runJavaScript(`editor.insertValue("[](https://)",true)`)
+  addLink: async function (button) {
+    let self = getEditorController()
+    let menu = new Menu(button,self)
+    let selector = "addLinkWithType:"
+    menu.addMenuItem("image link", selector, "imageLink")
+    menu.addMenuItem("pure link", selector, "textLink")
+    menu.addMenuItem("image from selection", selector, "focusImage")
+    menu.addMenuItem("image from clipboard", selector, "clipborad")
+    menu.addMenuItem("link from focusNote", selector, "focusNote")
+    menu.addMenuItem("Footnote", selector, "Footnote")
+    if (self.editorNoteId) {
+      menu.addMenuItem("Copy Note URL", selector, "copyURL")
+      menu.addMenuItem("Copy As Markdown Link", selector, "copyAsMarkdownLink")
+    }
+    menu.width = 200
+    menu.show()
   },
   addLinkWithType: async function (type) {
-    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+  try {
+
+    let self = getEditorController()
+    Menu.dismissCurrentMenu()
     let imageData
     let focusNote
     switch (type) {
       case "imageLink":
         self.runJavaScript(`editor.insertValue("![image](https://)",true)`)
+        break;
+      case "copyURL":
+        MNUtil.copy(editorUtils.getNoteURLById(self.editorNoteId))
+        MNUtil.showHUD("Note URL copied")
+        break;
+      case "copyAsMarkdownLink":
+        let selection = await self.getSelection()
+        if (selection) {
+          MNUtil.copy(`[${selection}](${editorUtils.getNoteURLById(self.editorNoteId)})`)
+          MNUtil.showHUD("Markdown link copied")
+        }else{
+          let content = await self.getContent()
+          let config = editorUtils.parseContent(content,false)
+          if (config.hasTitle) {
+            MNUtil.copy(`[${config.title.trim()}](${editorUtils.getNoteURLById(self.editorNoteId)})`)
+            MNUtil.showHUD("Markdown link copied")
+          }else{
+            MNUtil.copy(`[${config.content.trim()}](${editorUtils.getNoteURLById(self.editorNoteId)})`)
+            MNUtil.showHUD("Markdown link copied")
+          }
+        }
         break;
       case "textLink":
         let res = await MNUtil.input("Input URL", "请输入链接",["Cancel","Confirm"])
@@ -1086,8 +1195,13 @@ viewWillLayoutSubviews: function() {
         }
         break;
       default:
+        MNUtil.showHUD("Invalid type: "+type)
         break;
     }
+    
+  } catch (error) {
+    editorUtils.addErrorLog(error, "addLinkWithType")
+  }
   },
   addcode: function (sender) {
     var commandTable = [
@@ -1157,9 +1271,9 @@ viewWillLayoutSubviews: function() {
   addmore: function (sender) {
     var commandTable = [
       {title:'Italic',object:self,selector:'addMoreWithType:',param:"Italic"},
-      {title:'Strike',object:self,selector:'addMoreWithType:',param:"Strike"},
+      // {title:'Strike',object:self,selector:'addMoreWithType:',param:"Strike"},
       {title:'Quote',object:self,selector:'addMoreWithType:',param:"Quote"},
-      {title:'Line',object:self,selector:'addMoreWithType:',param:"Line"},
+      // {title:'Line',object:self,selector:'addMoreWithType:',param:"Line"},
       {title:'Latex block',object:self,selector:'addMoreWithType:',param:"Latex"},
       {title:'Mindmap block',object:self,selector:'addMoreWithType:',param:"Mindmap"},
       {title:'Remove link',object:self,selector:'removeLinkFormat:',param:"Mindmap"},
@@ -1461,18 +1575,19 @@ viewWillLayoutSubviews: function() {
   forceToClose: async function () {
     let self = getEditorController()
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
-    if (self.endFrame) {
-      self.hide(self.endFrame,false)
-      self.loadVditor(undefined,true)
-      return
-    }
-    if (self.addonBar) {
-      self.hide(self.addonBar.frame,false)
-      self.loadVditor(undefined,true)
-      return
-    }
-    self.hide(undefined,false)
-    self.loadVditor(undefined,true)
+    self.exit(true)
+    // if (self.endFrame) {
+    //   self.hide(self.endFrame,false)
+    //   self.loadVditor(undefined,true)
+    //   return
+    // }
+    // if (self.addonBar) {
+    //   self.hide(self.addonBar.frame,false)
+    //   self.loadVditor(undefined,true)
+    //   return
+    // }
+    // self.hide(undefined,false)
+    self.loadVditor(undefined,true)//强制重载vditor
   },
   closeButtonTapped: async function() {
     let self = getEditorController()
@@ -1653,6 +1768,11 @@ viewWillLayoutSubviews: function() {
     //  Application.sharedInstance().showHUD(`{x:${translation.x},y:${translation.y}}`, self.view.window, 2);
     //  self.view.frame = {x:frame.x,y:frame.y,width:frame.width+translationX,height:frame.height+translationY}
     self.setFrame(frame.x, frame.y, width,height)
+    if (gesture.state === 3 && self.isMainWindow) {
+      let size = {width:width,height:height}
+      editorConfig.config.size = size
+      editorConfig.save(undefined,false)
+    }
   },
   onLongPress: function(gesture){
     if (self.miniMode) {
@@ -1959,6 +2079,7 @@ try {
   let content = "# "+title+"\n"+excerptText
   this.contentOnOpen = content.trim()
   // MNUtil.copy(this.contentOnOpen)
+  // MNUtil.copy(`setValue(\`${encodeURIComponent(content.trim())}\n\n\`);editor.focus()`)
   this.runJavaScript(`setValue(\`${encodeURIComponent(content.trim())}\n\n\`);editor.focus()`)
   this.refreshBackgroundColor()
   // this.view.becomeFirstResponder()
@@ -1979,54 +2100,6 @@ editorController.prototype.clearContent = function () {
   // MNUtil.showHUD("resign")
   this.webview.resignFirstResponder()
   MNUtil.studyView.becomeFirstResponder()
-}
-
-/** @this {editorController} */
-editorController.prototype.getCurrentURL = async function() {
-  if(!this.webview || !this.webview.window) return;
-  let url = await this.runJavaScript(`window.location.href`)
-  this.webview.url = url
-  return url
-};
-/** @this {editorController} */
-editorController.prototype.getSelectedTextInWebview = async function() {
-  let ret = await this.runJavaScript(`
-      function getCurrentSelect(){
-
-      let selectionObj = null, rangeObj = null;
-      let selectedText = "", selectedHtml = "";
-
-      if(window.getSelection){
-        selectionObj = window.getSelection();
-        selectedText = selectionObj.toString();
-      }
-      return selectedText
-    };
-      getCurrentSelect()
-    `)
-  return ret
-}
-
-/** @this {editorController} */
-editorController.prototype.getTextInWebview = async function() {
-  let ret = await this.runJavaScript(`
-      function getSelectOrWholeText(){
-
-      let selectionObj = null, rangeObj = null;
-      let selectedText = "", selectedHtml = "";
-
-      if(window.getSelection){
-        selectionObj = window.getSelection();
-        selectedText = selectionObj.toString();
-        return selectedText === ""?document.body.innerText:selectedText
-      }else{
-        return document.body.innerText;
-      }
-    };
-    getSelectOrWholeText()
-    // document.body.innerHTML;
-    `)
-  return ret
 }
 
 /** @this {editorController} */
@@ -2635,16 +2708,19 @@ try {
 }
 
 /** @this {editorController} */
-editorController.prototype.saveDev  = async function(noteId,removeComment = true) {
+editorController.prototype.saveDev  = async function(noteId,removeComment = true,blur = true) {
 try {
   if (!noteId || !MNUtil.db.getNoteById(noteId)) {
     MNUtil.showHUD("No note to save")
     return
   }
   let content = await this.getContent()
-  this.blur()
+  if (blur) {
+    this.blur()
+  }
   let contentConfig = editorUtils.parseContent(content)
   // editorUtils.log("contentConfig", contentConfig)
+  content = contentConfig.content
 
   this.contentOnOpen = content
   let focusNote = MNNote.new(noteId)
@@ -2719,6 +2795,8 @@ try {
     let contentRemain = content
     if (contentConfig.hasTitle) {
       focusNote.noteTitle = contentConfig.title
+    }else{
+      focusNote.noteTitle = ""
     }
     if (shouldAsImageExcerpt) {
       shouldTextFirst = false
@@ -2745,6 +2823,8 @@ try {
         focusNote.excerptText = contentRemain
       }
     }
+    // editorUtils.log("contents", contents)
+    // editorUtils.log("targetToSet", targetToSet)
     if (targetToSet.length) {
       targetToSet.map((targetIndex,contentsIndex)=>{
         let comment = focusNote.comments[targetIndex]
@@ -2757,7 +2837,11 @@ try {
           // temNote.focusInMindMap()
           // temNote.note.excerptTextMarkdown = true
           // temNote.excerptText = contents[contentsIndex+1]
-          mergedNote.excerptText = contents[contentsIndex+1]
+          if ((contentsIndex+1) >= contents.length) {
+            mergedNote.excerptText = ""
+          }else{
+            mergedNote.excerptText = contents[contentsIndex+1]
+          }
           // mergedNote.note.processMarkdownBase64Images()
         }
 
@@ -2768,7 +2852,7 @@ try {
 
   return
 } catch (error) {
-  editorUtils.addErrorLog(error, "save")
+  editorUtils.addErrorLog(error, "saveDev")
 }
   // MNUtil.delay(3).then(()=>{
   //   MNUtil.app.refreshAfterDBChanged(MNUtil.currentNotebookId)
@@ -3144,19 +3228,22 @@ editorController.prototype.saveToAttach = async function(fileURL){
 }
 
 /** @this {editorController} */
-editorController.prototype.exit = async function () {
+editorController.prototype.exit = async function (forceClose = false) {
 try {
   if (this.editorNoteId) {
-    if (!MNUtil.db.getNoteById(this.editorNoteId)) {
-      MNUtil.showHUD("Note not found")
-      return
-    }
-    let noteTime = Date.parse(MNNote.new(this.editorNoteId).modifiedDate)
-    let confirm = true
-    if (noteTime > this.editorNoteTime) {
-      confirm = await MNUtil.confirm("Note has been edited. Overwrite content and close？", "笔记已被编辑。是否覆盖并退出？")
-      if (!confirm) {
+    let confirm = !forceClose //强制关闭时，confirm为false，不检查笔记是否被编辑，不检查保存
+    if (confirm) {
+      let note = MNNote.new(this.editorNoteId)
+      if (!note) {
+        MNUtil.showHUD("Note not found")
         return
+      }
+      let noteTime = Date.parse(note.modifiedDate)
+      if (noteTime > this.editorNoteTime) {
+        confirm = await MNUtil.confirm("Note has been edited. Overwrite content and close？", "笔记已被编辑。是否覆盖并退出？")
+        if (!confirm) {
+          return
+        }
       }
     }
     let target
@@ -3364,15 +3451,138 @@ editorController.prototype.setButtonText = function (names) {
  * @param {Object} config
  */
 editorController.prototype.openMNURL = async function (config) {
-  let noteId = config.pathComponents[0]
-  let note = MNNote.new(noteId)
-  // editorUtils.log(noteId)
-  if (note.parentNoteId === this.editorNoteId) {
-    // await this.save(this.editorNoteId)
-    await this.saveDev(this.editorNoteId)
-    this.setContent(note)
-    // editorUtils.log("should edit")
-  }else{
-    note.focusInFloatMindMap()
+  switch (config.host) {
+    case "note":
+      let noteId = config.pathComponents[0]
+      let note = MNNote.new(noteId)
+      // editorUtils.log(noteId)
+      if (note.parentNoteId === this.editorNoteId) {
+        // await this.save(this.editorNoteId)
+        await this.saveDev(this.editorNoteId)
+        this.setContent(note)
+        // editorUtils.log("should edit")
+      }else{
+        note.focusInFloatMindMap()
+      }
+      break;
+    case "addon":
+      MNUtil.postNotification("AddonBroadcast", {message:config.url})
+      break;
+    default:
+      break;
   }
+
+}
+
+editorController.prototype.export2PDF = async function () {
+try {
+
+    this.waitHUD("Exporting PDF...")
+    await MNUtil.delay(0.1)
+    let script = editorUtils.getSubFuncScript()+`
+async function exportToPDF() {
+    // 检查 html2canvas 是否已定义，如果未定义则加载
+  if (typeof html2canvas === 'undefined') {
+      console.log('html2canvas 未加载，正在动态加载...');
+      loadHtml2CanvasScript( async () => {
+          // 加载完成后执行截图
+          let image = await screenshotToPNGBase64();
+          if (typeof jsPDF === 'undefined') {
+            loadJSPDFScript( async () => {
+              const pdfBase64 = await convertPngBase64ToPdfBase64(image,true);
+              postMessageToAddon("editor","downloadpdf",undefined,{"pdfBase64":pdfBase64})
+            });
+          }else{
+            const pdfBase64 = await convertPngBase64ToPdfBase64(image,true);
+            postMessageToAddon("editor","downloadpdf",undefined,{"pdfBase64":pdfBase64})
+          }
+      });
+  } else {
+      console.log('html2canvas 已加载，直接执行截图。');
+      // 如果已加载，则直接执行截图
+      let image = await screenshotToPNGBase64()
+      if (typeof jsPDF === 'undefined') {
+        loadJSPDFScript( async () => {
+          const pdfBase64 = await convertPngBase64ToPdfBase64(image,true);
+          postMessageToAddon("editor","downloadpdf",undefined,{"pdfBase64":pdfBase64})
+        });
+      }else{
+        const pdfBase64 = await convertPngBase64ToPdfBase64(image,true);
+        postMessageToAddon("editor","downloadpdf",undefined,{"pdfBase64":pdfBase64})
+      }
+  }
+}
+exportToPDF()
+        `
+MNUtil.copy(script)
+this.runJavaScript(script)
+  
+} catch (error) {
+  editorUtils.addErrorLog(error, "export2PDF")
+}
+}
+/**
+ * 
+ * @param {string} title 
+ * @param {number} duration 
+ * @param {UIView} view 
+ */
+editorController.prototype.waitHUD = function (title,view = this.view) {
+  MNUtil.waitHUD(title,view)
+}
+editorController.prototype.downloadPDF = async function (params) {
+try {
+
+  // MNUtil.copy(params.pdfBase64)
+  MNUtil.stopHUD()
+  let pdfData = editorUtils.dataFromBase64(params.pdfBase64,"pdf")
+  if (!pdfData) {
+    MNUtil.showHUD("Invalid PDF")
+    return
+  }
+  let fileSize = pdfData.length()/1000000
+  MNUtil.stopHUD()
+  let defaultName = "imported_"+Date.now()+".pdf"
+  let title = "test"
+  if (title && title.trim()) {
+    defaultName = title+".pdf"
+  }
+  let option = {}
+  let userInput = await MNUtil.input("MN Editor","Please input the name of the document\n\n请输入文档名称\n\nDefault: "+defaultName+"\n\nFile Size: "+fileSize.toFixed(2)+"MB",["Cancel",defaultName,"Confirm"])
+  if (userInput.button === 0) {
+    return
+  }
+  if (userInput.button === 1) {
+    option.fileName = defaultName
+  }
+  let input = userInput.text
+  if (input && input.trim()) {
+    if (input.endsWith(".pdf")) {
+      option.fileName = input
+    }else{
+      option.fileName = input+".pdf"
+    }
+  }
+  let md5 = editorUtils.importPDFFromData(pdfData,option)
+  MNUtil.log(md5)
+  if (md5) {
+    MNUtil.openDoc(md5)
+  }
+  
+} catch (error) {
+  editorUtils.addErrorLog(error, "downloadPDF")
+}
+}
+editorController.prototype.snipasteImage = function (url) {
+  editorUtils.log("snipasteImage", url)
+    let data = NSData.dataWithContentsOfURL(MNUtil.genNSURL(url))
+    MNUtil.postNotification("snipasteImage", {imageData:data})
+}
+
+editorController.prototype.getSelection = async function () {
+  let selection = await this.runJavaScript(`editor.getSelection()`)
+  if (selection) {
+    return selection.trim()
+  }
+  return undefined
 }

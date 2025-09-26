@@ -195,11 +195,9 @@ function generateUrlScheme(scheme, host, path, query, fragment) {
     onChange: (value, instance) => {
       // console.log('Content changed:', value);
       let height = instance.textarea.scrollHeight
-      if (value.split("\n").length  === 1) {
-        if (strCode(value)*8 < 210) {
-          height = 35
-        }
-
+      let target = document.getElementsByClassName("overtype-preview")[0].children
+      if (target.length === 1) {
+        height = target[0].scrollHeight+15
       }
       if (height !== preHeight) {
         preHeight = height

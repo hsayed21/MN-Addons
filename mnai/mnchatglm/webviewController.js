@@ -2829,7 +2829,7 @@ ${config}
     self.knowledgeInput.backgroundColor = MNUtil.hexColorAlpha("#b3bbc0",0.8)
     self.knowledgeInput.textColor = UIColor.blackColor()
     self.knowledgeInput.editable = true
-
+    chatAIUtils.log("chatglmController.connectionDidFailWithError",error.userInfo,"ERROR")
     MNUtil.stopHUD()
     // self.setButtonOpacity(1.0)
     self.errorMessage = {

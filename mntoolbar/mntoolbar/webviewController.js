@@ -920,7 +920,10 @@ try {
   }
   },
   onLongPressGesture:async function (gesture) {
+  try {
     if (gesture.state === 1) {
+// MNUtil.log("onLongPressGesture")
+// MNUtil.showHUD("onLongPressGesture")
       let button = gesture.view
       let dynamicOrder = toolbarConfig.getWindowState("dynamicOrder")
       let useDynamic = dynamicOrder && self.dynamicWindow
@@ -937,55 +940,14 @@ try {
         }else{
           MNUtil.showHUD("No long press action")
         }
+      }else{
+        MNUtil.showHUD("No action name found")
       }
     }
-    // if (gesture.state === 1) {//触发
-    //   self.initLocation = gesture.locationInView(MNUtil.studyView)
-    //   self.initFrame = self.view.frame
-    //   MNUtil.showHUD("Move mode ✅")
-    //   MNButton.setColor(self.screenButton, "#9898ff",1.0)
-    //   // self.view.layer.backgroundColor = MNUtil.hexColorAlpha("#b5b5f5",1.0)
-    //   // self.view.layer.borderWidth = 2
-    //   return
-    // }
-    // if (gesture.state === 3) {//停止
-    //   MNUtil.showHUD("Move mode ❌")
-    //   MNButton.setColor(self.screenButton, "#9bb2d6",0.8)
-    //   return
-    // }
-    // if (gesture.state === 2) {
-    //   let studyFrame = MNUtil.studyView.bounds
-    //   let locationInView = gesture.locationInView(MNUtil.studyView)
-    //   let y = MNUtil.constrain(self.initFrame.y+locationInView.y - self.initLocation.y, 0, studyFrame.height-15)
-    //   let x = self.initFrame.x+locationInView.x - self.initLocation.x
-    //   let splitLine = MNUtil.splitLine
-    //   let docMapSplitMode = MNUtil.studyController.docMapSplitMode
-    //   if (x<20) {
-    //     x = 0
-    //     self.sideMode = "left"
-    //     self.splitMode = false
-    //   }
-    //   if (x>studyFrame.width-60) {
-    //     x = studyFrame.width-40
-    //     self.sideMode = "right"
-    //     self.splitMode = false
-    //   }
-    //   if (splitLine && docMapSplitMode===1) {
-    //     if (x<splitLine && x>splitLine-40) {
-    //       x = splitLine-20
-    //       self.splitMode = true
-    //       self.sideMode = ""
-    //     }else{
-    //       self.splitMode = false
-    //     }
-    //   }else{
-    //     self.splitMode = false
-    //   }
-    //   let frame = {x:x,y:y,width:self.initFrame.width,height:self.initFrame.height}
-    //   Frame.set(self.view,frame.x,frame.y,frame.width,frame.height)
-    // }
-    // MNUtil.showHUD("message"+gesture.state)
-
+    
+  } catch (error) {
+    toolbarUtils.addErrorLog(error, "onLongPressGesture")
+  }
   },
   onSwipeGesture:function (gesture) {
     if (gesture.state === 1) {
@@ -1258,9 +1220,12 @@ try {
       colorButton.width = 40
       colorButton.index = index
       // if (this.isMac) {
-        this.addPanGesture(colorButton, "onMoveGesture:")  
+        MNButton.addPanGesture(colorButton, this, "onMoveGesture:")
+        // this.addPanGesture(colorButton, "onMoveGesture:")  
       // }else{
-        this.addLongPressGesture(colorButton, "onLongPressGesture:")
+        MNButton.addLongPressGesture(colorButton, this, "onLongPressGesture:",0.3)
+
+        // this.addLongPressGesture(colorButton, "onLongPressGesture:")
         // this.addSwipeGesture(colorButton, "onSwipeGesture:")
       // }
 
@@ -1447,7 +1412,8 @@ toolbarController.prototype.replaceButtonTo = async function (button,target) {
   button.setTitleForState("", 0)
   button.setTitleForState("", 1)
   button.addTargetActionForControlEvents(this, target, 1 << 6);
-  this.addLongPressGesture(button, "onLongPressGesture:")
+  MNButton.addLongPressGesture(button, this, "onLongPressGesture:",0.3)
+  // this.addLongPressGesture(button, "onLongPressGesture:")
 
 }
 /**
@@ -2161,15 +2127,17 @@ toolbarController.prototype.addPanGesture = function (view,selector) {
  * @this {toolbarController}
  */
 toolbarController.prototype.addLongPressGesture = function (view,selector) {
-  let gestureRecognizer = new UILongPressGestureRecognizer(this,selector)
-  gestureRecognizer.minimumPressDuration = 0.3
+// MNUtil.log("addLongPressGesture")
+  MNButton.addLongPressGesture(view, this, selector,0.3)
+  // let gestureRecognizer = new UILongPressGestureRecognizer(this,selector)
+  // gestureRecognizer.minimumPressDuration = 0.3
   // if (view.target !== undefined) {
   //   gestureRecognizer.target = view.target
   // }
   // if (view.index !== undefined) {
   //   gestureRecognizer.index = view.index
   // }
-  view.addGestureRecognizer(gestureRecognizer)
+  // view.addGestureRecognizer(gestureRecognizer)
 }
 /**
  * 

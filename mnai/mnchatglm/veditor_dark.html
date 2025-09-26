@@ -101,66 +101,7 @@ let preHtml = ""
 let preFunc = ""
 let preReasoning = ""
 let reasoningBegin
-let option = {
-      theme:theme,
-      math:{
-        engine:"MathJax",
-        mathJaxOptions:{
-          tex: {
-              inlineMath: [ ['$','$'], ["\\(","\\)"] ]
-          }
-        },
-        inlineDigit: true
-      },
-      cdn:"https://unpkg.com/vditor@3.11.0",
-      after: notifyRefreshHeight
-    }
-const logElement = document.getElementById('funcResponse')
-let tem = document.getElementById('vditor')
-document.addEventListener('DOMContentLoaded', function () {
-    Vditor.preview(tem,preContent,option)
-    notyf = new Notyf({position: {x: 'center', y: 'top'}, duration: 1000,ripple:false});
-})
-
-    function openEdit(allowEdit) {
-      if (!preContent) {
-        return
-      }
-      editor = new Vditor('vditor', {
-      cache: {
-        enable: false,
-      },
-      theme:theme,
-      preview:{
-        math:{
-          engine:"MathJax",
-          mathJaxOptions:{
-            tex: {
-                inlineMath: [ ['$','$'], ["\\(","\\)"] ]
-            }
-          },
-          inlineDigit: true
-        },
-        markdown:{
-          html:true,
-          mark:true
-        }
-      },
-      select:(text)=>{
-        // 显示一条消息
-        // notyf.success("Select text: "+text.slice(0,10)+"...")
-        window.location.href = "chataction://selectText"
-      },
-      image:{
-        isPreview:false,
-        preview:(element)=>{
-          console.log(element)
-          window.location.href = "chataction://copyimage="+encodeURIComponent(element.src)
-        }
-      },
-      toolbar:[],
-      mode: "wysiwyg",
-      i18n:{
+let i18n = {
         'alignCenter': '居中',
         'alignLeft': '居左',
         'alignRight': '居右',
@@ -244,31 +185,75 @@ document.addEventListener('DOMContentLoaded', function () {
         'uploadError': '上传错误',
         'uploading': '上传中...',
         'wysiwyg': '所见即所得',
-      },
-      customRenders:[
-{
-    renderHeading: (node, entering) => {
-      const id = Lute.GetHeadingID(node)
-      if (entering) {
-        return [
-          `<h${node.__internal_object__.HeadingLevel} id='${id}' class='heading'><span class='heading__prefix'></span><span class='heading__content'>`,
-          Lute.WalkContinue]
-      } else {
-        return [
-          `</span><span class='heading__suffix'></span><a id='vditorAnchor-${id}' class='vditor-anchor' href='#${id}'><svg viewBox='0 0 16 16' version='1.1' width='16' height='16'><path fill-rule='evenodd' d='M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z'></path></svg></a></h${node.__internal_object__.HeadingLevel}>`,
-          Lute.WalkContinue]
       }
-    },
-  }
-      ],
+let option = {
+      theme:theme,
+      math:{
+        engine:"MathJax",
+        mathJaxOptions:{
+          tex: {
+              inlineMath: [ ['$','$'], ["\\(","\\)"] ]
+          }
+        },
+        inlineDigit: true
+      },
+      cdn:"https://vip.123pan.cn/1836303614/dl/cdn/vditor",
+      after: notifyRefreshHeight,
+      i18n:i18n
+    }
+const logElement = document.getElementById('funcResponse')
+let tem = document.getElementById('vditor')
+document.addEventListener('DOMContentLoaded', function () {
+    Vditor.preview(tem,preContent,option)
+    notyf = new Notyf({position: {x: 'center', y: 'top'}, duration: 1000,ripple:false});
+})
+
+    function openEdit(allowEdit) {
+      if (!preContent) {
+        return
+      }
+      editor = new Vditor('vditor', {
+      cache: {
+        enable: false,
+      },
+      theme:theme,
+      preview:{
+        math:{
+          engine:"MathJax",
+          mathJaxOptions:{
+            tex: {
+                inlineMath: [ ['$','$'], ["\\(","\\)"] ]
+            }
+          },
+          inlineDigit: true
+        },
+        markdown:{
+          html:true,
+          mark:true
+        }
+      },
+      select:(text)=>{
+        // 显示一条消息
+        // notyf.success("Select text: "+text.slice(0,10)+"...")
+        window.location.href = "chataction://selectText"
+      },
+      image:{
+        isPreview:false,
+        preview:(element)=>{
+          console.log(element)
+          window.location.href = "chataction://copyimage="+encodeURIComponent(element.src)
+        }
+      },
+      toolbar:[],
+      mode: "wysiwyg",
+      i18n:i18n,
       value: preContent,
+      cdn:"https://vip.123pan.cn/1836303614/dl/cdn/vditor",
       after:()=>{
         // editor.setValue(preContent,true)
         if (!allowEdit) {
           editor.disabled()
         }
-
-
         setTimeout(() => {
           notifyRefreshHeight()
         }, 0);

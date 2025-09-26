@@ -29,6 +29,19 @@ editNote工具支持传入指定noteId，可以实现同时编辑多个卡片
 聊天模式的图片默认使用jpeg格式
 修复通过toolbar调用的回答一直提示的问题
 
+尝试改进公式渲染问题
+修复模型刷新失败可能导致的一些问题
+改进dynamic关闭情况下的一些bug
+改进自动视觉模式的逻辑，并提高性能
+改进输入窗口高度的自动变化
+修复文档上选中文字后小机器人窗口消失的问题
+
+支持创建带有答案的问题卡片
+尝试通过优化cdn改进白屏问题
+更新视觉模式配置
+优化报错
+改进了未选中文本下点击复制按钮的行为
+
 killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app"
 
 pgrep -x "MarginNote 4" > /dev/null && (killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app") || open "/Applications/MarginNote 4.app"

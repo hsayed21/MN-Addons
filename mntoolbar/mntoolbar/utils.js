@@ -304,6 +304,9 @@ class toolbarUtils {
     if (actionName) {
       
     switch (actionName) {
+      // case "showUtils":
+      //   menuItems = ["target"]
+      //   break;
       case "loadImageToExcalidraw":
         menuItems = ["method","source"]
         break;
@@ -1797,12 +1800,13 @@ try {
   static getMergedText(note,des,noteIndex){
   try {
     let textList = []
+    // MNUtil.log("1")
     des.source.map(text=>{
       if (text.includes("{{note.title}}") && des.removeSource) {
-        if (note.noteId in toolbarUtils.commentToRemove) {
-          toolbarUtils.commentToRemove[note.noteId].push(-1)
+        if (note.noteId in this.commentToRemove) {
+          this.commentToRemove[note.noteId].push(-1)
         }else{
-          toolbarUtils.commentToRemove[note.noteId] = [-1]
+          this.commentToRemove[note.noteId] = [-1]
         }
       }
       if (text.includes("{{tags}}")) {
@@ -1881,10 +1885,14 @@ try {
         })
         return
       }
+      // MNUtil.log("replaceNoteIndex")
       let tem = this.replaceNoteIndex(text, noteIndex, des)
+      // MNUtil.log("detectAndReplace")
       tem = this.detectAndReplace(tem,undefined,note)
+      // MNUtil.log("push")
       textList.push(tem) 
     })
+    // MNUtil.log("2")
     if (des.format) {
       textList = textList.map((text,index)=>{
         let tem = des.format.replace("{{element}}",text)
@@ -1893,12 +1901,14 @@ try {
         return tem
       })
     }
+    // MNUtil.log("3")
     let join = des.join ?? ""
     let mergedText = textList.join(join)
     if (des.replace) {
       let ptt = new RegExp(des.replace[0], "g")
       mergedText = mergedText.replace(ptt,des.replace[1])
     }
+    // MNUtil.log("4")
     mergedText = this.detectAndReplace(mergedText,undefined,note)
     return mergedText
   } catch (error) {
@@ -2073,7 +2083,7 @@ try {
   }
 
   static detectAndReplace(text,element=undefined,note = MNNote.getFocusNote()) {
-    // let vars = this.parseVars(text)
+  try {
     let noteConfig = this.getNoteObjectSync(note,{},{parent:true,child:true,parentLevel:3})
     // MNUtil.copy(noteConfig)
     let config = {date:this.getDateObject()}
@@ -2087,11 +2097,13 @@ try {
     if (element !== undefined) {
       config.element = element
     }
+
     let hasClipboardText = text.includes("{{clipboardText}}")
     let hasSelectionText = text.includes("{{selectionText}}")
     let hasCurrentDocName = text.includes("{{currentDocName}}")
     let hasCurrentDocAttach = text.includes("{{currentDocAttach}}")
     let hasChatAIOutput = text.includes("{{chatAIOutput}}")
+
     if (hasClipboardText) {
       config.clipboardText = MNUtil.clipboardText
     }
@@ -2105,9 +2117,11 @@ try {
       config.isSelectionImage = false
       config.isSelectionText = false
     }
+
     if (hasCurrentDocName) {
       config.currentDocName = MNUtil.getFileName(MNUtil.currentDocController.document.pathFile)
     }
+
     if (hasCurrentDocAttach && editorUtils) {
       config.currentDocAttach = editorUtils.getAttachContentByMD5(MNUtil.currentDocmd5)
     }
@@ -2119,6 +2133,11 @@ try {
     }
     let output = MNUtil.render(text, config)
     return output
+    
+  } catch (error) {
+    this.addErrorLog(error, "detectAndReplace")
+    return ""
+  }
   }
   /**
    * 递归解析列表项及其子列表
@@ -4530,6 +4549,10 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
       })
     })
   }
+  static showUtils(des){
+    subscriptionUtils.subscriptionController.show()
+    // MNUtil.showHUD("showUtils")
+  }
   static openInEditor(des,button,controller){
     try {
     let noteId = toolbarUtils.currentNoteId
@@ -4554,23 +4577,27 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
       let endFrame = Frame.gen(beginFrame.x-225, beginFrame.y-50, 450, 500)
       endFrame.y = toolbarUtils.constrain(endFrame.y, 0, studyFrame.height-500)
       endFrame.x = toolbarUtils.constrain(endFrame.x, 0, studyFrame.width-500)
+      // toolbarUtils.log("openInEditor1", {noteId:noteId,beginFrame:beginFrame,endFrame:endFrame})
       MNUtil.postNotification("openInEditor",{noteId:noteId,beginFrame:beginFrame,endFrame:endFrame})
       return
     }
     if (followButton && button) {
-      let beginFrame = button.frame
+      let beginFrame = button.convertRectToView(button.bounds,MNUtil.studyView)
+      // let beginFrame = button.frame
       beginFrame.y = beginFrame.y-10
       if (beginFrame.x+490 > studyFrame.width) {
         let endFrame = Frame.gen(beginFrame.x-450, beginFrame.y-10, 450, 500)
         if (beginFrame.y+490 > studyFrame.height) {
           endFrame.y = studyFrame.height-500
         }
+      // toolbarUtils.log("openInEditor2", {noteId:noteId,beginFrame:beginFrame,endFrame:endFrame})
         MNUtil.postNotification("openInEditor",{noteId:noteId,beginFrame:beginFrame,endFrame:endFrame})
       }else{
         let endFrame = Frame.gen(beginFrame.x+40, beginFrame.y-10, 450, 500)
         if (beginFrame.y+490 > studyFrame.height) {
           endFrame.y = studyFrame.height-500
         }
+      // toolbarUtils.log("openInEditor3", {noteId:noteId,beginFrame:beginFrame,endFrame:endFrame})
         MNUtil.postNotification("openInEditor",{noteId:noteId,beginFrame:beginFrame,endFrame:endFrame})
       }
       if (controller) {
@@ -5497,9 +5524,9 @@ static getButtonFrame(button){
       path:doc.fullPathFileName,
       md5:doc.docMd5,
     }
-    let PDFExtractMode = chatAIConfig.getConfig("PDFExtractMode")
-    if (opt.withContent) {
-      toolbarUtils.log("getDocObject withContent", tem)
+    if (typeof chatAIConfig !== "undefined" && opt.withContent) {
+      let PDFExtractMode = chatAIConfig.getConfig("PDFExtractMode")
+      // toolbarUtils.log("getDocObject withContent", tem)
       let fileInfo = await chatAIConfig.getFileContent(tem,PDFExtractMode === "local")
       // MNUtil.log(typeof fileInfo)
       docConfig.content = fileInfo.content
@@ -5865,6 +5892,10 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
     toolbarUtils.log(des.action)
     // MNUtil.log(des.action)
     switch (des.action) {
+      case "showUtils":
+        this.showUtils(des)
+        await MNUtil.delay(0.1)
+        break;
       case "loadImageToExcalidraw":
         this.loadImageToExcalidraw(des)
         await MNUtil.delay(0.1)

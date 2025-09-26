@@ -98,7 +98,7 @@ JSB.newAddon = function (mainPath) {
           }
           // //每次打开学习集都自动刷新一次模型
           let today = chatAIUtils.getToday()
-          if (!chatAIConfig.modelConfig.refreshDay || today !== chatAIConfig.modelConfig.refreshDay) {
+          if (!chatAIConfig?.modelConfig?.refreshDay || today !== chatAIConfig?.modelConfig?.refreshDay) {
             chatAINetwork.fetchModelConfig().then((res)=>{
               if (res && "Github" in res){
                 res.refreshDay = today
@@ -198,6 +198,7 @@ JSB.newAddon = function (mainPath) {
         if (!chatAIUtils.checkSender(sender, self.window)) return; // Don't process message from other window
         chatAIUtils.currentSelectionText = sender.userInfo.documentController.selectionText;
         chatAIUtils.blur()
+        chatAIUtils.onPopupMenuOnSelectionTime = Date.now()
 
         // if (chatAIUtils.dynamicController) {
         //   // chatAIUtils.dynamicController.promptInput.endEditing(true)
@@ -205,7 +206,6 @@ JSB.newAddon = function (mainPath) {
         // }
         self.dateGetText = Date.now();
         self.textProcessed = false
-        self.onPopupMenuOnSelectionTime = Date.now()
         let studyFrame = MNUtil.studyView.frame
         let winFrame = MNUtil.parseWinRect(sender.userInfo.winRect)
         let xOffset = sender.userInfo.arrow===1 ? 20: -80
@@ -229,6 +229,9 @@ JSB.newAddon = function (mainPath) {
         }
         chatAIUtils.notifyController.notShow = false
         chatAIUtils.currentNoteId = undefined
+        if (!chatAIUtils.dynamicController.view.hidden && !chatAIUtils.dynamicController.miniMode()) {
+          chatAIUtils.dynamicController.refreshVisionAndOCR()
+        }
         if (!self.checkShouldProceed(chatAIUtils.currentSelectionText,-1,"onSelection")) {
           // MNUtil.showHUD("should prevent")
           return
@@ -247,7 +250,9 @@ JSB.newAddon = function (mainPath) {
         if (!MNUtil.checkSender(sender,self.window)) return;// Don't process message from other window
         chatAIUtils.onClosePopupMenuOnSelectionTime = Date.now()
         await MNUtil.delay(0.1)
-        if (!chatAIUtils.dynamicController.view.hidden && (chatAIUtils.onClosePopupMenuOnSelectionTime>chatAIUtils.onPopupMenuOnSelectionTime+300) && (chatAIUtils.onClosePopupMenuOnSelectionTime>chatAIUtils.onPopupMenuOnNoteTime+300) && !chatAIUtils.dynamicController.onClick) {
+        let popupTime = Math.max(chatAIUtils.onPopupMenuOnSelectionTime,chatAIUtils.onPopupMenuOnNoteTime)
+        // chatAIUtils.log("popupTime",{popupTime:popupTime,onClosePopupMenuOnSelectionTime:chatAIUtils.onClosePopupMenuOnSelectionTime,onPopupMenuOnSelectionTime:chatAIUtils.onPopupMenuOnSelectionTime,onPopupMenuOnNoteTime:chatAIUtils.onPopupMenuOnNoteTime})
+        if (!chatAIUtils.dynamicController.view.hidden && (chatAIUtils.onClosePopupMenuOnSelectionTime>popupTime+300) && !chatAIUtils.dynamicController.onClick) {
           MNUtil.animate(()=>{
             chatAIUils.dynamicController.view.layer.opacity = 0
           },0.1).then(()=>{
@@ -372,6 +377,10 @@ JSB.newAddon = function (mainPath) {
 
         chatAIUtils.notifyController.notShow = false
         chatAIUtils.currentNoteId = currentNoteId
+
+        if (!chatAIUtils.dynamicController.view.hidden && !chatAIUtils.dynamicController.miniMode()) {
+          chatAIUtils.dynamicController.refreshVisionAndOCR()
+        }
         // showHUD(currentNoteId)
 
         let text = await chatAIUtils.getTextForSearch(note)
@@ -1151,7 +1160,9 @@ ${knowledge}
       chatAIUtils.dynamicController.view.hidden  = true
     }
     if (!chatAIConfig.config.dynamic) {
-      chatAIUtils.dynamicController.view.hidden = true
+      if (chatAIUtils.dynamicController.miniMode()) {
+        chatAIUtils.dynamicController.view.hidden = true
+      }
       return
     }
 

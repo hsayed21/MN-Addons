@@ -368,6 +368,7 @@ onClosePopupMenuOnNote: function (params) {
               if (endFrame.y<0) {
                 endFrame.y = 0
               }
+              // editorUtils.log("beginFrame", {beginFrame:sender.userInfo.beginFrame,endFrame:endFrame})
               self.addonController.show(sender.userInfo.beginFrame,endFrame)
             }else{
               self.addonController.show(sender.userInfo.beginFrame)
@@ -466,11 +467,11 @@ onClosePopupMenuOnNote: function (params) {
           if (MNUtil.studyMode === 3) {
             return
           }
-          let textView = param.object
-          editorUtils.textView = textView
           if (!editorConfig.getConfig("showOnNoteEdit")) {
             return
           }
+          let textView = param.object
+          editorUtils.textView = textView
           let mindmapView = editorUtils.getMindmapview(textView)
           if (editorUtils.checkExtendView(textView)) {
             if (textView.text && textView.text.trim()) {
@@ -486,11 +487,15 @@ onClosePopupMenuOnNote: function (params) {
             // MNUtil.showHUD("message")
             return
           }
-          if (mindmapView) {
+          if (mindmapView && mindmapView.selViewLst.length) {
             let noteView = mindmapView.selViewLst[0].view
+            let beginFrame = noteView.convertRectToView(noteView.bounds, MNUtil.studyView)
+            let textFrame = textView.convertRectToView(textView.bounds, MNUtil.studyView)
+            if (textFrame.x > beginFrame.x + beginFrame.width) {
+              return
+            }
             // let foucsNote = MNNote.getFocusNote()
             let foucsNote = MNNote.new(mindmapView.selViewLst[0].note.note)
-            let beginFrame = noteView.convertRectToView(noteView.bounds, MNUtil.studyView)
             if (!foucsNote.noteTitle && !foucsNote.excerptText && !foucsNote.comments.length) {
               // MNUtil.copyJSON(param.object)
               param.object.text = "placeholder"
@@ -544,11 +549,19 @@ onClosePopupMenuOnNote: function (params) {
             // Application.sharedInstance().showHUD("first",self.window,2)
 
             let buttonFrame = self.addonBar.frame
-            let width = MNUtil.app.osType !== 1 ? 450 : 365
-            if (buttonFrame.x === 0) {
-              self.addonController.setFrame(40,buttonFrame.y,width,500)
+            let size = editorConfig.getConfig("size")
+            let width = editorUtils.isIOS() ? 365 : size.width
+            // width = MNUtil.constrain(width, 365, MNUtil.studyWidth)
+            let height = size.height
+            let studyWidth = MNUtil.studyWidth
+            if (width > studyWidth) {
+              self.addonController.setFrame(0,buttonFrame.y,studyWidth,height)
             }else{
-              self.addonController.setFrame(buttonFrame.x-width,buttonFrame.y,width,500)
+              if (buttonFrame.x < 100) {
+                self.addonController.setFrame(40,buttonFrame.y,width,height)
+              }else{
+                self.addonController.setFrame(buttonFrame.x-width,buttonFrame.y,width,height)
+              }
             }
             self.isFirst = false;
           }

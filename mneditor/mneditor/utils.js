@@ -64,6 +64,12 @@ class editorUtils {
   static shouldAsImageExcerpt(note,content){
     if (note.excerptPic && !note.textFirst) {
       if (note.excerptPic.paint) {
+        if (MNUtil.isBlankNote(note)) {//不是真正的图片摘录
+          return {
+            shouldAsImageExcerpt:false,
+            content:content
+          }
+        }
         let hash = note.excerptPic.paint
         let imageURL = this.getMNImageURL(hash)
         let imageURL2 = `![image.png](${imageURL})`
@@ -80,17 +86,26 @@ class editorUtils {
         content:content
       }
     }
+    return {
+      shouldAsImageExcerpt:false,
+      content:content
+    }
   }
-  static parseContent(content){
+  static getNoteURLById(noteId){
+    if (MNUtil.isMN3()) {
+      return "marginnote3app://note/"+noteId
+    }else{
+      return "marginnote4app://note/"+noteId
+    }
+  }
+  static parseContent(content,withTitleLink = true){
     let hasTitle = /^#/.test(content)
     if (hasTitle) {
       let newTitle = content.split("\n")[0].replace(/^#\s?/g,"")
       let contentRemain = content.split("\n").slice(1).join("\n").trim()
       let headingNames = this.headingNamesFromMarkdown(contentRemain)//解析标题链接
-      if (headingNames.length) {
+      if (withTitleLink && headingNames.length) {
         newTitle = newTitle+";"+headingNames.map(h=>"{{"+h+"}}").join(";")
-      }else{
-        newTitle = newTitle
       }
       return {
         hasTitle:true,
@@ -1054,6 +1069,334 @@ try {
   return
  }
   }
+static getSubFuncScript(){
+
+return `/**
+ * 根据指定的 scheme、host、path、query 和 fragment 生成一个完整的 URL Scheme 字符串。
+ * URL Scheme 完整格式：scheme://host/path?query#fragment
+ *
+ * @param {string} scheme - URL scheme，例如 'myapp'。必须提供。
+ * @param {string|undefined} [host] - host 部分，例如 'user_profile'。
+ * @param {string|string[]|undefined} [path] - path 部分，例如 'view/123'。
+ * @param {Object<string, string|number|boolean|object>|undefined} [query] - 查询参数对象。
+ * @param {string|undefined} [fragment] - fragment 标识符，即 URL 中 # 后面的部分。
+ * @returns {string} - 生成的完整 URL 字符串。
+ */
+function generateUrlScheme(scheme, host, path, query, fragment) {
+  // 1. 处理必须的 scheme
+  if (!scheme) {
+    console.error("Scheme is a required parameter.");
+    return '';
+  }
+  // 2. 构建基础部分：scheme 和 host
+  //    即使 host 为空，也会生成 'scheme://'，这对于 'file:///' 这类 scheme 是正确的
+  let url = \`\${scheme}://\${host || ''}\`;
+
+  // 3. 添加 path
+  if (path) {
+    if (Array.isArray(path)) {
+      let pathStr = path.join('/')
+      url += \`/\${pathStr.replace(/^\\\/+/, '')}\`;
+    }else{
+      // 确保 host 和 path 之间只有一个斜杠，并处理 path 开头可能存在的斜杠
+      url += \`/\${path.replace(/^\\\/+/, '')}\`;
+    }
+  }
+
+  // 4. 添加 query 参数
+  if (query && Object.keys(query).length > 0) {
+    const queryParts = [];
+    for (const key in query) {
+      // 确保我们只处理对象自身的属性
+      if (Object.prototype.hasOwnProperty.call(query, key)) {
+        const value = query[key];
+        const encodedKey = encodeURIComponent(key);
+        // 对值进行编码，如果是对象，则先序列化为 JSON 字符串
+        const encodedValue = encodeURIComponent(
+          typeof value === "object" && value !== null ? JSON.stringify(value) : value
+        );
+        queryParts.push(\`\${encodedKey}=\${encodedValue}\`);
+      }
+    }
+    if (queryParts.length > 0) {
+      url += \`?\${queryParts.join('&')}\`;
+    }
+  }
+
+  // 5. 添加 fragment
+  if (fragment) {
+    // Fragment 部分不应该被编码
+    url += \`#\${fragment}\`;
+  }
+
+  return url;
+}
+    /**
+     *
+     * @param {string} scheme - URL scheme, 例如 'myapp'。
+     * @param {string} [host] - 可选的路径或操作名。
+     * @param {Object<string, string|number|boolean>} [params] - 查询参数对象。
+     */
+    function postMessageToAddon(scheme, host, path, params,fragment) {
+      let url = generateUrlScheme(scheme,host,path, params,fragment)
+      window.location.href = url
+    }
+/**
+ * 将 PNG 或 JPEG 的 Base64 字符串异步转换为 PDF 的 Base64 字符串。
+ * @param {string} pngBase64 - 图片的 Base64 字符串 (可以包含 "data:image/..." 前缀，也可以不包含)。
+ * @param {boolean} [fitContent=false] - 是否让 PDF 页面大小与图片大小完全一致。true 表示是，false 表示将图片适应到 A4 页面。
+ * @returns {Promise<string>} - 一个解析为 PDF Base64 字符串的 Promise。
+ */
+async function convertPngBase64ToPdfBase64(imageBase64, fitContent = false) {
+    // 确保 window.jspdf.jsPDF 存在
+    if (typeof window === 'undefined' || !window.jspdf || !window.jspdf.jsPDF) {
+        return Promise.reject(new Error("jsPDF 库未加载。请确保在使用此函数前已引入 jsPDF。"));
+    }
+    const { jsPDF } = window.jspdf;
+
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        let imgData = imageBase64;
+        const isPng = imageBase64.startsWith('data:image/png;base64,') || (!imageBase64.startsWith('data:') && imageBase64.length % 4 === 0); // A simple check
+        const isJpeg = imageBase64.startsWith('data:image/jpeg;base64,');
+
+        // 如果没有数据URI前缀，则根据推断或默认添加一个
+        if (!imgData.startsWith('data:image/')) {
+            imgData = 'data:image/png;base64,' + imageBase64;
+        }
+
+        img.src = imgData;
+
+        img.onload = function() {
+            try {
+                const imgWidth = this.width;
+                const imgHeight = this.height;
+                let pdf;
+
+                // 根据 fitContent 参数决定 PDF 的创建方式
+                if (fitContent) {
+                    // 模式1: PDF 页面大小 = 图片大小
+                    // 使用图片的宽高直接作为PDF的页面尺寸，单位为 'pt' (1 pt = 1/72 inch)
+                    pdf = new jsPDF({
+                        orientation: imgWidth > imgHeight ? 'l' : 'p', // 根据宽高比设置方向
+                        unit: 'pt',
+                        format: [imgWidth, imgHeight]
+                    });
+                    // 将图片添加到 (0, 0) 位置，大小与图片原始尺寸一致
+                    pdf.addImage(imgData, isJpeg ? 'JPEG' : 'PNG', 0, 0, imgWidth, imgHeight);
+
+                } else {
+                    // 模式2: 将图片适应到 A4 页面 (原始逻辑)
+                    pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+                    const a4Width = 595.28, a4Height = 841.89;
+                    const margin = 20; // 边距
+
+                    // 计算缩放后的图片尺寸以适应A4页面并保留宽高比
+                    let pdfImgWidth = imgWidth;
+                    let pdfImgHeight = imgHeight;
+                    const maxWidth = a4Width - margin * 2;
+                    const maxHeight = a4Height - margin * 2;
+
+                    if (pdfImgWidth > maxWidth) {
+                        pdfImgWidth = maxWidth;
+                        pdfImgHeight = (imgHeight / imgWidth) * pdfImgWidth;
+                    }
+                    if (pdfImgHeight > maxHeight) {
+                        pdfImgHeight = maxHeight;
+                        pdfImgWidth = (imgWidth / imgHeight) * pdfImgHeight;
+                    }
+
+                    // 计算居中位置
+                    const x = (a4Width - pdfImgWidth) / 2;
+                    const y = (a4Height - pdfImgHeight) / 2;
+
+                    pdf.addImage(imgData, isJpeg ? 'JPEG' : 'PNG', x, y, pdfImgWidth, pdfImgHeight);
+                }
+
+                // 生成 PDF 的 Base64
+                const pdfDataUri = pdf.output('datauristring');
+                const pdfBase64 = pdfDataUri.split(',')[1];
+                resolve(pdfBase64);
+
+            } catch (error) {
+                reject(error);
+            }
+        };
+
+        img.onerror = (err) => {
+            reject(new Error("无法加载Base64图片，请检查格式是否正确。"));
+        };
+    });
+}
+ 
+           // 动态加载html2canvas脚本的函数
+        function loadHtml2CanvasScript( callback) {
+            let url = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = url;
+
+            // 监听脚本加载完成事件 (现代浏览器)
+            script.onload = () => {
+                console.log(url + ' 加载成功');
+                if (callback) {
+                    callback();
+                }
+            };
+
+            // 兼容旧版 IE
+            script.onreadystatechange = () => {
+                if (script.readyState === 'loaded' || script.readyState === 'complete') {
+                    script.onreadystatechange = null; // 避免重复执行
+                    console.log(url + ' 加载成功 (IE)');
+                    if (callback) {
+                        callback();
+                    }
+                }
+            };
+
+            // 监听脚本加载失败事件
+            script.onerror = () => {
+                window.location.href = 'browser://showhud?message='+encodeURIComponent('加载失败'+url)
+                console.error(url + ' 加载失败');
+            };
+
+            document.head.appendChild(script); // 或者 document.body.appendChild(script);
+        }
+           // 动态加载jspdf脚本的函数
+        function loadJSPDFScript( callback) {
+            let url = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = url;
+
+            // 监听脚本加载完成事件 (现代浏览器)
+            script.onload = () => {
+                console.log(url + ' 加载成功');
+                if (callback) {
+                    callback();
+                }
+            };
+
+            // 兼容旧版 IE
+            script.onreadystatechange = () => {
+                if (script.readyState === 'loaded' || script.readyState === 'complete') {
+                    script.onreadystatechange = null; // 避免重复执行
+                    console.log(url + ' 加载成功 (IE)');
+                    if (callback) {
+                        callback();
+                    }
+                }
+            };
+
+            // 监听脚本加载失败事件
+            script.onerror = () => {
+                window.location.href = 'browser://showhud?message='+encodeURIComponent('加载失败'+url)
+                console.error(url + ' 加载失败');
+            };
+
+            document.head.appendChild(script); // 或者 document.body.appendChild(script);
+        }
+/**
+ * 计算页面的最大缩放比例。
+ * @returns {number} - 计算出的最大安全scale值.
+ */
+function calculateMaxScale() {
+    // 1. 定义一个在所有主流浏览器中都相对安全的最大画布面积常量。
+    // 16,777,216 是 4096 * 4096，这是iOS Safari的一个常见限制，非常安全。
+    const SAFE_MAX_CANVAS_AREA = 16777216;
+
+    const originalWidth = document.documentElement.scrollWidth;
+    const originalHeight = document.documentElement.scrollHeight;
+    const originalArea = originalWidth * originalHeight;
+
+    // 3. 计算最大缩放比例
+    // scale^2 * originalArea <= SAFE_MAX_CANVAS_AREA
+    // scale <= sqrt(SAFE_MAX_CANVAS_AREA / originalArea)
+    const maxScale = Math.sqrt(SAFE_MAX_CANVAS_AREA / originalArea);
+
+    // 返回一个稍微向下取整的值以增加保险系数，比如保留两位小数
+    return Math.floor(maxScale * 100) / 100;
+}
+        // 截图函数
+        async function screenshotToPNGBase64(scale = 4) {
+            // 检查 html2canvas 是否已加载
+            if (typeof html2canvas === 'undefined') {
+                window.location.href = 'browser://showhud?message='+encodeURIComponent('html2canvas库加载失败')
+                return;
+            }
+
+            console.log('开始截图...');
+            const maxScale = calculateMaxScale();
+            console.log('最大缩放比例:', maxScale);
+            if (scale > maxScale) {
+              scale = maxScale
+            }
+
+            // 使用 html2canvas 截取整个 body
+            // 你可以根据需要调整截图的配置参数
+            let canvas = await html2canvas(document.body, {
+                scale: scale,
+                allowTaint: true, // 允许跨域图片，但可能会污染 canvas
+                useCORS: true,    // 尝试使用 CORS 加载图片，避免污染
+                scrollY: -window.scrollY, // 确保从页面顶部开始截图
+                windowWidth: document.documentElement.scrollWidth, // 使用完整的文档宽度
+                windowHeight: document.documentElement.scrollHeight // 使用完整的文档高度
+            })
+            const image = canvas.toDataURL('image/jpeg',0.8); // 压缩图片大小
+            return image
+        }
+        // 截图函数
+        async function captureScreenshot() {
+            let image = await screenshotToPNGBase64()
+            window.location.href = 'browser://copyimage?image='+image
+        }
+        
+        `
+
+}
+
+  static dataFromBase64(base64,type = undefined){
+    if (type) {
+      switch (type) {
+        case "pdf":
+          if (base64.startsWith("data:application/pdf;base64,")) {
+            let pdfData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(base64))
+            return pdfData
+          }else{
+            let pdfData = NSData.dataWithContentsOfURL(MNUtil.genNSURL("data:application/pdf;base64,"+base64))
+            return pdfData
+          }
+        default:
+          break;
+      }
+    }
+    return NSData.dataWithContentsOfURL(MNUtil.genNSURL(base64))
+  }
+  /**
+   * 该方法会弹出文件选择窗口以选择要导入的文档
+   * @returns {string} 返回文件md5
+   */
+  static importPDFFromData(pdfData,option = {}){
+  try {
+    if ("filePath" in option) {
+      pdfData.writeToFileAtomically(option.filePath, false)
+      let md5 = MNUtil.importDocument(option.filePath)
+      return md5
+    }
+    let fileName = option.fileName || ("imported_"+Date.now()+".pdf")
+    let folder = option.folder || MNUtil.tempFolder
+    let filePath = folder + fileName
+    MNUtil.log(filePath)
+    pdfData.writeToFileAtomically(filePath, false)
+    let md5 = MNUtil.importDocument(filePath)
+    return md5
+    
+  } catch (error) {
+    this.addErrorLog(error, "importPDFFromBase64")
+    return undefined
+  }
+  }
 }
 class editorConfig{
   static defaultConfig = {
@@ -1065,7 +1408,8 @@ class editorConfig{
     toolbar:true,
     showOnPopupEdit:false,
     showOnNoteEdit:false,
-    mode:"wysiwyg"//ir
+    mode:"wysiwyg",
+    size:{width:450,height:500}
   }
   static init(){
     this.config = this.getByDefault('MNEditor_config', this.defaultConfig)
@@ -1120,7 +1464,7 @@ class editorConfig{
   static remove(key){
     NSUserDefaults.standardUserDefaults().removeObjectForKey(key)
   }
-  static save(key){
+  static save(key = "MNEditor_config",synchronize = true){
         // MNUtil.showHUD("save "+key)
     switch (key) {
       case "MNEditor_config":
@@ -1129,6 +1473,8 @@ class editorConfig{
       default:
         break;
     }
-  NSUserDefaults.standardUserDefaults().synchronize()
+    if (synchronize) {
+      NSUserDefaults.standardUserDefaults().synchronize()
+    }
   }
 }

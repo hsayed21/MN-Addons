@@ -243,7 +243,7 @@ class chatAITool{
       })
       break;
     case "addComment":
-      response.result = chatAITool.formatMarkdownList(args.comment)
+      response.result = chatAITool.formatMarkdown(args.comment)
       message.response = "Comment is added: "+response.result
       response.toolMessages = chatAITool.genToolMessage(message,func.id)
       MNUtil.undoGrouping(()=>{
@@ -291,7 +291,7 @@ class chatAITool{
       MNUtil.copy(response.result)
       break;
     case "copyText":
-      response.result = chatAITool.formatMarkdownList(args.text)
+      response.result = chatAITool.formatMarkdown(args.text)
       message.response = "Text is copied: "+response.result
       response.toolMessages = chatAITool.genToolMessage(message,func.id)
       MNUtil.copy(response.result)
@@ -467,7 +467,7 @@ class chatAITool{
     case "setExcerpt":
       // note = MNUtil.getNoteById(noteid)
       // response.result = args.excerpt.replace(/&nbsp;/g, ' ')
-      response.result = chatAITool.formatMarkdownList(args.excerpt)
+      response.result = chatAITool.formatMarkdown(args.excerpt)
       note = note.realGroupNoteForTopicId()
       MNUtil.undoGrouping(()=>{
         note.excerptText = response.result
@@ -490,7 +490,7 @@ class chatAITool{
       let content = args.content
       // MNUtil.log({message:"addChildNoteBefore",detail:content})
       if (content) {
-        config.content = chatAITool.formatMarkdownList(content)
+        config.content = chatAITool.formatMarkdown(content)
       }
       // MNUtil.log({message:"addChildNoteAfter",detail:config.content})
       let htmlContent = args.html
@@ -1328,7 +1328,8 @@ class chatAITool{
       let content = args.content
       // MNUtil.log({message:"addChildNoteBefore",detail:content})
       if (content) {
-        config.content = chatAITool.formatMarkdownList(content)
+        content = chatAITool.formatMarkdown(content)
+        config.content = content
       }
       // MNUtil.log({message:"addChildNoteAfter",detail:config.content})
       let htmlContent = args.html
@@ -1420,7 +1421,9 @@ class chatAITool{
           message.response = `Color has been changed to "${args.color}"`
           break;
         case "replaceContent":
+          // chatAIUtils.log("before", {excerptText:note.excerptText,originalContent:args.originalContent,content:args.content})
           let targetString = chatAIUtils.safeReplaceAll(note.excerptText,args.originalContent,args.content)
+          // chatAIUtils.log("after", {targetString:targetString})
           MNUtil.undoGrouping(()=>{
             note.excerptText = targetString
             if ("markdown" in args) {
@@ -1486,7 +1489,8 @@ class chatAITool{
           break;
         case "setContent":
           MNUtil.undoGrouping(()=>{
-            note.excerptText = chatAITool.formatMarkdownList(args.content)
+            let content = chatAITool.formatMarkdown(args.content)
+            note.excerptText = content
             if ("markdown" in args) {
               note.excerptTextMarkdown = args.markdown
             }
@@ -1497,7 +1501,7 @@ class chatAITool{
         case "appendContent":
           targetContent = note.excerptText+"\n"+args.content
           MNUtil.undoGrouping(()=>{
-            note.excerptText = chatAITool.formatMarkdownList(targetContent)
+            note.excerptText = chatAITool.formatMarkdown(targetContent)
             if ("markdown" in args) {
               note.excerptTextMarkdown = args.markdown
             }
@@ -1508,7 +1512,7 @@ class chatAITool{
         case "prependContent":
           targetContent = args.content.trim()+"\n"+note.excerptText
           MNUtil.undoGrouping(()=>{
-            note.excerptText = chatAITool.formatMarkdownList(targetContent)
+            note.excerptText = chatAITool.formatMarkdown(targetContent)
             if ("markdown" in args) {
               note.excerptTextMarkdown = args.markdown
             }
@@ -1525,21 +1529,21 @@ class chatAITool{
           break;
         case "addComment":
           MNUtil.undoGrouping(()=>{
-            note.appendMarkdownComment(chatAITool.formatMarkdownList(args.content))
+            note.appendMarkdownComment(chatAITool.formatMarkdown(args.content))
           })
           message.response = `Add comment with content: "${args.content}"`
           message.success = true
           break;
         case "appendComment":
           MNUtil.undoGrouping(()=>{
-            note.appendMarkdownComment(chatAITool.formatMarkdownList(args.content))
+            note.appendMarkdownComment(chatAITool.formatMarkdown(args.content))
           })
           message.response = `Append comment with content: "${args.content}"`
           message.success = true
           break;
         case "prependComment":
           MNUtil.undoGrouping(()=>{
-            note.appendMarkdownComment(chatAITool.formatMarkdownList(args.content),0)
+            note.appendMarkdownComment(chatAITool.formatMarkdown(args.content),0)
           })
           message.response = `Prepend comment with content: "${args.content}"`
           message.success = true
@@ -1656,13 +1660,94 @@ try {
       if (!str) {
         return "";
       }
+      chatAIUtils.log("before",str)
       // 1. 替换为标准空格
-      // 2. 将多个连续的换行符替换为单个换行符
+      // 2. 将多个连续的换行符替换为双换行符
       // 3. 将其它空白符（除了换行符）替换为单个空格
-      var tempStr = str.replace(/&nbsp;/g, ' ').replace(/\n+/g, '\n\n').replace(/[\r\t\f\v\s]+/g, ' ').trim()
+      var tempStr = str.replace(/&nbsp;/g, ' ').replace(/\r/g, '\n').replace(/\n+/g, '\n\n').trim()
+      chatAIUtils.log("after",tempStr)
       // var tempStr = str.replace(/\n+/g, '\n').replace(/[\r\t\f\v ]+/g, ' ').trim()
       return tempStr;
   }
+/**
+ * 修复 Markdown 文本中的行间公式格式，确保所有 $$...$$ 块独占一行。
+ * - 行间公式（$$...$$）前后会被添加换行符，使其成为单独一行。
+ * - 内联公式（$...$）和其他内容保持不变。
+ * - 智能处理边界情况（文本开头/结尾、已有换行符等），避免多余空行。
+ *
+ * @param {string} markdown - 输入的 Markdown 文本
+ * @return {string} 修复后的 Markdown 文本
+ */
+static fixDisplayMathNewlines(markdown) {
+  return markdown.replace(/\$\$[\s\S]*?\$\$/g, function(match, offset, string) {
+    // 检查匹配块前是否需要换行
+    let prefix = '';
+    if (offset > 0) {
+      const prevChar = string.charAt(offset - 1);
+      if (prevChar !== '\n' && prevChar !== '\r') { // 处理 \n 和 \r\n 场景
+        prefix = '\n';
+      }
+    }
+    
+    // 检查匹配块后是否需要换行
+    const endIdx = offset + match.length;
+    let suffix = '';
+    if (endIdx < string.length) {
+      const nextChar = string.charAt(endIdx);
+      if (nextChar !== '\n' && nextChar !== '\r') { // 处理 \n 和 \r\n 场景
+        suffix = '\n';
+      }
+    }
+    
+    return prefix + match + suffix;
+  });
+}
+
+/**
+ * 修复 Markdown 文本。
+ * @param {string} markdownText - 包含格式问题的 Markdown 文本。
+ * @returns {string} - 格式修正后的 Markdown 文本。
+ */
+static formatMarkdown(markdownText) {
+  // 1. 首先，全局替换所有的 &nbsp; 为标准空格。
+  let correctedText = markdownText
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\frac/g, '\\frac')
+      .replace(/\x08egin/, "\\begin")
+      .replace(/\right/, "\\right")
+      .replace(/\\\[/g, '\n$$$') // Replace display math mode delimiters
+      .replace(/\\\]/g, '$$$\n') // Replace display math mode delimiters
+      .replace(/(\\\(\s?)|(\s?\\\))/g, '$') // Replace inline math mode opening delimiter;
+      .replace(/\r/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')//三个以上换行符替换为两个
+      .trim()
+  correctedText = this.fixDisplayMathNewlines(correctedText)
+  // 2. 将文本按行分割成数组，以便逐行处理。
+  const lines = correctedText.split('\n');
+
+  // 3. 遍历每一行，修正列表项的格式。
+  const formattedLines = lines.map(line => {
+    // 使用正则表达式匹配以可选空格开头，后跟一个短横线 (-) 的行。
+    // \s* : 匹配行首的任意个空格（处理缩进）。
+    // -     : 匹配列表标记符“-”。
+    // \s* : 匹配“-”后面可能存在或缺失的空格。
+    // (.*)  : 捕获该行剩余的全部内容（即列表的文本）。
+    const listRegex = /^\s*-\s*(.*)$/;
+
+    // 如果当前行匹配列表项的格式
+    if (listRegex.test(line)) {
+      // 就将其替换为标准格式：“  - 文本内容”
+      // 这里我们统一使用两个空格作为缩进，并在“-”后加一个空格。
+      return line.replace(listRegex, '  - $1');
+    }
+    
+    // 如果不是列表项，则保持原样。
+    return line;
+  });
+
+  // 4. 将处理好的各行重新用换行符连接成一个完整的字符串。
+  return formattedLines.join('\n');
+}
 
 /**
  * 修复包含非标准空格和格式错误的 Markdown 无序列表。
@@ -1865,7 +1950,6 @@ try {
         }
       }
       return `🔨 readNotes()\n`
-      return `123\n`
     case "webSearch":
       return `🔨 ${funcName}("${args.question}")\n`
     case "readParentNote":
@@ -1972,6 +2056,14 @@ try {
 )`
             }
             return `🔨 editNote.setTitle(${noteIdString}\n)`
+          case "setTitleWithOptions":
+            if (args.titleOptions) {
+              let optionsString = args.titleOptions.map((option,index)=>`  ${index+1}. ${option}`).join("\n")
+              return `🔨 editNote.setTitleWithOptions(${noteIdString}
+${optionsString}
+)`
+            }
+            return `🔨 editNote.setTitleWithOptions(${noteIdString}\n)`
           case "appendTitle":
             if (args.content) {
               return `🔨 editNote.appendTitle(${noteIdString}
@@ -2076,6 +2168,22 @@ try {
         }
       }
       return `🔨 ${funcName}()\n`
+    case "createNote":
+      let noteIdString = args.parentNoteId ? `\n  parent: ${args.parentNoteId}` : ""
+      let titleString = args.title ? `\n  title: ${args.title}` : ""
+      let tagsString = args.tags ? `\n  tags: ${args.tags.join(", ")}` : ""
+      let colorString = args.color ? `\n  color: ${args.color}` : ""
+      if (args.content) {
+        let contentString = args.content ? `\n  content: ${args.content}` : ""
+        return `🔨 ${funcName}(${noteIdString}${titleString}${tagsString}${colorString}${contentString}
+)`
+      }
+      if (args.html) {
+        let htmlString = args.html ? `\n  html: ${args.html}` : ""
+        return `🔨 ${funcName}(${noteIdString}${titleString}${tagsString}${colorString}${htmlString}
+)`
+      }
+      return `🔨 ${funcName}(${noteIdString}${titleString}${tagsString}${colorString})\n`
     case "UnkonwFunc":
       MNUtil.showHUD("Unknown function: "+funcName)
       return `🔨 ${funcName}()\n`
@@ -2429,7 +2537,7 @@ ${args.html}
       "createNote":{
         needNote:false,
         toolTitle: "➕   Create Note",
-        description:"Creates a new note (a 'child note') hierarchically under a specified parent note. If no parent note is specified, it defaults to the currently active note.",
+        description:"Creates a new note (a 'child note') hierarchically under a specified parent note. If no parent note is specified, it defaults to the currently active note. Use this tool only when user ask to create a note.",
         args:{
           title:{
             type:"string",
@@ -2725,8 +2833,10 @@ For example, set parameter \`originalContent\` to "reveals" and parameter \`cont
             description:`content for specific action. 
 Required when use action \`setTitle\`, \`appendTitle\`, \`prependTitle\`, \`setContent\`, \`appendContent\`,\`prependContent\`, \`replaceContent\`, \`appendComment\`, \`prependComment\`, \`addTags\`, \`removeTags\`.
 For actions \`setContent\`, \`appendContent\`, \`replaceContent\` and \`addComment\`, the content uses markdown format, which supports HTML tags like "span", "p", "div", "font", "u", "small", "big", "mark", "sup", "sub", "center" and etc.
-The bold style is supported by using "**".
-In addition, bolded text will be hidden in recall mode (also called 回忆模式 in Chinese) to enable active recall practice through blank-filling.
+IMPORTANT: 
+* All inline formulas must be wrapped with single dollar signs $...$, and all displayed equations must be wrapped with double dollar signs $$...$$.
+* The bold style is supported by using "**".
+* Dolded text will be hidden in recall mode (also called 回忆模式 in Chinese) to enable active recall practice through blank-filling.
 `
           },
           markdown:{
@@ -2764,7 +2874,7 @@ In addition, bolded text will be hidden in recall mode (also called 回忆模式
           }
         },
         required:["action"],
-        description:"this tool is used to edit note"
+        description:"this tool is used to edit note. Use this tool only when user ask to edit note."
       },
       "generateImage":{
         needNote:false,
@@ -4431,20 +4541,70 @@ try {
     }
   }
   /**
+   * Retrieves the image data from the current document controller or other document controllers if the document map split mode is enabled.
    * 
-   * @param {MbBookNote|MNNote|undefined} note 
+   * This method checks for image data in the current document controller's selection. If no image is found, it checks the focused note within the current document controller.
+   * If the document map split mode is enabled, it iterates through all document controllers to find the image data. If a pop-up selection info is available, it also checks the associated document controller.
+   * @param {MbBookNote|MNNote} note 
+   * @param {boolean} [checkTextFirst = false] - Whether to check the text first.
+   * @returns {boolean} The image data if found, otherwise undefined.
    */
-  static hasImageInNote(note){
-    if (!note) {
-      return false
+  static hasImageInNote(note,checkTextFirst = false) {
+    if (note.excerptPic) {
+      let isBlankNote = MNUtil.isBlankNote(note)
+      if (isBlankNote) {//实际为文字留白
+        let text = note.excerptText
+        if (note.excerptTextMarkdown) {
+          if (this.hasMNImages(text.trim())) {
+            return true
+          }
+        }
+      }else{
+        if (checkTextFirst && note.textFirst) {
+          //检查发现图片已经转为文本，因此略过
+        }else{
+          return true
+        }
+      }
+    }else{
+      let text = note.excerptText
+      if (note.excerptTextMarkdown) {
+        if (this.hasMNImages(text.trim())) {
+          return true
+        }else{
+          // MNUtil.log("No images found in excerptTextMarkdown")
+        }
+      }
     }
-    if (note.excerptPic && !note.textFirst) {
-      return true
-    }
-    if (note.comments && note.comments.length) {
-      let comment = note.comments.find(c=>c.type==="PaintNote")
-      if (comment) {
-        return true
+    if (note.comments.length) {
+      for (let i = 0; i < note.comments.length; i++) {
+        const comment = note.comments[i];
+        switch (comment.type) {
+          case "PaintNote":
+            if (comment.paint) {
+              return true
+            }
+            break;
+          case "LinkNote":
+            if (comment.q_hpic && comment.q_hpic.paint) {
+              return true
+            };
+            break;
+          case "TextNote":
+            if (comment.markdown) {
+              if (this.hasMNImages(comment.text)) {
+                return true
+              }
+            }
+            break;
+          default:
+            break;
+        }
+        // if (comment.type === 'PaintNote' && comment.paint) {
+        //   imageDatas.push(MNUtil.getMediaByHash(comment.paint))
+        // }else if (comment.type === "LinkNote" && comment.q_hpic && comment.q_hpic.paint) {
+        //   imageDatas.push(MNUtil.getMediaByHash(comment.q_hpic.paint))
+        // }
       }
     }
     return false
@@ -4779,6 +4939,100 @@ try {
       return info
     } catch (error) {
       chatAIUtils.addErrorLog(error, "getInfoForReference")
+      return undefined
+    }
+  }
+static async getInfoForDynamic() {
+    // chatAIUtils.log("focusHistory",MNUtil.focusHistory)
+    try {
+      let info = {userInput:"",ocr:false,autoImage:false,autoOCR:false}
+      let note = this.currentNote()
+      if (note) {
+        info.userInput = `{{note:${this.currentNoteId}}}`
+        let hasImage = this.hasImageInNote(note,true)
+        chatAIUtils.log("hasImage: "+hasImage)
+        // let imageData = note.imageData
+        if (hasImage) {//检查是否包含图片
+          info.hasImage = true
+          let autoImage = chatAIConfig.getConfig("autoImage")
+          if (autoImage) {
+            let config = chatAIConfig.getDynmaicConfig()
+            //进一步通过视觉模式检查
+            autoImage = chatAIUtils.isVisionModel(config.model)
+            info.autoImage = true
+            info.autoOCR = false
+            return info
+          }
+          //此时autoImage为false
+          let autoOCR = chatAIConfig.getConfig("autoOCR")
+          if (autoOCR) {//如果同时开启了自动图片和自动OCR，则只有当图片存在时才会调用OCR
+            if (autoOCR) {//对图片进行OCR
+              info.autoOCR = true
+              info.autoImage = false
+              info.ocr = true
+              return info
+            }
+          }
+        }
+        return info
+      }
+      let selection = this.currentSelection
+      if (selection.onSelection) {//文档上存在选区
+        info.userInput = selection.text
+        if (selection.isText) {//选区为文本
+          // let autoOCR = chatAIConfig.getConfig("autoOCR")
+          // if (autoOCR) {//如果开启了自动OCR，则只有当图片存在时才会调用OCR
+          //   let text = await chatAINetwork.getTextOCR(selection.image)
+          //   info.userInput = text
+          //   info.ocr = true
+          // }
+          return info
+        }else{//选区为图片
+          let autoImage = chatAIConfig.getConfig("autoImage")
+          let autoOCR = chatAIConfig.getConfig("autoOCR")
+          if (autoImage) {
+            let config = chatAIConfig.getDynmaicConfig()
+            autoImage = chatAIUtils.isVisionModel(config.model)
+            info.autoImage = true
+            info.autoOCR = false
+            return info
+          }
+          //此时autoImage为false
+          if (autoOCR) {//如果同时开启了自动图片和自动OCR，则只有当图片存在时才会调用OCR
+            info.autoOCR = true
+            info.autoImage = false
+            info.ocr = true
+            return info
+          }
+        }
+      }
+      note = chatAIUtils.getFocusNote()
+      if (note) {
+        info.userInput = `{{note:${note.noteId}}}`
+        let hasImage = this.hasImageInNote(note,true)
+        // let imageData = note.imageData
+        if (hasImage) {//检查是否包含图片
+          let autoImage = chatAIConfig.getConfig("autoImage")
+          let autoOCR = chatAIConfig.getConfig("autoOCR")
+          if (autoImage) {
+            let config = chatAIConfig.getDynmaicConfig()
+            autoImage = chatAIUtils.isVisionModel(config.model)
+            info.autoImage = true
+            info.autoOCR = false
+            return info
+          }
+          //此时autoImage为false
+          if (autoOCR) {//如果同时开启了自动图片和自动OCR，则只有当图片存在时才会调用OCR
+            info.ocr = true
+            info.autoOCR = true
+            info.autoImage = false
+            return info
+          }
+        }
+      }
+      return info
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "getInfoForDynamic")
       return undefined
     }
   }
@@ -5501,10 +5755,11 @@ static preResults = []
       }
       return ""
     }).join("").trim()
-    response.response = response.response.trim()
-      .replace(/\$\$/g, '\n$$$\n')
-      .replace(/(\\\[)|(\\\])/g, '$$$') // Replace display math mode delimiters
-      .replace(/(\\\(\s?)|(\s?\\\))/g, '$') // Replace inline math mode opening delimiter
+    response.response = chatAITool.formatMarkdown(response.response)
+    // response.response = response.response.trim()
+    //   .replace(/\\\[/g, '\n$$$') // Replace display math mode delimiters
+    //   .replace(/\\\]/g, '$$$\n') // Replace display math mode delimiters
+    //   .replace(/(\\\(\s?)|(\s?\\\))/g, '$') // Replace inline math mode opening delimiter
     response.reasoningResponse = results.map(res=>{
       if (res) {
         if (res.reasoning_content) {
@@ -6369,8 +6624,14 @@ code.hljs {
         return undefined
     }
   }
-  static log(message,detail){
-    MNUtil.log({message:message,detail:detail,source:"MN ChatAI"})
+  /**
+   * 
+   * @param {string} message 
+   * @param {any} detail 
+   * @param {["INFO","ERROR","WARNING","DEBUG"]} level 
+   */
+  static log(message,detail,level = "INFO"){
+    MNUtil.log({message:message,detail:detail,source:"MN ChatAI",level:level})
   }
   static addErrorLog(error,source,info){
     MNUtil.showHUD("MN ChatAI Error ("+source+"): "+error)
@@ -8327,95 +8588,126 @@ class chatAIConfig {
     "gpt-4.1-nano",
     "gpt-5",
     "gpt-5-mini",
-    "gpt-5-nano"
+    "gpt-5-nano",
+    "glm-4.5v",
+    "glm-4v-flash",
+    "glm-4v-plus-0111",
+    "glm-4.1v-thinking-flash",
+    "glm-4.1v-thinking-flashx",
+    "ZhipuAI/GLM-4.5V",
+    "zai-org/glm-4.5v",
+    "zai-org/GLM-4.5V",
+    "Pro/THUDM/GLM-4.1V-9B-Thinking",
+    "glm-4.5v-nothinking",
+    "qwen3-vl-plus",
+    "qwen3-omni-flash",
+    "Qwen/Qwen3-VL-235B-A22B-Instruct",
+    "qwen/qwen3-vl-235b-a22b-thinking",
+    "qwen/qwen3-vl-235b-a22b-instruct",
+    "doubao-seed-1-6-thinking-250715",
+    "doubao-seed-1-6-thinking-250615",
+    "doubao-seed-1-6-250615",
+    "doubao-seed-1-6-flash-250715",
+    "doubao-seed-1-6-flash-250615",
+    "doubao-seed-1-6-vision-250815",
+    "kimi-latest",
+    "moonshot-v1-8k",
+    "moonshot-v1-32k",
+    "moonshot-v1-128k",
+    "moonshot-v1-auto",
+    "moonshot-v1-8k-vision-preview",
+    "moonshot-v1-32k-vision-preview",
+    "moonshot-v1-128k-vision-preview"
   ]
   /**
    * 不支持视觉的模型
    * @type {String[]}
    */
   static modelsWithoutVision = [
-        "deepseek/deepseek-v3.1",
-        "deepseek/deepseek-r1-0528",
-        "deepseek/deepseek-r1-turbo",
-        "deepseek/deepseek-v3-0324",
-        "deepseek/deepseek-v3-turbo",
-        "deepseek/deepseek-v3/community",
-        "deepseek/deepseek-r1/community",
-        "deepseek/deepseek-prover-v2-671b",
-        "deepseek-ai/DeepSeek-V3.1",
-        "deepseek-ai/DeepSeek-R1",
-        "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
-        "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
-        "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-        "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-        "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-        "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-        "deepseek-ai/DeepSeek-V3",
-        "deepseek-v3-1-250821",
-        "deepseek-v3-250324",
-        "deepseek-r1-250120",
-        "deepseek-r1-250528",
-        "DeepSeek-R1",
-        "deepseek-v3.1",
-        "deepseek-v3",
-        "deepseek-r1",
-        "deepseek-r1-0528",
-        "deepseek-chat",
-        "deepseek-reasoner",
-        "zai-org/glm-4.5",
-        "zai-org/GLM-4.5",
-        "zai-org/GLM-4.5-Air",
-        "glm-4.5",
-        "glm-4.5-nothinking",
-        "glm-4.5-x",
-        "glm-4.5-x-nothinking",
-        "glm-4.5-air",
-        "glm-4.5-airx",
-        "glm-4.5-flash",
-        "glm-4-plus",
-        "glm-4-air-250414",
-        "glm-4-airx",
-        "glm-4-long",
-        "glm-4-flash",
-        "glm-4-flash-250414",
-        "glm-4-flashX",
-        "glm-z1-air",
-        "glm-z1-airx",
-        "glm-z1-flash",
-        "moonshotai/kimi-k2-instruct",
-        "moonshotai/Kimi-K2-Instruct",
-        "Moonshot-Kimi-K2-Instruct",
-        "kimi-k2-0711-preview",
-        "kimi-k2-turbo-preview",
-        "qwen3",
-        "qwen3-thinking",
-        "qwen/qwen3-next-80b-a3b-thinking",
-        "qwen/qwen3-next-80b-a3b-instruct",
-        "qwen3-next",
-        "qwen3-next-thinking",
-        "Qwen/Qwen3-235B-A22B-Instruct-2507",
-        "Qwen/Qwen3-235B-A22B",
-        "qwen/qwen3-235b-a22b-thinking-2507",
-        "qwen/qwen3-235b-a22b-instruct-2507",
-        "qwen/qwen3-235b-a22b-fp8",
-        "qwen/qwen3-coder-480b-a35b-instruct",
-        "qwen/qwen3-30b-a3b-fp8",
-        "qwen/qwen3-32b-fp8",
-        "qwen/qwen3-8b-fp8",
-        "qwen/qwen3-4b-fp8",
-        "thudm/glm-4-32b-0414",
-        "thudm/glm-4-9b-0414",
-        "THUDM/GLM-Z1-32B-0414",
-        "THUDM/GLM-4-32B-0414",
-        "THUDM/GLM-Z1-9B-0414",
-        "THUDM/GLM-4-9B-0414",
-        "Pro/deepseek-ai/DeepSeek-V3.1",
-        "Pro/deepseek-ai/DeepSeek-R1",
-        "Pro/deepseek-ai/DeepSeek-R1-0120",
-        "Pro/deepseek-ai/DeepSeek-V3",
-        "Pro/deepseek-ai/DeepSeek-V3-1226",
-        "Pro/moonshotai/Kimi-K2-Instruct",
-      ]
+    "deepseek/deepseek-v3.1-terminus",
+    "deepseek-v3-1-terminus",
+    "deepseek/deepseek-v3.1",
+    "deepseek/deepseek-r1-0528",
+    "deepseek/deepseek-r1-turbo",
+    "deepseek/deepseek-v3-0324",
+    "deepseek/deepseek-v3-turbo",
+    "deepseek/deepseek-v3/community",
+    "deepseek/deepseek-r1/community",
+    "deepseek/deepseek-prover-v2-671b",
+    "deepseek-ai/DeepSeek-V3.1",
+    "deepseek-ai/DeepSeek-R1",
+    "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+    "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    "deepseek-ai/DeepSeek-V3",
+    "deepseek-v3-1-250821",
+    "deepseek-v3-250324",
+    "deepseek-r1-250120",
+    "deepseek-r1-250528",
+    "DeepSeek-R1",
+    "deepseek-v3.1",
+    "deepseek-v3",
+    "deepseek-r1",
+    "deepseek-r1-0528",
+    "deepseek-chat",
+    "deepseek-reasoner",
+    "zai-org/glm-4.5",
+    "zai-org/GLM-4.5",
+    "zai-org/GLM-4.5-Air",
+    "glm-4.5",
+    "glm-4.5-nothinking",
+    "glm-4.5-x",
+    "glm-4.5-x-nothinking",
+    "glm-4.5-air",
+    "glm-4.5-airx",
+    "glm-4.5-flash",
+    "glm-4-plus",
+    "glm-4-air-250414",
+    "glm-4-airx",
+    "glm-4-long",
+    "glm-4-flash",
+    "glm-4-flash-250414",
+    "glm-4-flashX",
+    "glm-z1-air",
+    "glm-z1-airx",
+    "glm-z1-flash",
+    "moonshotai/kimi-k2-instruct",
+    "moonshotai/Kimi-K2-Instruct",
+    "Moonshot-Kimi-K2-Instruct",
+    "kimi-k2-0711-preview",
+    "kimi-k2-turbo-preview",
+    "qwen3",
+    "qwen3-thinking",
+    "qwen/qwen3-next-80b-a3b-thinking",
+    "qwen/qwen3-next-80b-a3b-instruct",
+    "qwen3-next",
+    "qwen3-next-thinking",
+    "Qwen/Qwen3-235B-A22B-Instruct-2507",
+    "Qwen/Qwen3-235B-A22B",
+    "qwen/qwen3-235b-a22b-thinking-2507",
+    "qwen/qwen3-235b-a22b-instruct-2507",
+    "qwen/qwen3-235b-a22b-fp8",
+    "qwen/qwen3-coder-480b-a35b-instruct",
+    "qwen/qwen3-30b-a3b-fp8",
+    "qwen/qwen3-32b-fp8",
+    "qwen/qwen3-8b-fp8",
+    "qwen/qwen3-4b-fp8",
+    "thudm/glm-4-32b-0414",
+    "thudm/glm-4-9b-0414",
+    "THUDM/GLM-Z1-32B-0414",
+    "THUDM/GLM-4-32B-0414",
+    "THUDM/GLM-Z1-9B-0414",
+    "THUDM/GLM-4-9B-0414",
+    "Pro/deepseek-ai/DeepSeek-V3.1",
+    "Pro/deepseek-ai/DeepSeek-R1",
+    "Pro/deepseek-ai/DeepSeek-R1-0120",
+    "Pro/deepseek-ai/DeepSeek-V3",
+    "Pro/deepseek-ai/DeepSeek-V3-1226",
+    "Pro/moonshotai/Kimi-K2-Instruct",
+  ]
 // 正则模式匹配（作为兜底 / 模糊匹配）
 static modelsWithoutVisionPatterns = [
   // DeepSeek 系列（排除 v3.x 及其变种）
@@ -10288,7 +10580,7 @@ static modelsWithoutVisionPatterns = [
     if (checkKey && !this.hasAPIKeyInSource(source)) {//如果对应的提供商的key不存在,就不返回任何模型
       return []
     }
-    let modelConfig = (source in this.modelConfig)?this.modelConfig:this.defaultModelConfig
+    let modelConfig = (this.modelConfig && source in this.modelConfig)?this.modelConfig:this.defaultModelConfig
     switch (source) {
       case "Volcengine":
       case "SiliconFlow":
@@ -11564,6 +11856,8 @@ Image Text Extraction Specialist
       res = await this.fetch(url,option)
     }
     if ("statusCode" in res && res.statusCode >= 400) {
+      // chatAIConfig.modelConfig = undefined
+
       return undefined
     }
     // MNUtil.copy(res)

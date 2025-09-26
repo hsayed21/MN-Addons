@@ -51,7 +51,10 @@ class browserUtils {
     "flowus.cn":"https://alist.feliks.top/d/cdn/icon/flowus.png",
     "www.kimi.com":"https://alist.feliks.top/d/cdn/icon/kimi.png",
     "chat.z.ai":"https://alist.feliks.top/d/cdn/icon/zai.png",
-    "v.flomoapp.com":"https://alist.feliks.top/d/cdn/icon/flomo.png"
+    "v.flomoapp.com":"https://alist.feliks.top/d/cdn/icon/flomo.png",
+    "www.xiaohongshu.com":"https://alist.feliks.top/d/cdn/icon/rednote.png",
+    "doc2x.noedgeai.com":"https://alist.feliks.top/d/cdn/icon/doc2x.png",
+    "www.jianguoyun.com":"https://alist.feliks.top/d/cdn/icon/nutstore.png"
   }
   /**
    * 
