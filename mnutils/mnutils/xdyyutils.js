@@ -611,21 +611,20 @@ class MNMath {
       const parentNote = focusNote.parentNote;
 
       MNUtil.undoGrouping(() => {
-        // 3. 处理选中的卡片B：只保留摘录（删除文本和手写评论）
-        const removedCount = this.keepOnlyExcerpt(focusNote);
+        let newNote = focusNote.clone();
+
+        parentNote.addChild(newNote)
 
         // 4. 删除父卡片A的摘录区评论
         const excerptBlockIndexArr = this.getExcerptBlockIndexArr(parentNote);
         if (excerptBlockIndexArr.length > 0) {
-          // 从后往前删除，避免索引变化
-          const sortedIndices = excerptBlockIndexArr.sort((a, b) => b - a);
-          sortedIndices.forEach(index => {
-            parentNote.removeCommentByIndex(index);
-          });
+          parentNote.removeCommentsByIndexArr(excerptBlockIndexArr);
         }
 
+        this.keepOnlyExcerpt(newNote)
+
         // 5. 合并子卡片B到父卡片A
-        focusNote.mergeInto(parentNote);
+        newNote.mergeInto(parentNote);
 
         // 6. 延迟处理，确保合并完成
         MNUtil.delay(0.1).then(() => {
@@ -634,6 +633,8 @@ class MNMath {
           
           // 刷新父卡片显示
           this.refreshNotes(parentNote);
+
+          focusNote.delete()
           
           MNUtil.showHUD(`✅ 已用选中卡片的摘录更新父卡片的摘录（清除了 ${removedCount} 条评论）`);
         });
@@ -1827,7 +1828,7 @@ class MNMath {
           let config = {
             title: "",
             content: "",
-            markdown: false,
+            markdown: true,
             color: note.colorIndex
           };
           let textCard = note.createChildNote(config);
@@ -1843,7 +1844,7 @@ class MNMath {
               
               // 添加文本
               field.texts.forEach(text => {
-                textCard.appendTextComment(text);
+                textCard.appendMarkdownComment(text);
               });
               
               // 添加链接
