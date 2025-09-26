@@ -7961,6 +7961,245 @@ class MNMath {
   }
 
   /**
+   * 显示字段中的 Markdown 格式卡片链接
+   * 解析字段下（或所有评论中）的 Markdown 格式卡片链接 [标题](noteId)，并通过弹窗显示
+   * 支持复制 noteId 和定位到目标卡片
+   * 
+   * @param {MNNote} note - 要处理的笔记
+   */
+  static async showMarkdownLinksInField(note) {
+    try {
+      // 1. 解析字段
+      const commentsObj = this.parseNoteComments(note);
+      const htmlFields = commentsObj.htmlCommentsObjArr;
+      
+      let links = [];
+      let selectedFieldText = null;
+      
+      // 2. 字段选择（如果有字段）
+      if (htmlFields.length > 0) {
+        const fieldNames = htmlFields.map(field => field.text);
+        const selectedFieldIndex = await MNUtil.userSelect(
+          "选择要查看链接的字段",
+          "选择一个字段来查看其中的 Markdown 链接",
+          fieldNames
+        );
+        
+        if (selectedFieldIndex === 0) return;
+        
+        const selectedField = htmlFields[selectedFieldIndex - 1];
+        selectedFieldText = selectedField.text;
+        links = this.extractMarkdownLinks(note, selectedField);
+      } else {
+        // 没有字段，扫描所有评论
+        links = this.extractMarkdownLinks(note);
+      }
+      
+      // 3. 检查是否有链接
+      if (links.length === 0) {
+        MNUtil.showHUD(selectedFieldText 
+          ? `字段"${selectedFieldText}"下没有找到 Markdown 链接`
+          : "笔记中没有找到 Markdown 链接");
+        return;
+      }
+      
+      // 4. 格式化链接显示
+      const linkDisplayNames = await this.formatMarkdownLinks(links);
+      
+      // 5. 第一层弹窗：选择链接
+      const subtitle = selectedFieldText 
+        ? `在"${selectedFieldText}"字段下找到 ${links.length} 个链接`
+        : `在笔记中找到 ${links.length} 个链接`;
+        
+      const selectedLinkIndex = await MNUtil.userSelect(
+        "选择 Markdown 链接",
+        subtitle,
+        linkDisplayNames
+      );
+      
+      if (selectedLinkIndex === 0) return;
+      
+      const selectedLink = links[selectedLinkIndex - 1];
+      
+      // 6. 第二层弹窗：选择操作
+      await this.showLinkActions(selectedLink);
+      
+    } catch (error) {
+      MNUtil.showHUD("操作失败：" + error.message);
+      MNUtil.addErrorLog(error, "showMarkdownLinksInField", { noteId: note.noteId });
+    }
+  }
+
+  /**
+   * 提取 Markdown 格式的卡片链接
+   * 从评论中提取 [标题](marginnote4app://note/xxx) 格式的链接
+   * 
+   * @param {MNNote} note - 笔记对象
+   * @param {Object} field - 字段对象（可选）
+   * @returns {Array} 链接数组
+   */
+  static extractMarkdownLinks(note, field = null) {
+    const links = [];
+    // 使用非贪婪匹配确保正确提取多个链接
+    const markdownLinkRegex = /\[([^\]]+?)\]\((marginnote4app:\/\/note\/[A-Z0-9-]+)\)/g;
+    
+    let comments;
+    
+    // 确定要扫描的评论范围
+    if (field) {
+      // 字段下的评论
+      comments = field.excludingFieldBlockIndexArr.map(idx => ({
+        index: idx,
+        comment: note.MNComments[idx]
+      }));
+    } else {
+      // 所有评论（排除字段本身）
+      comments = note.MNComments.map((comment, idx) => ({
+        index: idx,
+        comment: comment
+      })).filter(item => item.comment && item.comment.type !== "HtmlComment");
+    }
+    
+    // 遍历评论，提取链接
+    for (const {index, comment} of comments) {
+      if (!comment || !comment.text) continue;
+      
+      // 只处理 markdownComment 类型
+      if (comment.type === "markdownComment") {
+        const text = comment.text;
+        const matches = [...text.matchAll(markdownLinkRegex)];
+        
+        // 一条评论中可能有多个链接
+        matches.forEach((match, linkIndex) => {
+          links.push({
+            displayText: match[1].trim(),     // 链接显示文本
+            url: match[2],                     // 完整 URL
+            noteId: match[2].toNoteId(),      // 提取的 noteId
+            commentIndex: index,               // 评论索引
+            linkIndexInComment: linkIndex,     // 在该评论中的第几个链接
+            fullMatch: match[0],              // 完整匹配文本
+            startPos: match.index             // 在原文本中的起始位置
+          });
+        });
+      }
+    }
+    
+    return links;
+  }
+
+  /**
+   * 格式化 Markdown 链接用于显示
+   * 
+   * @param {Array} links - 链接数组
+   * @returns {Array<string>} 格式化的显示名称数组
+   */
+  static async formatMarkdownLinks(links) {
+    const displayNames = [];
+    
+    for (let i = 0; i < links.length; i++) {
+      const link = links[i];
+      let displayName = `${i + 1}. [${link.displayText}]`;
+      
+      // 尝试获取目标笔记信息
+      try {
+        const targetNote = MNUtil.getNoteById(link.noteId, false);
+        if (targetNote) {
+          const targetMNNote = MNNote.new(targetNote);
+          const titleParts = this.parseNoteTitle(targetMNNote);
+          let content = titleParts.content || targetNote.noteTitle || "";
+          
+          // 去掉可能的 "; " 前缀
+          if (content.startsWith("; ")) {
+            content = content.substring(2).trim();
+          }
+          
+          // 如果实际标题与链接文本不同，显示映射关系
+          if (content && content !== link.displayText) {
+            displayName += ` → ${content}`;
+          }
+        } else {
+          displayName += " (笔记不存在)";
+        }
+      } catch (e) {
+        displayName += " (无法获取)";
+      }
+      
+      // 如果同一评论有多个链接，添加标识
+      const samCommentLinks = links.filter(l => l.commentIndex === link.commentIndex);
+      if (samCommentLinks.length > 1) {
+        displayName += ` [评论${link.commentIndex + 1}-链接${link.linkIndexInComment + 1}]`;
+      }
+      
+      displayNames.push(displayName);
+    }
+    
+    return displayNames;
+  }
+
+  /**
+   * 显示链接操作选项
+   * 
+   * @param {Object} link - 链接对象
+   */
+  static async showLinkActions(link) {
+    const actions = [
+      "📋 复制 noteId",
+      "📍 定位到卡片",
+      "📄 复制完整链接",
+      "📝 复制 Markdown 链接",
+      "✨ 重新生成 Markdown 链接"
+    ];
+    
+    const actionIndex = await MNUtil.userSelect(
+      "选择操作",
+      `链接：${link.displayText}`,
+      actions
+    );
+    
+    switch(actionIndex) {
+      case 1: // 复制 noteId
+        MNUtil.copy(link.noteId);
+        MNUtil.showHUD("已复制 noteId: " + link.noteId.substring(0, 8) + "...");
+        break;
+        
+      case 2: // 定位卡片
+        try {
+          MNUtil.focusNoteInMindMapById(link.noteId);
+        } catch (error) {
+          MNUtil.showHUD("无法定位到卡片");
+        }
+        break;
+        
+      case 3: // 复制完整链接
+        MNUtil.copy(link.url);
+        MNUtil.showHUD("已复制完整链接");
+        break;
+        
+      case 4: // 复制 Markdown 链接
+        MNUtil.copy(link.fullMatch);
+        MNUtil.showHUD("已复制 Markdown 链接");
+        break;
+        
+      case 5: // 重新生成 Markdown 链接
+        try {
+          const targetNote = MNUtil.getNoteById(link.noteId, false);
+          if (targetNote) {
+            const targetMNNote = MNNote.new(targetNote);
+            this.copyMarkdownLinkWithQuickPhrases(targetMNNote);
+          } else {
+            MNUtil.showHUD("无法找到对应卡片");
+          }
+        } catch (error) {
+          MNUtil.showHUD("操作失败: " + error.message);
+        }
+        break;
+        
+      default:
+        break;
+    }
+  }
+
+  /**
    * 通过弹窗选择字段，然后批量删除该字段下的评论
    * 
    * @param {MNNote} note - 要处理的笔记

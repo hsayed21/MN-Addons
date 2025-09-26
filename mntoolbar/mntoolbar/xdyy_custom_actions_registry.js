@@ -4183,6 +4183,19 @@ function registerAllCustomActions() {
     },
   );
 
+  // showMarkdownLinksInField - 查看 Markdown 链接
+  global.registerCustomAction(
+    "showMarkdownLinksInField",
+    async function (context) {
+      const { button, des, focusNote, focusNotes, self } = context;
+      if (typeof MNMath !== "undefined" && MNMath.showMarkdownLinksInField) {
+        await MNMath.showMarkdownLinksInField(focusNote);
+      } else {
+        MNUtil.showHUD("需要安装最新版本的 MNUtils");
+      }
+    },
+  );
+
   // switchOCRSource - 切换 OCR 源
   global.registerCustomAction("switchOCRSource", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;

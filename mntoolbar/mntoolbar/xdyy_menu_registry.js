@@ -60,12 +60,16 @@ function registerAllMenuTemplates() {
           menuTitle: "    更新链接",
         },
         {
+          action: "showMarkdownLinksInField",
+          menuTitle: "    查看 Markdown 链接",
+        },
+        {
           action: "linkRemoveDuplicatesAfterApplication",
-          menuTitle: "    “应用”下方的链接去重",
+          menuTitle: "    \"应用\"下方的链接去重",
         },
         {
           action: "reorderContainsFieldLinks",
-          menuTitle: "    定义卡片“相关链接”下方的链接重新排序",
+          menuTitle: "    定义卡片\"相关链接\"下方的链接重新排序",
         },
         "⬇️ 字段处理",
         {
