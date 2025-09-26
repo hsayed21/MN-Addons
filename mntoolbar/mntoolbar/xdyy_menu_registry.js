@@ -382,12 +382,6 @@ function registerAllMenuTemplates() {
       action: "menu",
       menuWidth: 360,
       menuItems: [
-        "⬇️ 定位",
-        {
-          "action": "focusLastChildNote",
-          "menuTitle": "⇨ 定位最后一张子卡片",
-        },
-        "⬇️ 卡片处理",
         {
           action: "renewKnowledgeNoteIntoParentNote",
           menuTitle: "    🔀 合并重复知识点",
@@ -397,16 +391,19 @@ function registerAllMenuTemplates() {
           menuTitle: "    🔀 合并到父卡片",
         },
         {
+          action: "renewExcerptInParentNoteByFocusNote",
+          menuTitle: "    摘录替换掉父卡片的摘录",
+        },
+        "---------",
+        "⬇️ 卡片处理",
+        {
           action: "convertNoteToNonexcerptVersion",
           menuTitle: "    🔄 转化为非摘录版本",
         },
+        "⬇️ 定位",
         {
-          action: "descendNotesToBeIndependent",
-          menuTitle: "    ✂️ 子孙卡片独立为单张",
-        },
-        {
-          action: "splitCommentsByNotes",
-          menuTitle: "    ✂️ 拆分卡片评论为独立卡片",
+          "action": "focusLastChildNote",
+          "menuTitle": "⇨ 定位最后一张子卡片",
         },
         {
           "action": "menu",
@@ -437,6 +434,10 @@ function registerAllMenuTemplates() {
           ]
         },
         {
+          action: "addAsBrotherNoteofParentNote",
+          menuTitle: "    ⇨ 成为父卡片的兄弟卡片",
+        },
+        {
           "action": "menu",
           "menuTitle": "⇨ ✂️ 拆卡 ⇦",
           "menuWidth": 200,
@@ -451,6 +452,10 @@ function registerAllMenuTemplates() {
               menuTitle: "拆分卡片评论为独立卡片",
             },
           ]
+        },
+        {
+          action: "splitCommentsByNotes",
+          menuTitle: "    ✂️ 拆分卡片评论为独立卡片",
         },
         {
           "action": "menu",
@@ -470,16 +475,20 @@ function registerAllMenuTemplates() {
               action: "oldChildrenMakeNotes",
               menuTitle: "🔄 子孙卡片批量制卡",
             },
-            {
-              action: "removeAllClassificationNotes",
-              menuTitle: "❌ 删除归类子孙卡片，保留知识点",
-            },
           ]
+        },
+        {
+          action: "descendNotesToBeIndependent",
+          menuTitle: "    ✂️ 子孙卡片独立为单张",
+        },
+        {
+          action: "removeAllClassificationNotes",
+          menuTitle: "❌ 删除归类子孙卡片，保留知识点",
         },
         {
           "action": "menu",
           "menuTitle": "⇨ 🔀 合并到父卡片 ⇦",
-          "menuWidth": 300,
+          "menuWidth": 340,
           "menuItems": [
             "⇩  ⇩",
             {
@@ -507,14 +516,6 @@ function registerAllMenuTemplates() {
           "menuItems": [
             "⇩  ⇩",
             {
-              action: "renewKnowledgeNoteIntoParentNote",
-              menuTitle: "🔀 合并重复知识点",
-            },
-            {
-              action: "renewExcerptInParentNoteByFocusNote",
-              menuTitle: "摘录替换父卡片的摘录",
-            },
-            {
               action: "clearContentKeepExcerptWithTitle",
               menuTitle: "只保留摘录和标题",
             },
@@ -535,6 +536,14 @@ function registerAllMenuTemplates() {
             //   menuTitle: "    批量更新归类卡片标题",
             // },
           ]
+        },
+        {
+          action: "renewKnowledgeNoteIntoParentNote",
+          menuTitle: "    🔀 合并重复知识点",
+        },
+        {
+          action: "renewExcerptInParentNoteByFocusNote",
+          menuTitle: "    摘录替换掉父卡片的摘录",
         },
         "⬇️ 修改标题",
         {
