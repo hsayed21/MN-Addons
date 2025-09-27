@@ -384,15 +384,19 @@ function registerAllMenuTemplates() {
       menuItems: [
         {
           action: "renewKnowledgeNoteIntoParentNote",
-          menuTitle: "    🔀 合并重复知识点",
+          menuTitle: "🔀 合并重复知识点",
         },
         {
           action: "mergeInParentNote",
-          menuTitle: "    🔀 合并到父卡片",
+          menuTitle: "🔀 合并到父卡片",
+        },
+        {
+          action: "mergeApplicationFieldInParentNote",
+          menuTitle: "🔀 合并应用字段到父卡片",
         },
         {
           action: "renewExcerptInParentNoteByFocusNote",
-          menuTitle: "    摘录替换掉父卡片的摘录",
+          menuTitle: "🔀 摘录替换掉父卡片的摘录",
         },
         "---------",
         "⬇️ 卡片处理",
@@ -494,6 +498,10 @@ function registerAllMenuTemplates() {
             {
               action: "mergeInParentNote",
               menuTitle: "    合并到父卡片",
+            },
+            {
+              action: "mergeApplicationFieldInParentNote",
+              menuTitle: "    合并应用字段到父卡片",
             },
             {
               action: "mergeInParentNoteWithPopup",

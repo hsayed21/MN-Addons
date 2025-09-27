@@ -3896,6 +3896,71 @@ class MNMath {
   }
 
   /**
+   * 合并两个卡片中指定字段的内容
+   * @param {MNNote} targetNote - 目标卡片（内容将合并到这里）
+   * @param {MNNote} sourceNote - 源卡片（从这里提取字段内容）
+   * @param {string} fieldName - 要合并的字段名（不包含冒号）
+   * @returns {boolean} 成功返回 true，失败返回 false
+   */
+  static mergeSpecificField(targetNote, sourceNote, fieldName) {
+    try {
+      // 1. 标准化字段名
+      const normalizedFieldName = this.normalizeFieldName(fieldName);
+      
+      // 2. 检查两个卡片是否都有该字段
+      const sourceHasField = sourceNote.getIncludingHtmlCommentIndex(normalizedFieldName) !== -1;
+      const targetHasField = targetNote.getIncludingHtmlCommentIndex(normalizedFieldName) !== -1;
+      
+      if (!sourceHasField || !targetHasField) {
+        MNUtil.showHUD(`两个卡片都需要包含字段"${normalizedFieldName}"`);
+        return false;
+      }
+      
+      // 3. 记录目标卡片合并前的评论数
+      const beforeCount = targetNote.comments.length;
+      
+      // 4. 使用 undoGrouping 包装所有操作
+      MNUtil.undoGrouping(() => {
+        // 5. 保留源卡片中指定字段的内容
+        this.retainFieldContentByName(sourceNote, normalizedFieldName);
+        
+        // 6. 清空源卡片标题并合并到目标卡片
+        sourceNote.noteTitle = "";
+        sourceNote.mergeInto(targetNote);
+        
+        // 7. 计算新内容的索引（从 beforeCount 开始）
+        const newContentCount = targetNote.comments.length - beforeCount;
+        const newIndices = Array.from({length: newContentCount}, (_, i) => beforeCount + i);
+        
+        // 8. 将新内容移动到目标字段位置
+        this.moveCommentsArrToField(targetNote, newIndices, normalizedFieldName, true);
+        
+        // 9. 刷新显示
+        targetNote.refresh();
+      });
+      
+      MNUtil.showHUD(`✅ 已合并字段"${normalizedFieldName}"的内容`);
+      
+      MNUtil.log({
+        level: "info",
+        message: `字段合并完成 - 字段：${normalizedFieldName}，新增内容：${targetNote.comments.length - beforeCount} 条`,
+        source: "MNMath.mergeSpecificField"
+      });
+      
+      return true;
+      
+    } catch (error) {
+      MNUtil.showHUD(`❌ 合并字段失败: ${error.message}`);
+      MNUtil.log({
+        level: "error",
+        message: `合并字段失败: ${error.message}`,
+        source: "MNMath.mergeSpecificField"
+      });
+      return false;
+    }
+  }
+
+  /**
    * 更新双向链接
    * 将当前卡片中的某个链接替换为剪贴板中的新链接，并自动处理双向链接
    * 

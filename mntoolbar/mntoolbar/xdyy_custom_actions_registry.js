@@ -3687,6 +3687,18 @@ function registerAllCustomActions() {
     });
   });
 
+  global.registerCustomAction("mergeApplicationFieldInParentNote", async function(context) {
+      const { button, des, focusNote, focusNotes, self } = context;
+      MNUtil.undoGrouping(()=>{
+        try {
+          MNMath.mergeSpecificField(focusNote.parentNote, focusNote, "应用")
+        } catch (error) {
+          MNUtil.showHUD(error);
+        }
+      })
+    }
+  )
+
   // mergIntoParenNoteAndRenewReplaceholder
   global.registerCustomAction(
     "mergIntoParenNoteAndRenewReplaceholder",
