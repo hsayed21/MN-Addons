@@ -575,6 +575,10 @@ function registerAllMenuTemplates() {
       menuWidth: 300,
       menuItems: [
         {
+          action: "renewExcerptInParentNoteByFocusNote",
+          menuTitle: "摘录替换掉父卡片的摘录",
+        },
+        {
           action: "mergeToParentAndMoveCommentToExcerpt",
           menuTitle: "合并到父卡片并移动评论到摘录",
         },
@@ -779,6 +783,10 @@ function registerAllMenuTemplates() {
         {
           action: "showSearchBoard",
           menuTitle: "    📋 打开搜索看板",
+        },
+        {
+          action: "clearSearchBoard",
+          menuTitle: "    🗑 清除搜索看板",
         },
         {
           action: "searchDefinition",

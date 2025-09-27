@@ -13336,7 +13336,7 @@ class MNMath {
       }
       
       // 聚焦到结果卡片
-      resultCard.focusInFloatMindMap(0.5);
+      resultCard.focusInFloatMindMap(0.8);
       
       return resultCard;
     } catch (error) {
@@ -13360,6 +13360,23 @@ class MNMath {
       const lastChild = boardNote.childNotes[boardNote.childNotes.length - 1];
       lastChild.focusInFloatMindMap(0.5);
     }
+  }
+
+  static clearSearchBoard(){
+    const boardNote = MNNote.new(this.searchBoardId, false);
+      if (!boardNote) {
+        MNUtil.showHUD("搜索看板不存在");
+        return null;
+      }
+
+    MNUtil.undoGrouping(()=>{
+      if (boardNote.childNotes.length !== 0) {
+        MNUtil.waitHUD("正在清理搜索看板...");
+        boardNote.childNotes.forEach(note => note.delete());
+        MNUtil.stopHUD()
+        MNUtil.showHUD("✅ 清理完成");
+      }
+    })
   }
 
   /**

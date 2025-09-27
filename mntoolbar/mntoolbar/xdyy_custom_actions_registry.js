@@ -4689,10 +4689,16 @@ function registerAllCustomActions() {
   });
 
   global.registerCustomAction("showSearchBoard", async function (context) {
-    const { button, des, focusNote, focusNotes, self } = context;
     try {
       // 显示搜索面板
       MNMath.showSearchBoard();
+    } catch (error) {}
+  });
+
+  global.registerCustomAction("clearSearchBoard", async function (context) {
+    try {
+      // 清除搜索面板
+      MNMath.clearSearchBoard();
     } catch (error) {}
   });
 
