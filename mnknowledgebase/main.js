@@ -255,100 +255,12 @@ JSB.newAddon = function(mainPath){
           MNUtil.showHUD("索引未找到，请先更新搜索索引");
           return;
         }
-        
-        // 显示搜索输入框
-        UIAlertView.show(
-          "快速搜索",
-          "请输入搜索关键词：",
-          ["取消", "搜索"],
-          2,  // 文本输入模式
-          (alert, buttonIndex) => {
-            if (buttonIndex === 1) {
-              const keyword = alert.textFieldAtIndex(0).text;
-              if (keyword && keyword.trim()) {
-                self.performFastSearch(searcher, keyword.trim());
-              }
-            }
-          }
-        );
+
+        self.showSearchDialog(searcher);
         
       } catch (error) {
         MNUtil.showHUD("快速搜索失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: showFastSearch");
-      }
-    },
-    
-    /**
-     * 执行快速搜索
-     */
-    performFastSearch: function(searcher, keyword) {
-      try {
-        // 执行搜索
-        const results = searcher.search(keyword, { limit: 50 });
-        
-        if (results.length === 0) {
-          MNUtil.showHUD(`未找到包含 "${keyword}" 的卡片`);
-          return;
-        }
-        
-        // 显示搜索结果
-        self.showSearchResults(results, searcher);
-        
-      } catch (error) {
-        MNUtil.showHUD("搜索执行失败: " + error.message);
-        MNLog.error(error, "MNKnowledgeBase: performFastSearch");
-      }
-    },
-    
-    /**
-     * 显示搜索结果
-     */
-    showSearchResults: function(results, searcher) {
-      try {
-        // 构建结果选项
-        const options = results.map((result, index) => {
-          const typeLabel = result.classificationSubtype 
-            ? `[${result.type}-${result.classificationSubtype}]`
-            : `[${result.type}]`;
-          // 截取标题避免过长
-          const titlePreview = result.title.length > 40 
-            ? result.title.substring(0, 40) + "..."
-            : result.title;
-          return `${index + 1}. ${typeLabel} ${titlePreview}`;
-        });
-        
-        // 添加返回选项
-        options.unshift("🔙 返回搜索");
-        
-        // 显示结果列表
-        UIAlertView.show(
-          `搜索结果 (${results.length} 个)`,
-          "选择要查看的卡片：",
-          options,
-          0,  // 默认样式
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              // 返回搜索
-              self.showFastSearch();
-            } else if (buttonIndex > 0) {
-              // 查看选中的卡片
-              const selectedResult = results[buttonIndex - 1];
-              const note = MNNote.getNoteById(selectedResult.id, false);
-              if (note) {
-                // 在脑图中定位
-                if (MNUtil.mindmapView) {
-                  note.focusInMindMap(0.3);
-                } else {
-                  MNUtil.showHUD("已选择卡片：" + selectedResult.title);
-                }
-              }
-            }
-          }
-        );
-        
-      } catch (error) {
-        MNUtil.showHUD("显示结果失败: " + error.message);
-        MNLog.error(error, "MNKnowledgeBase: showSearchResults");
       }
     },
 
@@ -450,7 +362,98 @@ JSB.newAddon = function(mainPath){
       checked: checked     // 是否显示勾选状态
     }
   }
-  
+
+  MNKnowledgeBaseClass.prototype.showSearchDialog = async function(searcher) {
+    try {
+      // 显示搜索输入框
+      let userInput = await MNUtil.userInput(
+        "快速搜索",
+        "请输入搜索关键词：",
+        ["取消", "搜索"],
+      );
+      if (userInput.button === 1) {
+        const keyword = userInput.input;
+        if (keyword && keyword.trim()) {
+          this.performFastSearch(searcher, keyword.trim());
+        }
+      }
+    } catch (error) {
+      MNUtil.showHUD(error);
+    }
+  }
+
+
+  /**
+   * 执行快速搜索
+   */
+  MNKnowledgeBaseClass.prototype.performFastSearch = function(searcher, keyword) {
+    try {
+      // 执行搜索
+      const results = searcher.search(keyword, { limit: 50 });
+      
+      if (results.length === 0) {
+        MNUtil.showHUD(`未找到包含 "${keyword}" 的卡片`);
+        return;
+      }
+      
+      // 显示搜索结果
+      this.showSearchResults(results, searcher);
+      
+    } catch (error) {
+      MNUtil.showHUD("搜索执行失败: " + error.message);
+      MNLog.error(error, "MNKnowledgeBase: performFastSearch");
+    }
+  }
+
+  /**
+   * 显示搜索结果
+   */
+  MNKnowledgeBaseClass.prototype.showSearchResults = async function(results, searcher) {
+    try {
+      // 构建结果选项
+      const options = results.map((result, index) => {
+        const typeLabel = result.classificationSubtype 
+          ? `[${result.type}-${result.classificationSubtype}]`
+          : `[${result.type}]`;
+        // 截取标题避免过长
+        const titlePreview = result.title.length > 40 
+          ? result.title.substring(0, 40) + "..."
+          : result.title;
+        return `${index + 1}. ${typeLabel} ${titlePreview}`;
+      });
+      
+      // 添加返回选项
+      options.unshift("🔙 返回搜索");
+      
+      // 显示结果列表
+      let selectResult = await MNUtil.userSelect(
+        `搜索结果 (${results.length} 个)`,
+        "选择要查看的卡片：",
+        options,
+      );
+
+      if (selectResult === 0) {
+        // 返回搜索
+        this.showSearchDialog(searcher);
+      } else if (selectResult > 1) {
+        // 查看选中的卡片
+        const selectedResult = results[selectResult - 2];
+        const note = MNNote.new(selectedResult.id);
+        if (note) {
+          // 在脑图中定位
+          if (MNUtil.mindmapView) {
+            note.focusInMindMap(0.3);
+          } else {
+            MNUtil.showHUD("已选择卡片：" + selectedResult.title);
+          }
+        }
+      }
+      
+    } catch (error) {
+      MNUtil.showHUD("显示结果失败: " + error.message);
+      MNLog.error(error, "MNKnowledgeBase: showSearchResults");
+    }
+  }
   // 返回定义的插件类，MarginNote 会自动实例化这个类
   return MNKnowledgeBaseClass;
 };
