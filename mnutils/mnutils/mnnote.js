@@ -68,6 +68,9 @@ class MNNote{
         if ("tags" in config && config.tags.length) {
           this.note.appendTextComment(config.tags.map(k => '#'+k.replace(/\s+/g, "_")).join(" "))
         }
+        if ("html" in config ) {
+          note.appendHtmlComment(config.html, config.html, {width:1000,height:500}, "")
+        }
         break;
       default:
         break;

@@ -1358,10 +1358,34 @@ static textMatchPhrase(text, query) {
   }
   /**
    * 
+   * @param {NSData} data 
+   * @param {string} path
+   */
+  static writeDataToFile(data,path){
+  try {
+    let folder = this.getFileFolder(path)
+    this.createFolderDev(folder)
+    data.writeToFileAtomically(path,true)
+    return true
+  } catch (error) {
+    this.addErrorLog(error, "writeDataToFile")
+    return false
+  }
+  }
+  /**
+   * 
    * @param {string} path 
    * @returns 
    */
   static getFileFold(path){
+    return path.split("/").slice(0, -1).join("/")
+  }
+  /**
+   * 
+   * @param {string} path 
+   * @returns 
+   */
+  static getFileFolder(path){
     return path.split("/").slice(0, -1).join("/")
   }
   /**
@@ -2040,20 +2064,22 @@ static textMatchPhrase(text, query) {
     return NSData.dataWithContentsOfURL(MNUtil.genNSURL(base64))
   }
   /**
-   * 该方法会弹出文件选择窗口以选择要导入的文档
+   * 从base64导入pdf
+   * @param {string} pdfBase64 pdf的base64字符串,可以是纯base64也可以是data url
+   * @param {object} option 选项
    * @returns {string} 返回文件md5
    */
   static async importPDFFromBase64(pdfBase64,option = {}){
     let pdfData = this.dataFromBase64(pdfBase64)
     if ("filePath" in option) {
-      pdfData.writeToFileAtomically(option.filePath, false)
+      this.writeDataToFile(pdfData,option.filePath)
       let md5 = this.importDocument(option.filePath)
       return md5
     }
     let fileName = option.fileName || ("imported_"+Date.now()+".pdf")
     let folder = option.folder || MNUtil.tempFolder()
     let filePath = folder.nativePath + fileName
-    pdfData.writeToFileAtomically(filePath, false)
+    this.writeDataToFile(pdfData,filePath)
     let md5 = this.importDocument(filePath)
     return md5
   }
@@ -2628,6 +2654,9 @@ static getValidJSON(jsonString,debug = false) {
       return data
     }
   }
+  static string2data(string){
+    return NSData.dataWithStringEncoding(string, 4)
+  }
   /**
    * Converts NSData to a string.
    * 
@@ -2670,23 +2699,30 @@ static getValidJSON(jsonString,debug = false) {
     }
   }
   static writeJSON(path,object){
-    NSData.dataWithStringEncoding(
-      JSON.stringify(object, undefined, 2),
-      4
-    ).writeToFileAtomically(path, false)
+  try {
+    let data = this.string2data(JSON.stringify(object, undefined, 2))
+    this.writeDataToFile(data,path)
+    return true
+  } catch (error) {
+    this.addErrorLog(error, "writeJSON")
+    return false
+  }
   }
   static readText(path){
+
     let data = NSData.dataWithContentsOfFile(path)
     return this.dataToString(data)
-    let test = CryptoJS.enc.Base64.parse(data.base64Encoding())
-    let content = CryptoJS.enc.Utf8.stringify(test);
-    return content
   }
   static writeText(path,string){
-    NSData.dataWithStringEncoding(
-      string,
-      4
-    ).writeToFileAtomically(path, false)
+  try {
+    let data = this.string2data(string)
+    this.writeDataToFile(data,path)
+    return true
+    
+  } catch (error) {
+    this.addErrorLog(error, "writeText")
+    return false
+  }
   }
   static readTextFromUrlSync(url){
     let textData = NSData.dataWithContentsOfURL(this.genNSURL(url))
