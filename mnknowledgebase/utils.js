@@ -15886,6 +15886,9 @@ class KnowledgeBaseIndexer {
     };
     
     try {
+      // 使用 Map 进行去重
+      const processedIds = new Map();
+      
       // 遍历所有根卡片
       rootNotes.forEach(_rootNote => {
         const rootNote = MNNote.new(_rootNote);
@@ -15896,6 +15899,13 @@ class KnowledgeBaseIndexer {
         descendants.push(rootNote); // 包含根卡片本身
         
         descendants.forEach(note => {
+          // 去重检查
+          const noteId = note.noteId;
+          if (processedIds.has(noteId)) {
+            return; // 跳过已处理的卡片
+          }
+          processedIds.set(noteId, true);
+          
           const noteType = knowledgeBaseTemplate.getNoteType(note);
           if (!noteType || !targetTypes.includes(noteType)) return;
           
@@ -15931,7 +15941,9 @@ class KnowledgeBaseIndexer {
       const entry = {
         id: note.noteId,
         type: noteType,
-        title: note.title || ""
+        title: note.title || "",
+        // 添加 parentId 字段
+        parentId: note.parentNote ? note.parentNote.noteId : null
       };
       
       // 根据卡片类型设置不同字段
@@ -15971,29 +15983,26 @@ class KnowledgeBaseIndexer {
     let searchableContent = "";
     
     if (noteType === "归类") {
-      // 归类卡片：使用content（引号内的内容）
-      searchableContent = parsedTitle.content || "";
-      // 包含细分类别以便搜索
-      if (parsedTitle.type) {
-        searchableContent += " " + parsedTitle.type;
-      }
+      // 归类卡片：使用content（引号内的内容）+ 类型
+      searchableContent = `${parsedTitle.content || ""} ${parsedTitle.type || ""}`.trim();
     } else {
-      // 其他卡片类型
-      if (parsedTitle.prefixContent) {
-        searchableContent = parsedTitle.prefixContent;
-      }
+      // 其他卡片类型：不包含 prefix（已单独存储），只用标题链接词
       if (parsedTitle.titleLinkWordsArr && parsedTitle.titleLinkWordsArr.length > 0) {
-        const titleWords = parsedTitle.titleLinkWordsArr.join(" ");
-        searchableContent = searchableContent 
-          ? searchableContent + " " + titleWords
-          : titleWords;
+        searchableContent = parsedTitle.titleLinkWordsArr.join(" ");
+      }
+      // 如果没有标题链接词，用 content
+      if (!searchableContent && parsedTitle.content) {
+        searchableContent = parsedTitle.content;
       }
     }
     
     // 处理关键词
     const keywordsForSearch = keywordsContent.replace(/[;；]/g, " ");
     
-    return `${searchableContent} ${keywordsForSearch}`.trim();
+    // 组合并转小写，提高搜索效率
+    const finalText = `${searchableContent} ${keywordsForSearch}`.trim().toLowerCase();
+    
+    return finalText;
   }
   
   /**
@@ -16046,6 +16055,94 @@ class FastSearcher {
   }
   
   /**
+   * 解析搜索查询语法
+   * @param {string} query - 用户输入的查询字符串
+   * @returns {Object} 解析后的查询结构
+   */
+  static parseSearchQuery(query) {
+    const result = {
+      andGroups: [],    // AND 条件组
+      orGroups: [],     // OR 条件组  
+      excludeTerms: [], // 排除词
+      exactPhrases: []  // 精确短语
+    };
+    
+    // 1. 先提取精确匹配短语 [[xxx]]
+    const exactMatches = query.match(/\[\[([^\]]+)\]\]/g) || [];
+    exactMatches.forEach(match => {
+      const phrase = match.replace(/\[\[|\]\]/g, '');
+      result.exactPhrases.push(phrase.toLowerCase());
+      // 从原查询中移除，避免重复处理
+      query = query.replace(match, ' ');
+    });
+    
+    // 2. 处理排除词 !!xxx
+    const excludeMatches = query.match(/!![^\s]+/g) || [];
+    excludeMatches.forEach(match => {
+      result.excludeTerms.push(match.substring(2).toLowerCase());
+      query = query.replace(match, ' ');
+    });
+    
+    // 3. 处理 OR 运算 ;;
+    if (query.includes(';;')) {
+      result.orGroups = query.split(';;').map(s => s.trim().toLowerCase()).filter(s => s);
+      return result; // OR 运算优先级最低，有 OR 就不处理 AND
+    }
+    
+    // 4. 处理 AND 运算 //（默认）
+    if (query.includes('//')) {
+      result.andGroups = query.split('//').map(s => s.trim().toLowerCase()).filter(s => s);
+    } else {
+      // 没有 // 时，整个查询作为一个 AND 组
+      const trimmed = query.trim().toLowerCase();
+      if (trimmed) {
+        result.andGroups = [trimmed];
+      }
+    }
+    
+    return result;
+  }
+  
+  /**
+   * 判断文本是否匹配查询条件
+   * @param {string} searchText - 要搜索的文本
+   * @param {Object} parsedQuery - 解析后的查询对象
+   * @returns {boolean} 是否匹配
+   */
+  static matchesQuery(searchText, parsedQuery) {
+    const text = searchText.toLowerCase();
+    
+    // 1. 检查排除词
+    for (const excludeTerm of parsedQuery.excludeTerms) {
+      if (text.includes(excludeTerm)) {
+        return false; // 包含排除词，不匹配
+      }
+    }
+    
+    // 2. 检查精确短语
+    for (const phrase of parsedQuery.exactPhrases) {
+      if (!text.includes(phrase)) {
+        return false; // 缺少必需的精确短语
+      }
+    }
+    
+    // 3. 检查 OR 条件
+    if (parsedQuery.orGroups.length > 0) {
+      return parsedQuery.orGroups.some(term => text.includes(term));
+    }
+    
+    // 4. 检查 AND 条件（默认）
+    if (parsedQuery.andGroups.length > 0) {
+      return parsedQuery.andGroups.every(group => {
+        // 每个组内的词作为整体匹配
+        return text.includes(group);
+      });
+    }
+    
+    return parsedQuery.exactPhrases.length > 0; // 只有精确短语时，已经在步骤2检查过
+  }
+  
+  /**
    * 在索引中搜索
    * @param {string} keyword - 搜索关键词
    * @param {Object} options - 搜索选项
@@ -16064,6 +16161,16 @@ class FastSearcher {
     let results = [];
     
     try {
+      // 解析搜索查询
+      const parsedQuery = FastSearcher.parseSearchQuery(keyword);
+      
+      // 如果解析后没有任何有效条件，返回空
+      if (parsedQuery.andGroups.length === 0 && 
+          parsedQuery.orGroups.length === 0 && 
+          parsedQuery.exactPhrases.length === 0) {
+        return [];
+      }
+      
       // 遍历索引进行搜索
       for (let entry of this.index.searchData) {
         // 类型过滤
@@ -16078,14 +16185,21 @@ class FastSearcher {
           }
         }
         
-        // 关键词匹配
-        if (entry.searchText && entry.searchText.includes(keyword)) {
+        // 使用新的匹配逻辑
+        if (entry.searchText && FastSearcher.matchesQuery(entry.searchText, parsedQuery)) {
+          // 为了评分，需要传递完整的 entry 对象
+          const score = this.calculateScoreWithParsedQuery(parsedQuery, entry);
+          
           results.push({
             id: entry.id,
             type: entry.type,
             classificationSubtype: entry.classificationSubtype,
             title: entry.title,
-            score: this.calculateScore(keyword, entry)
+            parentId: entry.parentId,  // 包含父ID
+            prefix: entry.prefix,       // 包含前缀（用作路径显示）
+            titleLinkWords: entry.titleLinkWords, // 用于评分
+            keywords: entry.keywords,   // 用于评分
+            score: score
           });
           
           if (results.length >= limit) {
@@ -16106,7 +16220,7 @@ class FastSearcher {
   }
   
   /**
-   * 计算匹配分数
+   * 计算匹配分数（旧版本，保留兼容性）
    * @private
    */
   calculateScore(keyword, entry) {
@@ -16136,6 +16250,73 @@ class FastSearcher {
     
     // 基础匹配分
     score += 10;
+    
+    return score;
+  }
+  
+  /**
+   * 使用解析后的查询计算匹配分数
+   * @param {Object} parsedQuery - 解析后的查询对象
+   * @param {Object} entry - 索引条目
+   * @returns {number} 匹配分数
+   */
+  calculateScoreWithParsedQuery(parsedQuery, entry) {
+    let score = 0;
+    
+    // 1. 精确短语匹配得分最高（每个短语100分）
+    parsedQuery.exactPhrases.forEach(phrase => {
+      if (entry.searchText && entry.searchText.includes(phrase)) {
+        score += 100;
+      }
+      // 额外加分：如果精确短语出现在标题链接词中
+      if (entry.titleLinkWords && entry.titleLinkWords.toLowerCase().includes(phrase)) {
+        score += 50;
+      }
+    });
+    
+    // 2. AND 组匹配（每个词独立评分）
+    parsedQuery.andGroups.forEach(group => {
+      const groupLower = group.toLowerCase();
+      
+      // 在标题链接词中匹配
+      if (entry.titleLinkWords && entry.titleLinkWords.toLowerCase().includes(groupLower)) {
+        score += 50;
+      }
+      
+      // 在前缀内容中匹配
+      if (entry.prefix && entry.prefix.toLowerCase().includes(groupLower)) {
+        score += 30;
+      }
+      
+      // 在关键词字段中匹配
+      if (entry.keywords && entry.keywords.toLowerCase().includes(groupLower)) {
+        score += 20;
+      }
+      
+      // 基础匹配分
+      if (entry.searchText && entry.searchText.includes(groupLower)) {
+        score += 10;
+      }
+    });
+    
+    // 3. OR 组匹配（匹配的越多分数越高）
+    if (parsedQuery.orGroups.length > 0) {
+      const matchedOrTerms = parsedQuery.orGroups.filter(term => 
+        entry.searchText && entry.searchText.includes(term)
+      );
+      score += matchedOrTerms.length * 25; // 每个匹配的 OR 词加 25 分
+    }
+    
+    // 4. 排除词惩罚（理论上不应该到这里，因为已经被过滤了）
+    // 这里不需要处理，matchesQuery 已经过滤了
+    
+    // 5. 额外加分：如果多个条件都满足
+    const totalConditions = parsedQuery.exactPhrases.length + 
+                          parsedQuery.andGroups.length + 
+                          parsedQuery.orGroups.length;
+    if (totalConditions > 1) {
+      score += totalConditions * 5; // 多条件奖励
+    }
     
     return score;
   }

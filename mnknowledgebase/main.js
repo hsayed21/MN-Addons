@@ -163,9 +163,7 @@ JSB.newAddon = function(mainPath){
           self.tableItem('⚙️   Setting', 'openSetting:'),
           self.tableItem('🗄️   文献数据库', 'openKnowledgeBaseLibrary:'),
           self.tableItem('🔄   更新搜索索引', 'updateSearchIndex:'),
-          self.tableItem('🔍   快速搜索', 'showFastSearch:'),
-          self.tableItem('✍️   JSON 写入测试', 'writeJSON:'),
-          self.tableItem('✍️   JSON 读取测试', 'readJSON:'),
+          self.tableItem('🔍   快速搜索', 'showFastSearch:')
         ];
 
         // 显示菜单
@@ -274,23 +272,6 @@ JSB.newAddon = function(mainPath){
           MNUtil.showHUD(error);
         }
       })
-    },
-
-    writeJSON: function() {
-      try {
-        let obj = MNNote.getFocusNote()
-        MNUtil.writeJSON(MNUtil.dbFolder+"/"+"kb-test"+".json", obj)
-      } catch (error) {
-        MNUtil.showHUD(error);
-      }
-    },
-
-    readJSON: function() {
-      try {
-        MNUtil.copy(MNUtil.readJSON(MNUtil.dbFolder+"/"+"kb-test"+".json"))
-      } catch (error) {
-        MNUtil.showHUD(error);
-      }
     }
   }, 
   
@@ -415,11 +396,19 @@ JSB.newAddon = function(mainPath){
         const typeLabel = result.classificationSubtype 
           ? `[${result.type}-${result.classificationSubtype}]`
           : `[${result.type}]`;
+        
+        // 获取显示的标题（优先用简短形式）
+        let displayTitle = result.title;
+        
+        // 如果有 prefix，显示为路径信息
+        const pathInfo = result.prefix ? `\n   📍 ${result.prefix}` : "";
+        
         // 截取标题避免过长
-        const titlePreview = result.title.length > 40 
-          ? result.title.substring(0, 40) + "..."
-          : result.title;
-        return `${index + 1}. ${typeLabel} ${titlePreview}`;
+        if (displayTitle.length > 40) {
+          displayTitle = displayTitle.substring(0, 40) + "...";
+        }
+        
+        return `${index + 1}. ${typeLabel} ${displayTitle}${pathInfo}`;
       });
       
       // 添加返回选项
