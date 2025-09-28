@@ -163,7 +163,8 @@ JSB.newAddon = function(mainPath){
           self.tableItem('⚙️   Setting', 'openSetting:'),
           self.tableItem('🗄️   文献数据库', 'openKnowledgeBaseLibrary:'),
           self.tableItem('🔄   更新搜索索引', 'updateSearchIndex:'),
-          self.tableItem('🔍   快速搜索', 'showFastSearch:')
+          self.tableItem('🔍   快速搜索', 'showFastSearch:'),
+          self.tableItem('📤   分享索引文件', 'shareIndexFile:')
         ];
 
         // 显示菜单
@@ -259,6 +260,41 @@ JSB.newAddon = function(mainPath){
       } catch (error) {
         MNUtil.showHUD("快速搜索失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: showFastSearch");
+      }
+    },
+    
+    /**
+     * 分享索引文件
+     */
+    shareIndexFile: function() {
+      try {
+        // 关闭菜单
+        if (self.popoverController) {
+          self.popoverController.dismissPopoverAnimated(true);
+        }
+        
+        // 加载索引
+        const index = KnowledgeBaseIndexer.loadIndex();
+        if (!index) {
+          MNUtil.showHUD("未找到索引，请先更新搜索索引");
+          return;
+        }
+        
+        // 生成文件名（包含时间戳）
+        const date = new Date();
+        const timestamp = date.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const filename = `kb-search-index-${timestamp}.json`;
+        
+        // 写入插件目录并导出
+        const filepath = MNUtil.mainPath + "/" + filename;
+        MNUtil.writeJSON(filepath, index);
+        MNUtil.saveFile(filepath, "public.json");
+        
+        MNUtil.showHUD("索引文件已导出");
+        
+      } catch (error) {
+        MNUtil.showHUD("分享失败: " + error.message);
+        MNLog.error(error, "MNKnowledgeBase: shareIndexFile");
       }
     },
 
@@ -369,6 +405,9 @@ JSB.newAddon = function(mainPath){
    */
   MNKnowledgeBaseClass.prototype.performFastSearch = function(searcher, keyword) {
     try {
+      // 保存搜索关键词
+      this.lastSearchKeyword = keyword;
+      
       // 执行搜索
       const results = searcher.search(keyword, { limit: 50 });
       
@@ -395,26 +434,34 @@ JSB.newAddon = function(mainPath){
       const options = results.map((result, index) => {
         const typeLabel = result.classificationSubtype 
           ? `[${result.type}-${result.classificationSubtype}]`
-          : `[${result.type}]`;
+          : `[${result.type}-${result.prefix}]`;
         
         // 获取显示的标题（优先用简短形式）
-        let displayTitle = result.title;
-        
-        // 如果有 prefix，显示为路径信息
-        const pathInfo = result.prefix ? `\n   📍 ${result.prefix}` : "";
+        // let displayTitle = result.title;
+        let displayTitle = result.classificationSubtype 
+          ? `${result.content}`
+          : ``;
+        // MNLog.log(index + "第一次截取", Object.entries(result));
         
         // 截取标题避免过长
+        // TODO MNUtil 有计算字符的
         if (displayTitle.length > 40) {
           displayTitle = displayTitle.substring(0, 40) + "...";
+          // MNLog.log(index + "第二次截取" + displayTitle);
         }
-        
-        return `${index + 1}. ${typeLabel} ${displayTitle}${pathInfo}`;
+
+        if (!result.classificationSubtype){
+          displayTitle = displayTitle + result.titleLinkWords
+        }
+        // MNLog.log(index + "第三次截取" + displayTitle);
+        return `${index + 1}. ${typeLabel} ${displayTitle}`;
       });
       
-      // 添加返回选项
+      // 添加返回和分享选项
       options.unshift("🔙 返回搜索");
       
       // 显示结果列表
+      // TODO：宽度能否调
       let selectResult = await MNUtil.userSelect(
         `搜索结果 (${results.length} 个)`,
         "选择要查看的卡片：",
@@ -424,7 +471,7 @@ JSB.newAddon = function(mainPath){
       if (selectResult === 0) {
         // 返回搜索
         this.showSearchDialog(searcher);
-      } else if (selectResult > 1) {
+      } else if (selectResult > 0) {
         // 查看选中的卡片
         const selectedResult = results[selectResult - 2];
         const note = MNNote.new(selectedResult.id);
@@ -443,6 +490,7 @@ JSB.newAddon = function(mainPath){
       MNLog.error(error, "MNKnowledgeBase: showSearchResults");
     }
   }
+  
   // 返回定义的插件类，MarginNote 会自动实例化这个类
   return MNKnowledgeBaseClass;
 };

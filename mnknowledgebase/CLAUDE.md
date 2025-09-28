@@ -55,7 +55,10 @@ mnaddon4 unpack mnknowledgebase_v0_1_实现JSON的读取.mnaddon
 #### 主要功能入口
 - `toggleAddon`：插件图标点击响应，显示功能菜单
 - `openKnowledgeBaseLibrary`：打开文献数据库
-- `writeJSON/readJSON`：JSON 数据测试功能
+- `updateSearchIndex`：更新搜索索引
+- `showFastSearch`：显示快速搜索对话框
+- `shareIndexFile`：分享索引文件（新增）
+- `shareSearchResults`：分享搜索结果（新增）
 - `onPopupMenuOnNote`：笔记弹出菜单处理
 
 ### 2. 知识库模板系统（utils.js - knowledgeBaseTemplate）
@@ -155,6 +158,37 @@ let data = MNUtil.readJSON(MNUtil.dbFolder + "/debug.json")
 1. **插件不生效**：检查 mnaddon.json 中的版本要求
 2. **功能菜单不显示**：确认 `MNUtil.studyMode !== 3`（非复习模式）
 3. **链接处理失败**：验证链接格式是否为 `marginnote4app://...`
+
+## 文件分享功能（v0.3 新增）
+
+### 功能说明
+插件现在支持将索引文件和搜索结果通过系统分享功能导出，特别适合 iPad 用户。
+
+### 使用方法
+
+#### 1. 分享索引文件
+- 点击插件图标
+- 选择 "📤 分享索引文件"
+- 系统弹出分享菜单
+- 选择分享方式：
+  - **隔空投送**：直接发送到 Mac
+  - **存储到文件**：保存到文件 App
+  - **邮件**：作为附件发送
+  - **其他应用**：分享到支持的应用
+
+#### 2. 分享搜索结果
+- 进行快速搜索
+- 在搜索结果列表底部选择 "📤 分享搜索结果"
+- 选择分享方式（同上）
+
+### 文件格式
+- 索引文件：`kb-search-index-[时间戳].json`
+- 搜索结果：`search-results-[关键词]-[时间戳].json`
+
+### 技术实现
+- 使用 iOS 原生 `UIActivityViewController`
+- 临时文件存储在 `MNUtil.tempFolder`
+- 支持 iPad 和 iPhone 的不同界面适配
 
 ## 扩展开发
 

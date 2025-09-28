@@ -7398,12 +7398,12 @@ class MNMath {
       }
     );
     
-    // 设置输入框的默认值
-    MNUtil.delay(0.1).then(() => {
-      if (UIAlertView.currentAlert) {
-        UIAlertView.currentAlert.textFieldAtIndex(0).text = defaultLinkWord;
-      }
-    });
+    // // 设置输入框的默认值
+    // MNUtil.delay(0.1).then(() => {
+    //   if (UIAlertView.currentAlert) {
+    //     UIAlertView.currentAlert.textFieldAtIndex(0).text = defaultLinkWord;
+    //   }
+    // });
   }
 
   /**

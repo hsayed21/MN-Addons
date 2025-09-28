@@ -15907,7 +15907,11 @@ class KnowledgeBaseIndexer {
           processedIds.set(noteId, true);
           
           const noteType = knowledgeBaseTemplate.getNoteType(note);
-          if (!noteType || !targetTypes.includes(noteType)) return;
+          if (!noteType) {
+            return;
+          } else {
+            if (!targetTypes.includes(noteType)) return;
+          }
           
           // 构建索引条目
           const entry = this.buildIndexEntry(note);
@@ -15938,7 +15942,7 @@ class KnowledgeBaseIndexer {
       const noteType = knowledgeBaseTemplate.getNoteType(note);
       const keywordsContent = knowledgeBaseTemplate.getKeywordsFromNote(note) || "";
       
-      const entry = {
+      let entry = {
         id: note.noteId,
         type: noteType,
         title: note.title || "",
@@ -15986,14 +15990,25 @@ class KnowledgeBaseIndexer {
       // 归类卡片：使用content（引号内的内容）+ 类型
       searchableContent = `${parsedTitle.content || ""} ${parsedTitle.type || ""}`.trim();
     } else {
-      // 其他卡片类型：不包含 prefix（已单独存储），只用标题链接词
+      // 其他卡片类型（定义、命题等）：包含前缀内容和标题链接词
+      let contentParts = [];
+      
+      // 重要：添加前缀内容（这是定义卡片的主要内容）
+      if (parsedTitle.prefixContent) {
+        contentParts.push(parsedTitle.prefixContent);
+      }
+      
+      // 添加标题链接词
       if (parsedTitle.titleLinkWordsArr && parsedTitle.titleLinkWordsArr.length > 0) {
-        searchableContent = parsedTitle.titleLinkWordsArr.join(" ");
+        contentParts.push(...parsedTitle.titleLinkWordsArr);
       }
-      // 如果没有标题链接词，用 content
-      if (!searchableContent && parsedTitle.content) {
-        searchableContent = parsedTitle.content;
+      
+      // 如果都没有，使用 content
+      if (contentParts.length === 0 && parsedTitle.content) {
+        contentParts.push(parsedTitle.content);
       }
+      
+      searchableContent = contentParts.join(" ");
     }
     
     // 处理关键词
@@ -16197,6 +16212,7 @@ class FastSearcher {
             title: entry.title,
             parentId: entry.parentId,  // 包含父ID
             prefix: entry.prefix,       // 包含前缀（用作路径显示）
+            content: entry.content,     // 归类卡片的内容
             titleLinkWords: entry.titleLinkWords, // 用于评分
             keywords: entry.keywords,   // 用于评分
             score: score
