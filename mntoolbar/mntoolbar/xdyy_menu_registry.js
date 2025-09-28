@@ -89,11 +89,28 @@ function registerAllMenuTemplates() {
           action: "clearContentKeepExcerpt",
           menuTitle: "    只保留摘录，无标题",
         },
-        "⬇️ 移动最后一条评论",
+        "⬇️ 移动最后 1️⃣ 条评论",
         {
           action: "moveLastCommentToBelongArea",
           menuTitle: "    移动到所属区",
         },
+        {
+          action: "moveLastCommentToProofAreaTop",
+          menuTitle: "    🔝 移动到证明区顶部",
+        },
+        {
+          action: "moveLastCommentToProofAreaBottom",
+          menuTitle: "    ▼ 移动到证明区底部",
+        },
+        "⬇️ 移动最后 2️⃣ 条评论",
+        {
+          action: "moveLastTwoCommentsToProofAreaTop",
+          menuTitle: "    🔝 移动到证明区顶部",
+        },
+        {
+          action: "moveLastTwoCommentsToProofAreaBottom",
+          menuTitle: "    ▼ 移动到证明区底部",
+        }
       ],
     },
   });

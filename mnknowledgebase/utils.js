@@ -15874,7 +15874,7 @@ class KnowledgeBaseIndexer {
    * @param {Array<string>} targetTypes - 目标卡片类型数组，如 ["定义", "命题", "归类"]
    * @returns {Object} 包含metadata和searchData的索引对象
    */
-  static buildSearchIndex(rootNotes, targetTypes = ["定义", "归类"]) {
+  static buildSearchIndex(rootNotes, targetTypes = ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题"]) {
     const index = {
       metadata: {
         version: "1.0",
@@ -15889,7 +15889,8 @@ class KnowledgeBaseIndexer {
       // 使用 Map 进行去重
       const processedIds = new Map();
       
-      // 遍历所有根卡片
+      // 先收集所有需要处理的卡片
+      let allNotes = [];
       rootNotes.forEach(_rootNote => {
         const rootNote = MNNote.new(_rootNote);
         if (!rootNote) return;
@@ -15897,28 +15898,57 @@ class KnowledgeBaseIndexer {
         // 获取所有子孙卡片
         const descendants = rootNote.descendantNodes.descendant;
         descendants.push(rootNote); // 包含根卡片本身
+        allNotes = allNotes.concat(descendants);
+      });
+      
+      // 进度跟踪变量
+      let processedCount = 0;
+      let validCount = 0;
+      let lastUpdateTime = Date.now();
+      const updateInterval = 10; // 每处理10个卡片更新一次
+      const timeInterval = 200; // 或每200ms更新一次
+      const totalCount = allNotes.length;
+      
+      // 显示初始进度
+      MNUtil.showHUD(`正在构建索引 0/${totalCount}`);
+      
+      // 处理所有卡片
+      allNotes.forEach((note, index) => {
+        // 去重检查
+        const noteId = note.noteId;
+        if (processedIds.has(noteId)) {
+          processedCount++;
+          return; // 跳过已处理的卡片
+        }
+        processedIds.set(noteId, true);
         
-        descendants.forEach(note => {
-          // 去重检查
-          const noteId = note.noteId;
-          if (processedIds.has(noteId)) {
-            return; // 跳过已处理的卡片
-          }
-          processedIds.set(noteId, true);
-          
-          const noteType = knowledgeBaseTemplate.getNoteType(note);
-          if (!noteType) {
+        const noteType = knowledgeBaseTemplate.getNoteType(note);
+        if (!noteType) {
+          processedCount++;
+          return;
+        } else {
+          if (!targetTypes.includes(noteType)) {
+            processedCount++;
             return;
-          } else {
-            if (!targetTypes.includes(noteType)) return;
           }
-          
-          // 构建索引条目
-          const entry = this.buildIndexEntry(note);
-          if (entry) {
-            index.searchData.push(entry);
-          }
-        });
+        }
+        
+        // 构建索引条目
+        const entry = this.buildIndexEntry(note);
+        if (entry) {
+          index.searchData.push(entry);
+          validCount++;
+        }
+        
+        processedCount++;
+        
+        // 定期更新进度
+        if (processedCount % updateInterval === 0 || 
+            Date.now() - lastUpdateTime > timeInterval ||
+            processedCount === totalCount) {
+          MNUtil.showHUD(`正在构建索引 ${processedCount}/${totalCount} (有效: ${validCount})`);
+          lastUpdateTime = Date.now();
+        }
       });
       
       index.metadata.totalCards = index.searchData.length;

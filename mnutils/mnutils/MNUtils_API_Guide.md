@@ -1799,9 +1799,6 @@ note.getTitleLinkWordsArr()     // 获取标题的所有链接词数组
 note.getFirstTitleLinkWord()    // 获取第一个标题链接词
 note.generateCustomTitleLinkFromFirstTitlelinkWord(keyword) // 生成自定义标题链接
 note.ifCommentsAllLinksByIndexArr(indexArr) // 检测评论是否全是链接
-note.getProofHtmlCommentIndexByNoteType(type) // 获取证明相关 HTML 索引
-note.getProofNameByType(type)   // 获取证明名称
-note.getRenewProofHtmlCommentByNoteType(type) // 更新证明 HTML
 
 // === 批量移动和更新 ===
 note.moveCommentsByIndexArr(indexArr, toIndex) // 批量移动评论
@@ -1821,11 +1818,6 @@ note.addClassificationNote(title)      // 添加归类笔记
 note.addClassificationNoteByType(type, title)  // 按类型添加归类笔记
 
 // 证明内容管理
-note.getProofContentIndexArr()         // 获取证明内容索引数组
-note.getProofHtmlCommentIndexByNoteType(type)  // 根据类型获取证明 HTML 索引
-note.getProofNameByType(type)          // 根据类型获取证明名称
-note.getRenewProofHtmlCommentByNoteType(type)  // 更新证明 HTML
-note.renewProofContentPointsToHtmlType(htmlType)  // 更新证明内容点到 HTML 类型
 note.renewContentPointsToHtmlType(htmlType)  // 更新内容点到 HTML 类型
 
 // 评论清理增强

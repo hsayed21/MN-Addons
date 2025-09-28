@@ -216,12 +216,9 @@ JSB.newAddon = function(mainPath){
         } 
         
         
-        // 显示进度提示
-        MNUtil.showHUD("正在构建索引，请稍候...");
-        
-        // 延迟执行以确保 HUD 显示
+        // 延迟执行以确保 UI 更新
         MNUtil.delay(0.1).then(() => {
-          // 构建索引
+          // 构建索引（内部会显示进度）
           let index = KnowledgeBaseIndexer.buildSearchIndex([rootNote]);
           
           // 保存索引

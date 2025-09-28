@@ -10695,14 +10695,14 @@ class MNMath {
           return `  ${keywords[i]} → [${g.join(", ")}]`;
         }
       }).join("\n");
-      MNUtil.log(`关键词扩展详情：\n${details}`);
+      // MNUtil.log(`关键词扩展详情：\n${details}`);
     }
     
     // 性能监控：记录统计信息
-    const duration = Date.now() - startTime;
-    if (duration > 10 || contextCheckCount > 0) { // 超过10ms或有上下文检查时记录
-      MNUtil.log(`📊 关键词扩展性能统计：耗时${duration}ms 关键词${keywords.length}个 同义词组${synonymGroups.length}个 上下文检查${contextCheckCount}次 跳过${skipCount}个组${title ? ` 标题="${title.substring(0, 20)}..."` : ''}`);
-    }
+    // const duration = Date.now() - startTime;
+    // if (duration > 10 || contextCheckCount > 0) { // 超过10ms或有上下文检查时记录
+    //   MNUtil.log(`📊 关键词扩展性能统计：耗时${duration}ms 关键词${keywords.length}个 同义词组${synonymGroups.length}个 上下文检查${contextCheckCount}次 跳过${skipCount}个组${title ? ` 标题="${title.substring(0, 20)}..."` : ''}`);
+    // }
     
     return keywordGroups;
   }
@@ -10755,10 +10755,10 @@ class MNMath {
     
     const result = Array.from(expandedKeywords);
     
-    // 如果扩展了关键词，记录日志
-    if (result.length > keywords.length) {
-      MNUtil.log(`关键词扩展：${keywords.join(", ")} → ${result.join(", ")}`);
-    }
+    // // 如果扩展了关键词，记录日志
+    // if (result.length > keywords.length) {
+    //   MNUtil.log(`关键词扩展：${keywords.join(", ")} → ${result.join(", ")}`);
+    // }
     
     return result;
   }
@@ -18727,96 +18727,6 @@ MNNote.prototype.deleteCommentsByPopupAndMoveNewContentTo = function(target, toB
   )
 }
 
-
-/**
- * 【数学】获取"证明"系列的 Html 的 index
- *  因为命题、反例、思想方法的"证明："叫法不同
- */
-MNNote.prototype.getProofHtmlCommentIndexByNoteType = function(type){
-  if (MNUtil.isObj(type)) {
-    type = type.zh
-  } 
-  let proofHtmlCommentIndex
-  switch (type) {
-    case "反例":
-      proofHtmlCommentIndex = this.getHtmlCommentIndex("反例及证明：")
-      break;
-    case "思想方法":
-      proofHtmlCommentIndex = this.getHtmlCommentIndex("原理：")
-      break;
-    default:
-      proofHtmlCommentIndex = this.getHtmlCommentIndex("证明：")
-      break;
-  }
-
-  return proofHtmlCommentIndex
-}
-
-MNNote.prototype.getProofNameByType = function(type){
-  if (MNUtil.isObj(type)) {
-    type = type.zh
-  } 
-  let proofName
-  switch (type) {
-    case "反例":
-      proofName = "反例"
-      break;
-    case "思想方法":
-      proofName = "原理"
-      break;
-    default:
-      proofName = "证明"
-      break;
-  }
-
-  return proofName
-}
-
-/**
- * 【数学】更新证明的 Html 的 index
- */
-MNNote.prototype.getRenewProofHtmlCommentByNoteType = function(type){
-  if (MNUtil.isObj(type)) {
-    type = type.zh
-  } 
-  switch (type) {
-    case "反例":
-      if (this.getHtmlCommentIndex("证明：") !== -1) {
-        this.removeCommentByIndex(this.getHtmlCommentIndex("证明："))
-        this.mergeClonedNoteById("6ED0D29A-F57F-4B89-BFDA-58D5DFEB1F19")
-        this.moveComment(this.comments.length-1, this.getHtmlCommentIndex("证明："))
-      } else if (this.getHtmlCommentIndex("原理：") !== -1) {
-        this.removeCommentByIndex(this.getHtmlCommentIndex("原理："))
-        this.mergeClonedNoteById("6ED0D29A-F57F-4B89-BFDA-58D5DFEB1F19")
-        this.moveComment(this.comments.length-1, this.getHtmlCommentIndex("原理："))
-      }
-      break;
-    case "思想方法":
-      if (this.getHtmlCommentIndex("证明：") !== -1) {
-        this.removeCommentByIndex(this.getHtmlCommentIndex("证明："))
-        this.mergeClonedNoteById("85F0FDF5-E1C7-4B38-80CA-7A3F3266B6A3")
-        this.moveComment(this.comments.length-1, this.getHtmlCommentIndex("证明："))
-      } else if (this.getHtmlCommentIndex("反例及证明：") !== -1) {
-        this.removeCommentByIndex(this.getHtmlCommentIndex("反例及证明："))
-        this.mergeClonedNoteById("85F0FDF5-E1C7-4B38-80CA-7A3F3266B6A3")
-        this.moveComment(this.comments.length-1, this.getHtmlCommentIndex("反例及证明："))
-      }
-      break;
-    default:
-      if (this.getHtmlCommentIndex("反例及证明：") !== -1) {
-        this.removeCommentByIndex(this.getHtmlCommentIndex("反例及证明："))
-        this.mergeClonedNoteById("21D808AE-33D9-494A-9D99-04FFA5D9E455")
-        this.moveComment(this.comments.length-1, this.getHtmlCommentIndex("反例及证明："))
-      } else if (this.getHtmlCommentIndex("原理：") !== -1) {
-        this.removeCommentByIndex(this.getHtmlCommentIndex("原理："))
-        this.mergeClonedNoteById("21D808AE-33D9-494A-9D99-04FFA5D9E455")
-        this.moveComment(this.comments.length-1, this.getHtmlCommentIndex("原理："))
-      }
-  }
-}
-
-
-
 /**
  * 根据类型去掉评论
  */
@@ -19637,30 +19547,6 @@ MNNote.prototype.lastTwoCommentsType = function(){
     } else {
       return undefined
     }
-  }
-}
-
-MNNote.prototype.getProofContentIndexArr = function() {
-  let proofName = this.getProofNameByType(this.getNoteTypeZh())
-  let proofHtmlCommentIndex = this.getProofHtmlCommentIndexByNoteType(this.getNoteTypeZh())
-  if (proofHtmlCommentIndex !== -1) {
-    return this.getHtmlBlockContentIndexArr(proofName)
-  }
-
-  return []
-}
-
-MNNote.prototype.renewProofContentPointsToHtmlType = function(htmlType = "level2") {
-  if (htmlType == undefined) { htmlType = "level2" }
-  let proofContentIndexArr = this.getProofContentIndexArr()
-  if (proofContentIndexArr.length > 0) {
-    let comments = this.MNComments
-    proofContentIndexArr.forEach(index => {
-      let comment = comments[index]
-      if (comment.type == "markdownComment" && comment.text.startsWith("- ") && !(comment.text.startsWith("- -"))) {
-        comment.text = HtmlMarkdownUtils.createHtmlMarkdownText(comment.text.slice(2).trim(), htmlType)
-      }
-    })
   }
 }
 

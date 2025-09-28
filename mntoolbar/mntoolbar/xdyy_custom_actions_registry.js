@@ -3189,14 +3189,103 @@ function registerAllCustomActions() {
             return;
           }
           
+          // 使用 MNMath.moveCommentsArrToField 移动到"所属"字段
+          // 该方法会自动处理字段不存在的情况
+          MNMath.moveCommentsArrToField(focusNote, "Z", "所属", true);
+          
+          
+        } catch (error) {
+          MNUtil.showHUD(`❌ 移动失败: ${error.message || error}`);
+        }
+      });
+    },
+  );
+
+  global.registerCustomAction(
+    "moveLastCommentToProofAreaTop",
+    async function (context) {
+      const { button, des, focusNote, focusNotes, self } = context;
+      MNUtil.undoGrouping(() => {
+        try {
+          if (!focusNote || !focusNote.comments || focusNote.comments.length === 0) {
+            MNUtil.showHUD("❌ 没有评论可移动");
+            return;
+          }
+          
+          // 该方法会自动处理字段不存在的情况
+          MNMath.moveCommentsArrToField(focusNote, "Z", "证明", false);
+          
+          
+        } catch (error) {
+          MNUtil.showHUD(`❌ 移动失败: ${error.message || error}`);
+        }
+      });
+    },
+  );
+
+  global.registerCustomAction(
+    "moveLastTwoCommentsToProofAreaBottom",
+    async function (context) {
+      const { button, des, focusNote, focusNotes, self } = context;
+      MNUtil.undoGrouping(() => {
+        try {
+          if (!focusNote || !focusNote.comments || focusNote.comments.length === 0) {
+            MNUtil.showHUD("❌ 没有评论可移动");
+            return;
+          }
+          
           // 获取最后一条评论的索引
           const lastCommentIndex = focusNote.comments.length - 1;
           
-          // 使用 MNMath.moveCommentsArrToField 移动到"所属"字段
           // 该方法会自动处理字段不存在的情况
-          MNMath.moveCommentsArrToField(focusNote, [lastCommentIndex], "所属", true);
+          MNMath.moveCommentsArrToField(focusNote, "YZ", "证明", true);
+        } catch (error) {
+          MNUtil.showHUD(`❌ 移动失败: ${error.message || error}`);
+        }
+      });
+    },
+  );
+
+  global.registerCustomAction(
+    "moveLastTwoCommentsToProofAreaTop",
+    async function (context) {
+      const { button, des, focusNote, focusNotes, self } = context;
+      MNUtil.undoGrouping(() => {
+        try {
+          if (!focusNote || !focusNote.comments || focusNote.comments.length === 0) {
+            MNUtil.showHUD("❌ 没有评论可移动");
+            return;
+          }
           
-          MNUtil.showHUD("✅ 已移动到所属区");
+          // 该方法会自动处理字段不存在的情况
+          MNMath.moveCommentsArrToField(focusNote, "YZ", "证明", false);
+          
+          
+        } catch (error) {
+          MNUtil.showHUD(`❌ 移动失败: ${error.message || error}`);
+        }
+      });
+    },
+  );
+
+  global.registerCustomAction(
+    "moveLastCommentToProofAreaBottom",
+    async function (context) {
+      const { button, des, focusNote, focusNotes, self } = context;
+      MNUtil.undoGrouping(() => {
+        try {
+          if (!focusNote || !focusNote.comments || focusNote.comments.length === 0) {
+            MNUtil.showHUD("❌ 没有评论可移动");
+            return;
+          }
+          
+          // 获取最后一条评论的索引
+          const lastCommentIndex = focusNote.comments.length - 1;
+          
+          // 该方法会自动处理字段不存在的情况
+          MNMath.moveCommentsArrToField(focusNote, "Z", "证明", true);
+          
+          
         } catch (error) {
           MNUtil.showHUD(`❌ 移动失败: ${error.message || error}`);
         }
