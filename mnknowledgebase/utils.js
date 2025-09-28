@@ -2574,14 +2574,40 @@ class knowledgeBaseTemplate {
   /**
    * 获取第一个归类卡片的父爷卡片
    */
-  static getFirstClassificationParentNote(note) {
+  static getFirstClassificationParentNote(note, depth = 0) {
+    // 防止无限递归
+    if (depth > 10) {
+      MNLog.error({
+        message: `getFirstClassificationParentNote recursion depth exceeded for note ${note?.noteId}`,
+        source: "knowledgeBaseTemplate.getFirstClassificationParentNote"
+      });
+      return null;
+    }
+    
+    // 使用 Set 记录访问过的节点，避免循环引用
+    const visitedNodes = new Set();
     let parentNote = note.parentNote;
+    
     while (parentNote) {
-      if (this.getNoteType(parentNote) === "归类") {
+      // 检查是否已经访问过这个节点
+      if (visitedNodes.has(parentNote.noteId)) {
+        MNLog.error({
+          message: `Circular reference detected in parent chain for note ${note?.noteId}`,
+          source: "knowledgeBaseTemplate.getFirstClassificationParentNote"
+        });
+        return null;
+      }
+      
+      visitedNodes.add(parentNote.noteId);
+      
+      // 调用 getNoteType 时传递 depth+1
+      if (this.getNoteType(parentNote, false, depth + 1) === "归类") {
         return parentNote;
       }
       parentNote = parentNote.parentNote;
     }
+    
+    return null;
   }
 
   /**
@@ -3269,19 +3295,34 @@ class knowledgeBaseTemplate {
    * 目前是靠卡片标题来判断
    * @param {MNNote} note - 要判断类型的卡片
    * @param {boolean} useColorFallback - 是否在无法从标题/归类卡片判断时使用颜色判断（粗读模式使用）
+   * @param {number} depth - 递归深度（内部使用，防止无限递归）
    * @returns {string|undefined} 卡片类型
    */
-  static getNoteType(note, useColorFallback = false) {
+  static getNoteType(note, useColorFallback = false, depth = 0) {
+    // 防止无限递归
+    if (depth > 10) {
+      MNLog.error({
+        message: `getNoteType recursion depth exceeded for note ${note?.noteId}`,
+        source: "knowledgeBaseTemplate.getNoteType"
+      });
+      return undefined;
+    }
+    
+    // 防御性检查
+    if (!note) {
+      return undefined;
+    }
+    
     let noteType
     let title = note.title || "";
     /**
      * 如果是
-     * “xxx”：“yyy”相关 zz
+     * "xxx"："yyy"相关 zz
      * 或者是
-     * “yyy”相关 zz
+     * "yyy"相关 zz
      * 则是归类卡片
      */
-    if (/^“[^”]*”：“[^”]*”\s*相关[^“]*$/.test(title) || /^“[^”]+”\s*相关[^“]*$/.test(title)) {
+    if (/^"[^"]*"："[^"]*"\s*相关[^"]*$/.test(title) || /^"[^"]+"\s*相关[^"]*$/.test(title)) {
       noteType = "归类"
     } else {
       /**
@@ -3299,7 +3340,8 @@ class knowledgeBaseTemplate {
           matchResult = match[1].trim();
         } else {
           // 从标题判断不了的话，就从卡片的归类卡片来判断
-          let classificationNote = this.getFirstClassificationParentNote(note);
+          // 传递 depth+1 防止无限递归
+          let classificationNote = this.getFirstClassificationParentNote(note, depth + 1);
           if (classificationNote) {
             let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
             matchResult = classificationNoteTitleParts.type;
@@ -3386,10 +3428,18 @@ class knowledgeBaseTemplate {
    * 解析卡片标题，拆成几个部分，返回一个对象
    */
   static parseNoteTitle(note) {
+    // 防御性检查
+    if (!note) {
+      return {};
+    }
+    
     let title = note.title || "";
     let titleParts = {}
     let match
-    switch (this.getNoteType(note)) {
+    
+    // 获取卡片类型时传递防护深度
+    const noteType = this.getNoteType(note, false, 0);
+    switch (noteType) {
       case "归类":
         match = title.match(/^“[^”]+”：“([^”]+)”\s*相关\s*(.*)$/);
         if (match) {
@@ -10161,8 +10211,13 @@ class knowledgeBaseTemplate {
    */
   static getKeywordsFromNote(note) {
     try {
-      // 遍历所有评论
-      const comments = note.MNComments;
+      // 防御性检查
+      if (!note) {
+        return "";
+      }
+      
+      // 确保 MNComments 存在
+      const comments = note.MNComments || [];
       
       for (const comment of comments) {
         // 查找 HtmlComment/HtmlNote 类型且以"关键词"开头的评论
@@ -10185,11 +10240,11 @@ class knowledgeBaseTemplate {
   }
 
   /**
-   * 获取所有同义词组
+   * 获取所有同义词组（使用SynonymManager）
    */
   static getSynonymGroups() {
-    this.initSearchConfig();
-    return this.searchRootConfigs.synonymGroups || [];
+    // 使用SynonymManager来获取合并后的同义词组
+    return SynonymManager.getSynonymGroups();
   }
 
   /**
@@ -10226,38 +10281,18 @@ class knowledgeBaseTemplate {
   }
 
   /**
-   * 添加同义词组
-   * @param {string} name - 组名
+   * 添加同义词组（精简结构）
    * @param {Array<string>} words - 词汇数组
-   * @param {boolean} partialReplacement - 是否启用局部替换（默认 false）
-   * @param {Array<string>} contextTriggers - 上下文触发词数组（可选）
-   * @param {string} contextMode - 上下文匹配模式："any"（默认）或 "all"
-   * @param {boolean} caseSensitive - 是否大小写敏感（默认 false）
-   * @param {boolean} patternMode - 是否启用模式匹配（默认 false）
+   * @param {Object} options - 可选配置
+   * @param {boolean} options.partialReplacement - 是否启用局部替换
+   * @param {Array<string>} options.contextTriggers - 上下文触发词数组
+   * @param {string} options.contextMode - 上下文匹配模式："any"或"all"
+   * @param {boolean} options.caseSensitive - 是否大小写敏感
+   * @param {boolean} options.patternMode - 是否启用模式匹配
    */
-  static addSynonymGroup(name, words, partialReplacement = false, contextTriggers = undefined, contextMode = "any", caseSensitive = false, patternMode = false) {
-    this.initSearchConfig();
-    const group = {
-      id: "group_" + Date.now(),
-      name: name,
-      words: words,
-      enabled: true,
-      partialReplacement: partialReplacement,  // 局部替换字段
-      contextTriggers: contextTriggers,  // 上下文触发词
-      contextMode: contextMode,          // 匹配模式
-      caseSensitive: caseSensitive,      // 大小写敏感
-      patternMode: patternMode,          // 模式匹配（新增）
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    
-    if (!this.searchRootConfigs.synonymGroups) {
-      this.searchRootConfigs.synonymGroups = [];
-    }
-    
-    this.searchRootConfigs.synonymGroups.push(group);
-    this.saveSearchConfig();
-    return group;
+  static addSynonymGroup(words, options = {}) {
+    // 调用SynonymManager的精简方法
+    return SynonymManager.addSynonymGroup(words, options);
   }
 
   /**
@@ -10691,35 +10726,18 @@ class knowledgeBaseTemplate {
    * 获取所有排除词组
    */
   static getExclusionGroups() {
-    this.initSearchConfig();
-    return this.searchRootConfigs.exclusionGroups || [];
+    // 使用ExclusionManager来获取合并后的排除词组
+    return ExclusionManager.getExclusionGroups();
   }
 
   /**
-   * 添加排除词组
-   * @param {string} name - 组名
+   * 添加排除词组（精简结构）
    * @param {Array<string>} triggerWords - 触发词数组
    * @param {Array<string>} excludeWords - 排除词数组
    */
-  static addExclusionGroup(name, triggerWords, excludeWords) {
-    this.initSearchConfig();
-    const group = {
-      id: "excl_" + Date.now(),
-      name: name,
-      triggerWords: triggerWords,
-      excludeWords: excludeWords,
-      enabled: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    
-    if (!this.searchRootConfigs.exclusionGroups) {
-      this.searchRootConfigs.exclusionGroups = [];
-    }
-    
-    this.searchRootConfigs.exclusionGroups.push(group);
-    this.saveSearchConfig();
-    return group;
+  static addExclusionGroup(triggerWords, excludeWords) {
+    // 使用ExclusionManager的精简方法
+    return ExclusionManager.addExclusionGroup(triggerWords, excludeWords);
   }
 
   /**
@@ -13331,18 +13349,23 @@ class knowledgeBaseTemplate {
         // 显示现有同义词组
         for (const group of groups) {
           // 添加数据验证
-          if (!group || !group.name) {
+          if (!group || !group.words) {
             MNUtil.log("警告：发现异常同义词组数据，已跳过");
             continue;
           }
           
-          const status = group.enabled ? "✅" : "⭕";
           const partialIcon = group.partialReplacement ? "🔄" : "";  // 局部替换标识
+          const patternIcon = group.patternMode ? "🎯" : "";  // 模式匹配标识
+          const caseIcon = group.caseSensitive ? "Aa" : "";  // 大小写敏感标识
+          const contextIcon = group.contextTriggers ? "📍" : "";  // 上下文触发标识
+          
           // 防御性检查 - 处理 words 可能为空的情况
           const words = group.words || [];
           const wordsPreview = words.slice(0, 3).join(", ");
           const moreText = words.length > 3 ? `... (共${words.length}个)` : "";
-          options.push(`${status} ${partialIcon} ${group.name}: ${wordsPreview}${moreText}`);
+          const icons = [partialIcon, patternIcon, caseIcon, contextIcon].filter(i => i).join("");
+          const iconText = icons ? ` ${icons}` : "";
+          options.push(`${wordsPreview}${moreText}${iconText}`);
         }
         
         // 导入导出选项
@@ -13653,7 +13676,7 @@ class knowledgeBaseTemplate {
         continue; // 返回重新输入（当resolve(null)时）
       }
 
-      // 第四步：选择大小写敏感
+      // 第三步：选择大小写敏感
       const caseSensitive = await new Promise((resolve) => {
         const modeText = patternMode ? "（模式匹配）" : (enablePartial ? "（局部替换）" : "（普通）");
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
@@ -13677,7 +13700,7 @@ class knowledgeBaseTemplate {
         continue; // 返回重新输入
       }
 
-      // 第五步：设置上下文触发词（可选）
+      // 第四步：设置上下文触发词（可选）
       let contextTriggers = undefined;
       let contextMode = "any";
       
@@ -13686,7 +13709,7 @@ class knowledgeBaseTemplate {
         const caseText = caseSensitive ? "（大小写敏感）" : "";
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
           "上下文触发词",
-          `组名：${groupName}${modeText}${caseText}\n词汇：${words.join(", ")}\n\n是否设置上下文触发词？\n• 设置：仅当卡片标题包含特定词汇时才应用\n• 跳过：全局应用（对所有卡片生效，推荐）`,
+          `词汇：${words.join(", ")}${modeText}${caseText}\n\n是否设置上下文触发词？\n• 设置：仅当卡片标题包含特定词汇时才应用\n• 跳过：全局应用（对所有卡片生效，推荐）`,
           0,
           "取消",
           ["直接添加（全局）", "设置触发词"],
@@ -13813,17 +13836,15 @@ class knowledgeBaseTemplate {
   static async editSynonymGroup(group) {
     try {
       const options = [
-        group.enabled ? "🔴 禁用此组" : "🟢 启用此组",
         group.partialReplacement ? "🔄 关闭局部替换" : "🔄 开启局部替换",
-        group.patternMode ? "🔀 关闭模式匹配" : "🔀 开启模式匹配",  // 新增
+        group.patternMode ? "🔀 关闭模式匹配" : "🔀 开启模式匹配",
         "🌍 设置触发词",
         group.caseSensitive ? "🔠 关闭大小写敏感" : "🔠 开启大小写敏感",
         "✏️ 编辑词汇",
-        "📝 重命名组",
         "🗑 删除此组",
         "📋 复制词汇列表",
         "──────────────",
-        "🔍 测试匹配效果"  // 修改为通用测试
+        "🔍 测试匹配效果"
       ];
       
       const wordsPreview = group.words.join(", ");
@@ -13836,59 +13857,46 @@ class knowledgeBaseTemplate {
         contextInfo = `触发词(${mode}): ${group.contextTriggers.join(", ")}`;
       }
       
-      const message = `词汇：${wordsPreview}\n状态：${group.enabled ? "已启用" : "已禁用"}\n局部替换：${partialStatus}\n模式匹配：${patternStatus}\n大小写：${caseSensitiveStatus}\n上下文：${contextInfo}\n创建时间：${new Date(group.createdAt).toLocaleDateString()}`;
+      const message = `词汇：${wordsPreview}\n局部替换：${partialStatus}\n模式匹配：${patternStatus}\n大小写：${caseSensitiveStatus}\n上下文：${contextInfo}`;
       
-      const result = await MNUtil.userSelect(group.name, message, options);
+      const result = await MNUtil.userSelect("编辑同义词组", message, options);
       
       if (result === null || result === 0) {
         return; // 取消
       }
       
       switch (result) {
-        case 1: // 启用/禁用
-          group.enabled = !group.enabled;
-          group.updatedAt = Date.now();
-          this.saveSearchConfig();
-          MNUtil.showHUD(group.enabled ? "✅ 已启用" : "⭕ 已禁用");
-          break;
-          
-        case 2: // 开启/关闭局部替换
+        case 1: // 开启/关闭局部替换
           group.partialReplacement = !group.partialReplacement;
-          group.updatedAt = Date.now();
           this.saveSearchConfig();
           MNUtil.showHUD(group.partialReplacement ? "🔄 已开启局部替换" : "已关闭局部替换");
           break;
           
-        case 3: // 开启/关闭模式匹配
+        case 2: // 开启/关闭模式匹配
           group.patternMode = !group.patternMode;
-          group.updatedAt = Date.now();
           this.saveSearchConfig();
           MNUtil.showHUD(group.patternMode ? "🔀 已开启模式匹配" : "已关闭模式匹配");
           break;
           
-        case 4: // 设置触发词
+        case 3: // 设置触发词
           await this.editContextTriggers(group);
           break;
           
-        case 5: // 大小写敏感
+        case 4: // 大小写敏感
           group.caseSensitive = !group.caseSensitive;
-          group.updatedAt = Date.now();
           this.saveSearchConfig();
           MNUtil.showHUD(group.caseSensitive ? "🔠 已开启大小写敏感" : "已关闭大小写敏感");
           break;
           
-        case 6: // 编辑词汇
+        case 5: // 编辑词汇
           await this.editSynonymWords(group);
           break;
           
-        case 7: // 重命名
-          await this.renameSynonymGroup(group);
-          break;
-          
-        case 8: // 删除
+        case 6: // 删除
+          const wordsPreview = group.words.slice(0, 3).join(", ");
           const confirmDelete = await this.confirmAction(
             "确认删除",
-            `确定要删除"${group.name}"吗？\n此操作不可恢复。`
+            `确定要删除这个同义词组吗？\n词汇：${wordsPreview}...\n此操作不可恢复。`
           );
           if (confirmDelete) {
             this.deleteSynonymGroup(group.id);
@@ -13896,15 +13904,15 @@ class knowledgeBaseTemplate {
           }
           break;
           
-        case 9: // 复制词汇
+        case 7: // 复制词汇
           MNUtil.copy(group.words.join(", "));
           MNUtil.showHUD("📋 已复制到剪贴板");
           break;
           
-        case 10: // 分隔线
+        case 8: // 分隔线
           break;
           
-        case 11: // 测试匹配效果
+        case 9: // 测试匹配效果
           await this.testPartialReplacement(group);
           break;
       }
@@ -14644,11 +14652,11 @@ class knowledgeBaseTemplate {
         
         // 显示现有排除词组
         for (const group of groups) {
-          const status = group.enabled ? "✅" : "⭕";
           const triggersPreview = group.triggerWords.slice(0, 2).join(", ");
           const excludesPreview = group.excludeWords.slice(0, 2).join(", ");
-          const moreText = group.triggerWords.length > 2 ? "..." : "";
-          options.push(`${status} ${group.name}: ${triggersPreview}${moreText} → 排除: ${excludesPreview}`);
+          const moreTriggers = group.triggerWords.length > 2 ? "..." : "";
+          const moreExcludes = group.excludeWords.length > 2 ? "..." : "";
+          options.push(`[${triggersPreview}${moreTriggers}] → 排除: ${excludesPreview}${moreExcludes}`);
         }
         
         // 添加操作选项
@@ -14698,10 +14706,10 @@ class knowledgeBaseTemplate {
    */
   static async showAddExclusionGroupDialog() {
     return new Promise((resolve) => {
-      // 第一步：输入组名
+      // 第一步：输入触发词
       UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
         "添加排除词组",
-        "请输入排除词组名称：",
+        "请输入触发词（搜索这些词时将激活排除规则）：\n支持逗号、分号或空格分隔",
         2,
         "取消",
         ["下一步"],
@@ -14711,73 +14719,51 @@ class knowledgeBaseTemplate {
             return;
           }
           
-          const groupName = alert.textFieldAtIndex(0).text.trim();
-          if (!groupName) {
-            MNUtil.showHUD("❌ 请输入组名");
+          const triggerInput = alert.textFieldAtIndex(0).text;
+          if (!triggerInput) {
+            MNUtil.showHUD("❌ 请输入触发词");
             resolve(false);
             return;
           }
           
-          // 第二步：输入触发词
+          const triggerWords = this.parseWords(triggerInput);
+          if (triggerWords.length === 0) {
+            MNUtil.showHUD("❌ 至少需要一个触发词");
+            resolve(false);
+            return;
+          }
+          
+          // 第二步：输入排除词
           UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-            "设置触发词",
-            `组名：${groupName}\n\n请输入触发词（搜索这些词时将激活排除规则）：\n支持逗号、分号或空格分隔`,
+            "设置排除词",
+            `触发词：${triggerWords.join(", ")}\n\n请输入排除词（包含这些词的结果将被过滤）：`,
             2,
             "取消",
-            ["下一步"],
+            ["确定"],
             (alert2, buttonIndex2) => {
               if (buttonIndex2 === 0) {
                 resolve(false);
                 return;
               }
               
-              const triggerInput = alert2.textFieldAtIndex(0).text;
-              if (!triggerInput) {
-                MNUtil.showHUD("❌ 请输入触发词");
+              const excludeInput = alert2.textFieldAtIndex(0).text;
+              if (!excludeInput) {
+                MNUtil.showHUD("❌ 请输入排除词");
                 resolve(false);
                 return;
               }
               
-              const triggerWords = this.parseWords(triggerInput);
-              if (triggerWords.length === 0) {
-                MNUtil.showHUD("❌ 至少需要一个触发词");
+              const excludeWords = this.parseWords(excludeInput);
+              if (excludeWords.length === 0) {
+                MNUtil.showHUD("❌ 至少需要一个排除词");
                 resolve(false);
                 return;
               }
               
-              // 第三步：输入排除词
-              UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-                "设置排除词",
-                `组名：${groupName}\n触发词：${triggerWords.join(", ")}\n\n请输入排除词（包含这些词的结果将被过滤）：`,
-                2,
-                "取消",
-                ["确定"],
-                (alert3, buttonIndex3) => {
-                  if (buttonIndex3 === 0) {
-                    resolve(false);
-                    return;
-                  }
-                  
-                  const excludeInput = alert3.textFieldAtIndex(0).text;
-                  if (!excludeInput) {
-                    MNUtil.showHUD("❌ 请输入排除词");
-                    resolve(false);
-                    return;
-                  }
-                  
-                  const excludeWords = this.parseWords(excludeInput);
-                  if (excludeWords.length === 0) {
-                    MNUtil.showHUD("❌ 至少需要一个排除词");
-                    resolve(false);
-                    return;
-                  }
-                  
-                  // 添加组
-                  this.addExclusionGroup(groupName, triggerWords, excludeWords);
-                  MNUtil.showHUD(`✅ 已添加排除词组：${groupName}`);
-                  resolve(true);
-                }
-              );
+              // 添加组（使用精简结构，不需要groupName）
+              this.addExclusionGroup(triggerWords, excludeWords);
+              MNUtil.showHUD(`✅ 已添加排除词组`);
+              resolve(true);
             }
           );
         }
@@ -14791,16 +14777,15 @@ class knowledgeBaseTemplate {
   static async editExclusionGroup(group) {
     try {
       const options = [
-        group.enabled ? "🔴 禁用此组" : "🟢 启用此组",
         "✏️ 编辑触发词",
         "✏️ 编辑排除词",
-        "📝 重命名组",
         "🗑 删除此组",
         "📋 复制配置"
       ];
       
+      const triggerPreview = group.triggerWords.slice(0, 3).join(", ") + (group.triggerWords.length > 3 ? "..." : "");
       const result = await MNUtil.userSelect(
-        group.name,
+        "编辑排除词组",
         `触发词：${group.triggerWords.join(", ")}\n排除词：${group.excludeWords.join(", ")}`,
         options
       );
@@ -14808,29 +14793,21 @@ class knowledgeBaseTemplate {
       if (result === null || result === 0) return;
       
       switch (result) {
-        case 1: // 切换启用状态
-          this.updateExclusionGroup(group.id, { enabled: !group.enabled });
-          MNUtil.showHUD(group.enabled ? "⭕ 已禁用" : "✅ 已启用");
-          break;
-        case 2: // 编辑触发词
+        case 1: // 编辑触发词
           await this.editExclusionTriggerWords(group);
           break;
-        case 3: // 编辑排除词
+        case 2: // 编辑排除词
           await this.editExclusionExcludeWords(group);
           break;
-        case 4: // 重命名
-          await this.renameExclusionGroup(group);
-          break;
-        case 5: // 删除
-          const confirmed = await this.confirmAction("确认删除", `确定删除排除词组"${group.name}"吗？`);
+        case 3: // 删除
+          const confirmed = await this.confirmAction("确认删除", `确定删除此排除词组吗？\n触发词：${triggerPreview}`);
           if (confirmed) {
             this.deleteExclusionGroup(group.id);
             MNUtil.showHUD("🗑 已删除");
           }
           break;
-        case 6: // 复制配置
+        case 4: // 复制配置
           const config = {
-            name: group.name,
             triggerWords: group.triggerWords,
             excludeWords: group.excludeWords
           };
@@ -15983,29 +15960,77 @@ class KnowledgeBaseIndexer {
    */
   static buildIndexEntry(note) {
     try {
-      const parsedTitle = knowledgeBaseTemplate.parseNoteTitle(note);
-      const noteType = knowledgeBaseTemplate.getNoteType(note);
-      const keywordsContent = knowledgeBaseTemplate.getKeywordsFromNote(note) || "";
+      // 基本防御性检查
+      if (!note || !note.noteId) {
+        MNLog.error({
+          message: "Invalid note object",
+          source: "KnowledgeBaseIndexer: buildIndexEntry"
+        });
+        return null;
+      }
       
+      // 初始化基本条目信息
       let entry = {
         id: note.noteId,
-        type: noteType,
+        type: undefined,
         title: note.title || "",
-        // 添加 parentId 字段（使用 parentNoteId 属性更安全）
         parentId: note.parentNoteId || null
       };
       
-      // 根据卡片类型设置不同字段
-      if (noteType === "归类") {
-        entry.classificationSubtype = parsedTitle.type || "";
-        entry.content = parsedTitle.content || "";
-      } else {
-        if (parsedTitle.prefixContent) {
-          entry.prefix = parsedTitle.prefixContent;
+      // 分步骤获取信息，每一步都有独立的错误处理
+      let parsedTitle = {};
+      let noteType = undefined;
+      let keywordsContent = "";
+      
+      // 步骤1：获取卡片类型
+      try {
+        noteType = knowledgeBaseTemplate.getNoteType(note);
+        entry.type = noteType;
+      } catch (error) {
+        MNLog.error({
+          message: `Failed to get note type for ${note.noteId}: ${error.message}`,
+          source: "KnowledgeBaseIndexer: buildIndexEntry step 1"
+        });
+      }
+      
+      // 步骤2：解析标题
+      try {
+        parsedTitle = knowledgeBaseTemplate.parseNoteTitle(note);
+      } catch (error) {
+        MNLog.error({
+          message: `Failed to parse title for ${note.noteId}: ${error.message}`,
+          source: "KnowledgeBaseIndexer: buildIndexEntry step 2"
+        });
+      }
+      
+      // 步骤3：获取关键词
+      try {
+        keywordsContent = knowledgeBaseTemplate.getKeywordsFromNote(note) || "";
+      } catch (error) {
+        MNLog.error({
+          message: `Failed to get keywords for ${note.noteId}: ${error.message}`,
+          source: "KnowledgeBaseIndexer: buildIndexEntry step 3"
+        });
+      }
+      
+      // 步骤4：根据卡片类型设置不同字段
+      try {
+        if (noteType === "归类") {
+          entry.classificationSubtype = parsedTitle.type || "";
+          entry.content = parsedTitle.content || "";
+        } else {
+          if (parsedTitle.prefixContent) {
+            entry.prefix = parsedTitle.prefixContent;
+          }
+          if (parsedTitle.titleLinkWordsArr && parsedTitle.titleLinkWordsArr.length > 0) {
+            entry.titleLinkWords = parsedTitle.titleLinkWordsArr.join("; ");
+          }
         }
-        if (parsedTitle.titleLinkWordsArr && parsedTitle.titleLinkWordsArr.length > 0) {
-          entry.titleLinkWords = parsedTitle.titleLinkWordsArr.join("; ");
-        }
+      } catch (error) {
+        MNLog.error({
+          message: `Failed to set type-specific fields for ${note.noteId}: ${error.message}`,
+          source: "KnowledgeBaseIndexer: buildIndexEntry step 4"
+        });
       }
       
       // 添加关键词
@@ -16013,13 +16038,26 @@ class KnowledgeBaseIndexer {
         entry.keywords = keywordsContent;
       }
       
-      // 构建搜索文本
-      entry.searchText = this.buildSearchText(note, parsedTitle, noteType, keywordsContent);
+      // 步骤5：构建搜索文本
+      try {
+        entry.searchText = this.buildSearchText(note, parsedTitle, noteType, keywordsContent);
+      } catch (error) {
+        MNLog.error({
+          message: `Failed to build search text for ${note.noteId}: ${error.message}`,
+          source: "KnowledgeBaseIndexer: buildIndexEntry step 5"
+        });
+        // 如果构建搜索文本失败，使用基础文本
+        entry.searchText = `${entry.title} ${keywordsContent}`.toLowerCase();
+      }
       
       return entry;
       
     } catch (error) {
-      MNLog.error(error, `KnowledgeBaseIndexer: buildIndexEntry for note ${note.noteId}`);
+      MNLog.error({
+        message: `Unexpected error in buildIndexEntry for note ${note ? note.noteId : 'unknown'}: ${error.message}`,
+        source: "KnowledgeBaseIndexer: buildIndexEntry",
+        stack: error.stack
+      });
       return null;
     }
   }
@@ -16448,6 +16486,11 @@ class SearchConfig {
       types: ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题", "思路", "总结"],
       icon: "🔍"
     },
+    definitionsAndClassifications: {
+      name: "定义与归类",
+      types: ["定义", "归类"],
+      icon: "📒"
+    },
     definitions: {
       name: "仅定义",
       types: ["定义"],
@@ -16463,16 +16506,16 @@ class SearchConfig {
       types: ["定义", "命题", "例子", "反例", "思想方法"],
       icon: "📚"
     },
-    problems: {
-      name: "问题与思路",
-      types: ["问题", "思路"],
-      icon: "💡"
-    },
-    proofs: {
-      name: "命题相关",
-      types: ["命题", "例子", "反例"],
-      icon: "🔢"
-    }
+    // problems: {
+    //   name: "问题与思路",
+    //   types: ["问题", "思路"],
+    //   icon: "💡"
+    // },
+    // proofs: {
+    //   name: "命题相关",
+    //   types: ["命题", "例子", "反例"],
+    //   icon: "🔢"
+    // }
   };
 
   /**
@@ -16515,33 +16558,138 @@ class SearchConfig {
  */
 class SynonymManager {
   /**
-   * 学术领域同义词映射表
+   * 默认同义词组（精简结构）
    */
   static synonymGroups = [
-    // 数学术语
-    ["定理", "命题", "推论", "引理", "性质", "公理"],
-    ["证明", "论证", "推导", "证实", "验证"],
-    ["函数", "映射", "变换", "算子", "态射"],
-    ["集合", "集", "类", "族"],
-    ["空间", "流形", "拓扑空间"],
-    ["连续", "连续性", "连续的"],
-    ["导数", "微分", "求导", "微商"],
-    ["积分", "积分法", "求积"],
-    
-    // 通用学术词汇
-    ["定义", "定义式", "定义方程", "定义公式"],
-    ["例子", "例", "实例", "范例", "示例", "举例"],
-    ["反例", "反例子", "否定例子"],
-    ["方法", "思想方法", "方法论", "策略", "技巧"],
-    ["问题", "课题", "议题", "疑问", "难题"],
-    ["思路", "思想", "想法", "思考"],
-    
-    // 动词同义词
-    ["求解", "求", "解", "计算", "算", "解决"],
-    ["分析", "剖析", "解析", "研究", "探讨"],
-    ["讨论", "探讨", "论述", "阐述", "说明"]
+    { "id": "group_1754759704820", "words": ["⇔", "等价", "等价刻画", "等价条件", "当且仅当", "等价于"] },
+    { "id": "group_1754814563774", "words": ["依范数收敛", "按范数收敛"] },
+    { "id": "group_1754911082498", "words": ["𝕋", "单位圆周"] },
+    { "id": "group_1754913614715", "words": ["严格正", "严格非负"] },
+    { "id": "group_1754913687682", "words": ["为零", "为0", "等于零", "等于0", "=0", "为 0", "等于 0"], "partialReplacement": true },
+    { "id": "group_1754918691589", "words": ["非零", "不是零", "不等于零", "≠0", "≠ 0", "非0", "非 0", "不是0", "不是 0", "不等于0", "不等于 0", "0≠", "0 ≠"] },
+    { "id": "group_1754967275234", "words": ["傅立叶", "傅里叶", "Fourier", "fourier"], "partialReplacement": true },
+    { "id": "group_1754968276839", "words": ["⊂", "⊆", "子集", "包含于", "包含在"], "partialReplacement": true },
+    { "id": "group_1754968768370", "words": ["实数", "实数域", "实情形"] },
+    { "id": "group_1754979122102", "words": ["径向极限", "边界值函数", "边界函数"] },
+    { "id": "group_1755230758417", "words": ["有限", "<∞", "小于无穷", "小于∞"] },
+    { "id": "group_1755231235279", "words": ["比较判别法", "比值判别法"] },
+    { "id": "group_1755313248014", "words": ["-∞<", "大于负无穷", ">-∞"] },
+    { "id": "group_1755328808715", "words": ["为1", "等于1", "=1", "= 1", "为 1", "等于 1"] },
+    { "id": "group_1755330305335", "words": ["柯西", "Cauchy", "cauchy"], "partialReplacement": true },
+    { "id": "group_1755333690290", "words": ["Blaschke 积", "Blaschke 乘积"] },
+    { "id": "group_1755568637659", "words": ["对数", "log", "ln"], "partialReplacement": true },
+    { "id": "group_1755574929841", "words": ["小于等于", "不超过", "≤"] },
+    { "id": "group_1755837688967", "words": ["Laplace", "Laplacian", "拉普拉斯"], "partialReplacement": true },
+    { "id": "group_1755838481600", "words": ["开右半平面", "ℂ₊", "ℍ₊"], "partialReplacement": true },
+    { "id": "group_1755867678146", "words": ["<0", "小于零", "小于 0", "< 0", "小于0"] },
+    { "id": "group_1755871359287", "words": ["几乎处处", "a.e."] },
+    { "id": "group_1755871688608", "words": ["等于", "相等", "相同", "一致", "一样", "就是", "同一个"] },
+    { "id": "group_1756092698001", "words": ["非零复同态", "非零可乘线性泛函"] },
+    { "id": "group_1756108949936", "words": ["映射为", "被映成", "被映为", "映为", "映成", "映到"] },
+    { "id": "group_1756109335070", "words": ["→0", "趋于零", "趋于 0", "趋于0", "收敛到0", "收敛到零", "收敛到 0", "到零", "到0", "到 0"], "partialReplacement": true },
+    { "id": "group_1756111643605", "words": ["化归为", "化归到", "归结为", "归结到", "化归成", "归结成"] },
+    { "id": "group_1756113664796", "words": ["弱收敛极限", "弱极限", "w极限", "w 极限"] },
+    { "id": "group_1756128051903", "words": ["列紧的", "列紧集"], "partialReplacement": true },
+    { "id": "group_1756182536173", "words": ["自反的", "自反空间"], "partialReplacement": true },
+    { "id": "group_1756187328315", "words": ["级数展开", "级数表示"], "partialReplacement": true },
+    { "id": "group_1756189859522", "words": ["非负", "大于等于零", "大于等于0", "大于等于 0"] },
+    { "id": "group_1756194705074", "words": ["Bergman 核", "Bergman 再生核"] },
+    { "id": "group_1756211764991", "words": ["相乘", "乘起来", "乘以", "乘积"] },
+    { "id": "group_1756555538247", "words": ["弱收敛", "⇀"] },
+    { "id": "group_1756630934460", "words": ["Gelfand 表示", "Gelfand 映射"], "partialReplacement": true },
+    { "id": "group_1756631329614", "words": ["可数无限维", "可列无限维", "可数无穷维", "可列无穷维"] },
+    { "id": "group_1756631743105", "words": ["标准正交", "规范正交"], "partialReplacement": true },
+    { "id": "group_1756711035245", "words": ["Ker", "ker", "零空间", "核空间", "核"], "partialReplacement": true },
+    { "id": "group_1756996762450", "words": ["正交集", "正交系"], "partialReplacement": true },
+    { "id": "group_1757052040708", "words": ["正交", "垂直", "正交于", "垂直于"] },
+    { "id": "group_1757055108773", "words": ["一列规范正交集", "一列标准正交集", "规范正交列", "标准正交列"] },
+    { "id": "group_1757061618814", "words": ["{0}", "零向量的单点集"] },
+    { "id": "group_1757077322983", "words": ["闭集", "闭子集"], "contextTriggers": ["子集"], "contextMode": "any" },
+    { "id": "group_1757077335882", "words": ["开子集", "开集"], "contextTriggers": ["子集"], "contextMode": "any" },
+    { "id": "group_1757077345680", "words": ["紧集", "紧子集"], "contextTriggers": ["子集"], "contextMode": "any" },
+    { "id": "group_1757088664654", "words": ["元素", "向量"], "partialReplacement": true, "caseSensitive": true, "contextTriggers": ["内积空间", "Hilbert 空间", "赋范线性空间", "Banach 空间", "线性空间"], "contextMode": "any" },
+    { "id": "group_1757143821142", "words": ["正交补", "^⊥"], "caseSensitive": true },
+    { "id": "group_1757164613329", "words": ["至多是可数", "至多可数", "至多可列", "至多是可列"] },
+    { "id": "group_1757337332491", "words": ["Span", "span", "线性扩张", "线性张成"], "caseSensitive": true },
+    { "id": "group_1757419393384", "words": ["非负整数", "∈ℕ"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1757420940564", "words": ["任意", "任取", "任意一个", "任取一个", "每个", "每一个"], "caseSensitive": true },
+    { "id": "group_1757471519968", "words": ["σ 代数", "σ代数", "σ-代数", "σ-algebra", "σ algebra"], "partialReplacement": true },
+    { "id": "group_1757487049845", "words": ["范数极限", "强极限"] },
+    { "id": "group_1757666483247", "words": ["非空", "非空集", "不是空集", "不空", "不等于空集", "≠∅", "≠ ∅"], "caseSensitive": true },
+    { "id": "group_1757673809311", "words": ["集代数", "布尔代数"], "caseSensitive": true },
+    { "id": "group_1757675563901", "words": ["空集", "∅"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1757675577813", "words": ["属于", "∈"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1757755186225", "words": ["无限", "∞", "无穷"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1757755714989", "words": ["补封闭", "补集封闭", "补运算封闭", "补集运算封闭"] },
+    { "id": "group_1757938639733", "words": ["T₄ 空间", "T₄ 正规空间", "满足 T₁ 和 T₄ 公理的正规空间", "满足 T₂ 和 T₄ 公理的正规空间", "满足 T₁ 和 T₄ 公理的空间", "满足 T₂ 和 T₄ 公理的空间"], "caseSensitive": true },
+    { "id": "group_1758009495957", "words": ["{{}}封闭", "{{}}运算封闭"], "patternMode": true, "caseSensitive": true },
+    { "id": "group_1758012441679", "words": ["单位模长", "模长等于1", "模长等于一", "模长等于 1", "模长为1", "模长为 1"], "caseSensitive": true },
+    { "id": "group_1758087954345", "words": ["稀疏", "疏朗", "无处稠密"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758159036915", "words": ["复同态", "可乘线性泛函"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758188346528", "words": ["闭集", "闭子集"] },
+    { "id": "group_1758286476524", "words": ["线性单射", "单射线性"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758286494590", "words": ["线性满射", "满射线性"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758287463421", "words": ["中的{{}}集", "{{}}子集"], "patternMode": true, "caseSensitive": true },
+    { "id": "group_1758291189939", "words": ["中集合", "中的集合", "的子集", "中的子集"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758353425664", "words": ["TVS", "拓扑线性空间", "拓扑向量空间", "线性拓扑空间"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758370279950", "words": ["有限测度", "测度有限"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758448942673", "words": ["任意个集合", "任意多个集合", "一族集合", "集合族"], "partialReplacement": true },
+    { "id": "group_1758454305523", "words": ["算子复合{{}}算子", "算子乘以{{}}算子"], "patternMode": true, "caseSensitive": true },
+    { "id": "group_1758513747838", "words": ["等势", "基数相等", "基数相同"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758513869003", "words": ["扩张", "延拓"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758528115814", "words": ["Hilbert-Schmidt", "Hilbert–Schmidt"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758530473198", "words": ["*理想", "* 理想", "*-理想", "∗-理想", "∗理想", "∗ 理想"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758885172459", "words": ["变元", "变量"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758886170428", "words": ["复数域", "复数集", "复平面", "ℂ"], "partialReplacement": true },
+    { "id": "group_1758980638734", "words": ["柯西列", "Cauchy 列", "柯西序列", "Cauchy 序列"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758982023604", "words": ["收敛", "趋于", "逼近"], "partialReplacement": true, "caseSensitive": true }
   ];
-
+  
+  // 获取所有同义词组（合并默认和用户自定义）
+  static getSynonymGroups() {
+    knowledgeBaseTemplate.initSearchConfig();
+    const userGroups = knowledgeBaseTemplate.searchRootConfigs.synonymGroups || [];
+    // 合并默认组和用户组，用户组优先（可以覆盖默认组）
+    const allGroups = [...this.synonymGroups];
+    for (const userGroup of userGroups) {
+      const existingIndex = allGroups.findIndex(g => g.id === userGroup.id);
+      if (existingIndex >= 0) {
+        allGroups[existingIndex] = userGroup;
+      } else {
+        allGroups.push(userGroup);
+      }
+    }
+    return allGroups;
+  }
+  
+  // 添加新的同义词组（使用精简结构）
+  static addSynonymGroup(words, options = {}) {
+    knowledgeBaseTemplate.initSearchConfig();
+    const group = {
+      id: "group_" + Date.now(),
+      words: words
+    };
+    
+    // 只在需要时添加可选字段
+    if (options.partialReplacement) group.partialReplacement = true;
+    if (options.patternMode) group.patternMode = true;
+    if (options.caseSensitive) group.caseSensitive = true;
+    if (options.contextTriggers && options.contextTriggers.length > 0) {
+      group.contextTriggers = options.contextTriggers;
+      if (options.contextMode) group.contextMode = options.contextMode;
+    }
+    
+    if (!knowledgeBaseTemplate.searchRootConfigs.synonymGroups) {
+      knowledgeBaseTemplate.searchRootConfigs.synonymGroups = [];
+    }
+    
+    knowledgeBaseTemplate.searchRootConfigs.synonymGroups.push(group);
+    knowledgeBaseTemplate.saveSearchConfig();
+    // 清除缓存的索引，以便下次重建
+    this._synonymIndex = null;
+    return group;
+  }
+  
   /**
    * 构建同义词索引（优化查找性能）
    * @private
@@ -16550,9 +16698,11 @@ class SynonymManager {
     if (this._synonymIndex) return this._synonymIndex;
     
     this._synonymIndex = new Map();
-    this.synonymGroups.forEach(group => {
-      group.forEach(word => {
-        this._synonymIndex.set(word, group);
+    const groups = this.getSynonymGroups();
+    groups.forEach(group => {
+      // 将每个词映射到它所在的词组
+      group.words.forEach(word => {
+        this._synonymIndex.set(word, group.words);
       });
     });
     return this._synonymIndex;
@@ -16578,54 +16728,71 @@ class SynonymManager {
       return group.filter(word => word !== keyword);
     }
   }
+}
 
-  /**
-   * 扩展搜索查询（处理多个关键词）
-   * @param {string} query - 搜索查询字符串
-   * @returns {string} 扩展后的查询字符串
-   */
-  static expandQuery(query) {
-    // 提取所有中文词汇（简单分词）
-    const words = query.match(/[\u4e00-\u9fa5]+/g) || [];
-    let expandedQuery = query;
-    
-    words.forEach(word => {
-      const synonyms = this.expandKeyword(word, false);
-      if (synonyms.length > 0) {
-        // 使用 OR 语法添加同义词
-        const synonymGroup = `${word} ;; ${synonyms.join(' ;; ')}`;
-        expandedQuery = expandedQuery.replace(word, synonymGroup);
-      }
-    });
-    
-    return expandedQuery;
-  }
-
-  /**
-   * 判断两个词是否为同义词
-   * @param {string} word1 - 第一个词
-   * @param {string} word2 - 第二个词
-   * @returns {boolean} 是否为同义词
-   */
-  static areSynonyms(word1, word2) {
-    if (word1 === word2) return true;
-    
-    const index = this.buildSynonymIndex();
-    const group1 = index.get(word1);
-    const group2 = index.get(word2);
-    
-    return group1 && group2 && group1 === group2;
-  }
-
-  /**
-   * 添加自定义同义词组
-   * @param {Array<string>} group - 同义词组
-   */
-  static addCustomSynonymGroup(group) {
-    if (Array.isArray(group) && group.length > 1) {
-      this.synonymGroups.push(group);
-      // 清除缓存，下次重建索引
-      this._synonymIndex = null;
+// 排除词管理器
+class ExclusionManager {
+  // 默认排除词组数据（从word.md导入，精简结构）
+  static exclusionGroups = [
+    {
+      "id": "excl_1754967865808",
+      "triggerWords": ["𝔻", "开单位圆盘", "单位圆盘"],
+      "excludeWords": ["闭单位圆盘"]
+    },
+    {
+      "id": "excl_1754977557787",
+      "triggerWords": ["包含", "包含了"],
+      "excludeWords": ["包含于", "包含在"]
+    },
+    {
+      "id": "excl_1755836804381",
+      "triggerWords": ["开右半平面", "ℂ₊"],
+      "excludeWords": ["右半平面"]
+    },
+    {
+      "id": "excl_1756996808802",
+      "triggerWords": ["正交集", "正交子集"],
+      "excludeWords": ["规范正交集", "标准正交集"]
+    },
+    {
+      "id": "excl_1757052106482",
+      "triggerWords": ["正交"],
+      "excludeWords": ["正交集", "正交补", "正交投影", "正交分解"]
     }
+  ];
+  
+  // 获取所有排除词组（合并默认和用户自定义）
+  static getExclusionGroups() {
+    knowledgeBaseTemplate.initSearchConfig();
+    const userGroups = knowledgeBaseTemplate.searchRootConfigs.exclusionGroups || [];
+    // 合并默认组和用户组，用户组优先（可以覆盖默认组）
+    const allGroups = [...this.exclusionGroups];
+    for (const userGroup of userGroups) {
+      const existingIndex = allGroups.findIndex(g => g.id === userGroup.id);
+      if (existingIndex >= 0) {
+        allGroups[existingIndex] = userGroup;
+      } else {
+        allGroups.push(userGroup);
+      }
+    }
+    return allGroups;
+  }
+  
+  // 添加新的排除词组（使用精简结构）
+  static addExclusionGroup(triggerWords, excludeWords) {
+    knowledgeBaseTemplate.initSearchConfig();
+    const group = {
+      id: "excl_" + Date.now(),
+      triggerWords: triggerWords,
+      excludeWords: excludeWords
+    };
+    
+    if (!knowledgeBaseTemplate.searchRootConfigs.exclusionGroups) {
+      knowledgeBaseTemplate.searchRootConfigs.exclusionGroups = [];
+    }
+    
+    knowledgeBaseTemplate.searchRootConfigs.exclusionGroups.push(group);
+    knowledgeBaseTemplate.saveSearchConfig();
+    return group;
   }
 }

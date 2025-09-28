@@ -1,0 +1,598 @@
+[
+  {
+    "message": "dataPath exists",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057503839
+  },
+  {
+    "message": "✅ subscriptionUtils.init success",
+    "source": "MN Utils",
+    "level": "INFO",
+    "timestamp": 1759057503876
+  },
+  {
+    "message": "🔧 已重写 MNUtil.getNoteById 方法，修复自动复制 ID 问题",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504143
+  },
+  {
+    "message": "✨ 已添加 HtmlMarkdownUtils 带序号评论支持",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504143
+  },
+  {
+    "message": "✨ 已添加 MNMath 带序号评论便捷方法",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504143
+  },
+  {
+    "message": "🔧 已重写 MNUtil.getNoteById 方法，修复自动复制 ID 问题",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504143
+  },
+  {
+    "message": "✨ 已添加 HtmlMarkdownUtils 带序号评论支持",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504143
+  },
+  {
+    "message": "✨ 已添加 MNMath 带序号评论便捷方法",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504143
+  },
+  {
+    "message": "✅ toolbarConfig.template 方法已扩展，支持自定义菜单模板",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504342
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_comment",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_think",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_study",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_reference",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_text",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_handtool_text",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_card",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_excerpt",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_makeCards",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_htmlmdcomment",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_proof",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: hideAddonBar",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_search",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_codeLearning",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册菜单模板: menu_pin",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "🚀 已注册 15 个自定义菜单模板",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "🔧 开始加载 xdyy_button_registry.js",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "🔍 toolbarConfig 是否存在: true",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "🚀 开始扩展 toolbarConfig.getActions 方法",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "✅ toolbarConfig.getActions 和 getAction 方法已扩展，支持自定义按钮",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom15",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom3",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom8",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom10",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom11",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom20",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom5",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom9",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom1",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom17",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom2",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom4",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom_code",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom7",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom6",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: snipaste",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: edit",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: copyAsMarkdownLink",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom16",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "📦 已注册按钮: custom13",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "🚀 已注册 20 个自定义按钮",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504343
+  },
+  {
+    "message": "🔧 开始加载 xdyy_utils_extensions.js",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504430
+  },
+  {
+    "message": "✅ MNTaskManager 和相关类已暴露到全局",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504431
+  },
+  {
+    "message": "✅ MNTaskManager 和相关类已暴露到全局",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504431
+  },
+  {
+    "message": "[INFO] [LogManager] MNTask 日志管理器已初始化",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504431
+  },
+  {
+    "message": "[INFO] [Main] MNTask 插件启动",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504431
+  },
+  {
+    "message": "✅ xdyy_utils_extensions.js 加载成功",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504434
+  },
+  {
+    "message": "🔧 开始加载 xdyy_custom_actions_registry.js",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504498
+  },
+  {
+    "message": "✅ MNTaskManager 已就绪，开始注册自定义 actions",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504498
+  },
+  {
+    "message": "✅ 标签触发系统加载成功",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504499
+  },
+  {
+    "message": "toolbarUtils initialized (0ms)",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504634
+  },
+  {
+    "message": "toolbarConfig initialized (7ms)",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504642
+  },
+  {
+    "message": 1024,
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504699
+  },
+  {
+    "message": 1024,
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057504906
+  },
+  {
+    "message": 1024,
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057505512
+  },
+  {
+    "message": "✅ MNTask 标签触发系统已初始化",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057505629
+  },
+  {
+    "message": 1024,
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057505841
+  },
+  {
+    "message": 1024,
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057505852
+  },
+  {
+    "message": 1024,
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057508803
+  },
+  {
+    "message": 1024,
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057508828
+  },
+  {
+    "message": "refresh advanceView",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057508873
+  },
+  {
+    "message": "refresh knowledgeView",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057508875
+  },
+  {
+    "message": "refresh knowledgeView",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057508914
+  },
+  {
+    "source": "MN Pinner",
+    "level": "LOG",
+    "message": "notebookWillOpen",
+    "detail": "{\n  \"source\": \"notebookWillOpen\",\n  \"time\": \"Sun Sep 28 2025 19:05:09 GMT+0800 (中国标准时间)\",\n  \"log\": \"Notebook opened: A9C8CBB3-792D-4C20-A011-DA6C5ED929B9\"\n}",
+    "timestamp": 1759057509054
+  },
+  {
+    "message": "refreshColorImage (1ms)",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057510072
+  },
+  {
+    "message": "=== buildSearchIndex Debug Start ===",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512495
+  },
+  {
+    "message": "rootNotes:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512495,
+    "detail": [
+      {
+        "note": {}
+      }
+    ]
+  },
+  {
+    "message": "rootNotes type:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512496,
+    "detail": "object"
+  },
+  {
+    "message": "rootNotes length:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512496,
+    "detail": 1
+  },
+  {
+    "message": "targetTypes:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512496,
+    "detail": [
+      "定义",
+      "命题",
+      "例子",
+      "反例",
+      "归类",
+      "思想方法",
+      "问题"
+    ]
+  },
+  {
+    "message": "\n--- Processing rootNote[0] ---",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512496
+  },
+  {
+    "message": "_rootNote:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512496,
+    "detail": {
+      "note": {}
+    }
+  },
+  {
+    "message": "_rootNote type:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512496,
+    "detail": "object"
+  },
+  {
+    "message": "_rootNote.noteId:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512496,
+    "detail": "2C5E1679-1D92-4BA9-9FB2-285B379BACEE"
+  },
+  {
+    "message": "After MNNote.new, rootNote:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512496,
+    "detail": {
+      "note": {}
+    }
+  },
+  {
+    "message": "rootNote.descendantNodes exists?",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512500,
+    "detail": true
+  },
+  {
+    "message": "rootNote.descendantNodes.descendant exists?",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512503,
+    "detail": true
+  },
+  {
+    "message": "descendant count:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512504,
+    "detail": 48
+  },
+  {
+    "message": "rootNote.childNotes exists?",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512504,
+    "detail": true
+  },
+  {
+    "message": "childNotes count:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512504,
+    "detail": 2
+  },
+  {
+    "message": "Using descendantNodes.descendant, count:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512506,
+    "detail": 48
+  },
+  {
+    "message": "notesToProcess count:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512506,
+    "detail": 49
+  },
+  {
+    "message": "\n=== After collecting all notes ===",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512506
+  },
+  {
+    "message": "Total allNotes count:",
+    "level": "INFO",
+    "source": "Default",
+    "timestamp": 1759057512506,
+    "detail": 49
+  },
+  {
+    "level": "ERROR",
+    "source": "KnowledgeBaseIndexer: buildSearchIndex",
+    "timestamp": 1759057512512
+  }
+]

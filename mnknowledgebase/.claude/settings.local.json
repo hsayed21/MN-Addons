@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/**)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "mcp__serena__activate_project",
+      "mcp__serena__find_symbol",
+      "mcp__serena__search_for_pattern",
+      "Bash(node:*)",
+      "Bash(cat:*)",
+      "Read(///**)"
     ],
     "deny": [],
     "ask": []

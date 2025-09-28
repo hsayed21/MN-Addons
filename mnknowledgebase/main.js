@@ -164,7 +164,9 @@ JSB.newAddon = function(mainPath){
           self.tableItem('🗄️   文献数据库', 'openKnowledgeBaseLibrary:'),
           self.tableItem('🔄   更新搜索索引', 'updateSearchIndex:'),
           self.tableItem('🔍   快速搜索', 'showFastSearch:'),
-          self.tableItem('📤   分享索引文件', 'shareIndexFile:')
+          self.tableItem('📤   分享索引文件', 'shareIndexFile:'),
+          self.tableItem('🔤   同义词管理', 'manageSynonyms:'),
+          self.tableItem('🚫   排除词管理', 'manageExclusions:')
         ];
 
         // 显示菜单
@@ -295,6 +297,42 @@ JSB.newAddon = function(mainPath){
       }
     },
 
+    /**
+     * 管理同义词
+     */
+    manageSynonyms: async function() {
+      try {
+        // 关闭菜单
+        if (self.popoverController) {
+          self.popoverController.dismissPopoverAnimated(true);
+        }
+        
+        // 调用同义词管理界面
+        await knowledgeBaseTemplate.manageSynonymGroups();
+      } catch (error) {
+        MNUtil.showHUD("管理同义词失败: " + error.message);
+        MNLog.error(error, "MNKnowledgeBase: manageSynonyms");
+      }
+    },
+
+    /**
+     * 管理排除词
+     */
+    manageExclusions: async function() {
+      try {
+        // 关闭菜单
+        if (self.popoverController) {
+          self.popoverController.dismissPopoverAnimated(true);
+        }
+        
+        // 调用排除词管理界面
+        await knowledgeBaseTemplate.manageExclusionGroups();
+      } catch (error) {
+        MNUtil.showHUD("管理排除词失败: " + error.message);
+        MNLog.error(error, "MNKnowledgeBase: manageExclusions");
+      }
+    },
+
 
     // 生命周期测试
 
@@ -377,44 +415,131 @@ JSB.newAddon = function(mainPath){
     }
   }
 
-  MNKnowledgeBaseClass.prototype.showSearchDialog = async function(searcher) {
+  MNKnowledgeBaseClass.prototype.showSearchDialog = async function(searcher, config = {}) {
     try {
-      // 显示搜索输入框
+      // 默认配置
+      const defaultConfig = {
+        enableTypeSelection: true,      // 是否允许选择类型
+        defaultTypes: null,              // 默认搜索类型（null表示全部）
+        showAdvancedOptions: false      // 是否显示高级选项
+      };
+      
+      const searchConfig = Object.assign({}, defaultConfig, config);
+      
+      // 步骤1：类型选择（如果启用）
+      let selectedTypes = searchConfig.defaultTypes;
+      if (searchConfig.enableTypeSelection && !selectedTypes) {
+        selectedTypes = await this.selectSearchTypes();
+        if (selectedTypes === "cancel") return; // 用户取消
+      }
+      
+      // 步骤2：关键词输入
+      const typeInfo = selectedTypes ? `(${selectedTypes.length}种类型)` : "(全部类型)";
       let userInput = await MNUtil.userInput(
-        "快速搜索",
+        `快速搜索 ${typeInfo}`,
         "请输入搜索关键词：",
-        ["取消", "搜索"],
+        ["取消", "搜索"]
       );
+      
       if (userInput.button === 1) {
-        const keyword = userInput.input;
-        if (keyword && keyword.trim()) {
-          this.performFastSearch(searcher, keyword.trim());
-        }
+        let keyword = userInput.input.trim();
+        if (!keyword) return;
+        
+        // 步骤3：执行搜索（同义词已在索引时处理）
+        this.performFastSearch(searcher, keyword, {
+          types: selectedTypes,
+          config: searchConfig
+        });
       }
     } catch (error) {
-      MNUtil.showHUD(error);
+      MNUtil.showHUD("搜索对话框错误: " + error.message);
+      MNLog.error(error, "MNKnowledgeBase: showSearchDialog");
     }
   }
 
+  /**
+   * 选择搜索类型
+   */
+  MNKnowledgeBaseClass.prototype.selectSearchTypes = async function() {
+    try {
+      const options = SearchConfig.getSearchTypeOptions();
+      const displayOptions = options.map(opt => opt.name);
+      displayOptions.push("⚙️ 自定义选择...");
+      
+      const choice = await MNUtil.userSelect(
+        "选择搜索范围",
+        "请选择要搜索的卡片类型：",
+        displayOptions
+      );
+      
+      if (choice === 0) return "cancel";
+      
+      if (choice < options.length + 1) {
+        // 选择了预设
+        return options[choice - 1].types;
+      } else {
+        // 自定义选择
+        return await this.selectCustomTypes();
+      }
+    } catch (error) {
+      MNLog.error(error, "MNKnowledgeBase: selectSearchTypes");
+      return null; // 返回null表示搜索全部
+    }
+  }
 
   /**
-   * 执行快速搜索
+   * 自定义类型选择
    */
-  MNKnowledgeBaseClass.prototype.performFastSearch = function(searcher, keyword) {
+  MNKnowledgeBaseClass.prototype.selectCustomTypes = async function() {
+    const allTypes = ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题", "思路", "总结"];
+    const selectedTypes = [];
+    
+    // 使用多次单选来模拟多选
+    for (let type of allTypes) {
+      const choice = await MNUtil.userSelect(
+        "自定义类型选择",
+        `是否包含"${type}"类型？\n已选择：${selectedTypes.join(", ") || "无"}`,
+        ["跳过", "选择", "完成选择"]
+      );
+
+      if (choice === 0 || choice === 3)  return;
+      
+      if (choice === 2) {
+        selectedTypes.push(type);
+      } else if (choice === 1) {
+        break; 
+      } 
+    }
+    
+    return selectedTypes.length > 0 ? selectedTypes : null;
+  }
+
+  /**
+   * 执行快速搜索（增强版）
+   */
+  MNKnowledgeBaseClass.prototype.performFastSearch = function(searcher, keyword, options = {}) {
     try {
-      // 保存搜索关键词
+      // 构建搜索参数
+      const searchOptions = {
+        limit: 50,
+        types: options.types || null
+      };
+      
+      // 记录搜索历史
       this.lastSearchKeyword = keyword;
+      this.lastSearchTypes = options.types;
       
       // 执行搜索
-      const results = searcher.search(keyword, { limit: 50 });
+      const results = searcher.search(keyword, searchOptions);
       
       if (results.length === 0) {
-        MNUtil.showHUD(`未找到包含 "${keyword}" 的卡片`);
+        const typeInfo = options.types ? `(${options.types.join(", ")})` : "(全部类型)";
+        MNUtil.showHUD(`未找到匹配 "${keyword}" 的卡片 ${typeInfo}`);
         return;
       }
       
       // 显示搜索结果
-      this.showSearchResults(results, searcher);
+      this.showSearchResults(results, searcher, options);
       
     } catch (error) {
       MNUtil.showHUD("搜索执行失败: " + error.message);
@@ -425,7 +550,7 @@ JSB.newAddon = function(mainPath){
   /**
    * 显示搜索结果
    */
-  MNKnowledgeBaseClass.prototype.showSearchResults = async function(results, searcher) {
+  MNKnowledgeBaseClass.prototype.showSearchResults = async function(results, searcher, searchOptions = {}) {
     try {
       // 构建结果选项
       const options = results.map((result, index) => {
@@ -466,16 +591,20 @@ JSB.newAddon = function(mainPath){
       );
 
       if (selectResult === 0) {
-        // 返回搜索
-        this.showSearchDialog(searcher);
+        // 返回搜索，保留之前的配置
+        const config = {
+          defaultTypes: searchOptions.types,
+          enableTypeSelection: searchOptions.config ? searchOptions.config.enableTypeSelection : true
+        };
+        this.showSearchDialog(searcher, config);
       } else if (selectResult > 0) {
-        // 查看选中的卡片
+        // 查看选中的卡片（注意索引偏移，因为第一个是"返回搜索"）
         const selectedResult = results[selectResult - 2];
         const note = MNNote.new(selectedResult.id);
         if (note) {
           // 在脑图中定位
           if (MNUtil.mindmapView) {
-            note.focusInMindMap(0.3);
+            note.focusInFloatMindMap(0.3);
           } else {
             MNUtil.showHUD("已选择卡片：" + selectedResult.title);
           }
