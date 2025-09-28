@@ -10582,14 +10582,14 @@ class knowledgeBaseTemplate {
           return `  ${keywords[i]} → [${g.join(", ")}]`;
         }
       }).join("\n");
-      MNUtil.log(`关键词扩展详情：\n${details}`);
+      // MNUtil.log(`关键词扩展详情：\n${details}`);
     }
     
     // 性能监控：记录统计信息
-    const duration = Date.now() - startTime;
-    if (duration > 10 || contextCheckCount > 0) { // 超过10ms或有上下文检查时记录
-      MNUtil.log(`📊 关键词扩展性能统计：耗时${duration}ms 关键词${keywords.length}个 同义词组${synonymGroups.length}个 上下文检查${contextCheckCount}次 跳过${skipCount}个组${title ? ` 标题="${title.substring(0, 20)}..."` : ''}`);
-    }
+    // const duration = Date.now() - startTime;
+    // if (duration > 10 || contextCheckCount > 0) { // 超过10ms或有上下文检查时记录
+    //   MNUtil.log(`📊 关键词扩展性能统计：耗时${duration}ms 关键词${keywords.length}个 同义词组${synonymGroups.length}个 上下文检查${contextCheckCount}次 跳过${skipCount}个组${title ? ` 标题="${title.substring(0, 20)}..."` : ''}`);
+    // }
     
     return keywordGroups;
   }
@@ -10643,9 +10643,9 @@ class knowledgeBaseTemplate {
     const result = Array.from(expandedKeywords);
     
     // 如果扩展了关键词，记录日志
-    if (result.length > keywords.length) {
-      MNUtil.log(`关键词扩展：${keywords.join(", ")} → ${result.join(", ")}`);
-    }
+    // if (result.length > keywords.length) {
+      // MNUtil.log(`关键词扩展：${keywords.join(", ")} → ${result.join(", ")}`);
+    // }
     
     return result;
   }
@@ -15891,15 +15891,23 @@ class KnowledgeBaseIndexer {
       
       // 先收集所有需要处理的卡片
       let allNotes = [];
-      rootNotes.forEach(_rootNote => {
+      rootNotes.forEach((_rootNote, rootNoteIndex) => {
         const rootNote = MNNote.new(_rootNote);
-        if (!rootNote) return;
+        if (!rootNote) {
+          return;
+        }
         
-        // 获取所有子孙卡片
-        const descendants = rootNote.descendantNodes.descendant;
-        descendants.push(rootNote); // 包含根卡片本身
-        allNotes = allNotes.concat(descendants);
+        // 获取所有子孙卡片（添加防御性检查）
+        let descendants = [];
+        if (rootNote.descendantNodes && rootNote.descendantNodes.descendant) {
+          descendants = rootNote.descendantNodes.descendant;
+        }
+        
+        // 创建包含根卡片的数组
+        const notesToProcess = [...descendants, rootNote];
+        allNotes = allNotes.concat(notesToProcess);
       });
+      
       
       // 进度跟踪变量
       let processedCount = 0;
@@ -15913,16 +15921,23 @@ class KnowledgeBaseIndexer {
       MNUtil.showHUD(`正在构建索引 0/${totalCount}`);
       
       // 处理所有卡片
-      allNotes.forEach((note, index) => {
+      allNotes.forEach((note, noteIndex) => {
+        // 确保 note 是 MNNote 对象（descendantNodes.descendant 返回的是原生对象）
+        const mnNote = note.noteId ? note : MNNote.new(note);
+        if (!mnNote || !mnNote.noteId) {
+          processedCount++;
+          return; // 跳过无效的卡片
+        }
+        
         // 去重检查
-        const noteId = note.noteId;
+        const noteId = mnNote.noteId;
         if (processedIds.has(noteId)) {
           processedCount++;
           return; // 跳过已处理的卡片
         }
         processedIds.set(noteId, true);
         
-        const noteType = knowledgeBaseTemplate.getNoteType(note);
+        const noteType = knowledgeBaseTemplate.getNoteType(mnNote);
         if (!noteType) {
           processedCount++;
           return;
@@ -15934,7 +15949,7 @@ class KnowledgeBaseIndexer {
         }
         
         // 构建索引条目
-        const entry = this.buildIndexEntry(note);
+        const entry = this.buildIndexEntry(mnNote);
         if (entry) {
           index.searchData.push(entry);
           validCount++;
@@ -15976,8 +15991,8 @@ class KnowledgeBaseIndexer {
         id: note.noteId,
         type: noteType,
         title: note.title || "",
-        // 添加 parentId 字段
-        parentId: note.parentNote ? note.parentNote.noteId : null
+        // 添加 parentId 字段（使用 parentNoteId 属性更安全）
+        parentId: note.parentNoteId || null
       };
       
       // 根据卡片类型设置不同字段
@@ -16010,7 +16025,7 @@ class KnowledgeBaseIndexer {
   }
   
   /**
-   * 构建搜索文本
+   * 构建搜索文本（包含同义词扩展）
    * @private
    */
   static buildSearchText(note, parsedTitle, noteType, keywordsContent) {
@@ -16044,8 +16059,39 @@ class KnowledgeBaseIndexer {
     // 处理关键词
     const keywordsForSearch = keywordsContent.replace(/[;；]/g, " ");
     
-    // 组合并转小写，提高搜索效率
-    const finalText = `${searchableContent} ${keywordsForSearch}`.trim().toLowerCase();
+    // 新增：扩展同义词
+    let expandedWords = [];
+    
+    // 从主要内容提取并扩展同义词（只处理2-4字的中文词汇）
+    const contentWords = searchableContent.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+    contentWords.forEach(word => {
+      // 获取同义词（不包含原词避免重复）
+      const synonyms = SynonymManager.expandKeyword(word, false);
+      if (synonyms.length > 0) {
+        expandedWords.push(...synonyms);
+      }
+    });
+    
+    // 从关键词字段扩展同义词
+    if (keywordsContent) {
+      const keywords = keywordsContent.split(/[;；,，]/);
+      keywords.forEach(keyword => {
+        const trimmed = keyword.trim();
+        if (trimmed) {
+          const synonyms = SynonymManager.expandKeyword(trimmed, false);
+          if (synonyms.length > 0) {
+            expandedWords.push(...synonyms);
+          }
+        }
+      });
+    }
+    
+    // 去重
+    expandedWords = [...new Set(expandedWords)];
+    
+    // 组合原内容、关键词和同义词
+    const synonymText = expandedWords.join(" ");
+    const finalText = `${searchableContent} ${keywordsForSearch} ${synonymText}`.trim().toLowerCase();
     
     return finalText;
   }
@@ -16386,5 +16432,200 @@ class FastSearcher {
     });
     
     return notes;
+  }
+}
+
+/**
+ * 搜索配置管理类
+ */
+class SearchConfig {
+  /**
+   * 预定义的搜索类型组合
+   */
+  static typePresets = {
+    all: {
+      name: "全部类型",
+      types: ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题", "思路", "总结"],
+      icon: "🔍"
+    },
+    definitions: {
+      name: "仅定义",
+      types: ["定义"],
+      icon: "📘"
+    },
+    classifications: {
+      name: "仅归类",
+      types: ["归类"],
+      icon: "📁"
+    },
+    knowledge: {
+      name: "知识点卡片",
+      types: ["定义", "命题", "例子", "反例", "思想方法"],
+      icon: "📚"
+    },
+    problems: {
+      name: "问题与思路",
+      types: ["问题", "思路"],
+      icon: "💡"
+    },
+    proofs: {
+      name: "命题相关",
+      types: ["命题", "例子", "反例"],
+      icon: "🔢"
+    }
+  };
+
+  /**
+   * 获取可索引的所有类型列表
+   * @param {Array<string>} customTypes - 自定义类型列表（可选）
+   * @returns {Array<string>} 类型数组
+   */
+  static getIndexableTypes(customTypes = null) {
+    if (customTypes && Array.isArray(customTypes)) {
+      return customTypes;
+    }
+    // 默认返回知识库中最常用的类型
+    return ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题"];
+  }
+
+  /**
+   * 获取搜索类型选项（用于UI显示）
+   * @returns {Array<{name: string, value: string, types: Array}>} 
+   */
+  static getSearchTypeOptions() {
+    return Object.entries(this.typePresets).map(([key, preset]) => ({
+      name: `${preset.icon} ${preset.name}`,
+      value: key,
+      types: preset.types
+    }));
+  }
+
+  /**
+   * 根据预设键获取类型列表
+   * @param {string} presetKey - 预设键名
+   * @returns {Array<string>|null} 类型数组
+   */
+  static getTypesByPreset(presetKey) {
+    return this.typePresets[presetKey]?.types || null;
+  }
+}
+
+/**
+ * 同义词管理类
+ */
+class SynonymManager {
+  /**
+   * 学术领域同义词映射表
+   */
+  static synonymGroups = [
+    // 数学术语
+    ["定理", "命题", "推论", "引理", "性质", "公理"],
+    ["证明", "论证", "推导", "证实", "验证"],
+    ["函数", "映射", "变换", "算子", "态射"],
+    ["集合", "集", "类", "族"],
+    ["空间", "流形", "拓扑空间"],
+    ["连续", "连续性", "连续的"],
+    ["导数", "微分", "求导", "微商"],
+    ["积分", "积分法", "求积"],
+    
+    // 通用学术词汇
+    ["定义", "定义式", "定义方程", "定义公式"],
+    ["例子", "例", "实例", "范例", "示例", "举例"],
+    ["反例", "反例子", "否定例子"],
+    ["方法", "思想方法", "方法论", "策略", "技巧"],
+    ["问题", "课题", "议题", "疑问", "难题"],
+    ["思路", "思想", "想法", "思考"],
+    
+    // 动词同义词
+    ["求解", "求", "解", "计算", "算", "解决"],
+    ["分析", "剖析", "解析", "研究", "探讨"],
+    ["讨论", "探讨", "论述", "阐述", "说明"]
+  ];
+
+  /**
+   * 构建同义词索引（优化查找性能）
+   * @private
+   */
+  static buildSynonymIndex() {
+    if (this._synonymIndex) return this._synonymIndex;
+    
+    this._synonymIndex = new Map();
+    this.synonymGroups.forEach(group => {
+      group.forEach(word => {
+        this._synonymIndex.set(word, group);
+      });
+    });
+    return this._synonymIndex;
+  }
+
+  /**
+   * 扩展关键词（获取所有同义词）
+   * @param {string} keyword - 原始关键词
+   * @param {boolean} includeSelf - 是否包含原词
+   * @returns {Array<string>} 扩展后的词汇数组
+   */
+  static expandKeyword(keyword, includeSelf = true) {
+    const index = this.buildSynonymIndex();
+    const group = index.get(keyword);
+    
+    if (!group) {
+      return includeSelf ? [keyword] : [];
+    }
+    
+    if (includeSelf) {
+      return [...group];
+    } else {
+      return group.filter(word => word !== keyword);
+    }
+  }
+
+  /**
+   * 扩展搜索查询（处理多个关键词）
+   * @param {string} query - 搜索查询字符串
+   * @returns {string} 扩展后的查询字符串
+   */
+  static expandQuery(query) {
+    // 提取所有中文词汇（简单分词）
+    const words = query.match(/[\u4e00-\u9fa5]+/g) || [];
+    let expandedQuery = query;
+    
+    words.forEach(word => {
+      const synonyms = this.expandKeyword(word, false);
+      if (synonyms.length > 0) {
+        // 使用 OR 语法添加同义词
+        const synonymGroup = `${word} ;; ${synonyms.join(' ;; ')}`;
+        expandedQuery = expandedQuery.replace(word, synonymGroup);
+      }
+    });
+    
+    return expandedQuery;
+  }
+
+  /**
+   * 判断两个词是否为同义词
+   * @param {string} word1 - 第一个词
+   * @param {string} word2 - 第二个词
+   * @returns {boolean} 是否为同义词
+   */
+  static areSynonyms(word1, word2) {
+    if (word1 === word2) return true;
+    
+    const index = this.buildSynonymIndex();
+    const group1 = index.get(word1);
+    const group2 = index.get(word2);
+    
+    return group1 && group2 && group1 === group2;
+  }
+
+  /**
+   * 添加自定义同义词组
+   * @param {Array<string>} group - 同义词组
+   */
+  static addCustomSynonymGroup(group) {
+    if (Array.isArray(group) && group.length > 1) {
+      this.synonymGroups.push(group);
+      // 清除缓存，下次重建索引
+      this._synonymIndex = null;
+    }
   }
 }
