@@ -7313,7 +7313,7 @@ class toolbarConfig {
   }
   static getCurrentNotebookExcerptColor(){
     let options = MNUtil.currentNotebook.options
-    if ("excerptColorTemplate" in options && options.useTopicTool2) {
+    if (options && "excerptColorTemplate" in options && options.useTopicTool2) {
       let excerptColorTemplate = options.excerptColorTemplate
       let colors = this.rgbaArrayToHexArray(excerptColorTemplate,true)
       return colors
@@ -7499,6 +7499,7 @@ class toolbarConfig {
     if (dynamic) {
       let absentKeys = this.getDefaultActionKeys().filter(key=>!this.dynamicAction.includes(key))
       let allActions = this.dynamicAction.concat(absentKeys)
+      toolbarUtils.log("getAllActions",allActions)
       // MNUtil.copyJSON(allActions)
       return allActions
     }else{
@@ -7849,6 +7850,7 @@ static reset(target){
       break;  
     case "dynamicOrder":
       this.dynamicAction = this.getDefaultActionKeys()
+      MNUtil.copy(this.dynamicAction)
       this.save("MNToolbar_dynamicAction")
       break;
     default:

@@ -772,7 +772,12 @@ try {
         toolbarConfig.refreshColorImage()
         self.addonController.setToolbarButton()
         if (self.settingController) {
-          self.settingController.setButtonText()
+          let isEditingDynamic = self.settingController.dynamicButton.selected
+          if (isEditingDynamic) {
+            self.settingController.setButtonText(toolbarConfig.dynamicAction)
+          }else{
+            self.settingController.setButtonText(toolbarConfig.action)
+          }
         }
         } catch (error) {
           toolbarUtils.addErrorLog(error, "onRefreshToolbarButton")

@@ -248,8 +248,10 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
         toolbarConfig.reset("dynamicOrder")
         if (isEditingDynamic) {
           let dynamicAction = toolbarConfig.dynamicAction
+          // MNUtil.log("dynamicAction",dynamicAction)
           if (dynamicAction.length === 0) {
             toolbarConfig.dynamicAction = toolbarConfig.action
+            // MNUtil.log("dynamicAction",toolbarConfig.dynamicAction)
           }
           self.setButtonText(dynamicAction)
           self.showHUD("Reset dynamic order")
@@ -825,7 +827,7 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
           return
         }
 
-        MNUtil.postNotification("openInBrowser", {url:"https://zhangyu1818.github.io/appicon-forge/",beginFrame:beginFrame,endFrame:endFrame})
+        MNUtil.postNotification("openInBrowser", {url:"https://feliks.rth1.xyz",beginFrame:beginFrame,endFrame:endFrame})
         break;
       case 4:
         if (typeof browserUtils === 'undefined') {
@@ -1281,6 +1283,7 @@ ${input}
     }
     toolbarConfig.save()
     MNUtil.postNotification("refreshView",{})
+    self.showHUD("✅ Import config success!")
     // MNUtil.copyJSON(config)
   },
   changeToolbarDirection:async function (button) {
@@ -1723,6 +1726,7 @@ try {
  * @this {settingController}
  */
 settingController.prototype.setButtonText = function (names=toolbarConfig.getAllActions(),highlight=this.selectedItem) {
+    // toolbarUtils.log("setButtonText",names)
     this.words = names
     this.selectedItem = highlight
     names.map((word,index)=>{
@@ -1777,6 +1781,7 @@ settingController.prototype.setTextview = function (actionKey = this.selectedIte
  * @this {settingController}
  */
 settingController.prototype.refreshLayout = function () {
+try {
   if (!this.settingView) {return}
   if (!this.configView.hidden) {
     var viewFrame = this.scrollview.bounds;
@@ -1810,7 +1815,10 @@ settingController.prototype.refreshLayout = function () {
     }else{
       if (this.preLocs) {
         this.words.map((word,index)=>{
-          this["nameButton"+index].frame = {  x: this.preLocs[index].x,  y: this.preLocs[index].y,  width: buttonWidth,  height: buttonHeight,};
+          let preLoc = this.preLocs[index]
+          if (preLoc) {
+            this["nameButton"+index].frame = {  x: preLoc.x,  y: preLoc.y,  width: buttonWidth,  height: buttonHeight,};
+          }
         })
       }
       this.preLocs = this.locs
@@ -1831,6 +1839,10 @@ settingController.prototype.refreshLayout = function () {
     this.scrollview.contentSize= {width:viewFrame.width,height:initY+50}
   
   }
+  
+} catch (error) {
+  toolbarUtils.addErrorLog(error, "refreshLayout")
+}
 }
 
 settingController.prototype.refreshView = function (name) {
