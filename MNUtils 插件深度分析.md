@@ -2904,71 +2904,6 @@ static clearSubviews() {
 4. **状态检查**：提供 `on` 属性快速检查面板状态
 5. **窗口隔离**：支持管理不同窗口的扩展面板
 
-### xdyyutils.js 学术扩展分析
-
-#### 1. MNMath 知识卡片系统
-
-这是一个专门为学术（特别是数学）设计的知识管理系统。
-
-##### 1.1 知识卡片类型定义
-
-```javascript
-class MNMath {
-  static noteType = {
-    // 知识结构类
-    definition: {value: 0, color: 12, prefix: "定义"},
-    proposition: {value: 1, color: 10, prefix: "命题"},
-    example: {value: 2, color: 14, prefix: "例子"},
-    counterexample: {value: 3, color: 3, prefix: "反例"},
-    classification: {value: 4, color: 0, prefix: "归类"},
-    thoughtMethod: {value: 5, color: 9, prefix: "思想方法"},
-    question: {value: 6, color: 1, prefix: "问题"},
-    idea: {value: 7, color: 13, prefix: "思路"},
-    
-    // 文献管理类
-    author: {value: 8, color: 12, prefix: "作者"},
-    researchProgress: {value: 9, color: 10, prefix: "研究进展"},
-    paper: {value: 10, color: 14, prefix: "论文"},
-    book: {value: 11, color: 14, prefix: "书作"},
-    literature: {value: 12, color: 14, prefix: "文献"}
-  }
-}
-```
-
-##### 1.2 智能制卡流程
-
-```javascript
-static makeNote(note, addToReview = false, reviewEverytime = false) {
-  // 8个步骤的制卡流程
-  MNUtil.undoGrouping(() => {
-    // 1. 处理旧版卡片
-    this.renewNote(note)
-    
-    // 2. 合并模板并自动移动内容
-    this.mergeTemplateAndAutoMoveNoteContent(note)
-    
-    // 3. 修改标题格式为【类型 >> 内容】
-    this.changeTitle(note)
-    
-    // 4. 设置卡片颜色
-    this.changeNoteColor(note)
-    
-    // 5. 建立智能链接
-    this.linkParentNote(note)
-    
-    // 6. 刷新显示
-    this.refreshNotes([note])
-    
-    // 7. 加入复习
-    if (addToReview) {
-      this.addToReview(note, reviewEverytime)
-    }
-    
-    // 8. 聚焦卡片
-    note.focusInMindMap(0.3)
-  })
-}
-```
 
 ## 插件系统架构
 
@@ -3218,8 +3153,7 @@ MNUtils 在 MarginNote 生态中扮演着独特的双重角色：
 └─────────────────────────────────────┘
                  ↓
 ┌─────────────────────────────────────┐
-│    扩展层（xdyyutils.js）           │
-│  - MNMath 知识卡片系统              │
+│    扩展层（xdyyutils.js）                        │
 │  - HtmlMarkdownUtils 样式工具       │
 │  - Pangu 中文排版                   │
 │  - 原型扩展（130+ 方法）            │

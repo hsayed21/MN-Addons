@@ -169,7 +169,7 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
         try {
-          MNMath.reorderContainsFieldLinks(focusNote);
+          knowledgeBaseTemplate.reorderContainsFieldLinks(focusNote);
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -2408,7 +2408,7 @@ function registerAllCustomActions() {
             try {
               const inputText = alert.textFieldAtIndex(0).text;
               if (inputText && inputText.trim()) {
-                const number = MNMath.addCaseComment(focusNote, inputText.trim());
+                const number = knowledgeBaseTemplate.addCaseComment(focusNote, inputText.trim());
                 MNUtil.showHUD(`✅ 已添加 Case ${number}`);
               }
             } catch (error) {
@@ -2436,7 +2436,7 @@ function registerAllCustomActions() {
             try {
               const inputText = alert.textFieldAtIndex(0).text;
               if (inputText && inputText.trim()) {
-                const number = MNMath.addStepComment(focusNote, inputText.trim());
+                const number = knowledgeBaseTemplate.addStepComment(focusNote, inputText.trim());
                 MNUtil.showHUD(`✅ 已添加 Step ${number}`);
               }
             } catch (error) {
@@ -2833,8 +2833,8 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
         try {
-          // 调用封装在 MNMath 中的新方法
-          MNMath.copyMarkdownLinkWithQuickPhrases(focusNote);
+          // 调用封装在 knowledgeBaseTemplate 中的新方法
+          knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(focusNote);
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -2882,7 +2882,7 @@ function registerAllCustomActions() {
       return;
     }
     
-    MNMath.splitComments(focusNote);
+    knowledgeBaseTemplate.splitComments(focusNote);
   });
 
   global.registerCustomAction("updateChildNotesPrefixes", async function(context) {
@@ -2893,8 +2893,8 @@ function registerAllCustomActions() {
       return;
     }
     
-    // 调用 MNMath 的批量更新函数
-    MNMath.batchUpdateChildrenPrefixes(focusNote);
+    // 调用 knowledgeBaseTemplate 的批量更新函数
+    knowledgeBaseTemplate.batchUpdateChildrenPrefixes(focusNote);
   });
 
   global.registerCustomAction("updateDescentNotesPrefixes", async function(context) {
@@ -2905,8 +2905,8 @@ function registerAllCustomActions() {
       return;
     }
     
-    // 调用 MNMath 的批量更新函数
-    MNMath.batchUpdateChildrenPrefixes(focusNote, true);
+    // 调用 knowledgeBaseTemplate 的批量更新函数
+    knowledgeBaseTemplate.batchUpdateChildrenPrefixes(focusNote, true);
   });
 
   global.registerCustomAction("addAsBrotherNoteofParentNote", async function(context) {
@@ -2932,7 +2932,7 @@ function registerAllCustomActions() {
     
     // 强制更新选中卡片的标题前缀
     MNUtil.undoGrouping(() => {
-      MNMath.changeTitle(focusNote, true);
+      knowledgeBaseTemplate.changeTitle(focusNote, true);
       MNUtil.showHUD("✅ 已强制更新标题前缀");
     });
   });
@@ -2944,7 +2944,7 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
         try {
-          MNMath.changeHtmlMarkdownCommentTypeByPopup(focusNote);
+          knowledgeBaseTemplate.changeHtmlMarkdownCommentTypeByPopup(focusNote);
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -3053,7 +3053,7 @@ function registerAllCustomActions() {
         return;
       }
       
-      await MNMath.addEquivalenceProof(focusNote);
+      await knowledgeBaseTemplate.addEquivalenceProof(focusNote);
     }
   );
 
@@ -3065,7 +3065,7 @@ function registerAllCustomActions() {
       
       try {
         // 调用证明模板管理界面
-        await MNMath.manageProofTemplates();
+        await knowledgeBaseTemplate.manageProofTemplates();
       } catch (error) {
         MNUtil.showHUD(`❌ 错误: ${error.message}`);
       }
@@ -3082,7 +3082,7 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
         try {
-          MNMath.autoMoveNewContentToField(focusNote, "摘录");
+          knowledgeBaseTemplate.autoMoveNewContentToField(focusNote, "摘录");
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -3111,7 +3111,7 @@ function registerAllCustomActions() {
           // 延迟一下确保合并完成
           MNUtil.delay(0.1).then(() => {
             // 将父卡片的最新评论移动到摘录区
-            MNMath.autoMoveNewContentToField(parentNote, "摘录");
+            knowledgeBaseTemplate.autoMoveNewContentToField(parentNote, "摘录");
             MNUtil.showHUD("✅ 已合并到父卡片并移动评论到摘录");
           });
         } catch (error) {
@@ -3141,7 +3141,7 @@ function registerAllCustomActions() {
 
           // 延迟一下确保合并完成
           MNUtil.delay(0.1).then(() => {
-            const commentsArr = MNMath.autoGetNewContentToMoveIndexArr(parentNote)
+            const commentsArr = knowledgeBaseTemplate.autoGetNewContentToMoveIndexArr(parentNote)
             if (commentsArr.length >= 0) {
               // 将最新评论移动到最顶端（索引0）
               parentNote.moveCommentsByIndexArr(commentsArr, 0);
@@ -3169,7 +3169,7 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
         try {
-          MNMath.manageCommentsByPopup(focusNote);
+          knowledgeBaseTemplate.manageCommentsByPopup(focusNote);
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -3189,9 +3189,9 @@ function registerAllCustomActions() {
             return;
           }
           
-          // 使用 MNMath.moveCommentsArrToField 移动到"所属"字段
+          // 使用 knowledgeBaseTemplate.moveCommentsArrToField 移动到"所属"字段
           // 该方法会自动处理字段不存在的情况
-          MNMath.moveCommentsArrToField(focusNote, "Z", "所属", true);
+          knowledgeBaseTemplate.moveCommentsArrToField(focusNote, "Z", "所属", true);
           
           
         } catch (error) {
@@ -3213,7 +3213,7 @@ function registerAllCustomActions() {
           }
           
           // 该方法会自动处理字段不存在的情况
-          MNMath.moveCommentsArrToField(focusNote, "Z", "证明", false);
+          knowledgeBaseTemplate.moveCommentsArrToField(focusNote, "Z", "证明", false);
           
           
         } catch (error) {
@@ -3238,7 +3238,7 @@ function registerAllCustomActions() {
           const lastCommentIndex = focusNote.comments.length - 1;
           
           // 该方法会自动处理字段不存在的情况
-          MNMath.moveCommentsArrToField(focusNote, "YZ", "证明", true);
+          knowledgeBaseTemplate.moveCommentsArrToField(focusNote, "YZ", "证明", true);
         } catch (error) {
           MNUtil.showHUD(`❌ 移动失败: ${error.message || error}`);
         }
@@ -3258,7 +3258,7 @@ function registerAllCustomActions() {
           }
           
           // 该方法会自动处理字段不存在的情况
-          MNMath.moveCommentsArrToField(focusNote, "YZ", "证明", false);
+          knowledgeBaseTemplate.moveCommentsArrToField(focusNote, "YZ", "证明", false);
           
           
         } catch (error) {
@@ -3283,7 +3283,7 @@ function registerAllCustomActions() {
           const lastCommentIndex = focusNote.comments.length - 1;
           
           // 该方法会自动处理字段不存在的情况
-          MNMath.moveCommentsArrToField(focusNote, "Z", "证明", true);
+          knowledgeBaseTemplate.moveCommentsArrToField(focusNote, "Z", "证明", true);
           
           
         } catch (error) {
@@ -3312,7 +3312,7 @@ function registerAllCustomActions() {
               let lastComment = comments[comments.length - 1];
               if (lastComment.type === "linkComment") {
                 // 尝试进行智能链接排列
-                let success = MNMath.smartLinkArrangement(focusNote);
+                let success = knowledgeBaseTemplate.smartLinkArrangement(focusNote);
                 if (success) {
                   return; // 如果成功处理了链接，跳过自动移动内容
                 }
@@ -3320,7 +3320,7 @@ function registerAllCustomActions() {
             }
 
             // 如果不是链接或处理失败，执行原有的自动移动内容功能
-            MNMath.autoMoveNewContentToField(focusNote, "相关思考");
+            knowledgeBaseTemplate.autoMoveNewContentToField(focusNote, "相关思考");
           });
         } catch (error) {
           MNUtil.showHUD(error);
@@ -3346,7 +3346,7 @@ function registerAllCustomActions() {
       MNUtil.undoGrouping(() => {
         try {
           focusNotes.forEach((focusNote) => {
-            MNMath.keepOnlyExcerptAndTitle(focusNote)
+            knowledgeBaseTemplate.keepOnlyExcerptAndTitle(focusNote)
           });
         } catch (error) {
           MNUtil.showHUD(error);
@@ -3361,7 +3361,7 @@ function registerAllCustomActions() {
       const { focusNotes } = context;
       focusNotes.forEach(
         focusNote => {
-          MNMath.oldChildrenMakeNotes(focusNote)
+          knowledgeBaseTemplate.oldChildrenMakeNotes(focusNote)
         }
       )
     }
@@ -3378,9 +3378,9 @@ function registerAllCustomActions() {
         return;
       }
       
-      // 调用 MNMath 中的新方法
+      // 调用 knowledgeBaseTemplate 中的新方法
       try {
-        MNMath.removeAllClassificationNotes(focusNote);
+        knowledgeBaseTemplate.removeAllClassificationNotes(focusNote);
       } catch (error) {
         MNUtil.copyJSON(error);
         MNUtil.showHUD("操作失败：" + error.message, 3);
@@ -3396,7 +3396,7 @@ function registerAllCustomActions() {
       MNUtil.undoGrouping(() => {
         try {
           focusNotes.forEach((focusNote) => {
-            MNMath.keepOnlyExcerpt(focusNote);
+            knowledgeBaseTemplate.keepOnlyExcerpt(focusNote);
           });
         } catch (error) {
           MNUtil.showHUD(error);
@@ -3464,7 +3464,7 @@ function registerAllCustomActions() {
     async function (context) {
       const { button, des, focusNote, focusNotes, self } = context;
       try {
-        await MNMath.batchChangeClassificationTitles("descendants");
+        await knowledgeBaseTemplate.batchChangeClassificationTitles("descendants");
       } catch (error) {
         MNUtil.showHUD(error);
       }
@@ -3486,7 +3486,7 @@ function registerAllCustomActions() {
     
     MNUtil.undoGrouping(() => {
       try {
-        MNMath.keepOnlyExcerpt(focusNote);
+        knowledgeBaseTemplate.keepOnlyExcerpt(focusNote);
         
       } catch (error) {
         MNUtil.showHUD(`❌ 处理失败: ${error.message}`);
@@ -3626,7 +3626,7 @@ function registerAllCustomActions() {
     async function (context) {
       const { button, des, focusNote, focusNotes, self } = context;
       try {
-        MNMath.smartLinkArrangement(focusNote);
+        knowledgeBaseTemplate.smartLinkArrangement(focusNote);
       } catch (error) {
         MNUtil.showHUD(error);
       }
@@ -3656,7 +3656,7 @@ function registerAllCustomActions() {
         MNUtil.undoGrouping(() => {
           focusNotes.forEach((focusNote) => {
             if (focusNote.excerptText) {
-              MNMath.toNoExcerptVersion(focusNote);
+              knowledgeBaseTemplate.toNoExcerptVersion(focusNote);
             }
           });
         });
@@ -3780,7 +3780,7 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(()=>{
         try {
-          MNMath.mergeSpecificField(focusNote.parentNote, focusNote, "应用")
+          knowledgeBaseTemplate.mergeSpecificField(focusNote.parentNote, focusNote, "应用")
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -3890,7 +3890,7 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
         try {
-          MNMath.renewExcerptInParentNoteByFocusNote(focusNote);
+          knowledgeBaseTemplate.renewExcerptInParentNoteByFocusNote(focusNote);
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -3928,7 +3928,7 @@ function registerAllCustomActions() {
             let userInput = alert.textFieldAtIndex(0).text;
             if (buttonIndex == 1 && userInput) {
               MNUtil.undoGrouping(() => {
-                MNMath.addNewIdeaNote(focusNote, userInput);
+                knowledgeBaseTemplate.addNewIdeaNote(focusNote, userInput);
               });
             }
           },
@@ -3954,7 +3954,7 @@ function registerAllCustomActions() {
             let userInput = alert.textFieldAtIndex(0).text;
             if (buttonIndex == 1 && userInput) {
               MNUtil.undoGrouping(() => {
-                MNMath.addNewSummaryNote(focusNote, userInput);
+                knowledgeBaseTemplate.addNewSummaryNote(focusNote, userInput);
               });
             }
           },
@@ -3976,7 +3976,7 @@ function registerAllCustomActions() {
       }
       
       // 检查是否是支持的父卡片类型
-      const parentType = MNMath.getNoteType(focusNote);
+      const parentType = knowledgeBaseTemplate.getNoteType(focusNote);
       const supportedTypes = ["命题", "例子"];
       
       if (!supportedTypes.includes(parentType)) {
@@ -3999,7 +3999,7 @@ function registerAllCustomActions() {
             }
             
             MNUtil.undoGrouping(() => {
-              MNMath.addNewDefinitionNote(focusNote, userInput);
+              knowledgeBaseTemplate.addNewDefinitionNote(focusNote, userInput);
             });
           }
         }
@@ -4033,11 +4033,11 @@ function registerAllCustomActions() {
           MNUtil.undoGrouping(() => {
             try {
               // 1. 克隆反例模板卡片
-              const counterexampleNote = MNNote.clone(MNMath.types.反例.templateNoteId);
+              const counterexampleNote = MNNote.clone(knowledgeBaseTemplate.types.反例.templateNoteId);
               
               // 2. 创建标题（包含前缀和内容）
-              const prefixContent = MNMath.createChildNoteTitlePrefixContent(focusNote);
-              counterexampleNote.noteTitle = MNMath.createTitlePrefix(MNMath.types.反例.prefixName, prefixContent) + userInput.trim();
+              const prefixContent = knowledgeBaseTemplate.createChildNoteTitlePrefixContent(focusNote);
+              counterexampleNote.noteTitle = knowledgeBaseTemplate.createTitlePrefix(knowledgeBaseTemplate.types.反例.prefixName, prefixContent) + userInput.trim();
               
               // 3. 添加为子卡片
               focusNote.addChild(counterexampleNote);
@@ -4047,10 +4047,10 @@ function registerAllCustomActions() {
               focusNote.appendNoteLink(counterexampleNote, "Both");  // 双向链接
               
               // 5. 在父卡片 A 中，移动评论和链接到"相关思考"字段
-              MNMath.moveCommentsArrToField(focusNote, "Y, Z", "相关思考");
+              knowledgeBaseTemplate.moveCommentsArrToField(focusNote, "Y, Z", "相关思考");
               
               // 6. 在反例卡片 B 中，移动父卡片链接到最上方（摘录区）
-              MNMath.moveCommentsArrToField(counterexampleNote, "Z", "摘录区");
+              knowledgeBaseTemplate.moveCommentsArrToField(counterexampleNote, "Z", "摘录区");
               
               // 7. 延迟聚焦到新卡片
               MNUtil.delay(0.5).then(() => {
@@ -4076,11 +4076,11 @@ function registerAllCustomActions() {
           // 粗读模式：使用颜色判断类型，不加入复习，自动移动到根目录
           toolbarUtils.roughReadingMakeNote(focusNote);
         } else if (toolbarConfig.windowState.preprocess) {
-          let processedNote = MNMath.preprocessNote(focusNote)
+          let processedNote = knowledgeBaseTemplate.preprocessNote(focusNote)
           processedNote.focusInMindMap(0.4);
         } else {
           // 正常模式：完整制卡流程
-          MNMath.makeNote(focusNote);
+          knowledgeBaseTemplate.makeNote(focusNote);
         }
       } catch (error) {
         MNUtil.showHUD(error);
@@ -4092,7 +4092,7 @@ function registerAllCustomActions() {
   global.registerCustomAction("doubleClickMakeNote", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
     MNUtil.undoGrouping(() => {
-      MNMath.makeNote(focusNote, false);
+      knowledgeBaseTemplate.makeNote(focusNote, false);
     });
   });
 
@@ -4114,7 +4114,7 @@ function registerAllCustomActions() {
     const { focusNotes } = context;
     MNUtil.undoGrouping(() => {
       try {
-        let rootNote = MNNote.new(MNMath.roughReadingRootNoteIds["命题"]);
+        let rootNote = MNNote.new(knowledgeBaseTemplate.roughReadingRootNoteIds["命题"]);
         focusNotes.forEach((note) => {
           rootNote.addChild(note);
         })
@@ -4128,7 +4128,7 @@ function registerAllCustomActions() {
     const { focusNotes } = context;
     MNUtil.undoGrouping(() => {
       try {
-        let rootNote = MNNote.new(MNMath.roughReadingRootNoteIds["命题"]);
+        let rootNote = MNNote.new(knowledgeBaseTemplate.roughReadingRootNoteIds["命题"]);
         focusNotes.forEach((note) => {
           rootNote.addChild(note);
         })
@@ -4146,7 +4146,7 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
         try {
-          MNMath.replaceFieldContentByPopup(focusNote);
+          knowledgeBaseTemplate.replaceFieldContentByPopup(focusNote);
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -4158,7 +4158,7 @@ function registerAllCustomActions() {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
       MNUtil.undoGrouping(() => {
-        MNMath.addTemplate(focusNote);
+        knowledgeBaseTemplate.addTemplate(focusNote);
       });
     } catch (error) {
       MNUtil.showHUD(error);
@@ -4179,7 +4179,7 @@ function registerAllCustomActions() {
     const { button, des, focusNote, focusNotes, self } = context;
     MNUtil.undoGrouping(() => {
       try {
-        MNMath.makeCard(focusNote, true, true, false);
+        knowledgeBaseTemplate.makeCard(focusNote, true, true, false);
       } catch (error) {
         MNUtil.showHUD(error);
       }
@@ -4192,19 +4192,19 @@ function registerAllCustomActions() {
     MNUtil.undoGrouping(() => {
       try {
         // 1. 强制执行旧卡片处理
-        MNMath.processOldTemplateCard(focusNote);
+        knowledgeBaseTemplate.processOldTemplateCard(focusNote);
         
         // 2. 执行制卡的后续流程（不包括 renewNote，因为已经处理过了）
-        MNMath.mergeTemplateAndAutoMoveNoteContent(focusNote); // 合并模板并自动移动内容
-        MNMath.changeTitle(focusNote); // 修改卡片标题  
-        MNMath.changeNoteColor(focusNote); // 修改卡片颜色
-        MNMath.linkParentNote(focusNote); // 链接广义的父卡片
-        MNMath.autoMoveNewContent(focusNote); // 自动移动新内容到对应字段
-        MNMath.moveTaskCardLinksToRelatedField(focusNote); // 移动任务卡片链接到"相关链接"字段
-        MNMath.moveSummaryLinksToTop(focusNote); // 移动总结链接到卡片最上方
-        MNMath.refreshNotes(focusNote); // 刷新卡片
+        knowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(focusNote); // 合并模板并自动移动内容
+        knowledgeBaseTemplate.changeTitle(focusNote); // 修改卡片标题  
+        knowledgeBaseTemplate.changeNoteColor(focusNote); // 修改卡片颜色
+        knowledgeBaseTemplate.linkParentNote(focusNote); // 链接广义的父卡片
+        knowledgeBaseTemplate.autoMoveNewContent(focusNote); // 自动移动新内容到对应字段
+        knowledgeBaseTemplate.moveTaskCardLinksToRelatedField(focusNote); // 移动任务卡片链接到"相关链接"字段
+        knowledgeBaseTemplate.moveSummaryLinksToTop(focusNote); // 移动总结链接到卡片最上方
+        knowledgeBaseTemplate.refreshNotes(focusNote); // 刷新卡片
         
-        // MNMath.addToReview(focusNote, true);
+        // knowledgeBaseTemplate.addToReview(focusNote, true);
         focusNote.focusInMindMap(0.3);
         
         MNUtil.showHUD("✅ 已按旧卡片模式处理");
@@ -4219,7 +4219,7 @@ function registerAllCustomActions() {
     const { focusNote } = context;
     MNUtil.undoGrouping(() => {
       try {
-        MNMath.processOldTemplateCard(focusNote);
+        knowledgeBaseTemplate.processOldTemplateCard(focusNote);
         focusNote.focusInMindMap(0.3);
         
         MNUtil.showHUD("✅ 已按旧卡片模式处理");
@@ -4235,7 +4235,7 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
         try {
-          MNMath.retainFieldContentOnly(focusNote);
+          knowledgeBaseTemplate.retainFieldContentOnly(focusNote);
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -4249,7 +4249,7 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
         try {
-          MNMath.renewKnowledgeNotes(focusNote.parentNote, focusNote);
+          knowledgeBaseTemplate.renewKnowledgeNotes(focusNote.parentNote, focusNote);
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -4263,7 +4263,7 @@ function registerAllCustomActions() {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
         try {
-          MNMath.removeBidirectionalLinks(focusNote);
+          knowledgeBaseTemplate.removeBidirectionalLinks(focusNote);
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -4276,8 +4276,8 @@ function registerAllCustomActions() {
     "updateBidirectionalLink",
     async function (context) {
       const { button, des, focusNote, focusNotes, self } = context;
-      if (typeof MNMath !== "undefined" && MNMath.updateBidirectionalLink) {
-        await MNMath.updateBidirectionalLink(focusNote);
+      if (typeof knowledgeBaseTemplate !== "undefined" && knowledgeBaseTemplate.updateBidirectionalLink) {
+        await knowledgeBaseTemplate.updateBidirectionalLink(focusNote);
       } else {
         MNUtil.showHUD("需要安装最新版本的 MNUtils");
       }
@@ -4289,8 +4289,8 @@ function registerAllCustomActions() {
     "showMarkdownLinksInField",
     async function (context) {
       const { button, des, focusNote, focusNotes, self } = context;
-      if (typeof MNMath !== "undefined" && MNMath.showMarkdownLinksInField) {
-        await MNMath.showMarkdownLinksInField(focusNote);
+      if (typeof knowledgeBaseTemplate !== "undefined" && knowledgeBaseTemplate.showMarkdownLinksInField) {
+        await knowledgeBaseTemplate.showMarkdownLinksInField(focusNote);
       } else {
         MNUtil.showHUD("需要安装最新版本的 MNUtils");
       }
@@ -4749,7 +4749,7 @@ function registerAllCustomActions() {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
       // 调用定义卡片目录功能
-      await MNMath.showDefinitionCatalog();
+      await knowledgeBaseTemplate.showDefinitionCatalog();
     } catch (error) {
       MNUtil.showHUD("搜索失败: " + error.message);
       if (typeof toolbarUtils !== "undefined") {
@@ -4762,8 +4762,8 @@ function registerAllCustomActions() {
   global.registerCustomAction("searchNotes", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
-      // 直接调用 MNMath 中的搜索对话框方法
-      await MNMath.showSearchDialog();
+      // 直接调用 knowledgeBaseTemplate 中的搜索对话框方法
+      await knowledgeBaseTemplate.showSearchDialog();
     } catch (error) {
       MNUtil.showHUD("搜索失败: " + error.message);
       if (typeof toolbarUtils !== "undefined") {
@@ -4776,8 +4776,8 @@ function registerAllCustomActions() {
   global.registerCustomAction("manageSearchRoots", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
-      // 直接调用 MNMath 中的完整功能
-      const result = await MNMath.showRootManagementDialog();
+      // 直接调用 knowledgeBaseTemplate 中的完整功能
+      const result = await knowledgeBaseTemplate.showRootManagementDialog();
       if (result) {
         MNUtil.showHUD("✅ 根目录管理成功");
       }
@@ -4792,14 +4792,14 @@ function registerAllCustomActions() {
   global.registerCustomAction("showSearchBoard", async function (context) {
     try {
       // 显示搜索面板
-      MNMath.showSearchBoard();
+      knowledgeBaseTemplate.showSearchBoard();
     } catch (error) {}
   });
 
   global.registerCustomAction("clearSearchBoard", async function (context) {
     try {
       // 清除搜索面板
-      MNMath.clearSearchBoard();
+      knowledgeBaseTemplate.clearSearchBoard();
     } catch (error) {}
   });
 
@@ -4808,7 +4808,7 @@ function registerAllCustomActions() {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
       // 调用同义词组管理界面
-      await MNMath.manageSynonymGroups();
+      await knowledgeBaseTemplate.manageSynonymGroups();
     } catch (error) {
       MNUtil.showHUD("管理同义词组失败: " + error.message);
     }
@@ -4819,7 +4819,7 @@ function registerAllCustomActions() {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
       // 调用排除词组管理界面
-      await MNMath.manageExclusionGroups();
+      await knowledgeBaseTemplate.manageExclusionGroups();
     } catch (error) {
       MNUtil.showHUD("管理排除词组失败: " + error.message);
     }
@@ -4829,8 +4829,8 @@ function registerAllCustomActions() {
   global.registerCustomAction("exportSearchConfig", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
-      // 调用 MNMath 中的导出配置对话框
-      await MNMath.showExportConfigDialog();
+      // 调用 knowledgeBaseTemplate 中的导出配置对话框
+      await knowledgeBaseTemplate.showExportConfigDialog();
     } catch (error) {
       MNUtil.showHUD("导出配置失败: " + error.message);
       if (typeof toolbarUtils !== "undefined") {
@@ -4843,8 +4843,8 @@ function registerAllCustomActions() {
   global.registerCustomAction("importSearchConfig", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
-      // 调用 MNMath 中的导入配置对话框
-      await MNMath.showImportConfigDialog();
+      // 调用 knowledgeBaseTemplate 中的导入配置对话框
+      await knowledgeBaseTemplate.showImportConfigDialog();
     } catch (error) {
       MNUtil.showHUD("导入配置失败: " + error.message);
       if (typeof toolbarUtils !== "undefined") {
@@ -4857,8 +4857,8 @@ function registerAllCustomActions() {
   global.registerCustomAction("showSearchSettings", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
-      // 调用 MNMath 中的搜索设置对话框
-      await MNMath.showSearchSettingsDialog();
+      // 调用 knowledgeBaseTemplate 中的搜索设置对话框
+      await knowledgeBaseTemplate.showSearchSettingsDialog();
     } catch (error) {
       MNUtil.showHUD("搜索设置失败: " + error.message);
       if (typeof toolbarUtils !== "undefined") {
@@ -4871,8 +4871,8 @@ function registerAllCustomActions() {
   global.registerCustomAction("adjustRootOrder", async function(context) {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
-      if (typeof MNMath !== "undefined" && MNMath.showRootOrderDialog) {
-        await MNMath.showRootOrderDialog();
+      if (typeof knowledgeBaseTemplate !== "undefined" && knowledgeBaseTemplate.showRootOrderDialog) {
+        await knowledgeBaseTemplate.showRootOrderDialog();
       } else {
         MNUtil.showHUD("❌ 该功能需要 MNUtils 支持");
       }
@@ -4888,8 +4888,8 @@ function registerAllCustomActions() {
   global.registerCustomAction("manageRootGroups", async function(context) {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
-      if (typeof MNMath !== "undefined" && MNMath.manageRootGroups) {
-        await MNMath.manageRootGroups();
+      if (typeof knowledgeBaseTemplate !== "undefined" && knowledgeBaseTemplate.manageRootGroups) {
+        await knowledgeBaseTemplate.manageRootGroups();
       } else {
         MNUtil.showHUD("❌ 该功能需要 MNUtils 支持");
       }
@@ -5147,7 +5147,7 @@ function registerAllCustomActions() {
           focusNote.merge(clonedNote.note)
         }
         focusNote.appendMarkdownComment(aiAnalysisResult);
-        MNMath.moveCommentsArrToField(focusNote,"Z", "分析");
+        knowledgeBaseTemplate.moveCommentsArrToField(focusNote,"Z", "分析");
 
         MNUtil.showHUD("✅ AI 代码分析完成并添加到评论");
       });
@@ -5244,7 +5244,7 @@ function registerAllCustomActions() {
 
         // 添加分析结果
         parentNote.appendMarkdownComment(aiAnalysisResult);
-        MNMath.moveCommentsArrToField(parentNote, "Z", "分析");
+        knowledgeBaseTemplate.moveCommentsArrToField(parentNote, "Z", "分析");
 
         // 删除包含源代码的子卡片
         focusNote.removeFromParent();
@@ -5361,7 +5361,7 @@ function registerAllCustomActions() {
   global.registerCustomAction("temporarilyPinFocusNoteWithTitle", async function(context) {
     const { focusNote } = context;
     try {
-      MNUtil.copy(MNMath.removeTitlePrefix(focusNote))
+      MNUtil.copy(knowledgeBaseTemplate.removeTitlePrefix(focusNote))
       let title = await MNUtil.input(
         "请输入标题",
         "临时 Pin",

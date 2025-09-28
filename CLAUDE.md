@@ -85,7 +85,6 @@ MNUtils 是 MarginNote 插件生态的**核心基础设施层**：
 
 **xdyyutils.js - 学术扩展（15,560行）**
 - 针对学术场景优化
-- `MNMath`：13种知识卡片类型
 - 智能链接管理
 - 中文排版优化（Pangu.js）
 
@@ -289,9 +288,6 @@ try {
 
 ## note.MNComments 与 note.comments 的关键区别
 
-### 问题背景
-在优化 MNMath.makeNote 手写评论处理时，发现了一个容易混淆的 API 使用问题，导致类型判断失效。
-
 ### 核心区别
 
 #### 1. `note.comments` - 原始评论数组
@@ -362,7 +358,6 @@ function isHandwritingCommentAlt(note, index) {
 4. **调试技巧**：`MNUtil.log(note.MNComments[0])` 查看实际 type 值
 
 ### 影响范围
-- xdyyutils.js 中的 MNMath 类方法
 - 所有涉及评论类型判断的功能
 - 特别是手写、图片、合并内容的识别
 

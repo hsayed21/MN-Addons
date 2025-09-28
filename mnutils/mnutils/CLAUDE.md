@@ -46,7 +46,6 @@ MNUtils 不仅是一个独立插件，更是整个 MarginNote 插件生态的**�
 #### xdyyutils.js - 学术扩展
 - **规模**：15,000+ 行代码，200+ 扩展方法
 - **特色功能**：
-  - **MNMath 知识卡片系统**：13 种学术卡片类型（定义、命题、证明等）
   - **智能链接管理**：自动维护知识结构关系
   - **中文排版优化**：Pangu.js 集成，自动优化中英文混排
   - **原型扩展**：String (95+ 方法)、MNNote (70+ 方法) 扩展
@@ -485,64 +484,6 @@ notebook.openDoc(docMd5)         // 在笔记本中打开文档
 ### xdyyutils.js - 学术扩展（6,175行）
 
 xdyyutils.js 是针对学术场景的深度优化扩展，特别是数学学科。
-
-#### MNMath 类 - 数学卡片管理系统 ⭐⭐⭐⭐⭐
-
-**13 种知识卡片类型**：
-
-1. **知识结构类（8种）**：
-   - 定义（definition）- 淡蓝色
-   - 命题（proposition）- 深蓝色
-   - 例子（example）- 紫色
-   - 反例（counterexample）- 粉色
-   - 归类（classification）- 淡黄色
-   - 思想方法（thoughtMethod）- 深绿色
-   - 问题（question）- 淡绿色
-   - 思路（idea）- 淡灰色
-
-2. **文献管理类（5种）**：
-   - 作者（author）- 淡蓝色
-   - 研究进展（researchProgress）- 蓝色
-   - 论文（paper）- 紫色
-   - 书作（book）- 紫色
-   - 文献（literature）- 紫色
-
-**核心功能**：
-
-```javascript
-// 1. 一键制卡（推荐）
-MNMath.makeNote(note, addToReview, reviewEverytime)
-
-// 2. 智能链接管理
-MNMath.linkParentNote(note)
-MNMath.cleanupOldParentLinks(note, currentParentNote)
-
-// 3. 标题管理
-MNMath.changeTitle(note)  // 自动格式化为【类型 >> 内容】
-MNMath.parseNoteTitle(note)  // 解析标题结构
-
-// 4. 内容智能整理
-MNMath.replaceFieldContentByPopup(note)
-MNMath.moveCommentsArrToField(note, indexArr, field, toBottom)
-
-// 5. 批量处理
-MNMath.batchChangeTitles(scope, rootNote)
-MNMath.batchChangeClassificationTitles(scope, rootNote)
-
-// 6. 模板管理
-MNMath.addTemplate(note)
-MNMath.mergeTemplate(note)
-```
-
-**制卡工作流（8个步骤）**：
-1. renewNote - 处理旧版卡片
-2. mergeTemplateAndAutoMoveNoteContent - 合并模板并自动移动内容
-3. changeTitle - 修改标题格式
-4. changeNoteColor - 设置卡片颜色
-5. linkParentNote - 建立智能链接
-6. refreshNotes - 刷新显示
-7. addToReview - 加入复习
-8. focusInMindMap - 聚焦卡片
 
 #### HtmlMarkdownUtils 类 - HTML 样式工具
 

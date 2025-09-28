@@ -360,7 +360,7 @@ class TaskFieldUtils {
 
 /**
  * MNTaskManager - 任务管理系统核心类
- * 参考 MNMath 的设计模式，定义任务类型预设和管理 API
+ * 参考 knowledgeBaseTemplate 的设计模式，定义任务类型预设和管理 API
  */
 class MNTaskManager {
   /**
@@ -1517,7 +1517,7 @@ class MNTaskManager {
     MNUtil.log("📝 要移动的索引：" + JSON.stringify(indices))
     
     // 使用 moveComment 方法移动评论
-    // 参考 MNMath 的实现，需要考虑移动方向
+    // 参考 knowledgeBaseTemplate 的实现，需要考虑移动方向
     indices.forEach(index => {
       MNUtil.log(`📍 准备移动评论: index=${index}, targetIndex=${targetIndex}, 评论总数=${note.MNComments.length}`)
       
@@ -2341,7 +2341,7 @@ class MNTaskManager {
 
   /**
    * 清除失效的链接（目标卡片不存在的链接）
-   * 参考 MNMath.cleanupBrokenLinks 的实现
+   * 参考 knowledgeBaseTemplate.cleanupBrokenLinks 的实现
    * 
    * @param {MNNote} note - 要清理的卡片
    * @returns {number} 清除的失效链接数量
@@ -8193,7 +8193,7 @@ ${content.trim()}`;
       
       MNUtil.log(`✅ 选择的父任务: ${parentTask ? parentTask.noteTitle : '无（独立动作）'}`)
 
-      const titleParts = MNMath.parseNoteTitle(sourceNote)
+      const titleParts = knowledgeBaseTemplate.parseNoteTitle(sourceNote)
       const handledTitle = "「" + titleParts.type + " >> " + titleParts.prefixContent + " >> " + titleParts.content + "」"
 
       MNUtil.copy(handledTitle)
@@ -8267,10 +8267,10 @@ ${content.trim()}`;
       
       // 如果源卡片是知识点卡片，移动链接
       try {
-        if (typeof MNMath !== 'undefined' && MNMath.isKnowledgeNote) {
-          if (MNMath.isKnowledgeNote(sourceNote)) {
+        if (typeof knowledgeBaseTemplate !== 'undefined' && knowledgeBaseTemplate.isKnowledgeNote) {
+          if (knowledgeBaseTemplate.isKnowledgeNote(sourceNote)) {
             MNUtil.log('📚 检测到知识点卡片，移动任务链接...')
-            MNMath.moveTaskCardLinksToRelatedField(sourceNote)
+            knowledgeBaseTemplate.moveTaskCardLinksToRelatedField(sourceNote)
           }
         }
       } catch (e) {

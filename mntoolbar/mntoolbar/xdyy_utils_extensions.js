@@ -63,7 +63,7 @@ function initXDYYExtensions() {
           if (typeof MNUtil !== "undefined" && MNUtil.log) {
             MNUtil.log("🔍 [粗读制卡] 检测到摘录卡片，开始转换");
           }
-          note = MNMath.toNoExcerptVersion(note);
+          note = knowledgeBaseTemplate.toNoExcerptVersion(note);
           if (!note) {
             MNUtil.log("❌ 转换为非摘录版本失败");
             return;
@@ -84,10 +84,10 @@ function initXDYYExtensions() {
         }
 
         // 1. 先判断是否需要移动到根目录
-        const noteTypeByColor = MNMath.getNoteTypeByColor(note.colorIndex); // 根据颜色判断类型
-        const noteTypeByTitle = MNMath.getNoteType(note, false); // 根据标题判断类型（不使用颜色后备）
+        const noteTypeByColor = knowledgeBaseTemplate.getNoteTypeByColor(note.colorIndex); // 根据颜色判断类型
+        const noteTypeByTitle = knowledgeBaseTemplate.getNoteType(note, false); // 根据标题判断类型（不使用颜色后备）
         const classificationParent =
-          MNMath.getFirstClassificationParentNote(note);
+          knowledgeBaseTemplate.getFirstClassificationParentNote(note);
 
         // 判断是否需要移动：
         // 1) 没有归类父卡片
@@ -112,9 +112,9 @@ function initXDYYExtensions() {
         if (
           needMove &&
           noteTypeByColor &&
-          MNMath.roughReadingRootNoteIds[noteTypeByColor]
+          knowledgeBaseTemplate.roughReadingRootNoteIds[noteTypeByColor]
         ) {
-          const rootNoteId = MNMath.roughReadingRootNoteIds[noteTypeByColor];
+          const rootNoteId = knowledgeBaseTemplate.roughReadingRootNoteIds[noteTypeByColor];
           if (rootNoteId && toolbarUtils.isValidNoteId(rootNoteId)) {
             try {
               // 移动到对应类型的根目录
@@ -129,24 +129,24 @@ function initXDYYExtensions() {
           }
         }
 
-        // 2. 使用 MNMath 的制卡体系
+        // 2. 使用 knowledgeBaseTemplate 的制卡体系
         // addToReview = false, reviewEverytime = true, focusInMindMap = true
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
           const beforeMakeCardClipboard = MNUtil.clipboardText;
           MNUtil.log(
-            "🔍 [粗读制卡] 调用 MNMath.makeCard 前，剪贴板: " +
+            "🔍 [粗读制卡] 调用 knowledgeBaseTemplate.makeCard 前，剪贴板: " +
               (beforeMakeCardClipboard === originalClipboard
                 ? "未变化"
                 : "已变化为: " + beforeMakeCardClipboard),
           );
         }
 
-        MNMath.makeCard(note, false, true, true);
+        knowledgeBaseTemplate.makeCard(note, false, true, true);
 
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
           const afterMakeCardClipboard = MNUtil.clipboardText;
           MNUtil.log(
-            "🔍 [粗读制卡] 调用 MNMath.makeCard 后，剪贴板: " +
+            "🔍 [粗读制卡] 调用 knowledgeBaseTemplate.makeCard 后，剪贴板: " +
               (afterMakeCardClipboard === originalClipboard
                 ? "未变化"
                 : "已变化为: " + afterMakeCardClipboard),
@@ -2848,9 +2848,9 @@ if (typeof HtmlMarkdownUtils !== "undefined") {
 }
 
 /**
- * MNMath 扩展 - 带序号评论的便捷方法
+ * knowledgeBaseTemplate 扩展 - 带序号评论的便捷方法
  */
-if (typeof MNMath !== "undefined") {
+if (typeof knowledgeBaseTemplate !== "undefined") {
   /**
    * 为笔记添加带序号的 Case 评论
    * @param {MNNote} note - 笔记对象
@@ -2858,7 +2858,7 @@ if (typeof MNMath !== "undefined") {
    * @param {number} customNumber - 自定义序号（可选）
    * @returns {number} 使用的序号
    */
-  MNMath.addCaseComment = function(note, text, customNumber) {
+  knowledgeBaseTemplate.addCaseComment = function(note, text, customNumber) {
     const number = customNumber || HtmlMarkdownUtils.getNextNumberForType(note, 'Case');
     const htmlText = HtmlMarkdownUtils.createNumberedHtmlText(text, 'case', number, note);
     note.appendMarkdownComment(htmlText);
@@ -2872,7 +2872,7 @@ if (typeof MNMath !== "undefined") {
    * @param {number} customNumber - 自定义序号（可选）
    * @returns {number} 使用的序号
    */
-  MNMath.addStepComment = function(note, text, customNumber) {
+  knowledgeBaseTemplate.addStepComment = function(note, text, customNumber) {
     const number = customNumber || HtmlMarkdownUtils.getNextNumberForType(note, 'Step');
     const htmlText = HtmlMarkdownUtils.createNumberedHtmlText(text, 'step', number, note);
     note.appendMarkdownComment(htmlText);
@@ -2887,7 +2887,7 @@ if (typeof MNMath !== "undefined") {
    * @param {number} customNumber - 自定义序号（可选）
    * @returns {number} 使用的序号
    */
-  MNMath.addNumberedComment = function(note, text, type, customNumber) {
+  knowledgeBaseTemplate.addNumberedComment = function(note, text, type, customNumber) {
     // 获取类型对应的前缀
     const numberedTypes = {
       'case': 'Case',
@@ -2908,6 +2908,6 @@ if (typeof MNMath !== "undefined") {
   };
   
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
-    MNUtil.log("✨ 已添加 MNMath 带序号评论便捷方法");
+    MNUtil.log("✨ 已添加 knowledgeBaseTemplate 带序号评论便捷方法");
   }
 }
