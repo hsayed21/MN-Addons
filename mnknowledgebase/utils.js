@@ -16225,7 +16225,7 @@ class KnowledgeBaseIndexer {
     
     try {
       // 先检查是否已经包含搜索语法符号，如果有则不扩展
-      if (query.includes('//') || query.includes(';;') || query.includes('!!') || query.includes('[[')) {
+      if (query.includes('//') || query.includes(';;') || query.includes('!!') || query.includes('[[') || query.includes("{{")) {
         return query;
       }
       
