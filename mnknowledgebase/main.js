@@ -165,24 +165,24 @@ JSB.newAddon = function(mainPath){
         let commandTable = [
           // === 索引管理 ===
           self.tableItem('🔄   索引知识库', 'updateSearchIndex:'),
-          
+          self.tableItem('📋   搜索知识库(复制链接)', 'searchForMarkdown:'),
+          self.tableItem('-------------------------------',''),
           // === 通用搜索（支持自定义类型）===
           self.tableItem('🔍   全部搜索(脑图定位)', 'searchInKB:', true),
-          self.tableItem('🔍   全部搜索(浮窗定位)', 'searchInKB:', false),
-          self.tableItem('📋   搜索知识库(复制链接)', 'searchForMarkdown:'),
           
           // === 快捷搜索 - 脑图定位 ===
           self.tableItem('    📚  知识卡片(脑图)', 'searchWithPreset:', {preset: 'knowledge', mode: 'mindmap'}),
           self.tableItem('    📘  仅定义(脑图)', 'searchWithPreset:', {preset: 'definitions', mode: 'mindmap'}),
           self.tableItem('    📁  仅归类(脑图)', 'searchWithPreset:', {preset: 'classifications', mode: 'mindmap'}),
           self.tableItem('    📒  定义与归类(脑图)', 'searchWithPreset:', {preset: 'definitionsAndClassifications', mode: 'mindmap'}),
-          
+
           // === 快捷搜索 - 浮窗定位 ===
+          self.tableItem('🔍   全部搜索(浮窗定位)', 'searchInKB:', false),
           self.tableItem('    📚  知识卡片(浮窗)', 'searchWithPreset:', {preset: 'knowledge', mode: 'float'}),
           self.tableItem('    📘  仅定义(浮窗)', 'searchWithPreset:', {preset: 'definitions', mode: 'float'}),
           self.tableItem('    📁  仅归类(浮窗)', 'searchWithPreset:', {preset: 'classifications', mode: 'float'}),
           self.tableItem('    📒  定义与归类(浮窗)', 'searchWithPreset:', {preset: 'definitionsAndClassifications', mode: 'float'}),
-          
+          self.tableItem('-------------------------------',''),
           // === 配置管理 ===
           self.tableItem('📜   搜索历史', 'showSearchHistory:'),
           self.tableItem('🔍   搜索模式设置', 'configureSearchMode:'),
@@ -565,10 +565,14 @@ JSB.newAddon = function(mainPath){
           return;
         }
         
-        // 显示搜索对话框，不进行类型选择，使用 markdown 模式
+        // 获取知识卡片类型
+        const types = SearchConfig.getTypesByPreset('knowledge');
+        
+        // 显示搜索对话框，使用知识卡片类型，使用 markdown 模式
         self.showSearchDialog(searcher, {
           enableTypeSelection: false,  // 禁用类型选择
-          defaultTypes: null           // 搜索全部类型
+          defaultTypes: types,         // 使用知识卡片类型
+          presetKey: 'knowledge'       // 使用知识卡片预设
         }, 'markdown');
         
       } catch (error) {
