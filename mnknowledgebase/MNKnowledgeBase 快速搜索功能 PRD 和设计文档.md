@@ -211,14 +211,14 @@ menuItems.push({
 
 menuItems.push({
   title: "快速搜索",
-  action: () => this.showFastSearchDialog()
+  action: () => this.searchInKBDialog()
 })
 ```
 
 #### 2.5.2 搜索对话框
 
 ```javascript
-showFastSearchDialog() {
+searchInKBDialog() {
   // 1. 输入搜索关键词
   UIAlertView.show("输入搜索关键词", ..., (text) => {
     // 2. 执行搜索

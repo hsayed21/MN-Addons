@@ -4,6 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # MNKnowledgeBase 插件开发指南
 
+- 严禁自己不确定的情况下乱用 API！一但是以前没出现过的用法，要到 `../` 中自行查找是否合理！
+- 使用 API 前严格确定 API 所处的类！不要乱写
+ 
 ## 项目概述
 
 MNKnowledgeBase 是一个 MarginNote 4 知识库管理插件，专注于学术知识的结构化管理。
@@ -56,7 +59,7 @@ mnaddon4 unpack mnknowledgebase_v0_1_实现JSON的读取.mnaddon
 - `toggleAddon`：插件图标点击响应，显示功能菜单
 - `openKnowledgeBaseLibrary`：打开文献数据库
 - `updateSearchIndex`：更新搜索索引
-- `showFastSearch`：显示快速搜索对话框
+- `searchInKB`：显示快速搜索对话框
 - `shareIndexFile`：分享索引文件（新增）
 - `shareSearchResults`：分享搜索结果（新增）
 - `onPopupMenuOnNote`：笔记弹出菜单处理

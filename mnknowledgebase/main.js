@@ -161,12 +161,14 @@ JSB.newAddon = function(mainPath){
 
         let commandTable = [
           self.tableItem('⚙️   Setting', 'openSetting:'),
-          self.tableItem('🗄️   文献数据库', 'openKnowledgeBaseLibrary:'),
-          self.tableItem('🔄   更新搜索索引', 'updateSearchIndex:'),
-          self.tableItem('🔍   快速搜索', 'showFastSearch:'),
-          self.tableItem('📤   分享索引文件', 'shareIndexFile:'),
+          // self.tableItem('🗄️   文献数据库', 'openKnowledgeBaseLibrary:'),
+          self.tableItem('🔄   索引知识库', 'updateSearchIndex:'),
+          self.tableItem('🔍   搜索知识库(脑图定位)', 'searchInKB:', true),
+          self.tableItem('🔍   搜索知识库(浮窗定位)', 'searchInKB:', false),
+          self.tableItem('🔍   搜索模式设置', 'configureSearchMode:'),
           self.tableItem('🔤   同义词管理', 'manageSynonyms:'),
-          self.tableItem('🚫   排除词管理', 'manageExclusions:')
+          self.tableItem('🚫   排除词管理', 'manageExclusions:'),
+          self.tableItem('📤   分享索引文件', 'shareIndexFile:'),
         ];
 
         // 显示菜单
@@ -202,9 +204,9 @@ JSB.newAddon = function(mainPath){
     },
     
     /**
-     * 更新搜索索引
+     * 更新搜索索引（异步版本）
      */
-    updateSearchIndex: function() {
+    updateSearchIndex: async function() {
       try {
         // 关闭菜单
         if (self.popoverController) {
@@ -217,19 +219,21 @@ JSB.newAddon = function(mainPath){
           return;
         } 
         
+        // 显示开始提示
+        MNUtil.showHUD("开始构建索引，请稍候...");
         
         // 延迟执行以确保 UI 更新
-        MNUtil.delay(0.1).then(() => {
-          // 构建索引（内部会显示进度）
-          let index = KnowledgeBaseIndexer.buildSearchIndex([rootNote]);
-          
-          // 保存索引
-          if (index && index.searchData.length > 0) {
-            KnowledgeBaseIndexer.saveIndex(index);
-          } else {
-            MNUtil.showHUD("没有找到可索引的卡片");
-          }
-        });
+        await MNUtil.delay(0.1);
+        
+        // 异步构建索引（内部会显示进度）
+        const manifest = await KnowledgeBaseIndexer.buildSearchIndex([rootNote]);
+        
+        // 检查结果
+        if (manifest && manifest.metadata && manifest.metadata.totalCards > 0) {
+          MNUtil.showHUD(`索引构建成功！共 ${manifest.metadata.totalCards} 张卡片，${manifest.metadata.totalParts} 个分片`);
+        } else {
+          MNUtil.showHUD("没有找到可索引的卡片");
+        }
         
       } catch (error) {
         MNUtil.showHUD("更新索引失败: " + error.message);
@@ -237,63 +241,102 @@ JSB.newAddon = function(mainPath){
       }
     },
     
-    /**
-     * 显示快速搜索对话框
-     */
-    showFastSearch: function() {
+    searchInKB: async function(focusInMindMap = true) {
       try {
-        // 关闭菜单
-        if (self.popoverController) {
-          self.popoverController.dismissPopoverAnimated(true);
-        }
+        self.checkPopover()
         
-        // 加载搜索器
-        const searcher = FastSearcher.loadFromFile();
+        // 异步加载搜索器
+        const searcher = await FastSearcher.loadFromFile();
         if (!searcher) {
           MNUtil.showHUD("索引未找到，请先更新搜索索引");
           return;
         }
 
-        self.showSearchDialog(searcher);
+        // 注意：showSearchDialog 内部也需要支持异步搜索
+        self.showSearchDialog(searcher, {}, focusInMindMap);
         
       } catch (error) {
         MNUtil.showHUD("快速搜索失败: " + error.message);
-        MNLog.error(error, "MNKnowledgeBase: showFastSearch");
+        MNLog.error(error, "MNKnowledgeBase: searchInKB");
       }
     },
     
     /**
-     * 分享索引文件
+     * 分享索引文件（支持新版分片索引）
      */
-    shareIndexFile: function() {
+    shareIndexFile: async function() {
       try {
         // 关闭菜单
         if (self.popoverController) {
           self.popoverController.dismissPopoverAnimated(true);
         }
         
-        // 加载索引
-        const index = KnowledgeBaseIndexer.loadIndex();
-        if (!index) {
-          MNUtil.showHUD("未找到索引，请先更新搜索索引");
+        // 生成时间戳
+        const date = new Date();
+        const timestamp = date.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        
+        // 首先尝试加载新版分片索引
+        const manifest = KnowledgeBaseIndexer.loadIndexManifest();
+        if (manifest && manifest.metadata && manifest.metadata.version === "2.0") {
+          // 新版分片索引：合并所有分片到一个文件（用于分享）
+          const mergedIndex = {
+            metadata: manifest.metadata,
+            searchData: []
+          };
+          
+          // 加载并合并所有分片
+          for (const partInfo of manifest.parts) {
+            const part = KnowledgeBaseIndexer.loadIndexPart(partInfo.filename);
+            if (part && part.data) {
+              mergedIndex.searchData = mergedIndex.searchData.concat(part.data);
+            }
+          }
+          
+          // 导出合并后的索引
+          const filename = `kb-search-index-merged-${timestamp}.json`;
+          const filepath = MNUtil.mainPath + "/" + filename;
+          MNUtil.writeJSON(filepath, mergedIndex);
+          MNUtil.saveFile(filepath, "public.json");
+          
+          MNUtil.showHUD(`索引文件已导出（${mergedIndex.searchData.length} 条记录）`);
           return;
         }
         
-        // 生成文件名（包含时间戳）
-        const date = new Date();
-        const timestamp = date.toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        const filename = `kb-search-index-${timestamp}.json`;
+        // 向后兼容：尝试加载旧版单文件索引
+        const index = KnowledgeBaseIndexer.loadIndex();
+        if (index) {
+          const filename = `kb-search-index-${timestamp}.json`;
+          const filepath = MNUtil.mainPath + "/" + filename;
+          MNUtil.writeJSON(filepath, index);
+          MNUtil.saveFile(filepath, "public.json");
+          
+          MNUtil.showHUD("索引文件已导出");
+          return;
+        }
         
-        // 写入插件目录并导出
-        const filepath = MNUtil.mainPath + "/" + filename;
-        MNUtil.writeJSON(filepath, index);
-        MNUtil.saveFile(filepath, "public.json");
-        
-        MNUtil.showHUD("索引文件已导出");
+        // 没有找到任何索引
+        MNUtil.showHUD("未找到索引，请先更新搜索索引");
         
       } catch (error) {
         MNUtil.showHUD("分享失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: shareIndexFile");
+      }
+    },
+
+    /**
+     * 配置搜索模式
+     */
+    configureSearchMode: async function() {
+      try {
+        // 关闭菜单
+        if (self.popoverController) {
+          self.popoverController.dismissPopoverAnimated(true);
+        }
+        
+        // 调用搜索模式配置界面
+        await knowledgeBaseTemplate.configureSearchMode();
+      } catch (error) {
+        MNUtil.showHUD("配置搜索模式失败: " + error.message);
       }
     },
 
@@ -405,6 +448,13 @@ JSB.newAddon = function(mainPath){
     },
   });
 
+  MNKnowledgeBaseClass.prototype.checkPopover = function(){
+    // 关闭菜单
+    if (this.popoverController) {
+      this.popoverController.dismissPopoverAnimated(true);
+    }
+  }
+
   MNKnowledgeBaseClass.prototype.tableItem = function (title, selector, param = "", checked = false) {
     return {
       title: title,        // 菜单项显示的文字
@@ -415,7 +465,7 @@ JSB.newAddon = function(mainPath){
     }
   }
 
-  MNKnowledgeBaseClass.prototype.showSearchDialog = async function(searcher, config = {}) {
+  MNKnowledgeBaseClass.prototype.showSearchDialog = async function(searcher, config = {}, focusInMindMap) {
     try {
       // 默认配置
       const defaultConfig = {
@@ -433,10 +483,20 @@ JSB.newAddon = function(mainPath){
         if (selectedTypes === "cancel") return; // 用户取消
       }
       
-      // 步骤2：关键词输入
+      // 步骤2：获取搜索模式配置
+      const searchModeConfig = knowledgeBaseTemplate.getSearchConfig();
+      const modeNames = {
+        exact: "精确",
+        synonym: "同义词",
+        exclude: "排除词",
+        full: "完整"
+      };
+      const modeText = modeNames[searchModeConfig.mode] || "精确";
+      
+      // 步骤3：关键词输入
       const typeInfo = selectedTypes ? `(${selectedTypes.length}种类型)` : "(全部类型)";
       let userInput = await MNUtil.userInput(
-        `快速搜索 ${typeInfo}`,
+        `快速搜索 ${typeInfo} [${modeText}模式]`,
         "请输入搜索关键词：",
         ["取消", "搜索"]
       );
@@ -445,11 +505,20 @@ JSB.newAddon = function(mainPath){
         let keyword = userInput.input.trim();
         if (!keyword) return;
         
-        // 步骤3：执行搜索（同义词已在索引时处理）
-        this.performFastSearch(searcher, keyword, {
+        // 步骤4：根据配置扩展查询词
+        let expandedKeyword = keyword;
+        if (searchModeConfig.useSynonyms) {
+          expandedKeyword = KnowledgeBaseIndexer.expandSearchQuery(keyword, true);
+          MNUtil.log(`扩展后的查询: ${expandedKeyword}`);
+        }
+        
+        // 步骤5：执行搜索
+        this.performFastSearch(searcher, expandedKeyword, {
           types: selectedTypes,
-          config: searchConfig
-        });
+          config: searchConfig,
+          searchModeConfig: searchModeConfig,
+          originalKeyword: keyword
+        }, focusInMindMap);
       }
     } catch (error) {
       MNUtil.showHUD("搜索对话框错误: " + error.message);
@@ -517,7 +586,7 @@ JSB.newAddon = function(mainPath){
   /**
    * 执行快速搜索（增强版）
    */
-  MNKnowledgeBaseClass.prototype.performFastSearch = function(searcher, keyword, options = {}) {
+  MNKnowledgeBaseClass.prototype.performFastSearch = async function(searcher, keyword, options = {}, focusInMindMap = true) {
     try {
       // 构建搜索参数
       const searchOptions = {
@@ -525,21 +594,32 @@ JSB.newAddon = function(mainPath){
         types: options.types || null
       };
       
-      // 记录搜索历史
-      this.lastSearchKeyword = keyword;
+      // 记录搜索历史（使用原始关键词）
+      this.lastSearchKeyword = options.originalKeyword || keyword;
       this.lastSearchTypes = options.types;
       
       // 执行搜索
-      const results = searcher.search(keyword, searchOptions);
+      let results = await searcher.search(keyword, searchOptions);
+      
+      // 根据配置应用排除词过滤
+      if (options.searchModeConfig && options.searchModeConfig.useExclusion) {
+        const beforeCount = results.length;
+        results = KnowledgeBaseIndexer.filterSearchResults(results, true);
+        const afterCount = results.length;
+        if (beforeCount > afterCount) {
+          MNUtil.log(`排除词过滤: ${beforeCount} → ${afterCount} 个结果`);
+        }
+      }
       
       if (results.length === 0) {
         const typeInfo = options.types ? `(${options.types.join(", ")})` : "(全部类型)";
-        MNUtil.showHUD(`未找到匹配 "${keyword}" 的卡片 ${typeInfo}`);
+        const originalKeyword = options.originalKeyword || keyword;
+        MNUtil.showHUD(`未找到匹配 "${originalKeyword}" 的卡片 ${typeInfo}`);
         return;
       }
       
       // 显示搜索结果
-      this.showSearchResults(results, searcher, options);
+      this.showSearchResults(results, searcher, options, focusInMindMap);
       
     } catch (error) {
       MNUtil.showHUD("搜索执行失败: " + error.message);
@@ -550,7 +630,7 @@ JSB.newAddon = function(mainPath){
   /**
    * 显示搜索结果
    */
-  MNKnowledgeBaseClass.prototype.showSearchResults = async function(results, searcher, searchOptions = {}) {
+  MNKnowledgeBaseClass.prototype.showSearchResults = async function(results, searcher, searchOptions = {}, focusInMindMap = true) {
     try {
       // 构建结果选项
       const options = results.map((result, index) => {
@@ -604,7 +684,7 @@ JSB.newAddon = function(mainPath){
         if (note) {
           // 在脑图中定位
           if (MNUtil.mindmapView) {
-            note.focusInFloatMindMap(0.3);
+            focusInMindMap?note.focusInMindMap():note.focusInFloatMindMap()
           } else {
             MNUtil.showHUD("已选择卡片：" + selectedResult.title);
           }

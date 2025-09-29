@@ -2575,7 +2575,7 @@ class knowledgeBaseTemplate {
    * 获取第一个归类卡片的父爷卡片
    */
   static getFirstClassificationParentNote(note, depth = 0) {
-    // 防止无限递归
+    // 防止无限递归（深度限制已足够防止无限循环）
     if (depth > 10) {
       MNLog.error({
         message: `getFirstClassificationParentNote recursion depth exceeded for note ${note?.noteId}`,
@@ -2584,27 +2584,17 @@ class knowledgeBaseTemplate {
       return null;
     }
     
-    // 使用 Set 记录访问过的节点，避免循环引用
-    const visitedNodes = new Set();
+    // 简单的父节点遍历，不使用 Set（深度检查已足够）
     let parentNote = note.parentNote;
+    let traversalDepth = 0;
     
-    while (parentNote) {
-      // 检查是否已经访问过这个节点
-      if (visitedNodes.has(parentNote.noteId)) {
-        MNLog.error({
-          message: `Circular reference detected in parent chain for note ${note?.noteId}`,
-          source: "knowledgeBaseTemplate.getFirstClassificationParentNote"
-        });
-        return null;
-      }
-      
-      visitedNodes.add(parentNote.noteId);
-      
+    while (parentNote && traversalDepth < 20) {  // 额外的遍历深度限制
       // 调用 getNoteType 时传递 depth+1
       if (this.getNoteType(parentNote, false, depth + 1) === "归类") {
         return parentNote;
       }
       parentNote = parentNote.parentNote;
+      traversalDepth++;
     }
     
     return null;
@@ -9469,7 +9459,7 @@ class knowledgeBaseTemplate {
         case "iCloud":
           // 使用 iCloud 同步
           const iCloudKey = "knowledgeBaseTemplate_SearchConfig";
-          MNUtil.setByiCloud(iCloudKey, jsonStr);
+          // MNUtil.setByiCloud(iCloudKey, jsonStr);
           MNUtil.showHUD("✅ 已导出到 iCloud");
           return true;
           
@@ -10939,7 +10929,7 @@ class knowledgeBaseTemplate {
       
       switch (target) {
         case 'icloud':
-          MNUtil.setByiCloud("knowledgeBaseTemplate_SynonymGroups_Config", jsonStr);
+          // MNUtil.setByiCloud("knowledgeBaseTemplate_SynonymGroups_Config", jsonStr);
           MNUtil.showHUD("✅ 已同步到 iCloud");
           return true;
           
@@ -11449,44 +11439,31 @@ class knowledgeBaseTemplate {
           let shouldExclude = false;
           
           if (exclusionInfo.groups.length > 0) {
-            // 检查每个激活的排除词组
-            for (const group of exclusionInfo.groups) {
-              let hasExcludeWord = false;
-              let hasIndependentTriggerWord = false;
-              
-              // 1. 检查是否包含排除词
-              for (const excludeWord of group.excludeWords) {
-                if (searchText.includes(excludeWord)) {
-                  hasExcludeWord = true;
-                  break;
-                }
-              }
-              
-              if (hasExcludeWord) {
-                // 2. 创建一个临时文本，将所有排除词替换为特殊标记
-                let tempText = searchText;
-                for (const excludeWord of group.excludeWords) {
-                  // 使用全局替换，不区分大小写
-                  tempText = tempText.replace(new RegExp(excludeWord, 'gi'), '###EXCLUDED###');
-                }
-                
-                // 3. 检查触发词是否在移除排除词后仍然存在
-                for (const triggerWord of group.triggerWords) {
-                  if (tempText.includes(triggerWord)) {
-                    hasIndependentTriggerWord = true;
-                    MNUtil.log(`卡片 "${title}" 中触发词 "${triggerWord}" 独立存在`);
-                    break;
+            // 优化：直接分析排除词组（与索引构建时的逻辑一致）
+            const applicableGroups = KnowledgeBaseIndexer.analyzeExclusionGroups(searchText);
+            
+            if (applicableGroups.length > 0) {
+              // 检查是否有激活的排除词组需要排除这张卡片
+              for (const activeGroup of exclusionInfo.groups) {
+                for (const cardGroup of applicableGroups) {
+                  if (cardGroup.groupId === activeGroup.id) {
+                    // 检查触发词是否在受影响的触发词列表中
+                    const hasAffectedTrigger = activeGroup.triggerWords.some(trigger => 
+                      cardGroup.affectedTriggers.includes(trigger)
+                    );
+                    
+                    if (hasAffectedTrigger) {
+                      shouldExclude = true;
+                      MNUtil.log(`❌ 排除卡片: "${title}" (匹配排除组 "${cardGroup.groupName}")`);
+                      break;
+                    }
                   }
                 }
-                
-                // 4. 决定是否排除
-                if (hasExcludeWord && !hasIndependentTriggerWord) {
-                  shouldExclude = true;
-                  MNUtil.log(`❌ 排除卡片: "${title}" (包含排除词 "${group.excludeWords.join(", ")}" 且触发词不独立存在)`);
-                  break;
-                } else if (hasExcludeWord && hasIndependentTriggerWord) {
-                  MNUtil.log(`✅ 保留卡片: "${title}" (虽包含排除词但触发词独立存在)`);
-                }
+                if (shouldExclude) break;
+              }
+              
+              if (!shouldExclude && applicableGroups.length > 0) {
+                MNUtil.log(`✅ 保留卡片: "${title}" (虽包含排除词但触发词独立存在)`);
               }
             }
           }
@@ -13333,6 +13310,134 @@ class knowledgeBaseTemplate {
   }
 
   /**
+   * 配置搜索模式
+   */
+  static async configureSearchMode() {
+    try {
+      while (true) {
+        // 获取当前配置
+        const config = this.getSearchConfig();
+        const modeNames = {
+          exact: "精确搜索",
+          synonym: "同义词扩展",
+          exclude: "排除词过滤",
+          full: "完整模式"
+        };
+        
+        const currentMode = modeNames[config.mode] || "精确搜索";
+        
+        // 显示选项
+        const options = [
+          `当前模式: ${currentMode}`,
+          "──────────────",
+          config.mode === 'exact' ? "✅ 精确搜索（最快）" : "⚡ 精确搜索（最快）",
+          config.mode === 'synonym' ? "✅ 同义词扩展" : "🔄 同义词扩展",
+          config.mode === 'exclude' ? "✅ 排除词过滤" : "🚫 排除词过滤",
+          config.mode === 'full' ? "✅ 完整模式（同义词+排除词）" : "🔥 完整模式（同义词+排除词）",
+          "──────────────",
+          "ℹ️ 查看模式说明"
+        ];
+        
+        const choice = await MNUtil.userSelect(
+          "搜索模式设置",
+          "",
+          options,
+        );
+        
+        if (choice === 0) break;  // 取消
+        
+        // 处理选择
+        if (choice === 3) {  // 精确搜索
+          this.saveSearchConfig({ mode: 'exact', useSynonyms: false, useExclusion: false });
+          MNUtil.showHUD("已切换到精确搜索模式");
+        } else if (choice === 4) {  // 同义词扩展
+          this.saveSearchConfig({ mode: 'synonym', useSynonyms: true, useExclusion: false });
+          MNUtil.showHUD("已切换到同义词扩展模式");
+        } else if (choice === 5) {  // 排除词过滤
+          this.saveSearchConfig({ mode: 'exclude', useSynonyms: false, useExclusion: true });
+          MNUtil.showHUD("已切换到排除词过滤模式");
+        } else if (choice === 6) {  // 完整模式
+          this.saveSearchConfig({ mode: 'full', useSynonyms: true, useExclusion: true });
+          MNUtil.showHUD("已切换到完整模式");
+        } else if (choice === 8) {  // 查看说明
+          await this.showSearchModeHelp();
+        }
+      }
+    } catch (error) {
+      MNUtil.showHUD("配置搜索模式失败: " + error.message);
+    }
+  }
+  
+  /**
+   * 显示搜索模式说明
+   */
+  static async showSearchModeHelp() {
+    const helpText = `搜索模式说明：
+
+⚡ 精确搜索
+• 直接匹配关键词
+• 速度最快
+• 适合精确查找
+
+🔄 同义词扩展
+• 自动扩展同义词
+• 提高召回率
+• 适合模糊查找
+
+🚫 排除词过滤
+• 过滤无关结果
+• 提高准确率
+• 适合精确领域
+
+🔥 完整模式
+• 同义词+排除词
+• 最全面的搜索
+• 速度稍慢`;
+
+    await MNUtil.alert("搜索模式说明", helpText);
+  }
+  
+  /**
+   * 获取搜索配置
+   */
+  static getSearchConfig() {
+    const configKey = "knowledgeBaseTemplate_SearchModeConfig";
+    const savedConfig = NSUserDefaults.standardUserDefaults().objectForKey(configKey);
+    
+    if (savedConfig) {
+      try {
+        return JSON.parse(savedConfig);
+      } catch (e) {
+        MNUtil.log("解析搜索配置失败，使用默认配置");
+      }
+    }
+    
+    // 默认配置
+    return {
+      mode: 'exact',
+      useSynonyms: false,
+      useExclusion: false,
+      lastUpdated: Date.now()
+    };
+  }
+  
+  /**
+   * 保存搜索配置
+   */
+  static saveSearchConfig(config) {
+    const configKey = "knowledgeBaseTemplate_SearchModeConfig";
+    const configToSave = {
+      ...config,
+      lastUpdated: Date.now()
+    };
+    
+    NSUserDefaults.standardUserDefaults().setObjectForKey(
+      JSON.stringify(configToSave),
+      configKey
+    );
+  }
+
+  /**
    * 管理同义词组 - 主界面
    */
   static async manageSynonymGroups() {
@@ -14457,7 +14562,7 @@ class knowledgeBaseTemplate {
       
       switch (target) {
         case 1: // iCloud
-          MNUtil.setByiCloud("knowledgeBaseTemplate_FullSearchConfig", jsonStr);
+          // MNUtil.setByiCloud("knowledgeBaseTemplate_FullSearchConfig", jsonStr);
           MNUtil.showHUD("☁️ 已同步到 iCloud");
           break;
         case 2: // 剪贴板
@@ -15038,7 +15143,7 @@ class knowledgeBaseTemplate {
       
       switch (result) {
         case 1: // iCloud
-          MNUtil.setByiCloud("knowledgeBaseTemplate_ExclusionGroups_Config", jsonStr);
+          // MNUtil.setByiCloud("knowledgeBaseTemplate_ExclusionGroups_Config", jsonStr);
           MNUtil.showHUD("☁️ 已同步到 iCloud");
           break;
         case 2: // 剪贴板
@@ -15846,23 +15951,30 @@ class knowledgeBaseTemplate {
  */
 class KnowledgeBaseIndexer {
   /**
-   * 构建搜索索引
+   * 构建搜索索引（异步分片版本）
    * @param {Array<string>|MNNote} rootNotes - 根卡片
    * @param {Array<string>} targetTypes - 目标卡片类型数组，如 ["定义", "命题", "归类"]
-   * @returns {Object} 包含metadata和searchData的索引对象
+   * @returns {Promise<Object>} 包含metadata的主索引对象
    */
-  static buildSearchIndex(rootNotes, targetTypes = ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题"]) {
-    const index = {
+  static async buildSearchIndex(rootNotes, targetTypes = ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题"]) {
+    const BATCH_SIZE = 5000;  // 每批处理 5000 个卡片（优化性能）
+    const PART_SIZE = 5000;  // 每 5000 个卡片保存一个分片
+    
+    const manifest = {
       metadata: {
-        version: "1.0",
+        version: "2.0",
         lastUpdated: new Date().toISOString(),
         totalCards: 0,
-        targetTypes: targetTypes
+        targetTypes: targetTypes,
+        partSize: PART_SIZE,
+        totalParts: 0
       },
-      searchData: []
+      parts: []
     };
     
     try {
+      // 不再预加载排除词组（移到搜索时处理）
+      
       // 使用 Map 进行去重
       const processedIds = new Map();
       
@@ -15885,78 +15997,119 @@ class KnowledgeBaseIndexer {
         allNotes = allNotes.concat(notesToProcess);
       });
       
-      
       // 进度跟踪变量
       let processedCount = 0;
       let validCount = 0;
-      let lastUpdateTime = Date.now();
-      const updateInterval = 10; // 每处理10个卡片更新一次
-      const timeInterval = 200; // 或每200ms更新一次
       const totalCount = allNotes.length;
       
-      // 显示初始进度
-      MNUtil.showHUD(`正在构建索引 0/${totalCount}`);
+      // 分片相关变量
+      let currentPartData = [];
+      let currentPartNumber = 1;
       
-      // 处理所有卡片
-      allNotes.forEach((note, noteIndex) => {
-        // 确保 note 是 MNNote 对象（descendantNodes.descendant 返回的是原生对象）
-        const mnNote = note.noteId ? note : MNNote.new(note);
-        if (!mnNote || !mnNote.noteId) {
-          processedCount++;
-          return; // 跳过无效的卡片
-        }
+      // 显示初始进度
+      this.showProgressHUD(0, totalCount, "开始构建索引");
+      
+      // 批处理所有卡片
+      for (let i = 0; i < allNotes.length; i += BATCH_SIZE) {
+        const batch = allNotes.slice(i, Math.min(i + BATCH_SIZE, allNotes.length));
+        const batchStartTime = Date.now();
         
-        // 去重检查
-        const noteId = mnNote.noteId;
-        if (processedIds.has(noteId)) {
-          processedCount++;
-          return; // 跳过已处理的卡片
-        }
-        processedIds.set(noteId, true);
-        
-        const noteType = knowledgeBaseTemplate.getNoteType(mnNote);
-        if (!noteType) {
-          processedCount++;
-          return;
-        } else {
-          if (!targetTypes.includes(noteType)) {
+        // 处理当前批次
+        for (const note of batch) {
+          // 确保 note 是 MNNote 对象
+          const mnNote = note.noteId ? note : MNNote.new(note);
+          if (!mnNote || !mnNote.noteId) {
             processedCount++;
-            return;
+            continue;
+          }
+          
+          // 去重检查
+          const noteId = mnNote.noteId;
+          if (processedIds.has(noteId)) {
+            processedCount++;
+            continue;
+          }
+          processedIds.set(noteId, true);
+          
+          const noteType = knowledgeBaseTemplate.getNoteType(mnNote);
+          if (!noteType || !targetTypes.includes(noteType)) {
+            processedCount++;
+            continue;
+          }
+          
+          // 构建索引条目
+          const entry = this.buildIndexEntry(mnNote);
+          if (entry) {
+            currentPartData.push(entry);
+            validCount++;
+          }
+          
+          processedCount++;
+          
+          // 检查是否需要保存分片
+          if (currentPartData.length >= PART_SIZE) {
+            // 保存当前分片
+            const partFilename = await this.saveIndexPart(currentPartData, currentPartNumber);
+            manifest.parts.push({
+              partNumber: currentPartNumber,
+              filename: partFilename,
+              cardCount: currentPartData.length
+            });
+            
+            // 重置分片数据
+            currentPartData = [];
+            currentPartNumber++;
+            
+            // 分片保存时更新进度
+            this.showProgressHUD(processedCount, totalCount, `保存分片 ${currentPartNumber - 1}`);
+            await MNUtil.delay(0.001);  // 仅在保存分片时短暂延迟
           }
         }
         
-        // 构建索引条目
-        const entry = this.buildIndexEntry(mnNote);
-        if (entry) {
-          index.searchData.push(entry);
-          validCount++;
-        }
+        // 批次完成后更新进度（每5000个卡片更新一次，而不是每100个）
+        const batchTime = Date.now() - batchStartTime;
+        const speed = Math.round(batch.length / (batchTime / 1000));
+        this.showProgressHUD(processedCount, totalCount, `构建索引 (${speed} 卡片/秒)`);
         
-        processedCount++;
-        
-        // 定期更新进度
-        if (processedCount % updateInterval === 0 || 
-            Date.now() - lastUpdateTime > timeInterval ||
-            processedCount === totalCount) {
-          MNUtil.showHUD(`正在构建索引 ${processedCount}/${totalCount} (有效: ${validCount})`);
-          lastUpdateTime = Date.now();
+        // 仅在还有后续批次时才延迟（避免最后一批不必要的延迟）
+        if (i + BATCH_SIZE < allNotes.length) {
+          await MNUtil.delay(0.001);  // 最小延迟，仅让UI更新
         }
-      });
+      }
       
-      index.metadata.totalCards = index.searchData.length;
-      MNUtil.showHUD(`索引构建完成：${index.metadata.totalCards} 张卡片`);
+      // 保存最后一个分片（如果有剩余数据）
+      if (currentPartData.length > 0) {
+        const partFilename = await this.saveIndexPart(currentPartData, currentPartNumber);
+        manifest.parts.push({
+          partNumber: currentPartNumber,
+          filename: partFilename,
+          cardCount: currentPartData.length
+        });
+        MNUtil.showHUD(`已保存最后分片 ${currentPartNumber}（${currentPartData.length} 条）`);
+      }
+      
+      // 更新主索引信息
+      manifest.metadata.totalCards = validCount;
+      manifest.metadata.totalParts = manifest.parts.length;
+      
+      // 保存主索引文件
+      await this.saveIndexManifest(manifest);
+      
+      MNUtil.showHUD(`索引构建完成：共 ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
       
     } catch (error) {
       MNUtil.showHUD("构建索引失败: " + error.message);
       MNLog.error(error, "KnowledgeBaseIndexer: buildSearchIndex");
+      return null;
     }
     
-    return index;
+    return manifest;
   }
   
   /**
    * 构建单个卡片的索引条目
    * @private
+   * @param {MNNote} note - 要建立索引的卡片
    */
   static buildIndexEntry(note) {
     try {
@@ -16038,7 +16191,7 @@ class KnowledgeBaseIndexer {
         entry.keywords = keywordsContent;
       }
       
-      // 步骤5：构建搜索文本
+      // 步骤5：构建搜索文本（根据模式决定是否扩展同义词）
       try {
         entry.searchText = this.buildSearchText(note, parsedTitle, noteType, keywordsContent);
       } catch (error) {
@@ -16049,6 +16202,8 @@ class KnowledgeBaseIndexer {
         // 如果构建搜索文本失败，使用基础文本
         entry.searchText = `${entry.title} ${keywordsContent}`.toLowerCase();
       }
+      
+      // 步骤6：不再在索引构建时处理排除词（移到搜索时）
       
       return entry;
       
@@ -16065,6 +16220,11 @@ class KnowledgeBaseIndexer {
   /**
    * 构建搜索文本（包含同义词扩展）
    * @private
+   * @param {MNNote} note - 笔记对象
+   * @param {Object} parsedTitle - 解析后的标题
+   * @param {string} noteType - 笔记类型
+   * @param {string} keywordsContent - 关键词内容
+   * @param {boolean} simplified - 是否使用精简模式
    */
   static buildSearchText(note, parsedTitle, noteType, keywordsContent) {
     let searchableContent = "";
@@ -16097,45 +16257,223 @@ class KnowledgeBaseIndexer {
     // 处理关键词
     const keywordsForSearch = keywordsContent.replace(/[;；]/g, " ");
     
-    // 新增：扩展同义词
-    let expandedWords = [];
-    
-    // 从主要内容提取并扩展同义词（只处理2-4字的中文词汇）
-    const contentWords = searchableContent.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
-    contentWords.forEach(word => {
-      // 获取同义词（不包含原词避免重复）
-      const synonyms = SynonymManager.expandKeyword(word, false);
-      if (synonyms.length > 0) {
-        expandedWords.push(...synonyms);
-      }
-    });
-    
-    // 从关键词字段扩展同义词
-    if (keywordsContent) {
-      const keywords = keywordsContent.split(/[;；,，]/);
-      keywords.forEach(keyword => {
-        const trimmed = keyword.trim();
-        if (trimmed) {
-          const synonyms = SynonymManager.expandKeyword(trimmed, false);
-          if (synonyms.length > 0) {
-            expandedWords.push(...synonyms);
-          }
-        }
-      });
-    }
-    
-    // 去重
-    expandedWords = [...new Set(expandedWords)];
-    
-    // 组合原内容、关键词和同义词
-    const synonymText = expandedWords.join(" ");
-    const finalText = `${searchableContent} ${keywordsForSearch} ${synonymText}`.trim().toLowerCase();
+    // 简化版：只组合原内容和关键词，不再扩展同义词
+    const finalText = `${searchableContent} ${keywordsForSearch}`.trim().toLowerCase();
     
     return finalText;
   }
+
+  /**
+   * 扩展搜索查询（搜索时动态处理同义词）
+   * @param {string} query - 用户输入的搜索词
+   * @param {boolean} useSynonyms - 是否使用同义词扩展
+   * @returns {string} 扩展后的搜索查询
+   */
+  static expandSearchQuery(query, useSynonyms = false) {
+    if (!useSynonyms || !query) return query;
+    
+    try {
+      // 分词：提取2-4个字的中文词汇
+      const words = query.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+      const expandedTerms = new Set([query.toLowerCase()]);
+      
+      // 对每个词进行同义词扩展
+      words.forEach(word => {
+        // 获取同义词（包含原词）
+        const synonyms = SynonymManager.expandKeyword(word, true);
+        synonyms.forEach(s => expandedTerms.add(s.toLowerCase()));
+      });
+      
+      // 返回扩展后的查询字符串
+      return Array.from(expandedTerms).join(" ");
+    } catch (error) {
+      MNUtil.log(`扩展搜索查询失败: ${error.message}`);
+      return query;
+    }
+  }
   
   /**
-   * 保存索引到文件
+   * 过滤搜索结果（搜索时动态处理排除词）
+   * @param {Array} results - 搜索结果数组
+   * @param {boolean} useExclusion - 是否使用排除词过滤
+   * @returns {Array} 过滤后的结果
+   */
+  static filterSearchResults(results, useExclusion = false) {
+    if (!useExclusion || !results || results.length === 0) return results;
+    
+    try {
+      const exclusionGroups = ExclusionManager.getExclusionGroups();
+      
+      return results.filter(result => {
+        // 检查是否应该被排除
+        const searchText = result.searchText || "";
+        const applicableGroups = this.analyzeExclusionGroups(searchText, exclusionGroups);
+        
+        // 如果没有适用的排除词组，保留这个结果
+        if (applicableGroups.length === 0) {
+          return true;
+        }
+        
+        // 检查是否有必须包含但未包含的词
+        for (const group of applicableGroups) {
+          if (group.mustInclude && group.mustInclude.length > 0) {
+            const hasMustInclude = group.mustInclude.some(word => 
+              searchText.includes(word.toLowerCase())
+            );
+            if (!hasMustInclude) {
+              return false;  // 排除这个结果
+            }
+          }
+        }
+        
+        return true;  // 保留这个结果
+      });
+    } catch (error) {
+      MNUtil.log(`过滤搜索结果失败: ${error.message}`);
+      return results;
+    }
+  }
+
+  /**
+   * 分析文本中适用的排除词组
+   * @param {string} searchText - 要分析的搜索文本
+   * @param {Array} exclusionGroups - 预加载的排除词组（可选）
+   * @returns {Array} 包含适用的排除词组信息
+   */
+  static analyzeExclusionGroups(searchText, exclusionGroups = null) {
+    const applicableGroups = [];
+    // 使用传入的排除词组或按需获取
+    const groups = exclusionGroups || knowledgeBaseTemplate.getExclusionGroups();
+    
+    for (const group of groups) {
+      if (!group.enabled) continue;
+      
+      // 检查文本是否包含该组的任何排除词
+      let containsExcludeWord = false;
+      let matchedExcludeWords = [];
+      
+      for (const excludeWord of group.excludeWords) {
+        if (searchText.includes(excludeWord.toLowerCase())) {
+          containsExcludeWord = true;
+          matchedExcludeWords.push(excludeWord);
+        }
+      }
+      
+      if (containsExcludeWord) {
+        // 检查触发词是否独立存在（排除词被替换后）
+        let tempText = searchText;
+        for (const excludeWord of matchedExcludeWords) {
+          tempText = tempText.replace(new RegExp(excludeWord.toLowerCase(), 'gi'), '###EXCLUDED###');
+        }
+        
+        // 记录哪些触发词会被这个组影响
+        const affectedTriggers = [];
+        for (const trigger of group.triggerWords) {
+          // 触发词不独立存在，说明会被排除
+          if (!tempText.includes(trigger.toLowerCase())) {
+            affectedTriggers.push(trigger);
+          }
+        }
+        
+        if (affectedTriggers.length > 0) {
+          applicableGroups.push({
+            groupId: group.id,
+            groupName: group.name,
+            excludeWords: matchedExcludeWords,
+            affectedTriggers: affectedTriggers
+          });
+        }
+      }
+    }
+    
+    return applicableGroups;
+  }
+  
+  /**
+   * 显示进度条式 HUD
+   */
+  static showProgressHUD(current, total, message = "处理中") {
+    const percent = Math.round((current / total) * 100);
+    const progressBar = this.createProgressBar(percent);
+    MNUtil.showHUD(`${message}\n${progressBar}\n${current}/${total} (${percent}%)`);
+  }
+  
+  /**
+   * 创建进度条
+   */
+  static createProgressBar(percent) {
+    const barLength = 20;
+    const filled = Math.round(barLength * percent / 100);
+    const empty = barLength - filled;
+    return "█".repeat(filled) + "░".repeat(empty);
+  }
+  
+  /**
+   * 保存索引分片
+   */
+  static async saveIndexPart(partData, partNumber) {
+    try {
+      const filename = `kb-search-index-part-${partNumber}.json`;
+      const filepath = MNUtil.dbFolder + "/data/" + filename;
+      
+      const partContent = {
+        partNumber: partNumber,
+        data: partData,
+        count: partData.length
+      };
+      
+      MNUtil.writeJSON(filepath, partContent);
+      return filename;
+    } catch (error) {
+      MNUtil.showHUD("保存分片失败: " + error.message);
+      MNLog.error(error, "KnowledgeBaseIndexer: saveIndexPart");
+      throw error;
+    }
+  }
+  
+  /**
+   * 保存主索引文件
+   */
+  static async saveIndexManifest(manifest) {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/kb-search-index-manifest.json";
+      MNUtil.writeJSON(filepath, manifest);
+      return filepath;
+    } catch (error) {
+      MNUtil.showHUD("保存主索引失败: " + error.message);
+      MNLog.error(error, "KnowledgeBaseIndexer: saveIndexManifest");
+      throw error;
+    }
+  }
+  
+  /**
+   * 加载主索引文件
+   */
+  static loadIndexManifest() {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/kb-search-index-manifest.json";
+      return MNUtil.readJSON(filepath);
+    } catch (error) {
+      MNLog.error(error, "KnowledgeBaseIndexer: loadIndexManifest");
+      return null;
+    }
+  }
+  
+  /**
+   * 加载索引分片
+   */
+  static loadIndexPart(filename) {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/" + filename;
+      return MNUtil.readJSON(filepath);
+    } catch (error) {
+      MNLog.error(error, "KnowledgeBaseIndexer: loadIndexPart");
+      return null;
+    }
+  }
+  
+  /**
+   * 保存索引到文件（向后兼容）
    */
   static saveIndex(index, filename = "kb-search-index.json") {
     try {
@@ -16151,7 +16489,7 @@ class KnowledgeBaseIndexer {
   }
   
   /**
-   * 加载索引
+   * 加载索引（向后兼容）
    */
   static loadIndex(filename = "kb-search-index.json") {
     try {
@@ -16168,18 +16506,45 @@ class KnowledgeBaseIndexer {
  * 快速搜索器 - 基于索引的快速搜索
  */
 class FastSearcher {
-  constructor(index) {
-    this.index = index;
+  constructor(indexOrManifest) {
+    // 判断是新版分片索引还是旧版单文件索引
+    if (indexOrManifest && indexOrManifest.metadata) {
+      if (indexOrManifest.metadata.version === "2.0" && indexOrManifest.parts) {
+        // 新版分片索引
+        this.manifest = indexOrManifest;
+        this.index = null;  // 分片模式不预加载数据
+        this.mode = 'sharded';
+      } else {
+        // 旧版单文件索引
+        this.index = indexOrManifest;
+        this.manifest = null;
+        this.mode = 'legacy';
+      }
+    } else {
+      this.index = null;
+      this.manifest = null;
+      this.mode = 'unknown';
+    }
   }
   
   /**
    * 从文件加载索引并创建搜索器
    */
-  static loadFromFile(filename = "kb-search-index.json") {
+  static async loadFromFile(filename = "kb-search-index.json") {
+    // 首先尝试加载新版分片索引
+    const manifest = KnowledgeBaseIndexer.loadIndexManifest();
+    if (manifest && manifest.metadata && manifest.metadata.version === "2.0") {
+      MNUtil.log("加载分片索引模式");
+      return new FastSearcher(manifest);
+    }
+    
+    // 向后兼容：尝试加载旧版单文件索引
     const index = KnowledgeBaseIndexer.loadIndex(filename);
     if (index) {
+      MNUtil.log("加载单文件索引模式（旧版）");
       return new FastSearcher(index);
     }
+    
     return null;
   }
   
@@ -16278,14 +16643,9 @@ class FastSearcher {
    * @param {Array<string>} options.types - 限定卡片类型
    * @param {Array<string>} options.classificationSubtypes - 限定归类卡片的细分类型
    * @param {number} options.limit - 结果数量限制
-   * @returns {Array} 搜索结果数组
+   * @returns {Promise<Array>} 搜索结果数组
    */
-  search(keyword, options = {}) {
-    if (!this.index || !this.index.searchData) {
-      MNUtil.showHUD("索引未加载");
-      return [];
-    }
-    
+  async search(keyword, options = {}) {
     const { types, classificationSubtypes, limit = 100 } = options;
     let results = [];
     
@@ -16300,8 +16660,88 @@ class FastSearcher {
         return [];
       }
       
-      // 遍历索引进行搜索
-      for (let entry of this.index.searchData) {
+      // 获取用户输入的关键词（用于排除词检查）
+      const userKeywords = keyword.split(/\s+/).filter(k => k.length > 0);
+      
+      // 获取激活的排除词信息
+      const exclusionInfo = knowledgeBaseTemplate.getActiveExclusions(userKeywords);
+      const hasActiveExclusions = exclusionInfo.groups.length > 0;
+      
+      if (hasActiveExclusions) {
+        MNUtil.log(`激活的排除词组: ${exclusionInfo.groups.map(g => g.name).join(", ")}`);
+      }
+      
+      // 根据模式选择搜索方式
+      if (this.mode === 'sharded') {
+        // 分片模式：逐个加载分片进行搜索
+        for (const partInfo of this.manifest.parts) {
+          if (results.length >= limit) {
+            break; // 如果结果已够，提前结束
+          }
+          
+          // 显示搜索进度
+          MNUtil.showHUD(`搜索分片 ${partInfo.partNumber}/${this.manifest.metadata.totalParts}`);
+          
+          // 加载分片
+          const part = KnowledgeBaseIndexer.loadIndexPart(partInfo.filename);
+          if (!part || !part.data) {
+            continue;
+          }
+          
+          // 在当前分片中搜索
+          const partResults = this.searchInData(part.data, parsedQuery, {
+            types,
+            classificationSubtypes,
+            limit: limit - results.length,
+            exclusionInfo,
+            hasActiveExclusions,
+            userKeywords
+          });
+          
+          results = results.concat(partResults);
+          
+          // 让出控制权给 UI（避免卡死）
+          await MNUtil.delay(0.01);
+        }
+      } else if (this.mode === 'legacy') {
+        // 旧版模式：直接搜索单文件索引
+        if (!this.index || !this.index.searchData) {
+          MNUtil.showHUD("索引未加载");
+          return [];
+        }
+        
+        results = this.searchInData(this.index.searchData, parsedQuery, {
+          types,
+          classificationSubtypes,
+          limit,
+          exclusionInfo,
+          hasActiveExclusions,
+          userKeywords
+        });
+      } else {
+        MNUtil.showHUD("索引格式未知");
+        return [];
+      }
+      
+    } catch (error) {
+      MNUtil.showHUD("搜索失败: " + error.message);
+      MNLog.error(error, "FastSearcher: search");
+    }
+    
+    return results.slice(0, limit);
+  }
+  
+  /**
+   * 在数据集中搜索（内部方法）
+   * @private
+   */
+  searchInData(searchData, parsedQuery, options) {
+    const { types, classificationSubtypes, limit, exclusionInfo, hasActiveExclusions, userKeywords } = options;
+    const results = [];
+    
+    try {
+      // 遍历数据进行搜索
+      for (let entry of searchData) {
         // 类型过滤
         if (types && types.length > 0 && !types.includes(entry.type)) {
           continue;
@@ -16316,24 +16756,51 @@ class FastSearcher {
         
         // 使用新的匹配逻辑
         if (entry.searchText && FastSearcher.matchesQuery(entry.searchText, parsedQuery)) {
-          // 为了评分，需要传递完整的 entry 对象
-          const score = this.calculateScoreWithParsedQuery(parsedQuery, entry);
+          // 检查排除词（使用预处理的排除信息）
+          let shouldExclude = false;
           
-          results.push({
-            id: entry.id,
-            type: entry.type,
-            classificationSubtype: entry.classificationSubtype,
-            title: entry.title,
-            parentId: entry.parentId,  // 包含父ID
-            prefix: entry.prefix,       // 包含前缀（用作路径显示）
-            content: entry.content,     // 归类卡片的内容
-            titleLinkWords: entry.titleLinkWords, // 用于评分
-            keywords: entry.keywords,   // 用于评分
-            score: score
-          });
+          if (hasActiveExclusions && entry.excludedGroups && entry.excludedGroups.length > 0) {
+            // 检查卡片的排除组是否与激活的排除组匹配
+            for (const activeGroup of exclusionInfo.groups) {
+              for (const cardGroup of entry.excludedGroups) {
+                if (cardGroup.groupId === activeGroup.id) {
+                  // 检查触发词是否在受影响的触发词列表中
+                  const hasAffectedTrigger = activeGroup.triggerWords.some(trigger => 
+                    cardGroup.affectedTriggers.includes(trigger)
+                  );
+                  
+                  if (hasAffectedTrigger) {
+                    shouldExclude = true;
+                    MNUtil.log(`排除卡片 "${entry.title}": 匹配排除组 "${cardGroup.groupName}"`);
+                    break;
+                  }
+                }
+              }
+              if (shouldExclude) break;
+            }
+          }
           
-          if (results.length >= limit) {
-            break;
+          // 如果不应该排除，则添加到结果
+          if (!shouldExclude) {
+            // 为了评分，需要传递完整的 entry 对象
+            const score = this.calculateScoreWithParsedQuery(parsedQuery, entry);
+            
+            results.push({
+              id: entry.id,
+              type: entry.type,
+              classificationSubtype: entry.classificationSubtype,
+              title: entry.title,
+              parentId: entry.parentId,  // 包含父ID
+              prefix: entry.prefix,       // 包含前缀（用作路径显示）
+              content: entry.content,     // 归类卡片的内容
+              titleLinkWords: entry.titleLinkWords, // 用于评分
+              keywords: entry.keywords,   // 用于评分
+              score: score
+            });
+            
+            if (results.length >= limit) {
+              break;
+            }
           }
         }
       }
@@ -16342,11 +16809,10 @@ class FastSearcher {
       results.sort((a, b) => b.score - a.score);
       
     } catch (error) {
-      MNUtil.showHUD("搜索失败: " + error.message);
-      MNLog.error(error, "FastSearcher: search");
+      MNLog.error(error, "FastSearcher: searchInData");
     }
     
-    return results;
+    return results.slice(0, limit);
   }
   
   /**
@@ -16558,6 +17024,11 @@ class SearchConfig {
  */
 class SynonymManager {
   /**
+   * 缓存的同义词组（避免重复合并）
+   */
+  static _cachedGroups = null;
+  
+  /**
    * 默认同义词组（精简结构）
    */
   static synonymGroups = [
@@ -16647,6 +17118,11 @@ class SynonymManager {
   
   // 获取所有同义词组（合并默认和用户自定义）
   static getSynonymGroups() {
+    // 如果已缓存，直接返回
+    if (this._cachedGroups) {
+      return this._cachedGroups;
+    }
+    
     knowledgeBaseTemplate.initSearchConfig();
     const userGroups = knowledgeBaseTemplate.searchRootConfigs.synonymGroups || [];
     // 合并默认组和用户组，用户组优先（可以覆盖默认组）
@@ -16659,7 +17135,16 @@ class SynonymManager {
         allGroups.push(userGroup);
       }
     }
+    
+    // 缓存结果
+    this._cachedGroups = allGroups;
     return allGroups;
+  }
+  
+  // 清除缓存（在配置更新时调用）
+  static clearCache() {
+    this._cachedGroups = null;
+    this._synonymIndex = null;  // 同时清除同义词索引缓存
   }
   
   // 添加新的同义词组（使用精简结构）
@@ -16685,8 +17170,8 @@ class SynonymManager {
     
     knowledgeBaseTemplate.searchRootConfigs.synonymGroups.push(group);
     knowledgeBaseTemplate.saveSearchConfig();
-    // 清除缓存的索引，以便下次重建
-    this._synonymIndex = null;
+    // 清除缓存
+    this.clearCache();
     return group;
   }
   
@@ -16732,6 +17217,9 @@ class SynonymManager {
 
 // 排除词管理器
 class ExclusionManager {
+  // 缓存的排除词组（避免重复合并）
+  static _cachedGroups = null;
+  
   // 默认排除词组数据（从word.md导入，精简结构）
   static exclusionGroups = [
     {
@@ -16763,6 +17251,11 @@ class ExclusionManager {
   
   // 获取所有排除词组（合并默认和用户自定义）
   static getExclusionGroups() {
+    // 如果已缓存，直接返回
+    if (this._cachedGroups) {
+      return this._cachedGroups;
+    }
+    
     knowledgeBaseTemplate.initSearchConfig();
     const userGroups = knowledgeBaseTemplate.searchRootConfigs.exclusionGroups || [];
     // 合并默认组和用户组，用户组优先（可以覆盖默认组）
@@ -16775,7 +17268,15 @@ class ExclusionManager {
         allGroups.push(userGroup);
       }
     }
+    
+    // 缓存结果
+    this._cachedGroups = allGroups;
     return allGroups;
+  }
+  
+  // 清除缓存（在配置更新时调用）
+  static clearCache() {
+    this._cachedGroups = null;
   }
   
   // 添加新的排除词组（使用精简结构）
@@ -16793,6 +17294,10 @@ class ExclusionManager {
     
     knowledgeBaseTemplate.searchRootConfigs.exclusionGroups.push(group);
     knowledgeBaseTemplate.saveSearchConfig();
+    
+    // 清除缓存
+    this.clearCache();
+    
     return group;
   }
 }
