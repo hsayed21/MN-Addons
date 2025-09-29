@@ -9,7 +9,9 @@
       "Bash(node:*)",
       "Bash(cat:*)",
       "Read(///**)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(sed:*)",
+      "mcp__serena__think_about_collected_information"
     ],
     "deny": [],
     "ask": []

@@ -16224,19 +16224,27 @@ class KnowledgeBaseIndexer {
     if (!useSynonyms || !query) return query;
     
     try {
-      // 分词：提取2-4个字的中文词汇
-      const words = query.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+      // 先检查是否已经包含搜索语法符号，如果有则不扩展
+      if (query.includes('//') || query.includes(';;') || query.includes('!!') || query.includes('[[')) {
+        return query;
+      }
+      
+      // 不进行分词！保持用户输入的完整性
+      // 只尝试为整个查询词查找同义词
       const expandedTerms = new Set([query.toLowerCase()]);
       
-      // 对每个词进行同义词扩展
-      words.forEach(word => {
-        // 获取同义词（包含原词）
-        const synonyms = SynonymManager.expandKeyword(word, true);
-        synonyms.forEach(s => expandedTerms.add(s.toLowerCase()));
-      });
+      // 尝试获取整个查询词的同义词
+      const synonyms = SynonymManager.expandKeyword(query, true);
+      synonyms.forEach(s => expandedTerms.add(s.toLowerCase()));
       
-      // 返回扩展后的查询字符串
-      return Array.from(expandedTerms).join(" ");
+      // 如果没有找到同义词（只有原词），直接返回原词
+      if (expandedTerms.size === 1) {
+        return query;
+      }
+      
+      // 使用 ;; (OR) 连接原词和同义词
+      // 这样可以匹配原词或其同义词
+      return Array.from(expandedTerms).join(";;");
     } catch (error) {
       MNUtil.log(`扩展搜索查询失败: ${error.message}`);
       return query;
