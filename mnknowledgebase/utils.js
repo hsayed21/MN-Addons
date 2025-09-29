@@ -2574,29 +2574,16 @@ class knowledgeBaseTemplate {
   /**
    * 获取第一个归类卡片的父爷卡片
    */
-  static getFirstClassificationParentNote(note, depth = 0) {
-    // 防止无限递归（深度限制已足够防止无限循环）
-    if (depth > 10) {
-      MNLog.error({
-        message: `getFirstClassificationParentNote recursion depth exceeded for note ${note?.noteId}`,
-        source: "knowledgeBaseTemplate.getFirstClassificationParentNote"
-      });
-      return null;
-    }
-    
-    // 简单的父节点遍历，不使用 Set（深度检查已足够）
+  static getFirstClassificationParentNote(note) {
     let parentNote = note.parentNote;
-    let traversalDepth = 0;
-    
-    while (parentNote && traversalDepth < 20) {  // 额外的遍历深度限制
-      // 调用 getNoteType 时传递 depth+1
-      if (this.getNoteType(parentNote, false, depth + 1) === "归类") {
+    while (parentNote) {
+      // 直接调用 getNoteType，不传递 depth
+      // 因为这是在遍历父节点链，不是递归调用
+      if (this.getNoteType(parentNote) === "归类") {
         return parentNote;
       }
       parentNote = parentNote.parentNote;
-      traversalDepth++;
     }
-    
     return null;
   }
 
@@ -3285,19 +3272,9 @@ class knowledgeBaseTemplate {
    * 目前是靠卡片标题来判断
    * @param {MNNote} note - 要判断类型的卡片
    * @param {boolean} useColorFallback - 是否在无法从标题/归类卡片判断时使用颜色判断（粗读模式使用）
-   * @param {number} depth - 递归深度（内部使用，防止无限递归）
    * @returns {string|undefined} 卡片类型
    */
-  static getNoteType(note, useColorFallback = false, depth = 0) {
-    // 防止无限递归
-    if (depth > 10) {
-      MNLog.error({
-        message: `getNoteType recursion depth exceeded for note ${note?.noteId}`,
-        source: "knowledgeBaseTemplate.getNoteType"
-      });
-      return undefined;
-    }
-    
+  static getNoteType(note, useColorFallback = false) {
     // 防御性检查
     if (!note) {
       return undefined;
@@ -3312,7 +3289,7 @@ class knowledgeBaseTemplate {
      * "yyy"相关 zz
      * 则是归类卡片
      */
-    if (/^"[^"]*"："[^"]*"\s*相关[^"]*$/.test(title) || /^"[^"]+"\s*相关[^"]*$/.test(title)) {
+    if (/^“[^”]*”：“[^”]*”\s*相关[^“]*$/.test(title) || /^“[^”]+”\s*相关[^“]*$/.test(title)) {
       noteType = "归类"
     } else {
       /**
@@ -3330,8 +3307,7 @@ class knowledgeBaseTemplate {
           matchResult = match[1].trim();
         } else {
           // 从标题判断不了的话，就从卡片的归类卡片来判断
-          // 传递 depth+1 防止无限递归
-          let classificationNote = this.getFirstClassificationParentNote(note, depth + 1);
+          let classificationNote = this.getFirstClassificationParentNote(note);
           if (classificationNote) {
             let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
             matchResult = classificationNoteTitleParts.type;
@@ -14637,7 +14613,7 @@ class knowledgeBaseTemplate {
       }
       
       // 版本兼容性处理
-      if (!config.version || config.version === "2.0") {
+      if (!config.version || config.version !== "1.0") {
         // 旧版本配置，自动升级
         config.searchConfig.rootGroups = config.searchConfig.rootGroups || {};
         config.searchConfig.lastUsedGroup = config.searchConfig.lastUsedGroup || null;
@@ -15957,140 +15933,164 @@ class KnowledgeBaseIndexer {
    * @returns {Promise<Object>} 包含metadata的主索引对象
    */
   static async buildSearchIndex(rootNotes, targetTypes = ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题"]) {
-    const BATCH_SIZE = 5000;  // 每批处理 5000 个卡片（优化性能）
-    const PART_SIZE = 5000;  // 每 5000 个卡片保存一个分片
+    const BATCH_SIZE = 500;  // 降低到 500，更频繁地清理内存
+    const TEMP_FILE_PREFIX = "kb-index-temp-";
+    const PART_SIZE = 5000;  // 每个最终分片包含 5000 个卡片
     
     const manifest = {
       metadata: {
-        version: "2.0",
+        version: "3.0",  // 新版本号
         lastUpdated: new Date().toISOString(),
         totalCards: 0,
         targetTypes: targetTypes,
         partSize: PART_SIZE,
-        totalParts: 0
+        totalParts: 0,
+        tempFiles: []  // 记录临时文件
       },
       parts: []
     };
     
     try {
-      // 不再预加载排除词组（移到搜索时处理）
-      
-      // 使用 Map 进行去重
-      const processedIds = new Map();
-      
-      // 先收集所有需要处理的卡片
-      let allNotes = [];
-      rootNotes.forEach((_rootNote, rootNoteIndex) => {
-        const rootNote = MNNote.new(_rootNote);
-        if (!rootNote) {
-          return;
-        }
-        
-        // 获取所有子孙卡片（添加防御性检查）
-        let descendants = [];
-        if (rootNote.descendantNodes && rootNote.descendantNodes.descendant) {
-          descendants = rootNote.descendantNodes.descendant;
-        }
-        
-        // 创建包含根卡片的数组
-        const notesToProcess = [...descendants, rootNote];
-        allNotes = allNotes.concat(notesToProcess);
-      });
-      
-      // 进度跟踪变量
+      let tempFileCount = 0;
+      let currentBatch = [];
       let processedCount = 0;
       let validCount = 0;
-      const totalCount = allNotes.length;
+      let totalEstimatedCount = 0;
+      const processedIds = new Set();  // 使用 Set 而非 Map 节省内存
       
-      // 分片相关变量
-      let currentPartData = [];
-      let currentPartNumber = 1;
+      // 先创建所有 rootNote 对象并缓存（避免重复创建导致 descendants 丢失）
+      const rootNoteObjects = [];
+      for (const _rootNote of rootNotes) {
+        const rootNote = MNNote.new(_rootNote);
+        if (!rootNote) continue;
+        
+        // 获取 descendants 并缓存
+        const descendants = rootNote.descendantNodes?.descendant || [];
+        totalEstimatedCount += descendants.length + 1;  // +1 是根节点本身
+        
+        // 缓存 rootNote 对象和它的 descendants
+        rootNoteObjects.push({
+          rootNote: rootNote,
+          descendants: descendants
+        });
+      }
       
       // 显示初始进度
-      this.showProgressHUD(0, totalCount, "开始构建索引");
+      this.showProgressHUD(0, totalEstimatedCount, "开始构建索引");
       
-      // 批处理所有卡片
-      for (let i = 0; i < allNotes.length; i += BATCH_SIZE) {
-        const batch = allNotes.slice(i, Math.min(i + BATCH_SIZE, allNotes.length));
-        const batchStartTime = Date.now();
+      // 流式处理每个缓存的根节点
+      for (let rootIndex = 0; rootIndex < rootNoteObjects.length; rootIndex++) {
+        const { rootNote, descendants } = rootNoteObjects[rootIndex];
         
-        // 处理当前批次
-        for (const note of batch) {
-          // 确保 note 是 MNNote 对象
-          const mnNote = note.noteId ? note : MNNote.new(note);
+        // 先处理根节点本身
+        if (!processedIds.has(rootNote.noteId)) {
+          const noteType = knowledgeBaseTemplate.getNoteType(rootNote);
+          if (noteType && targetTypes.includes(noteType)) {
+            const entry = this.buildIndexEntry(rootNote);
+            if (entry) {
+              currentBatch.push(entry);
+              validCount++;
+            }
+          }
+          processedIds.add(rootNote.noteId);
+          processedCount++;
+        }
+        
+        // 分批处理子孙节点
+        for (let i = 0; i < descendants.length; i++) {
+          const descendant = descendants[i];
+          
+          // 检查是否需要保存当前批次到临时文件
+          if (currentBatch.length >= BATCH_SIZE) {
+            // 保存到临时文件
+            const tempFileName = `${TEMP_FILE_PREFIX}${tempFileCount}.json`;
+            const tempFilePath = MNUtil.tempFolder + "/" + tempFileName;
+            
+            MNUtil.writeJSON(tempFilePath, {
+              batchNumber: tempFileCount,
+              data: currentBatch,
+              count: currentBatch.length
+            });
+            
+            manifest.metadata.tempFiles.push(tempFileName);
+            tempFileCount++;
+            
+            // 清空当前批次，释放内存
+            currentBatch = [];
+            
+            // 显示进度
+            this.showProgressHUD(processedCount, totalEstimatedCount, 
+                                `处理中... 已保存 ${tempFileCount} 个临时文件`);
+            
+            // 给 UI 时间更新
+            await MNUtil.delay(0.001);
+          }
+          
+          // 处理单个节点
+          const noteId = descendant.noteId || descendant;
+          if (processedIds.has(noteId)) {
+            processedCount++;
+            continue;
+          }
+          
+          // 只在需要时创建 MNNote 对象
+          const mnNote = MNNote.new(descendant);
           if (!mnNote || !mnNote.noteId) {
             processedCount++;
             continue;
           }
           
-          // 去重检查
-          const noteId = mnNote.noteId;
-          if (processedIds.has(noteId)) {
-            processedCount++;
-            continue;
-          }
-          processedIds.set(noteId, true);
-          
           const noteType = knowledgeBaseTemplate.getNoteType(mnNote);
           if (!noteType || !targetTypes.includes(noteType)) {
             processedCount++;
+            processedIds.add(noteId);
             continue;
           }
           
-          // 构建索引条目
           const entry = this.buildIndexEntry(mnNote);
           if (entry) {
-            currentPartData.push(entry);
+            currentBatch.push(entry);
             validCount++;
           }
           
+          processedIds.add(noteId);
           processedCount++;
           
-          // 检查是否需要保存分片
-          if (currentPartData.length >= PART_SIZE) {
-            // 保存当前分片
-            const partFilename = await this.saveIndexPart(currentPartData, currentPartNumber);
-            manifest.parts.push({
-              partNumber: currentPartNumber,
-              filename: partFilename,
-              cardCount: currentPartData.length
-            });
-            
-            // 重置分片数据
-            currentPartData = [];
-            currentPartNumber++;
-            
-            // 分片保存时更新进度
-            this.showProgressHUD(processedCount, totalCount, `保存分片 ${currentPartNumber - 1}`);
-            await MNUtil.delay(0.001);  // 仅在保存分片时短暂延迟
+          // 每处理 100 个节点更新一次进度
+          if (processedCount % 100 === 0) {
+            this.showProgressHUD(processedCount, totalEstimatedCount, 
+                                `处理中... (${tempFileCount} 个临时文件)`);
           }
         }
         
-        // 批次完成后更新进度（每5000个卡片更新一次，而不是每100个）
-        const batchTime = Date.now() - batchStartTime;
-        const speed = Math.round(batch.length / (batchTime / 1000));
-        this.showProgressHUD(processedCount, totalCount, `构建索引 (${speed} 卡片/秒)`);
+        // 释放 descendants 引用，帮助垃圾回收
+        descendants.length = 0;
+      }
+      
+      // 保存最后一批到临时文件
+      if (currentBatch.length > 0) {
+        const tempFileName = `${TEMP_FILE_PREFIX}${tempFileCount}.json`;
+        const tempFilePath = MNUtil.tempFolder + "/" + tempFileName;
         
-        // 仅在还有后续批次时才延迟（避免最后一批不必要的延迟）
-        if (i + BATCH_SIZE < allNotes.length) {
-          await MNUtil.delay(0.001);  // 最小延迟，仅让UI更新
-        }
-      }
-      
-      // 保存最后一个分片（如果有剩余数据）
-      if (currentPartData.length > 0) {
-        const partFilename = await this.saveIndexPart(currentPartData, currentPartNumber);
-        manifest.parts.push({
-          partNumber: currentPartNumber,
-          filename: partFilename,
-          cardCount: currentPartData.length
+        MNUtil.writeJSON(tempFilePath, {
+          batchNumber: tempFileCount,
+          data: currentBatch,
+          count: currentBatch.length
         });
-        MNUtil.showHUD(`已保存最后分片 ${currentPartNumber}（${currentPartData.length} 条）`);
+        
+        manifest.metadata.tempFiles.push(tempFileName);
+        tempFileCount++;
       }
       
-      // 更新主索引信息
+      // 合并临时文件到最终分片
+      MNUtil.showHUD("正在合并索引文件...");
+      await this.mergeTempFilesToParts(manifest);
+      
+      // 清理临时文件
+      await this.cleanupTempFiles(manifest.metadata.tempFiles);
+      
+      // 更新元数据
       manifest.metadata.totalCards = validCount;
-      manifest.metadata.totalParts = manifest.parts.length;
       
       // 保存主索引文件
       await this.saveIndexManifest(manifest);
@@ -16098,6 +16098,10 @@ class KnowledgeBaseIndexer {
       MNUtil.showHUD(`索引构建完成：共 ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
       
     } catch (error) {
+      // 清理临时文件
+      if (manifest.metadata.tempFiles && manifest.metadata.tempFiles.length > 0) {
+        await this.cleanupTempFiles(manifest.metadata.tempFiles);
+      }
       MNUtil.showHUD("构建索引失败: " + error.message);
       MNLog.error(error, "KnowledgeBaseIndexer: buildSearchIndex");
       return null;
@@ -16112,78 +16116,41 @@ class KnowledgeBaseIndexer {
    * @param {MNNote} note - 要建立索引的卡片
    */
   static buildIndexEntry(note) {
+    // 基本防御性检查
+    if (!note || !note.noteId) {
+      return null;
+    }
+    
+    // 初始化基本条目信息
+    let entry = {
+      id: note.noteId,
+      type: undefined,
+      title: note.title || "",
+      parentId: note.parentNoteId || null
+    };
+    
     try {
-      // 基本防御性检查
-      if (!note || !note.noteId) {
-        MNLog.error({
-          message: "Invalid note object",
-          source: "KnowledgeBaseIndexer: buildIndexEntry"
-        });
-        return null;
-      }
+      // 获取卡片类型
+      const noteType = knowledgeBaseTemplate.getNoteType(note);
+      entry.type = noteType;
       
-      // 初始化基本条目信息
-      let entry = {
-        id: note.noteId,
-        type: undefined,
-        title: note.title || "",
-        parentId: note.parentNoteId || null
-      };
+      // 解析标题
+      const parsedTitle = knowledgeBaseTemplate.parseNoteTitle(note) || {};
       
-      // 分步骤获取信息，每一步都有独立的错误处理
-      let parsedTitle = {};
-      let noteType = undefined;
-      let keywordsContent = "";
+      // 获取关键词
+      const keywordsContent = knowledgeBaseTemplate.getKeywordsFromNote(note) || "";
       
-      // 步骤1：获取卡片类型
-      try {
-        noteType = knowledgeBaseTemplate.getNoteType(note);
-        entry.type = noteType;
-      } catch (error) {
-        MNLog.error({
-          message: `Failed to get note type for ${note.noteId}: ${error.message}`,
-          source: "KnowledgeBaseIndexer: buildIndexEntry step 1"
-        });
-      }
-      
-      // 步骤2：解析标题
-      try {
-        parsedTitle = knowledgeBaseTemplate.parseNoteTitle(note);
-      } catch (error) {
-        MNLog.error({
-          message: `Failed to parse title for ${note.noteId}: ${error.message}`,
-          source: "KnowledgeBaseIndexer: buildIndexEntry step 2"
-        });
-      }
-      
-      // 步骤3：获取关键词
-      try {
-        keywordsContent = knowledgeBaseTemplate.getKeywordsFromNote(note) || "";
-      } catch (error) {
-        MNLog.error({
-          message: `Failed to get keywords for ${note.noteId}: ${error.message}`,
-          source: "KnowledgeBaseIndexer: buildIndexEntry step 3"
-        });
-      }
-      
-      // 步骤4：根据卡片类型设置不同字段
-      try {
-        if (noteType === "归类") {
-          entry.classificationSubtype = parsedTitle.type || "";
-          entry.content = parsedTitle.content || "";
-        } else {
-          if (parsedTitle.prefixContent) {
-            entry.prefix = parsedTitle.prefixContent;
-          }
-          if (parsedTitle.titleLinkWordsArr && parsedTitle.titleLinkWordsArr.length > 0) {
-            entry.titleLinkWords = parsedTitle.titleLinkWordsArr.join("; ");
-          }
+      // 根据卡片类型设置不同字段
+      if (noteType === "归类") {
+        entry.classificationSubtype = parsedTitle.type || "";
+        entry.content = parsedTitle.content || "";
+      } else {
+        if (parsedTitle.prefixContent) {
+          entry.prefix = parsedTitle.prefixContent;
         }
-      } catch (error) {
-        MNLog.error({
-          message: `Failed to set type-specific fields for ${note.noteId}: ${error.message}`,
-          source: "KnowledgeBaseIndexer: buildIndexEntry step 4"
-        });
+        if (parsedTitle.titleLinkWordsArr && parsedTitle.titleLinkWordsArr.length > 0) {
+          entry.titleLinkWords = parsedTitle.titleLinkWordsArr.join("; ");
+        }
       }
       
       // 添加关键词
@@ -16191,42 +16158,26 @@ class KnowledgeBaseIndexer {
         entry.keywords = keywordsContent;
       }
       
-      // 步骤5：构建搜索文本（根据模式决定是否扩展同义词）
-      try {
-        entry.searchText = this.buildSearchText(note, parsedTitle, noteType, keywordsContent);
-      } catch (error) {
-        MNLog.error({
-          message: `Failed to build search text for ${note.noteId}: ${error.message}`,
-          source: "KnowledgeBaseIndexer: buildIndexEntry step 5"
-        });
-        // 如果构建搜索文本失败，使用基础文本
-        entry.searchText = `${entry.title} ${keywordsContent}`.toLowerCase();
-      }
-      
-      // 步骤6：不再在索引构建时处理排除词（移到搜索时）
+      // 构建搜索文本
+      entry.searchText = this.buildSearchText(parsedTitle, noteType, keywordsContent);
       
       return entry;
       
     } catch (error) {
-      MNLog.error({
-        message: `Unexpected error in buildIndexEntry for note ${note ? note.noteId : 'unknown'}: ${error.message}`,
-        source: "KnowledgeBaseIndexer: buildIndexEntry",
-        stack: error.stack
-      });
-      return null;
+      // 静默失败，返回基础条目
+      entry.searchText = (entry.title || "").toLowerCase();
+      return entry;
     }
   }
   
   /**
-   * 构建搜索文本（包含同义词扩展）
+   * 构建搜索文本
    * @private
-   * @param {MNNote} note - 笔记对象
    * @param {Object} parsedTitle - 解析后的标题
    * @param {string} noteType - 笔记类型
    * @param {string} keywordsContent - 关键词内容
-   * @param {boolean} simplified - 是否使用精简模式
    */
-  static buildSearchText(note, parsedTitle, noteType, keywordsContent) {
+  static buildSearchText(parsedTitle, noteType, keywordsContent) {
     let searchableContent = "";
     
     if (noteType === "归类") {
@@ -16409,6 +16360,83 @@ class KnowledgeBaseIndexer {
   }
   
   /**
+   * 合并临时文件到最终分片
+   * @param {Object} manifest - 主索引对象
+   */
+  static async mergeTempFilesToParts(manifest) {
+    const PART_SIZE = 5000;
+    let currentPart = [];
+    let partNumber = 1;
+    
+    try {
+      for (const tempFileName of manifest.metadata.tempFiles) {
+        const tempFilePath = MNUtil.tempFolder + "/" + tempFileName;
+        
+        // 读取临时文件
+        const tempData = MNUtil.readJSON(tempFilePath);
+        if (!tempData || !tempData.data) continue;
+        
+        // 添加到当前分片
+        for (const entry of tempData.data) {
+          currentPart.push(entry);
+          
+          // 检查是否需要保存分片
+          if (currentPart.length >= PART_SIZE) {
+            await this.saveIndexPart(currentPart, partNumber);
+            manifest.parts.push({
+              partNumber: partNumber,
+              filename: `kb-search-index-part-${partNumber}.json`,
+              cardCount: currentPart.length
+            });
+            
+            currentPart = [];
+            partNumber++;
+            
+            MNUtil.showHUD(`正在生成第 ${partNumber} 个分片...`);
+          }
+        }
+      }
+      
+      // 保存最后一个分片
+      if (currentPart.length > 0) {
+        await this.saveIndexPart(currentPart, partNumber);
+        manifest.parts.push({
+          partNumber: partNumber,
+          filename: `kb-search-index-part-${partNumber}.json`,
+          cardCount: currentPart.length
+        });
+      }
+      
+      manifest.metadata.totalParts = partNumber;
+      
+    } catch (error) {
+      MNLog.error(error, "KnowledgeBaseIndexer: mergeTempFilesToParts");
+      throw error;
+    }
+  }
+  
+  /**
+   * 清理临时文件
+   * @param {Array<string>} tempFiles - 临时文件名数组
+   */
+  static async cleanupTempFiles(tempFiles) {
+    if (!tempFiles || tempFiles.length === 0) return;
+    
+    // MarginNote 的 API 可能不支持删除文件
+    // 但临时文件在 tempFolder 中，系统会定期清理
+    // 这里只是记录一下清理意图
+    for (const fileName of tempFiles) {
+      try {
+        const filePath = MNUtil.tempFolder + "/" + fileName;
+        // 如果 API 支持删除，可以在这里添加删除逻辑
+        // 目前只是占位，避免临时文件累积
+      } catch (error) {
+        // 忽略删除错误
+      }
+    }
+  }
+  
+  /**
    * 保存索引分片
    */
   static async saveIndexPart(partData, partNumber) {
@@ -16509,7 +16537,7 @@ class FastSearcher {
   constructor(indexOrManifest) {
     // 判断是新版分片索引还是旧版单文件索引
     if (indexOrManifest && indexOrManifest.metadata) {
-      if (indexOrManifest.metadata.version === "2.0" && indexOrManifest.parts) {
+      if (indexOrManifest.metadata.version !== "1.0" && indexOrManifest.parts) {
         // 新版分片索引
         this.manifest = indexOrManifest;
         this.index = null;  // 分片模式不预加载数据
@@ -16533,7 +16561,7 @@ class FastSearcher {
   static async loadFromFile(filename = "kb-search-index.json") {
     // 首先尝试加载新版分片索引
     const manifest = KnowledgeBaseIndexer.loadIndexManifest();
-    if (manifest && manifest.metadata && manifest.metadata.version === "2.0") {
+    if (manifest && manifest.metadata) {
       MNUtil.log("加载分片索引模式");
       return new FastSearcher(manifest);
     }

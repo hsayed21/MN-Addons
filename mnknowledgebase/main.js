@@ -277,7 +277,7 @@ JSB.newAddon = function(mainPath){
         
         // 首先尝试加载新版分片索引
         const manifest = KnowledgeBaseIndexer.loadIndexManifest();
-        if (manifest && manifest.metadata && manifest.metadata.version === "2.0") {
+        if (manifest && manifest.metadata) {
           // 新版分片索引：合并所有分片到一个文件（用于分享）
           const mergedIndex = {
             metadata: manifest.metadata,

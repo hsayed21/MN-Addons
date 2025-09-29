@@ -8,7 +8,8 @@
       "mcp__serena__search_for_pattern",
       "Bash(node:*)",
       "Bash(cat:*)",
-      "Read(///**)"
+      "Read(///**)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
