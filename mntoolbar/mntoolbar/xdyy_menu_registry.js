@@ -118,11 +118,16 @@ function registerAllMenuTemplates() {
   // menu_think
   global.registerMenuTemplate("menu_think", {
     action: "moveUpThoughtPointsToBottom",
-    // onLongPress: {
-    //   action: "menu",
-    //   menuWidth: 330,
-    //   menuItems: [],
-    // },
+    onLongPress: {
+      action: "menu",
+      menuWidth: 330,
+      menuItems: [
+        {
+          action: "mergeToParentThought",
+          menuTitle: "📝 合并为父卡片思考"
+        }
+      ],
+    },
   });
 
   // menu_study

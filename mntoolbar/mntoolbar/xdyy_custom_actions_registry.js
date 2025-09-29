@@ -3329,6 +3329,52 @@ function registerAllCustomActions() {
     },
   );
 
+  // mergeToParentThought - 合并为父卡片思考
+  global.registerCustomAction(
+    "mergeToParentThought",
+    async function (context) {
+      const { button, des, focusNote, focusNotes, self } = context;
+      
+      try {
+        if (!focusNote) {
+          MNUtil.showHUD("❌ 请先选择卡片");
+          return;
+        }
+        
+        if (!focusNote.parentNote) {
+          MNUtil.showHUD("❌ 当前卡片没有父卡片");
+          return;
+        }
+        
+        // 调用封装的方法
+        knowledgeBaseTemplate.mergeToParentThoughtField(focusNote, (callback) => {
+          // 处理需要用户输入的情况
+          UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+            "输入思考内容",
+            "请输入要添加到父卡片的思考内容",
+            2, // 文本输入框样式
+            "取消",
+            ["确定"],
+            (alert, buttonIndex) => {
+              if (buttonIndex === 1) {
+                const inputText = alert.textFieldAtIndex(0).text;
+                if (inputText && inputText.trim()) {
+                  callback(inputText.trim());
+                } else {
+                  MNUtil.showHUD("❌ 未输入内容");
+                }
+              }
+            }
+          );
+        });
+        
+      } catch (error) {
+        MNUtil.showHUD("❌ 操作失败: " + error.message);
+        MNUtil.addErrorLog(error, "mergeToParentThought");
+      }
+    }
+  );
+
   // moveUpThoughtPointsToTop
   // moveUpLinkNotes
   // moveToInbox

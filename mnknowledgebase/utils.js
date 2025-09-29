@@ -601,6 +601,111 @@ class knowledgeBaseTemplate {
     }
   }
 
+  /**
+   * 将选中的卡片作为思考内容合并到父卡片的思考字段
+   * 
+   * 功能说明：
+   * 1. 如果卡片有标题，提取标题作为思考内容
+   * 2. 如果没有标题，弹窗让用户输入（通过回调函数）
+   * 3. 在父卡片添加 "- " + 内容 的 Markdown 文本
+   * 4. 清除子卡片标题
+   * 5. 将子卡片合并到父卡片
+   * 6. 移动父卡片的新内容到"相关思考"字段
+   * 
+   * @param {MNNote} focusNote - 选中的卡片
+   * @param {Function} inputCallback - 用于获取用户输入的回调函数（可选）
+   * @returns {boolean} 操作是否成功
+   */
+  static mergeToParentThoughtField(focusNote, inputCallback) {
+    try {
+      // 1. 参数检查
+      if (!focusNote) {
+        MNUtil.showHUD("❌ 未选择卡片");
+        return false;
+      }
+
+      // 2. 检查是否有父卡片
+      if (!focusNote.parentNote) {
+        MNUtil.showHUD("❌ 当前卡片没有父卡片");
+        return false;
+      }
+
+      const parentNote = focusNote.parentNote;
+
+      // 3. 获取或输入标题内容
+      let thoughtContent = focusNote.noteTitle ? focusNote.noteTitle.trim() : "";
+
+      // 4. 如果没有标题且提供了回调函数，调用回调获取用户输入
+      if (!thoughtContent && inputCallback) {
+        inputCallback((inputText) => {
+          if (inputText && inputText.trim()) {
+            // 用户输入了内容，继续处理
+            this.performMergeToParentThought(focusNote, parentNote, inputText.trim());
+          } else {
+            MNUtil.showHUD("❌ 未输入内容，操作取消");
+          }
+        });
+        return true; // 异步操作，返回 true 表示已处理
+      }
+
+      // 5. 如果没有标题也没有回调，提示用户
+      if (!thoughtContent) {
+        MNUtil.showHUD("❌ 卡片没有标题，请输入思考内容");
+        return false;
+      }
+
+      // 6. 执行合并操作
+      this.performMergeToParentThought(focusNote, parentNote, thoughtContent);
+      return true;
+      
+    } catch (error) {
+      MNUtil.showHUD(`❌ 合并失败: ${error.message}`);
+      MNUtil.addErrorLog(error, "mergeToParentThoughtField", {
+        focusNoteId: focusNote?.noteId,
+        parentNoteId: focusNote?.parentNote?.noteId
+      });
+      return false;
+    }
+  }
+
+  /**
+   * 执行合并到父卡片思考字段的实际操作
+   * 
+   * @private
+   * @param {MNNote} focusNote - 子卡片
+   * @param {MNNote} parentNote - 父卡片
+   * @param {string} thoughtContent - 思考内容
+   */
+  static performMergeToParentThought(focusNote, parentNote, thoughtContent) {
+    MNUtil.undoGrouping(() => {
+      try {
+        // 1. 在父卡片添加 "- " + 内容 的 Markdown 文本
+        parentNote.appendMarkdownComment(`- ${thoughtContent}`);
+        
+        // 2. 清除子卡片的标题
+        focusNote.noteTitle = "";
+        
+        // 3. 将子卡片合并到父卡片
+        focusNote.mergeInto(parentNote);
+        
+        // 4. 延迟处理，确保合并完成
+        MNUtil.delay(0.1).then(() => {
+          // 将父卡片的新内容移动到"相关思考"字段
+          this.autoMoveNewContentToField(parentNote, "相关思考", true, false);
+          
+          // 刷新父卡片显示
+          this.refreshNotes(parentNote);
+          
+          // MNUtil.showHUD(`✅ 已将"${thoughtContent}"合并到父卡片的思考字段`);
+        });
+        
+      } catch (error) {
+        MNUtil.showHUD(`❌ 执行合并时出错: ${error.message}`);
+        MNUtil.addErrorLog(error, "performMergeToParentThought");
+      }
+    });
+  }
+
   static autoMoveNewContent(note) {
     // 获取卡片类型
     let noteType = this.getNoteType(note);

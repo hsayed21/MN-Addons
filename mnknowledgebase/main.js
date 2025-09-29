@@ -33,6 +33,9 @@ JSB.newAddon = function(mainPath){
       MNUtil.undoGrouping(()=>{
         try {
           self.toggled = false
+          // 初始化搜索历史（最多保存5条）
+          self.searchHistory = []
+          self.maxSearchHistory = 5
           MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
         } catch (error) {
           MNUtil.showHUD(error);
@@ -160,11 +163,28 @@ JSB.newAddon = function(mainPath){
         MNUtil.refreshAddonCommands()
 
         let commandTable = [
-          self.tableItem('⚙️   Setting', 'openSetting:'),
-          // self.tableItem('🗄️   文献数据库', 'openKnowledgeBaseLibrary:'),
+          // === 索引管理 ===
           self.tableItem('🔄   索引知识库', 'updateSearchIndex:'),
-          self.tableItem('🔍   搜索知识库(脑图定位)', 'searchInKB:', true),
-          self.tableItem('🔍   搜索知识库(浮窗定位)', 'searchInKB:', false),
+          
+          // === 通用搜索（支持自定义类型）===
+          self.tableItem('🔍   全部搜索(脑图定位)', 'searchInKB:', true),
+          self.tableItem('🔍   全部搜索(浮窗定位)', 'searchInKB:', false),
+          self.tableItem('📋   搜索知识库(复制链接)', 'searchForMarkdown:'),
+          
+          // === 快捷搜索 - 脑图定位 ===
+          self.tableItem('    📚  知识卡片(脑图)', 'searchWithPreset:', {preset: 'knowledge', mode: 'mindmap'}),
+          self.tableItem('    📘  仅定义(脑图)', 'searchWithPreset:', {preset: 'definitions', mode: 'mindmap'}),
+          self.tableItem('    📁  仅归类(脑图)', 'searchWithPreset:', {preset: 'classifications', mode: 'mindmap'}),
+          self.tableItem('    📒  定义与归类(脑图)', 'searchWithPreset:', {preset: 'definitionsAndClassifications', mode: 'mindmap'}),
+          
+          // === 快捷搜索 - 浮窗定位 ===
+          self.tableItem('    📚  知识卡片(浮窗)', 'searchWithPreset:', {preset: 'knowledge', mode: 'float'}),
+          self.tableItem('    📘  仅定义(浮窗)', 'searchWithPreset:', {preset: 'definitions', mode: 'float'}),
+          self.tableItem('    📁  仅归类(浮窗)', 'searchWithPreset:', {preset: 'classifications', mode: 'float'}),
+          self.tableItem('    📒  定义与归类(浮窗)', 'searchWithPreset:', {preset: 'definitionsAndClassifications', mode: 'float'}),
+          
+          // === 配置管理 ===
+          self.tableItem('📜   搜索历史', 'showSearchHistory:'),
           self.tableItem('🔍   搜索模式设置', 'configureSearchMode:'),
           self.tableItem('🔤   同义词管理', 'manageSynonyms:'),
           self.tableItem('🚫   排除词管理', 'manageExclusions:'),
@@ -175,7 +195,7 @@ JSB.newAddon = function(mainPath){
         self.popoverController = MNUtil.getPopoverAndPresent(
           button,        // 触发按钮
           commandTable,  // 菜单项
-          200,          // 宽度
+          250,          // 宽度（增加到250以适应更长的菜单项）
           0             // 箭头方向（0=自动）
         );
       } catch (error) {
@@ -324,6 +344,119 @@ JSB.newAddon = function(mainPath){
     },
 
     /**
+     * 显示搜索历史
+     */
+    showSearchHistory: async function() {
+      try {
+        // 关闭菜单
+        if (self.popoverController) {
+          self.popoverController.dismissPopoverAnimated(true);
+        }
+        
+        // 检查是否有搜索历史
+        if (!self.searchHistory || self.searchHistory.length === 0) {
+          MNUtil.showHUD("暂无搜索历史");
+          return;
+        }
+        
+        // 格式化时间显示
+        const formatTime = (timestamp) => {
+          const now = Date.now();
+          const diff = now - timestamp;
+          const seconds = Math.floor(diff / 1000);
+          const minutes = Math.floor(seconds / 60);
+          const hours = Math.floor(minutes / 60);
+          const days = Math.floor(hours / 24);
+          
+          if (days > 0) return `${days}天前`;
+          if (hours > 0) return `${hours}小时前`;
+          if (minutes > 0) return `${minutes}分钟前`;
+          return `刚刚`;
+        };
+        
+        // 构建历史列表选项
+        const options = self.searchHistory.map((entry, index) => {
+          const typeInfo = entry.types ? `[${entry.types.join(",")}]` : "[全部]";
+          const timeInfo = formatTime(entry.timestamp);
+          return `${index + 1}. ${timeInfo} - "${entry.keyword}" ${typeInfo} (${entry.results.length}个结果)`;
+        });
+        
+        // 添加清空历史选项
+        options.push("🗑️ 清空搜索历史");
+        
+        // 显示历史列表
+        const choice = await MNUtil.userSelect(
+          `搜索历史 (最近${self.searchHistory.length}条)`,
+          "选择要查看的历史记录：",
+          options
+        );
+        
+        if (choice === 0) {
+          // 用户取消
+          return;
+        } else if (choice === options.length) {
+          // 清空历史
+          this.clearSearchHistory();
+        } else {
+          // 显示选中的历史记录结果
+          const selectedHistory = self.searchHistory[choice - 1];
+          
+          // 根据保存的模式确定 focusMode
+          let focusMode = true;  // 默认脑图定位
+          if (selectedHistory.mode === "浮窗定位") {
+            focusMode = false;
+          } else if (selectedHistory.mode === "复制链接") {
+            focusMode = 'markdown';
+          }
+          
+          // 尝试加载搜索器（用于返回搜索功能）
+          const searcher = await FastSearcher.loadFromFile();
+          
+          // 重用之前的搜索结果
+          const searchOptions = {
+            types: selectedHistory.types,
+            searchModeConfig: selectedHistory.searchModeConfig,
+            originalKeyword: selectedHistory.keyword,
+            isFromHistory: true
+          };
+          
+          // 显示历史搜索结果
+          this.showSearchResults(
+            selectedHistory.results, 
+            searcher, 
+            searchOptions, 
+            focusMode
+          );
+        }
+        
+      } catch (error) {
+        MNUtil.showHUD("显示搜索历史失败: " + error.message);
+        MNLog.error(error, "MNKnowledgeBase: showSearchHistory");
+      }
+    },
+    
+    /**
+     * 清空搜索历史
+     */
+    clearSearchHistory: async function() {
+      try {
+        const confirm = await MNUtil.userSelect(
+          "确认清空",
+          "确定要清空所有搜索历史吗？此操作不可恢复。",
+          ["取消", "确认清空"]
+        );
+        
+        if (confirm === 2) {
+          self.searchHistory = [];
+          MNUtil.showHUD("搜索历史已清空");
+        }
+      } catch (error) {
+        MNUtil.showHUD("清空历史失败: " + error.message);
+        MNLog.error(error, "MNKnowledgeBase: clearSearchHistory");
+      }
+    },
+
+    /**
      * 配置搜索模式
      */
     configureSearchMode: async function() {
@@ -373,6 +506,74 @@ JSB.newAddon = function(mainPath){
       } catch (error) {
         MNUtil.showHUD("管理排除词失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: manageExclusions");
+      }
+    },
+
+    /**
+     * 使用预设类型进行快捷搜索
+     * @param {Object} config - 配置对象 {preset: string, mode: string}
+     */
+    searchWithPreset: async function(config) {
+      try {
+        self.checkPopover();
+        
+        const { preset, mode } = config;
+        
+        // 异步加载搜索器
+        const searcher = await FastSearcher.loadFromFile();
+        if (!searcher) {
+          MNUtil.showHUD("索引未找到，请先更新搜索索引");
+          return;
+        }
+        
+        // 获取预设类型
+        const types = SearchConfig.getTypesByPreset(preset);
+        if (!types) {
+          MNUtil.showHUD("无效的搜索预设");
+          return;
+        }
+        
+        // 根据 mode 确定定位方式
+        const focusMode = mode === 'mindmap' ? true : false;
+        
+        // 显示搜索对话框，跳过类型选择
+        const searchConfig = {
+          enableTypeSelection: false,  // 禁用类型选择
+          defaultTypes: types,         // 使用预设类型
+          presetKey: preset            // 传递预设键用于显示
+        };
+        
+        self.showSearchDialog(searcher, searchConfig, focusMode);
+        
+      } catch (error) {
+        MNUtil.showHUD("快捷搜索失败: " + error.message);
+        MNLog.error(error, "MNKnowledgeBase: searchWithPreset");
+      }
+    },
+
+    /**
+     * 搜索并复制 Markdown 链接
+     */
+    searchForMarkdown: async function() {
+      try {
+        self.checkPopover();
+        
+        // 异步加载搜索器
+        const searcher = await FastSearcher.loadFromFile();
+        if (!searcher) {
+          MNUtil.showHUD("索引未找到，请先更新搜索索引");
+          return;
+        }
+        
+        // 显示搜索对话框，不进行类型选择，使用 markdown 模式
+        self.showSearchDialog(searcher, {
+          enableTypeSelection: false,  // 禁用类型选择
+          defaultTypes: null           // 搜索全部类型
+        }, 'markdown');
+        
+      } catch (error) {
+        MNUtil.showHUD("搜索失败: " + error.message);
+        MNLog.error(error, "MNKnowledgeBase: searchForMarkdown");
       }
     },
 
@@ -465,13 +666,14 @@ JSB.newAddon = function(mainPath){
     }
   }
 
-  MNKnowledgeBaseClass.prototype.showSearchDialog = async function(searcher, config = {}, focusInMindMap) {
+  MNKnowledgeBaseClass.prototype.showSearchDialog = async function(searcher, config = {}, focusMode) {
     try {
       // 默认配置
       const defaultConfig = {
         enableTypeSelection: true,      // 是否允许选择类型
         defaultTypes: null,              // 默认搜索类型（null表示全部）
-        showAdvancedOptions: false      // 是否显示高级选项
+        showAdvancedOptions: false,     // 是否显示高级选项
+        presetKey: null                  // 预设键名
       };
       
       const searchConfig = Object.assign({}, defaultConfig, config);
@@ -493,8 +695,16 @@ JSB.newAddon = function(mainPath){
       };
       const modeText = modeNames[searchModeConfig.mode] || "精确";
       
-      // 步骤3：关键词输入
-      const typeInfo = selectedTypes ? `(${selectedTypes.length}种类型)` : "(全部类型)";
+      // 步骤3：构建标题信息
+      let typeInfo = "(全部类型)";
+      if (searchConfig.presetKey) {
+        const preset = SearchConfig.typePresets[searchConfig.presetKey];
+        typeInfo = preset ? `${preset.icon} ${preset.name}` : `(${selectedTypes.length}种类型)`;
+      } else if (selectedTypes) {
+        typeInfo = `(${selectedTypes.length}种类型)`;
+      }
+      
+      // 步骤4：关键词输入
       let userInput = await MNUtil.userInput(
         `快速搜索 ${typeInfo} [${modeText}模式]`,
         "请输入搜索关键词：",
@@ -505,20 +715,20 @@ JSB.newAddon = function(mainPath){
         let keyword = userInput.input.trim();
         if (!keyword) return;
         
-        // 步骤4：根据配置扩展查询词
+        // 步骤5：根据配置扩展查询词
         let expandedKeyword = keyword;
         if (searchModeConfig.useSynonyms) {
           expandedKeyword = KnowledgeBaseIndexer.expandSearchQuery(keyword, true);
           MNUtil.log(`扩展后的查询: ${expandedKeyword}`);
         }
         
-        // 步骤5：执行搜索
+        // 步骤6：执行搜索
         this.performFastSearch(searcher, expandedKeyword, {
           types: selectedTypes,
           config: searchConfig,
           searchModeConfig: searchModeConfig,
           originalKeyword: keyword
-        }, focusInMindMap);
+        }, focusMode);
       }
     } catch (error) {
       MNUtil.showHUD("搜索对话框错误: " + error.message);
@@ -586,7 +796,7 @@ JSB.newAddon = function(mainPath){
   /**
    * 执行快速搜索（增强版）
    */
-  MNKnowledgeBaseClass.prototype.performFastSearch = async function(searcher, keyword, options = {}, focusInMindMap = true) {
+  MNKnowledgeBaseClass.prototype.performFastSearch = async function(searcher, keyword, options = {}, focusMode = true) {
     try {
       // 构建搜索参数
       const searchOptions = {
@@ -618,8 +828,33 @@ JSB.newAddon = function(mainPath){
         return;
       }
       
+      // 保存搜索历史（根据 focusMode 确定模式名称）
+      let modeName = "脑图定位";
+      if (focusMode === false) {
+        modeName = "浮窗定位";
+      } else if (focusMode === 'markdown') {
+        modeName = "复制链接";
+      }
+      
+      const historyEntry = {
+        keyword: options.originalKeyword || keyword,
+        types: options.types || null,
+        results: results.slice(0, 50), // 只保存前50条结果
+        timestamp: Date.now(),
+        mode: modeName,
+        searchModeConfig: options.searchModeConfig || {}
+      };
+      
+      // 添加到历史记录开头
+      self.searchHistory.unshift(historyEntry);
+      
+      // 限制历史记录数量
+      if (self.searchHistory.length > self.maxSearchHistory) {
+        self.searchHistory = self.searchHistory.slice(0, self.maxSearchHistory);
+      }
+      
       // 显示搜索结果
-      this.showSearchResults(results, searcher, options, focusInMindMap);
+      this.showSearchResults(results, searcher, options, focusMode);
       
     } catch (error) {
       MNUtil.showHUD("搜索执行失败: " + error.message);
@@ -630,7 +865,7 @@ JSB.newAddon = function(mainPath){
   /**
    * 显示搜索结果
    */
-  MNKnowledgeBaseClass.prototype.showSearchResults = async function(results, searcher, searchOptions = {}, focusInMindMap = true) {
+  MNKnowledgeBaseClass.prototype.showSearchResults = async function(results, searcher, searchOptions = {}, focusMode = true) {
     try {
       // 构建结果选项
       const options = results.map((result, index) => {
@@ -676,15 +911,18 @@ JSB.newAddon = function(mainPath){
           defaultTypes: searchOptions.types,
           enableTypeSelection: searchOptions.config ? searchOptions.config.enableTypeSelection : true
         };
-        this.showSearchDialog(searcher, config);
+        this.showSearchDialog(searcher, config, focusMode);
       } else if (selectResult > 0) {
         // 查看选中的卡片（注意索引偏移，因为第一个是"返回搜索"）
         const selectedResult = results[selectResult - 2];
         const note = MNNote.new(selectedResult.id);
         if (note) {
-          // 在脑图中定位
-          if (MNUtil.mindmapView) {
-            focusInMindMap?note.focusInMindMap():note.focusInFloatMindMap()
+          if (focusMode === 'markdown') {
+            // 复制 Markdown 链接
+            knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
+          } else if (MNUtil.mindmapView) {
+            // 脑图或浮窗定位
+            focusMode ? note.focusInMindMap() : note.focusInFloatMindMap();
           } else {
             MNUtil.showHUD("已选择卡片：" + selectedResult.title);
           }
