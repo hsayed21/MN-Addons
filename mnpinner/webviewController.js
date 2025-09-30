@@ -440,7 +440,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       self.checkPopover()  // 关闭菜单
       self.refreshTemporaryPinCards()
       let noteId = button.noteId
-      
+
       if (noteId) {
         // 显示输入对话框
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
@@ -452,13 +452,13 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
           (alertView, buttonIndex) => {
             if (buttonIndex === 0) {  // 确定按钮
               let newTitle = alertView.textFieldAtIndex(0).text
-              
+
               // 验证输入
               if (!newTitle || newTitle.trim() === "") {
                 MNUtil.showHUD("标题不能为空")
                 return
               }
-              
+
               // 更新数据
               if (pinnerConfig.updatePinTitle(noteId, newTitle.trim())) {
                 // 刷新视图
@@ -474,6 +474,48 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     } catch (error) {
       pinnerUtils.addErrorLog(error, "renameTempCard")
       MNUtil.showHUD("更新标题失败: " + error)
+    }
+  },
+
+  /**
+   * 上移卡片
+   */
+  moveCardUp: function(button) {
+    try {
+      let index = button.tag
+      let pins = pinnerConfig.getPins(true)
+
+      if (index > 0) {
+        // 使用 pinnerConfig 的 movePin 方法
+        pinnerConfig.movePin(index, index - 1, true)
+        // 刷新视图
+        self.refreshTemporaryPinCards()
+        MNUtil.showHUD("已上移")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "moveCardUp")
+      MNUtil.showHUD("上移失败")
+    }
+  },
+
+  /**
+   * 下移卡片
+   */
+  moveCardDown: function(button) {
+    try {
+      let index = button.tag
+      let pins = pinnerConfig.getPins(true)
+
+      if (index < pins.length - 1) {
+        // 使用 pinnerConfig 的 movePin 方法
+        pinnerConfig.movePin(index, index + 1, true)
+        // 刷新视图
+        self.refreshTemporaryPinCards()
+        MNUtil.showHUD("已下移")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "moveCardDown")
+      MNUtil.showHUD("下移失败")
     }
   }
 });
@@ -1015,15 +1057,63 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   rowView.layer.cornerRadius = 8
   rowView.layer.borderWidth = 1
   rowView.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6", 0.3)
-  
+
   // 保存 noteId 到 rowView（供删除和定位使用）
   rowView.noteId = card.noteId
-  
-  // 添加标题
+
+  // 获取卡片总数，用于判断是否禁用按钮
+  let totalCards = pinnerConfig.getPins(true).length
+
+  // 上移按钮
+  let moveUpButton = UIButton.buttonWithType(0)
+  moveUpButton.setTitleForState("⬆️", 0)
+  moveUpButton.frame = {x: 5, y: 7, width: 30, height: 30}
+  moveUpButton.layer.cornerRadius = 5
+  moveUpButton.tag = index
+  moveUpButton.noteId = card.noteId
+  moveUpButton.addTargetActionForControlEvents(this, "moveCardUp:", 1 << 6)
+  // 第一个卡片禁用上移
+  if (index === 0) {
+    moveUpButton.enabled = false
+    moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
+  } else {
+    moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+  }
+  rowView.addSubview(moveUpButton)
+
+  // 下移按钮
+  let moveDownButton = UIButton.buttonWithType(0)
+  moveDownButton.setTitleForState("⬇️", 0)
+  moveDownButton.frame = {x: 40, y: 7, width: 30, height: 30}
+  moveDownButton.layer.cornerRadius = 5
+  moveDownButton.tag = index
+  moveDownButton.noteId = card.noteId
+  moveDownButton.addTargetActionForControlEvents(this, "moveCardDown:", 1 << 6)
+  // 最后一个卡片禁用下移
+  if (index === totalCards - 1) {
+    moveDownButton.enabled = false
+    moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
+  } else {
+    moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+  }
+  rowView.addSubview(moveDownButton)
+
+  // 定位按钮
+  let focusButton = UIButton.buttonWithType(0)
+  focusButton.setTitleForState("📍", 0)
+  focusButton.frame = {x: 75, y: 7, width: 30, height: 30}
+  focusButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+  focusButton.layer.cornerRadius = 5
+  focusButton.tag = index
+  focusButton.noteId = card.noteId
+  focusButton.addTargetActionForControlEvents(this, "focusTempCardTapped:", 1 << 6)
+  rowView.addSubview(focusButton)
+
+  // 添加标题（调整位置和宽度）
   let titleButton = UIButton.buttonWithType(0)
   titleButton.setTitleForState(`${card.title || "未命名卡片"}`, 0)
   titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
-  titleButton.frame = {x: 40, y: 5, width: width - 80, height: 35}  // 调整宽度给按钮留空间
+  titleButton.frame = {x: 110, y: 5, width: width - 160, height: 35}  // 调整起始位置和宽度
   titleButton.addTargetActionForControlEvents(this, "tempCardTapped:", 1 << 6)
   titleButton.noteId = card.noteId  // 保存卡片ID
   titleButton.cardTitle = card.title  // 保存当前标题
@@ -1032,7 +1122,7 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#0051D5", 1.0), 1)  // 按下时深蓝色
   titleButton.contentHorizontalAlignment = 1  // 左对齐
   rowView.addSubview(titleButton)
-  
+
   // 删除按钮
   let deleteButton = UIButton.buttonWithType(0)
   deleteButton.setTitleForState("🗑", 0)
@@ -1043,19 +1133,7 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   deleteButton.noteId = card.noteId  // 直接保存 noteId
   deleteButton.addTargetActionForControlEvents(this, "deleteTempCard:", 1 << 6)
   rowView.addSubview(deleteButton)
-  
-  // 定位按钮
-  let focusButton = UIButton.buttonWithType(0)
-  focusButton.setTitleForState("📍", 0)
-  focusButton.frame = {x: 5, y: 7, width: 30, height: 30}
-  focusButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
-  focusButton.layer.cornerRadius = 5
-  focusButton.tag = index  // 用 tag 存储索引
-  focusButton.noteId = card.noteId  // 保存 noteId
-  focusButton.addTargetActionForControlEvents(this, "focusTempCardTapped:", 1 << 6)
 
-  rowView.addSubview(focusButton)
-  
   return rowView
 }
 
