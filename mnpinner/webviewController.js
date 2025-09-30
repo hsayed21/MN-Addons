@@ -517,6 +517,55 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       pinnerUtils.addErrorLog(error, "moveCardDown")
       MNUtil.showHUD("下移失败")
     }
+  },
+
+  /**
+   * 长按上移按钮 - 置顶
+   */
+  onLongPressUpButton: function(gesture) {
+    try {
+      // 只在手势开始时执行一次
+      if (gesture.state !== 1) return
+
+      let button = gesture.view
+      let index = button.tag
+
+      if (index > 0) {
+        // 将卡片移动到第一位
+        pinnerConfig.movePin(index, 0, true)
+        // 刷新视图
+        self.refreshTemporaryPinCards()
+        MNUtil.showHUD("已置顶")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "onLongPressUpButton")
+      MNUtil.showHUD("置顶失败")
+    }
+  },
+
+  /**
+   * 长按下移按钮 - 置底
+   */
+  onLongPressDownButton: function(gesture) {
+    try {
+      // 只在手势开始时执行一次
+      if (gesture.state !== 1) return
+
+      let button = gesture.view
+      let index = button.tag
+      let pins = pinnerConfig.getPins(true)
+
+      if (index < pins.length - 1) {
+        // 将卡片移动到最后一位
+        pinnerConfig.movePin(index, pins.length - 1, true)
+        // 刷新视图
+        self.refreshTemporaryPinCards()
+        MNUtil.showHUD("已置底")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "onLongPressDownButton")
+      MNUtil.showHUD("置底失败")
+    }
   }
 });
 
@@ -1078,6 +1127,8 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
     moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
   } else {
     moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+    // 添加长按手势 - 置顶
+    MNButton.addLongPressGesture(moveUpButton, this, "onLongPressUpButton:", 0.3)
   }
   rowView.addSubview(moveUpButton)
 
@@ -1095,6 +1146,8 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
     moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
   } else {
     moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+    // 添加长按手势 - 置底
+    MNButton.addLongPressGesture(moveDownButton, this, "onLongPressDownButton:", 0.3)
   }
   rowView.addSubview(moveDownButton)
 
