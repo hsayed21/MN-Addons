@@ -3434,6 +3434,14 @@ function registerAllCustomActions() {
     },
   );
 
+  global.registerCustomAction("fixBrokenLinks", async function(context) {
+    const { focusNote } = context;
+      MNUtil.undoGrouping(()=>{
+        knowledgeBaseTemplate.renewLinks(focusNote)
+      })
+    }
+  )
+
   // clearContentKeepExcerpt
   global.registerCustomAction(
     "clearContentKeepExcerpt",

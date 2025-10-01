@@ -428,6 +428,18 @@ function registerAllMenuTemplates() {
           action: "renewExcerptInParentNoteByFocusNote",
           menuTitle: "🔀 摘录替换掉父卡片的摘录",
         },
+        {
+          action: "descendNotesToBeIndependent",
+          menuTitle: "✂️ 子孙卡片独立为单张",
+        },
+        {
+          action: "removeAllClassificationNotes",
+          menuTitle: "❌ 删除归类子孙卡片，保留知识点",
+        },
+        {
+          action: "fixBrokenLinks",
+          menuTitle: "🏥 修复失效链接",
+        },
         "---------",
         "⬇️ 卡片处理",
         {
@@ -514,14 +526,6 @@ function registerAllMenuTemplates() {
               menuTitle: "🔄 子孙卡片批量制卡",
             },
           ]
-        },
-        {
-          action: "descendNotesToBeIndependent",
-          menuTitle: "    ✂️ 子孙卡片独立为单张",
-        },
-        {
-          action: "removeAllClassificationNotes",
-          menuTitle: "❌ 删除归类子孙卡片，保留知识点",
         },
         {
           "action": "menu",

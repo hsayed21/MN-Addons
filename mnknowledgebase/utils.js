@@ -1945,6 +1945,11 @@ class knowledgeBaseTemplate {
     return note
   }
 
+  static renewLinks(note) {
+    note.convertLinksToNewVersion()
+    note.cleanupBrokenLinks()
+    note.fixMergeProblematicLinks()
+  }
   /**
    * 处理旧卡片
    */
@@ -1962,34 +1967,35 @@ class knowledgeBaseTemplate {
     // this.convertLinksToNewVersion(note)
     // this.cleanupBrokenLinks(note)
     // this.fixMergeProblematicLinks(note)
-    note.convertLinksToNewVersion()
-    note.cleanupBrokenLinks()
-    note.fixMergeProblematicLinks()
+    // note.convertLinksToNewVersion()
+    // note.cleanupBrokenLinks()
+    // note.fixMergeProblematicLinks()
+    this.renewLinks(newNote)
     
     // 处理空的"关键词："字段
-    this.processEmptyKeywordField(note)
+    this.processEmptyKeywordField(newNote)
     
     // 处理不同类型转换时的第一个字段替换
-    this.replaceFirstFieldIfNeeded(note)
+    this.replaceFirstFieldIfNeeded(newNote)
 
     // 去掉一些评论，比如“- ”
-    this.removeUnnecessaryComments(note)
+    this.removeUnnecessaryComments(newNote)
 
     // 检测是否包含“应用”字段，但“应用”字段不是最后一个字段，如果不是最后一个字段，则将其移动到最后
-    this.moveApplicationFieldToEnd(note)
+    this.moveApplicationFieldToEnd(newNote)
     
-    switch (this.getNoteType(note)) {
+    switch (this.getNoteType(newNote)) {
       case "归类":
         /**
          * 去掉归类卡片的标题中的“xx”：“yy” 里的 xx
          */
-        let titleParts = this.parseNoteTitle(note);
-        if (/^“[^”]*”：“[^”]*”\s*相关[^“]*$/.test(note.title)) {
-          note.title = `“${titleParts.content}”相关${titleParts.type}`;
+        let titleParts = this.parseNoteTitle(newNote);
+        if (/^“[^”]*”：“[^”]*”\s*相关[^“]*$/.test(newNote.title)) {
+          newNote.title = `“${titleParts.content}”相关${titleParts.type}`;
         }
         break;
       case "定义":
-        this.moveRelatedConceptsToRelatedThoughts(note);
+        this.moveRelatedConceptsToRelatedThoughts(newNote);
         break;
     }
 
