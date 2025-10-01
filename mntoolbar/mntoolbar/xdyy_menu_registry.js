@@ -405,6 +405,14 @@ function registerAllMenuTemplates() {
       menuWidth: 360,
       menuItems: [
         {
+          action: "clearContentKeepExcerptWithTitle",
+          menuTitle: "只保留摘录和标题",
+        },
+        {
+          action: "clearContentKeepExcerpt",
+          menuTitle: "只保留摘录，无标题",
+        },
+        {
           action: "renewKnowledgeNoteIntoParentNote",
           menuTitle: "🔀 合并重复知识点",
         },
@@ -425,6 +433,10 @@ function registerAllMenuTemplates() {
         {
           action: "convertNoteToNonexcerptVersion",
           menuTitle: "    🔄 转化为非摘录版本",
+        },
+        {
+          action: "handleOldCardWithoutMakeNote",
+          menuTitle: "    旧卡片处理 & 不制卡",
         },
         "⬇️ 定位",
         {

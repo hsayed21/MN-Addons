@@ -3238,7 +3238,7 @@ function registerAllCustomActions() {
           const lastCommentIndex = focusNote.comments.length - 1;
           
           // 该方法会自动处理字段不存在的情况
-          knowledgeBaseTemplate.moveCommentsArrToField(focusNote, "YZ", "证明", true);
+          knowledgeBaseTemplate.moveCommentsArrToField(focusNote, "Y, Z", "证明", true);
         } catch (error) {
           MNUtil.showHUD(`❌ 移动失败: ${error.message || error}`);
         }
@@ -3258,7 +3258,7 @@ function registerAllCustomActions() {
           }
           
           // 该方法会自动处理字段不存在的情况
-          knowledgeBaseTemplate.moveCommentsArrToField(focusNote, "YZ", "证明", false);
+          knowledgeBaseTemplate.moveCommentsArrToField(focusNote, "Y, Z", "证明", false);
           
           
         } catch (error) {
