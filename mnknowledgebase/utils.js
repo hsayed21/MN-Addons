@@ -3105,17 +3105,10 @@ class knowledgeBaseTemplate {
         
         // 所有内容处理完成后，删除源卡片
         try {
-          // 使用 MNNote 的 delete 方法删除源卡片
-          if (sourceNote.delete) {
-            sourceNote.delete(false); // false 表示不删除子孙卡片
-            MNUtil.log("✅ 已删除源卡片");
-          } else {
-            // 备用删除方法
-            MNUtil.db.deleteBookNote(sourceNote.noteId);
-            MNUtil.log("✅ 已删除源卡片（使用备用方法）");
-          }
+          sourceNote.delete(false); // false 表示不删除子孙卡片
+          MNUtil.log("✅ 已删除源卡片");
         } catch (deleteError) {
-          MNUtil.log(`⚠️ 删除源卡片失败: ${deleteError.message}`);
+          MNLog.error(`⚠️ 删除源卡片失败: ${deleteError.message}`);
           // 不影响合并结果，继续执行
         }
         

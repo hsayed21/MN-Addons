@@ -64,8 +64,8 @@ MNNote.prototype.delete = function(withDescendant = false){
   if (withDescendant) {
     MNUtil.db.deleteBookNoteTree(this.note.noteId)
   } else {
-    if (this.childNotes.length > 0 && this.parentNote) {
-      childNotes.forEach(childNote => {
+    if (this.childNotes && this.childNotes.length > 0 && this.parentNote) {
+      this.childNotes.forEach(childNote => {
         this.parentNote.addChild(childNote)
       })
     }
