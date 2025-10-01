@@ -4180,7 +4180,7 @@ class knowledgeBaseTemplate {
     const linkDisplayNames = [];
     for (const link of links) {
       try {
-        const targetNote = MNUtil.getNoteById(link.noteId);
+        const targetNote = MNNote.new(link.noteId);
         if (targetNote) {
           const targetMNNote = MNNote.new(targetNote);
           const titleParts = this.parseNoteTitle(targetMNNote);
@@ -4226,7 +4226,7 @@ class knowledgeBaseTemplate {
       
       // 2. 处理旧链接的反向链接
       try {
-        const oldTargetNote = MNUtil.getNoteById(oldNoteId);
+        const oldTargetNote = MNNote.new(oldNoteId);
         if (oldTargetNote) {
           this.removeApplicationFieldLink(oldTargetNote, note.noteId);
         }
@@ -4236,7 +4236,7 @@ class knowledgeBaseTemplate {
       
       // 3. 处理新链接的反向链接
       try {
-        const newTargetNote = MNUtil.getNoteById(newNoteId);
+        const newTargetNote = MNNote.new(newNoteId);
         if (newTargetNote) {
           this.addApplicationFieldLink(newTargetNote, note);
         }
@@ -6732,33 +6732,60 @@ class knowledgeBaseTemplate {
     // 获取字段A下的内容索引（不包括字段标题本身）
     let fieldAContentIndices = fieldAObj.excludingFieldBlockIndexArr;
     
-    // 先删除字段A下的内容（从后往前删除，避免索引变化）
-    if (fieldAContentIndices.length > 0) {
-      let sortedFieldAIndices = fieldAContentIndices.sort((a, b) => b - a);
-      sortedFieldAIndices.forEach(index => {
-        note.removeCommentByIndex(index);
-      });
-    }
-    
-    // 重新解析评论结构（因为删除操作改变了索引）
-    commentsObj = this.parseNoteComments(note);
-    htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
-    
-    // 重新获取自动内容索引（索引可能已经改变）
-    autoContentIndices = this.autoGetNewContentToMoveIndexArr(note);
-    
-    if (autoContentIndices.length === 0) {
-      MNUtil.showHUD("删除原内容后，没有检测到可移动的新内容");
-      return;
-    }
-    
-    // 移动自动获取的内容到字段A下方
-    this.moveCommentsArrToField(note, autoContentIndices, fieldA, true);
-    
-    // 刷新卡片显示
-    MNUtil.undoGrouping(()=>{
+    MNUtil.undoGrouping(() => {
+      // 先处理字段A中要删除的双向链接
+      if (fieldAContentIndices.length > 0) {
+        for (const index of fieldAContentIndices) {
+          const comment = note.MNComments[index];
+          
+          // 检查是否为链接类型的评论
+          if (comment && comment.type === "linkComment" && comment.text) {
+            const linkUrl = comment.text.trim();
+            
+            // 验证是否为有效的笔记链接
+            if (linkUrl.isValidNoteURL()) {
+              try {
+                // 直接使用 URL 创建 MNNote
+                const targetNote = MNNote.new(linkUrl);
+                if (targetNote) {
+                  // 删除目标笔记中的反向链接
+                  const removed = this.removeReverseLink(targetNote, note.noteId);
+                  if (removed) {
+                    MNUtil.log(`已删除双向链接: ${linkUrl}`);
+                  }
+                }
+              } catch (error) {
+                MNUtil.log(`处理双向链接时出错: ${error}`);
+              }
+            }
+          }
+        }
+        
+        // 删除字段A下的内容（从后往前删除，避免索引变化）
+        let sortedFieldAIndices = fieldAContentIndices.sort((a, b) => b - a);
+        sortedFieldAIndices.forEach(index => {
+          note.removeCommentByIndex(index);
+        });
+      }
+      
+      // 重新解析评论结构（因为删除操作改变了索引）
+      commentsObj = this.parseNoteComments(note);
+      htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
+      
+      // 重新获取自动内容索引（索引可能已经改变）
+      autoContentIndices = this.autoGetNewContentToMoveIndexArr(note);
+      
+      if (autoContentIndices.length === 0) {
+        MNUtil.showHUD("删除原内容后，没有检测到可移动的新内容");
+        return;
+      }
+      
+      // 移动自动获取的内容到字段A下方
+      this.moveCommentsArrToField(note, autoContentIndices, fieldA, true);
+      
+      // 刷新卡片显示
       note.refresh();
-    })
+    });
     
     // MNUtil.showHUD(`已将自动获取的新内容移动到"${fieldA}"字段下，并删除了原有内容`);
   }
@@ -6769,6 +6796,94 @@ class knowledgeBaseTemplate {
    * @param {string} fieldA - 目标字段名称
    * @param {string} fieldB - 源字段名称
    */
+  /**
+   * 删除目标笔记中指向源笔记的反向链接
+   * @param {Object} targetNote - 目标笔记对象（可以是原生note或MNNote）
+   * @param {String} sourceNoteId - 源笔记的ID
+   * @returns {Boolean} 是否成功删除了反向链接
+   */
+  static removeReverseLink(targetNote, sourceNoteId) {
+    try {
+      const targetMNNote = MNNote.new(targetNote);
+      const commentsObj = this.parseNoteComments(targetMNNote);
+      
+      // 优先在"应用"字段查找
+      const appField = commentsObj.htmlCommentsObjArr.find(field => {
+        const fieldText = field.text.trim();
+        return fieldText === "应用" || fieldText === "应用:" || fieldText === "应用：";
+      });
+      
+      if (appField) {
+        // 在应用字段下查找并删除反向链接
+        const fieldIndices = appField.excludingFieldBlockIndexArr;
+        
+        for (let i = fieldIndices.length - 1; i >= 0; i--) {
+          const index = fieldIndices[i];
+          const comment = targetMNNote.MNComments[index];
+          
+          if (comment && comment.type === "linkComment" && comment.text) {
+            const commentText = comment.text.trim();
+            // 使用 includes 进行灵活匹配
+            if (commentText.isValidNoteURL() && commentText.includes(sourceNoteId)) {
+              targetMNNote.removeCommentByIndex(index);
+              return true; // 找到并删除
+            }
+          }
+        }
+      }
+      
+      // 如果应用字段没找到，遍历所有字段查找反向链接
+      for (const field of commentsObj.htmlCommentsObjArr) {
+        const fieldIndices = field.excludingFieldBlockIndexArr;
+        
+        for (let i = fieldIndices.length - 1; i >= 0; i--) {
+          const index = fieldIndices[i];
+          const comment = targetMNNote.MNComments[index];
+          
+          if (comment && comment.type === "linkComment" && comment.text) {
+            const commentText = comment.text.trim();
+            // 使用 includes 进行更灵活的匹配
+            if (commentText.isValidNoteURL() && commentText.includes(sourceNoteId)) {
+              targetMNNote.removeCommentByIndex(index);
+              return true; // 找到并删除
+            }
+          }
+        }
+      }
+      
+      // 如果在字段中没找到（或根本没有HTML字段），遍历所有评论查找链接
+      const allComments = targetMNNote.MNComments;
+      for (let i = allComments.length - 1; i >= 0; i--) {
+        const comment = allComments[i];
+        
+        // 跳过 HTML 字段本身
+        if (comment && comment.type === "HtmlComment") {
+          continue;
+        }
+        
+        // 只处理链接类型的评论
+        if (comment && comment.type === "linkComment" && comment.text) {
+          const commentText = comment.text.trim();
+          
+          // 使用灵活匹配：检查链接是否指向源笔记
+          if (commentText.isValidNoteURL()) {
+            const linkNoteId = commentText.toNoteId();
+            if (linkNoteId === sourceNoteId) {
+              targetMNNote.removeCommentByIndex(i);
+              return true; // 找到并删除
+            }
+          }
+        }
+      }
+      
+      return false; // 未找到反向链接
+      
+    } catch (error) {
+      MNUtil.log("removeReverseLink 出错: " + error.toString());
+      return false;
+    }
+  }
+
   static replaceFieldContent(note, fieldA, fieldB) {
     let commentsObj = this.parseNoteComments(note);
     let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
@@ -6803,39 +6918,66 @@ class knowledgeBaseTemplate {
       return;
     }
     
-    // 先删除字段A下的内容（从后往前删除，避免索引变化）
-    if (fieldAContentIndices.length > 0) {
-      let sortedFieldAIndices = fieldAContentIndices.sort((a, b) => b - a);
-      sortedFieldAIndices.forEach(index => {
-        note.removeCommentByIndex(index);
-      });
-    }
-    
-    // 重新解析评论结构（因为删除操作改变了索引）
-    commentsObj = this.parseNoteComments(note);
-    htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
-    
-    // 重新获取字段B的内容（索引可能已经改变）
-    fieldBObj = htmlCommentsObjArr.find(obj => obj.text.includes(fieldB));
-    if (!fieldBObj) {
-      MNUtil.showHUD(`无法找到字段"${fieldB}"`);
-      return;
-    }
-    
-    fieldBContentIndices = fieldBObj.excludingFieldBlockIndexArr;
-    
-    if (fieldBContentIndices.length === 0) {
-      MNUtil.showHUD(`字段"${fieldB}"下没有内容可移动`);
-      return;
-    }
-    
-    // 移动字段B的内容到字段A下方
-    this.moveCommentsArrToField(note, fieldBContentIndices, fieldA, true);
-    
-    // 刷新卡片显示
-    MNUtil.undoGrouping(()=>{
+    MNUtil.undoGrouping(() => {
+      // 先处理字段A中要删除的双向链接
+      if (fieldAContentIndices.length > 0) {
+        for (const index of fieldAContentIndices) {
+          const comment = note.MNComments[index];
+          
+          // 检查是否为链接类型的评论
+          if (comment && comment.type === "linkComment" && comment.text) {
+            const linkUrl = comment.text.trim();
+            
+            // 验证是否为有效的笔记链接
+            if (linkUrl.isValidNoteURL()) {
+              try {
+                // 直接使用 URL 创建 MNNote
+                const targetNote = MNNote.new(linkUrl);
+                if (targetNote) {
+                  // 删除目标笔记中的反向链接
+                  const removed = this.removeReverseLink(targetNote, note.noteId);
+                  if (removed) {
+                    MNUtil.log(`已删除双向链接: ${linkUrl}`);
+                  }
+                }
+              } catch (error) {
+                MNUtil.log(`处理双向链接时出错: ${error}`);
+              }
+            }
+          }
+        }
+        
+        // 删除字段A下的内容（从后往前删除，避免索引变化）
+        let sortedFieldAIndices = fieldAContentIndices.sort((a, b) => b - a);
+        sortedFieldAIndices.forEach(index => {
+          note.removeCommentByIndex(index);
+        });
+      }
+      
+      // 重新解析评论结构（因为删除操作改变了索引）
+      commentsObj = this.parseNoteComments(note);
+      htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
+      
+      // 重新获取字段B的内容（索引可能已经改变）
+      fieldBObj = htmlCommentsObjArr.find(obj => obj.text.includes(fieldB));
+      if (!fieldBObj) {
+        MNUtil.showHUD(`无法找到字段"${fieldB}"`);
+        return;
+      }
+      
+      fieldBContentIndices = fieldBObj.excludingFieldBlockIndexArr;
+      
+      if (fieldBContentIndices.length === 0) {
+        MNUtil.showHUD(`字段"${fieldB}"下没有内容可移动`);
+        return;
+      }
+      
+      // 移动字段B的内容到字段A下方
+      this.moveCommentsArrToField(note, fieldBContentIndices, fieldA, true);
+      
+      // 刷新卡片显示
       note.refresh();
-    })
+    });
     
     // MNUtil.showHUD(`已将"${fieldB}"字段的内容移动到"${fieldA}"字段下，并删除了"${fieldA}"原有内容`);
   }
@@ -7953,7 +8095,7 @@ class knowledgeBaseTemplate {
       const linkDisplayNames = [];
       for (const link of links) {
         try {
-          const targetNote = MNUtil.getNoteById(link.noteId);
+          const targetNote = MNNote.new(link.noteId);
           if (targetNote) {
             // 使用 MNNote 包装以便使用 parseNoteTitle
             const targetMNNote = MNNote.new(targetNote);
@@ -8002,7 +8144,7 @@ class knowledgeBaseTemplate {
         
         // 尝试删除对方笔记中的反向链接
         try {
-          const targetNote = MNUtil.getNoteById(selectedLink.noteId);
+          const targetNote = MNNote.new(selectedLink.noteId);
           if (targetNote) {
             const targetMNNote = MNNote.new(targetNote);
             const targetCommentsObj = this.parseNoteComments(targetMNNote);
@@ -8248,7 +8390,7 @@ class knowledgeBaseTemplate {
       
       // 尝试获取目标笔记信息
       try {
-        const targetNote = MNUtil.getNoteById(link.noteId, false);
+        const targetNote = MNNote.new(link.noteId, false);
         if (targetNote) {
           const targetMNNote = MNNote.new(targetNote);
           const titleParts = this.parseNoteTitle(targetMNNote);
@@ -8328,7 +8470,7 @@ class knowledgeBaseTemplate {
         
       case 5: // 重新生成 Markdown 链接
         try {
-          const targetNote = MNUtil.getNoteById(link.noteId, false);
+          const targetNote = MNNote.new(link.noteId, false);
           if (targetNote) {
             const targetMNNote = MNNote.new(targetNote);
             this.copyMarkdownLinkWithQuickPhrases(targetMNNote);
@@ -8827,7 +8969,7 @@ class knowledgeBaseTemplate {
       linkComments.forEach(link => {
         try {
           const noteId = link.comment.text.toNoteId()
-          const linkedNote = MNUtil.getNoteById(noteId)
+          const linkedNote = MNNote.new(noteId)
           if (!linkedNote) return
           
           const parsedTitle = this.parseNoteTitle(MNNote.new(linkedNote))
@@ -8998,7 +9140,7 @@ class knowledgeBaseTemplate {
         if (comment && comment.type === "linkComment") {
           try {
             const noteId = comment.text.toNoteId()
-            const linkedNote = MNUtil.getNoteById(noteId)
+            const linkedNote = MNNote.new(noteId)
             if (!linkedNote) return
             
             const parsedTitle = this.parseNoteTitle(MNNote.new(linkedNote))
@@ -9408,7 +9550,7 @@ class knowledgeBaseTemplate {
       }
       
       // 验证卡片是否存在
-      const note = MNUtil.getNoteById(noteId);
+      const note = MNNote.new(noteId);
       if (!note) {
         MNUtil.showHUD("卡片不存在");
         return false;
@@ -9515,7 +9657,7 @@ class knowledgeBaseTemplate {
         }
         
         // 验证卡片是否存在
-        const note = MNUtil.getNoteById(newNoteId);
+        const note = MNNote.new(newNoteId);
         if (!note) {
           MNUtil.showHUD("新的卡片不存在");
           return false;
@@ -17120,7 +17262,7 @@ class FastSearcher {
     const notes = [];
     
     searchResults.forEach(result => {
-      const note = MNNote.getNoteById(result.id, false);
+      const note = MNNote.new(result.id);
       if (note) {
         // 附加搜索相关信息
         note._searchScore = result.score;
