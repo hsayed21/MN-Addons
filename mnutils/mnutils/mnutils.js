@@ -574,7 +574,14 @@ class MNUtil {
         timestamp:Date.now()
       }
       if (detail !== undefined) {
-        log.detail = detail
+        if (detail instanceof Response) {
+          log.detail = JSON.stringify(detail.asJSONObject(),null,2)
+        }else if (typeof detail == "object") {
+          log.detail = JSON.stringify(detail,null,2)
+        }else{
+          log.detail = detail
+        }
+        
       }
       MNLog.logs.push(log)
       // MNUtil.copy(this.logs)
@@ -625,6 +632,111 @@ class MNUtil {
     this.logs = []
     subscriptionUtils.subscriptionController.clearLogs()
   }
+static btoa(str) {
+    // Encode the string to a WordArray
+    const wordArray = CryptoJS.enc.Utf8.parse(str);
+    // Convert the WordArray to Base64
+    const base64 = CryptoJS.enc.Base64.stringify(wordArray);
+    return base64;
+}
+static atob(str) {
+  // 补全 Base64 字符串
+  let output = str.replace(/-/g, '+').replace(/_/g, '/');
+  switch (output.length % 4) {
+    case 2: output += '=='; break;
+    case 3: output += '='; break;
+  }
+
+  try {
+    // 尝试 UTF-8 解码
+    return CryptoJS.enc.Base64.parse(output).toString(CryptoJS.enc.Utf8);
+  } catch (e) {
+    // 如果失败，回退到 Latin1（二进制兼容）
+    return CryptoJS.enc.Base64.parse(output).toString(CryptoJS.enc.Latin1);
+  }
+}
+
+/**
+ * 直接从 Base64 格式的 Data URL 判断文件格式
+ * @param {string} base64Url - Base64 Data URL（如 data:application/octet-stream;base64,...）
+ * @returns {string} 文件格式（如 'jpg', 'png', 'pdf' 等，未知则返回 'unknown'）
+ */
+static _getBase64UrlFileType(base64Url) {
+  try {
+    // 步骤1：提取 Base64 内容部分（去除前缀）
+    const base64Data = base64Url.split(',')[1]; // 分割后第二个元素是 Base64 内容
+    if (!base64Data) throw new Error('无效的 Base64 URL');
+
+    // 步骤2：Base64 解码为二进制数据（Uint8Array），只需前 16 字节
+    const binaryStr = this.atob(base64Data); // 将 Base64 解码为二进制字符串
+    const uint8Array = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      uint8Array[i] = binaryStr.charCodeAt(i); // 转换为 Uint8Array
+    }
+    const fileHeaderBytes = uint8Array.slice(0, 16); // 取前 16 字节文件头
+
+    // 步骤3：将文件头转换为十六进制字符串（用于匹配）
+    const hexHeader = Array.from(fileHeaderBytes)
+      .map(byte => byte.toString(16).padStart(2, '0').toUpperCase())
+      .join('');
+
+    // 步骤4：通过文件头匹配格式（同之前的文件头规则）
+    const fileTypes = {
+      'FFD8FF': 'jpg',          // JPG/JPEG
+      '89504E47': 'png',        // PNG
+      '47494638': 'gif',        // GIF
+      '25504446': 'pdf',        // PDF
+      '504B0304': 'zip',        // ZIP（包括 docx、xlsx 等）
+      '7B5C727466': 'rtf',      // RTF
+      '4D5A': 'exe',            // EXE/DLL
+      '494433': 'mp3',          // MP3
+      '0000001466747970': 'mp4',// MP4
+    };
+    // 从长前缀到短前缀匹配（避免误判）
+    const sortedTypes = Object.entries(fileTypes).sort(([a], [b]) => b.length - a.length);
+    for (const [hexPrefix, type] of sortedTypes) {
+      if (hexHeader.startsWith(hexPrefix)) {
+        return type;
+      }
+    }
+    return 'unknown';
+  } catch (error) {
+    this.addErrorLog(error, "_getBase64UrlFileType")
+    return 'unknown';
+  }
+}
+static fileTypeFromBase64(content) {
+  try{
+  let tem = content.split(",")
+  let prefix = tem[0]
+  if (prefix.includes("octet-stream")) {//需要进一步判断
+    //通过base64前几个字符判断
+    let type = this._getBase64UrlFileType(content)
+    return type
+  }
+  if (prefix.includes("application/pdf")) {
+    return "pdf"
+  }
+  if (prefix.includes("html")) {
+    return "html"
+  }
+  if (prefix.includes("image/png")) {
+    return "png"
+  }
+  if (prefix.includes("image/jpeg")) {
+    return "jpg"
+  }
+  if (prefix.includes("markdown")){
+    return "markdown"
+  }
+  if (prefix.includes("zip")){
+    return "zip"
+  }
+  }catch(error){
+    this.addErrorLog(error, "fileTypeFromBase64")
+    return 'unknown';
+  }
+}
   /**
    * Retrieves the version of the application.
    * 
@@ -910,7 +1022,7 @@ class MNUtil {
   static getNotebookExcerptColorById(notebookId){
     let notebook = this.getNoteBookById(notebookId)
     let options = notebook.options
-    if ("excerptColorTemplate" in options && options.useTopicTool2) {
+    if (options && "excerptColorTemplate" in options && options.useTopicTool2) {
       let excerptColorTemplate = options.excerptColorTemplate
       let colors = this.rgbaArrayToHexArray(excerptColorTemplate,true)
       return colors
@@ -920,7 +1032,7 @@ class MNUtil {
   static noteColorByNotebookIdAndColorIndex(notebookId,colorIndex){
     let notebook = this.getNoteBookById(notebookId)
     let options = notebook.options
-    if ("excerptColorTemplate" in options && options.useTopicTool2) {
+    if (options && "excerptColorTemplate" in options && options.useTopicTool2) {
       let excerptColor = options.excerptColorTemplate[colorIndex]
       let color = this.rgbaToHex(excerptColor,true)
       return color
@@ -929,7 +1041,7 @@ class MNUtil {
   }
   static get currentNotebookExcerptColor(){
     let options = this.currentNotebook.options
-    if ("excerptColorTemplate" in options && options.useTopicTool2) {
+    if (options && "excerptColorTemplate" in options && options.useTopicTool2) {
       let excerptColorTemplate = options.excerptColorTemplate
       let colors = this.rgbaArrayToHexArray(excerptColorTemplate,true)
       return colors
@@ -3261,12 +3373,13 @@ try {
 
   /**
    * 注意这里的code需要是字符串
-   * @param {string} code
+   * @param {string|number} code
    * @returns {string}
    */
   static getStatusCodeDescription(code){
   try {
     let des = {
+    "200": "OK",
     "400": "Bad Request",
     "401": "Unauthorized",
     "402": "Payment Required",
@@ -3310,15 +3423,19 @@ try {
     "525": "SSL handshake failed",
   }
   if (typeof code === "number") {
+    if (code === 0) {
+      return "Response is null"
+    }
     let codeString = ""+code
     if (codeString in des) {
       return (codeString+": "+des[codeString])
     }
+    return ""
   }
   if (code in des) {
     return (code+": "+des[code])
   }
-  return undefined
+  return ""
   } catch (error) {
     this.addErrorLog(error, "getStatusCodeDescription")
   }
@@ -4110,6 +4227,399 @@ static isBlankNote(note){//指有图片摘录但图片分辨率为1x1的空白�
     return false
   }
 }
+/**
+ * 类似fetch的Response对象
+ */
+class Response {
+  /**
+   * 创建一个模拟的 Response 对象
+   * @param {NSData} data - 响应主体内容
+   * @param {Object} [init] - 响应初始化选项
+   */
+  constructor(data = null, init = {}) {
+    // 设置响应状态码和状态文本
+    this.status = init.status !== undefined ? init.status : 200;
+    this.statusText = init.statusText || (this.status >= 200 && this.status < 300 ? 'OK' : '');
+    this.statusCodeDescription = MNUtil.getStatusCodeDescription(this.status) || '';
+    
+    // 初始化标头，使用 Headers 对象管理
+    this.headers = new Headers(init.headers || {});
+    
+    // 设置响应主体
+    if (data && !MNUtil.isNSNull(data)) {
+      //空响应时传入的data可能为NSNull而非null
+      this.body = data
+    }
+    
+    // 设置响应类型标识
+    this.type = init.type || 'default';
+    this.url = init.url || '';
+    this.redirected = init.redirected || false;
+    this.ok = this.status >= 200 && this.status < 300;
+    if (init.error) {
+      this.error = init.error
+    }
+    
+    // 缓存读取操作的 Promise
+    this._bodyUsed = false;
+    this._readPromises = new Map();
+  }
+  /**
+   * 
+   * @param {NSHTTPURLResponse} res 
+   * @param {NSData} data 
+   * @param {NSError} err 
+   * @returns {Response}
+   */
+  static new(res,data,err,url){
+    let init = {}
+    if (err.localizedDescription) {
+      init.error = err.localizedDescription
+    }
+    if (MNUtil.isNSNull(res)) {
+      //API似乎存在bug，有时候res是null，这时候status为0，但是不代表无响应
+      if (init.error) {
+        init.status = 0
+      }else{
+        //如果没报错，则认为是200
+        init.status = 200
+      }
+    }else{
+      init.status = res.statusCode()
+    }
+    if (url) {
+      init.url = url
+    }
+    // init.headers = res.allHeaderFields()
+    return new Response(data,init)
+  }
+  /**
+   * 响应内容复制到剪贴板，方便查看
+   */
+  copy(){
+    let json = this.asJSONObject()
+    MNUtil.copy(json)
+  }
+  asJSONObject(){
+    let res = {
+      status:this.status,
+      statusText:this.statusText,
+      statusCodeDescription:this.statusCodeDescription,
+      headers:this.headers,
+      type:this.type,
+      url:this.url,
+      error:this.error
+    }
+    if (this.body) {
+      res.text = this.text()
+      res.json = this.json()
+      res.bodySize = this.body.length()
+    }
+    return res
+  }
+
+  /**
+   * 解析响应主体为 Uint8Array
+   * @param {BodyInit|null} body - 原始响应主体
+   * @returns {Uint8Array|null} 解析后的二进制数组
+   */
+  _parseBody(body) {
+    if (!body) return null;
+    
+    if (body instanceof Uint8Array) {
+      return body;
+    }
+    
+    // 文本类型转换为 UTF-8 字节
+    if (typeof body === 'string') {
+      const encoder = new TextEncoder();
+      return encoder.encode(body);
+    }
+    
+    // FormData 处理（简化版）
+    if (body instanceof FormData) {
+      const entries = Array.from(body.entries())
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+        .join('&');
+      const encoder = new TextEncoder();
+      return encoder.encode(entries);
+    }
+    
+    throw new Error('Unsupported body type');
+  }
+
+  /**
+   * 标记响应主体已被使用
+   */
+  _setBodyUsed() {
+    //暂不启用
+    return
+    if (this._bodyUsed) {
+      throw new TypeError('Body has already been consumed');
+    }
+    this._bodyUsed = true;
+  }
+
+  /**
+   * 将响应主体转换为 ArrayBuffer
+   * @returns {Promise<ArrayBuffer>}
+   */
+  arrayBuffer() {
+    if (!this.body) {
+      return Promise.resolve(new ArrayBuffer(0));
+    }
+    
+    if (this._readPromises.has('arrayBuffer')) {
+      return this._readPromises.get('arrayBuffer');
+    }
+    
+    this._setBodyUsed();
+    const promise = Promise.resolve(this.body.buffer.slice(
+      this.body.byteOffset,
+      this.body.byteOffset + this.body.byteLength
+    ));
+    
+    this._readPromises.set('arrayBuffer', promise);
+    return promise;
+  }
+
+  /**
+   * 将响应主体转换为 Blob
+   * @returns {Promise<Blob>}
+   */
+  blob() {
+    return this.arrayBuffer().then(buffer => {
+      const type = this.headers.get('content-type') || '';
+      return new Blob([buffer], { type });
+    });
+  }
+  get hasJSONResult(){
+    let jsonResult = this.json()
+    if (jsonResult && Object.keys(jsonResult).length > 0) {
+      return true
+    }
+    return false
+  }
+
+  /**
+   * 将响应主体转换为 JSON
+   * 不包括statusCode等信息
+   * @returns {Object|undefined}
+   */
+  json() {
+    if (!this.body) {
+      return Promise.resolve(undefined);
+    }
+    try {
+    if (this.jsonResult) {
+      // 避免重复解析
+      return this.jsonResult
+    }
+
+    let result = NSJSONSerialization.JSONObjectWithDataOptions(
+      this.body,
+      1<<0
+    )
+    let validJson = NSJSONSerialization.isValidJSONObject(result)
+    if (validJson) {
+      this.jsonResult = result
+      return result;
+    }
+    this._setBodyUsed();
+    return new SyntaxError('Invalid JSON');
+      
+    } catch (error) {
+      MNUtil.addErrorLog(error, "Response.json")
+      return new SyntaxError('Invalid JSON');
+    }
+  }
+
+  /**
+   * 将响应主体转换为文本
+   * @returns {string}
+   */
+  text() {
+    if (!this.body) {
+      return Promise.resolve('');
+    }
+    if (this.textResult) {
+      // 避免重复解析
+      return this.textResult
+    }
+    let text = MNUtil.dataToString(this.body)
+    this.textResult = text
+    this._setBodyUsed();
+    return text
+  }
+
+  /**
+   * 将响应主体转换为 FormData
+   * @returns {Promise<FormData>}
+   */
+  formData() {
+    return this.text().then(text => {
+      const formData = new FormData();
+      text.split('&').forEach(pair => {
+        if (!pair) return;
+        const [key, value] = pair.split('=').map(decodeURIComponent);
+        formData.append(key, value);
+      });
+      return formData;
+    });
+  }
+
+  /**
+   * 克隆响应对象
+   * @returns {Response}
+   */
+  clone() {
+    if (this._bodyUsed) {
+      throw new TypeError('Cannot clone a response that has been consumed');
+    }
+    
+    // 创建新实例并复制属性
+    const clonedBody = this.body ? new Uint8Array(this.body) : null;
+    return new Response(clonedBody, {
+      status: this.status,
+      statusText: this.statusText,
+      headers: new Headers(this.headers),
+      type: this.type,
+      url: this.url,
+      redirected: this.redirected
+    });
+  }
+
+  /**
+   * 创建一个重定向响应
+   * @param {string} url - 重定向目标 URL
+   * @param {number} [status=302] - 重定向状态码
+   * @returns {Response}
+   */
+  static redirect(url, status = 302) {
+    if (![301, 302, 303, 307, 308].includes(status)) {
+      throw new RangeError('Invalid status code');
+    }
+    
+    return new Response(null, {
+      status,
+      headers: { Location: url }
+    });
+  }
+
+  /**
+   * 创建一个错误响应
+   * @returns {Response}
+   */
+  static error() {
+    return new Response(null, {
+      status: 0,
+      type: 'error'
+    });
+  }
+}
+
+// 用于管理响应头的类
+class Headers {
+  /**
+   * 创建一个 Headers 实例
+   * @param {HeadersInit} [init] - 初始头信息
+   */
+  constructor(init = {}) {
+    this._headers = new Map();
+    
+    // 从不同格式初始化头信息
+    if (init instanceof Headers) {
+      init.forEach((value, key) => this.append(key, value));
+    } else if (Array.isArray(init)) {
+      init.forEach(([key, value]) => this.append(key, value));
+    } else if (typeof init === 'object') {
+      Object.entries(init).forEach(([key, value]) => this.append(key, value));
+    }
+  }
+
+  /**
+   * 添加头信息（不覆盖现有同名头）
+   * @param {string} name - 头名称
+   * @param {string} value - 头值
+   */
+  append(name, value) {
+    const key = name.toLowerCase();
+    const current = this._headers.get(key);
+    this._headers.set(key, current ? `${current}, ${value}` : value.toString());
+  }
+
+  /**
+   * 删除指定头信息
+   * @param {string} name - 头名称
+   */
+  delete(name) {
+    this._headers.delete(name.toLowerCase());
+  }
+
+  /**
+   * 获取指定头信息
+   * @param {string} name - 头名称
+   * @returns {string|null}
+   */
+  get(name) {
+    return this._headers.get(name.toLowerCase()) || null;
+  }
+
+  /**
+   * 检查是否包含指定头信息
+   * @param {string} name - 头名称
+   * @returns {boolean}
+   */
+  has(name) {
+    return this._headers.has(name.toLowerCase());
+  }
+
+  /**
+   * 设置指定头信息（覆盖现有同名头）
+   * @param {string} name - 头名称
+   * @param {string} value - 头值
+   */
+  set(name, value) {
+    this._headers.set(name.toLowerCase(), value.toString());
+  }
+
+  /**
+   * 迭代所有头信息
+   * @param {function} callback - 回调函数
+   * @param {any} [thisArg] - 回调函数的 this 上下文
+   */
+  forEach(callback, thisArg) {
+    this._headers.forEach((value, key) => callback.call(thisArg, value, key, this));
+  }
+
+  /**
+   * 获取所有头名称迭代器
+   * @returns {IterableIterator<string>}
+   */
+  keys() {
+    return this._headers.keys();
+  }
+
+  /**
+   * 获取所有头值迭代器
+   * @returns {IterableIterator<string>}
+   */
+  values() {
+    return this._headers.values();
+  }
+
+  /**
+   * 获取所有头键值对迭代器
+   * @returns {IterableIterator<[string, string]>}
+   */
+  entries() {
+    return this._headers.entries();
+  }
+
+  [Symbol.iterator]() {
+    return this.entries();
+  }
+}
 class MNConnection{
   static genURL(url) {
     return NSURL.URLWithString(url)
@@ -4296,6 +4806,42 @@ class MNConnection{
   })
   }
   /**
+   * Sends an HTTP request asynchronously and returns the response data.
+   * 
+   * This method sends the specified HTTP request asynchronously using NSURLConnection. It returns a promise that resolves with the response data if the request is successful,
+   * or with an error object if the request fails. The error object includes details such as the status code and error message.
+   * 
+   * @param {NSMutableURLRequest} request - The HTTP request to be sent.
+   * @returns {Promise<Object>} A promise that resolves with the response data or an error object.
+   */
+  static async sendRequestDev(request){
+    const queue = NSOperationQueue.mainQueue()
+    return new Promise((resolve, reject) => {
+      NSURLConnection.sendAsynchronousRequestQueueCompletionHandler(
+        request,
+        queue,
+        /**
+         * 
+         * @param {NSHTTPURLResponse} res 
+         * @param {NSData} data 
+         * @param {NSError} err 
+         * @returns 
+         */
+        (res, data, err) => {
+          try {
+          // MNUtil.log("Status Code",res.statusCode())
+          let url = request.URL().absoluteString()
+          resolve(Response.new(res,data,err,url))
+            
+          } catch (error) {
+            MNUtil.addErrorLog(error, "sendRequestDev")
+            resolve(Response.new(res,data,err))
+          }
+        }
+      )
+  })
+  }
+  /**
    * Fetches data from a specified URL with optional request options.
    * 
    * This method initializes a request with the provided URL and options, then sends the request asynchronously.
@@ -4318,6 +4864,25 @@ class MNConnection{
     const request = this.initRequest(url, options)
     // MNUtil.copy(typeof request)
     const res = await this.sendRequest(request)
+    // MNUtil.showHUD("Fetch"+(typeof res))
+    return res
+      
+    } catch (error) {
+      MNUtil.addErrorLog(error, "fetch")
+      return undefined
+    }
+  }
+  /**
+   * 
+   * @param {string} url 
+   * @param {Object} options 
+   * @returns {Promise<Response>} A promise that resolves with the response data or an error object.
+   */
+  static async fetchDev (url,options = {}){
+    try {
+    const request = this.initRequest(url, options)
+    // MNUtil.copy(typeof request)
+    const res = await this.sendRequestDev(request)
     // MNUtil.showHUD("Fetch"+(typeof res))
     return res
       
@@ -5275,3 +5840,4 @@ class MNExtensionPanel {
     }
   }
 }
+

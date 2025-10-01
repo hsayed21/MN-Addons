@@ -1268,44 +1268,57 @@ try {
    */
   addChild(note){
     try {
-    // MNUtil.log(MNUtil.typeOf(note))
-    // MNUtil.showHUD(MNUtil.typeOf(note))
-    switch (MNUtil.typeOf(note)) {
-      case "NoteURL":
-        let noteFromURL = MNUtil.getNoteById(MNUtil.getNoteIdByURL(note))
-        if (noteFromURL) {
-          this.note.addChild(noteFromURL)
-        }else{
-          MNUtil.log({
-            level:'error',
-            message:note
-          })
-          MNUtil.showHUD("Note not exist!")
-        }
-        break;
-      case "NoteId":
-      case "string":
-        let targetNote = MNUtil.getNoteById(note)
-        if (targetNote) {
-          this.note.addChild(targetNote)
-        }else{
-          MNUtil.log({
-            level:'error',
-            message:note
-          })
-          MNUtil.showHUD("Note not exist!")
-        }
-        break;
-      case "MNNote":
-        this.note.addChild(note.note)
-        break;
-      case "MbBookNote":
-        this.note.addChild(note)
-        break;
-      default:
-        MNUtil.showHUD("UNKNOWN Note")
-        break;
+    let temNote = MNNote.new(note)
+    if (temNote) {
+      let notebookId = this.notebookId
+      if (temNote.notebookId !== notebookId) {
+        temNote = temNote.realGroupNoteForTopicId(notebookId)
+      }
+      if (temNote.notebookId !== notebookId) {
+        MNUtil.showHUD("Not in the same notebook")
+        return
+      }
+      this.note.addChild(temNote.note)
     }
+    // // MNUtil.log(MNUtil.typeOf(note))
+    // // MNUtil.showHUD(MNUtil.typeOf(note))
+    // let type = MNUtil.typeOf(note)
+    // switch (type) {
+    //   case "NoteURL":
+    //     let noteFromURL = MNUtil.getNoteById(MNUtil.getNoteIdByURL(note))
+    //     if (noteFromURL) {
+    //       this.note.addChild(noteFromURL)
+    //     }else{
+    //       MNUtil.log({
+    //         level:'error',
+    //         message:note
+    //       })
+    //       MNUtil.showHUD("Note not exist!")
+    //     }
+    //     break;
+    //   case "NoteId":
+    //   case "string":
+    //     let targetNote = MNUtil.getNoteById(note)
+    //     if (targetNote) {
+    //       this.note.addChild(targetNote)
+    //     }else{
+    //       MNUtil.log({
+    //         level:'error',
+    //         message:note
+    //       })
+    //       MNUtil.showHUD("Note not exist!")
+    //     }
+    //     break;
+    //   case "MNNote":
+    //     this.note.addChild(note.note)
+    //     break;
+    //   case "MbBookNote":
+    //     this.note.addChild(note)
+    //     break;
+    //   default:
+    //     MNUtil.showHUD("UNKNOWN Note:"+type)
+    //     break;
+    // }
     return this
     } catch (error) {
       MNNote.addErrorLog(error, "addChild")
