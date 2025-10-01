@@ -235,8 +235,12 @@ JSB.newAddon = function(mainPath){
         
         let rootNote = MNNote.getFocusNote();
         if (!rootNote) {
-          MNUtil.showHUD("请先选择一个根卡片");
-          return;
+          // 如果没选中就默认用“数学知识库”为根目录
+          rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
+          if (!rootNote) {
+            MNUtil.showHUD("请先选择一个根卡片");
+            return;
+          }
         } 
         
         // 显示开始提示
@@ -396,7 +400,7 @@ JSB.newAddon = function(mainPath){
           return;
         } else if (choice === options.length) {
           // 清空历史
-          this.clearSearchHistory();
+          self.clearSearchHistory();
         } else {
           // 显示选中的历史记录结果
           const selectedHistory = self.searchHistory[choice - 1];
@@ -421,7 +425,7 @@ JSB.newAddon = function(mainPath){
           };
           
           // 显示历史搜索结果
-          this.showSearchResults(
+          self.showSearchResults(
             selectedHistory.results, 
             searcher, 
             searchOptions, 
@@ -439,21 +443,7 @@ JSB.newAddon = function(mainPath){
      * 清空搜索历史
      */
     clearSearchHistory: async function() {
-      try {
-        const confirm = await MNUtil.userSelect(
-          "确认清空",
-          "确定要清空所有搜索历史吗？此操作不可恢复。",
-          ["取消", "确认清空"]
-        );
-        
-        if (confirm === 2) {
-          self.searchHistory = [];
-          MNUtil.showHUD("搜索历史已清空");
-        }
-      } catch (error) {
-        MNUtil.showHUD("清空历史失败: " + error.message);
-        MNLog.error(error, "MNKnowledgeBase: clearSearchHistory");
-      }
+      self.clearSearchHistory()
     },
 
     /**
@@ -936,6 +926,24 @@ JSB.newAddon = function(mainPath){
     } catch (error) {
       MNUtil.showHUD("显示结果失败: " + error.message);
       MNLog.error(error, "MNKnowledgeBase: showSearchResults");
+    }
+  }
+
+  MNKnowledgeBaseClass.prototype.clearSearchHistory = async function() {
+    try {
+      const confirm = await MNUtil.userSelect(
+        "确认清空",
+        "确定要清空所有搜索历史吗？此操作不可恢复。",
+        ["取消", "确认清空"]
+      );
+      
+      if (confirm === 1) {
+        this.searchHistory = [];
+        MNUtil.showHUD("搜索历史已清空");
+      }
+    } catch (error) {
+      MNUtil.showHUD("清空历史失败: " + error.message);
+      MNLog.error(error, "MNKnowledgeBase: clearSearchHistory");
     }
   }
   
