@@ -13689,7 +13689,7 @@ class knowledgeBaseTemplate {
       const keyword = await new Promise((resolve) => {
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
           "搜索同义词组",
-          "请输入搜索关键词（支持搜索组名或词汇内容）：",
+          "请输入搜索关键词（在所有词汇中搜索）：",
           2, // 输入框样式
           "取消",
           ["搜索"],
@@ -13721,17 +13721,11 @@ class knowledgeBaseTemplate {
       
       for (const group of groups) {
         // 添加数据验证
-        if (!group || !group.name) {
+        if (!group || !group.words || group.words.length === 0) {
           MNUtil.log("警告：发现异常同义词组数据，已跳过搜索");
           continue;
         }
-        
-        // 搜索组名
-        if (group.name.toLowerCase().includes(lowerKeyword)) {
-          matchedGroups.push(group);
-          continue;
-        }
-        
+
         // 搜索词汇内容 - 防御性检查
         const words = group.words || [];
         let hasMatchingWord = false;
@@ -13755,13 +13749,17 @@ class knowledgeBaseTemplate {
       // 构建搜索结果选项
       const searchOptions = [];
       for (const group of matchedGroups) {
-        const status = group.enabled ? "✅" : "⭕";
         const partialIcon = group.partialReplacement ? "🔄" : "";
+        const patternIcon = group.patternMode ? "🎯" : "";
+        const caseIcon = group.caseSensitive ? "Aa" : "";
+        const contextIcon = group.contextTriggers ? "📍" : "";
         // 防御性检查 - 处理 words 可能为空的情况
         const words = group.words || [];
         const wordsPreview = words.slice(0, 3).join(", ");
         const moreText = words.length > 3 ? `... (共${words.length}个)` : "";
-        searchOptions.push(`${status} ${partialIcon} ${group.name}: ${wordsPreview}${moreText}`);
+        const icons = [partialIcon, patternIcon, caseIcon, contextIcon].filter(i => i).join("");
+        const iconText = icons ? ` ${icons}` : "";
+        searchOptions.push(`${wordsPreview}${moreText}${iconText}`);
       }
 
       // 循环显示搜索结果，支持连续编辑
@@ -13820,43 +13818,13 @@ class knowledgeBaseTemplate {
   static async showAddSynonymDialog() {
     let continueAdding = true;
     let addedCount = 0;
-    
+
     while (continueAdding) {
-      // 第一步：输入组名
-      const groupName = await new Promise((resolve) => {
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "添加同义词组",
-          "请输入同义词组名称：",
-          2, // 输入框样式
-          "取消",
-          ["下一步"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(null);
-              return;
-            }
-            
-            const name = alert.textFieldAtIndex(0).text.trim();
-            if (!name) {
-              MNUtil.showHUD("❌ 请输入组名");
-              resolve(null);
-              return;
-            }
-            
-            resolve(name);
-          }
-        );
-      });
-      
-      if (!groupName) {
-        break; // 用户取消
-      }
-      
-      // 第二步：输入词汇
+      // 第一步：直接输入同义词（移除了组名输入）
       const words = await new Promise((resolve) => {
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "添加同义词",
-          `组名：${groupName}\n\n请输入同义词，支持以下分隔方式：\n• 逗号：machine learning, deep learning\n• 分号：机器学习; 深度学习\n• 双空格：机器学习  深度学习\n• 单空格：机器 学习（仅当无其他分隔符时）`,
+          "添加同义词组",
+          `请输入同义词，支持以下分隔方式：\n• 逗号：machine learning, deep learning\n• 分号：机器学习; 深度学习\n• 双空格：机器学习  深度学习\n• 单空格：机器 学习（仅当无其他分隔符时）`,
           2,
           "取消",
           ["下一步"],
@@ -13891,11 +13859,11 @@ class knowledgeBaseTemplate {
         continue; // 返回重新输入
       }
       
-      // 第三步：选择匹配模式
+      // 第二步：选择匹配模式
       const { enablePartial, patternMode } = await new Promise((resolve) => {
         const hasPatternPlaceholder = words.some(word => word.includes('{{}}'));
-        
-        let message = `组名：${groupName}\n词汇：${words.join(", ")}\n\n`;
+
+        let message = `词汇：${words.join(", ")}\n\n`;
         if (hasPatternPlaceholder) {
           message += `检测到模式占位符 {{}}，建议启用模式匹配：\n`;
         }
@@ -13939,7 +13907,7 @@ class knowledgeBaseTemplate {
         const modeText = patternMode ? "（模式匹配）" : (enablePartial ? "（局部替换）" : "（普通）");
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
           "大小写匹配",
-          `组名：${groupName}${modeText}\n词汇：${words.join(", ")}\n\n是否启用大小写敏感匹配？\n• 启用：Machine 和 machine 视为不同词汇\n• 不启用：Machine 和 machine 视为相同词汇`,
+          `匹配模式：${modeText}\n词汇：${words.join(", ")}\n\n是否启用大小写敏感匹配？\n• 启用：Machine 和 machine 视为不同词汇\n• 不启用：Machine 和 machine 视为相同词汇`,
           0,
           "取消", 
           ["下一步（不敏感）", "下一步（大小写敏感）"],
@@ -14051,8 +14019,18 @@ class knowledgeBaseTemplate {
         }
       }
       
-      // 添加同义词组
-      const result = this.addSynonymGroup(groupName, words, enablePartial, contextTriggers, contextMode, caseSensitive, patternMode);
+      // 添加同义词组（使用新的参数格式）
+      const options = {
+        partialReplacement: enablePartial,
+        caseSensitive: caseSensitive,
+        patternMode: patternMode
+      };
+      if (contextTriggers && contextTriggers.length > 0) {
+        options.contextTriggers = contextTriggers;
+        options.contextMode = contextMode;
+      }
+
+      const result = this.addSynonymGroup(words, options);
       if (result) {
         addedCount++;
         let configText = "";
@@ -14065,7 +14043,10 @@ class knowledgeBaseTemplate {
         } else {
           configText += "全局应用";
         }
-        MNUtil.showHUD(`✅ 已添加：${groupName}\n配置：${configText}`);
+        // 使用词汇预览代替组名
+        const wordsPreview = words.slice(0, 3).join(", ");
+        const moreText = words.length > 3 ? `...(共${words.length}个)` : "";
+        MNUtil.showHUD(`✅ 已添加：${wordsPreview}${moreText}\n配置：${configText}`);
       }
       
       // 第四步：询问是否继续添加
