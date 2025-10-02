@@ -68,9 +68,13 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
   
   scrollViewDidScroll: function(scrollview) {
-    if (scrollview.id && scrollview.id === "tempCardScrollView") {
-      // MNUtil.showHUD("临时固定视图滚动")
-      self.refreshTemporaryPinCards()
+    // 只在非 minimode 时处理滚动刷新，避免频繁刷新导致手写消失
+    if (!self.miniMode && scrollview.id && self.currentSection) {
+      let expectedId = self.currentSection + "CardScrollView"
+      if (scrollview.id === expectedId) {
+        // MNUtil.showHUD("分区视图滚动: " + self.currentSection)
+        self.refreshSectionCards(self.currentSection)
+      }
     }
   },
   
@@ -180,7 +184,10 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     // 正常拖动
     self.setFrame(x, y, frame.width, frame.height)
     // MNUtil.studyView.bringSubviewToFront(self.view)
-    self.refreshTemporaryPinCards()
+    // 只在非 minimode 时刷新，避免频繁刷新导致手写消失
+    if (!self.miniMode && self.currentSection) {
+      self.refreshSectionCards(self.currentSection)
+    }
   },
 
   onResizeGesture:function (gesture) {
@@ -226,8 +233,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       }
       if (gesture.state === 3) {
         MNUtil.studyView.bringSubviewToFront(self.view)
-        
-        self.refreshTemporaryPinCards()
+
+        // 只在非 minimode 时刷新，避免频繁刷新导致手写消失
+        if (!self.miniMode && self.currentSection) {
+          self.refreshSectionCards(self.currentSection)
+        }
       }
     } catch (error) {
       pinnerUtils.addErrorLog(error, "onResizeGesture")
@@ -317,129 +327,206 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     }
   },
   
-  temporaryPinTabTapped: function(button) {
-    self.switchView("temporaryPinView")
+  focusTabTapped: function(button) {
+    self.switchView("focusView")
   },
 
-  permanentPinTabTapped: function (button) {
-    self.switchView("permanentPinView")
+  midwayTabTapped: function(button) {
+    self.switchView("midwayView")
   },
 
-  // === temporaryPinView 的事件处理方法 ===
-  tempClearCards: async function() {
+  // === 分区视图的事件处理方法 ===
+  clearCards: async function(button) {
     try {
-      // 调用数据层清空方法
-      let success = await pinnerConfig.clearPins(true)
-      
+      // 从按钮获取分区信息
+      let section = button.section || self.currentSection
+      if (!section) {
+        MNUtil.showHUD("无法确定分区")
+        return
+      }
+
+      let success = await pinnerConfig.clearPins(section)
+
       if (success) {
         // 刷新视图显示
-        self.refreshTemporaryPinCards()
-        MNUtil.showHUD("已清空临时固定卡片")
-      } else {
-        MNUtil.showHUD("清空失败")
+        self.refreshSectionCards(section)
       }
     } catch (error) {
-      pinnerUtils.addErrorLog(error, "tempClearCards")
+      pinnerUtils.addErrorLog(error, "clearCards")
       MNUtil.showHUD("清空失败: " + error)
     }
   },
 
-  tempRefreshCards: function() {
-    self.refreshTemporaryPinCards()
+  refreshCards: function(button) {
+    let section = button.section || self.currentSection
+    self.refreshSectionCards(section)
     MNUtil.showHUD("已刷新")
   },
 
   /**
    * 删除单个卡片
    */
-  deleteTempCard: function(button) {
+  deleteCard: function(button) {
     try {
       let noteId = button.noteId
+      let section = button.section || self.currentSection
+
       if (!noteId) {
         MNUtil.showHUD("无法获取卡片ID")
-        pinnerUtils.log("此时的 Button: " + JSON.stringify(button), "deleteTempCard")
+        pinnerUtils.log("此时的 Button: " + JSON.stringify(button), "deleteCard")
         return
       }
-      
+
       // 调用数据层删除方法
-      let success = pinnerConfig.removePin(noteId)
-      
+      let success = pinnerConfig.removePin(noteId, section)
+
       if (success) {
         // 刷新视图
-        self.refreshTemporaryPinCards()
+        self.refreshSectionCards(section)
         MNUtil.showHUD("已删除")
       } else {
         MNUtil.showHUD("删除失败")
       }
     } catch (error) {
-      pinnerUtils.addErrorLog(error, "deleteTempCard")
+      pinnerUtils.addErrorLog(error, "deleteCard")
       MNUtil.showHUD("删除失败: " + error)
     }
   },
   
   /**
    * 单击定位卡片
-   * 
+   *
    * 目前是脑图定位
    */
-  focusTempCardTapped: function(button) {
+  focusCardTapped: function(button) {
     try {
       let noteId = button.noteId
       if (!noteId) {
         MNUtil.showHUD("无法获取卡片ID")
-        pinnerUtils.log("此时的 Button: " + JSON.stringify(button), "focusTempCardTapped")
+        pinnerUtils.log("此时的 Button: " + JSON.stringify(button), "focusCardTapped")
         return
       }
-      
+
       // 使用 MNNote 跳转到卡片
       let note = MNNote.new(noteId)
       if (note) {
         note.focusInMindMap()
         // MNUtil.showHUD("已跳转到卡片")
-        
+
         // 隐藏面板（可选）
         // self.hide()
       } else {
         MNUtil.showHUD("找不到该卡片")
       }
     } catch (error) {
-      pinnerUtils.addErrorLog(error, "focusTempCardTapped")
+      pinnerUtils.addErrorLog(error, "focusCardTapped")
       MNUtil.showHUD("查看失败: " + error)
     }
   },
   
   /**
-   * 点击临时卡片标题
+   * 点击卡片标题
    * 显示操作菜单
    */
-  tempCardTapped: function(button) {
+  cardTapped: function(button) {
     try {
       // 创建菜单选项
       let commandTable = [
-        self.tableItem("✏️  修改标题", "renameTempCard:", button)
+        self.tableItem("✏️  修改标题", "renameCard:", button),
+        self.tableItem("↔️  转移到...", "showTransferMenu:", button)
       ]
-      
+
       // 显示弹出菜单
       self.popoverController = MNUtil.getPopoverAndPresent(
-        button, 
-        commandTable, 
-        120,  // 宽度
+        button,
+        commandTable,
+        150,  // 宽度
         1     // 箭头方向
       )
     } catch (error) {
-      pinnerUtils.addErrorLog(error, "tempCardTapped")
+      pinnerUtils.addErrorLog(error, "cardTapped")
       MNUtil.showHUD("操作失败")
     }
   },
   
   /**
-   * 重命名临时卡片
+   * 显示转移菜单
    */
-  renameTempCard: function(button) {
+  showTransferMenu: function(button) {
+    try {
+      self.checkPopover()  // 关闭当前菜单
+
+      let noteId = button.noteId
+      let currentSection = button.section || self.currentSection
+
+      if (!noteId || !currentSection) {
+        MNUtil.showHUD("无法获取卡片信息")
+        return
+      }
+
+      // 获取所有分区，排除当前分区
+      let sections = pinnerConfig.getSectionNames()
+      let targetSections = sections.filter(s => s !== currentSection)
+
+      if (targetSections.length === 0) {
+        MNUtil.showHUD("没有可转移的分区")
+        return
+      }
+
+      // 创建转移菜单
+      let commandTable = targetSections.map(section => {
+        let displayName = pinnerConfig.getSectionDisplayName(section)
+        let param = { noteId: noteId, fromSection: currentSection, toSection: section }
+        return self.tableItem(`➡️  ${displayName}`, "transferCard:", param)
+      })
+
+      // 显示菜单
+      self.popoverController = MNUtil.getPopoverAndPresent(
+        button,
+        commandTable,
+        150,
+        1
+      )
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "showTransferMenu")
+      MNUtil.showHUD("显示转移菜单失败")
+    }
+  },
+
+  /**
+   * 执行卡片转移
+   */
+  transferCard: function(param) {
+    try {
+      self.checkPopover()
+
+      let { noteId, fromSection, toSection } = param
+
+      if (pinnerConfig.transferPin(noteId, fromSection, toSection)) {
+        // 刷新源分区视图
+        self.refreshSectionCards(fromSection)
+
+        // 根据参数决定是否切换到目标分区
+        // 默认不切换（可以后续添加参数控制）
+        // if (switchToTarget) {
+        //   self.switchView(toSection + "View")
+        // }
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "transferCard")
+      MNUtil.showHUD("转移失败")
+    }
+  },
+
+  /**
+   * 重命名卡片
+   */
+  renameCard: function(button) {
     try {
       self.checkPopover()  // 关闭菜单
-      self.refreshTemporaryPinCards()
+
       let noteId = button.noteId
+      let section = button.section || self.currentSection
 
       if (noteId) {
         // 显示输入对话框
@@ -460,9 +547,9 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
               }
 
               // 更新数据
-              if (pinnerConfig.updatePinTitle(noteId, newTitle.trim())) {
+              if (pinnerConfig.updatePinTitle(noteId, newTitle.trim(), section)) {
                 // 刷新视图
-                self.refreshTemporaryPinCards()
+                self.refreshSectionCards(section)
                 MNUtil.showHUD("标题已更新")
               } else {
                 MNUtil.showHUD("更新失败")
@@ -472,7 +559,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         )
       }
     } catch (error) {
-      pinnerUtils.addErrorLog(error, "renameTempCard")
+      pinnerUtils.addErrorLog(error, "renameCard")
       MNUtil.showHUD("更新标题失败: " + error)
     }
   },
@@ -483,13 +570,14 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   moveCardUp: function(button) {
     try {
       let index = button.tag
-      let pins = pinnerConfig.getPins(true)
+      let section = button.section || self.currentSection
+      let pins = pinnerConfig.getPins(section)
 
       if (index > 0) {
         // 使用 pinnerConfig 的 movePin 方法
-        pinnerConfig.movePin(index, index - 1, true)
+        pinnerConfig.movePin(index, index - 1, section)
         // 刷新视图
-        self.refreshTemporaryPinCards()
+        self.refreshSectionCards(section)
         MNUtil.showHUD("已上移")
       }
     } catch (error) {
@@ -504,13 +592,14 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   moveCardDown: function(button) {
     try {
       let index = button.tag
-      let pins = pinnerConfig.getPins(true)
+      let section = button.section || self.currentSection
+      let pins = pinnerConfig.getPins(section)
 
       if (index < pins.length - 1) {
         // 使用 pinnerConfig 的 movePin 方法
-        pinnerConfig.movePin(index, index + 1, true)
+        pinnerConfig.movePin(index, index + 1, section)
         // 刷新视图
-        self.refreshTemporaryPinCards()
+        self.refreshSectionCards(section)
         MNUtil.showHUD("已下移")
       }
     } catch (error) {
@@ -529,12 +618,13 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       let button = gesture.view
       let index = button.tag
+      let section = button.section || self.currentSection
 
       if (index > 0) {
         // 将卡片移动到第一位
-        pinnerConfig.movePin(index, 0, true)
+        pinnerConfig.movePin(index, 0, section)
         // 刷新视图
-        self.refreshTemporaryPinCards()
+        self.refreshSectionCards(section)
         MNUtil.showHUD("已置顶")
       }
     } catch (error) {
@@ -553,13 +643,14 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       let button = gesture.view
       let index = button.tag
-      let pins = pinnerConfig.getPins(true)
+      let section = button.section || self.currentSection
+      let pins = pinnerConfig.getPins(section)
 
       if (index < pins.length - 1) {
         // 将卡片移动到最后一位
-        pinnerConfig.movePin(index, pins.length - 1, true)
+        pinnerConfig.movePin(index, pins.length - 1, section)
         // 刷新视图
-        self.refreshTemporaryPinCards()
+        self.refreshSectionCards(section)
         MNUtil.showHUD("已置底")
       }
     } catch (error) {
@@ -746,15 +837,16 @@ pinnerController.prototype.init = function () {
   this.miniMode = false    // 迷你模式状态
   this.onAnimate = false   // 动画状态控制
   this.lastTapTime = 0     // 双击检测时间
-  
+  this.currentSection = "focus"  // 当前显示的分区，默认focus
+
   // 初始化 frame 状态（在 viewDidLoad 中会设置具体值）
   if (!this.lastFrame) {
     this.lastFrame = this.view.frame
   }
   if (!this.currentFrame) {
-    this.currentFrame = this.view.frame  
+    this.currentFrame = this.view.frame
   }
-  
+
   this.view.layer.shadowOffset = {width: 0, height: 0};
   this.view.layer.shadowRadius = 15;
   this.view.layer.shadowOpacity = 0.5;
@@ -775,8 +867,8 @@ pinnerController.prototype.settingViewLayout = function () {
     let width = viewFrame.width+10
     let height = viewFrame.height
     this.settingView.frame = MNUtil.genFrame(-5, 55, width, height-65)
-    this.temporaryPinView.frame = MNUtil.genFrame(0, 0,width, height-65)
-    this.permanentPinView.frame = MNUtil.genFrame(0, 0,width, height-65)
+    this.focusView.frame = MNUtil.genFrame(0, 0,width, height-65)
+    this.midwayView.frame = MNUtil.genFrame(0, 0,width, height-65)
 
     let settingFrame = this.settingView.bounds
     settingFrame.x = 0
@@ -784,49 +876,48 @@ pinnerController.prototype.settingViewLayout = function () {
     settingFrame.height = 30
     settingFrame.width = settingFrame.width-45
     this.tabView.frame = settingFrame
-    
+
     // 布局 tab 按钮
     let tabX = 10
-    if (this.temporaryPinTabButton) {
-      this.temporaryPinTabButton.frame = {x: tabX, y: 2, width: this.temporaryPinTabButton.width, height: 26}
-      tabX += this.temporaryPinTabButton.width + 5
+    if (this.focusTabButton) {
+      this.focusTabButton.frame = {x: tabX, y: 2, width: this.focusTabButton.width, height: 26}
+      tabX += this.focusTabButton.width + 5
     }
-    if (this.permanentPinTabButton) {
-      this.permanentPinTabButton.frame = {x: tabX, y: 2, width: this.permanentPinTabButton.width, height: 26}
-      tabX += this.permanentPinTabButton.width + 5
+    if (this.midwayTabButton) {
+      this.midwayTabButton.frame = {x: tabX, y: 2, width: this.midwayTabButton.width, height: 26}
+      tabX += this.midwayTabButton.width + 5
     }
-    
+
     this.tabView.contentSize = {width: tabX + 10, height: 30}
-    
+
     // 布局关闭按钮
     settingFrame.y = 20
     settingFrame.x = this.tabView.frame.width + 5
     settingFrame.width = 30
     this.closeButton.frame = settingFrame
 
-
     // 布局调整大小按钮
     this.resizeButton.frame = {x: this.view.bounds.width - 30, y: this.view.bounds.height - 40, width: 30, height: 30}
-    
-    // 布局 temporaryPinView 的子视图
-    if (!this.temporaryPinView.hidden) {
-      this.layoutTemporaryPinView()
-    }
 
-    // TODO: 布局 permanentPinView 的子视图
+    // 根据当前显示的视图布局子视图
+    if (!this.focusView.hidden) {
+      this.layoutSectionView("focus")
+    }
+    if (!this.midwayView.hidden) {
+      this.layoutSectionView("midway")
+    }
   } catch (error) {
     pinnerUtils.addErrorLog(error, "settingViewLayout")
   }
 }
 pinnerController.prototype.refreshLayout = function () {
-  // 添加临时固定视图的布局刷新
-  if (!this.temporaryPinView.hidden) {
-    this.layoutTemporaryPinView()
+  // 刷新当前显示的分区视图
+  if (!this.focusView.hidden) {
+    this.layoutSectionView("focus")
   }
-  // // 添加永久固定视图的布局刷新
-  // if (!this.permanentPinView.hidden) {
-  //   this.layoutPermanentPinView()
-  // }
+  if (!this.midwayView.hidden) {
+    this.layoutSectionView("midway")
+  }
 }
 pinnerController.prototype.createSettingView = function () {
   try {
@@ -842,68 +933,36 @@ pinnerController.prototype.createSettingView = function () {
 
     // === 创建 tab 切换按钮 ===
     let radius = 10
-    this.createButton("temporaryPinTabButton","temporaryPinTabTapped:","tabView")
-    this.temporaryPinTabButton.layer.cornerRadius = radius;
-    this.temporaryPinTabButton.isSelected = true  // 默认选中第一个 tab
-    MNButton.setConfig(this.temporaryPinTabButton, 
-      {color:"#457bd3",alpha:0.9,opacity:1.0,title:"temporary",font:17,bold:true}  // 使用选中颜色
+    this.createButton("focusTabButton","focusTabTapped:","tabView")
+    this.focusTabButton.layer.cornerRadius = radius;
+    this.focusTabButton.isSelected = true  // 默认选中第一个 tab
+    MNButton.setConfig(this.focusTabButton,
+      {color:"#457bd3",alpha:0.9,opacity:1.0,title:"Focus",font:17,bold:true}  // 使用选中颜色
     )
-    let size = this.temporaryPinTabButton.sizeThatFits({width:100,height:100})
-    this.temporaryPinTabButton.width = size.width+15
-    
-    this.createButton("permanentPinTabButton","permanentPinTabTapped:","tabView")
-    this.permanentPinTabButton.layer.cornerRadius = radius;
-    this.permanentPinTabButton.isSelected = false
-    MNButton.setConfig(this.permanentPinTabButton, 
-      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"permanent",font:17,bold:true}
+    let size = this.focusTabButton.sizeThatFits({width:100,height:100})
+    this.focusTabButton.width = size.width+15
+
+    this.createButton("midwayTabButton","midwayTabTapped:","tabView")
+    this.midwayTabButton.layer.cornerRadius = radius;
+    this.midwayTabButton.isSelected = false
+    MNButton.setConfig(this.midwayTabButton,
+      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"中间知识",font:17,bold:true}
     )
-    size = this.permanentPinTabButton.sizeThatFits({width:120,height:100})
-    this.permanentPinTabButton.width = size.width+15
+    size = this.midwayTabButton.sizeThatFits({width:120,height:100})
+    this.midwayTabButton.width = size.width+15
 
     // === 创建各个分页===
-    this.createView("temporaryPinView","settingView","#9bb2d6",0)
-    this.temporaryPinView.hidden = false  // 默认显示第一个视图
+    this.createView("focusView","settingView","#9bb2d6",0)
+    this.focusView.hidden = false  // 默认显示第一个视图
 
-    this.createView("permanentPinView","settingView","#9bb2d6",0)
-    this.permanentPinView.hidden = true  // 隐藏其他视图
+    this.createView("midwayView","settingView","#9bb2d6",0)
+    this.midwayView.hidden = true  // 隐藏其他视图
 
-    // === 为 temporaryPinView 添加子视图 ===
-    // 创建顶部按钮的滚动容器
-    this.tempButtonScrollView = UIScrollView.new()
-    this.tempButtonScrollView.alwaysBounceHorizontal = true
-    this.tempButtonScrollView.showsHorizontalScrollIndicator = false
-    this.tempButtonScrollView.backgroundColor = UIColor.clearColor()
-    this.tempButtonScrollView.bounces = false
-    this.temporaryPinView.addSubview(this.tempButtonScrollView)
-    
-    // 顶部操作按钮 - 添加到滚动容器中
-    this.createButton("tempClearButton", "tempClearCards:", "tempButtonScrollView")
-    MNButton.setConfig(this.tempClearButton, {
-      color: "#e06c75", alpha: 0.8, opacity: 1.0, title: "🗑 清空", radius: 10, font: 15
-    })
+    // === 为每个分区创建子视图 ===
+    this.createSectionViews()
 
-    this.createButton("tempRefreshButton", "tempRefreshCards:", "tempButtonScrollView")  
-    MNButton.setConfig(this.tempRefreshButton, {
-      color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "🔄 刷新", radius: 10, font: 15
-    })
-
-    // 中间滚动视图 - 注意接收返回值
-    this.tempCardScrollView = this.createScrollview("temporaryPinView", "#f5f5f5", 0.9)
-    this.tempCardScrollView.layer.cornerRadius = 12
-    this.tempCardScrollView.alwaysBounceVertical = true
-    this.tempCardScrollView.showsVerticalScrollIndicator = true
-    this.tempCardScrollView.id = "tempCardScrollView"
-    
-    // 初始化卡片行数组
-    this.tempCardRows = []
-
-    // 右侧操作按钮
-    // this.createButton("tempSelectAllButton", "tempSelectAllCards:", "temporaryPinView")
-    // MNButton.setConfig(this.tempSelectAllButton, {
-    //   title: "☑️", color: "#457bd3", alpha: 0.8, radius: 15, font: 20
-    // })
-
-    this.refreshView("settingView")
+    // 初始化当前分区
+    this.currentSection = "focus"
 
 
     // === 创建关闭按钮 ===
@@ -965,140 +1024,195 @@ pinnerController.prototype.createScrollview = function (superview="view", color=
   return scrollview
 }
 pinnerController.prototype.switchView = function (targetView) {
-  let allViews = ["temporaryPinView", "permanentPinView"]
-  let allButtons = ["temporaryPinTabButton","permanentPinTabButton"]
+  let allViews = ["focusView", "midwayView"]
+  let allButtons = ["focusTabButton","midwayTabButton"]
+  let sectionMap = {
+    "focusView": "focus",
+    "midwayView": "midway"
+  }
+
   allViews.forEach((k, index) => {
     let isTargetView = k === targetView
     this[k].hidden = !isTargetView
     this[allButtons[index]].isSelected = isTargetView
     this[allButtons[index]].backgroundColor = MNUtil.hexColorAlpha(isTargetView?"#457bd3":"#9bb2d6",0.8)
   })
+
+  // 更新当前分区
+  this.currentSection = sectionMap[targetView]
   this.refreshView(targetView)
 }
+
 pinnerController.prototype.refreshView = function (targetView) {
   try {
     switch (targetView) {
-      case "permanentPinView":
-        MNUtil.showHUD("永久卡片功能待开发")
-        // this.refreshPermanentPinCards()  // 刷新永久固定卡片列表
+      case "focusView":
+        MNUtil.log("refresh focusView")
+        this.refreshSectionCards("focus")
         break;
-      case "temporaryPinView":
-        MNUtil.log("refresh temporaryPinView")
-        this.refreshTemporaryPinCards()  // 刷新临时固定卡片列表
+      case "midwayView":
+        MNUtil.log("refresh midwayView")
+        this.refreshSectionCards("midway")
         break;
       default:
         break;
     }
   } catch (error) {
-    pinnerUtils.addErrorLog(error, "chatglmController.refreshView")
+    pinnerUtils.addErrorLog(error, "refreshView")
   }
 }
 /**
- * 布局 temporaryPinView 的子视图
+ * 创建各分区的子视图
  */
-pinnerController.prototype.layoutTemporaryPinView = function() {
-  // 增强防御性检查
-  if (!this.temporaryPinView || this.temporaryPinView.hidden) return
-  if (!this.tempCardScrollView) return
-  
-  let frame = this.temporaryPinView.bounds
-  let width = frame.width
-  let height = frame.height
-  
-  // 设置按钮滚动容器的frame
-  if (this.tempButtonScrollView) {
-    // 容器占据顶部区域，宽度自适应，最多显示160px内容
-    this.tempButtonScrollView.frame = {x: 10, y: 10, width: Math.min(width - 20, 160), height: 32}
-    // 设置内容大小，允许滚动查看所有按钮
-    this.tempButtonScrollView.contentSize = {width: 160, height: 32}
-    
-    // 按钮相对于滚动容器的位置
-    if (this.tempClearButton) {
-      this.tempClearButton.frame = {x: 0, y: 0, width: 70, height: 32}
-    }
-    if (this.tempRefreshButton) {
-      this.tempRefreshButton.frame = {x: 75, y: 0, width: 70, height: 32}
-    }
-  }
-  
-  // 中间滚动视图（留出右侧按钮空间）
-  this.tempCardScrollView.frame = {x: 10, y: 50, width: width - 50, height: height - 65}
-  
-  // 右侧按钮（垂直排列，检查存在性）
-  // 暂时隐藏右侧按钮
-  // let rightX = width - 50
-  // if (this.tempSelectAllButton) {
-  //   this.tempSelectAllButton.frame = {x: rightX, y: 50, width: 40, height: 40}
-  // }
-  // if (this.tempDeleteButton) {
-  //   this.tempDeleteButton.frame = {x: rightX, y: 100, width: 40, height: 40}
-  // }
-  // if (this.tempCopyButton) {
-  //   this.tempCopyButton.frame = {x: rightX, y: 150, width: 40, height: 40}
-  // }
+pinnerController.prototype.createSectionViews = function() {
+  // 为每个分区创建相同的结构
+  ["focus", "midway"].forEach(section => {
+    let viewName = section + "View"
+
+    // 创建顶部按钮的滚动容器
+    let buttonScrollView = UIScrollView.new()
+    buttonScrollView.alwaysBounceHorizontal = true
+    buttonScrollView.showsHorizontalScrollIndicator = false
+    buttonScrollView.backgroundColor = UIColor.clearColor()
+    buttonScrollView.bounces = false
+    this[viewName].addSubview(buttonScrollView)
+    this[section + "ButtonScrollView"] = buttonScrollView
+
+    // 创建清空按钮
+    let clearButton = UIButton.buttonWithType(0)
+    clearButton.addTargetActionForControlEvents(this, "clearCards:", 1 << 6)
+    clearButton.section = section  // 保存分区信息
+    buttonScrollView.addSubview(clearButton)
+    MNButton.setConfig(clearButton, {
+      color: "#e06c75", alpha: 0.8, opacity: 1.0, title: "🗑 清空", radius: 10, font: 15
+    })
+    this[section + "ClearButton"] = clearButton
+
+    // 创建刷新按钮
+    let refreshButton = UIButton.buttonWithType(0)
+    refreshButton.addTargetActionForControlEvents(this, "refreshCards:", 1 << 6)
+    refreshButton.section = section  // 保存分区信息
+    buttonScrollView.addSubview(refreshButton)
+    MNButton.setConfig(refreshButton, {
+      color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "🔄 刷新", radius: 10, font: 15
+    })
+    this[section + "RefreshButton"] = refreshButton
+
+    // 创建卡片滚动视图
+    let cardScrollView = this.createScrollview(viewName, "#f5f5f5", 0.9)
+    cardScrollView.layer.cornerRadius = 12
+    cardScrollView.alwaysBounceVertical = true
+    cardScrollView.showsVerticalScrollIndicator = true
+    cardScrollView.id = section + "CardScrollView"
+    this[section + "CardScrollView"] = cardScrollView
+
+    // 初始化卡片行数组
+    this[section + "CardRows"] = []
+  })
 }
 
 /**
- * 刷新临时固定卡片列表
+ * 刷新指定分区的卡片
  */
-pinnerController.prototype.refreshTemporaryPinCards = function() {
+pinnerController.prototype.refreshSectionCards = function(section) {
   try {
+    let cardRowsKey = section + "CardRows"
+    let scrollViewKey = section + "CardScrollView"
+
     // 初始化卡片行数组
-    if (!this.tempCardRows) {
-      this.tempCardRows = []
+    if (!this[cardRowsKey]) {
+      this[cardRowsKey] = []
     }
-    
-    // 从 pinnerConfig 获取真实数据
-    let realCards = pinnerConfig.getPins(true) || []
-    
-    // 清空现有卡片（使用维护的数组）
-    this.tempCardRows.forEach(view => {
+
+    // 从 pinnerConfig 获取数据
+    let cards = pinnerConfig.getPins(section) || []
+
+    // 清空现有卡片
+    this[cardRowsKey].forEach(view => {
       view.removeFromSuperview()
     })
-    this.tempCardRows = []
-    
+    this[cardRowsKey] = []
+
     // 检查滚动视图是否存在
-    if (!this.tempCardScrollView) return
-    
+    let scrollView = this[scrollViewKey]
+    if (!scrollView) return
+
     // 如果没有卡片，显示提示
-    if (realCards.length === 0) {
-      // 创建空状态提示
+    if (cards.length === 0) {
       let emptyLabel = UIButton.buttonWithType(0)
       emptyLabel.setTitleForState("暂无固定的卡片", 0)
       emptyLabel.titleLabel.font = UIFont.systemFontOfSize(14)
-      emptyLabel.frame = {x: 10, y: 10, width: this.tempCardScrollView.frame.width - 20, height: 40}
+      emptyLabel.frame = {x: 10, y: 10, width: scrollView.frame.width - 20, height: 40}
       emptyLabel.enabled = false
       emptyLabel.setTitleColorForState(MNUtil.hexColorAlpha("#999999", 1.0), 0)
-      this.tempCardScrollView.addSubview(emptyLabel)
-      this.tempCardRows.push(emptyLabel)
-      this.tempCardScrollView.contentSize = {width: 0, height: 100}
+      scrollView.addSubview(emptyLabel)
+      this[cardRowsKey].push(emptyLabel)
+      scrollView.contentSize = {width: 0, height: 100}
       return
     }
-    
+
     // 添加卡片行
     let yOffset = 10
-    let scrollWidth = this.tempCardScrollView.frame.width
-    
-    realCards.forEach((card, index) => {
-      let cardRow = this.createTempCardRow(card, index, scrollWidth - 20)
-      this.tempCardScrollView.addSubview(cardRow)
-      this.tempCardRows.push(cardRow)  // 保存引用
+    let scrollWidth = scrollView.frame.width
+
+    cards.forEach((card, index) => {
+      let cardRow = this.createCardRow(card, index, scrollWidth - 20, section)
+      scrollView.addSubview(cardRow)
+      this[cardRowsKey].push(cardRow)
       yOffset += 55
     })
-    
+
     // 设置滚动区域
-    this.tempCardScrollView.contentSize = {width: 0, height: yOffset + 10}
-    
+    scrollView.contentSize = {width: 0, height: yOffset + 10}
+
   } catch (error) {
-    pinnerUtils.addErrorLog(error, "refreshTemporaryPinCards")
+    pinnerUtils.addErrorLog(error, "refreshSectionCards")
     MNUtil.showHUD("刷新卡片列表失败")
   }
 }
 
 /**
- * 创建单个卡片行视图
+ * 布局指定分区的子视图
  */
-pinnerController.prototype.createTempCardRow = function(card, index, width) {
+pinnerController.prototype.layoutSectionView = function(section) {
+  let viewName = section + "View"
+  let view = this[viewName]
+  if (!view || view.hidden) return
+
+  let scrollViewKey = section + "CardScrollView"
+  let buttonScrollViewKey = section + "ButtonScrollView"
+  let clearButtonKey = section + "ClearButton"
+  let refreshButtonKey = section + "RefreshButton"
+
+  if (!this[scrollViewKey]) return
+
+  let frame = view.bounds
+  let width = frame.width
+  let height = frame.height
+
+  // 设置按钮滚动容器
+  if (this[buttonScrollViewKey]) {
+    this[buttonScrollViewKey].frame = {x: 10, y: 10, width: Math.min(width - 20, 160), height: 32}
+    this[buttonScrollViewKey].contentSize = {width: 160, height: 32}
+
+    if (this[clearButtonKey]) {
+      this[clearButtonKey].frame = {x: 0, y: 0, width: 70, height: 32}
+    }
+    if (this[refreshButtonKey]) {
+      this[refreshButtonKey].frame = {x: 75, y: 0, width: 70, height: 32}
+    }
+  }
+
+  // 设置卡片滚动视图
+  this[scrollViewKey].frame = {x: 10, y: 50, width: width - 50, height: height - 65}
+}
+
+
+
+/**
+ * 创建单个卡片行视图（新版本）
+ */
+pinnerController.prototype.createCardRow = function(card, index, width, section) {
   // 创建卡片行容器
   let rowView = UIView.new()
   rowView.frame = {x: 10, y: 10 + index * 55, width: width, height: 45}
@@ -1107,11 +1221,12 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   rowView.layer.borderWidth = 1
   rowView.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6", 0.3)
 
-  // 保存 noteId 到 rowView（供删除和定位使用）
+  // 保存卡片信息
   rowView.noteId = card.noteId
+  rowView.section = section
 
   // 获取卡片总数，用于判断是否禁用按钮
-  let totalCards = pinnerConfig.getPins(true).length
+  let totalCards = pinnerConfig.getPins(section).length
 
   // 上移按钮
   let moveUpButton = UIButton.buttonWithType(0)
@@ -1120,6 +1235,7 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   moveUpButton.layer.cornerRadius = 5
   moveUpButton.tag = index
   moveUpButton.noteId = card.noteId
+  moveUpButton.section = section
   moveUpButton.addTargetActionForControlEvents(this, "moveCardUp:", 1 << 6)
   // 第一个卡片禁用上移
   if (index === 0) {
@@ -1139,6 +1255,7 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   moveDownButton.layer.cornerRadius = 5
   moveDownButton.tag = index
   moveDownButton.noteId = card.noteId
+  moveDownButton.section = section
   moveDownButton.addTargetActionForControlEvents(this, "moveCardDown:", 1 << 6)
   // 最后一个卡片禁用下移
   if (index === totalCards - 1) {
@@ -1159,20 +1276,22 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   focusButton.layer.cornerRadius = 5
   focusButton.tag = index
   focusButton.noteId = card.noteId
-  focusButton.addTargetActionForControlEvents(this, "focusTempCardTapped:", 1 << 6)
+  focusButton.section = section
+  focusButton.addTargetActionForControlEvents(this, "focusCardTapped:", 1 << 6)
   rowView.addSubview(focusButton)
 
-  // 添加标题（调整位置和宽度）
+  // 添加标题
   let titleButton = UIButton.buttonWithType(0)
   titleButton.setTitleForState(`${card.title || "未命名卡片"}`, 0)
   titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
-  titleButton.frame = {x: 110, y: 5, width: width - 160, height: 35}  // 调整起始位置和宽度
-  titleButton.addTargetActionForControlEvents(this, "tempCardTapped:", 1 << 6)
-  titleButton.noteId = card.noteId  // 保存卡片ID
-  titleButton.cardTitle = card.title  // 保存当前标题
+  titleButton.frame = {x: 110, y: 5, width: width - 160, height: 35}
+  titleButton.addTargetActionForControlEvents(this, "cardTapped:", 1 << 6)
+  titleButton.noteId = card.noteId
+  titleButton.section = section
+  titleButton.cardTitle = card.title
   // 设置颜色表示可点击
-  titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#007AFF", 1.0), 0)  // 蓝色
-  titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#0051D5", 1.0), 1)  // 按下时深蓝色
+  titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#007AFF", 1.0), 0)
+  titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#0051D5", 1.0), 1)
   titleButton.contentHorizontalAlignment = 1  // 左对齐
   rowView.addSubview(titleButton)
 
@@ -1182,13 +1301,15 @@ pinnerController.prototype.createTempCardRow = function(card, index, width) {
   deleteButton.frame = {x: width - 40, y: 7, width: 30, height: 30}
   deleteButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 0.8)
   deleteButton.layer.cornerRadius = 5
-  deleteButton.tag = index  // 用 tag 存储索引
-  deleteButton.noteId = card.noteId  // 直接保存 noteId
-  deleteButton.addTargetActionForControlEvents(this, "deleteTempCard:", 1 << 6)
+  deleteButton.tag = index
+  deleteButton.noteId = card.noteId
+  deleteButton.section = section
+  deleteButton.addTargetActionForControlEvents(this, "deleteCard:", 1 << 6)
   rowView.addSubview(deleteButton)
 
   return rowView
 }
+
 
 /**
  * 转换到迷你模式
@@ -1278,7 +1399,9 @@ pinnerController.prototype.fromMinimode = function() {
       }
       this.setAllButton(false)  // 显示所有按钮
       this.moveButton.setTitleForState("", 0)  // 清除图标
-      this.refreshTemporaryPinCards()
+      if (this.currentSection) {
+        this.refreshSectionCards(this.currentSection)
+      }
     })
     this.miniMode = false
     

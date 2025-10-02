@@ -199,8 +199,6 @@ JSB.newAddon = function(mainPath){
           self.tableItem('🗄️   卡片固定库', 'openPinnerLibrary:'),
           self.tableItem('📥   导入配置', 'importConfig:'),
           self.tableItem('📤   导出配置', 'exportConfig:'),
-          // self.tableItem('🗑️   清空临时固定', 'clearTemporaryPins:'),
-          // self.tableItem('🗑️   清空永久固定', 'clearPermanentPins:'),
         ];
 
         // 显示菜单
@@ -225,8 +223,9 @@ JSB.newAddon = function(mainPath){
         if (addon === "mnpinner") {
           let action = config.params.action
           switch (action) {
-            case "temporarilyPin":
+            case "pin":  // 统一的添加卡片action
               let noteId = decodeURIComponent(config.params.id)
+              let section = config.params.section || "midway"  // 默认添加到中间知识
               let pinNote = MNNote.new(noteId)
               let title
               if (config.params.title) {
@@ -234,24 +233,38 @@ JSB.newAddon = function(mainPath){
               } else {
                 title = pinNote ? pinNote.title : "未命名卡片"
               }
-              if (pinNote && pinnerConfig.addPin(noteId, title)) {
+
+              if (pinNote && pinnerConfig.addPin(noteId, title, section)) {
                 if (pinnerUtils.pinnerController) {
-                  pinnerUtils.pinnerController.refreshView("temporaryPinView")
+                  pinnerUtils.pinnerController.refreshView(section + "View")
                 }
-                MNUtil.showHUD("已临时固定: " + title)
+                let sectionName = pinnerConfig.getSectionDisplayName(section)
+                MNUtil.showHUD(`已添加到${sectionName}: ${title}`)
               }
               break;
-            case "permanentlyPin":
-            //   let permanentNoteId = decodeURIComponent(config.params.id)
-            //   let permanentNote = MNNote.new(permanentNoteId)
-            //   if (permanentNote && pinnerConfig.addPin(permanentNoteId, permanentNote.title, false)) {
-            //     MNUtil.showHUD("已永久固定: " + permanentNote.title)
-            //   }
-              MNUtil.showHUD("永久固定功能待开发")
+
+            case "temporarilyPin":  // 兼容旧版本
+              let tempNoteId = decodeURIComponent(config.params.id)
+              let tempNote = MNNote.new(tempNoteId)
+              let tempTitle
+              if (config.params.title) {
+                tempTitle = decodeURIComponent(config.params.title)
+              } else {
+                tempTitle = tempNote ? tempNote.title : "未命名卡片"
+              }
+              // 旧版本默认添加到中间知识
+              if (tempNote && pinnerConfig.addPin(tempNoteId, tempTitle, "midway")) {
+                if (pinnerUtils.pinnerController) {
+                  pinnerUtils.pinnerController.refreshView("midwayView")
+                }
+                MNUtil.showHUD("已添加到中间知识: " + tempTitle)
+              }
               break;
+
             case "showPinBoard":
               self.openPinnerLibrary()
               break;
+
             default:
               MNUtil.showHUD('Unsupported action: '+action)
               break;
@@ -293,7 +306,8 @@ JSB.newAddon = function(mainPath){
           // MNUtil.showHUD("Not First")
           pinnerUtils.pinnerController.show(pinnerUtils.pinnerController.lastFrame)
         }
-        pinnerUtils.pinnerController.refreshView("temporaryPinView")
+        // 默认显示focus分区
+        pinnerUtils.pinnerController.switchView("focusView")
       } catch (error) {
         pinnerUtils.addErrorLog(error, "openSetting")
       }
@@ -306,7 +320,9 @@ JSB.newAddon = function(mainPath){
         try {
           // self.note = MNNote.new(sender.userInfo.note.noteId)
           if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
-            pinnerUtils.pinnerController.refreshView("temporaryPinView")
+            // 刷新当前显示的分区
+            let currentSection = pinnerUtils.pinnerController.currentSection || "focus"
+            pinnerUtils.pinnerController.refreshView(currentSection + "View")
           }
         } catch (error) {
           MNUtil.showHUD(error);
@@ -377,7 +393,8 @@ JSB.newAddon = function(mainPath){
   MNPinnerClass.prototype.openPinnerLibrary = function() {
     if (pinnerUtils.pinnerController.lastFrame) {
       pinnerUtils.pinnerController.show(pinnerUtils.pinnerController.lastFrame)
-      pinnerUtils.pinnerController.refreshView("temporaryPinView")
+      // 显示默认分区
+      pinnerUtils.pinnerController.switchView("focusView")
     }
   }
 

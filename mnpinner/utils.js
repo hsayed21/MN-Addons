@@ -143,20 +143,18 @@ class pinnerConfig {
   static mainPath
   static dataDir
   static backUpTimer
-  
+
   // 数据存储 - 不直接初始化，在 init 中赋值
-  static temporaryPins  // [{noteId, title, pinnedAt}, ...]
-  static permanentPins  // [{noteId, title, pinnedAt}, ...]
+  static sections       // {focus: [], midway: []}
   static config         // {version, modifiedTime, lastSyncTime}
   static previousConfig // 用于备份上一次的配置
-  
+
   // 默认值通过 getter 返回，避免多窗口共享问题
-  static get defaultTemporaryPins() {
-    return []
-  }
-  
-  static get defaultPermanentPins() {
-    return []
+  static get defaultSections() {
+    return {
+      focus: [],
+      midway: []
+    }
   }
   
   // 会造成 iPad 闪退，先去掉
@@ -177,46 +175,50 @@ class pinnerConfig {
       if (mainPath) {
         this.mainPath = mainPath
       }
-      // this.temporaryPins = this.defaultTemporaryPins
-      this.temporaryPins = this.getByDefault('MNPinner_temporaryPins', this.defaultTemporaryPins)
-      this.permanentPins = this.defaultPermanentPins
-      // this.checkDataDir()
-      // this.dataDir = this.mainPath + "/data"
-      // this.backUpFile = this.dataDir + "/MNPinner_totalConfig.json"
-      
-      // // 初始化加载流程（参考 mnai）
-      // if (!this.isLocalConfigExists("MNPinner_config") && this.isBackUpConfigExists()) {
-      //   pinnerUtils.log("不存在本地配置但存在备份，从备份恢复")
-      //   let backupConfig = MNUtil.readJSON(this.backUpFile)
-      //   this.importConfig(backupConfig)
-      // } else {
-      //   pinnerUtils.log("直接初始化配置数据")
-        
-      //   // 直接初始化默认配置，避免 getByDefault 的兼容性问题
-      //   this.config = {
-      //     version: "1.0.0",
-      //     modifiedTime: 0,
-      //     lastSyncTime: null,
-      //     autoImport: false,
-      //     autoExport: false,
-      //   }
-        
-      //   // 尝试从 NSUserDefaults 读取已存储的配置
-      //   let storedConfig = NSUserDefaults.standardUserDefaults().objectForKey('MNPinner_config')
-      //   if (storedConfig && typeof storedConfig === 'object' && !Array.isArray(storedConfig)) {
-      //     this.config = storedConfig
-      //   }
-        
-      //   // Pins 仍使用 getByDefault（它们返回数组，没有问题）
-      //   this.temporaryPins = this.getByDefault('MNPinner_temporaryPins', this.defaultTemporaryPins)
-      //   this.permanentPins = this.getByDefault('MNPinner_permanentPins', this.defaultPermanentPins)
-      // }
-      
+
+      // 初始化配置
+      this.config = {
+        version: "1.0.0",
+        source: "focus"  // 默认显示的分区
+      }
+
+      // 尝试读取新格式数据
+      let sections = NSUserDefaults.standardUserDefaults().objectForKey("MNPinner_sections")
+
+      if (!sections) {
+        // 没有新格式，检查旧格式并迁移
+        let tempPins = NSUserDefaults.standardUserDefaults().objectForKey("MNPinner_temporaryPins")
+
+        if (tempPins && tempPins.length > 0) {
+          // 执行数据迁移：旧的临时卡片迁移到中间知识
+          this.sections = {
+            focus: [],              // 新的focus分区初始为空
+            midway: tempPins        // 旧的临时卡片迁移到中间知识
+          }
+
+          pinnerUtils.log("数据迁移：将临时卡片迁移到中间知识分区", "pinnerConfig:init")
+
+          // 保存迁移后的数据
+          this.save()
+
+          // 清理旧数据
+          NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_temporaryPins")
+          NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_permanentPins")
+        } else {
+          // 全新安装，初始化空数据
+          this.sections = this.defaultSections
+          this.save()
+        }
+      } else {
+        // 已有新格式数据，直接使用
+        this.sections = sections
+      }
+
       // 加载图片资源
       this.closeImage = this.mainPath + "/close.png"
       this.resizeImage = this.mainPath + "/resize.png"
-      
-      // pinnerUtils.log("pinnerConfig initialized", "pinnerConfig:init")
+
+      pinnerUtils.log("pinnerConfig initialized with sections", "pinnerConfig:init")
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:init")
     }
@@ -309,53 +311,20 @@ class pinnerConfig {
   
   /**
    * 保存数据到本地存储
-   * @param {string} key - 特定键名，undefined 则保存所有
-   * @param {boolean} ignoreExport - 是否忽略自动导出（预留）
-   * @param {boolean} synchronize - 是否同步到磁盘
+   * @param {string} sectionName - 特定分区名，undefined 则保存所有
    */
-  static save(key, ignoreExport = false, synchronize = true) {
+  static save(sectionName) {
     try {
-      if (key === undefined) {
-        // 保存所有数据
-        NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, "MNPinner_config")
-        NSUserDefaults.standardUserDefaults().setObjectForKey(this.temporaryPins, "MNPinner_temporaryPins")
-        NSUserDefaults.standardUserDefaults().setObjectForKey(this.permanentPins, "MNPinner_permanentPins")
-        
-        // // 触发自动导出（预留功能）
-        // if (!ignoreExport && this.getConfig("autoExport")) {
-        //   // this.export(false)
-        // }
-      } else {
-        // 保存特定项
-        switch(key) {
-          case "MNPinner_temporaryPins":
-            NSUserDefaults.standardUserDefaults().setObjectForKey(this.temporaryPins, key)
-            break
-          case "MNPinner_permanentPins":
-            NSUserDefaults.standardUserDefaults().setObjectForKey(this.permanentPins, key)
-            break
-          case "MNPinner_config":
-            NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, key)
-            break
-          default:
-            pinnerUtils.addErrorLog("Unknown key: " + key, "pinnerConfig:save")
-            break
-        }
-      }
-      
-      // // 同步到磁盘
-      // if (synchronize) {
-      //   NSUserDefaults.standardUserDefaults().synchronize()
-      // }
-      
-      // // 设置备份定时器（1秒后执行）
-      // if (this.backUpTimer) {
-      //   this.backUpTimer.invalidate()
-      // }
-      // this.backUpTimer = NSTimer.scheduledTimerWithTimeInterval(1, false, function() {
-      //   pinnerConfig.backUp()
-      // })
-      
+      // 保存整个sections对象
+      NSUserDefaults.standardUserDefaults().setObjectForKey(this.sections, "MNPinner_sections")
+
+      // 保存配置
+      NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, "MNPinner_config")
+
+      // 为了向后兼容，清理旧的key
+      NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_temporaryPins")
+      NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_permanentPins")
+
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:save")
     }
@@ -386,9 +355,9 @@ class pinnerConfig {
    */
   static getAllConfig() {
     return {
-      temporaryPins: this.temporaryPins,
-      permanentPins: this.permanentPins,
-      config: this.config
+      sections: this.sections,
+      config: this.config,
+      version: "1.0.0"
     }
   }
   
@@ -397,25 +366,31 @@ class pinnerConfig {
    */
   static isValidTotalConfig(data) {
     if (!data || typeof data !== 'object') return false
-    
-    // 检查必要字段
-    if (!Array.isArray(data.temporaryPins) && !Array.isArray(data.permanentPins)) {
-      return false
-    }
-    
+
     // 验证 pin 数据格式 (只需要 noteId 和 title)
     let validatePins = (pins) => {
       if (!Array.isArray(pins)) return true
-      return pins.every(pin => 
-        pin && typeof pin === 'object' && 
+      return pins.every(pin =>
+        pin && typeof pin === 'object' &&
         'noteId' in pin && 'title' in pin
       )
     }
-    
-    if (data.temporaryPins && !validatePins(data.temporaryPins)) return false
-    if (data.permanentPins && !validatePins(data.permanentPins)) return false
-    
-    return true
+
+    // 新版本格式
+    if (data.version === "1.0.0") {
+      if (!data.sections || typeof data.sections !== 'object') return false
+      if (data.sections.focus && !validatePins(data.sections.focus)) return false
+      if (data.sections.midway && !validatePins(data.sections.midway)) return false
+      return true
+    }
+
+    // 旧版本格式（兼容）
+    if (data.temporaryPins) {
+      if (data.temporaryPins && !validatePins(data.temporaryPins)) return false
+      return true
+    }
+
+    return false
   }
   
   /**
@@ -427,30 +402,30 @@ class pinnerConfig {
         MNUtil.showHUD("Invalid config format")
         return false
       }
-      
+
       // 保存当前配置作为备份
       this.previousConfig = this.getAllConfig()
-      
-      // 保留本地的自动导入/导出设置
-      let autoImport = this.getConfig("autoImport")
-      let autoExport = this.getConfig("autoExport")
-      
-      // 导入新配置
-      this.temporaryPins = newConfig.temporaryPins || this.defaultTemporaryPins
-      this.permanentPins = newConfig.permanentPins || this.defaultPermanentPins
-      this.config = newConfig.config || this.defaultConfig
-      
-      // 恢复本地设置
-      this.config.autoImport = autoImport
-      this.config.autoExport = autoExport
-      this.config.lastSyncTime = Date.now()
-      
-      // 保存并刷新
-      // this.saveAfterImport()
-      
-      MNUtil.showHUD("Import success!")
+
+      // 判断版本并导入
+      if (newConfig.version === "1.0.0") {
+        // 新版本格式
+        this.sections = newConfig.sections || this.defaultSections
+        this.config = newConfig.config || { version: "1.0.0", source: "focus" }
+      } else {
+        // 旧版本格式，执行迁移
+        this.sections = {
+          focus: [],
+          midway: newConfig.temporaryPins || []
+        }
+        this.config = { version: "1.0.0", source: "focus" }
+      }
+
+      // 保存
+      this.save()
+
+      MNUtil.showHUD("导入成功!")
       return true
-      
+
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:importConfig")
       return false
@@ -503,35 +478,40 @@ class pinnerConfig {
   }
   
   // ========== Pin 操作方法 ==========
-  
+
   /**
    * 添加 Pin
    * @param {string} noteId - 笔记ID
    * @param {string} title - 标题
-   * @param {boolean} isTemporary - 是否为临时固定
+   * @param {string} section - 分区名称 ("focus" 或 "midway")
    */
-  static addPin(noteId, title, isTemporary = true) {
+  static addPin(noteId, title, section = "midway") {
     try {
-      let pins = isTemporary ? this.temporaryPins : this.permanentPins
-      
-      // 检查是否已存在
-      if (pins.find(p => p.noteId === noteId)) {
-        MNUtil.showHUD("Already pinned")
+      if (!this.sections[section]) {
+        pinnerUtils.addErrorLog("Invalid section: " + section, "pinnerConfig:addPin")
         return false
       }
-      
+
+      let pins = this.sections[section]
+
+      // 检查是否已存在
+      if (pins.find(p => p.noteId === noteId)) {
+        MNUtil.showHUD("卡片已存在")
+        return false
+      }
+
       // 添加新的 pin
       pins.push({
         noteId: noteId,
-        title: title || "Untitled"
+        title: title || "未命名卡片"
       })
-      
+
       // 保存
-      this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
-      
-      pinnerUtils.log(`Added ${isTemporary ? 'temporary' : 'permanent'} pin: ${title}`, "pinnerConfig:addPin")
+      this.save()
+
+      pinnerUtils.log(`Added pin to ${section}: ${title}`, "pinnerConfig:addPin")
       return true
-      
+
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:addPin")
       return false
@@ -541,23 +521,41 @@ class pinnerConfig {
   /**
    * 删除 Pin
    * @param {string} noteId - 笔记ID
-   * @param {boolean} isTemporary - 是否为临时固定
+   * @param {string} section - 分区名称
    */
-  static removePin(noteId, isTemporary = true) {
+  static removePin(noteId, section) {
     try {
-      let pins = isTemporary ? this.temporaryPins : this.permanentPins
+      // 如果没有指定分区，在所有分区中查找并删除
+      if (!section) {
+        for (let sec in this.sections) {
+          let pins = this.sections[sec]
+          let index = pins.findIndex(p => p.noteId === noteId)
+          if (index !== -1) {
+            pins.splice(index, 1)
+            this.save()
+            pinnerUtils.log(`Removed pin from ${sec}`, "pinnerConfig:removePin")
+            return true
+          }
+        }
+        return false
+      }
+
+      // 指定分区删除
+      if (!this.sections[section]) return false
+
+      let pins = this.sections[section]
       let index = pins.findIndex(p => p.noteId === noteId)
-      
+
       if (index === -1) {
         return false
       }
-      
+
       pins.splice(index, 1)
-      this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
-      
-      pinnerUtils.log(`Removed ${isTemporary ? 'temporary' : 'permanent'} pin`, "pinnerConfig:removePin")
+      this.save()
+
+      pinnerUtils.log(`Removed pin from ${section}`, "pinnerConfig:removePin")
       return true
-      
+
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:removePin")
       return false
@@ -568,27 +566,29 @@ class pinnerConfig {
    * 移动 Pin 顺序
    * @param {number} oldIndex - 原位置
    * @param {number} newIndex - 新位置
-   * @param {boolean} isTemporary - 是否为临时固定
+   * @param {string} section - 分区名称
    */
-  static movePin(oldIndex, newIndex, isTemporary = true) {
+  static movePin(oldIndex, newIndex, section) {
     try {
-      let pins = isTemporary ? this.temporaryPins : this.permanentPins
-      
-      if (oldIndex < 0 || oldIndex >= pins.length || 
+      if (!this.sections[section]) return false
+
+      let pins = this.sections[section]
+
+      if (oldIndex < 0 || oldIndex >= pins.length ||
           newIndex < 0 || newIndex >= pins.length) {
         return false
       }
-      
+
       let [item] = pins.splice(oldIndex, 1)
       pins.splice(newIndex, 0, item)
-      
-      this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
+
+      this.save()
 
       if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
-        pinnerUtils.pinnerController.refreshView(isTemporary ? "temporaryPinView" : "permanentPinView")
+        pinnerUtils.pinnerController.refreshView(section + "View")
       }
       return true
-      
+
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:movePin")
       return false
@@ -596,26 +596,26 @@ class pinnerConfig {
   }
   
   /**
-   * 清空 Pins
-   * @param {boolean} isTemporary - 是否为临时固定
+   * 清空分区
+   * @param {string} section - 分区名称
    */
-  static async clearPins(isTemporary = true) {
+  static async clearPins(section) {
     try {
-      let confirm = await MNUtil.confirm(`Clear all ${isTemporary ? 'temporary' : 'permanent'} pins?`, "")
-      if (!confirm) return false;
-      if (isTemporary) {
-        this.temporaryPins = []
-        this.save("MNPinner_temporaryPins")
-      } else {
-        this.permanentPins = []
-        this.save("MNPinner_permanentPins")
-      }
+      if (!this.sections[section]) return false
+
+      let sectionName = section === 'focus' ? 'Focus' : '中间知识'
+      let confirm = await MNUtil.confirm(`清空 ${sectionName} 分区的所有卡片？`, "")
+      if (!confirm) return false
+
+      this.sections[section] = []
+      this.save()
+
       if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
-        pinnerUtils.pinnerController.refreshView(isTemporary ? "temporaryPinView" : "permanentPinView")
+        pinnerUtils.pinnerController.refreshView(section + "View")
       }
-      MNUtil.showHUD(`Cleared ${isTemporary ? 'temporary' : 'permanent'} pins`)
+      MNUtil.showHUD(`已清空 ${sectionName}`)
       return true
-      
+
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:clearPins")
       return false
@@ -623,41 +623,50 @@ class pinnerConfig {
   }
   
   /**
-   * 获取 Pins
-   * @param {boolean} isTemporary - 是否为临时固定
+   * 获取分区卡片
+   * @param {string} section - 分区名称
    */
-  static getPins(isTemporary = true) {
-    return isTemporary ? this.temporaryPins : this.permanentPins
+  static getPins(section) {
+    return this.sections[section] || []
   }
-  
+
   /**
-   * 从临时转为永久
+   * 转移卡片到其他分区
    * @param {string} noteId - 笔记ID
+   * @param {string} fromSection - 源分区
+   * @param {string} toSection - 目标分区
    */
-  static makePermanent(noteId) {
+  static transferPin(noteId, fromSection, toSection) {
     try {
-      let index = this.temporaryPins.findIndex(p => p.noteId === noteId)
-      if (index === -1) return false
-      
-      let pin = this.temporaryPins[index]
-      
-      // 检查永久列表是否已存在
-      if (this.permanentPins.find(p => p.noteId === noteId)) {
-        MNUtil.showHUD("Already in permanent pins")
+      if (!this.sections[fromSection] || !this.sections[toSection]) {
+        pinnerUtils.addErrorLog("Invalid section", "pinnerConfig:transferPin")
         return false
       }
-      
-      // 移动到永久列表
-      this.temporaryPins.splice(index, 1)
-      this.permanentPins.push(pin)
-      
-      // this.save()
-      
-      MNUtil.showHUD("Moved to permanent pins")
+
+      let fromPins = this.sections[fromSection]
+      let toPins = this.sections[toSection]
+
+      let index = fromPins.findIndex(p => p.noteId === noteId)
+      if (index === -1) return false
+
+      // 检查目标分区是否已存在
+      if (toPins.find(p => p.noteId === noteId)) {
+        MNUtil.showHUD("目标分区已存在该卡片")
+        return false
+      }
+
+      // 执行转移
+      let [pin] = fromPins.splice(index, 1)
+      toPins.push(pin)
+
+      this.save()
+
+      let toSectionName = toSection === 'focus' ? 'Focus' : '中间知识'
+      MNUtil.showHUD(`已转移到 ${toSectionName}`)
       return true
-      
+
     } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinnerConfig:makePermanent")
+      pinnerUtils.addErrorLog(error, "pinnerConfig:transferPin")
       return false
     }
   }
@@ -666,29 +675,59 @@ class pinnerConfig {
    * 更新 Pin 的标题
    * @param {string} noteId - 笔记ID
    * @param {string} newTitle - 新标题
-   * @param {boolean} isTemporary - 是否为临时固定
+   * @param {string} section - 分区名称（可选，不指定则在所有分区中查找）
    */
-  static updatePinTitle(noteId, newTitle, isTemporary = true) {
+  static updatePinTitle(noteId, newTitle, section) {
     try {
-      let pins = isTemporary ? this.temporaryPins : this.permanentPins
-      let pin = pins.find(p => p.noteId === noteId)
-      
-      if (!pin) {
-        return false
+      // 如果指定了分区
+      if (section && this.sections[section]) {
+        let pins = this.sections[section]
+        let pin = pins.find(p => p.noteId === noteId)
+
+        if (!pin) return false
+
+        pin.title = newTitle
+        this.save()
+        return true
       }
-      
-      // 更新标题
-      pin.title = newTitle
-      
-      // 保存到本地存储
-      this.save(isTemporary ? "MNPinner_temporaryPins" : "MNPinner_permanentPins")
-      
-      pinnerUtils.log(`Updated pin title: ${newTitle}`, "pinnerConfig:updatePinTitle")
-      return true
-      
+
+      // 没有指定分区，在所有分区中查找
+      for (let sec in this.sections) {
+        let pins = this.sections[sec]
+        let pin = pins.find(p => p.noteId === noteId)
+
+        if (pin) {
+          pin.title = newTitle
+          this.save()
+          pinnerUtils.log(`Updated pin title in ${sec}: ${newTitle}`, "pinnerConfig:updatePinTitle")
+          return true
+        }
+      }
+
+      return false
+
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:updatePinTitle")
       return false
     }
+  }
+
+  /**
+   * 获取所有分区名称
+   */
+  static getSectionNames() {
+    return Object.keys(this.sections)
+  }
+
+  /**
+   * 获取分区显示名称
+   * @param {string} section - 分区键名
+   */
+  static getSectionDisplayName(section) {
+    const displayNames = {
+      'focus': 'Focus',
+      'midway': '中间知识'
+    }
+    return displayNames[section] || section
   }
 }
