@@ -234,16 +234,24 @@ class Menu{
   show(autoWidth = false,animate = true){
   try {
     if (autoWidth || !this.width) {//用autoWidth参数来控制是否自动计算宽度,如果menu实例没有width参数,也会自动计算宽度
-      let titles = this.commandTable.map(item=>item.title)
-      let maxWidth = 0
-      // let maxWidth = this.width
-      titles.forEach(title=>{
-        let width = MNUtil.strCode(title)*9+30
-        if (width > maxWidth) {
-          maxWidth = width
+      let widths = this.commandTable.map(item=>{
+        if (item.checked) {
+          return MNUtil.strCode(item.title)*9+70
+        }else{
+          return MNUtil.strCode(item.title)*9+30
         }
       })
-      this.width = maxWidth
+      this.width = Math.max(...widths)
+      // let titles = this.commandTable.map(item=>item.title)
+      // let maxWidth = 0
+      // // let maxWidth = this.width
+      // titles.forEach(title=>{
+      //   let width = MNUtil.strCode(title)*9+30
+      //   if (width > maxWidth) {
+      //     maxWidth = width
+      //   }
+      // })
+      // this.width = maxWidth
     }
 
     let position = this.preferredPosition

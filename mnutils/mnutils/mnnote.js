@@ -1071,8 +1071,8 @@ try {
   /**
    * beforeNote的参数为数字时,代表在指定序号前插入,0为第一个
    * 无论什么情况都返回自身
-   * @param {MNNote|string} note
-   * @param {MNNote|string|number|undefined} beforeNote
+   * @param {MNNote|string} note//被移动的卡片，即使该卡片不是子卡片
+   * @param {MNNote|string|number|undefined} beforeNote//参考对象，将会成为该卡片的兄弟卡片，并移动到该卡片的前方
    * @returns {MNNote}
    */
   insertChildBefore(note,beforeNote){
@@ -1106,38 +1106,39 @@ try {
   }
   }
   /**
-   * beforeNote的参数为数字时,代表在指定序号前插入,0为第一个
+   * afterNote的参数为数字时,代表在指定序号前插入,0为第一个
    * 无论什么情况都返回自身
-   * @param {MNNote|string} note
-   * @param {MNNote|string|number|undefined} beforeNote
+   * @param {MNNote|string} note//被移动的卡片，即使该卡片不是子卡片
+   * @param {MNNote|string|number|undefined} afterNote//参考对象，将会成为该卡片的兄弟卡片，并移动到该卡片的后方
    * @returns {MNNote}
    */
-  insertChildAfter(note,beforeNote){
+  insertChildAfter(note,afterNote){
   try {
     let childNoteSize = this.childNotes.length
-    if (childNoteSize === 0 || beforeNote === undefined) {
+    if (childNoteSize === 0 || afterNote === undefined) {
     //如果没有子卡片,也就无所谓插入顺序
-    //如果没有提供beforeNote,则插入到最后
+    //如果没有提供afterNote,则插入到最后
       this.addChild(note)
       return this
     }
 
-    if (typeof beforeNote === "number") {
-      //限制beforeNote的值,确保能取到笔记
-      beforeNote = MNUtil.constrain(beforeNote, 0, childNoteSize-1)
-      if (beforeNote === childNoteSize-1) {//如果是最后一个,则插入到最后
+    if (typeof afterNote === "number") {
+      //限制afterNote的值,确保能取到笔记
+      afterNote = MNUtil.constrain(afterNote, 0, childNoteSize-1)
+      if (afterNote === childNoteSize-1) {//如果是最后一个,则插入到最后
         this.addChild(note)
         return this
       }
       //插入到指定卡片的下一张卡片的前面
-      let targetNote = this.childNotes[beforeNote+1]
+      let targetNote = this.childNotes[afterNote+1]
       let note0 = MNNote.new(note)
       this.note.insertChildBefore(note0.note,targetNote.note)
       return this
     }else{
+      let temAfterNote = MNNote.new(afterNote)
       let childNoteIds = this.childNotes.map(note=>note.noteId)
-      let noteIndex = childNoteIds.indexOf(beforeNote)
-      if (noteIndex === -1) {//beforeNote不在子卡片中,插入到最后
+      let noteIndex = childNoteIds.indexOf(temAfterNote.noteId)
+      if (noteIndex === -1) {//afterNote不在子卡片中,插入到最后
         this.addChild(note)
         return this
       }
@@ -1147,8 +1148,8 @@ try {
       }
       //插入到指定卡片的下一张卡片的前面
       let note0 = MNNote.new(childNoteIds[noteIndex+1])
-      let note1 = MNNote.new(beforeNote)
-      this.note.insertChildBefore(note0.note,note1.note)
+      let note1 = MNNote.new(note)
+      this.note.insertChildBefore(note1.note,note0.note)
       return this
     }
     
@@ -1228,7 +1229,8 @@ try {
   }
   /**
    * 对于同级卡片,移动到指定卡片前
-   * 如果目标卡片和当前卡片不属于同一个父卡片,则会成为目标卡片的同级卡片
+   * 如果目标卡片和当前卡片不属于同一个父卡片,也会成为目标卡片的同级卡片
+   * 不需要父卡片提前用addChild之类的先添加目标卡片
    * @param {MNNote|MbBookNote|number} note 
    */
   moveBefore(note){
@@ -1243,18 +1245,19 @@ try {
   }
   /**
    * 对于同级卡片,移动到指定卡片后
+   * 如果目标卡片和当前卡片不属于同一个父卡片,也会成为目标卡片的同级卡片
+   * 不需要父卡片提前用addChild之类的先添加目标卡片
    * @param {MNNote|MbBookNote|number} note 
    */
   moveAfter(note){
     if (typeof note === "number") {
       let parentNote = this.parentNote
-      parentNote.insertChildAfter(this.note, note)
+      parentNote.insertChildAfter(this, note)
       return
     }
     let targetNote = MNNote.new(note)
     let parentNote = targetNote.parentNote
-    //先移动到卡片前
-    parentNote.insertChildAfter(this.note, targetNote)
+    parentNote.insertChildAfter(this, targetNote)
   }
   /**
    * Adds a child note to the current note.
@@ -1268,57 +1271,24 @@ try {
    */
   addChild(note){
     try {
+    //只有脑图中的卡片可以添加子节点，文档上的摘录不行，先转为脑图卡片
+    let parentNote = this.realGroupNoteForTopicId()
     let temNote = MNNote.new(note)
     if (temNote) {
-      let notebookId = this.notebookId
+      //先转为脑图卡片
+      temNote = temNote.realGroupNoteForTopicId()
+      let notebookId = parentNote.notebookId
+      // if (temNote.notebookId !== notebookId) {
+      //   temNote = temNote.realGroupNoteForTopicId(notebookId)
+      // }
       if (temNote.notebookId !== notebookId) {
-        temNote = temNote.realGroupNoteForTopicId(notebookId)
-      }
-      if (temNote.notebookId !== notebookId) {
+        //不是同一个学习集
         MNUtil.showHUD("Not in the same notebook")
         return
       }
-      this.note.addChild(temNote.note)
+      //添加子节点
+      parentNote.note.addChild(temNote.note)
     }
-    // // MNUtil.log(MNUtil.typeOf(note))
-    // // MNUtil.showHUD(MNUtil.typeOf(note))
-    // let type = MNUtil.typeOf(note)
-    // switch (type) {
-    //   case "NoteURL":
-    //     let noteFromURL = MNUtil.getNoteById(MNUtil.getNoteIdByURL(note))
-    //     if (noteFromURL) {
-    //       this.note.addChild(noteFromURL)
-    //     }else{
-    //       MNUtil.log({
-    //         level:'error',
-    //         message:note
-    //       })
-    //       MNUtil.showHUD("Note not exist!")
-    //     }
-    //     break;
-    //   case "NoteId":
-    //   case "string":
-    //     let targetNote = MNUtil.getNoteById(note)
-    //     if (targetNote) {
-    //       this.note.addChild(targetNote)
-    //     }else{
-    //       MNUtil.log({
-    //         level:'error',
-    //         message:note
-    //       })
-    //       MNUtil.showHUD("Note not exist!")
-    //     }
-    //     break;
-    //   case "MNNote":
-    //     this.note.addChild(note.note)
-    //     break;
-    //   case "MbBookNote":
-    //     this.note.addChild(note)
-    //     break;
-    //   default:
-    //     MNUtil.showHUD("UNKNOWN Note:"+type)
-    //     break;
-    // }
     return this
     } catch (error) {
       MNNote.addErrorLog(error, "addChild")
@@ -1376,12 +1346,13 @@ try {
    */
   createChildNote(config,undoGrouping=true) {
     let child
-    let note = this
-    let noteIdInMindmap = this.note.realGroupNoteIdForTopicId(MNUtil.currentNotebookId)
-    if (noteIdInMindmap && this.noteId !== noteIdInMindmap) {
-      //对文档摘录添加子节点是无效的，需要对其脑图中的节点执行添加子节点
-      note = MNNote.new(noteIdInMindmap)
-    }
+    //只有脑图中的卡片可以添加子节点，文档上的摘录不行
+    // let note = this.realGroupNoteForTopicId()
+    // let noteIdInMindmap = this.note.realGroupNoteIdForTopicId(MNUtil.currentNotebookId)
+    // if (noteIdInMindmap && this.noteId !== noteIdInMindmap) {
+    //   //对文档摘录添加子节点是无效的，需要对其脑图中的节点执行添加子节点
+    //   note = MNNote.new(noteIdInMindmap)
+    // }
     if (undoGrouping) {
       MNUtil.undoGrouping(()=>{
         try {
@@ -1391,7 +1362,7 @@ try {
           }
           this.addChild(child)
         } catch (error) {
-          MNUtil.showHUD("Error in createChildNote:"+error)
+          MNNote.addErrorLog(error, "createChildNote")
         }
       })
     }else{
@@ -1402,7 +1373,7 @@ try {
         }
         this.addChild(child)
       } catch (error) {
-        MNUtil.showHUD("Error in createChildNote:"+error)
+        MNNote.addErrorLog(error, "createChildNote")
       }
     }
     return child
@@ -1413,12 +1384,12 @@ try {
    * @returns {MNNote}
    */
   createBrotherNote(config,undoGrouping=true) {
-    let note = this
-    let noteIdInMindmap = this.note.realGroupNoteIdForTopicId(MNUtil.currentNotebookId)
-    if (noteIdInMindmap && this.noteId !== noteIdInMindmap) {
-      //对文档摘录添加子节点是无效的，需要对其脑图中的节点执行添加子节点
-      note = MNNote.new(noteIdInMindmap)
-    }
+    let note = this.realGroupNoteForTopicId()
+    // let noteIdInMindmap = this.note.realGroupNoteIdForTopicId(MNUtil.currentNotebookId)
+    // if (noteIdInMindmap && this.noteId !== noteIdInMindmap) {
+    //   //对文档摘录添加子节点是无效的，需要对其脑图中的节点执行添加子节点
+    //   note = MNNote.new(noteIdInMindmap)
+    // }
     if (!note.parentNote) {
       MNUtil.showHUD("No parent note!")
       return
