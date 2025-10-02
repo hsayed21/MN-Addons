@@ -233,15 +233,11 @@ JSB.newAddon = function(mainPath){
           self.popoverController.dismissPopoverAnimated(true);
         }
         
-        let rootNote = MNNote.getFocusNote();
+        let rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
         if (!rootNote) {
-          // 如果没选中就默认用“数学知识库”为根目录
-          rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
-          if (!rootNote) {
-            MNUtil.showHUD("请先选择一个根卡片");
-            return;
-          }
-        } 
+          MNUtil.showHUD("知识库不存在！");
+          return;
+        }
         
         // 显示开始提示
         MNUtil.showHUD("开始构建索引，请稍候...");
