@@ -167,6 +167,10 @@ JSB.newAddon = function(mainPath){
           self.tableItem('🔄   索引知识库', 'updateSearchIndex:'),
           self.tableItem('📋   搜索知识库(复制链接)', 'searchForMarkdown:'),
           self.tableItem('-------------------------------',''),
+          // === 中间知识库管理 ===
+          self.tableItem('📝   索引中间知识库', 'updateIntermediateKnowledgeIndex:'),
+          self.tableItem('🔎   搜索中间知识库', 'searchInIntermediateKB:'),
+          self.tableItem('-------------------------------',''),
           // === 通用搜索（支持自定义类型）===
           self.tableItem('🔍   全部搜索(脑图定位)', 'searchInKB:', true),
           
@@ -264,7 +268,7 @@ JSB.newAddon = function(mainPath){
     searchInKB: async function(focusInMindMap = true) {
       try {
         self.checkPopover()
-        
+
         // 异步加载搜索器
         const searcher = await FastSearcher.loadFromFile();
         if (!searcher) {
@@ -274,10 +278,126 @@ JSB.newAddon = function(mainPath){
 
         // 注意：showSearchDialog 内部也需要支持异步搜索
         self.showSearchDialog(searcher, {}, focusInMindMap);
-        
+
       } catch (error) {
         MNUtil.showHUD("快速搜索失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: searchInKB");
+      }
+    },
+
+    /**
+     * 更新中间知识库索引
+     */
+    updateIntermediateKnowledgeIndex: async function() {
+      try {
+        // 关闭菜单
+        if (self.popoverController) {
+          self.popoverController.dismissPopoverAnimated(true);
+        }
+
+        // 中间知识库根卡片ID数组
+        // TODO: 这里需要配置你的中间知识库根卡片ID
+        const intermediateRootIds = [
+          "marginnote4app://note/FC6181AF-1BAC-4D1D-9B86-7FAB3391F3EC",
+          "marginnote4app://note/9D234BE6-9A7C-4BEC-8924-F18132FB6E64",
+          "marginnote4app://note/74785805-661C-4836-AFA6-C85697056B0C"
+        ];
+
+        // 验证根卡片
+        const rootNotes = [];
+        for (const rootId of intermediateRootIds) {
+          const note = MNNote.new(rootId);
+          if (note) {
+            rootNotes.push(note);
+          }
+        }
+
+        if (rootNotes.length === 0) {
+          MNUtil.showHUD("中间知识库根卡片未配置或不存在！");
+          return;
+        }
+
+        // 显示开始提示
+        MNUtil.showHUD("开始构建中间知识库索引，请稍候...");
+
+        // 延迟执行以确保 UI 更新
+        await MNUtil.delay(0.1);
+
+        // 异步构建索引
+        const manifest = await IntermediateKnowledgeIndexer.buildSearchIndex(rootNotes);
+
+        // 检查结果
+        if (manifest && manifest.metadata && manifest.metadata.totalCards > 0) {
+          MNUtil.showHUD(`中间知识库索引构建成功！共 ${manifest.metadata.totalCards} 张卡片，${manifest.metadata.totalParts} 个分片`);
+        } else {
+          MNUtil.showHUD("没有找到可索引的卡片");
+        }
+
+      } catch (error) {
+        MNUtil.showHUD("更新中间知识库索引失败: " + error.message);
+        MNLog.error({
+          message: "更新中间知识库索引失败",
+          error: error.message,
+          stack: error.stack,
+          detail: JSON.stringify({
+            intermediateRootIds: intermediateRootIds,
+            errorType: error.name || "UnknownError"
+          })
+        }, "MNKnowledgeBase.updateIntermediateKnowledgeIndex");
+      }
+    },
+
+    /**
+     * 搜索中间知识库
+     */
+    searchInIntermediateKB: async function() {
+      try {
+        self.checkPopover()
+
+        // 检查缓存
+        if (!self.intermediateSearchCache || !self.intermediateSearchCache.data) {
+          // 加载中间知识库索引
+          const manifest = IntermediateKnowledgeIndexer.loadIndexManifest();
+          if (!manifest) {
+            MNUtil.showHUD("中间知识库索引未找到，请先更新索引");
+            return;
+          }
+
+          // 加载索引数据
+          const searchData = [];
+          for (const partInfo of manifest.parts) {
+            const part = IntermediateKnowledgeIndexer.loadIndexPart(partInfo.filename);
+            if (part && part.data) {
+              searchData.push(...part.data);
+            }
+          }
+
+          if (searchData.length === 0) {
+            MNUtil.showHUD("中间知识库索引为空");
+            return;
+          }
+
+          // 缓存数据（有效期5分钟）
+          self.intermediateSearchCache = {
+            data: searchData,
+            timestamp: Date.now(),
+            expiry: 5 * 60 * 1000 // 5分钟
+          };
+        } else {
+          // 检查缓存是否过期
+          if (Date.now() - self.intermediateSearchCache.timestamp > self.intermediateSearchCache.expiry) {
+            self.intermediateSearchCache = null;
+            self.searchInIntermediateKB(); // 重新加载
+            return;
+          }
+        }
+
+        // 显示搜索对话框（使用缓存的数据）
+        self.showIntermediateSearchDialog(self.intermediateSearchCache.data);
+
+      } catch (error) {
+        MNUtil.showHUD("搜索中间知识库失败: " + error.message);
+        MNLog.error(error, "MNKnowledgeBase: searchInIntermediateKB");
       }
     },
     
@@ -653,6 +773,106 @@ JSB.newAddon = function(mainPath){
       selector: selector,  // 点击后要调用的方法名
       param: param,        // 传递给方法的参数
       checked: checked     // 是否显示勾选状态
+    }
+  }
+
+  /**
+   * 显示中间知识库搜索对话框
+   */
+  MNKnowledgeBaseClass.prototype.showIntermediateSearchDialog = async function(searchData) {
+    try {
+      // 获取搜索关键词
+      let userInput = await MNUtil.userInput(
+        `搜索中间知识库 (共 ${searchData.length} 张卡片)`,
+        "请输入搜索关键词：",
+        ["取消", "搜索"]
+      );
+
+      if (userInput.button === 1) {
+        let keyword = userInput.input.trim().toLowerCase();
+        if (!keyword) return;
+
+        // 执行搜索
+        const results = [];
+        for (const entry of searchData) {
+          if (entry.searchText && entry.searchText.includes(keyword)) {
+            results.push({
+              id: entry.id,
+              title: entry.title || "(无标题)",
+              isTemplated: entry.isTemplated,
+              type: entry.type,
+              score: 1  // 简单匹配，不计算复杂分数
+            });
+          }
+        }
+
+        if (results.length === 0) {
+          MNUtil.showHUD("未找到匹配的卡片");
+          return;
+        }
+
+        // 显示搜索结果
+        await this.showIntermediateSearchResults(results, keyword);
+      }
+    } catch (error) {
+      MNUtil.showHUD("搜索失败: " + error.message);
+      MNLog.error(error, "MNKnowledgeBase: showIntermediateSearchDialog");
+    }
+  }
+
+  /**
+   * 显示中间知识库搜索结果
+   */
+  MNKnowledgeBaseClass.prototype.showIntermediateSearchResults = async function(results, keyword) {
+    try {
+      // 构建结果选项列表
+      const options = ["🔙 返回搜索"];
+
+      // 添加搜索结果（最多显示50个）
+      const displayResults = results.slice(0, 50);
+      displayResults.forEach((result, index) => {
+        const typeInfo = result.isTemplated ? `[${result.type || "已制卡"}]` : "[未制卡]";
+        const title = result.title || "(无标题)";
+        options.push(`${index + 1}. ${typeInfo} ${title}`);
+      });
+
+      if (results.length > 50) {
+        options.push(`... 还有 ${results.length - 50} 个结果未显示`);
+      }
+
+      // 显示结果列表
+      const choice = await MNUtil.userSelect(
+        `搜索结果：${keyword} (${results.length} 个)`,
+        "选择要查看的卡片：",
+        options
+      );
+
+      if (choice === 0) {
+        // 用户取消
+        return;
+      } else if (choice === 1) {
+        // 返回搜索（使用缓存的数据）
+        if (self.intermediateSearchCache && self.intermediateSearchCache.data) {
+          this.showIntermediateSearchDialog(self.intermediateSearchCache.data);
+        } else {
+          // 如果缓存不存在，重新触发搜索
+          self.searchInIntermediateKB();
+        }
+      } else if (choice > 1 && choice <= displayResults.length + 1) {
+        // 查看选中的卡片
+        const selectedResult = displayResults[choice - 2];
+        const note = MNNote.new(selectedResult.id);
+        if (note) {
+          if (MNUtil.mindmapView) {
+            note.focusInMindMap();
+          } else {
+            MNUtil.showHUD("已选择卡片：" + selectedResult.title);
+          }
+        }
+      }
+    } catch (error) {
+      MNUtil.showHUD("显示结果失败: " + error.message);
+      MNLog.error(error, "MNKnowledgeBase: showIntermediateSearchResults");
     }
   }
 

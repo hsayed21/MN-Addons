@@ -17637,3 +17637,608 @@ class ExclusionManager {
     return group;
   }
 }
+
+/**
+ * 中间知识库索引器
+ * 用于处理未完全制卡的中间状态知识卡片
+ */
+class IntermediateKnowledgeIndexer {
+  /**
+   * 构建中间知识库的搜索索引
+   * @param {Array} rootNotes - 根卡片数组
+   */
+  static async buildSearchIndex(rootNotes) {
+    const BATCH_SIZE = 500;
+    const TEMP_FILE_PREFIX = "intermediate-kb-temp-";
+    const PART_SIZE = 5000;
+
+    const manifest = {
+      metadata: {
+        version: "1.0",
+        type: "intermediate", // 标记为中间知识库
+        lastUpdated: new Date().toISOString(),
+        totalCards: 0,
+        partSize: PART_SIZE,
+        totalParts: 0,
+        tempFiles: []
+      },
+      parts: []
+    };
+
+    try {
+      let tempFileCount = 0;
+      let currentBatch = [];
+      let processedCount = 0;
+      let validCount = 0;
+      let totalEstimatedCount = 0;
+      const processedIds = new Set();
+
+      // 缓存所有根节点
+      const rootNoteObjects = [];
+      MNLog.info("=== IntermediateKnowledgeIndexer.buildSearchIndex ===", "IntermediateKnowledgeIndexer");
+      MNLog.info({
+        message: "开始构建中间知识库索引",
+        rootNotesCount: rootNotes.length,
+        detail: JSON.stringify({
+          rootNoteTypes: rootNotes.map(n => typeof n),
+          timestamp: new Date().toISOString()
+        })
+      }, "IntermediateKnowledgeIndexer");
+
+      for (const _rootNote of rootNotes) {
+        MNLog.debug({
+          message: "处理根节点",
+          type: typeof _rootNote,
+          value: _rootNote?.noteId || _rootNote
+        }, "IntermediateKnowledgeIndexer");
+
+        const rootNote = MNNote.new(_rootNote);
+        if (!rootNote) {
+          MNLog.warn({
+            message: "无法从输入创建 MNNote",
+            input: _rootNote,
+            detail: JSON.stringify({ type: typeof _rootNote, value: _rootNote })
+          }, "IntermediateKnowledgeIndexer");
+          continue;
+        }
+
+        const descendants = rootNote.descendantNodes?.descendant || [];
+        MNLog.info({
+          message: "根节点信息",
+          noteId: rootNote.noteId,
+          title: rootNote.title,
+          descendantsCount: descendants.length
+        }, "IntermediateKnowledgeIndexer");
+        totalEstimatedCount += descendants.length + 1;
+
+        rootNoteObjects.push({
+          rootNote: rootNote,
+          descendants: descendants
+        });
+      }
+
+      // 显示初始进度
+      MNUtil.showHUD(`开始构建中间知识库索引（共 ${totalEstimatedCount} 张卡片）`);
+
+      // 处理每个根节点及其子孙
+      for (let rootIndex = 0; rootIndex < rootNoteObjects.length; rootIndex++) {
+        const { rootNote, descendants } = rootNoteObjects[rootIndex];
+
+        // 处理根节点
+        if (!processedIds.has(rootNote.noteId)) {
+          const entry = this.buildIndexEntry(rootNote);
+          if (entry) {
+            currentBatch.push(entry);
+            validCount++;
+          }
+          processedIds.add(rootNote.noteId);
+          processedCount++;
+        }
+
+        // 处理子孙节点
+        for (let i = 0; i < descendants.length; i++) {
+          const descendant = descendants[i];
+
+          // 保存当前批次
+          if (currentBatch.length >= BATCH_SIZE) {
+            const tempFileName = `${TEMP_FILE_PREFIX}${tempFileCount}.json`;
+            const tempFilePath = MNUtil.tempFolder + "/" + tempFileName;
+
+            MNUtil.writeJSON(tempFilePath, {
+              batchNumber: tempFileCount,
+              data: currentBatch,
+              count: currentBatch.length
+            });
+
+            manifest.metadata.tempFiles.push(tempFileName);
+            tempFileCount++;
+            currentBatch = [];
+
+            MNUtil.showHUD(`处理中... 已保存 ${tempFileCount} 个临时文件`);
+            await MNUtil.delay(0.001);
+          }
+
+          // 处理单个节点
+          const noteId = descendant.noteId || descendant;
+          if (processedIds.has(noteId)) {
+            processedCount++;
+            continue;
+          }
+
+          const mnNote = MNNote.new(descendant);
+          if (!mnNote || !mnNote.noteId) {
+            processedCount++;
+            continue;
+          }
+
+          const entry = this.buildIndexEntry(mnNote);
+          if (entry) {
+            currentBatch.push(entry);
+            validCount++;
+          }
+
+          processedIds.add(noteId);
+          processedCount++;
+
+          if (processedCount % 100 === 0) {
+            MNUtil.showHUD(`处理中间知识... ${processedCount}/${totalEstimatedCount}`);
+          }
+        }
+
+        descendants.length = 0;
+      }
+
+      // 保存最后一批
+      if (currentBatch.length > 0) {
+        const tempFileName = `${TEMP_FILE_PREFIX}${tempFileCount}.json`;
+        const tempFilePath = MNUtil.tempFolder + "/" + tempFileName;
+
+        MNUtil.writeJSON(tempFilePath, {
+          batchNumber: tempFileCount,
+          data: currentBatch,
+          count: currentBatch.length
+        });
+
+        manifest.metadata.tempFiles.push(tempFileName);
+        tempFileCount++;
+      }
+
+      // 合并临时文件到最终分片
+      MNUtil.showHUD("正在合并中间知识库索引文件...");
+      await this.mergeTempFilesToParts(manifest);
+
+      // 清理临时文件
+      await this.cleanupTempFiles(manifest.metadata.tempFiles);
+
+      // 更新元数据
+      manifest.metadata.totalCards = validCount;
+
+      // 保存主索引文件
+      await this.saveIndexManifest(manifest);
+
+      MNUtil.showHUD(`中间知识库索引构建完成：共 ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
+
+    } catch (error) {
+      if (manifest.metadata.tempFiles && manifest.metadata.tempFiles.length > 0) {
+        await this.cleanupTempFiles(manifest.metadata.tempFiles);
+      }
+      MNUtil.showHUD("构建中间知识库索引失败: " + error.message);
+      MNLog.error(error.message, "IntermediateKnowledgeIndexer: buildSearchIndex");
+      return null;
+    }
+
+    return manifest;
+  }
+
+  /**
+   * 构建单个卡片的索引条目
+   * 与知识库不同，这里不判断卡片类型，统一处理所有卡片
+   */
+  static buildIndexEntry(note) {
+    // knowledgeBaseTemplate.renewLinks(note);
+
+    const SOURCE = "IntermediateKnowledgeIndexer.buildIndexEntry";
+
+    // // 添加调试日志
+    // MNLog.debug("=== buildIndexEntry START ===", SOURCE);
+    // MNLog.debug({
+    //   message: "开始构建索引条目",
+    //   noteExists: !!note,
+    //   noteId: note?.noteId,
+    //   title: note?.title
+    // }, SOURCE);
+
+    // if (!note || !note.noteId) {
+    //   MNLog.debug("Note 无效，返回 null", SOURCE);
+    //   return null;
+    // }
+
+    // 检查 MNComment 是否存在
+    // MNLog.debug({
+    //   message: "检查 MNComment 类",
+    //   typeofMNComment: typeof MNComment,
+    //   hasFrom: typeof MNComment?.from === 'function',
+    //   hasGetCommentType: typeof MNComment?.getCommentType === 'function'
+    // }, SOURCE);
+
+    // 确保 MNComments 已初始化
+    // if (!note.MNComments) {
+    //   MNLog.debug({
+    //     message: "MNComments 未初始化，正在处理",
+    //     hasComments: !!note.comments,
+    //     commentsLength: note.comments?.length || 0,
+    //     commentsType: Array.isArray(note.comments) ? 'array' : typeof note.comments
+    //   }, SOURCE);
+
+    //   // 尝试生成 MNComments
+    //   if (note.comments && note.comments.length > 0) {
+    //     try {
+    //       // 先记录原始评论的详细信息
+    //       MNLog.debug({
+    //         message: "原始评论详情",
+    //         firstComment: note.comments[0] ? {
+    //           type: note.comments[0].type,
+    //           hasText: !!note.comments[0].text,
+    //           keys: Object.keys(note.comments[0])
+    //         } : null,
+    //         detail: JSON.stringify(note.comments.slice(0, 2))
+    //       }, SOURCE);
+
+    //       // 检查 MNComment 是否可用
+    //       if (typeof MNComment !== 'undefined' && typeof MNComment.from === 'function') {
+    //         MNLog.debug("使用 MNComment.from 创建 MNComments", SOURCE);
+    //         note.MNComments = note.comments.map((comment, index) => {
+    //           try {
+    //             if (!comment) {
+    //               MNLog.warn(`评论 ${index} 为 undefined，跳过`, SOURCE);
+    //               return null;
+    //             }
+    //             return MNComment.from(comment);
+    //           } catch (innerError) {
+    //             MNLog.error({
+    //               message: `处理评论 ${index} 失败`,
+    //               error: innerError.message,
+    //               comment: comment,
+    //               detail: innerError.stack
+    //             }, SOURCE);
+    //             return null;
+    //           }
+    //         }).filter(c => c !== null);
+    //       } else if (typeof MNComment !== 'undefined' && typeof MNComment.getCommentType === 'function') {
+    //         // 备选方案：使用 getCommentType 方法
+    //         MNLog.debug("使用 MNComment.getCommentType 处理", SOURCE);
+    //         note.MNComments = note.comments.map((comment, index) => {
+    //           try {
+    //             if (!comment) {
+    //               MNLog.warn(`评论 ${index} 为 undefined，跳过`, SOURCE);
+    //               return null;
+    //             }
+    //             // 确保 comment 存在再调用 getCommentType
+    //             const commentType = MNComment.getCommentType(comment);
+    //             return {
+    //               type: commentType,
+    //               text: comment.text || "",
+    //               ...comment
+    //             };
+    //           } catch (innerError) {
+    //             MNLog.error({
+    //               message: `getCommentType 处理评论 ${index} 失败`,
+    //               error: innerError.message,
+    //               comment: comment,
+    //               detail: innerError.stack
+    //             }, SOURCE);
+    //             // 降级处理
+    //             return {
+    //               type: comment.type || "unknown",
+    //               text: comment.text || "",
+    //               ...comment
+    //             };
+    //           }
+    //         }).filter(c => c !== null);
+    //       } else {
+    //         // 最终备选：直接使用原始 comments
+    //         MNLog.debug("MNComment 不可用，使用原始 comments", SOURCE);
+    //         note.MNComments = note.comments.filter(c => c !== null && c !== undefined);
+    //       }
+    //       MNLog.info({
+    //         message: "MNComments 创建成功",
+    //         length: note.MNComments.length
+    //       }, SOURCE);
+    //     } catch (e) {
+    //       MNLog.error({
+    //         message: "创建 MNComments 失败",
+    //         error: e.message,
+    //         stack: e.stack,
+    //         commentsLength: note.comments?.length
+    //       }, SOURCE);
+    //       note.MNComments = note.comments || [];
+    //     }
+    //   } else {
+    //     MNLog.debug("没有找到评论，设置空数组", SOURCE);
+    //     note.MNComments = [];
+    //   }
+    // } else {
+    //   MNLog.debug({
+    //     message: "MNComments 已初始化",
+    //     length: note.MNComments.length
+    //   }, SOURCE);
+    // }
+
+    // 检查是否有文本内容（标题或文本评论）
+    const hasTitle = note.title && note.title.trim();
+    const hasTextComment = this.hasTextComment(note);
+
+    // 跳过无文本内容的卡片
+    if (!hasTitle && !hasTextComment) {
+      return null;
+    }
+
+    // 构建索引条目
+    const entry = {
+      id: note.noteId,
+      title: note.title || "",
+      parentId: note.parentNoteId || null,
+      searchText: this.buildSearchText(note)
+    };
+
+    // 添加一个标记，表示是否已制卡
+    if (knowledgeBaseTemplate.ifTemplateMerged(note)) {
+      entry.isTemplated = true;
+      // 尝试获取类型（如果有的话）
+      try {
+        const noteType = knowledgeBaseTemplate.getNoteType(note);
+        if (noteType) {
+          entry.type = noteType;
+        }
+      } catch (e) {
+        // 忽略错误
+      }
+    } else {
+      entry.isTemplated = false;
+    }
+
+    return entry;
+  }
+
+  /**
+   * 检查卡片是否包含文本评论
+   */
+  static hasTextComment(note) {
+    const SOURCE = "IntermediateKnowledgeIndexer.hasTextComment";
+
+    if (!note.MNComments || note.MNComments.length === 0) {
+      MNLog.debug("MNComments 为空，返回 false", SOURCE);
+      return false;
+    }
+
+    try {
+      return note.MNComments.some((comment, index) => {
+        // 检查 comment 是否有效
+        if (!comment) {
+          MNLog.warn({
+            message: `评论 ${index} 为 null 或 undefined`,
+            noteId: note.noteId
+          }, SOURCE);
+          return false;
+        }
+
+        // 确保 comment.type 存在
+        const commentType = comment.type || "unknown";
+
+        if (commentType === "textComment" || commentType === "markdownComment") {
+          return comment.text && comment.text.trim();
+        }
+        if (commentType === "HtmlComment") {
+          // 检查是否有关键词字段
+          const match = comment.text && comment.text.match(/^关键词[:\uff1a]\s*(.*)$/);
+          return match && match[1].trim();
+        }
+        return false;
+      });
+    } catch (e) {
+      MNLog.error({
+        message: "hasTextComment 检查失败",
+        error: e.message,
+        stack: e.stack,
+        noteId: note.noteId
+      }, SOURCE);
+      return false;
+    }
+  }
+
+  /**
+   * 构建搜索文本
+   * 提取标题和所有文本评论内容
+   */
+  static buildSearchText(note) {
+    const SOURCE = "IntermediateKnowledgeIndexer.buildSearchText";
+    const textParts = [];
+
+    try {
+      // 添加标题
+      if (note.title) {
+        textParts.push(note.title);
+        MNLog.debug({
+          message: "添加标题到搜索文本",
+          title: note.title
+        }, SOURCE);
+      }
+
+      // 处理评论
+      if (note.MNComments && note.MNComments.length > 0) {
+        MNLog.debug({
+          message: "开始处理评论",
+          commentsCount: note.MNComments.length
+        }, SOURCE);
+
+        for (let i = 0; i < note.MNComments.length; i++) {
+          const comment = note.MNComments[i];
+
+          // 检查 comment 是否有效
+          if (!comment) {
+            MNLog.warn({
+              message: `评论 ${i} 为 null 或 undefined`,
+              noteId: note.noteId
+            }, SOURCE);
+            continue;
+          }
+
+          // 获取 comment type，提供默认值
+          const commentType = comment.type || "unknown";
+
+          if (commentType === "textComment") {
+            if (comment.text && comment.text.trim()) {
+              textParts.push(comment.text.trim());
+            }
+          } else if (commentType === "markdownComment") {
+            if (comment.text && comment.text.trim()) {
+              // 去除 markdown 链接，只保留文字
+              const textWithoutLinks = comment.text.replace(
+                /\[([^\]]+)\]\(marginnote4app:\/\/[^)]+\)/g,
+                '$1'
+              );
+              textParts.push(textWithoutLinks.trim());
+            }
+          } else if (commentType === "HtmlComment") {
+            // 只提取关键词字段
+            const match = comment.text && comment.text.match(/^关键词[:\uff1a]\s*(.*)$/);
+            if (match && match[1].trim()) {
+              textParts.push(match[1].trim());
+            }
+          }
+        }
+      }
+
+      // 合并所有文本并转换为小写
+      const result = textParts.join(" ").toLowerCase();
+
+      MNLog.debug({
+        message: "搜索文本构建完成",
+        textPartsCount: textParts.length,
+        resultLength: result.length
+      }, SOURCE);
+
+      return result;
+    } catch (e) {
+      MNLog.error({
+        message: "构建搜索文本失败",
+        error: e.message,
+        stack: e.stack,
+        noteId: note.noteId
+      }, SOURCE);
+      // 返回至少包含标题的文本
+      return (note.title || "").toLowerCase();
+    }
+  }
+
+  // ========== 以下方法复用或修改自 KnowledgeBaseIndexer ==========
+
+  /**
+   * 合并临时文件到分片
+   */
+  static async mergeTempFilesToParts(manifest) {
+    try {
+      const PART_SIZE = manifest.metadata.partSize || 5000;
+      let allData = [];
+
+      // 读取所有临时文件
+      for (const tempFileName of manifest.metadata.tempFiles) {
+        const tempFilePath = MNUtil.tempFolder + "/" + tempFileName;
+        const tempData = MNUtil.readJSON(tempFilePath);
+        if (tempData && tempData.data) {
+          allData = allData.concat(tempData.data);
+        }
+      }
+
+      // 分片保存
+      let partNumber = 0;
+      for (let i = 0; i < allData.length; i += PART_SIZE) {
+        const partData = allData.slice(i, i + PART_SIZE);
+        const partFileName = `intermediate-kb-index-part-${partNumber}.json`;
+
+        await this.saveIndexPart(partFileName, {
+          partNumber: partNumber,
+          startIndex: i,
+          endIndex: Math.min(i + PART_SIZE - 1, allData.length - 1),
+          data: partData
+        });
+
+        manifest.parts.push({
+          partNumber: partNumber,
+          filename: partFileName,
+          count: partData.length,
+          startIndex: i,
+          endIndex: Math.min(i + PART_SIZE - 1, allData.length - 1)
+        });
+
+        partNumber++;
+      }
+
+      manifest.metadata.totalParts = partNumber;
+
+    } catch (error) {
+      MNLog.error(error, "IntermediateKnowledgeIndexer: mergeTempFilesToParts");
+      throw error;
+    }
+  }
+
+  /**
+   * 保存索引分片
+   */
+  static async saveIndexPart(filename, data) {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/" + filename;
+      MNUtil.writeJSON(filepath, data);
+    } catch (error) {
+      MNLog.error(error, "IntermediateKnowledgeIndexer: saveIndexPart");
+      throw error;
+    }
+  }
+
+  /**
+   * 保存主索引清单
+   */
+  static async saveIndexManifest(manifest) {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/intermediate-kb-index-manifest.json";
+      MNUtil.writeJSON(filepath, manifest);
+    } catch (error) {
+      MNLog.error(error, "IntermediateKnowledgeIndexer: saveIndexManifest");
+      throw error;
+    }
+  }
+
+  /**
+   * 清理临时文件
+   */
+  static async cleanupTempFiles(tempFiles) {
+    // 临时文件会在临时目录自动清理
+    // MNUtil 不提供删除文件的方法
+  }
+
+  /**
+   * 加载索引清单
+   */
+  static loadIndexManifest() {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/intermediate-kb-index-manifest.json";
+      return MNUtil.readJSON(filepath);
+    } catch (error) {
+      MNLog.error(error, "IntermediateKnowledgeIndexer: loadIndexManifest");
+      return null;
+    }
+  }
+
+  /**
+   * 加载索引分片
+   */
+  static loadIndexPart(filename) {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/" + filename;
+      return MNUtil.readJSON(filepath);
+    } catch (error) {
+      MNLog.error(error, "IntermediateKnowledgeIndexer: loadIndexPart");
+      return null;
+    }
+  }
+}
