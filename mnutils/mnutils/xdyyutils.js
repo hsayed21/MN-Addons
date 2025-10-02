@@ -43,6 +43,29 @@ MNUtil.getLinkText = function(link){
 }
 
 /**
+ * 更新卡片中所有 markdownComment 里的指定 URL
+ * 用于 mergeInto 时更新行内链接
+ * @param {MNNote} note - 要更新的卡片
+ * @param {string} oldURL - 旧的卡片 URL
+ * @param {string} newURL - 新的卡片 URL
+ */
+MNUtil.updateMarkdownLinksInNote = function(note, oldURL, newURL) {
+  if (!note || !oldURL || !newURL) return;
+
+  note.MNComments.forEach((comment, index) => {
+    if (comment.type === "markdownComment") {
+      let text = comment.text;
+      // 检查是否包含目标 URL
+      if (text.includes(oldURL)) {
+        // 全局替换所有出现的旧 URL (使用 split().join() 避免正则特殊字符问题)
+        let newText = text.split(oldURL).join(newURL);
+        comment.text = newText;  // 使用 setter 自动调用 replaceWithMarkdownComment
+      }
+    }
+  });
+};
+
+/**
  * 夏大鱼羊 MNNote 扩展 - Begin
  */
 MNNote.prototype.getIncludingHtmlCommentIndex = function(htmlComment){
@@ -164,6 +187,43 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
       indexArrInLinkedNote.forEach(index => {
         linkedNote.replaceWithMarkdownComment(targetNote.noteURL, index)
       })
+      // 同时更新 linkedNote 中 markdownComment 里的行内链接
+      MNUtil.updateMarkdownLinksInNote(linkedNote, this.noteURL, targetNote.noteURL)
+    }
+  })
+
+  // 处理 A 中 markdownComment 类型评论的行内链接
+  oldComments.forEach((comment, index) => {
+    if (comment.type === "markdownComment") {
+      // 提取所有 Markdown 格式的链接
+      let markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+      let matches;
+      let processedNotes = new Set(); // 避免重复处理同一个卡片
+
+      while ((matches = markdownLinkRegex.exec(comment.text)) !== null) {
+        let linkURL = matches[2];
+
+        // 检查是否是有效的 MarginNote 链接
+        if (linkURL.ifValidNoteURL()) {
+          let linkedNoteId = linkURL.toNoteId();
+
+          // 避免重复处理
+          if (processedNotes.has(linkedNoteId)) continue;
+          processedNotes.add(linkedNoteId);
+
+          let linkedNote = MNNote.new(linkedNoteId, false);
+          if (linkedNote) {
+            // 更新 linkedNote 中指向 A 的链接评论
+            let indexArr = linkedNote.getLinkCommentsIndexArr(this.noteURL);
+            indexArr.forEach(idx => {
+              linkedNote.replaceWithMarkdownComment(targetNote.noteURL, idx);
+            });
+
+            // 更新 linkedNote 中的 markdownComment
+            MNUtil.updateMarkdownLinksInNote(linkedNote, this.noteURL, targetNote.noteURL);
+          }
+        }
+      }
     }
   })
 
