@@ -520,18 +520,10 @@ JSB.newAddon = function(mainPath){
         } else {
           // 显示选中的历史记录结果
           const selectedHistory = self.searchHistory[choice - 1];
-          
-          // 根据保存的模式确定 focusMode
-          let focusMode = true;  // 默认脑图定位
-          if (selectedHistory.mode === "浮窗定位") {
-            focusMode = false;
-          } else if (selectedHistory.mode === "复制链接") {
-            focusMode = 'markdown';
-          }
-          
+
           // 尝试加载搜索器（用于返回搜索功能）
           const searcher = await FastSearcher.loadFromFile();
-          
+
           // 重用之前的搜索结果
           const searchOptions = {
             types: selectedHistory.types,
@@ -539,13 +531,13 @@ JSB.newAddon = function(mainPath){
             originalKeyword: selectedHistory.keyword,
             isFromHistory: true
           };
-          
-          // 显示历史搜索结果
+
+          // 显示历史搜索结果（不再使用保存的 mode，由用户在点击卡片时选择）
           self.showSearchResults(
-            selectedHistory.results, 
-            searcher, 
-            searchOptions, 
-            focusMode
+            selectedHistory.results,
+            searcher,
+            searchOptions,
+            true  // focusMode 参数在历史记录模式下不再使用
           );
         }
         
@@ -1127,14 +1119,47 @@ JSB.newAddon = function(mainPath){
         const selectedResult = results[selectResult - 2];
         const note = MNNote.new(selectedResult.id);
         if (note) {
-          if (focusMode === 'markdown') {
-            // 复制 Markdown 链接
-            knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
-          } else if (MNUtil.mindmapView) {
-            // 脑图或浮窗定位
-            focusMode ? note.focusInMindMap() : note.focusInFloatMindMap();
+          // 如果来自搜索历史，显示操作选项让用户选择
+          if (searchOptions.isFromHistory) {
+            const actionChoice = await MNUtil.userSelect(
+              "选择操作方式",
+              "请选择对卡片的操作：",
+              ["取消", "📋 复制 Markdown 链接", "🗺️ 在脑图中定位", "🪟 在浮窗中定位"]
+            );
+
+            if (actionChoice === 0) {
+              // 取消，返回搜索结果列表
+              this.showSearchResults(results, searcher, searchOptions, focusMode);
+              return;
+            } else if (actionChoice === 1) {
+              // 复制 Markdown 链接
+              knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
+            } else if (actionChoice === 2) {
+              // 在脑图中定位
+              if (MNUtil.mindmapView) {
+                note.focusInMindMap();
+              } else {
+                MNUtil.showHUD("已选择卡片：" + selectedResult.title);
+              }
+            } else if (actionChoice === 3) {
+              // 在浮窗中定位
+              if (MNUtil.mindmapView) {
+                note.focusInFloatMindMap();
+              } else {
+                MNUtil.showHUD("已选择卡片：" + selectedResult.title);
+              }
+            }
           } else {
-            MNUtil.showHUD("已选择卡片：" + selectedResult.title);
+            // 非历史记录，保持原有逻辑
+            if (focusMode === 'markdown') {
+              // 复制 Markdown 链接
+              knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
+            } else if (MNUtil.mindmapView) {
+              // 脑图或浮窗定位
+              focusMode ? note.focusInMindMap() : note.focusInFloatMindMap();
+            } else {
+              MNUtil.showHUD("已选择卡片：" + selectedResult.title);
+            }
           }
         }
       }

@@ -16873,14 +16873,28 @@ class FastSearcher {
       MNUtil.log("加载分片索引模式");
       return new FastSearcher(manifest);
     }
-    
+
     // 向后兼容：尝试加载旧版单文件索引
     const index = KnowledgeBaseIndexer.loadIndex(filename);
     if (index) {
       MNUtil.log("加载单文件索引模式（旧版）");
       return new FastSearcher(index);
     }
-    
+
+    return null;
+  }
+
+  /**
+   * 从中间知识库索引加载搜索器
+   */
+  static async loadFromIntermediateKB() {
+    // 加载中间知识库的分片索引
+    const manifest = IntermediateKnowledgeIndexer.loadIndexManifest();
+    if (manifest && manifest.metadata) {
+      MNUtil.log("加载中间知识库分片索引");
+      return new FastSearcher(manifest);
+    }
+
     return null;
   }
   
