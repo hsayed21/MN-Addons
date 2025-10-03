@@ -165,7 +165,7 @@ JSB.newAddon = function(mainPath){
         let commandTable = [
           // === 索引管理 ===
           self.tableItem('🔄   索引知识库', 'updateSearchIndex:'),
-          self.tableItem('📋   搜索知识库(复制链接)', 'searchForMarkdown:'),
+          self.tableItem('📋   搜索知识库', 'searchForMarkdown:'),
           self.tableItem('-------------------------------',''),
           // === 中间知识库管理 ===
           self.tableItem('📝   索引中间知识库', 'updateIntermediateKnowledgeIndex:'),
@@ -666,18 +666,19 @@ JSB.newAddon = function(mainPath){
         // 获取知识卡片类型
         const types = SearchConfig.getTypesByPreset('knowledge');
         
-        // 显示搜索对话框，使用知识卡片类型，使用 markdown 模式
+        // 显示搜索对话框，使用知识卡片类型
+        // 传递 true 作为 focusMode，表示正常的搜索（将在选中后显示操作菜单）
         self.showSearchDialog(searcher, {
           enableTypeSelection: false,  // 禁用类型选择
           defaultTypes: types,         // 使用知识卡片类型
           presetKey: 'knowledge'       // 使用知识卡片预设
-        }, 'markdown');
+        }, true);
         
       } catch (error) {
         MNUtil.showHUD("搜索失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: searchForMarkdown");
       }
-    },
+    },,
 
 
     // 生命周期测试
@@ -1128,8 +1129,150 @@ JSB.newAddon = function(mainPath){
   }
 
   /**
-   * 显示搜索结果
+   * 处理选中的卡片，显示操作菜单
    */
+  handleSelectedCard: async function(note, searchResult, searchOptions = {}) {
+    try {
+      if (!note) {
+        MNUtil.showHUD("❌ 无效的卡片");
+        return;
+      }
+
+      // 构建操作菜单选项
+      const menuOptions = [
+        "📋 复制 Markdown 链接",
+        "🗺️ 在脑图中定位",
+        "🪟 在浮窗中定位",
+        "📌 Pin 到位置",
+        "🔗 合并剪贴板卡片到摘录区",
+        "🔙 返回搜索结果"
+      ];
+
+      const actionChoice = await MNUtil.userSelect(
+        "选择操作",
+        `卡片: ${searchResult ? searchResult.title : note.noteTitle}`,
+        menuOptions
+      );
+
+      switch(actionChoice) {
+        case 0: // 取消
+          // 返回搜索结果列表
+          if (searchOptions.results && searchOptions.searcher) {
+            this.showSearchResults(searchOptions.results, searchOptions.searcher, searchOptions);
+          }
+          break;
+          
+        case 1: // 复制 Markdown 链接
+          knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
+          break;
+          
+        case 2: // 在脑图中定位
+          if (MNUtil.mindmapView) {
+            note.focusInMindMap();
+          } else {
+            MNUtil.showHUD("当前不在脑图视图");
+          }
+          break;
+          
+        case 3: // 在浮窗中定位
+          if (MNUtil.mindmapView) {
+            note.focusInFloatMindMap();
+          } else {
+            MNUtil.showHUD("当前不在脑图视图");
+          }
+          break;
+          
+        case 4: // Pin 到位置
+          // 显示位置选择子菜单
+          const pinOptions = [
+            "📍 Midway Top",
+            "📍 Midway Bottom",
+            "📍 Focus Top",
+            "📍 Focus Bottom",
+            "🔙 返回"
+          ];
+
+          const pinChoice = await MNUtil.userSelect(
+            "选择 Pin 位置",
+            "选择要 Pin 到的位置：",
+            pinOptions
+          );
+
+          if (pinChoice > 0 && pinChoice <= 4) {
+            const sections = ["midway", "midway", "focus", "focus"];
+            const positions = ["top", "bottom", "top", "bottom"];
+            const section = sections[pinChoice - 1];
+            const position = positions[pinChoice - 1];
+
+            // 发送广播消息给 mnpinner
+            MNUtil.postNotification("AddonBroadcast", {
+              message: `mnpinner?action=pin&id=${encodeURIComponent(note.noteId)}&section=${section}&position=${position}`
+            });
+
+            MNUtil.showHUD(`✅ 已发送 Pin 请求到 ${section} ${position}`);
+          } else if (pinChoice === 5) {
+            // 返回主菜单
+            this.handleSelectedCard(note, searchResult, searchOptions);
+          }
+          break;
+
+        case 5: // 合并剪贴板卡片到摘录区
+          try {
+            // 获取剪贴板内容
+            const clipboardContent = MNUtil.clipboardText;
+            if (!clipboardContent) {
+              MNUtil.showHUD("❌ 剪贴板为空");
+              return;
+            }
+
+            // 尝试解析为 MarginNote 卡片
+            let clipboardNote = null;
+
+            // 检查是否为 MarginNote URL
+            if (clipboardContent.includes("marginnote")) {
+              clipboardNote = MNNote.new(clipboardContent);
+            } else if (clipboardContent.match(/^[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}$/i)) {
+              // 检查是否为 UUID 格式的 noteId
+              clipboardNote = MNNote.new(clipboardContent);
+            }
+
+            if (!clipboardNote) {
+              MNUtil.showHUD("❌ 剪贴板内容不是有效的卡片 ID 或 URL");
+              return;
+            }
+
+            // 执行合并操作
+            MNUtil.undoGrouping(() => {
+              // 添加为子卡片
+              note.addChild(clipboardNote);
+
+              // 合并到选中卡片
+              clipboardNote.mergeInto(note);
+
+              // 自动移动到摘录区
+              knowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录");
+            });
+
+            MNUtil.showHUD("✅ 已合并剪贴板卡片到摘录区");
+          } catch (error) {
+            MNUtil.showHUD("❌ 合并失败: " + error.message);
+            MNLog.error(error, "MNKnowledgeBase: mergeClipboardCard");
+          }
+          break;
+
+        case 6: // 返回搜索结果
+          if (searchOptions.results && searchOptions.searcher) {
+            this.showSearchResults(searchOptions.results, searchOptions.searcher, searchOptions);
+          }
+          break;
+      }
+      
+    } catch (error) {
+      MNUtil.showHUD("操作失败: " + error.message);
+      MNLog.error(error, "MNKnowledgeBase: handleSelectedCard");
+    }
+  },
+
   MNKnowledgeBaseClass.prototype.showSearchResults = async function(results, searcher, searchOptions = {}, focusMode = true) {
     try {
       // 构建结果选项
@@ -1139,23 +1282,19 @@ JSB.newAddon = function(mainPath){
           : `[${result.type}-${result.prefix}]`;
         
         // 获取显示的标题（优先用简短形式）
-        // let displayTitle = result.title;
         let displayTitle = result.classificationSubtype 
           ? `${result.content}`
           : ``;
-        // MNLog.log(index + "第一次截取", Object.entries(result));
         
         // 截取标题避免过长
-        // TODO MNUtil 有计算字符的
         if (displayTitle.length > 40) {
           displayTitle = displayTitle.substring(0, 40) + "...";
-          // MNLog.log(index + "第二次截取" + displayTitle);
         }
 
         if (!result.classificationSubtype){
           displayTitle = displayTitle + result.titleLinkWords
         }
-        // MNLog.log(index + "第三次截取" + displayTitle);
+        
         return `${index + 1}. ${typeLabel} ${displayTitle}`;
       });
       
@@ -1163,7 +1302,6 @@ JSB.newAddon = function(mainPath){
       options.unshift("🔙 返回搜索");
       
       // 显示结果列表
-      // TODO：宽度能否调
       let selectResult = await MNUtil.userSelect(
         `搜索结果 (${results.length} 个)`,
         "选择要查看的卡片：",
@@ -1182,48 +1320,14 @@ JSB.newAddon = function(mainPath){
         const selectedResult = results[selectResult - 2];
         const note = MNNote.new(selectedResult.id);
         if (note) {
-          // 如果来自搜索历史，显示操作选项让用户选择
-          if (searchOptions.isFromHistory) {
-            const actionChoice = await MNUtil.userSelect(
-              "选择操作方式",
-              "请选择对卡片的操作：",
-              ["📋 复制 Markdown 链接", "🗺️ 在脑图中定位", "🪟 在浮窗中定位"]
-            );
-
-            if (actionChoice === 0) {
-              // 取消，返回搜索结果列表
-              this.showSearchResults(results, searcher, searchOptions, focusMode);
-              return;
-            } else if (actionChoice === 1) {
-              // 复制 Markdown 链接
-              knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
-            } else if (actionChoice === 2) {
-              // 在脑图中定位
-              if (MNUtil.mindmapView) {
-                note.focusInMindMap();
-              } else {
-                MNUtil.showHUD("已选择卡片：" + selectedResult.title);
-              }
-            } else if (actionChoice === 3) {
-              // 在浮窗中定位
-              if (MNUtil.mindmapView) {
-                note.focusInFloatMindMap();
-              } else {
-                MNUtil.showHUD("已选择卡片：" + selectedResult.title);
-              }
-            }
-          } else {
-            // 非历史记录，保持原有逻辑
-            if (focusMode === 'markdown') {
-              // 复制 Markdown 链接
-              knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
-            } else if (MNUtil.mindmapView) {
-              // 脑图或浮窗定位
-              focusMode ? note.focusInMindMap() : note.focusInFloatMindMap();
-            } else {
-              MNUtil.showHUD("已选择卡片：" + selectedResult.title);
-            }
-          }
+          // 调用新的统一处理方法
+          const enhancedOptions = Object.assign({}, searchOptions, {
+            results: results,
+            searcher: searcher,
+            focusMode: focusMode,
+            isFromHistory: searchOptions.isFromHistory
+          });
+          this.handleSelectedCard(note, selectedResult, enhancedOptions);
         }
       }
       
