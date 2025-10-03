@@ -347,6 +347,7 @@ viewWillLayoutSubviews: function() {
     // }
     
     let config = MNUtil.parseURL(requestURL)
+    // browserUtils.log("webViewShouldStartLoadWithRequestNavigationType", config)
     // let currentConfig = MNUtil.parseURL(currentURL)
     // MNUtil.log({
     //   message:"webViewShouldStartLoadWithRequestNavigationType",
@@ -367,6 +368,14 @@ viewWillLayoutSubviews: function() {
         }
         if (currentURL.startsWith("https://moredraw.com") || currentURL.startsWith("http://moredraw.com")) {
           // MNUtil.showHUD("base64FromBlob")
+          self.base64FromBlob(requestURL)
+          return false
+        }
+        if (currentURL.startsWith("https://boardmix.cn")) {
+          self.base64FromBlob(requestURL)
+          return false
+        }
+        if (currentURL.startsWith("https://fireflycard.shushiai.com")) {
           self.base64FromBlob(requestURL)
           return false
         }
@@ -417,6 +426,7 @@ viewWillLayoutSubviews: function() {
         MNUtil.openURL(requestURL)
         return false
       case "browser":
+        browserUtils.log("config",config)
         switch (config.host) {
           case "showhud":
             self.showHUD(config.params.message)
@@ -424,8 +434,8 @@ viewWillLayoutSubviews: function() {
             return false
           case "getpdfdata":
             // MNUtil.showHUD("getpdfdata")
-            let tem = config.params.content.split(",")
-            let type = self.fileTypeFromBase64(tem[0])
+            let type = self.fileTypeFromBase64(config.params.content)
+            browserUtils.log("type",type)
             switch (type) {
               case "pdf":
                 if (currentURL.startsWith("https://doc2x.noedgeai.com")) {
@@ -433,6 +443,12 @@ viewWillLayoutSubviews: function() {
                 }
                 if (currentURL.startsWith("https://moredraw.com") || currentURL.startsWith("http://moredraw.com")) {
                   self.importPDFFromBase64MoreDraw(config.params.content,config.params.blobUrl)
+                }
+                if (currentURL.startsWith("https://boardmix.cn")) {
+                  self.importPDFFromBase64BoardMix(config.params.content,config.params.blobUrl)
+                }
+                if (currentURL.startsWith("https://fireflycard.shushiai.com")) {
+                  self.importPDFFromBase64FireflyCard(config.params.content,config.params.blobUrl)
                 }
                 break;
               case "png":
@@ -445,19 +461,6 @@ viewWillLayoutSubviews: function() {
             }
             // MNUtil.copy(tem[0])
             return false
-          // MNUtil.copy(config)
-//             self.runJavaScript(`// 手动使 Blob URL 失效
-//             try {
-              
-
-// window.URL.revokeObjectURL("${config.params.blobUrl}");
-//             } catch (error) {
-//               error.message
-//             }
-// `).then(res => {
-//   MNUtil.copy(res)
-// })
-            return false;
           case "downloadpdf":
             self.downloadPDF(config.params)
             return false
@@ -519,6 +522,8 @@ viewWillLayoutSubviews: function() {
           return false
         }
         break;
+      case "file":
+        return true
       default:
         MNUtil.showHUD("Unknown scheme: "+config.scheme)
         MNUtil.log({
@@ -667,6 +672,7 @@ viewWillLayoutSubviews: function() {
     menu.addMenuItem('📸  Screenshot', 'screenshot:',self.view.frame.width>1000?self.view.frame.width:1000)
     menu.addMenuItem('📸  Screenshot Full Page', 'screenshotFull:',self.view.frame.width>1000?self.view.frame.width:1000)
     menu.addMenuItem('📤  Export to PDF', 'exportToPDF:')
+    menu.addMenuItem('📤  Open Demo Page', 'openDemoPage:')
     if (!self.inHomePage) {
       menu.addMenuItem('🎬  VideoFrame → Clipboard', 'videoFrame:',self.view.frame.width>1000?self.view.frame.width:1000)
       menu.addMenuItem('🎬  VideoFrame → Snipaste', 'videoFrameToSnipaste:',self.view.frame.width>1000?self.view.frame.width:1000)
@@ -727,6 +733,13 @@ viewWillLayoutSubviews: function() {
     //     {title:'UploadToDoc2X',object:self,selector:'uploadToDoc2X:',param:true},
     //   ];
     // self.view.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,250,1)
+  },
+  openDemoPage: function (button) {
+    Menu.dismissCurrentMenu()
+    MNConnection.loadFile(self.webview, browserUtils.mainPath + "/test.html", browserUtils.mainPath+"/")
+    if (self.view.hidden) {
+      self.show()
+    }
   },
   changeZoomScale: async function (params) {
   try {
@@ -1227,8 +1240,13 @@ try {
       if (self.inHomePage) {
         MNUtil.postNotification('newWindow', {homePage:true})
       }else{
-        MNUtil.postNotification('newWindow', {url:url,desktop:self.desktop,engine:browserConfig.engine,webApp:self.webApp})
-        self.homePage();
+        if(url === "about:blank"){
+          MNUtil.postNotification('newWindow', {homePage:true})
+          self.homePage();
+        }else{
+          MNUtil.postNotification('newWindow', {url:url,desktop:self.desktop,engine:browserConfig.engine,webApp:self.webApp})
+          self.homePage();
+        }
       }
     }
   },
@@ -5591,8 +5609,16 @@ uploadPDFBase64("${fileBase64}","${fileName}")
 /**
  * @this {browserController}
  */
-browserController.prototype.fileTypeFromBase64 = function(prefix) {
-  if (prefix.includes("octet-stream") || prefix.includes("application/pdf")) {
+browserController.prototype.fileTypeFromBase64 = function(content) {
+  let tem = content.split(",")
+  let prefix = tem[0]
+
+  if (prefix.includes("octet-stream")) {//需要进一步判断
+    //通过base64前几个字符判断
+    let type = browserUtils.getBase64UrlFileType(content)
+    return type
+  }
+  if (prefix.includes("application/pdf")) {
     return "pdf"
   }
   if (prefix.includes("html")) {
@@ -5713,18 +5739,20 @@ browserController.prototype.importPDFFromBase64MoreDraw = async function(base64P
   }
   getTtile()`)
   let fileName = res ? (res+".pdf") : ("moredraw_"+Date.now()+".pdf")
-  let userInput = await MNUtil.input("🌐 MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:\n\n${fileName}`, ["Cancel / 取消","Default / 默认","Confirm / 确认"])
+  let option = {
+    default:fileName,
+  }
+  let userInput = await MNUtil.input("🌐 MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:`, ["Cancel / 取消","Confirm / 确认"],option)
   // MNUtil.copy(userInput)
   switch (userInput.button) {
     case 0:
       MNUtil.stopHUD()
       return
     case 1:
+    case 2:
       if (userInput.input.trim()) {
         fileName = userInput.input.trim().replace(".pdf","").replace(" ","_")+".pdf"
       }
-      break;
-    case 2:
       break;
     default:
       break;
@@ -5745,8 +5773,113 @@ browserController.prototype.importPDFFromBase64MoreDraw = async function(base64P
   }
   MNUtil.stopHUD()
 }
-function name(params) {
-  
+browserController.prototype.importPDFFromBase64BoardMix = async function(base64PDF,blobUrl) {
+ // MNUtil.copy(base64PDF)
+  let tem = base64PDF.split(",")
+
+  this.runJavaScript(`window.URL.revokeObjectURL("${blobUrl}");`)
+  MNUtil.waitHUD("Importing PDF...")
+  await MNUtil.delay(0.1)
+  let pdfData = NSData.dataWithContentsOfURL(NSURL.URLWithString("data:application/pdf;base64,"+tem[1]))
+  let res = await this.runJavaScript(`function getTtile() {
+    let title = document.title
+    if (title && title.trim()) {
+      return title.replace(" - boardmix","")
+    }
+    let element = document.getElementsByClassName("file-header--title")[0]
+    title = element.textContent
+    return title
+  }
+  getTtile()`)
+  let fileName = (res ? (res+".pdf") : ("boardmix_"+Date.now()+".pdf"))
+  let option = {
+    default:fileName,
+  }
+  let userInput = await MNUtil.input("🌐 MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:`, ["Cancel / 取消","Confirm / 确认"],option)
+  // MNUtil.copy(userInput)
+  switch (userInput.button) {
+    case 0:
+      MNUtil.stopHUD()
+      return
+    case 1:
+    case 2:
+      if (userInput.input.trim()) {
+        fileName = userInput.input.trim().replace(".pdf","").replace(" ","_")+".pdf"
+      }
+      break;
+    default:
+      break;
+  }
+  let targetPath = MNUtil.documentFolder+"/WebDownloads/"+fileName
+  pdfData.writeToFileAtomically(targetPath, false)
+  let docMd5 = MNUtil.importDocument(targetPath)
+  if (typeof snipasteUtils !== 'undefined') {
+    MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
+  }else{
+    let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
+    if (confirm) {
+      MNUtil.openDoc(md5,MNUtil.currentNotebookId)
+      if (MNUtil.docMapSplitMode === 0) {
+        MNUtil.studyController.docMapSplitMode = 1
+      }
+    }
+  }
+  MNUtil.stopHUD()
+}
+
+browserController.prototype.importPDFFromBase64FireflyCard = async function(base64PDF,blobUrl) {
+ // MNUtil.copy(base64PDF)
+  let tem = base64PDF.split(",")
+
+  this.runJavaScript(`window.URL.revokeObjectURL("${blobUrl}");`)
+  MNUtil.waitHUD("Importing PDF...")
+  await MNUtil.delay(0.1)
+  let pdfData = NSData.dataWithContentsOfURL(NSURL.URLWithString("data:application/pdf;base64,"+tem[1]))
+  // let res = await this.runJavaScript(`function getTtile() {
+  //   let title = document.title
+  //   if (title && title.trim()) {
+  //     return title.replace(" - boardmix","")
+  //   }
+  //   let element = document.getElementsByClassName("file-header--title")[0]
+  //   title = element.textContent
+  //   return title
+  // }
+  // getTtile()`)
+  // let fileName = (res ? (res+".pdf") : ("boardmix_"+Date.now()+".pdf"))
+  let fileName = ("fireflycard_"+Date.now()+".pdf")
+  let option = {
+    default:fileName,
+  }
+  let userInput = await MNUtil.input("🌐 MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:`, ["Cancel / 取消","Confirm / 确认"],option)
+  // MNUtil.copy(userInput)
+  switch (userInput.button) {
+    case 0:
+      MNUtil.stopHUD()
+      return
+    case 1:
+    case 2:
+      if (userInput.input.trim()) {
+        fileName = userInput.input.trim().replace(".pdf","").replace(" ","_")+".pdf"
+      }
+      break;
+    default:
+      break;
+  }
+  let targetPath = MNUtil.documentFolder+"/WebDownloads/"+fileName
+  pdfData.writeToFileAtomically(targetPath, false)
+  let docMd5 = MNUtil.importDocument(targetPath)
+  if (typeof snipasteUtils !== 'undefined') {
+    MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
+  }else{
+    let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
+    if (confirm) {
+      MNUtil.openDoc(md5,MNUtil.currentNotebookId)
+      if (MNUtil.docMapSplitMode === 0) {
+        MNUtil.studyController.docMapSplitMode = 1
+      }
+    }
+  }
+  MNUtil.stopHUD()
 }
 /**
  * @this {browserController}

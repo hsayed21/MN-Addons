@@ -742,7 +742,7 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
       // menu.addMenuItem("➕  New icon from 📄 File", 'changeIconFromFile:', selected)
       // menu.addMenuItem("➕  New icon from 🌐 Appicon Forge", 'changeIconFromWeb:', "https://zhangyu1818.github.io/appicon-forge/")
       // menu.addMenuItem("➕  New icon from 🌐 Icon Font", 'changeIconFromWeb:', "https://www.iconfont.cn/")
-      menu.addMenuItem("➕  New icon", 'chooseIconSource:')
+      menu.addMenuItem("➕  New icon", 'chooseIconSource:',selected)
       menu.addMenuItem("🔍  Change icon scale", 'changeIconScale:', selected)
       menu.addMenuItem("🔄  Reset icon", 'resetIcon:', selected)
       // var commandTable = [
@@ -779,6 +779,8 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
     }
   },
   chooseIconSource:async function (buttonName) {
+  try {
+
     let self = getSettingController()
     Menu.dismissCurrentMenu()
     self.checkPopoverController()
@@ -840,6 +842,10 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
       default:
         break;
     }
+    
+  } catch (error) {
+    toolbarUtils.addErrorLog(error, "chooseIconSource")
+  }
     // MNUtil.copy(userSelect)
   },
   copyActionURL:function (actionKey) {

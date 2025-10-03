@@ -515,14 +515,19 @@ JSB.newAddon = function (mainPath) {
         if (typeof MNUtil === 'undefined') {
           return
         }
+        MNUtil.log("onNewWindow")
         if (self.window !== MNUtil.currentWindow) {
           MNUtil.showHUD("reject")
           return
         }
+        try {
         let userInfo = sender.userInfo
+        browserUtils.log("userInfo",userInfo)
         if (!self.newWindowController) {
           self.newWindowController = browserController.new();
-          self.newWindowController.addonBar = self.addonController.addonBar
+          if (self.addonController.addonBar) {
+            self.newWindowController.addonBar = self.addonController.addonBar
+          }
           self.newWindowController.view.hidden = true
           MNUtil.studyView.addSubview(self.newWindowController.view);
           self.newWindowController.setFrame(50,100,419,450)
@@ -532,9 +537,12 @@ JSB.newAddon = function (mainPath) {
           MNUtil.studyView.addSubview(newWindowController.view)
         }
         if (newWindowController.view.hidden) {
-          newWindowController.show(newWindowController.addonBar.frame)
+          if (newWindowController.addonBar) {
+            newWindowController.show(newWindowController.addonBar.frame)
+          }else{
+            newWindowController.show()
+          }
         }
-        try {
         newWindowController.setWebMode(userInfo.desktop)
         let toolbar = browserConfig.toolbar
         newWindowController.buttonScrollview.hidden = !toolbar
@@ -550,7 +558,11 @@ JSB.newAddon = function (mainPath) {
         if (userInfo.homePage) {
           newWindowController.homePage()
         }else{
-          MNConnection.loadRequest(newWindowController.webview, userInfo.url)
+          if (userInfo.url === "about:blank") {
+            newWindowController.homePage()
+          }else{
+            MNConnection.loadRequest(newWindowController.webview, userInfo.url)
+          }
         }
         // newWindowController.webview.loadRequest(MNUtil.requestWithURL(sender.userInfo.url));
         } catch (error) {

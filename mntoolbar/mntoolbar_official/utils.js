@@ -3302,7 +3302,7 @@ try {
                 MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:focusNote.noteId,result:res})
                 return;
               case 3:
-                ocrUtils.undoGrouping(()=>{
+                MNUtil.undoGrouping(()=>{
                   // focusNote.textFirst = true
                   focusNote.excerptTextMarkdown = true
                   focusNote.excerptText =  res
@@ -4642,25 +4642,37 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
   }
   static async moveNote(des){
     let focusNotes = MNNote.getFocusNotes()
-    MNUtil.undoGrouping(()=>{
-      if (des.mainMindMap) {
+    if (des.mainMindMap) {
+      MNUtil.undoGrouping(()=>{
         focusNotes.map((note)=>{
           let realNote = note.realGroupNoteForTopicId()
           if (realNote.parentNote) {
             realNote.removeFromParent()
           }
         })
-      }else if(des.noteURL){
-        let parentNote = MNNote.new(des.noteURL)
-        if (parentNote) {
+      })
+    }else if(des.noteURL){
+      let parentNote = MNNote.new(des.noteURL)
+      let notebookId = parentNote.notebookId
+      if (parentNote) {
+        MNUtil.undoGrouping(()=>{
           focusNotes.map((note)=>{
-            if (parentNote.notebookId === note.notebookId) {
+            if (notebookId === note.notebookId) {
               parentNote.addChild(note)
+            }else{
+              let realNote = note.realGroupNoteForTopicId()
+              if (notebookId === realNote.notebookId) {
+                parentNote.addChild(realNote)
+              }else{
+                MNUtil.showHUD("Not in the same notebook")
+              }
             }
           })
-        }
+        })
+      }else{
+        MNUtil.showHUD("Invalid parent note")
       }
-    })
+    }
   }
   /**
    *
@@ -7457,6 +7469,11 @@ class toolbarConfig {
    */
   static setButtonImage(action,image,refresh = false,scale = 3) {
   try {
+    if (!action || !action.trim()) {
+      MNUtil.showHUD("Action is required")
+      return
+    }
+    // MNUtil.log("setButtonImage",action)
     let size = image.size
     if (size.width * size.height > 250000) {
       MNUtil.confirm("MN Toolbar","Image size is too large\n\n图片尺寸过大")

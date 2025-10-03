@@ -54,7 +54,9 @@ class browserUtils {
     "v.flomoapp.com":"https://alist.feliks.top/d/cdn/icon/flomo.png",
     "www.xiaohongshu.com":"https://alist.feliks.top/d/cdn/icon/rednote.png",
     "doc2x.noedgeai.com":"https://alist.feliks.top/d/cdn/icon/doc2x.png",
-    "www.jianguoyun.com":"https://alist.feliks.top/d/cdn/icon/nutstore.png"
+    "www.jianguoyun.com":"https://alist.feliks.top/d/cdn/icon/nutstore.png",
+    "boardmix.cn":"https://alist.feliks.top/d/cdn/icon/boardmix.png",
+    "fireflycard.shushiai.com":"https://alist.feliks.top/d/cdn/icon/fireflyCard.png"
   }
   /**
    * 
@@ -72,6 +74,57 @@ class browserUtils {
     let app = Application.sharedInstance()
     app.showHUD(message,app.focusWindow,duration)
   }
+/**
+ * 直接从 Base64 格式的 Data URL 判断文件格式
+ * @param {string} base64Url - Base64 Data URL（如 data:application/octet-stream;base64,...）
+ * @returns {string} 文件格式（如 'jpg', 'png', 'pdf' 等，未知则返回 'unknown'）
+ */
+static getBase64UrlFileType(base64Url) {
+  try {
+    // 步骤1：提取 Base64 内容部分（去除前缀）
+    const base64Data = base64Url.split(',')[1]; // 分割后第二个元素是 Base64 内容
+    if (!base64Data) throw new Error('无效的 Base64 URL');
+
+    // 步骤2：Base64 解码为二进制数据（Uint8Array），只需前 16 字节
+    const binaryStr = subscriptionNetwork.atob(base64Data); // 将 Base64 解码为二进制字符串
+    const uint8Array = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      uint8Array[i] = binaryStr.charCodeAt(i); // 转换为 Uint8Array
+    }
+    const fileHeaderBytes = uint8Array.slice(0, 16); // 取前 16 字节文件头
+
+    // 步骤3：将文件头转换为十六进制字符串（用于匹配）
+    const hexHeader = Array.from(fileHeaderBytes)
+      .map(byte => byte.toString(16).padStart(2, '0').toUpperCase())
+      .join('');
+
+    // 步骤4：通过文件头匹配格式（同之前的文件头规则）
+    const fileTypes = {
+      'FFD8FF': 'jpg',          // JPG/JPEG
+      '89504E47': 'png',        // PNG
+      '47494638': 'gif',        // GIF
+      '25504446': 'pdf',        // PDF
+      '504B0304': 'zip',        // ZIP（包括 docx、xlsx 等）
+      '7B5C727466': 'rtf',      // RTF
+      '4D5A': 'exe',            // EXE/DLL
+      '494433': 'mp3',          // MP3
+      '0000001466747970': 'mp4',// MP4
+    };
+
+    // 从长前缀到短前缀匹配（避免误判）
+    const sortedTypes = Object.entries(fileTypes).sort(([a], [b]) => b.length - a.length);
+    for (const [hexPrefix, type] of sortedTypes) {
+      if (hexHeader.startsWith(hexPrefix)) {
+        return type;
+      }
+    }
+    return 'unknown';
+  } catch (error) {
+    this.addErrorLog(error, "getBase64UrlFileType")
+    return 'unknown';
+  }
+}
+
   static checkMNUtilsFolder(fullPath){
     let extensionFolder = this.getExtensionFolder(fullPath)
     let folderExist = NSFileManager.defaultManager().fileExistsAtPath(extensionFolder+"/marginnote.extension.mnutils/main.js")
@@ -926,6 +979,9 @@ static extractBilibiliLinks(markdownText) {
       return true;
     }
     if (url.includes("https://zhangyu1818.github.io/appicon-forge/")) {
+      return true
+    }
+    if (url.includes("https://feliks.rth1.xyz")) {
       return true
     }
     return false
