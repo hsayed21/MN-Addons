@@ -5510,6 +5510,14 @@ function registerAllCustomActions() {
       })
     }
   )
+
+   global.registerCustomAction("preprocessNote", async function(context) {
+    const { focusNote } = context;
+      MNUtil.undoGrouping(()=>{
+        knowledgeBaseTemplate.preprocessNote(focusNote);
+      })
+    }
+  )
 }
 
 // 立即注册

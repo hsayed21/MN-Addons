@@ -658,6 +658,10 @@ function registerAllMenuTemplates() {
           menuTitle: "    不定位制卡",
         },
         {
+          action: "preprocessNote",
+          menuTitle: "    预处理制卡",
+        },
+        {
           action: "menu",
           menuTitle: "➡️ 文献制卡",
           menuItems: [
