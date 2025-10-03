@@ -517,6 +517,120 @@ class pinnerConfig {
       return false
     }
   }
+
+  /**
+   * 在指定位置添加卡片
+   * @param {string} noteId - 卡片ID
+   * @param {string} title - 卡片标题
+   * @param {string} section - 分区名称
+   * @param {string|number} position - 位置：'top', 'bottom' 或具体索引
+   * @returns {boolean} 是否添加成功
+   */
+  static addPinAtPosition(noteId, title, section = "midway", position = "bottom") {
+    try {
+      if (!this.sections[section]) {
+        pinnerUtils.addErrorLog("Invalid section: " + section, "pinnerConfig:addPinAtPosition")
+        return false
+      }
+
+      let pins = this.sections[section]
+
+      // 检查是否已存在
+      if (pins.find(p => p.noteId === noteId)) {
+        MNUtil.showHUD("卡片已存在")
+        return false
+      }
+
+      // 创建新的 pin 对象
+      let newPin = {
+        noteId: noteId,
+        title: title || "未命名卡片"
+      }
+
+      // 根据 position 参数插入到指定位置
+      if (position === "top") {
+        pins.unshift(newPin)  // 插入到开头
+      } else if (position === "bottom") {
+        pins.push(newPin)  // 插入到末尾
+      } else if (typeof position === "number" || !isNaN(Number(position))) {
+        let index = Number(position)
+        // 确保索引在有效范围内
+        if (index < 0) index = 0
+        if (index > pins.length) index = pins.length
+        pins.splice(index, 0, newPin)  // 插入到指定位置
+      } else {
+        // 无效的 position 参数，默认添加到末尾
+        pins.push(newPin)
+      }
+
+      // 保存
+      this.save()
+
+      pinnerUtils.log(`Added pin at position ${position} to ${section}: ${title}`, "pinnerConfig:addPinAtPosition")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:addPinAtPosition")
+      return false
+    }
+  }
+
+  /**
+   * 将已存在的卡片移动到指定位置
+   * @param {string} noteId - 卡片ID
+   * @param {string} section - 分区名称
+   * @param {string} position - 位置：'top' 或 'bottom'
+   * @returns {boolean} 是否移动成功
+   */
+  static movePinToPosition(noteId, section, position) {
+    try {
+      if (!this.sections[section]) {
+        pinnerUtils.addErrorLog("Invalid section: " + section, "pinnerConfig:movePinToPosition")
+        return false
+      }
+
+      let pins = this.sections[section]
+
+      // 查找卡片索引
+      let currentIndex = pins.findIndex(p => p.noteId === noteId)
+      if (currentIndex === -1) {
+        MNUtil.showHUD("卡片不存在")
+        return false
+      }
+
+      let targetIndex
+      if (position === "top") {
+        targetIndex = 0
+      } else if (position === "bottom") {
+        targetIndex = pins.length - 1
+      } else {
+        return false
+      }
+
+      // 如果已经在目标位置，不需要移动
+      if (currentIndex === targetIndex) {
+        return true
+      }
+
+      // 移动卡片
+      let [item] = pins.splice(currentIndex, 1)
+      pins.splice(targetIndex, 0, item)
+
+      // 保存
+      this.save()
+
+      if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
+        pinnerUtils.pinnerController.refreshView(section + "View")
+      }
+
+      pinnerUtils.log(`Moved pin to ${position} in ${section}`, "pinnerConfig:movePinToPosition")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:movePinToPosition")
+      return false
+    }
+  }
   
   /**
    * 删除 Pin

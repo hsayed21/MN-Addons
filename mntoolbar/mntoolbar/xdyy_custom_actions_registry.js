@@ -5447,6 +5447,51 @@ function registerAllCustomActions() {
     });
   })
 
+  // 新增的 Pin 位置控制 actions
+  global.registerCustomAction("pinToMidwayTop", async function(context) {
+    const { focusNote } = context;
+    if (!focusNote) {
+      MNUtil.showHUD("请先选中一个卡片");
+      return;
+    }
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=pin&id=${encodeURIComponent(focusNote.noteId)}&section=midway&position=top`
+    });
+  })
+
+  global.registerCustomAction("pinToMidwayBottom", async function(context) {
+    const { focusNote } = context;
+    if (!focusNote) {
+      MNUtil.showHUD("请先选中一个卡片");
+      return;
+    }
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=pin&id=${encodeURIComponent(focusNote.noteId)}&section=midway&position=bottom`
+    });
+  })
+
+  global.registerCustomAction("pinToFocusTop", async function(context) {
+    const { focusNote } = context;
+    if (!focusNote) {
+      MNUtil.showHUD("请先选中一个卡片");
+      return;
+    }
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=pin&id=${encodeURIComponent(focusNote.noteId)}&section=focus&position=top`
+    });
+  })
+
+  global.registerCustomAction("pinToFocusBottom", async function(context) {
+    const { focusNote } = context;
+    if (!focusNote) {
+      MNUtil.showHUD("请先选中一个卡片");
+      return;
+    }
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=pin&id=${encodeURIComponent(focusNote.noteId)}&section=focus&position=bottom`
+    });
+  })
+
   global.registerCustomAction("focusLastChildNote", async function(context) {
     const { focusNote } = context;
       if (focusNote) {

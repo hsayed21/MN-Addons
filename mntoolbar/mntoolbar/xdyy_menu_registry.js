@@ -621,16 +621,21 @@ function registerAllMenuTemplates() {
       menuWidth: 300,
       menuItems: [
         {
+          "action": "moveLinksInExcerptToThoughtArea",
+          "menuTitle": "移动摘录区的链接到「相关思考区」",
+        },
+        {
           action: "renewExcerptInParentNoteByFocusNote",
           menuTitle: "摘录替换掉父卡片的摘录",
         },
+        "⬇️ 摘录移动",
         {
           action: "mergeToParentAndMoveCommentToExcerpt",
-          menuTitle: "合并到父卡片并移动评论到摘录",
+          menuTitle: "    合并到父卡片并移动评论到摘录",
         },
         {
           action: "mergeToParentAndMoveCommentToTop",
-          menuTitle: "合并到父卡片并移动到最顶端",
+          menuTitle: "    合并到父卡片并移动到最顶端",
         },
       ],
     },
@@ -915,23 +920,31 @@ function registerAllMenuTemplates() {
 
 
   global.registerMenuTemplate("menu_pin", {
-    action: "temporarilyPinFocusNote",
+    action: "pinToMidwayTop",  // 单击：添加到中间知识顶部
     onLongPress: {
       // 长按：显示菜单
       action: "menu",
       menuWidth: 300,
       menuItems: [
         {
+          action: "pinToFocusTop",
+          menuTitle: "⬆️ 添加到 Focus 顶部",
+        },
+        {
+          action: "pinToFocusBottom",
+          menuTitle: "⬇️ 添加到 Focus 底部",
+        },
+        {
+          action: "pinToMidwayBottom",
+          menuTitle: "⬇️ 添加到中间知识底部",
+        },
+        {
           action: "temporarilyPinFocusNoteWithTitle",
-          menuTitle: "📍 临时 Pin & 自定义标题",
+          menuTitle: "✏️ 自定义标题后添加",
         },
         {
           action: "showPinBoard",
           menuTitle: "📋 打开 Pin 卡片库",
-        },
-        {
-          action: "permanentlyPinFocusNote",
-          menuTitle: "📍 长期 Pin",
         },
       ]
     }

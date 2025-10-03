@@ -214,7 +214,66 @@ JSB.newAddon = function(mainPath){
       }
     },
 
-    onAddonBroadcast: async function (sender) {
+    /**
+   * 处理来自其他插件的通信消息
+   * @param {Object} sender - 消息发送者信息，包含 userInfo.message
+   *
+   * 消息协议格式：
+   * marginnote4app://addon/mnpinner?action=ACTION&param1=value1&param2=value2
+   *
+   * 支持的 actions：
+   *
+   * 1. pin - 添加卡片到指定分区
+   *    @param {string} id - 卡片ID（必需，需要URL编码）
+   *    @param {string} title - 显示标题（可选，需要URL编码，默认使用卡片原标题）
+   *    @param {string} section - 分区名称（可选，默认"midway"）
+   *                             可选值："focus"（聚焦）、"midway"（中间知识）
+   *    @param {string} position - 插入位置（可选，默认"bottom"）
+   *                              可选值："top"（顶部）、"bottom"（底部）、数字索引
+   *
+   * 2. temporarilyPin - 添加到中间知识（兼容旧版本）
+   *    @param {string} id - 卡片ID（必需，需要URL编码）
+   *    @param {string} title - 显示标题（可选，需要URL编码）
+   *
+   * 3. showPinBoard - 显示置顶面板
+   *    无参数
+   *
+   * 4. moveToTop - 将已存在的卡片移动到顶部
+   *    @param {string} id - 卡片ID（必需，需要URL编码）
+   *    @param {string} section - 分区名称（必需）
+   *
+   * 5. moveToBottom - 将已存在的卡片移动到底部
+   *    @param {string} id - 卡片ID（必需，需要URL编码）
+   *    @param {string} section - 分区名称（必需）
+   *
+   * 6. pinAtPosition - 在指定位置添加新卡片
+   *    @param {string} id - 卡片ID（必需，需要URL编码）
+   *    @param {string} title - 显示标题（可选，需要URL编码）
+   *    @param {string} section - 分区名称（可选，默认"midway"）
+   *    @param {string|number} position - 位置（必需）
+   *                                      可选值："top"、"bottom"、具体索引数字
+   *
+   * 使用示例：
+   *
+   * // 添加卡片到focus分区顶部
+   * marginnote4app://addon/mnpinner?action=pin&id=NOTE123&title=重要笔记&section=focus&position=top
+   *
+   * // 移动现有卡片到底部
+   * marginnote4app://addon/mnpinner?action=moveToBottom&id=NOTE456&section=midway
+   *
+   * // 在指定位置插入新卡片
+   * marginnote4app://addon/mnpinner?action=pinAtPosition&id=NOTE789&title=新卡片&section=focus&position=2
+   *
+   * // 兼容旧版本的临时置顶
+   * marginnote4app://addon/mnpinner?action=temporarilyPin&id=NOTE111&title=临时卡片
+   *
+   * 注意事项：
+   * 1. 所有包含中文或特殊字符的参数必须使用 encodeURIComponent 进行URL编码
+   * 2. section 参数如果传入无效值，将返回错误提示
+   * 3. position 参数如果是数字，必须在有效范围内（0 到 当前卡片数量）
+   * 4. 重复添加相同ID的卡片将被拒绝并提示"卡片已存在"
+   */
+  onAddonBroadcast: async function (sender) {
       try {
         let message = "marginnote4app://addon/"+sender.userInfo.message
         let config = MNUtil.parseURL(message)
@@ -223,9 +282,10 @@ JSB.newAddon = function(mainPath){
         if (addon === "mnpinner") {
           let action = config.params.action
           switch (action) {
-            case "pin":  // 统一的添加卡片action
+            case "pin":  // 统一的添加卡片action（支持position参数）
               let noteId = decodeURIComponent(config.params.id)
               let section = config.params.section || "midway"  // 默认添加到中间知识
+              let position = config.params.position || "bottom"  // 默认添加到底部
               let pinNote = MNNote.new(noteId)
               let title
               if (config.params.title) {
@@ -234,12 +294,13 @@ JSB.newAddon = function(mainPath){
                 title = pinNote ? pinNote.title : "未命名卡片"
               }
 
-              if (pinNote && pinnerConfig.addPin(noteId, title, section)) {
+              if (pinNote && pinnerConfig.addPinAtPosition(noteId, title, section, position)) {
                 if (pinnerUtils.pinnerController) {
                   pinnerUtils.pinnerController.refreshView(section + "View")
                 }
                 let sectionName = pinnerConfig.getSectionDisplayName(section)
-                MNUtil.showHUD(`已添加到${sectionName}: ${title}`)
+                let positionText = position === "top" ? "顶部" : (position === "bottom" ? "底部" : `位置${position}`)
+                MNUtil.showHUD(`已添加到${sectionName}${positionText}: ${title}`)
               }
               break;
 
@@ -258,6 +319,56 @@ JSB.newAddon = function(mainPath){
                   pinnerUtils.pinnerController.refreshView("midwayView")
                 }
                 MNUtil.showHUD("已添加到中间知识: " + tempTitle)
+              }
+              break;
+
+            case "moveToTop":  // 移动卡片到顶部
+              let moveTopId = decodeURIComponent(config.params.id)
+              let moveTopSection = config.params.section
+              if (!moveTopSection) {
+                MNUtil.showHUD("缺少section参数")
+                break;
+              }
+              if (pinnerConfig.movePinToPosition(moveTopId, moveTopSection, "top")) {
+                MNUtil.showHUD("已移动到顶部")
+              }
+              break;
+
+            case "moveToBottom":  // 移动卡片到底部
+              let moveBottomId = decodeURIComponent(config.params.id)
+              let moveBottomSection = config.params.section
+              if (!moveBottomSection) {
+                MNUtil.showHUD("缺少section参数")
+                break;
+              }
+              if (pinnerConfig.movePinToPosition(moveBottomId, moveBottomSection, "bottom")) {
+                MNUtil.showHUD("已移动到底部")
+              }
+              break;
+
+            case "pinAtPosition":  // 在指定位置添加新卡片
+              let posId = decodeURIComponent(config.params.id)
+              let posSection = config.params.section || "midway"
+              let posPosition = config.params.position
+              if (!posPosition) {
+                MNUtil.showHUD("缺少position参数")
+                break;
+              }
+              let posNote = MNNote.new(posId)
+              let posTitle
+              if (config.params.title) {
+                posTitle = decodeURIComponent(config.params.title)
+              } else {
+                posTitle = posNote ? posNote.title : "未命名卡片"
+              }
+
+              if (posNote && pinnerConfig.addPinAtPosition(posId, posTitle, posSection, posPosition)) {
+                if (pinnerUtils.pinnerController) {
+                  pinnerUtils.pinnerController.refreshView(posSection + "View")
+                }
+                let posSectionName = pinnerConfig.getSectionDisplayName(posSection)
+                let posText = posPosition === "top" ? "顶部" : (posPosition === "bottom" ? "底部" : `位置${posPosition}`)
+                MNUtil.showHUD(`已添加到${posSectionName}${posText}: ${posTitle}`)
               }
               break;
 
