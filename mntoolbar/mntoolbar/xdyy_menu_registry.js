@@ -662,6 +662,10 @@ function registerAllMenuTemplates() {
           menuTitle: "    预处理制卡",
         },
         {
+          action: "clearContentKeepExcerptWithTitleAndMakeCard",
+          menuTitle: "    只保留摘录和标题后制卡",
+        },
+        {
           action: "menu",
           menuTitle: "➡️ 文献制卡",
           menuItems: [
@@ -759,8 +763,12 @@ function registerAllMenuTemplates() {
     action: "addProofCheckComment",
     onLongPress: {
       action: "menu",
-      menuWidth: 320,
+      menuWidth: 350,
       menuItems: [
+        {
+          action: "checkProofInReview",
+          menuTitle: "检查证明区中链接对应的卡片是否加入复习",
+        },
         // "⇔ 等价证明",
         // {
         //   action: "addEquivalenceProof",

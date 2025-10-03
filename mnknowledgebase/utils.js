@@ -16606,6 +16606,38 @@ class knowledgeBaseTemplate {
       })
     }
   }
+
+  static checkProofInReview(note) {
+    let proofAreaIndexArr = this.getHtmlCommentExcludingFieldBlockIndexArr(note, "证明");
+    let unreviewNotesArr = []
+    if (proofAreaIndexArr.length > 0) {
+      note.MNComments.forEach(
+        (comment, index) => {
+          if (comment.type === "linkComment" && proofAreaIndexArr.includes(index)) {
+            let linkedNote = MNNote.new(comment.text)
+            if (linkedNote && !MNUtil.isNoteInReview(linkedNote.noteId)) {
+              unreviewNotesArr.push(linkedNote)
+            }
+          }
+        }
+      )
+    }
+    if (unreviewNotesArr.length > 0) {
+      let config = {
+        title: "证明相关卡片中未加入复习卡片的",
+        content: "",
+        markdown: true,
+        color: note.colorIndex
+      }
+      let newNote = note.createChildNote(config)
+      unreviewNotesArr.forEach(
+        note => {
+          
+          note.appendNoteLink(newNote, "From")
+        }
+      )
+    }
+  }
 }
 
 /**

@@ -3402,6 +3402,23 @@ function registerAllCustomActions() {
   );
 
   global.registerCustomAction(
+    "clearContentKeepExcerptWithTitleAndMakeCard",
+    async function (context) {
+      const { button, des, focusNote, focusNotes, self } = context;
+      MNUtil.undoGrouping(() => {
+        try {
+          focusNotes.forEach((focusNote) => {
+            knowledgeBaseTemplate.keepOnlyExcerptAndTitle(focusNote)
+            knowledgeBaseTemplate.makeNote(focusNote)
+          });
+        } catch (error) {
+          MNUtil.showHUD(error);
+        }
+      });
+    },
+  );
+
+  global.registerCustomAction(
     "oldChildrenMakeNotes",
     async function (context) {
       const { focusNotes } = context;
@@ -5515,6 +5532,14 @@ function registerAllCustomActions() {
     const { focusNote } = context;
       MNUtil.undoGrouping(()=>{
         knowledgeBaseTemplate.preprocessNote(focusNote);
+      })
+    }
+  )
+
+  global.registerCustomAction("checkProofInReview", async function(context) {
+    const { focusNote } = context;
+      MNUtil.undoGrouping(()=>{
+        knowledgeBaseTemplate.checkProofInReview(focusNote);
       })
     }
   )
