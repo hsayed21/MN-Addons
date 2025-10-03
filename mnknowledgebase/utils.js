@@ -13960,10 +13960,12 @@ class knowledgeBaseTemplate {
   static async showAddSynonymDialog() {
     let continueAdding = true;
     let addedCount = 0;
+    const ACTION_CANCEL = '__MNKB_CANCEL__';
+    const ACTION_RETRY = '__MNKB_RETRY__';
 
     while (continueAdding) {
       // 第一步：直接输入同义词（移除了组名输入）
-      const words = await new Promise((resolve) => {
+      const wordsResult = await new Promise((resolve) => {
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
           "添加同义词组",
           `请输入同义词，支持以下分隔方式：\n• 逗号：machine learning, deep learning\n• 分号：机器学习; 深度学习\n• 双空格：机器学习  深度学习\n• 单空格：机器 学习（仅当无其他分隔符时）`,
@@ -13972,14 +13974,14 @@ class knowledgeBaseTemplate {
           ["下一步"],
           (alert, buttonIndex) => {
             if (buttonIndex === 0) {
-              resolve(null);
+              resolve(ACTION_CANCEL);
               return;
             }
             
             const wordsInput = alert.textFieldAtIndex(0).text;
             if (!wordsInput) {
               MNUtil.showHUD("❌ 请输入同义词");
-              resolve(null);
+              resolve(ACTION_RETRY);
               return;
             }
             
@@ -13988,7 +13990,7 @@ class knowledgeBaseTemplate {
             
             if (parsedWords.length < 2) {
               MNUtil.showHUD("❌ 至少需要2个同义词");
-              resolve(null);
+              resolve(ACTION_RETRY);
               return;
             }
             
@@ -13997,12 +13999,18 @@ class knowledgeBaseTemplate {
         );
       });
       
-      if (!words) {
+      if (wordsResult === ACTION_CANCEL) {
+        break;
+      }
+      
+      if (wordsResult === ACTION_RETRY || !wordsResult || wordsResult.length < 2) {
         continue; // 返回重新输入
       }
       
+      const words = wordsResult;
+      
       // 第二步：选择匹配模式
-      const { enablePartial, patternMode } = await new Promise((resolve) => {
+      const modeSelection = await new Promise((resolve) => {
         const hasPatternPlaceholder = words.some(word => word.includes('{{}}'));
 
         let message = `词汇：${words.join(", ")}\n\n`;
@@ -14021,7 +14029,7 @@ class knowledgeBaseTemplate {
           buttons,
           (alert, buttonIndex) => {
             if (buttonIndex === 0) {
-              resolve(null);
+              resolve(ACTION_CANCEL);
               return;
             }
             
@@ -14040,12 +14048,14 @@ class knowledgeBaseTemplate {
         );
       });
       
-      if (!enablePartial && !patternMode && enablePartial !== false) {
-        continue; // 返回重新输入（当resolve(null)时）
+      if (modeSelection === ACTION_CANCEL) {
+        break;
       }
 
+      const { enablePartial, patternMode } = modeSelection;
+
       // 第三步：选择大小写敏感
-      const caseSensitive = await new Promise((resolve) => {
+      const caseSensitiveSelection = await new Promise((resolve) => {
         const modeText = patternMode ? "（模式匹配）" : (enablePartial ? "（局部替换）" : "（普通）");
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
           "大小写匹配",
@@ -14055,7 +14065,7 @@ class knowledgeBaseTemplate {
           ["下一步（不敏感）", "下一步（大小写敏感）"],
           (alert, buttonIndex) => {
             if (buttonIndex === 0) {
-              resolve(null);
+              resolve(ACTION_CANCEL);
               return;
             }
             
@@ -14064,15 +14074,17 @@ class knowledgeBaseTemplate {
         );
       });
 
-      if (caseSensitive === null) {
-        continue; // 返回重新输入
+      if (caseSensitiveSelection === ACTION_CANCEL) {
+        break;
       }
+
+      const caseSensitive = caseSensitiveSelection;
 
       // 第四步：设置上下文触发词（可选）
       let contextTriggers = undefined;
       let contextMode = "any";
       
-      const setContext = await new Promise((resolve) => {
+      const setContextSelection = await new Promise((resolve) => {
         const modeText = patternMode ? "（模式匹配）" : (enablePartial ? "（局部替换）" : "（普通）");
         const caseText = caseSensitive ? "（大小写敏感）" : "";
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
@@ -14083,7 +14095,7 @@ class knowledgeBaseTemplate {
           ["直接添加（全局）", "设置触发词"],
           (alert, buttonIndex) => {
             if (buttonIndex === 0) {
-              resolve(null);
+              resolve(ACTION_CANCEL);
               return;
             }
             
@@ -14092,14 +14104,16 @@ class knowledgeBaseTemplate {
         );
       });
 
-      if (setContext === null) {
-        continue; // 返回重新输入
+      if (setContextSelection === ACTION_CANCEL) {
+        break;
       }
+
+      const setContext = setContextSelection;
 
       // 如果选择设置触发词，进行触发词配置
       if (setContext) {
         // 输入触发词
-        const triggerInput = await new Promise((resolve) => {
+        const triggerInputResult = await new Promise((resolve) => {
           UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
             "设置触发词",
             "请输入触发词，用逗号分隔：\n例如：内积空间, 赋范线性空间\n\n触发词说明：\n• 只有当卡片标题包含这些词汇时，才会应用该同义词组\n• 适合特定领域的专业术语",
@@ -14108,7 +14122,7 @@ class knowledgeBaseTemplate {
             ["完成设置"],
             (alert, buttonIndex) => {
               if (buttonIndex === 0) {
-                resolve(null);
+                resolve(ACTION_CANCEL);
                 return;
               }
               
@@ -14118,9 +14132,11 @@ class knowledgeBaseTemplate {
           );
         });
 
-        if (triggerInput === null) {
-          continue; // 返回重新输入
+        if (triggerInputResult === ACTION_CANCEL) {
+          break;
         }
+
+        const triggerInput = triggerInputResult;
 
         if (triggerInput) {
           // 解析触发词
@@ -14142,7 +14158,7 @@ class knowledgeBaseTemplate {
                   ["任意匹配（推荐）", "全部匹配"],
                   (alert, buttonIndex) => {
                     if (buttonIndex === 0) {
-                      resolve(null);
+                      resolve(ACTION_CANCEL);
                       return;
                     }
                     
@@ -14151,8 +14167,8 @@ class knowledgeBaseTemplate {
                 );
               });
 
-              if (mode === null) {
-                continue; // 返回重新输入
+              if (mode === ACTION_CANCEL) {
+                break;
               }
               
               contextMode = mode;
