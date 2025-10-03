@@ -773,43 +773,106 @@ JSB.newAddon = function(mainPath){
    */
   MNKnowledgeBaseClass.prototype.showIntermediateSearchDialog = async function(searchData) {
     try {
-      // 获取搜索关键词
-      let userInput = await MNUtil.userInput(
+      const searchModeConfig = knowledgeBaseTemplate.getSearchConfig();
+
+      const userInput = await MNUtil.userInput(
         `搜索中间知识库 (共 ${searchData.length} 张卡片)`,
         "请输入搜索关键词：",
         ["取消", "搜索"]
       );
 
-      if (userInput.button === 1) {
-        let keyword = userInput.input.trim().toLowerCase();
-        if (!keyword) return;
-
-        // 执行搜索
-        const results = [];
-        for (const entry of searchData) {
-          if (entry.searchText && entry.searchText.includes(keyword)) {
-            results.push({
-              id: entry.id,
-              title: entry.title || "(无标题)",
-              isTemplated: entry.isTemplated,
-              type: entry.type,
-              score: 1  // 简单匹配，不计算复杂分数
-            });
-          }
-        }
-
-        if (results.length === 0) {
-          MNUtil.showHUD("未找到匹配的卡片");
-          return;
-        }
-
-        // 显示搜索结果
-        await this.showIntermediateSearchResults(results, keyword);
+      if (userInput.button !== 1) {
+        return;
       }
+
+      const rawKeyword = userInput.input.trim();
+      if (!rawKeyword) {
+        return;
+      }
+
+      // 根据配置扩展查询（同义词）
+      let expandedKeyword = rawKeyword;
+      if (searchModeConfig.useSynonyms) {
+        expandedKeyword = KnowledgeBaseIndexer.expandSearchQuery(rawKeyword, true);
+      }
+
+      const parsedQuery = FastSearcher.parseSearchQuery(expandedKeyword);
+      const hasConditions = parsedQuery.andGroups.length > 0 ||
+        parsedQuery.orGroups.length > 0 ||
+        parsedQuery.exactPhrases.length > 0;
+
+      if (!hasConditions) {
+        MNUtil.showHUD("请输入有效的搜索条件");
+        return;
+      }
+
+      const results = [];
+      for (const entry of searchData) {
+        if (!entry.searchText) continue;
+
+        if (FastSearcher.matchesQuery(entry.searchText, parsedQuery)) {
+          const score = this.calculateIntermediateSearchScore(parsedQuery, entry);
+
+          results.push({
+            id: entry.id,
+            title: entry.title || "(无标题)",
+            isTemplated: entry.isTemplated,
+            type: entry.type,
+            searchText: entry.searchText,
+            score: score
+          });
+        }
+      }
+
+      // 应用排除词过滤
+      const filteredResults = KnowledgeBaseIndexer.filterSearchResults(
+        results,
+        searchModeConfig.useExclusion
+      );
+
+      if (!filteredResults || filteredResults.length === 0) {
+        MNUtil.showHUD("未找到匹配的卡片");
+        return;
+      }
+
+      filteredResults.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+      await this.showIntermediateSearchResults(filteredResults, rawKeyword);
     } catch (error) {
       MNUtil.showHUD("搜索失败: " + error.message);
       MNLog.error(error, "MNKnowledgeBase: showIntermediateSearchDialog");
     }
+  }
+
+  MNKnowledgeBaseClass.prototype.calculateIntermediateSearchScore = function(parsedQuery, entry) {
+    let score = 0;
+
+    if (parsedQuery.exactPhrases && parsedQuery.exactPhrases.length > 0) {
+      for (const phrase of parsedQuery.exactPhrases) {
+        if (entry.searchText.includes(phrase)) {
+          score += 80;
+        }
+      }
+    }
+
+    if (parsedQuery.andGroups && parsedQuery.andGroups.length > 0) {
+      for (const group of parsedQuery.andGroups) {
+        if (entry.searchText.includes(group)) {
+          score += 30;
+        }
+      }
+    }
+
+    if (parsedQuery.orGroups && parsedQuery.orGroups.length > 0) {
+      const matched = parsedQuery.orGroups.filter(term => entry.searchText.includes(term));
+      score += matched.length * 25;
+    }
+
+    if (score === 0 && entry.searchText) {
+      score = 10;
+    }
+
+    return score;
   }
 
   /**
@@ -1191,4 +1254,3 @@ JSB.newAddon = function(mainPath){
   // 返回定义的插件类，MarginNote 会自动实例化这个类
   return MNKnowledgeBaseClass;
 };
-
