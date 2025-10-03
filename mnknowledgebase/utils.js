@@ -18448,6 +18448,7 @@ class IntermediateKnowledgeIndexer {
     //   }, SOURCE);
     // }
 
+
     // 检查是否有文本内容（标题或文本评论）
     const hasTitle = note.title && note.title.trim();
     const hasTextComment = this.hasTextComment(note);
@@ -18456,6 +18457,8 @@ class IntermediateKnowledgeIndexer {
     if (!hasTitle && !hasTextComment) {
       return null;
     }
+
+    knowledgeBaseTemplate.renewLinks(note); // 处理失效链接
 
     // 构建索引条目
     const entry = {
