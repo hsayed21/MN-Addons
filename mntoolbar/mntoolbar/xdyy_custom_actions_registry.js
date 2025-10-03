@@ -5543,6 +5543,34 @@ function registerAllCustomActions() {
       })
     }
   )
+
+  global.registerCustomAction("mergeToPreviousBrotherExcerpt", async function(context) {
+    const { focusNote } = context;
+      let brotherNote = focusNote.brotherNotes[focusNote.indexInBrotherNotes - 1]
+      if (brotherNote) {
+        MNUtil.undoGrouping(()=>{
+          focusNote.mergeInto(brotherNote)
+          knowledgeBaseTemplate.autoMoveNewContentToField(brotherNote, "摘录")
+          brotherNote.focusInMindMap(0.3)
+        })
+      }
+    }
+  )
+
+  global.registerCustomAction("mergeLastChildToExcerpt", async function(context) {
+    const { focusNote } = context;
+      if (focusNote.childNotes && focusNote.childNotes.length > 0) {
+        let lastChild = focusNote.childNotes[focusNote.childNotes.length - 1]
+        MNUtil.undoGrouping(()=>{
+          lastChild.mergeInto(focusNote)
+          knowledgeBaseTemplate.autoMoveNewContentToField(focusNote, "摘录")
+          focusNote.focusInMindMap(0.3)
+        })
+      }
+    }
+  )
+
+
 }
 
 // 立即注册

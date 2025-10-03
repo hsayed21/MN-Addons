@@ -620,15 +620,25 @@ function registerAllMenuTemplates() {
       action: "menu",
       menuWidth: 300,
       menuItems: [
-        {
-          "action": "moveLinksInExcerptToThoughtArea",
-          "menuTitle": "移动摘录区的链接到「相关思考区」",
-        },
+        "✂️ 修改",
         {
           action: "renewExcerptInParentNoteByFocusNote",
-          menuTitle: "摘录替换掉父卡片的摘录",
+          menuTitle: "    摘录替换掉父卡片的摘录",
         },
-        "⬇️ 摘录移动",
+        "⬇️ 移动",
+        {
+          "action": "moveLinksInExcerptToThoughtArea",
+          "menuTitle": "    移动摘录区的链接到「相关思考区」",
+        },
+        "☯️ 合并",
+        {
+          "action": "mergeLastChildToExcerpt",
+          "menuTitle": "    合并最后一张子卡片到摘录区",
+        },
+        {
+          "action": "mergeToPreviousBrotherExcerpt",
+          "menuTitle": "    合并到前一张兄弟卡片的摘录区",
+        },
         {
           action: "mergeToParentAndMoveCommentToExcerpt",
           menuTitle: "    合并到父卡片并移动评论到摘录",
