@@ -17689,40 +17689,14 @@ class IntermediateKnowledgeIndexer {
 
       // 缓存所有根节点
       const rootNoteObjects = [];
-      MNLog.info("=== IntermediateKnowledgeIndexer.buildSearchIndex ===", "IntermediateKnowledgeIndexer");
-      MNLog.info({
-        message: "开始构建中间知识库索引",
-        rootNotesCount: rootNotes.length,
-        detail: JSON.stringify({
-          rootNoteTypes: rootNotes.map(n => typeof n),
-          timestamp: new Date().toISOString()
-        })
-      }, "IntermediateKnowledgeIndexer");
 
       for (const _rootNote of rootNotes) {
-        MNLog.debug({
-          message: "处理根节点",
-          type: typeof _rootNote,
-          value: _rootNote?.noteId || _rootNote
-        }, "IntermediateKnowledgeIndexer");
-
         const rootNote = MNNote.new(_rootNote);
         if (!rootNote) {
-          MNLog.warn({
-            message: "无法从输入创建 MNNote",
-            input: _rootNote,
-            detail: JSON.stringify({ type: typeof _rootNote, value: _rootNote })
-          }, "IntermediateKnowledgeIndexer");
           continue;
         }
 
         const descendants = rootNote.descendantNodes?.descendant || [];
-        MNLog.info({
-          message: "根节点信息",
-          noteId: rootNote.noteId,
-          title: rootNote.title,
-          descendantsCount: descendants.length
-        }, "IntermediateKnowledgeIndexer");
         totalEstimatedCount += descendants.length + 1;
 
         rootNoteObjects.push({
@@ -17794,7 +17768,7 @@ class IntermediateKnowledgeIndexer {
           processedIds.add(noteId);
           processedCount++;
 
-          if (processedCount % 100 === 0) {
+          if (processedCount % 250 === 0) {
             MNUtil.showHUD(`处理中间知识... ${processedCount}/${totalEstimatedCount}`);
           }
         }
@@ -18018,10 +17992,7 @@ class IntermediateKnowledgeIndexer {
    * 检查卡片是否包含文本评论
    */
   static hasTextComment(note) {
-    const SOURCE = "IntermediateKnowledgeIndexer.hasTextComment";
-
     if (!note.MNComments || note.MNComments.length === 0) {
-      MNLog.debug("MNComments 为空，返回 false", SOURCE);
       return false;
     }
 
@@ -18029,10 +18000,6 @@ class IntermediateKnowledgeIndexer {
       return note.MNComments.some((comment, index) => {
         // 检查 comment 是否有效
         if (!comment) {
-          MNLog.warn({
-            message: `评论 ${index} 为 null 或 undefined`,
-            noteId: note.noteId
-          }, SOURCE);
           return false;
         }
 
@@ -18050,12 +18017,6 @@ class IntermediateKnowledgeIndexer {
         return false;
       });
     } catch (e) {
-      MNLog.error({
-        message: "hasTextComment 检查失败",
-        error: e.message,
-        stack: e.stack,
-        noteId: note.noteId
-      }, SOURCE);
       return false;
     }
   }
@@ -18065,35 +18026,21 @@ class IntermediateKnowledgeIndexer {
    * 提取标题和所有文本评论内容
    */
   static buildSearchText(note) {
-    const SOURCE = "IntermediateKnowledgeIndexer.buildSearchText";
     const textParts = [];
 
     try {
       // 添加标题
       if (note.title) {
         textParts.push(note.title);
-        MNLog.debug({
-          message: "添加标题到搜索文本",
-          title: note.title
-        }, SOURCE);
       }
 
       // 处理评论
       if (note.MNComments && note.MNComments.length > 0) {
-        MNLog.debug({
-          message: "开始处理评论",
-          commentsCount: note.MNComments.length
-        }, SOURCE);
-
         for (let i = 0; i < note.MNComments.length; i++) {
           const comment = note.MNComments[i];
 
           // 检查 comment 是否有效
           if (!comment) {
-            MNLog.warn({
-              message: `评论 ${i} 为 null 或 undefined`,
-              noteId: note.noteId
-            }, SOURCE);
             continue;
           }
 
@@ -18126,20 +18073,8 @@ class IntermediateKnowledgeIndexer {
       // 合并所有文本并转换为小写
       const result = textParts.join(" ").toLowerCase();
 
-      MNLog.debug({
-        message: "搜索文本构建完成",
-        textPartsCount: textParts.length,
-        resultLength: result.length
-      }, SOURCE);
-
       return result;
     } catch (e) {
-      MNLog.error({
-        message: "构建搜索文本失败",
-        error: e.message,
-        stack: e.stack,
-        noteId: note.noteId
-      }, SOURCE);
       // 返回至少包含标题的文本
       return (note.title || "").toLowerCase();
     }
@@ -18153,38 +18088,39 @@ class IntermediateKnowledgeIndexer {
   static async mergeTempFilesToParts(manifest) {
     try {
       const PART_SIZE = manifest.metadata.partSize || 5000;
-      let allData = [];
+      let currentPart = [];
+      let partNumber = 0;
 
-      // 读取所有临时文件
       for (const tempFileName of manifest.metadata.tempFiles) {
         const tempFilePath = MNUtil.tempFolder + "/" + tempFileName;
         const tempData = MNUtil.readJSON(tempFilePath);
-        if (tempData && tempData.data) {
-          allData = allData.concat(tempData.data);
+        if (!tempData || !tempData.data) {
+          continue;
+        }
+
+        for (const entry of tempData.data) {
+          currentPart.push(entry);
+
+          if (currentPart.length >= PART_SIZE) {
+            const filename = await this.saveIndexPart(partNumber, currentPart);
+            manifest.parts.push({
+              partNumber: partNumber,
+              filename: filename,
+              count: currentPart.length
+            });
+            currentPart = [];
+            partNumber++;
+          }
         }
       }
 
-      // 分片保存
-      let partNumber = 0;
-      for (let i = 0; i < allData.length; i += PART_SIZE) {
-        const partData = allData.slice(i, i + PART_SIZE);
-        const partFileName = `intermediate-kb-index-part-${partNumber}.json`;
-
-        await this.saveIndexPart(partFileName, {
-          partNumber: partNumber,
-          startIndex: i,
-          endIndex: Math.min(i + PART_SIZE - 1, allData.length - 1),
-          data: partData
-        });
-
+      if (currentPart.length > 0) {
+        const filename = await this.saveIndexPart(partNumber, currentPart);
         manifest.parts.push({
           partNumber: partNumber,
-          filename: partFileName,
-          count: partData.length,
-          startIndex: i,
-          endIndex: Math.min(i + PART_SIZE - 1, allData.length - 1)
+          filename: filename,
+          count: currentPart.length
         });
-
         partNumber++;
       }
 
@@ -18199,10 +18135,17 @@ class IntermediateKnowledgeIndexer {
   /**
    * 保存索引分片
    */
-  static async saveIndexPart(filename, data) {
+  static async saveIndexPart(partNumber, partData) {
     try {
+      const filename = `intermediate-kb-index-part-${partNumber}.json`;
       const filepath = MNUtil.dbFolder + "/data/" + filename;
-      MNUtil.writeJSON(filepath, data);
+      const payload = {
+        partNumber: partNumber,
+        data: partData,
+        count: partData.length
+      };
+      MNUtil.writeJSON(filepath, payload);
+      return filename;
     } catch (error) {
       MNLog.error(error, "IntermediateKnowledgeIndexer: saveIndexPart");
       throw error;
