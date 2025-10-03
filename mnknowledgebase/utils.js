@@ -8439,7 +8439,8 @@ class knowledgeBaseTemplate {
   static async showLinkActions(link) {
     const actions = [
       "📋 复制 noteId",
-      "📍 定位到卡片",
+      "📍 定位到卡片到主脑图",
+      "📍 定位到卡片到浮窗",
       "📄 复制完整链接",
       "📝 复制 Markdown 链接",
       "✨ 重新生成 Markdown 链接"
@@ -8464,18 +8465,24 @@ class knowledgeBaseTemplate {
           MNUtil.showHUD("无法定位到卡片");
         }
         break;
-        
-      case 3: // 复制完整链接
+      case 3: //  浮窗定位卡片
+        try {
+          MNUtil.focusNoteInFloatMindMapById(link.noteId);
+        } catch (error) {
+          MNUtil.showHUD("无法定位到卡片");
+        }
+        break;
+      case 4: // 复制完整链接
         MNUtil.copy(link.url);
         MNUtil.showHUD("已复制完整链接");
         break;
         
-      case 4: // 复制 Markdown 链接
+      case 5: // 复制 Markdown 链接
         MNUtil.copy(link.fullMatch);
         MNUtil.showHUD("已复制 Markdown 链接");
         break;
         
-      case 5: // 重新生成 Markdown 链接
+      case 6: // 重新生成 Markdown 链接
         try {
           const targetNote = MNNote.new(link.noteId, false);
           if (targetNote) {
