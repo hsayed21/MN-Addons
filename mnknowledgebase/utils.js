@@ -16862,6 +16862,44 @@ class FastSearcher {
       this.mode = 'unknown';
     }
   }
+
+  /**
+   * 去除字符串中的所有空白字符，用于搜索匹配
+   * @param {string} str
+   * @returns {string}
+   */
+  static normalizeForMatch(str) {
+    return (str || '').replace(/\s+/g, '');
+  }
+
+  /**
+   * 判断在允许忽略空白差异时，基准文本是否包含目标词
+   * @param {string} base - 已转为小写的原始文本
+   * @param {string} normalizedBase - 去除空白后的文本
+   * @param {string} term - 待匹配的关键词
+   * @returns {boolean}
+   */
+  static includesWithNormalized(base, normalizedBase, term) {
+    if (!term) return false;
+    if (base.includes(term)) {
+      return true;
+    }
+
+    const normalizedTerm = this.normalizeForMatch(term);
+    return normalizedTerm.length > 0 && normalizedBase.includes(normalizedTerm);
+  }
+
+  /**
+   * 判断某个字段是否包含目标词，会自动处理大小写和空白
+   * @param {string} field
+   * @param {string} term
+   * @returns {boolean}
+   */
+  static fieldIncludes(field, term) {
+    if (!field) return false;
+    const lowerField = field.toLowerCase();
+    return this.includesWithNormalized(lowerField, this.normalizeForMatch(lowerField), term);
+  }
   
   /**
    * 从文件加载索引并创建搜索器
@@ -16954,35 +16992,54 @@ class FastSearcher {
    * @returns {boolean} 是否匹配
    */
   static matchesQuery(searchText, parsedQuery) {
-    const text = searchText.toLowerCase();
-    
+    const text = (searchText || '').toLowerCase();
+    const normalizedText = this.normalizeForMatch(text);
+    const includesTerm = term => this.includesWithNormalized(text, normalizedText, term);
+    const matchWithSynonyms = term => {
+      if (!term) return false;
+      if (includesTerm(term)) {
+        return true;
+      }
+      try {
+        const synonymCandidates = SynonymManager.expandKeyword(term, true) || [];
+        for (const candidate of synonymCandidates) {
+          if (!candidate) continue;
+          const candidateLower = candidate.toLowerCase();
+          if (candidateLower === term) continue;
+          if (includesTerm(candidateLower)) {
+            return true;
+          }
+        }
+      } catch (error) {
+        MNUtil.log(`同义词匹配失败: ${error.message}`);
+      }
+      return false;
+    };
+
     // 1. 检查排除词
     for (const excludeTerm of parsedQuery.excludeTerms) {
-      if (text.includes(excludeTerm)) {
+      if (includesTerm(excludeTerm)) {
         return false; // 包含排除词，不匹配
       }
     }
-    
+
     // 2. 检查精确短语
     for (const phrase of parsedQuery.exactPhrases) {
-      if (!text.includes(phrase)) {
+      if (!includesTerm(phrase)) {
         return false; // 缺少必需的精确短语
       }
     }
-    
+
     // 3. 检查 OR 条件
     if (parsedQuery.orGroups.length > 0) {
-      return parsedQuery.orGroups.some(term => text.includes(term));
+      return parsedQuery.orGroups.some(term => matchWithSynonyms(term));
     }
-    
+
     // 4. 检查 AND 条件（默认）
     if (parsedQuery.andGroups.length > 0) {
-      return parsedQuery.andGroups.every(group => {
-        // 每个组内的词作为整体匹配
-        return text.includes(group);
-      });
+      return parsedQuery.andGroups.every(group => matchWithSynonyms(group));
     }
-    
+
     return parsedQuery.exactPhrases.length > 0; // 只有精确短语时，已经在步骤2检查过
   }
   
@@ -17171,32 +17228,39 @@ class FastSearcher {
    */
   calculateScore(keyword, entry) {
     let score = 0;
-    const keywordLower = keyword.toLowerCase();
-    const searchTextLower = entry.searchText.toLowerCase();
-    
+    const keywordLower = (keyword || '').toLowerCase();
+    const normalizedKeyword = FastSearcher.normalizeForMatch(keywordLower);
+    const searchTextLower = (entry.searchText || '').toLowerCase();
+    const normalizedSearchText = FastSearcher.normalizeForMatch(searchTextLower);
+
     // 完全匹配得分最高
-    if (searchTextLower === keywordLower) {
+    if (
+      searchTextLower === keywordLower ||
+      (normalizedKeyword.length > 0 && normalizedSearchText === normalizedKeyword)
+    ) {
       score += 100;
     }
-    
+
     // 在标题链接词中匹配
-    if (entry.titleLinkWords && entry.titleLinkWords.toLowerCase().includes(keywordLower)) {
+    if (FastSearcher.fieldIncludes(entry.titleLinkWords, keywordLower)) {
       score += 50;
     }
-    
+
     // 在关键词字段中匹配
-    if (entry.keywords && entry.keywords.toLowerCase().includes(keywordLower)) {
+    if (FastSearcher.fieldIncludes(entry.keywords, keywordLower)) {
       score += 30;
     }
-    
+
     // 在前缀内容中匹配
-    if (entry.prefix && entry.prefix.toLowerCase().includes(keywordLower)) {
+    if (FastSearcher.fieldIncludes(entry.prefix, keywordLower)) {
       score += 20;
     }
-    
+
     // 基础匹配分
-    score += 10;
-    
+    if (FastSearcher.includesWithNormalized(searchTextLower, normalizedSearchText, keywordLower)) {
+      score += 10;
+    }
+
     return score;
   }
   
@@ -17208,48 +17272,59 @@ class FastSearcher {
    */
   calculateScoreWithParsedQuery(parsedQuery, entry) {
     let score = 0;
-    
+    const searchText = (entry.searchText || '').toLowerCase();
+    const normalizedSearchText = FastSearcher.normalizeForMatch(searchText);
+    const titleLinkWords = (entry.titleLinkWords || '').toLowerCase();
+    const normalizedTitleLinkWords = FastSearcher.normalizeForMatch(titleLinkWords);
+    const prefix = (entry.prefix || '').toLowerCase();
+    const normalizedPrefix = FastSearcher.normalizeForMatch(prefix);
+    const keywords = (entry.keywords || '').toLowerCase();
+    const normalizedKeywords = FastSearcher.normalizeForMatch(keywords);
+
+    const includesInSearch = term => FastSearcher.includesWithNormalized(searchText, normalizedSearchText, term);
+    const includesInTitleLink = term => FastSearcher.includesWithNormalized(titleLinkWords, normalizedTitleLinkWords, term);
+    const includesInPrefix = term => FastSearcher.includesWithNormalized(prefix, normalizedPrefix, term);
+    const includesInKeywords = term => FastSearcher.includesWithNormalized(keywords, normalizedKeywords, term);
+
     // 1. 精确短语匹配得分最高（每个短语100分）
     parsedQuery.exactPhrases.forEach(phrase => {
-      if (entry.searchText && entry.searchText.includes(phrase)) {
+      if (includesInSearch(phrase)) {
         score += 100;
       }
       // 额外加分：如果精确短语出现在标题链接词中
-      if (entry.titleLinkWords && entry.titleLinkWords.toLowerCase().includes(phrase)) {
+      if (includesInTitleLink(phrase)) {
         score += 50;
       }
     });
-    
+
     // 2. AND 组匹配（每个词独立评分）
     parsedQuery.andGroups.forEach(group => {
       const groupLower = group.toLowerCase();
       
       // 在标题链接词中匹配
-      if (entry.titleLinkWords && entry.titleLinkWords.toLowerCase().includes(groupLower)) {
+      if (includesInTitleLink(groupLower)) {
         score += 50;
       }
       
       // 在前缀内容中匹配
-      if (entry.prefix && entry.prefix.toLowerCase().includes(groupLower)) {
+      if (includesInPrefix(groupLower)) {
         score += 30;
       }
       
       // 在关键词字段中匹配
-      if (entry.keywords && entry.keywords.toLowerCase().includes(groupLower)) {
+      if (includesInKeywords(groupLower)) {
         score += 20;
       }
       
       // 基础匹配分
-      if (entry.searchText && entry.searchText.includes(groupLower)) {
+      if (includesInSearch(groupLower)) {
         score += 10;
       }
     });
-    
+
     // 3. OR 组匹配（匹配的越多分数越高）
     if (parsedQuery.orGroups.length > 0) {
-      const matchedOrTerms = parsedQuery.orGroups.filter(term => 
-        entry.searchText && entry.searchText.includes(term)
-      );
+      const matchedOrTerms = parsedQuery.orGroups.filter(term => includesInSearch(term));
       score += matchedOrTerms.length * 25; // 每个匹配的 OR 词加 25 分
     }
     
