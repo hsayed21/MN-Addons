@@ -405,6 +405,11 @@ function registerAllMenuTemplates() {
       menuWidth: 360,
       menuItems: [
         {
+          action: "copyFocusNotesURLArr",
+          menuTitle: "复制卡片 URL",
+        },
+        "---",
+        {
           action: "clearContentKeepExcerptWithTitle",
           menuTitle: "只保留摘录和标题",
         },
@@ -604,10 +609,6 @@ function registerAllMenuTemplates() {
         {
           action: "copyFocusNotesIdArr",
           menuTitle: "    复制卡片🆔",
-        },
-        {
-          action: "copyFocusNotesURLArr",
-          menuTitle: "    复制卡片 URL",
         },
       ],
     },

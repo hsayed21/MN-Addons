@@ -16925,10 +16925,13 @@ class KnowledgeBaseIndexer {
     
     // 处理关键词
     const keywordsForSearch = keywordsContent.replace(/[;；]/g, " ");
-    
-    // 简化版：只组合原内容和关键词，不再扩展同义词
-    const finalText = `${searchableContent} ${keywordsForSearch}`.trim().toLowerCase();
-    
+
+    // 在搜索文本中包含类型信息，这样用户可以通过输入类型名称来筛选
+    const typeInfo = noteType ? `${noteType} ` : "";
+
+    // 简化版：组合类型、原内容和关键词
+    const finalText = `${typeInfo}${searchableContent} ${keywordsForSearch}`.trim().toLowerCase();
+
     return finalText;
   }
 
@@ -18462,18 +18465,19 @@ class IntermediateKnowledgeIndexer {
       searchText: this.buildSearchText(note)
     };
 
+    // 尝试获取并记录卡片类型
+    try {
+      const noteType = knowledgeBaseTemplate.getNoteType(note);
+      if (noteType) {
+        entry.type = noteType;
+      }
+    } catch (e) {
+      // 忽略错误
+    }
+
     // 添加一个标记，表示是否已制卡
     if (knowledgeBaseTemplate.ifTemplateMerged(note)) {
       entry.isTemplated = true;
-      // 尝试获取类型（如果有的话）
-      try {
-        const noteType = knowledgeBaseTemplate.getNoteType(note);
-        if (noteType) {
-          entry.type = noteType;
-        }
-      } catch (e) {
-        // 忽略错误
-      }
     } else {
       entry.isTemplated = false;
     }
@@ -18522,6 +18526,10 @@ class IntermediateKnowledgeIndexer {
     const textParts = [];
 
     try {
+      // 获取卡片类型
+      const noteType = knowledgeBaseTemplate.getNoteType(note);
+      const typeInfo = noteType ? `${noteType} ` : "";
+
       // 添加标题
       if (note.title) {
         textParts.push(note.title);
@@ -18563,8 +18571,8 @@ class IntermediateKnowledgeIndexer {
         }
       }
 
-      // 合并所有文本并转换为小写
-      const result = textParts.join(" ").toLowerCase();
+      // 合并所有文本并转换为小写，在开头加入类型信息
+      const result = typeInfo + textParts.join(" ").toLowerCase();
 
       return result;
     } catch (e) {
