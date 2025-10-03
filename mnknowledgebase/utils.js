@@ -7892,10 +7892,13 @@ class knowledgeBaseTemplate {
     
     // 构建选项列表
     let menuOptions = [];
-    
+
     // 第一个按钮：确定（使用输入框内容）
     menuOptions.push("✅ 确定");
-    
+
+    // 第二个按钮：使用第一个标题链接词
+    menuOptions.push("🔗 使用第一个标题链接词");
+
     // 添加所有快捷短语选项
     phrases.forEach(phrase => {
       menuOptions.push(`📝 ${phrase}`);
@@ -7928,14 +7931,25 @@ class knowledgeBaseTemplate {
           } else {
             MNUtil.showHUD("❌ 请输入链接词");
           }
-          
-        } else if (selectedIndex <= phrases.length) {
+
+        } else if (selectedIndex === 1) {
+          // 使用第一个标题链接词
+          const firstLinkWord = this.getFirstTitleLinkWord(note);
+          if (firstLinkWord) {
+            const mdLink = `[${firstLinkWord}](${note.noteURL})`;
+            MNUtil.copy(mdLink);
+            MNUtil.showHUD(`✅ 已复制: ${mdLink}`);
+          } else {
+            MNUtil.showHUD("❌ 该卡片没有标题链接词");
+          }
+
+        } else if (selectedIndex <= phrases.length + 1) {
           // 选择了快捷短语，直接使用并复制
-          const selectedPhrase = phrases[selectedIndex - 1];
+          const selectedPhrase = phrases[selectedIndex - 2];
           const mdLink = `[${selectedPhrase}](${note.noteURL})`;
           MNUtil.copy(mdLink);
           MNUtil.showHUD(`✅ 已复制: ${mdLink}`);
-          
+
         } else if (menuOptions[selectedIndex] === "⚙️ 管理快捷短语") {
           // 管理快捷短语
           this.manageLinkPhrases(() => {
