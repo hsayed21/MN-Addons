@@ -678,7 +678,7 @@ JSB.newAddon = function(mainPath){
         MNUtil.showHUD("搜索失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: searchForMarkdown");
       }
-    },,
+    },
 
 
     // 生命周期测试
@@ -1131,7 +1131,7 @@ JSB.newAddon = function(mainPath){
   /**
    * 处理选中的卡片，显示操作菜单
    */
-  handleSelectedCard: async function(note, searchResult, searchOptions = {}) {
+  MNKnowledgeBaseClass.prototype.handleSelectedCard = async function(note, searchResult, searchOptions = {}) {
     try {
       if (!note) {
         MNUtil.showHUD("❌ 无效的卡片");

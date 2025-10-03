@@ -2,7 +2,7 @@
   "addonid": "marginnote.extension.mnknowledgebase",
   "author": "Kangwei Xia",
   "title": "MN KnowledgeBase",
-  "version": "0.8",
+  "version": "0.9",
   "marginnote_version_min": "3.6.11",
   "cert_key": ""
 }
