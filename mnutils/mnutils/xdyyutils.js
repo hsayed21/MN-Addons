@@ -52,17 +52,46 @@ MNUtil.getLinkText = function(link){
 MNUtil.updateMarkdownLinksInNote = function(note, oldURL, newURL) {
   if (!note || !oldURL || !newURL) return;
 
+  MNUtil.log(`📝 updateMarkdownLinksInNote 被调用`);
+  MNUtil.log(`  oldURL: ${oldURL}`);
+  MNUtil.log(`  newURL: ${newURL}`);
+  MNUtil.log(`  处理卡片: ${note.noteTitle || "无标题"} | ID: ${note.noteId}`);
+
+  // 新增：记录所有 markdownComment 的内容
+  MNUtil.log(`  该卡片的所有 markdownComment:`);
+  let hasMarkdown = false;
+  note.MNComments.forEach((comment, index) => {
+    if (comment.type === "markdownComment") {
+      hasMarkdown = true;
+      MNUtil.log(`    [${index}] type=${comment.type}, 内容: ${comment.text}`);
+    }
+  });
+
+  if (!hasMarkdown) {
+    MNUtil.log(`    (没有找到 markdownComment 类型的评论)`);
+  }
+
+  // 原有的查找和替换逻辑
+  let updated = false;
   note.MNComments.forEach((comment, index) => {
     if (comment.type === "markdownComment") {
       let text = comment.text;
       // 检查是否包含目标 URL
       if (text.includes(oldURL)) {
+        MNUtil.log(`  [${index}] 找到包含旧URL的评论:`);
+        MNUtil.log(`    原文: ${text.substring(0, 150)}${text.length > 150 ? '...' : ''}`);
         // 全局替换所有出现的旧 URL (使用 split().join() 避免正则特殊字符问题)
         let newText = text.split(oldURL).join(newURL);
+        MNUtil.log(`    替换后: ${newText.substring(0, 150)}${newText.length > 150 ? '...' : ''}`);
         comment.text = newText;  // 使用 setter 自动调用 replaceWithMarkdownComment
+        updated = true;
       }
     }
   });
+
+  if (!updated) {
+    MNUtil.log(`  ⚠️ 未找到包含 oldURL 的 markdownComment`);
+  }
 };
 
 /**
@@ -173,22 +202,56 @@ MNNote.prototype.fixMergeProblematicLinks = function() {
  * 注意：和 MN 自己的合并不同，this 的标题会处理为评论，而不是添加到 targetNote 的标题
  */
 MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
+  MNUtil.log("=".repeat(30));
+  MNUtil.log("🔄 执行 mergeInto");
+  MNUtil.log(`📍 源卡片: ${this.noteTitle || "无标题"} | ID: ${this.noteId} | URL: ${this.noteURL}`);
+  MNUtil.log(`📍 目标卡片: ${targetNote.noteTitle || "无标题"} | ID: ${targetNote.noteId} | URL: ${targetNote.noteURL}`);
+
   // 合并之前先更新链接
   this.convertLinksToNewVersion()
   this.cleanupBrokenLinks()
   this.fixMergeProblematicLinks()
 
+  // 记录所有已处理的卡片，避免重复处理
+  let processedNoteIds = new Set();
   let oldComments = this.MNComments
+
+  // 记录源卡片的链接情况
+  MNUtil.log("🔗 处理源卡片的 linkComment:");
+
+  // 处理所有 linkComment（不再限制必须是双向链接）
   oldComments.forEach((comment, index) => {
-    if (comment.type == "linkComment" && this.LinkIfDouble(comment.text)) {
-      let linkedNote = MNNote.new(comment.text.toNoteId())
-      let indexArrInLinkedNote = linkedNote.getLinkCommentsIndexArr(this.noteId.toNoteURL())
-      // 把 this 的链接更新为 targetNote 的链接
-      indexArrInLinkedNote.forEach(index => {
-        linkedNote.replaceWithMarkdownComment(targetNote.noteURL, index)
-      })
-      // 同时更新 linkedNote 中 markdownComment 里的行内链接
-      MNUtil.updateMarkdownLinksInNote(linkedNote, this.noteURL, targetNote.noteURL)
+    if (comment.type == "linkComment") {  // 移除 LinkIfDouble 限制，处理所有链接
+      let linkedNoteId = comment.text.toNoteId();
+
+      // 检查是否已处理过
+      if (processedNoteIds.has(linkedNoteId)) return;
+      processedNoteIds.add(linkedNoteId);
+
+      let linkedNote = MNNote.new(linkedNoteId, false);  // false 避免卡片不存在时弹窗
+      MNUtil.log(`  链接到: ${linkedNote?.noteTitle || "未知"} | ID: ${linkedNoteId}`);
+
+      if (linkedNote) {
+        // 检查链接卡片中的 markdown
+        MNUtil.log(`  检查链接卡片的 markdownComment:`);
+        linkedNote.MNComments.forEach((c, i) => {
+          if (c.type === "markdownComment" && c.text.includes(this.noteURL)) {
+            MNUtil.log(`    [${i}] 找到包含源卡片URL: ${c.text.substring(0, 100)}${c.text.length > 100 ? '...' : ''}`);
+          }
+        });
+
+        // 更新 linkedNote 中指向 A 的链接评论
+        let indexArrInLinkedNote = linkedNote.getLinkCommentsIndexArr(this.noteId.toNoteURL())
+        if (indexArrInLinkedNote.length > 0) {
+          MNUtil.log(`  找到 ${indexArrInLinkedNote.length} 个反向链接评论，更新为目标卡片`);
+        }
+        indexArrInLinkedNote.forEach(index => {
+          linkedNote.replaceWithMarkdownComment(targetNote.noteURL, index)
+        })
+
+        // 同时更新 linkedNote 中 markdownComment 里的行内链接
+        MNUtil.updateMarkdownLinksInNote(linkedNote, this.noteURL, targetNote.noteURL)
+      }
     }
   })
 
@@ -198,7 +261,6 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
       // 提取所有 Markdown 格式的链接
       let markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
       let matches;
-      let processedNotes = new Set(); // 避免重复处理同一个卡片
 
       while ((matches = markdownLinkRegex.exec(comment.text)) !== null) {
         let linkURL = matches[2];
@@ -207,9 +269,9 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
         if (linkURL.ifValidNoteURL()) {
           let linkedNoteId = linkURL.toNoteId();
 
-          // 避免重复处理
-          if (processedNotes.has(linkedNoteId)) continue;
-          processedNotes.add(linkedNoteId);
+          // 跳过已处理的卡片（避免重复处理）
+          if (processedNoteIds.has(linkedNoteId)) continue;
+          processedNoteIds.add(linkedNoteId);
 
           let linkedNote = MNNote.new(linkedNoteId, false);
           if (linkedNote) {
@@ -239,6 +301,35 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
     this.removeCommentByIndex(0)
   }
 
+
+  // 在合并前，先移除目标卡片中对源卡片的所有引用
+  // 处理目标卡片的 markdownComment 中的行内链接
+  targetNote.MNComments.forEach((comment, index) => {
+    if (comment.type === "markdownComment") {
+      let text = comment.text;
+      // 检查是否包含源卡片的 URL
+      if (text.includes(this.noteURL)) {
+        // 移除包含源卡片 URL 的 Markdown 链接
+        // 匹配 [任意文本](源卡片URL) 格式
+        let markdownLinkRegex = new RegExp(`\\[[^\\]]*\\]\\(${this.noteURL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)`, 'g');
+        let newText = text.replace(markdownLinkRegex, '');
+
+        // 如果替换后文本发生变化，更新评论
+        if (newText !== text) {
+          comment.text = newText;
+          MNUtil.log(`🔗 已移除目标卡片中对源卡片的行内链接`);
+        }
+      }
+    }
+  });
+
+  // 处理目标卡片的 linkComment（链接评论）
+  let targetLinkIndices = targetNote.getLinkCommentsIndexArr(this.noteURL);
+  // 从后往前删除，避免索引变化问题
+  for (let i = targetLinkIndices.length - 1; i >= 0; i--) {
+    targetNote.removeCommentByIndex(targetLinkIndices[i]);
+    MNUtil.log(`🔗 已移除目标卡片中对源卡片的链接评论`);
+  }
 
   // 合并到目标卡片
   targetNote.merge(this)

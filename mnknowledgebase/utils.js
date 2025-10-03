@@ -2870,27 +2870,153 @@ class knowledgeBaseTemplate {
   }
 
   /**
+   * 查找并更新所有链接到指定卡片的笔记
+   * 只处理源卡片能够通过链接访问到的卡片，以及源卡片的父子卡片
+   *
+   * @param {string} sourceNoteURL - 源卡片的 URL（将被替换）
+   * @param {string} targetNoteURL - 目标卡片的 URL（替换后的 URL）
+   * @returns {number} 更新的链接数量
+   */
+  static updateAllIncomingLinks(sourceNoteURL, targetNoteURL) {
+
+    let updateCount = 0;
+    const sourceNoteId = sourceNoteURL.toNoteId();
+
+    try {
+      const sourceNote = MNNote.new(sourceNoteId, false);
+      if (!sourceNote) {
+        return 0;
+      }
+
+      // 收集需要检查的卡片
+      const notesToCheck = new Set();
+
+      // 1. 添加源卡片的父卡片
+      if (sourceNote.parentNote) {
+        notesToCheck.add(sourceNote.parentNote.noteId);
+      }
+
+      // 2. 添加源卡片的子卡片
+      if (sourceNote.childNotes && sourceNote.childNotes.length > 0) {
+        sourceNote.childNotes.forEach(child => {
+          if (child) notesToCheck.add(child.noteId);
+        });
+      }
+
+      // 3. 添加源卡片链接到的卡片（通过 linkComment）
+      sourceNote.MNComments.forEach(comment => {
+        if (comment.type === "linkComment") {
+          const linkedNoteId = comment.text.toNoteId();
+          if (linkedNoteId) {
+            notesToCheck.add(linkedNoteId);
+          }
+        }
+      });
+
+      // 4. 添加源卡片 markdown 中链接到的卡片
+      sourceNote.MNComments.forEach(comment => {
+        if (comment.type === "markdownComment") {
+          // 提取 markdown 中的所有链接
+          const regex = /marginnote4app:\/\/note\/([A-Z0-9-]+)/g;
+          let match;
+          while ((match = regex.exec(comment.text)) !== null) {
+            notesToCheck.add(match[1]);
+          }
+        }
+      });
+
+      // 遍历需要检查的卡片，查找并更新链接
+      notesToCheck.forEach(noteId => {
+        if (noteId === sourceNoteId) return;
+
+        const note = MNNote.new(noteId, false);
+        if (!note) return;
+
+        let hasUpdates = false;
+
+        // 1. 检查并更新 linkComment
+        const linkIndices = note.getLinkCommentsIndexArr(sourceNoteURL);
+        if (linkIndices.length > 0) {
+          linkIndices.forEach(idx => {
+            note.replaceWithMarkdownComment(targetNoteURL, idx);
+            updateCount++;
+          });
+          hasUpdates = true;
+        }
+
+        // 2. 检查并更新 markdownComment 中的行内链接
+        note.MNComments.forEach((comment, idx) => {
+          if (comment.type === "markdownComment" && comment.text.includes(sourceNoteURL)) {
+            const oldText = comment.text;
+            const newText = oldText.replace(new RegExp(sourceNoteURL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), targetNoteURL);
+            if (oldText !== newText) {
+              note.removeCommentByIndex(idx);
+              note.insertCommentByIndex(idx, { text: newText, type: "markdownComment" });
+              updateCount++;
+              hasUpdates = true;
+            }
+          }
+        });
+
+        // 如果有更新，刷新笔记
+        if (hasUpdates) {
+          note.refresh();
+        }
+      });
+
+    } catch (error) {
+      // 静默处理错误
+      MNUtil.copyJSON(error);
+    }
+
+    return updateCount;
+  }
+
+  /**
    * 合并知识卡片
    * 将 sourceNote (B) 的内容按字段合并到 targetNote (A) 中
-   * 
+   *
    * 注意：
    * - "相关链接"字段的内容会被删除，不参与合并
    * - 支持特殊字段映射（如思想方法的"原理"→命题的"证明"）
    * - 会自动处理字段名中的多余冒号
-   * 
+   *
    * @param {MNNote} targetNote - 目标卡片 (A)，保留的卡片
    * @param {MNNote} sourceNote - 源卡片 (B)，将被合并的卡片
    */
-  static renewKnowledgeNotes(targetNote, sourceNote) {
+  static renewKnowledgeNotes_old(targetNote, sourceNote) {
     try {
-      MNUtil.log("🔀 开始合并知识卡片...");
+      MNUtil.log("=".repeat(50));
+      MNUtil.log("🔀 开始 renewKnowledgeNotes 合并知识卡片");
+      MNUtil.log(`📍 目标卡片(保留): ${targetNote.noteTitle || "无标题"} | ID: ${targetNote.noteId}`);
+      MNUtil.log(`📍 源卡片(将合并): ${sourceNote.noteTitle || "无标题"} | ID: ${sourceNote.noteId}`);
+      MNUtil.log(`📍 源卡片 URL: ${sourceNote.noteURL}`);
+      MNUtil.log(`📍 目标卡片 URL: ${targetNote.noteURL}`);
+
+      // 记录源卡片的所有链接
+      MNUtil.log("📋 源卡片的链接评论:");
+      sourceNote.MNComments.forEach((comment, idx) => {
+        if (comment.type === "linkComment") {
+          let linkedNoteId = comment.text.toNoteId();
+          let linkedNote = MNNote.new(linkedNoteId, false);
+          MNUtil.log(`  [${idx}] 链接到: ${linkedNote?.noteTitle || "未知"} | ID: ${linkedNoteId}`);
+        }
+      });
+
+      // 记录源卡片的 markdown 内容
+      MNUtil.log("📝 源卡片的 Markdown 评论:");
+      sourceNote.MNComments.forEach((comment, idx) => {
+        if (comment.type === "markdownComment") {
+          MNUtil.log(`  [${idx}] ${comment.text.substring(0, 200)}${comment.text.length > 200 ? '...' : ''}`);
+        }
+      });
 
       // 先预处理一下 sourceNote
       sourceNote.convertLinksToNewVersion()
       sourceNote.cleanupBrokenLinks()
       sourceNote.fixMergeProblematicLinks()
 
-      // 去掉一些评论，比如“- ”
+      // 去掉一些评论，比如"- "
       this.removeUnnecessaryComments(sourceNote)
       
       // 1. 先处理标题合并（在任何其他操作之前）
@@ -2914,16 +3040,19 @@ class knowledgeBaseTemplate {
         if (!sourceHasTemplate) {
           // 无字段结构的特殊处理
           MNUtil.log("📝 源卡片无字段结构，将内容移动到摘录区");
-          
+
+          // 在合并前更新所有反向链接
+          this.updateAllIncomingLinks(sourceNote.noteURL, targetNote.noteURL);
+
           // 执行合并
           sourceNote.mergeInto(targetNote);
-          
+
           // 将新内容移动到摘录区
           this.autoMoveNewContentToField(targetNote, "摘录", true, false);
-          
+
           // 刷新卡片显示
           targetNote.refresh();
-          
+
           MNUtil.showHUD("✅ 知识卡片合并完成（内容已移至摘录区）");
           return;
         }
@@ -2938,7 +3067,11 @@ class knowledgeBaseTemplate {
         
         // 记录所有已处理的内容索引
         const processedIndices = new Set();
-        
+
+        // 在处理字段之前，先更新所有反向链接
+        // 这样即使字段为空也会执行链接更新
+        this.updateAllIncomingLinks(sourceNote.noteURL, targetNote.noteURL);
+
         // 逐个处理每个字段（不要一次性删除所有字段标记）
         sourceHtmlComments.forEach(htmlComment => {
           try {
@@ -3120,10 +3253,19 @@ class knowledgeBaseTemplate {
         
         // 刷新目标卡片显示
         targetNote.refresh();
+
+        // 记录合并后的状态
+        MNUtil.log("✅ 合并后目标卡片的 Markdown 评论:");
+        targetNote.MNComments.forEach((comment, idx) => {
+          if (comment.type === "markdownComment") {
+            MNUtil.log(`  [${idx}] ${comment.text.substring(0, 200)}${comment.text.length > 200 ? '...' : ''}`);
+          }
+        });
       });
-      
+
       MNUtil.showHUD("✅ 知识卡片合并完成");
       MNUtil.log("✅ 知识卡片合并完成");
+      MNUtil.log("=".repeat(50));
       
     } catch (error) {
       MNUtil.showHUD("❌ 合并知识卡片时出错: " + error.message);
@@ -3134,7 +3276,184 @@ class knowledgeBaseTemplate {
       });
     }
   }
-  
+
+  /**
+   * 【新版本】合并知识卡片 - 重新设计的实现
+   * 将 sourceNote (B) 的内容按字段智能合并到 targetNote (A) 中
+   *
+   * 改进点：
+   * 1. 不使用 clone()，直接操作源卡片
+   * 2. 提前更新所有链接，确保链接完整性
+   * 3. 利用现有的 IndexArr 封装方法
+   * 4. 参考 splitComments 的清晰处理流程
+   *
+   * @param {MNNote} targetNote - 目标卡片 (A)，保留的卡片
+   * @param {MNNote} sourceNote - 源卡片 (B)，将被合并的卡片
+   */
+  static renewKnowledgeNotes(targetNote, sourceNote) {
+    try {
+      // 1. 预处理
+      sourceNote.convertLinksToNewVersion();
+      sourceNote.cleanupBrokenLinks();
+      sourceNote.fixMergeProblematicLinks();
+      this.removeUnnecessaryComments(sourceNote);
+
+      // 2. 合并标题链接词
+      this.mergeTitleLinkWords(targetNote, sourceNote);
+
+      // 3. 获取卡片类型和字段映射
+      const targetType = this.getNoteType(targetNote);
+      const sourceType = this.getNoteType(sourceNote);
+      const fieldMapping = this.buildFieldMapping(sourceType, targetType);
+
+      MNUtil.undoGrouping(() => {
+        // 4. 【关键】在任何内容操作前，先更新所有指向源卡片的链接
+        this.updateAllIncomingLinks(sourceNote.noteURL, targetNote.noteURL);
+
+        // 5. 解析源卡片结构
+        const sourceCommentsObj = this.parseNoteComments(sourceNote);
+        const sourceHtmlComments = sourceCommentsObj.htmlCommentsObjArr;
+
+        // 6. 如果没有字段结构，直接合并到摘录区
+        if (!sourceHtmlComments || sourceHtmlComments.length === 0) {
+          sourceNote.noteTitle = "";
+          sourceNote.mergeInto(targetNote);
+          this.autoMoveNewContentToField(targetNote, "摘录", true, false);
+          targetNote.refresh();
+          MNUtil.showHUD("✅ 合并完成（内容已移至摘录区）");
+          return;
+        }
+
+        // 7. 有字段结构 - 逐字段处理
+        const processedIndices = new Set();
+
+        // 处理每个字段
+        sourceHtmlComments.forEach(htmlComment => {
+          const fieldName = this.normalizeFieldName(htmlComment.text);
+
+          // 记录已处理的索引
+          processedIndices.add(htmlComment.index);
+          htmlComment.excludingFieldBlockIndexArr.forEach(idx => processedIndices.add(idx));
+
+          // 跳过"相关链接"字段
+          if (fieldName === "相关链接") {
+            return;
+          }
+
+          // 确定目标字段名
+          const targetFieldName = fieldMapping[fieldName] || fieldName;
+          const contentIndices = htmlComment.excludingFieldBlockIndexArr;
+
+          if (contentIndices.length === 0) {
+            return;
+          }
+
+          // 使用新的直接移动方法
+          this.moveContentDirectly(sourceNote, targetNote, contentIndices, targetFieldName);
+        });
+
+        // 8. 处理摘录区（未被字段包含的内容）
+        const allIndices = Array.from({length: sourceNote.comments.length}, (_, i) => i);
+        const excerptIndices = allIndices.filter(i => !processedIndices.has(i));
+
+        if (excerptIndices.length > 0) {
+          this.moveContentDirectly(sourceNote, targetNote, excerptIndices, "摘录");
+        }
+
+        // 9. 删除源卡片（此时应该已经为空）
+        if (sourceNote.comments.length === 0) {
+          sourceNote.delete(false);
+        }
+
+        // 10. 刷新目标卡片
+        targetNote.refresh();
+      });
+
+      MNUtil.showHUD("✅ 知识卡片合并完成");
+
+    } catch (error) {
+      MNUtil.copyJSON(error);
+      MNUtil.showHUD("❌ 合并失败，请查看日志");
+    }
+  }
+
+  /**
+   * 直接从源卡片移动内容到目标卡片的指定字段
+   * 使用创建新卡片的方式，避免 clone 带来的链接问题
+   *
+   * @param {MNNote} sourceNote - 源卡片
+   * @param {MNNote} targetNote - 目标卡片
+   * @param {Array<number>} indices - 要移动的评论索引
+   * @param {string} targetFieldName - 目标字段名
+   */
+  static moveContentDirectly(sourceNote, targetNote, indices, targetFieldName) {
+    if (!indices || indices.length === 0) return;
+
+    try {
+      // 记录目标卡片合并前的评论数
+      const beforeCount = targetNote.comments.length;
+
+      // 创建一个临时卡片作为载体
+      // 使用 createNote 而不是 clone，避免链接问题
+      const tempNote = MNNote.createWithTitleAndNotebook("", targetNote.notebookId);
+
+      // 按顺序复制要移动的评论到临时卡片
+      const sortedIndices = [...indices].sort((a, b) => a - b);
+      sortedIndices.forEach((index, i) => {
+        const comment = sourceNote.comments[index];
+        if (comment) {
+          // 根据评论类型添加到临时卡片
+          if (comment.type === "TextNote") {
+            tempNote.appendTextComment(comment.text);
+          } else if (comment.type === "HtmlNote") {
+            tempNote.appendHtmlComment(comment.text);
+          } else if (comment.type === "LinkNote") {
+            // 对于链接评论，保留原始文本内容
+            tempNote.appendTextComment(comment.text || "");
+          } else if (comment.type === "PaintNote") {
+            // 图片/手写暂时无法完全复制，标记处理
+            tempNote.appendTextComment(`[图片/手写 - Index ${index}]`);
+          } else if (comment.type === "AudioNote") {
+            tempNote.appendTextComment(`[音频 - Index ${index}]`);
+          }
+        }
+      });
+
+      // 将临时卡片的内容合并到目标卡片
+      if (tempNote.comments.length > 0) {
+        tempNote.mergeInto(targetNote);
+      }
+
+      // 删除临时卡片
+      tempNote.delete(false);
+
+      // 从源卡片删除已移动的评论（从后向前删除）
+      const indicesToDelete = [...indices].sort((a, b) => b - a);
+      indicesToDelete.forEach(index => {
+        sourceNote.removeCommentByIndex(index);
+      });
+
+      // 计算新增内容的索引
+      const newCount = targetNote.comments.length - beforeCount;
+      const newIndices = [];
+      for (let i = 0; i < newCount; i++) {
+        newIndices.push(beforeCount + i);
+      }
+
+      // 移动到指定字段
+      if (newIndices.length > 0) {
+        if (targetFieldName === "摘录") {
+          this.autoMoveNewContentToField(targetNote, "摘录", true, false);
+        } else {
+          this.moveCommentsArrToField(targetNote, newIndices, targetFieldName, true);
+        }
+      }
+
+    } catch (error) {
+      // 静默处理错误，避免中断主流程
+    }
+  }
+
   /**
    * 标准化字段名，去除多余的冒号和空格
    * 
