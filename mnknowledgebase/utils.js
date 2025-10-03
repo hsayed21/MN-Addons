@@ -6260,6 +6260,8 @@ class knowledgeBaseTemplate {
             note.addChild(clonedNote);
           }
           
+          this.handleExtractedNoteLinks(note, clonedNote, [i]);
+          
           clonedNotes.push(clonedNote);
         }
         
@@ -6268,6 +6270,11 @@ class knowledgeBaseTemplate {
         for (let i = 1; i < note.comments.length; i++) {
           originalIndicesToDelete.push(i);
         }
+        
+        if (originalIndicesToDelete.length > 0) {
+          this.cleanupExtractedContentLinks(note, originalIndicesToDelete);
+        }
+        
         originalIndicesToDelete.sort((a, b) => b - a);
         note.removeCommentsByIndexArr(originalIndicesToDelete);
         
