@@ -5456,6 +5456,15 @@ function registerAllCustomActions() {
       }
     }
   )
+
+  global.registerCustomAction("moveLinksInExcerptToThoughtArea", async function(context) {
+    const { focusNote } = context;
+      MNUtil.undoGrouping(()=>{
+        const arr = knowledgeBaseTemplate.getLinksIndexArrInExcerptBlock(focusNote);
+        knowledgeBaseTemplate.moveCommentsArrToField(focusNote, arr, "相关思考")
+      })
+    }
+  )
 }
 
 // 立即注册

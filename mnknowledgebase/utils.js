@@ -7470,6 +7470,29 @@ class knowledgeBaseTemplate {
 
     return indexArr
   }
+
+  /**
+   * 获取 Note 的“摘录区”的链接 indexArr
+   */
+  static getLinksIndexArrInExcerptBlock(note) {
+    let indexArr = []
+    let endIndex = this.parseNoteComments(note).htmlCommentsObjArr[0]?.index? this.parseNoteComments(note).htmlCommentsObjArr[0].index : -1;
+    switch (endIndex) {
+      case 0:
+      case -1: // 此时没有 html 评论
+        break;
+      default:
+        for (let i = 0; i < endIndex; i++) {
+          let comment = note.MNComments[i]
+          if (comment.type == "linkComment") {
+            indexArr.push(i)
+          }
+        }
+        break;
+    }
+
+    return indexArr
+  }
   /**
    * 获取包含某段文本的 HtmlComment 的 Block
    */
