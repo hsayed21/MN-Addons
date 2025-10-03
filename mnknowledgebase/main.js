@@ -1187,7 +1187,7 @@ JSB.newAddon = function(mainPath){
             const actionChoice = await MNUtil.userSelect(
               "选择操作方式",
               "请选择对卡片的操作：",
-              ["取消", "📋 复制 Markdown 链接", "🗺️ 在脑图中定位", "🪟 在浮窗中定位"]
+              ["📋 复制 Markdown 链接", "🗺️ 在脑图中定位", "🪟 在浮窗中定位"]
             );
 
             if (actionChoice === 0) {
