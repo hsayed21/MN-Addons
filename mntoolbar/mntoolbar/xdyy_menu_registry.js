@@ -973,6 +973,44 @@ function registerAllMenuTemplates() {
     }
   });
 
+  global.registerMenuTemplate("menu_classification", {
+    action: "searchAndAddClassification",
+    onLongPress: {
+      action: "menu",
+      menuWidth: 300,
+      menuItems: [
+        {
+          action: "",
+          menuTitle: "",
+        },
+        {
+          action: "",
+          menuTitle: "",
+        },
+        {
+          action: "",
+          menuTitle: "",
+        },
+        {
+          action: "",
+          menuTitle: "",
+        },
+        {
+          action: "",
+          menuTitle: "",
+        },
+        {
+          action: "",
+          menuTitle: "",
+        },
+        {
+          action: "",
+          menuTitle: "",
+        },
+      ]
+    }
+  });
+
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
     MNUtil.log(
       `🚀 已注册 ${Object.keys(global.customMenuTemplates).length} 个自定义菜单模板`,

@@ -1,6 +1,40 @@
 /**
  * 夏大鱼羊自定义按钮注册表
  * 用于解耦按钮配置，避免修改 utils.js
+ *
+ * 使用情况总览（customX）：
+ *
+ * 判定依据：
+ * - 已注册：在 registerAllButtons() 中通过 global.registerButton("customX", {...}) 明确注册。
+ * - 被使用：
+ *   1) 在 webviewController.js 中被加入 toolbarConfig.action/dynamicAction 的默认拼接列表；或
+ *   2) 在仓库其他处有直接引用（如 toolbarConfig.getAction / actions 配置中直接使用）。
+ * - 未使用：已注册但未出现在以上使用场景；或仅在旧版 utils.js 的默认 actions 里存在、但被当前扩展逻辑覆盖（不再生效）。
+ *
+ * 已注册并被使用（直接/间接加入工具栏，或被引用）：
+ * - custom1  摘录
+ * - custom2  学习
+ * - custom3  增加模板
+ * - custom4  文献
+ * - custom5  卡片
+ * - custom6  文本
+ * - custom7  隐藏插件栏
+ * - custom8  证明
+ * - custom9  思考
+ * - custom10 管理评论
+ * - custom11 搜索
+ * - custom13 整理
+ * - custom15 制卡
+ * - custom16 [手型工具弹窗替换]文本
+ * - custom17 Pin
+ * - custom20 htmlMarkdown 评论
+ *
+ * 仅出现在旧版默认 actions（utils.js 里），未在本注册表中维护，且会被当前覆盖逻辑替换（视为未用）：
+ * - custom12, custom14, custom18, custom19
+ *
+ * 维护建议：
+ * - 若要启用 custom12/14/18/19，请在此文件的 registerAllButtons() 中显式注册；
+ * - 如需下线某个 customX，可从 registerAllButtons() 中移除并在此注释更新状态。
  */
 
 // 调试：检查加载状态
@@ -55,6 +89,18 @@ function registerAllButtons() {
     image: "addTemplate",
     templateName: "addTemplate"
   });
+
+  global.registerButton("custom11", {
+    name: "搜索",
+    image: "search",
+    templateName: "menu_search"
+  });
+
+  global.registerButton("custom13", {
+    name: "整理",
+    image: "classification",
+    templateName: "menu_classification"
+  });
   
   global.registerButton("custom8", {
     name: "证明",
@@ -66,12 +112,6 @@ function registerAllButtons() {
     name: "管理评论",
     image: "comment",
     templateName: "menu_comment"
-  });
-
-  global.registerButton("custom11", {
-    name: "搜索",
-    image: "search",
-    templateName: "menu_search"
   });
 
   // 评论相关按钮
@@ -169,12 +209,6 @@ function registerAllButtons() {
   });
   
   // "custom15":{name:"[卡片弹窗替换]SOP",image:"sop_white",description: this.template("menu_sop")},
-  
-  global.registerButton("custom13", {
-    name: "[卡片弹窗替换]摘录",
-    image: "excerpt_white",
-    templateName: "menu_excerpt"
-  });
   
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
     MNUtil.log(`🚀 已注册 ${Object.keys(global.customButtons).length} 个自定义按钮`);

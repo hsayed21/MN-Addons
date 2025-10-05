@@ -7549,7 +7549,7 @@ class knowledgeBaseTemplate {
   }
 
 
-  static addTemplate(note) {
+  static addTemplate(note, focusLastNote = true) {
     let type
     let contentInTitle
     let titleParts = this.parseNoteTitle(note)
@@ -7562,6 +7562,7 @@ class knowledgeBaseTemplate {
         break;
     }
     MNUtil.copy(contentInTitle)
+    let lastClassificationNote
     try {
       UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
         "增加模板",
@@ -7613,9 +7614,11 @@ class knowledgeBaseTemplate {
                   this.linkParentNote(note);
                   
                   // 6. 聚焦到新创建的卡片
-                  MNUtil.delay(0.5).then(() => {
-                    newClassificationNote.focusInMindMap();
-                  });
+                  if (focusLastNote) {
+                    newClassificationNote.focusInMindMap(0.5);
+                  }
+
+                  lastClassificationNote = newClassificationNote;
                 });
                 
               } catch (error) {
@@ -7657,7 +7660,10 @@ class knowledgeBaseTemplate {
                   }
                   
                   // 聚焦最后创建的卡片
-                  lastNote.focusInMindMap(0.5)
+                  if (focusLastNote && lastNote) {
+                    lastNote.focusInMindMap(0.5)
+                  }
+                  lastClassificationNote = lastNote
                 })
               }
               break
@@ -7698,7 +7704,10 @@ class knowledgeBaseTemplate {
                         let newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
                         lastNote = newClassificationNote
                       })
-                      lastNote.focusInMindMap(0.3)
+                      if (focusLastNote) {
+                        lastNote.focusInMindMap(0.3)
+                      }
+                      lastClassificationNote =  lastNote
                     })
                     break;
                   default:
@@ -7712,7 +7721,10 @@ class knowledgeBaseTemplate {
                           let newClassificationNote = this.createClassificationNote(lastNote, title, type);
                           lastNote = newClassificationNote;
                         });
-                        lastNote.focusInMindMap(0.3);
+                        if (focusLastNote) {
+                          lastNote.focusInMindMap(0.3);
+                        }
+                        lastClassificationNote = lastNote;
                       });
                     } else {
                       // 原有的弹窗选择逻辑
@@ -7731,7 +7743,10 @@ class knowledgeBaseTemplate {
                             let newClassificationNote = this.createClassificationNote(lastNote, title, type)
                               lastNote = newClassificationNote
                             })
-                            lastNote.focusInMindMap(0.3)
+                            if (focusLastNote) {
+                              lastNote.focusInMindMap(0.3)
+                            }
+                            lastClassificationNote = lastNote
                           })
                         })
                     }
@@ -7770,7 +7785,10 @@ class knowledgeBaseTemplate {
                         let newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
                         lastNote = newClassificationNote
                       })
-                      lastNote.focusInMindMap(0.3)
+                      if (focusLastNote) {
+                        lastNote.focusInMindMap(0.3)
+                      }
+                      lastClassificationNote = lastNote
                     })
                     break;
                   default:
@@ -7784,7 +7802,10 @@ class knowledgeBaseTemplate {
                           let newClassificationNote = this.createClassificationNote(lastNote, title, type);
                           lastNote = newClassificationNote;
                         });
-                        lastNote.focusInMindMap(0.3);
+                        if (focusLastNote) {
+                          lastNote.focusInMindMap(0.3);
+                        }
+                        lastClassificationNote = lastNote;
                       });
                     } else {
                       // 原有的弹窗选择逻辑
@@ -7803,7 +7824,10 @@ class knowledgeBaseTemplate {
                             let newClassificationNote = this.createClassificationNote(lastNote, title, type)
                               lastNote = newClassificationNote
                             })
-                            lastNote.focusInMindMap(0.3)
+                            if (focusLastNote) {
+                              lastNote.focusInMindMap(0.3)
+                            }
+                            lastClassificationNote = lastNote
                           })
                         })
                     }
@@ -7816,6 +7840,8 @@ class knowledgeBaseTemplate {
           }
         }
       )
+
+      return lastClassificationNote
     } catch (error) {
       MNUtil.showHUD(error);
     }
@@ -17262,7 +17288,7 @@ class KnowledgeBaseIndexer {
 /**
  * 快速搜索器 - 基于索引的快速搜索
  */
-class FastSearcher {
+class KnowledgeBaseSearcher {
   constructor(indexOrManifest) {
     // 判断是新版分片索引还是旧版单文件索引
     if (indexOrManifest && indexOrManifest.metadata) {
@@ -17284,6 +17310,11 @@ class FastSearcher {
     }
   }
 
+  static lastSearchTypes
+  static lastSearchKeyword
+  // 初始化搜索历史（最多保存5条）
+  static searchHistory = []
+  static maxSearchHistory = 5
   /**
    * 去除字符串中的所有空白字符，用于搜索匹配
    * @param {string} str
@@ -17330,14 +17361,14 @@ class FastSearcher {
     const manifest = KnowledgeBaseIndexer.loadIndexManifest();
     if (manifest && manifest.metadata) {
       MNUtil.log("加载分片索引模式");
-      return new FastSearcher(manifest);
+      return new KnowledgeBaseSearcher(manifest);
     }
 
     // 向后兼容：尝试加载旧版单文件索引
     const index = KnowledgeBaseIndexer.loadIndex(filename);
     if (index) {
       MNUtil.log("加载单文件索引模式（旧版）");
-      return new FastSearcher(index);
+      return new KnowledgeBaseSearcher(index);
     }
 
     return null;
@@ -17351,7 +17382,7 @@ class FastSearcher {
     const manifest = IntermediateKnowledgeIndexer.loadIndexManifest();
     if (manifest && manifest.metadata) {
       MNUtil.log("加载中间知识库分片索引");
-      return new FastSearcher(manifest);
+      return new KnowledgeBaseSearcher(manifest);
     }
 
     return null;
@@ -17479,7 +17510,7 @@ class FastSearcher {
     
     try {
       // 解析搜索查询
-      const parsedQuery = FastSearcher.parseSearchQuery(keyword);
+      const parsedQuery = KnowledgeBaseSearcher.parseSearchQuery(keyword);
       
       // 如果解析后没有任何有效条件，返回空
       if (parsedQuery.andGroups.length === 0 && 
@@ -17553,7 +17584,7 @@ class FastSearcher {
       
     } catch (error) {
       MNUtil.showHUD("搜索失败: " + error.message);
-      MNLog.error(error, "FastSearcher: search");
+      MNLog.error(error, "KnowledgeBaseSearcher: search");
     }
     
     return results.slice(0, limit);
@@ -17583,7 +17614,7 @@ class FastSearcher {
         }
         
         // 使用新的匹配逻辑
-        if (entry.searchText && FastSearcher.matchesQuery(entry.searchText, parsedQuery)) {
+        if (entry.searchText && KnowledgeBaseSearcher.matchesQuery(entry.searchText, parsedQuery)) {
           // 检查排除词（使用预处理的排除信息）
           let shouldExclude = false;
           
@@ -17637,7 +17668,7 @@ class FastSearcher {
       results.sort((a, b) => b.score - a.score);
       
     } catch (error) {
-      MNLog.error(error, "FastSearcher: searchInData");
+      MNLog.error(error, "KnowledgeBaseSearcher: searchInData");
     }
     
     return results.slice(0, limit);
@@ -17650,9 +17681,9 @@ class FastSearcher {
   calculateScore(keyword, entry) {
     let score = 0;
     const keywordLower = (keyword || '').toLowerCase();
-    const normalizedKeyword = FastSearcher.normalizeForMatch(keywordLower);
+    const normalizedKeyword = KnowledgeBaseSearcher.normalizeForMatch(keywordLower);
     const searchTextLower = (entry.searchText || '').toLowerCase();
-    const normalizedSearchText = FastSearcher.normalizeForMatch(searchTextLower);
+    const normalizedSearchText = KnowledgeBaseSearcher.normalizeForMatch(searchTextLower);
 
     // 完全匹配得分最高
     if (
@@ -17663,22 +17694,22 @@ class FastSearcher {
     }
 
     // 在标题链接词中匹配
-    if (FastSearcher.fieldIncludes(entry.titleLinkWords, keywordLower)) {
+    if (KnowledgeBaseSearcher.fieldIncludes(entry.titleLinkWords, keywordLower)) {
       score += 50;
     }
 
     // 在关键词字段中匹配
-    if (FastSearcher.fieldIncludes(entry.keywords, keywordLower)) {
+    if (KnowledgeBaseSearcher.fieldIncludes(entry.keywords, keywordLower)) {
       score += 30;
     }
 
     // 在前缀内容中匹配
-    if (FastSearcher.fieldIncludes(entry.prefix, keywordLower)) {
+    if (KnowledgeBaseSearcher.fieldIncludes(entry.prefix, keywordLower)) {
       score += 20;
     }
 
     // 基础匹配分
-    if (FastSearcher.includesWithNormalized(searchTextLower, normalizedSearchText, keywordLower)) {
+    if (KnowledgeBaseSearcher.includesWithNormalized(searchTextLower, normalizedSearchText, keywordLower)) {
       score += 10;
     }
 
@@ -17694,18 +17725,18 @@ class FastSearcher {
   calculateScoreWithParsedQuery(parsedQuery, entry) {
     let score = 0;
     const searchText = (entry.searchText || '').toLowerCase();
-    const normalizedSearchText = FastSearcher.normalizeForMatch(searchText);
+    const normalizedSearchText = KnowledgeBaseSearcher.normalizeForMatch(searchText);
     const titleLinkWords = (entry.titleLinkWords || '').toLowerCase();
-    const normalizedTitleLinkWords = FastSearcher.normalizeForMatch(titleLinkWords);
+    const normalizedTitleLinkWords = KnowledgeBaseSearcher.normalizeForMatch(titleLinkWords);
     const prefix = (entry.prefix || '').toLowerCase();
-    const normalizedPrefix = FastSearcher.normalizeForMatch(prefix);
+    const normalizedPrefix = KnowledgeBaseSearcher.normalizeForMatch(prefix);
     const keywords = (entry.keywords || '').toLowerCase();
-    const normalizedKeywords = FastSearcher.normalizeForMatch(keywords);
+    const normalizedKeywords = KnowledgeBaseSearcher.normalizeForMatch(keywords);
 
-    const includesInSearch = term => FastSearcher.includesWithNormalized(searchText, normalizedSearchText, term);
-    const includesInTitleLink = term => FastSearcher.includesWithNormalized(titleLinkWords, normalizedTitleLinkWords, term);
-    const includesInPrefix = term => FastSearcher.includesWithNormalized(prefix, normalizedPrefix, term);
-    const includesInKeywords = term => FastSearcher.includesWithNormalized(keywords, normalizedKeywords, term);
+    const includesInSearch = term => KnowledgeBaseSearcher.includesWithNormalized(searchText, normalizedSearchText, term);
+    const includesInTitleLink = term => KnowledgeBaseSearcher.includesWithNormalized(titleLinkWords, normalizedTitleLinkWords, term);
+    const includesInPrefix = term => KnowledgeBaseSearcher.includesWithNormalized(prefix, normalizedPrefix, term);
+    const includesInKeywords = term => KnowledgeBaseSearcher.includesWithNormalized(keywords, normalizedKeywords, term);
 
     // 1. 精确短语匹配得分最高（每个短语100分）
     parsedQuery.exactPhrases.forEach(phrase => {
@@ -17782,6 +17813,412 @@ class FastSearcher {
     });
     
     return notes;
+  }
+
+  static async showSearchResults(results, searcher, searchOptions = {}, focusMode = true, defaultHandle = true) {
+    try {
+      // 构建结果选项
+      const options = results.map((result, index) => {
+        const typeLabel = result.classificationSubtype 
+          ? `[${result.type}-${result.classificationSubtype}]`
+          : `[${result.type}-${result.prefix}]`;
+        
+        // 获取显示的标题（优先用简短形式）
+        let displayTitle = result.classificationSubtype 
+          ? `${result.content}`
+          : ``;
+        
+        // 截取标题避免过长
+        if (displayTitle.length > 40) {
+          displayTitle = displayTitle.substring(0, 40) + "...";
+        }
+
+        if (!result.classificationSubtype){
+          displayTitle = displayTitle + result.titleLinkWords
+        }
+        
+        return `${index + 1}. ${typeLabel} ${displayTitle}`;
+      });
+      
+      // 添加返回和分享选项
+      // options.unshift("🔙 返回搜索");
+      
+      // 显示结果列表
+      let selectResult = await MNUtil.userSelect(
+        `搜索结果 (${results.length} 个)`,
+        "选择要查看的卡片：",
+        options,
+      );
+
+      if (selectResult === 0) {
+        // 返回搜索，保留之前的配置
+        const config = {
+          defaultTypes: searchOptions.types,
+          enableTypeSelection: searchOptions.config ? searchOptions.config.enableTypeSelection : true
+        };
+        this.showSearchDialog(searcher, config, focusMode);
+      } else if (selectResult > 0) {
+        const selectedResult = results[selectResult - 1];
+        const note = MNNote.new(selectedResult.id);
+        if (note) {
+          // 调用新的统一处理方法
+          const enhancedOptions = Object.assign({}, searchOptions, {
+            results: results,
+            searcher: searcher,
+            focusMode: focusMode,
+            isFromHistory: searchOptions.isFromHistory
+          });
+          if (defaultHandle) {
+            this.handleSelectedCard(note, selectedResult, enhancedOptions);
+          } else {
+            return note;
+          }
+        }
+      }
+      
+    } catch (error) {
+      MNUtil.showHUD("显示结果失败: " + error.message);
+      MNLog.error(error, "MNKnowledgeBase: showSearchResults");
+    }
+  }
+
+
+  /**
+   * 处理选中的卡片，显示操作菜单
+   */
+  static async handleSelectedCard(note, searchResult, searchOptions = {}) {
+    try {
+      if (!note) {
+        MNUtil.showHUD("❌ 无效的卡片");
+        return;
+      }
+
+      // 构建操作菜单选项
+      const menuOptions = [
+        "📋 复制 Markdown 链接",
+        "🗺️ 在脑图中定位",
+        "🪟 在浮窗中定位",
+        "📌 Pin 到位置",
+        "🔗 合并剪贴板卡片到摘录区",
+        "🔙 返回搜索结果"
+      ];
+
+      const actionChoice = await MNUtil.userSelect(
+        "选择操作",
+        `卡片: ${searchResult ? searchResult.title : note.noteTitle}`,
+        menuOptions
+      );
+
+      switch(actionChoice) {
+        case 0: // 取消
+          // 返回搜索结果列表
+          if (searchOptions.results && searchOptions.searcher) {
+            KnowledgeBaseSearcher.showSearchResults(searchOptions.results, searchOptions.searcher, searchOptions);
+          }
+          break;
+          
+        case 1: // 复制 Markdown 链接
+          knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
+          break;
+          
+        case 2: // 在脑图中定位
+          if (MNUtil.mindmapView) {
+            note.focusInMindMap();
+          } else {
+            MNUtil.showHUD("当前不在脑图视图");
+          }
+          break;
+          
+        case 3: // 在浮窗中定位
+          if (MNUtil.mindmapView) {
+            note.focusInFloatMindMap();
+          } else {
+            MNUtil.showHUD("当前不在脑图视图");
+          }
+          break;
+          
+        case 4: // Pin 到位置
+          // 显示位置选择子菜单
+          const pinOptions = [
+            "📍 Midway Top",
+            "📍 Midway Bottom",
+            "📍 Focus Top",
+            "📍 Focus Bottom",
+            "🔙 返回"
+          ];
+
+          const pinChoice = await MNUtil.userSelect(
+            "选择 Pin 位置",
+            "选择要 Pin 到的位置：",
+            pinOptions
+          );
+
+          if (pinChoice > 0 && pinChoice <= 4) {
+            const sections = ["midway", "midway", "focus", "focus"];
+            const positions = ["top", "bottom", "top", "bottom"];
+            const section = sections[pinChoice - 1];
+            const position = positions[pinChoice - 1];
+
+            // 发送广播消息给 mnpinner
+            MNUtil.postNotification("AddonBroadcast", {
+              message: `mnpinner?action=pin&id=${encodeURIComponent(note.noteId)}&section=${section}&position=${position}`
+            });
+
+            MNUtil.showHUD(`✅ 已发送 Pin 请求到 ${section} ${position}`);
+          } else if (pinChoice === 5) {
+            // 返回主菜单
+            this.handleSelectedCard(note, searchResult, searchOptions);
+          }
+          break;
+
+        case 5: // 合并剪贴板卡片到摘录区
+          try {
+            // 获取剪贴板内容
+            const clipboardContent = MNUtil.clipboardText;
+            if (!clipboardContent) {
+              MNUtil.showHUD("❌ 剪贴板为空");
+              return;
+            }
+
+            // 尝试解析为 MarginNote 卡片
+            let clipboardNote = null;
+
+            // 检查是否为 MarginNote URL
+            if (clipboardContent.includes("marginnote")) {
+              clipboardNote = MNNote.new(clipboardContent);
+            } else if (clipboardContent.match(/^[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}$/i)) {
+              // 检查是否为 UUID 格式的 noteId
+              clipboardNote = MNNote.new(clipboardContent);
+            }
+
+            if (!clipboardNote) {
+              MNUtil.showHUD("❌ 剪贴板内容不是有效的卡片 ID 或 URL");
+              return;
+            }
+
+            // 执行合并操作
+            MNUtil.undoGrouping(() => {
+              // 合并到选中卡片
+              clipboardNote.mergeInto(note);
+
+              // 自动移动到摘录区
+              knowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录");
+            });
+
+            MNUtil.showHUD("✅ 已合并剪贴板卡片到摘录区");
+          } catch (error) {
+            MNUtil.showHUD("❌ 合并失败: " + error.message);
+            MNLog.error(error, "MNKnowledgeBase: mergeClipboardCard");
+          }
+          break;
+
+        case 6: // 返回搜索结果
+          if (searchOptions.results && searchOptions.searcher) {
+            KnowledgeBaseSearcher.showSearchResults(searchOptions.results, searchOptions.searcher, searchOptions);
+          }
+          break;
+      }
+      
+    } catch (error) {
+      MNUtil.showHUD("操作失败: " + error.message);
+      MNLog.error(error, "MNKnowledgeBase: handleSelectedCard");
+    }
+  }
+
+  static async showSearchDialog(searcher, config = {}, focusMode, defaultHandle = true) {
+    try {
+      // 默认配置
+      const defaultConfig = {
+        enableTypeSelection: true,      // 是否允许选择类型
+        defaultTypes: null,              // 默认搜索类型（null表示全部）
+        showAdvancedOptions: false,     // 是否显示高级选项
+        presetKey: null                  // 预设键名
+      };
+      
+      const searchConfig = Object.assign({}, defaultConfig, config);
+      
+      // 步骤1：类型选择（如果启用）
+      let selectedTypes = searchConfig.defaultTypes;
+      if (searchConfig.enableTypeSelection && !selectedTypes) {
+        selectedTypes = await this.selectSearchTypes();
+        if (selectedTypes === "cancel") return; // 用户取消
+      }
+      
+      // 步骤2：获取搜索模式配置
+      const searchModeConfig = knowledgeBaseTemplate.getSearchConfig();
+      const modeNames = {
+        exact: "精确",
+        synonym: "同义词",
+        exclude: "排除词",
+        full: "完整"
+      };
+      const modeText = modeNames[searchModeConfig.mode] || "精确";
+      
+      // 步骤3：构建标题信息
+      let typeInfo = "(全部类型)";
+      if (searchConfig.presetKey) {
+        const preset = SearchConfig.typePresets[searchConfig.presetKey];
+        typeInfo = preset ? `${preset.icon} ${preset.name}` : `(${selectedTypes.length}种类型)`;
+      } else if (selectedTypes) {
+        typeInfo = `(${selectedTypes.length}种类型)`;
+      }
+      
+      // 步骤4：关键词输入
+      let userInput = await MNUtil.userInput(
+        `快速搜索 ${typeInfo} [${modeText}模式]`,
+        "请输入搜索关键词：",
+        ["取消", "搜索"]
+      );
+      
+      if (userInput.button === 1) {
+        let keyword = userInput.input.trim();
+        if (!keyword) return;
+        
+        // 步骤5：根据配置扩展查询词
+        let expandedKeyword = keyword;
+        if (searchModeConfig.useSynonyms) {
+          expandedKeyword = KnowledgeBaseIndexer.expandSearchQuery(keyword, true);
+          MNUtil.log(`扩展后的查询: ${expandedKeyword}`);
+        }
+        
+        // 步骤6：执行搜索
+        return this.performFastSearch(searcher, expandedKeyword, {
+          types: selectedTypes,
+          config: searchConfig,
+          searchModeConfig: searchModeConfig,
+          originalKeyword: keyword
+        }, focusMode, defaultHandle);
+      }
+    } catch (error) {
+      MNUtil.showHUD("搜索对话框错误: " + error.message);
+      MNLog.error(error, "MNKnowledgeBase: showSearchDialog");
+    }
+  }
+
+  /**
+   * 选择搜索类型
+   */
+  static async selectSearchTypes() {
+    try {
+      const options = SearchConfig.getSearchTypeOptions();
+      const displayOptions = options.map(opt => opt.name);
+      displayOptions.push("⚙️ 自定义选择...");
+      
+      const choice = await MNUtil.userSelect(
+        "选择搜索范围",
+        "请选择要搜索的卡片类型：",
+        displayOptions
+      );
+      
+      if (choice === 0) return "cancel";
+      
+      if (choice < options.length + 1) {
+        // 选择了预设
+        return options[choice - 1].types;
+      } else {
+        // 自定义选择
+        return await this.selectCustomTypes();
+      }
+    } catch (error) {
+      MNLog.error(error, "MNKnowledgeBase: selectSearchTypes");
+      return null; // 返回null表示搜索全部
+    }
+  }
+
+    /**
+   * 自定义类型选择
+   */
+  static async selectCustomTypes() {
+    const allTypes = ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题", "思路", "总结"];
+    const selectedTypes = [];
+    
+    // 使用多次单选来模拟多选
+    for (let type of allTypes) {
+      const choice = await MNUtil.userSelect(
+        "自定义类型选择",
+        `是否包含"${type}"类型？\n已选择：${selectedTypes.join(", ") || "无"}`,
+        ["跳过", "选择", "完成选择"]
+      );
+
+      if (choice === 0 || choice === 3)  return;
+      
+      if (choice === 2) {
+        selectedTypes.push(type);
+      } else if (choice === 1) {
+        break; 
+      } 
+    }
+    
+    return selectedTypes.length > 0 ? selectedTypes : null;
+  }
+
+  /**
+   * 执行快速搜索（增强版）
+   */
+  static async performFastSearch(searcher, keyword, options = {}, focusMode = true, defaultHandle = true) {
+    try {
+      // 构建搜索参数
+      const searchOptions = {
+        limit: 50,
+        types: options.types || null
+      };
+      
+      // 记录搜索历史（使用原始关键词）
+      this.lastSearchKeyword = options.originalKeyword || keyword;
+      this.lastSearchTypes = options.types;
+      
+      // 执行搜索
+      let results = await searcher.search(keyword, searchOptions);
+      
+      // 根据配置应用排除词过滤
+      if (options.searchModeConfig && options.searchModeConfig.useExclusion) {
+        const beforeCount = results.length;
+        results = KnowledgeBaseIndexer.filterSearchResults(results, true);
+        const afterCount = results.length;
+        if (beforeCount > afterCount) {
+          MNUtil.log(`排除词过滤: ${beforeCount} → ${afterCount} 个结果`);
+        }
+      }
+      
+      if (results.length === 0) {
+        const typeInfo = options.types ? `(${options.types.join(", ")})` : "(全部类型)";
+        const originalKeyword = options.originalKeyword || keyword;
+        MNUtil.showHUD(`未找到匹配 "${originalKeyword}" 的卡片 ${typeInfo}`);
+        return;
+      }
+      
+      // 保存搜索历史（根据 focusMode 确定模式名称）
+      let modeName = "脑图定位";
+      if (focusMode === false) {
+        modeName = "浮窗定位";
+      } else if (focusMode === 'markdown') {
+        modeName = "复制链接";
+      }
+      
+      const historyEntry = {
+        keyword: options.originalKeyword || keyword,
+        types: options.types || null,
+        results: results.slice(0, 50), // 只保存前50条结果
+        timestamp: Date.now(),
+        mode: modeName,
+        searchModeConfig: options.searchModeConfig || {}
+      };
+      
+      // 添加到历史记录开头
+      this.searchHistory.unshift(historyEntry);
+      
+      // 限制历史记录数量
+      if (this.searchHistory.length > this.maxSearchHistory) {
+        this.searchHistory = this.searchHistory.slice(0, this.maxSearchHistory);
+      }
+      
+      // 显示搜索结果
+      return this.showSearchResults(results, searcher, options, focusMode, defaultHandle);
+      
+    } catch (error) {
+      MNUtil.showHUD("搜索执行失败: " + error.message);
+      MNLog.error(error, "MNKnowledgeBase: performFastSearch");
+    }
   }
 }
 

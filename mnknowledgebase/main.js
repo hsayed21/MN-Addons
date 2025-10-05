@@ -33,10 +33,7 @@ JSB.newAddon = function(mainPath){
       MNUtil.undoGrouping(()=>{
         try {
           self.toggled = false
-          // 初始化搜索历史（最多保存5条）
-          self.searchHistory = []
-          self.maxSearchHistory = 5
-          MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
+          // MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -54,7 +51,7 @@ JSB.newAddon = function(mainPath){
     sceneDidDisconnect: function() {
       MNUtil.undoGrouping(()=>{
         try {
-          MNUtil.removeObserver(self,'PopupMenuOnNote')
+          // MNUtil.removeObserver(self,'PopupMenuOnNote')
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -175,17 +172,17 @@ JSB.newAddon = function(mainPath){
           self.tableItem('🔍   全部搜索(脑图定位)', 'searchInKB:', true),
           
           // === 快捷搜索 - 脑图定位 ===
-          self.tableItem('    📚  知识卡片(脑图)', 'searchWithPreset:', {preset: 'knowledge', mode: 'mindmap'}),
-          self.tableItem('    📘  仅定义(脑图)', 'searchWithPreset:', {preset: 'definitions', mode: 'mindmap'}),
-          self.tableItem('    📁  仅归类(脑图)', 'searchWithPreset:', {preset: 'classifications', mode: 'mindmap'}),
-          self.tableItem('    📒  定义与归类(脑图)', 'searchWithPreset:', {preset: 'definitionsAndClassifications', mode: 'mindmap'}),
+          self.tableItem('    📚  知识卡片', 'searchWithPreset:', {preset: 'knowledge', mode: 'mindmap'}),
+          self.tableItem('    📘  仅定义', 'searchWithPreset:', {preset: 'definitions', mode: 'mindmap'}),
+          self.tableItem('    📁  仅归类', 'searchWithPreset:', {preset: 'classifications', mode: 'mindmap'}),
+          self.tableItem('    📒  定义与归类', 'searchWithPreset:', {preset: 'definitionsAndClassifications', mode: 'mindmap'}),
 
-          // === 快捷搜索 - 浮窗定位 ===
-          self.tableItem('🔍   全部搜索(浮窗定位)', 'searchInKB:', false),
-          self.tableItem('    📚  知识卡片(浮窗)', 'searchWithPreset:', {preset: 'knowledge', mode: 'float'}),
-          self.tableItem('    📘  仅定义(浮窗)', 'searchWithPreset:', {preset: 'definitions', mode: 'float'}),
-          self.tableItem('    📁  仅归类(浮窗)', 'searchWithPreset:', {preset: 'classifications', mode: 'float'}),
-          self.tableItem('    📒  定义与归类(浮窗)', 'searchWithPreset:', {preset: 'definitionsAndClassifications', mode: 'float'}),
+          // // === 快捷搜索 - 浮窗定位 ===
+          // self.tableItem('🔍   全部搜索(浮窗定位)', 'searchInKB:', false),
+          // self.tableItem('    📚  知识卡片(浮窗)', 'searchWithPreset:', {preset: 'knowledge', mode: 'float'}),
+          // self.tableItem('    📘  仅定义(浮窗)', 'searchWithPreset:', {preset: 'definitions', mode: 'float'}),
+          // self.tableItem('    📁  仅归类(浮窗)', 'searchWithPreset:', {preset: 'classifications', mode: 'float'}),
+          // self.tableItem('    📒  定义与归类(浮窗)', 'searchWithPreset:', {preset: 'definitionsAndClassifications', mode: 'float'}),
           self.tableItem('-------------------------------',''),
           // === 配置管理 ===
           self.tableItem('📜   搜索历史', 'showSearchHistory:'),
@@ -270,14 +267,14 @@ JSB.newAddon = function(mainPath){
         self.checkPopover()
 
         // 异步加载搜索器
-        const searcher = await FastSearcher.loadFromFile();
+        const searcher = await KnowledgeBaseSearcher.loadFromFile();
         if (!searcher) {
           MNUtil.showHUD("索引未找到，请先更新搜索索引");
           return;
         }
 
         // 注意：showSearchDialog 内部也需要支持异步搜索
-        self.showSearchDialog(searcher, {}, focusInMindMap);
+        KnowledgeBaseSearcher.showSearchDialog(searcher, {}, focusInMindMap);
 
       } catch (error) {
         MNUtil.showHUD("快速搜索失败: " + error.message);
@@ -474,7 +471,7 @@ JSB.newAddon = function(mainPath){
         }
         
         // 检查是否有搜索历史
-        if (!self.searchHistory || self.searchHistory.length === 0) {
+        if (!KnowledgeBaseSearcher.searchHistory || KnowledgeBaseSearcher.searchHistory.length === 0) {
           MNUtil.showHUD("暂无搜索历史");
           return;
         }
@@ -495,7 +492,7 @@ JSB.newAddon = function(mainPath){
         };
         
         // 构建历史列表选项
-        const options = self.searchHistory.map((entry, index) => {
+        const options = KnowledgeBaseSearcher.searchHistory.map((entry, index) => {
           const typeInfo = entry.types ? `[${entry.types.join(",")}]` : "[全部]";
           const timeInfo = formatTime(entry.timestamp);
           return `${index + 1}. ${timeInfo} - "${entry.keyword}" ${typeInfo} (${entry.results.length}个结果)`;
@@ -506,7 +503,7 @@ JSB.newAddon = function(mainPath){
         
         // 显示历史列表
         const choice = await MNUtil.userSelect(
-          `搜索历史 (最近${self.searchHistory.length}条)`,
+          `搜索历史 (最近${KnowledgeBaseSearcher.searchHistory.length}条)`,
           "选择要查看的历史记录：",
           options
         );
@@ -519,10 +516,10 @@ JSB.newAddon = function(mainPath){
           self.clearSearchHistory();
         } else {
           // 显示选中的历史记录结果
-          const selectedHistory = self.searchHistory[choice - 1];
+          const selectedHistory = KnowledgeBaseSearcher.searchHistory[choice - 1];
 
           // 尝试加载搜索器（用于返回搜索功能）
-          const searcher = await FastSearcher.loadFromFile();
+          const searcher = await KnowledgeBaseSearcher.loadFromFile();
 
           // 重用之前的搜索结果
           const searchOptions = {
@@ -533,7 +530,7 @@ JSB.newAddon = function(mainPath){
           };
 
           // 显示历史搜索结果（不再使用保存的 mode，由用户在点击卡片时选择）
-          self.showSearchResults(
+          KnowledgeBaseSearcher.showSearchResults(
             selectedHistory.results,
             searcher,
             searchOptions,
@@ -618,7 +615,7 @@ JSB.newAddon = function(mainPath){
         const { preset, mode } = config;
         
         // 异步加载搜索器
-        const searcher = await FastSearcher.loadFromFile();
+        const searcher = await KnowledgeBaseSearcher.loadFromFile();
         if (!searcher) {
           MNUtil.showHUD("索引未找到，请先更新搜索索引");
           return;
@@ -641,7 +638,7 @@ JSB.newAddon = function(mainPath){
           presetKey: preset            // 传递预设键用于显示
         };
         
-        self.showSearchDialog(searcher, searchConfig, focusMode);
+        KnowledgeBaseSearcher.showSearchDialog(searcher, searchConfig, focusMode);
         
       } catch (error) {
         MNUtil.showHUD("快捷搜索失败: " + error.message);
@@ -657,7 +654,7 @@ JSB.newAddon = function(mainPath){
         self.checkPopover();
         
         // 异步加载搜索器
-        const searcher = await FastSearcher.loadFromFile();
+        const searcher = await KnowledgeBaseSearcher.loadFromFile();
         if (!searcher) {
           MNUtil.showHUD("索引未找到，请先更新搜索索引");
           return;
@@ -668,7 +665,7 @@ JSB.newAddon = function(mainPath){
         
         // 显示搜索对话框，使用知识卡片类型
         // 传递 true 作为 focusMode，表示正常的搜索（将在选中后显示操作菜单）
-        self.showSearchDialog(searcher, {
+        KnowledgeBaseSearcher.showSearchDialog(searcher, {
           enableTypeSelection: false,  // 禁用类型选择
           defaultTypes: types,         // 使用知识卡片类型
           presetKey: 'knowledge'       // 使用知识卡片预设
@@ -797,7 +794,7 @@ JSB.newAddon = function(mainPath){
         expandedKeyword = KnowledgeBaseIndexer.expandSearchQuery(rawKeyword, true);
       }
 
-      const parsedQuery = FastSearcher.parseSearchQuery(expandedKeyword);
+      const parsedQuery = KnowledgeBaseSearcher.parseSearchQuery(expandedKeyword);
       const hasConditions = parsedQuery.andGroups.length > 0 ||
         parsedQuery.orGroups.length > 0 ||
         parsedQuery.exactPhrases.length > 0;
@@ -811,7 +808,7 @@ JSB.newAddon = function(mainPath){
       for (const entry of searchData) {
         if (!entry.searchText) continue;
 
-        if (FastSearcher.matchesQuery(entry.searchText, parsedQuery)) {
+        if (KnowledgeBaseSearcher.matchesQuery(entry.searchText, parsedQuery)) {
           const score = this.calculateIntermediateSearchScore(parsedQuery, entry);
 
           results.push({
@@ -932,410 +929,8 @@ JSB.newAddon = function(mainPath){
     }
   }
 
-  MNKnowledgeBaseClass.prototype.showSearchDialog = async function(searcher, config = {}, focusMode) {
-    try {
-      // 默认配置
-      const defaultConfig = {
-        enableTypeSelection: true,      // 是否允许选择类型
-        defaultTypes: null,              // 默认搜索类型（null表示全部）
-        showAdvancedOptions: false,     // 是否显示高级选项
-        presetKey: null                  // 预设键名
-      };
-      
-      const searchConfig = Object.assign({}, defaultConfig, config);
-      
-      // 步骤1：类型选择（如果启用）
-      let selectedTypes = searchConfig.defaultTypes;
-      if (searchConfig.enableTypeSelection && !selectedTypes) {
-        selectedTypes = await this.selectSearchTypes();
-        if (selectedTypes === "cancel") return; // 用户取消
-      }
-      
-      // 步骤2：获取搜索模式配置
-      const searchModeConfig = knowledgeBaseTemplate.getSearchConfig();
-      const modeNames = {
-        exact: "精确",
-        synonym: "同义词",
-        exclude: "排除词",
-        full: "完整"
-      };
-      const modeText = modeNames[searchModeConfig.mode] || "精确";
-      
-      // 步骤3：构建标题信息
-      let typeInfo = "(全部类型)";
-      if (searchConfig.presetKey) {
-        const preset = SearchConfig.typePresets[searchConfig.presetKey];
-        typeInfo = preset ? `${preset.icon} ${preset.name}` : `(${selectedTypes.length}种类型)`;
-      } else if (selectedTypes) {
-        typeInfo = `(${selectedTypes.length}种类型)`;
-      }
-      
-      // 步骤4：关键词输入
-      let userInput = await MNUtil.userInput(
-        `快速搜索 ${typeInfo} [${modeText}模式]`,
-        "请输入搜索关键词：",
-        ["取消", "搜索"]
-      );
-      
-      if (userInput.button === 1) {
-        let keyword = userInput.input.trim();
-        if (!keyword) return;
-        
-        // 步骤5：根据配置扩展查询词
-        let expandedKeyword = keyword;
-        if (searchModeConfig.useSynonyms) {
-          expandedKeyword = KnowledgeBaseIndexer.expandSearchQuery(keyword, true);
-          MNUtil.log(`扩展后的查询: ${expandedKeyword}`);
-        }
-        
-        // 步骤6：执行搜索
-        this.performFastSearch(searcher, expandedKeyword, {
-          types: selectedTypes,
-          config: searchConfig,
-          searchModeConfig: searchModeConfig,
-          originalKeyword: keyword
-        }, focusMode);
-      }
-    } catch (error) {
-      MNUtil.showHUD("搜索对话框错误: " + error.message);
-      MNLog.error(error, "MNKnowledgeBase: showSearchDialog");
-    }
-  }
 
-  /**
-   * 选择搜索类型
-   */
-  MNKnowledgeBaseClass.prototype.selectSearchTypes = async function() {
-    try {
-      const options = SearchConfig.getSearchTypeOptions();
-      const displayOptions = options.map(opt => opt.name);
-      displayOptions.push("⚙️ 自定义选择...");
-      
-      const choice = await MNUtil.userSelect(
-        "选择搜索范围",
-        "请选择要搜索的卡片类型：",
-        displayOptions
-      );
-      
-      if (choice === 0) return "cancel";
-      
-      if (choice < options.length + 1) {
-        // 选择了预设
-        return options[choice - 1].types;
-      } else {
-        // 自定义选择
-        return await this.selectCustomTypes();
-      }
-    } catch (error) {
-      MNLog.error(error, "MNKnowledgeBase: selectSearchTypes");
-      return null; // 返回null表示搜索全部
-    }
-  }
 
-  /**
-   * 自定义类型选择
-   */
-  MNKnowledgeBaseClass.prototype.selectCustomTypes = async function() {
-    const allTypes = ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题", "思路", "总结"];
-    const selectedTypes = [];
-    
-    // 使用多次单选来模拟多选
-    for (let type of allTypes) {
-      const choice = await MNUtil.userSelect(
-        "自定义类型选择",
-        `是否包含"${type}"类型？\n已选择：${selectedTypes.join(", ") || "无"}`,
-        ["跳过", "选择", "完成选择"]
-      );
-
-      if (choice === 0 || choice === 3)  return;
-      
-      if (choice === 2) {
-        selectedTypes.push(type);
-      } else if (choice === 1) {
-        break; 
-      } 
-    }
-    
-    return selectedTypes.length > 0 ? selectedTypes : null;
-  }
-
-  /**
-   * 执行快速搜索（增强版）
-   */
-  MNKnowledgeBaseClass.prototype.performFastSearch = async function(searcher, keyword, options = {}, focusMode = true) {
-    try {
-      // 构建搜索参数
-      const searchOptions = {
-        limit: 50,
-        types: options.types || null
-      };
-      
-      // 记录搜索历史（使用原始关键词）
-      this.lastSearchKeyword = options.originalKeyword || keyword;
-      this.lastSearchTypes = options.types;
-      
-      // 执行搜索
-      let results = await searcher.search(keyword, searchOptions);
-      
-      // 根据配置应用排除词过滤
-      if (options.searchModeConfig && options.searchModeConfig.useExclusion) {
-        const beforeCount = results.length;
-        results = KnowledgeBaseIndexer.filterSearchResults(results, true);
-        const afterCount = results.length;
-        if (beforeCount > afterCount) {
-          MNUtil.log(`排除词过滤: ${beforeCount} → ${afterCount} 个结果`);
-        }
-      }
-      
-      if (results.length === 0) {
-        const typeInfo = options.types ? `(${options.types.join(", ")})` : "(全部类型)";
-        const originalKeyword = options.originalKeyword || keyword;
-        MNUtil.showHUD(`未找到匹配 "${originalKeyword}" 的卡片 ${typeInfo}`);
-        return;
-      }
-      
-      // 保存搜索历史（根据 focusMode 确定模式名称）
-      let modeName = "脑图定位";
-      if (focusMode === false) {
-        modeName = "浮窗定位";
-      } else if (focusMode === 'markdown') {
-        modeName = "复制链接";
-      }
-      
-      const historyEntry = {
-        keyword: options.originalKeyword || keyword,
-        types: options.types || null,
-        results: results.slice(0, 50), // 只保存前50条结果
-        timestamp: Date.now(),
-        mode: modeName,
-        searchModeConfig: options.searchModeConfig || {}
-      };
-      
-      // 添加到历史记录开头
-      self.searchHistory.unshift(historyEntry);
-      
-      // 限制历史记录数量
-      if (self.searchHistory.length > self.maxSearchHistory) {
-        self.searchHistory = self.searchHistory.slice(0, self.maxSearchHistory);
-      }
-      
-      // 显示搜索结果
-      this.showSearchResults(results, searcher, options, focusMode);
-      
-    } catch (error) {
-      MNUtil.showHUD("搜索执行失败: " + error.message);
-      MNLog.error(error, "MNKnowledgeBase: performFastSearch");
-    }
-  }
-
-  /**
-   * 处理选中的卡片，显示操作菜单
-   */
-  MNKnowledgeBaseClass.prototype.handleSelectedCard = async function(note, searchResult, searchOptions = {}) {
-    try {
-      if (!note) {
-        MNUtil.showHUD("❌ 无效的卡片");
-        return;
-      }
-
-      // 构建操作菜单选项
-      const menuOptions = [
-        "📋 复制 Markdown 链接",
-        "🗺️ 在脑图中定位",
-        "🪟 在浮窗中定位",
-        "📌 Pin 到位置",
-        "🔗 合并剪贴板卡片到摘录区",
-        "🔙 返回搜索结果"
-      ];
-
-      const actionChoice = await MNUtil.userSelect(
-        "选择操作",
-        `卡片: ${searchResult ? searchResult.title : note.noteTitle}`,
-        menuOptions
-      );
-
-      switch(actionChoice) {
-        case 0: // 取消
-          // 返回搜索结果列表
-          if (searchOptions.results && searchOptions.searcher) {
-            this.showSearchResults(searchOptions.results, searchOptions.searcher, searchOptions);
-          }
-          break;
-          
-        case 1: // 复制 Markdown 链接
-          knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
-          break;
-          
-        case 2: // 在脑图中定位
-          if (MNUtil.mindmapView) {
-            note.focusInMindMap();
-          } else {
-            MNUtil.showHUD("当前不在脑图视图");
-          }
-          break;
-          
-        case 3: // 在浮窗中定位
-          if (MNUtil.mindmapView) {
-            note.focusInFloatMindMap();
-          } else {
-            MNUtil.showHUD("当前不在脑图视图");
-          }
-          break;
-          
-        case 4: // Pin 到位置
-          // 显示位置选择子菜单
-          const pinOptions = [
-            "📍 Midway Top",
-            "📍 Midway Bottom",
-            "📍 Focus Top",
-            "📍 Focus Bottom",
-            "🔙 返回"
-          ];
-
-          const pinChoice = await MNUtil.userSelect(
-            "选择 Pin 位置",
-            "选择要 Pin 到的位置：",
-            pinOptions
-          );
-
-          if (pinChoice > 0 && pinChoice <= 4) {
-            const sections = ["midway", "midway", "focus", "focus"];
-            const positions = ["top", "bottom", "top", "bottom"];
-            const section = sections[pinChoice - 1];
-            const position = positions[pinChoice - 1];
-
-            // 发送广播消息给 mnpinner
-            MNUtil.postNotification("AddonBroadcast", {
-              message: `mnpinner?action=pin&id=${encodeURIComponent(note.noteId)}&section=${section}&position=${position}`
-            });
-
-            MNUtil.showHUD(`✅ 已发送 Pin 请求到 ${section} ${position}`);
-          } else if (pinChoice === 5) {
-            // 返回主菜单
-            this.handleSelectedCard(note, searchResult, searchOptions);
-          }
-          break;
-
-        case 5: // 合并剪贴板卡片到摘录区
-          try {
-            // 获取剪贴板内容
-            const clipboardContent = MNUtil.clipboardText;
-            if (!clipboardContent) {
-              MNUtil.showHUD("❌ 剪贴板为空");
-              return;
-            }
-
-            // 尝试解析为 MarginNote 卡片
-            let clipboardNote = null;
-
-            // 检查是否为 MarginNote URL
-            if (clipboardContent.includes("marginnote")) {
-              clipboardNote = MNNote.new(clipboardContent);
-            } else if (clipboardContent.match(/^[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}$/i)) {
-              // 检查是否为 UUID 格式的 noteId
-              clipboardNote = MNNote.new(clipboardContent);
-            }
-
-            if (!clipboardNote) {
-              MNUtil.showHUD("❌ 剪贴板内容不是有效的卡片 ID 或 URL");
-              return;
-            }
-
-            // 执行合并操作
-            MNUtil.undoGrouping(() => {
-              // 添加为子卡片
-              note.addChild(clipboardNote);
-
-              // 合并到选中卡片
-              clipboardNote.mergeInto(note);
-
-              // 自动移动到摘录区
-              knowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录");
-            });
-
-            MNUtil.showHUD("✅ 已合并剪贴板卡片到摘录区");
-          } catch (error) {
-            MNUtil.showHUD("❌ 合并失败: " + error.message);
-            MNLog.error(error, "MNKnowledgeBase: mergeClipboardCard");
-          }
-          break;
-
-        case 6: // 返回搜索结果
-          if (searchOptions.results && searchOptions.searcher) {
-            this.showSearchResults(searchOptions.results, searchOptions.searcher, searchOptions);
-          }
-          break;
-      }
-      
-    } catch (error) {
-      MNUtil.showHUD("操作失败: " + error.message);
-      MNLog.error(error, "MNKnowledgeBase: handleSelectedCard");
-    }
-  },
-
-  MNKnowledgeBaseClass.prototype.showSearchResults = async function(results, searcher, searchOptions = {}, focusMode = true) {
-    try {
-      // 构建结果选项
-      const options = results.map((result, index) => {
-        const typeLabel = result.classificationSubtype 
-          ? `[${result.type}-${result.classificationSubtype}]`
-          : `[${result.type}-${result.prefix}]`;
-        
-        // 获取显示的标题（优先用简短形式）
-        let displayTitle = result.classificationSubtype 
-          ? `${result.content}`
-          : ``;
-        
-        // 截取标题避免过长
-        if (displayTitle.length > 40) {
-          displayTitle = displayTitle.substring(0, 40) + "...";
-        }
-
-        if (!result.classificationSubtype){
-          displayTitle = displayTitle + result.titleLinkWords
-        }
-        
-        return `${index + 1}. ${typeLabel} ${displayTitle}`;
-      });
-      
-      // 添加返回和分享选项
-      options.unshift("🔙 返回搜索");
-      
-      // 显示结果列表
-      let selectResult = await MNUtil.userSelect(
-        `搜索结果 (${results.length} 个)`,
-        "选择要查看的卡片：",
-        options,
-      );
-
-      if (selectResult === 0) {
-        // 返回搜索，保留之前的配置
-        const config = {
-          defaultTypes: searchOptions.types,
-          enableTypeSelection: searchOptions.config ? searchOptions.config.enableTypeSelection : true
-        };
-        this.showSearchDialog(searcher, config, focusMode);
-      } else if (selectResult > 0) {
-        // 查看选中的卡片（注意索引偏移，因为第一个是"返回搜索"）
-        const selectedResult = results[selectResult - 2];
-        const note = MNNote.new(selectedResult.id);
-        if (note) {
-          // 调用新的统一处理方法
-          const enhancedOptions = Object.assign({}, searchOptions, {
-            results: results,
-            searcher: searcher,
-            focusMode: focusMode,
-            isFromHistory: searchOptions.isFromHistory
-          });
-          this.handleSelectedCard(note, selectedResult, enhancedOptions);
-        }
-      }
-      
-    } catch (error) {
-      MNUtil.showHUD("显示结果失败: " + error.message);
-      MNLog.error(error, "MNKnowledgeBase: showSearchResults");
-    }
-  }
 
   MNKnowledgeBaseClass.prototype.clearSearchHistory = async function() {
     try {

@@ -65,7 +65,7 @@
                     ↓
 ┌─────────────────────────────────────────┐
 │           业务逻辑层                      │
-│  - FastSearcher（搜索器）                 │
+│  - KnowledgeBaseSearcher（搜索器）                 │
 │  - KnowledgeBaseIndexer（索引器）         │
 └─────────────────────────────────────────┘
                     ↓
@@ -132,10 +132,10 @@ class KnowledgeBaseIndexer {
 }
 ```
 
-#### 2.3.2 FastSearcher 类
+#### 2.3.2 KnowledgeBaseSearcher 类
 
 ```javascript
-class FastSearcher {
+class KnowledgeBaseSearcher {
   constructor(index)
   
   // 从文件加载索引并创建搜索器
@@ -222,7 +222,7 @@ searchInKBDialog() {
   // 1. 输入搜索关键词
   UIAlertView.show("输入搜索关键词", ..., (text) => {
     // 2. 执行搜索
-    const searcher = FastSearcher.loadFromFile()
+    const searcher = KnowledgeBaseSearcher.loadFromFile()
     const results = searcher.search(text)
     
     // 3. 显示结果（复用现有的弹窗模式）
@@ -235,7 +235,7 @@ searchInKBDialog() {
 
 1. **第一阶段**：实现核心索引器和搜索器
    - 实现 KnowledgeBaseIndexer 类
-   - 实现 FastSearcher 类
+   - 实现 KnowledgeBaseSearcher 类
    - 添加到 utils.js 文件末尾
 
 2. **第二阶段**：UI 集成

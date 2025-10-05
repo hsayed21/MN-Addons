@@ -4834,7 +4834,23 @@ function registerAllCustomActions() {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
       // 直接调用 knowledgeBaseTemplate 中的搜索对话框方法
-      await knowledgeBaseTemplate.showSearchDialog();
+      // await knowledgeBaseTemplate.showSearchDialog();
+      // 异步加载搜索器
+      const searcher = await KnowledgeBaseSearcher.loadFromFile();
+      if (!searcher) {
+        MNUtil.showHUD("索引未找到，请先更新搜索索引");
+        return;
+      }
+      
+      const types = SearchConfig.getTypesByPreset('all');
+      
+      // 显示搜索对话框，使用知识卡片类型
+      // 传递 true 作为 focusMode，表示正常的搜索（将在选中后显示操作菜单）
+      KnowledgeBaseSearcher.showSearchDialog(searcher, {
+        enableTypeSelection: false,  // 禁用类型选择
+        defaultTypes: types,
+        presetKey: 'all'
+      }, true);
     } catch (error) {
       MNUtil.showHUD("搜索失败: " + error.message);
       if (typeof toolbarUtils !== "undefined") {
@@ -5571,6 +5587,78 @@ function registerAllCustomActions() {
   )
 
 
+  global.registerCustomAction("searchAndAddClassification", async function(context) {
+      const { focusNote } = context;
+      try {
+        // 异步加载搜索器
+        const searcher = await KnowledgeBaseSearcher.loadFromFile();
+        if (!searcher) {
+          MNUtil.showHUD("索引未找到，请先更新搜索索引");
+          return;
+        }
+        
+        const types = SearchConfig.getTypesByPreset('all');
+        
+        // 显示搜索对话框，使用知识卡片类型
+        // 传递 true 作为 focusMode，表示正常的搜索（将在选中后显示操作菜单）
+        let resultNote = await KnowledgeBaseSearcher.showSearchDialog(searcher, {
+          enableTypeSelection: false,  // 禁用类型选择
+          defaultTypes: types,
+          presetKey: 'all'
+        }, true, false);
+
+        if (resultNote) {
+          const menuOptions = [
+            "🔗 合并 focusNote 到目标卡片的摘录区",
+            "🗺️ 将 focusNote 添加为目标卡片的子卡片",
+            "🗺️ 目标卡片增加模板并添加 focusNote 为子卡片"
+          ];
+          const actionChoice = await MNUtil.userSelect(
+            "选择操作",
+            `目标卡片: ${resultNote.title}`,
+            menuOptions
+          );
+
+          switch (actionChoice) {
+            case 0:
+              break;
+            case 1:
+              MNUtil.undoGrouping(()=>{
+                focusNote.mergeInto(resultNote);
+                knowledgeBaseTemplate.autoMoveNewContentToField(resultNote, "摘录");
+              })
+              break;
+            case 2:
+              MNUtil.undoGrouping(()=>{
+                resultNote.addChild(focusNote);
+              })
+              break;
+            case 3:
+              MNUtil.undoGrouping(()=>{
+                try {
+                  let classificationNote = knowledgeBaseTemplate.addTemplate(resultNote, false);
+                  MNUtil.showHUD(classificationNote.title)
+                  MNUtil.delay(1).then(()=>{
+                    if (classificationNote) {
+                      classificationNote.addChild(focusNote);
+                    } else {
+                      MNLog.log("未找到新卡片");
+                    }
+                  })
+                } catch (error) {
+                  MNLog.error("新建模板失败: " + error.message);
+                }
+              });
+              break;
+            default:
+              break; // 用户取消
+          }
+        }
+      } catch (error) {
+        MNLog.error("搜索归类失败: " + error.message);
+      }
+    }
+  )
 }
 
 // 立即注册
