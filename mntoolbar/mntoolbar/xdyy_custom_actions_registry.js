@@ -4241,9 +4241,7 @@ function registerAllCustomActions() {
   global.registerCustomAction("addTemplate", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
     try {
-      MNUtil.undoGrouping(() => {
-        KnowledgeBaseTemplate.addTemplate(focusNote);
-      });
+      await KnowledgeBaseTemplate.addTemplate(focusNote);
     } catch (error) {
       MNUtil.showHUD(error);
     }
@@ -5667,21 +5665,17 @@ function registerAllCustomActions() {
               })
               break;
             case 6:
-              MNUtil.undoGrouping(()=>{
-                try {
-                  let classificationNote = KnowledgeBaseTemplate.addTemplate(resultNote, false);
-                  MNUtil.showHUD(classificationNote.title)
-                  MNUtil.delay(1).then(()=>{
-                    if (classificationNote) {
-                      classificationNote.addChild(focusNote);
-                    } else {
-                      MNLog.log("未找到新卡片");
-                    }
-                  })
-                } catch (error) {
-                  MNLog.error("新建模板失败: " + error.message);
+              try {
+                let classificationNote = await KnowledgeBaseTemplate.addTemplate(resultNote, false);
+                // await MNUtil.delay(2)
+                if (classificationNote) {
+                  classificationNote.addChild(focusNote);
+                } else {
+                  MNLog.log("未找到新卡片");
                 }
-              });
+              } catch (error) {
+                MNLog.error("新建模板失败: " + error.message);
+              }
               break;
             default:
               break; // 用户取消
