@@ -1134,7 +1134,7 @@ class HtmlMarkdownUtils {
           
           if (rootFocusNote.childNotes && rootFocusNote.childNotes.length > 0) {
               rootFocusNote.childNotes.forEach(childNote => {
-                  if (knowledgeBaseTemplate.isClassificationNote(childNote) || knowledgeBaseTemplate.isKnowledgeNote(childNote)) {
+                  if (KnowledgeBaseTemplate.isClassificationNote(childNote) || KnowledgeBaseTemplate.isKnowledgeNote(childNote)) {
                       excludedBranchRoots.add(childNote.noteId);
                   }
               });
@@ -1230,7 +1230,7 @@ class HtmlMarkdownUtils {
       if (rootFocusNote.childNotes && rootFocusNote.childNotes.length > 0) {
           rootFocusNote.childNotes.forEach(childNote => {
               // 判断子卡片是否是归类卡片或知识点卡片（仅检查卡片自身，不向上查找）
-              if (knowledgeBaseTemplate.isClassificationNote(childNote) || knowledgeBaseTemplate.isKnowledgeNote(childNote)) {
+              if (KnowledgeBaseTemplate.isClassificationNote(childNote) || KnowledgeBaseTemplate.isKnowledgeNote(childNote)) {
                   excludedBranchRoots.add(childNote.noteId);
               }
           });
@@ -1412,7 +1412,7 @@ class HtmlMarkdownUtils {
    * @param {MNNote} note - 要操作的笔记
    */
   static convertFieldContentToHtmlMDByPopup(note) {
-    let htmlCommentsTextArr = knowledgeBaseTemplate.parseNoteComments(note).htmlCommentsTextArr;
+    let htmlCommentsTextArr = KnowledgeBaseTemplate.parseNoteComments(note).htmlCommentsTextArr;
     
     if (htmlCommentsTextArr.length === 0) {
       MNUtil.showHUD("当前笔记没有字段");
@@ -1467,7 +1467,7 @@ class HtmlMarkdownUtils {
    * @returns {Array} 包含内容信息的数组
    */
   static getFieldNonHtmlMDContents(note, fieldName) {
-    let commentsObj = knowledgeBaseTemplate.parseNoteComments(note);
+    let commentsObj = KnowledgeBaseTemplate.parseNoteComments(note);
     let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
     
     // 找到对应字段
@@ -1558,7 +1558,7 @@ class HtmlMarkdownUtils {
    * @returns {string|null} 字段名称，如果不属于任何字段则返回 null
    */
   static getCommentFieldInfo(note, commentIndex) {
-    let commentsObj = knowledgeBaseTemplate.parseNoteComments(note);
+    let commentsObj = KnowledgeBaseTemplate.parseNoteComments(note);
     let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
     
     // 遍历所有字段，找到包含该评论的字段

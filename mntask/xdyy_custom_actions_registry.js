@@ -418,7 +418,7 @@ function registerAllCustomActions() {
       return;
     }
     
-    // 准备字段名列表作为按钮（参考 knowledgeBaseTemplate 的做法）
+    // 准备字段名列表作为按钮（参考 KnowledgeBaseTemplate 的做法）
     const fieldButtons = subFields.map(field => `${field.fieldName}: ${field.content || '(空)'}`);
     
     // 第一步：使用 UIAlertView 让用户选择字段

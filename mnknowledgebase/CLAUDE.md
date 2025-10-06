@@ -64,7 +64,7 @@ mnaddon4 unpack mnknowledgebase_v0_1_实现JSON的读取.mnaddon
 - `shareSearchResults`：分享搜索结果（新增）
 - `onPopupMenuOnNote`：笔记弹出菜单处理
 
-### 2. 知识库模板系统（utils.js - knowledgeBaseTemplate）
+### 2. 知识库模板系统（utils.js - KnowledgeBaseTemplate）
 
 #### 卡片类型定义
 ```javascript
@@ -196,7 +196,7 @@ let data = MNUtil.readJSON(MNUtil.dbFolder + "/debug.json")
 ## 扩展开发
 
 ### 添加新的卡片类型
-1. 在 `knowledgeBaseTemplate.types` 中添加类型定义
+1. 在 `KnowledgeBaseTemplate.types` 中添加类型定义
 2. 设置对应的 `templateNoteId`（需要在 MarginNote 中创建）
 3. 定义 `fields` 数组（字段列表）
 4. 在 `keywordTypeMapping` 中添加关键词映射

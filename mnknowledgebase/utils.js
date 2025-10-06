@@ -1,4 +1,4 @@
-class knowledgeBaseTemplate {
+class KnowledgeBaseTemplate {
   /**
    * 粗读根目录
    */
@@ -2418,14 +2418,14 @@ class knowledgeBaseTemplate {
             MNUtil.log({
               level: "info",
               message: `归类卡片标题已更新：${originalTitle} -> ${note.title}`,
-              source: "knowledgeBaseTemplate.batchChangeClassificationTitles"
+              source: "KnowledgeBaseTemplate.batchChangeClassificationTitles"
             });
           } else {
             skippedCount++;
             MNUtil.log({
               level: "info",
               message: `跳过标题（已是新格式或无法解析）：${originalTitle}`,
-              source: "knowledgeBaseTemplate.batchChangeClassificationTitles"
+              source: "KnowledgeBaseTemplate.batchChangeClassificationTitles"
             });
           }
         }
@@ -2447,7 +2447,7 @@ class knowledgeBaseTemplate {
       MNUtil.log({
         level: "info",
         message: `批量归类卡片标题处理完成 - 范围：${scope}，处理：${processedCount}，跳过：${skippedCount}`,
-        source: "knowledgeBaseTemplate.batchChangeClassificationTitles"
+        source: "KnowledgeBaseTemplate.batchChangeClassificationTitles"
       });
 
     } catch (error) {
@@ -2455,7 +2455,7 @@ class knowledgeBaseTemplate {
       MNUtil.log({
         level: "error",
         message: "批量处理归类卡片标题失败：" + error.message,
-        source: "knowledgeBaseTemplate.batchChangeClassificationTitles"
+        source: "KnowledgeBaseTemplate.batchChangeClassificationTitles"
       });
     }
   }
@@ -2567,7 +2567,7 @@ class knowledgeBaseTemplate {
             MNUtil.log({
               level: "info",
               message: `标题已更新：${originalTitle} -> ${note.title}`,
-              source: "knowledgeBaseTemplate.batchChangeTitles"
+              source: "KnowledgeBaseTemplate.batchChangeTitles"
             });
           } else {
             skippedCount++;
@@ -2591,7 +2591,7 @@ class knowledgeBaseTemplate {
       MNUtil.log({
         level: "info",
         message: `批量标题处理完成 - 范围：${scope}，处理：${processedCount}，跳过：${skippedCount}`,
-        source: "knowledgeBaseTemplate.batchChangeTitles"
+        source: "KnowledgeBaseTemplate.batchChangeTitles"
       });
 
     } catch (error) {
@@ -2599,7 +2599,7 @@ class knowledgeBaseTemplate {
       MNUtil.log({
         level: "error",
         message: "批量处理标题失败：" + error.message,
-        source: "knowledgeBaseTemplate.batchChangeTitles"
+        source: "KnowledgeBaseTemplate.batchChangeTitles"
       });
     }
   }
@@ -3272,7 +3272,7 @@ class knowledgeBaseTemplate {
       MNUtil.log({
         level: "error",
         message: "合并知识卡片失败: " + error.message,
-        source: "knowledgeBaseTemplate.renewKnowledgeNotes"
+        source: "KnowledgeBaseTemplate.renewKnowledgeNotes"
       });
     }
   }
@@ -4178,7 +4178,7 @@ class knowledgeBaseTemplate {
    * 
    * @example
    * // 弹窗让用户选择要保留的字段内容
-   * knowledgeBaseTemplate.retainFieldContentOnly(note);
+   * KnowledgeBaseTemplate.retainFieldContentOnly(note);
    */
   static retainFieldContentOnly(note, keepTitle = false) {
     let commentsObj = this.parseNoteComments(note);
@@ -4257,7 +4257,7 @@ class knowledgeBaseTemplate {
                 MNUtil.log({
                   level: "info",
                   message: `保留字段内容操作完成 - 字段：${selectedField}，保留：${retainIndices.length} 条，删除：${deletedCount} 条`,
-                  source: "knowledgeBaseTemplate.retainFieldContentOnly"
+                  source: "KnowledgeBaseTemplate.retainFieldContentOnly"
                 });
                 
               } catch (error) {
@@ -4265,7 +4265,7 @@ class knowledgeBaseTemplate {
                 MNUtil.log({
                   level: "error",
                   message: "保留字段内容失败：" + error.message,
-                  source: "knowledgeBaseTemplate.retainFieldContentOnly"
+                  source: "KnowledgeBaseTemplate.retainFieldContentOnly"
                 });
               }
             });
@@ -4285,11 +4285,11 @@ class knowledgeBaseTemplate {
    * 
    * @example
    * // 仅保留"证明"字段下的内容
-   * let success = knowledgeBaseTemplate.retainFieldContentByName(note, "证明");
+   * let success = KnowledgeBaseTemplate.retainFieldContentByName(note, "证明");
    * 
    * @example
    * // 仅保留"相关链接"字段下的内容
-   * knowledgeBaseTemplate.retainFieldContentByName(note, "相关链接");
+   * KnowledgeBaseTemplate.retainFieldContentByName(note, "相关链接");
    */
   static retainFieldContentByName(note, fieldName) {
     let commentsObj = this.parseNoteComments(note);
@@ -4342,7 +4342,7 @@ class knowledgeBaseTemplate {
         MNUtil.log({
           level: "info",
           message: `保留字段内容操作完成 - 字段：${fieldName}，保留：${retainIndices.length} 条，删除：${deletedCount} 条`,
-          source: "knowledgeBaseTemplate.retainFieldContentByName"
+          source: "KnowledgeBaseTemplate.retainFieldContentByName"
         });
         
       } catch (error) {
@@ -4350,7 +4350,7 @@ class knowledgeBaseTemplate {
         MNUtil.log({
           level: "error",
           message: "保留字段内容失败：" + error.message,
-          source: "knowledgeBaseTemplate.retainFieldContentByName"
+          source: "KnowledgeBaseTemplate.retainFieldContentByName"
         });
         return false;
       }
@@ -4765,7 +4765,7 @@ class knowledgeBaseTemplate {
 
   /**
    * 移除最后一个字段中的重复链接
-   * （从原位置迁移到 knowledgeBaseTemplate 类）
+   * （从原位置迁移到 KnowledgeBaseTemplate 类）
    * 
    * @param {MNNote} note - 笔记对象
    */
@@ -6233,7 +6233,7 @@ class knowledgeBaseTemplate {
                 // 如果用户没有输入，尝试获取链接笔记的标题
                 if (!refContent && linkedNote) {
                   // 尝试从链接的笔记获取标题
-                  const titleParts = knowledgeBaseTemplate.parseNoteTitle(linkedNote);
+                  const titleParts = KnowledgeBaseTemplate.parseNoteTitle(linkedNote);
                   refContent = titleParts.content || linkedNote.noteTitle || "链接";
                   // 去除可能的 "; " 前缀
                   if (refContent.startsWith("; ")) {
@@ -6281,47 +6281,19 @@ class knowledgeBaseTemplate {
    * 将选中的评论提取为新的子卡片
    */
   static performExtract(note, extractCommentIndexArr) {
-    let clonedNote = null;
-    
     // 第一步：创建子卡片
     MNUtil.undoGrouping(() => {
       try {
-        // 克隆原笔记
-        clonedNote = note.clone();
-        clonedNote.title = ""
-        
-        // 删除克隆卡片的所有子卡片
-        if (clonedNote.childNotes && clonedNote.childNotes.length > 0) {
-          // 从后往前删除，避免索引变化
-          for (let i = clonedNote.childNotes.length - 1; i >= 0; i--) {
-            clonedNote.childNotes[i].removeFromParent();
-          }
-        }
-        
-        // 将克隆的笔记添加为原笔记的子卡片
-        note.addChild(clonedNote);
-        
-        // 获取所有评论的索引，并排除要提取的评论
-        const allIndices = Array.from({length: clonedNote.comments.length}, (_, i) => i);
-        const indicesToDelete = allIndices.filter(i => !extractCommentIndexArr.includes(i));
-        
-        // 从大到小排序，避免删除时索引变化
-        indicesToDelete.sort((a, b) => b - a);
-        
-        // 删除未选中的评论
-        clonedNote.removeCommentsByIndexArr(indicesToDelete);
-        
-        // 处理链接关系继承
-        this.handleExtractedNoteLinks(note, clonedNote, extractCommentIndexArr);
+        let extractResultNote = this.extractComments(note, extractCommentIndexArr)
         
         // 刷新显示
-        clonedNote.refresh();
+        extractResultNote.refresh();
         note.refresh();
         
         MNUtil.showHUD(`成功提取 ${extractCommentIndexArr.length} 项评论为新卡片`);
         
         // 在脑图中聚焦新创建的卡片
-        MNUtil.focusNoteInMindMapById(clonedNote.noteId, 0.5);
+        MNUtil.focusNoteInMindMapById(extractResultNote.noteId, 0.5);
         
       } catch (error) {
         MNUtil.showHUD("提取失败: " + error.message);
@@ -6331,7 +6303,7 @@ class knowledgeBaseTemplate {
     });
     
     // 第二步：询问是否删除原评论
-    if (clonedNote) {
+    if (extractResultNote) {
       // 延迟显示对话框，确保前面的操作完成
       MNUtil.delay(0.5).then(() => {
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
@@ -6361,16 +6333,65 @@ class knowledgeBaseTemplate {
               });
               
               // 询问是否制卡
-              this.showMakeNoteDialog(clonedNote);
+              this.showMakeNoteDialog(extractResultNote);
             } else {
               // 用户选择"保留原评论"
               // 询问是否制卡
-              this.showMakeNoteDialog(clonedNote);
+              this.showMakeNoteDialog(extractResultNote);
             }
           }
         );
       });
     }
+  }
+
+  static extractComments(note, extractCommentIndexArr) {
+    try {
+      let clonedNote = note.clone();
+      clonedNote.title = ""
+      
+      // 删除克隆卡片的所有子卡片
+      if (clonedNote.childNotes && clonedNote.childNotes.length > 0) {
+        // 从后往前删除，避免索引变化
+        for (let i = clonedNote.childNotes.length - 1; i >= 0; i--) {
+          clonedNote.childNotes[i].removeFromParent();
+        }
+      }
+      
+      // 将克隆的笔记添加为原笔记的子卡片
+      note.addChild(clonedNote);
+      
+      // 获取所有评论的索引，并排除要提取的评论
+      const allIndices = Array.from({length: clonedNote.comments.length}, (_, i) => i);
+      const indicesToDelete = allIndices.filter(i => !extractCommentIndexArr.includes(i));
+      
+      // 从大到小排序，避免删除时索引变化
+      indicesToDelete.sort((a, b) => b - a);
+      
+      // 删除未选中的评论
+      clonedNote.removeCommentsByIndexArr(indicesToDelete);
+      
+      // 处理链接关系继承
+      this.handleExtractedNoteLinks(note, clonedNote, extractCommentIndexArr);
+
+      return clonedNote;
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "extractComments");
+    }
+  }
+
+  static extractCommentsAndSeparate(note, extractCommentIndexArr) {
+    MNUtil.undoGrouping(()=>{
+      try {
+        let extractedNote = this.extractComments(note, extractCommentIndexArr);
+        this.cleanupExtractedContentLinks(note, extractCommentIndexArr);
+        note.removeCommentsByIndexArr(extractCommentIndexArr);
+        this.splitComments(extractedNote);
+      } catch (error) {
+        MNUtil.showHUD(error);
+        KnowledgeBaseUtils.addErrorLog(error, "extractCommentsAndSeparate");
+      }
+    })
   }
 
   /**
@@ -6391,8 +6412,8 @@ class knowledgeBaseTemplate {
             // 用户选择制卡
             MNUtil.undoGrouping(() => {
               try {
-                // 调用 knowledgeBaseTemplate.makeNote 进行制卡
-                knowledgeBaseTemplate.makeNote(extractedNote, false);
+                // 调用 KnowledgeBaseTemplate.makeNote 进行制卡
+                KnowledgeBaseTemplate.makeNote(extractedNote, false);
                 MNUtil.showHUD("制卡完成");
               } catch (error) {
                 MNUtil.showHUD("制卡失败: " + error.message);
@@ -6785,18 +6806,18 @@ class knowledgeBaseTemplate {
    * 
    * @example
    * // 将新内容移动到"证明"字段底部
-   * knowledgeBaseTemplate.autoMoveNewContentToField(note, "证明");
+   * KnowledgeBaseTemplate.autoMoveNewContentToField(note, "证明");
    * 
    * @example
    * // 将新内容移动到"相关思考"字段顶部，不显示空内容提示
-   * let movedIndices = knowledgeBaseTemplate.autoMoveNewContentToField(note, "相关思考", false, false);
+   * let movedIndices = KnowledgeBaseTemplate.autoMoveNewContentToField(note, "相关思考", false, false);
    * if (movedIndices.length > 0) {
    *   MNUtil.showHUD(`成功移动 ${movedIndices.length} 条内容`);
    * }
    * 
    * @example
    * // 将新内容移动到摘录区
-   * knowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录区");
+   * KnowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录区");
    */
   static autoMoveNewContentToField(note, field, toBottom = true, showEmptyHUD = true) {
     // 自动获取要移动的内容索引
@@ -6846,14 +6867,14 @@ class knowledgeBaseTemplate {
    * 
    * @example
    * // 自动根据卡片类型移动内容
-   * let result = knowledgeBaseTemplate.autoMoveNewContentByType(note);
+   * let result = KnowledgeBaseTemplate.autoMoveNewContentByType(note);
    * if (result.indices.length > 0) {
    *   MNUtil.showHUD(`已将 ${result.indices.length} 条内容移动到"${result.field}"字段`);
    * }
    * 
    * @example  
    * // 移动到字段顶部，不显示空内容提示
-   * knowledgeBaseTemplate.autoMoveNewContentByType(note, false, false);
+   * KnowledgeBaseTemplate.autoMoveNewContentByType(note, false, false);
    */
   static autoMoveNewContentByType(note, toBottom = true, showEmptyHUD = true) {
     // 根据卡片类型确定目标字段
@@ -6884,11 +6905,11 @@ class knowledgeBaseTemplate {
    * 
    * @example
    * // 移动指定索引的内容到摘录区
-   * knowledgeBaseTemplate.moveToExcerptArea(note, [1,2,3]);
+   * KnowledgeBaseTemplate.moveToExcerptArea(note, [1,2,3]);
    * 
    * @example
    * // 使用字符串格式
-   * knowledgeBaseTemplate.moveToExcerptArea(note, "1-3,5");
+   * KnowledgeBaseTemplate.moveToExcerptArea(note, "1-3,5");
    */
   static moveToExcerptArea(note, indexArr) {
     try {
@@ -6912,11 +6933,11 @@ class knowledgeBaseTemplate {
    * 
    * @example
    * // 移动到摘录区
-   * knowledgeBaseTemplate.moveCommentsArrToField(note, [1,2,3], "摘录区");
+   * KnowledgeBaseTemplate.moveCommentsArrToField(note, [1,2,3], "摘录区");
    * 
    * @example  
    * // 移动到"证明"字段顶部
-   * knowledgeBaseTemplate.moveCommentsArrToField(note, "1-3", "证明", false);
+   * KnowledgeBaseTemplate.moveCommentsArrToField(note, "1-3", "证明", false);
    */
   static moveCommentsArrToField(note, indexArr, field, toBottom = true) {
     let getHtmlCommentsTextArrForPopup = this.getHtmlCommentsTextArrForPopup(note);
@@ -7335,7 +7356,7 @@ class knowledgeBaseTemplate {
    * //     └── 知识点3
    * 
    * let rootNote = MNNote.getFocusNote();
-   * knowledgeBaseTemplate.removeAllClassificationNotes(rootNote);
+   * KnowledgeBaseTemplate.removeAllClassificationNotes(rootNote);
    * 
    * // 执行后结构变为：
    * // A (根卡片)
@@ -7370,7 +7391,7 @@ class knowledgeBaseTemplate {
       if (!note || !note.childNotes) return;
       
       for (const child of note.childNotes) {
-        if (knowledgeBaseTemplate.isClassificationNote(child)) {
+        if (KnowledgeBaseTemplate.isClassificationNote(child)) {
           // 如果是归类卡片，继续递归搜索
           findNonClassificationNotes(child, result);
         } else {
@@ -7383,7 +7404,7 @@ class knowledgeBaseTemplate {
     
     // 第一步：分析每个直接子卡片
     for (const childNote of childNotes) {
-      if (knowledgeBaseTemplate.isClassificationNote(childNote)) {
+      if (KnowledgeBaseTemplate.isClassificationNote(childNote)) {
         // 记录归类卡片以便后续删除
         classificationNotesToDelete.push(childNote);
         
@@ -7874,7 +7895,7 @@ class knowledgeBaseTemplate {
    */
   static loadLinkPhrasesConfig() {
     try {
-      const configKey = "knowledgeBaseTemplate_LinkPhrases";
+      const configKey = "KnowledgeBaseTemplate_LinkPhrases";
       const defaultPhrases = [
         "作为特例"
       ];
@@ -7910,7 +7931,7 @@ class knowledgeBaseTemplate {
    */
   static saveLinkPhrasesConfig(phrases) {
     try {
-      const configKey = "knowledgeBaseTemplate_LinkPhrases";
+      const configKey = "KnowledgeBaseTemplate_LinkPhrases";
       // 过滤空字符串并去重
       const cleanPhrases = [...new Set(phrases.filter(p => p && p.trim()))];
       NSUserDefaults.standardUserDefaults().setObjectForKey(
@@ -9655,14 +9676,14 @@ class knowledgeBaseTemplate {
   static loadSearchConfig() {
     try {
       // 先尝试从本地加载
-      const localConfig = NSUserDefaults.standardUserDefaults().objectForKey("knowledgeBaseTemplate_SearchConfig");
+      const localConfig = NSUserDefaults.standardUserDefaults().objectForKey("KnowledgeBaseTemplate_SearchConfig");
       let config = localConfig ? JSON.parse(localConfig) : null;
       
       // 如果开启了 iCloud 同步，尝试从 iCloud 加载
       if (typeof toolbarConfig !== 'undefined' && toolbarConfig.iCloudSync) {
         const cloudStore = NSUbiquitousKeyValueStore.defaultStore();
         if (cloudStore) {
-          const cloudConfig = cloudStore.objectForKey("knowledgeBaseTemplate_SearchConfig");
+          const cloudConfig = cloudStore.objectForKey("KnowledgeBaseTemplate_SearchConfig");
           if (cloudConfig) {
             const cloudData = JSON.parse(cloudConfig);
             // 比较时间戳，使用较新的配置
@@ -9788,13 +9809,13 @@ class knowledgeBaseTemplate {
       const configStr = JSON.stringify(this.searchRootConfigs);
       
       // 保存到本地
-      NSUserDefaults.standardUserDefaults().setObjectForKey(configStr, "knowledgeBaseTemplate_SearchConfig");
+      NSUserDefaults.standardUserDefaults().setObjectForKey(configStr, "KnowledgeBaseTemplate_SearchConfig");
       
       // 如果开启了 iCloud 同步，保存到 iCloud
       if (typeof toolbarConfig !== 'undefined' && toolbarConfig.iCloudSync) {
         const cloudStore = NSUbiquitousKeyValueStore.defaultStore();
         if (cloudStore) {
-          cloudStore.setObjectForKey(configStr, "knowledgeBaseTemplate_SearchConfig");
+          cloudStore.setObjectForKey(configStr, "KnowledgeBaseTemplate_SearchConfig");
           cloudStore.synchronize();
         }
       }
@@ -10115,7 +10136,7 @@ class knowledgeBaseTemplate {
     return {
       version: "3.0",  // 升级版本号以支持新功能
       exportDate: new Date().toISOString(),
-      exportFrom: "knowledgeBaseTemplate",
+      exportFrom: "KnowledgeBaseTemplate",
       searchConfig: {
         roots: this.searchRootConfigs.roots,
         rootsOrder: this.searchRootConfigs.rootsOrder,
@@ -10150,7 +10171,7 @@ class knowledgeBaseTemplate {
       switch (type) {
         case "iCloud":
           // 使用 iCloud 同步
-          const iCloudKey = "knowledgeBaseTemplate_SearchConfig";
+          const iCloudKey = "KnowledgeBaseTemplate_SearchConfig";
           // MNUtil.setByiCloud(iCloudKey, jsonStr);
           MNUtil.showHUD("✅ 已导出到 iCloud");
           return true;
@@ -10168,7 +10189,7 @@ class knowledgeBaseTemplate {
           }
           
           MNUtil.undoGrouping(() => {
-            focusNote.noteTitle = "knowledgeBaseTemplate_搜索配置";
+            focusNote.noteTitle = "KnowledgeBaseTemplate_搜索配置";
             focusNote.excerptText = "```json\n" + jsonStr + "\n```";
             focusNote.excerptTextMarkdown = true;
           });
@@ -10178,7 +10199,7 @@ class knowledgeBaseTemplate {
         case "file":
           // 导出到文件
           const dateStr = new Date().toISOString().replace(/:/g, '-').split('.')[0];
-          const fileName = `knowledgeBaseTemplate_SearchConfig_${dateStr}.json`;
+          const fileName = `KnowledgeBaseTemplate_SearchConfig_${dateStr}.json`;
           const documentsPath = NSSearchPathForDirectoriesInDomains(9, 1, true).firstObject; // NSDocumentDirectory
           
           if (documentsPath) {
@@ -10226,7 +10247,7 @@ class knowledgeBaseTemplate {
       switch (type) {
         case "iCloud":
           // 从 iCloud 导入
-          const iCloudKey = "knowledgeBaseTemplate_SearchConfig";
+          const iCloudKey = "KnowledgeBaseTemplate_SearchConfig";
           jsonStr = MNUtil.getByiCloud(iCloudKey);
           if (!jsonStr) {
             MNUtil.showHUD("❌ iCloud 中没有配置");
@@ -11621,7 +11642,7 @@ class knowledgeBaseTemplate {
       
       switch (target) {
         case 'icloud':
-          // MNUtil.setByiCloud("knowledgeBaseTemplate_SynonymGroups_Config", jsonStr);
+          // MNUtil.setByiCloud("KnowledgeBaseTemplate_SynonymGroups_Config", jsonStr);
           MNUtil.showHUD("✅ 已同步到 iCloud");
           return true;
           
@@ -11689,7 +11710,7 @@ class knowledgeBaseTemplate {
       
       switch (source) {
         case 'icloud':
-          jsonStr = MNUtil.getByiCloud("knowledgeBaseTemplate_SynonymGroups_Config", null);
+          jsonStr = MNUtil.getByiCloud("KnowledgeBaseTemplate_SynonymGroups_Config", null);
           if (!jsonStr) {
             MNUtil.showHUD("❌ iCloud 中未找到同义词配置");
             return false;
@@ -14093,7 +14114,7 @@ class knowledgeBaseTemplate {
    * 获取搜索配置
    */
   static getSearchConfig() {
-    const configKey = "knowledgeBaseTemplate_SearchModeConfig";
+    const configKey = "KnowledgeBaseTemplate_SearchModeConfig";
     const savedConfig = NSUserDefaults.standardUserDefaults().objectForKey(configKey);
     
     if (savedConfig) {
@@ -14117,7 +14138,7 @@ class knowledgeBaseTemplate {
    * 保存搜索配置
    */
   static saveSearchConfig(config) {
-    const configKey = "knowledgeBaseTemplate_SearchModeConfig";
+    const configKey = "KnowledgeBaseTemplate_SearchModeConfig";
     const configToSave = {
       ...config,
       lastUpdated: Date.now()
@@ -15251,7 +15272,7 @@ class knowledgeBaseTemplate {
       
       switch (target) {
         case 1: // iCloud
-          // MNUtil.setByiCloud("knowledgeBaseTemplate_FullSearchConfig", jsonStr);
+          // MNUtil.setByiCloud("KnowledgeBaseTemplate_FullSearchConfig", jsonStr);
           MNUtil.showHUD("☁️ 已同步到 iCloud");
           break;
         case 2: // 剪贴板
@@ -15291,7 +15312,7 @@ class knowledgeBaseTemplate {
       
       switch (source) {
         case 1: // iCloud
-          jsonStr = MNUtil.getByiCloud("knowledgeBaseTemplate_FullSearchConfig", null);
+          jsonStr = MNUtil.getByiCloud("KnowledgeBaseTemplate_FullSearchConfig", null);
           if (!jsonStr) {
             MNUtil.showHUD("❌ iCloud 中未找到配置");
             return;
@@ -15832,7 +15853,7 @@ class knowledgeBaseTemplate {
       
       switch (result) {
         case 1: // iCloud
-          // MNUtil.setByiCloud("knowledgeBaseTemplate_ExclusionGroups_Config", jsonStr);
+          // MNUtil.setByiCloud("KnowledgeBaseTemplate_ExclusionGroups_Config", jsonStr);
           MNUtil.showHUD("☁️ 已同步到 iCloud");
           break;
         case 2: // 剪贴板
@@ -15878,7 +15899,7 @@ class knowledgeBaseTemplate {
       
       switch (result) {
         case 1: // iCloud
-          jsonStr = MNUtil.getByiCloud("knowledgeBaseTemplate_ExclusionGroups_Config", null);
+          jsonStr = MNUtil.getByiCloud("KnowledgeBaseTemplate_ExclusionGroups_Config", null);
           if (!jsonStr) {
             MNUtil.showHUD("❌ iCloud 中未找到排除词配置");
             return;
@@ -16099,7 +16120,7 @@ class knowledgeBaseTemplate {
   static loadProofTemplates() {
     try {
       // 先尝试从本地加载
-      const localConfig = NSUserDefaults.standardUserDefaults().objectForKey("knowledgeBaseTemplate_ProofTemplates");
+      const localConfig = NSUserDefaults.standardUserDefaults().objectForKey("KnowledgeBaseTemplate_ProofTemplates");
       let config = localConfig ? JSON.parse(localConfig) : null;
       
       // 如果没有本地配置，从 iCloud 加载
@@ -16107,11 +16128,11 @@ class knowledgeBaseTemplate {
         try {
           const cloudStore = NSUbiquitousKeyValueStore.defaultStore();
           if (cloudStore) {
-            const cloudConfig = cloudStore.objectForKey("knowledgeBaseTemplate_ProofTemplates");
+            const cloudConfig = cloudStore.objectForKey("KnowledgeBaseTemplate_ProofTemplates");
             if (cloudConfig) {
               config = JSON.parse(cloudConfig);
               // 同步到本地
-              NSUserDefaults.standardUserDefaults().setObjectForKey(cloudConfig, "knowledgeBaseTemplate_ProofTemplates");
+              NSUserDefaults.standardUserDefaults().setObjectForKey(cloudConfig, "KnowledgeBaseTemplate_ProofTemplates");
             }
           }
         } catch (cloudError) {
@@ -16177,14 +16198,14 @@ class knowledgeBaseTemplate {
       const configStr = JSON.stringify(this.proofTemplates);
       
       // 保存到本地
-      NSUserDefaults.standardUserDefaults().setObjectForKey(configStr, "knowledgeBaseTemplate_ProofTemplates");
+      NSUserDefaults.standardUserDefaults().setObjectForKey(configStr, "KnowledgeBaseTemplate_ProofTemplates");
       
       // 如果开启了 iCloud 同步，保存到 iCloud
       try {
         if (typeof toolbarConfig !== 'undefined' && toolbarConfig.iCloudSync) {
           const cloudStore = NSUbiquitousKeyValueStore.defaultStore();
           if (cloudStore) {
-            cloudStore.setObjectForKey(configStr, "knowledgeBaseTemplate_ProofTemplates");
+            cloudStore.setObjectForKey(configStr, "KnowledgeBaseTemplate_ProofTemplates");
             cloudStore.synchronize();
           }
         }
@@ -16628,7 +16649,7 @@ class knowledgeBaseTemplate {
           )
         } catch (error) {
           MNUtil.showHUD(error);
-          MNLog.error(error, "knowledgeBaseTemplate: oldChildrenMakeNotes");
+          MNLog.error(error, "KnowledgeBaseTemplate: oldChildrenMakeNotes");
         }
       })
     }
@@ -16729,7 +16750,7 @@ class KnowledgeBaseIndexer {
         
         // 先处理根节点本身
         if (!processedIds.has(rootNote.noteId)) {
-          const noteType = knowledgeBaseTemplate.getNoteType(rootNote);
+          const noteType = KnowledgeBaseTemplate.getNoteType(rootNote);
           if (noteType && targetTypes.includes(noteType)) {
             const entry = this.buildIndexEntry(rootNote);
             if (entry) {
@@ -16785,7 +16806,7 @@ class KnowledgeBaseIndexer {
             continue;
           }
           
-          const noteType = knowledgeBaseTemplate.getNoteType(mnNote);
+          const noteType = KnowledgeBaseTemplate.getNoteType(mnNote);
           if (!noteType || !targetTypes.includes(noteType)) {
             processedCount++;
             processedIds.add(noteId);
@@ -16876,14 +16897,14 @@ class KnowledgeBaseIndexer {
     
     try {
       // 获取卡片类型
-      const noteType = knowledgeBaseTemplate.getNoteType(note);
+      const noteType = KnowledgeBaseTemplate.getNoteType(note);
       entry.type = noteType;
       
       // 解析标题
-      const parsedTitle = knowledgeBaseTemplate.parseNoteTitle(note) || {};
+      const parsedTitle = KnowledgeBaseTemplate.parseNoteTitle(note) || {};
       
       // 获取关键词
-      const keywordsContent = knowledgeBaseTemplate.getKeywordsFromNote(note) || "";
+      const keywordsContent = KnowledgeBaseTemplate.getKeywordsFromNote(note) || "";
       
       // 根据卡片类型设置不同字段
       if (noteType === "归类") {
@@ -17050,7 +17071,7 @@ class KnowledgeBaseIndexer {
   static analyzeExclusionGroups(searchText, exclusionGroups = null) {
     const applicableGroups = [];
     // 使用传入的排除词组或按需获取
-    const groups = exclusionGroups || knowledgeBaseTemplate.getExclusionGroups();
+    const groups = exclusionGroups || KnowledgeBaseTemplate.getExclusionGroups();
     
     for (const group of groups) {
       if (!group.enabled) continue;
@@ -17533,7 +17554,7 @@ class KnowledgeBaseSearcher {
       const userKeywords = keyword.split(/\s+/).filter(k => k.length > 0);
       
       // 获取激活的排除词信息
-      const exclusionInfo = knowledgeBaseTemplate.getActiveExclusions(userKeywords);
+      const exclusionInfo = KnowledgeBaseTemplate.getActiveExclusions(userKeywords);
       const hasActiveExclusions = exclusionInfo.groups.length > 0;
       
       if (hasActiveExclusions) {
@@ -17929,7 +17950,7 @@ class KnowledgeBaseSearcher {
           break;
           
         case 1: // 复制 Markdown 链接
-          knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
+          KnowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
           break;
         case 2:
           MNUtil.copy(note.noteURL);
@@ -18016,7 +18037,7 @@ class KnowledgeBaseSearcher {
               clipboardNote.mergeInto(note);
 
               // 自动移动到摘录区
-              knowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录");
+              KnowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录");
             });
 
             MNUtil.showHUD("✅ 已合并剪贴板卡片到摘录区");
@@ -18059,7 +18080,7 @@ class KnowledgeBaseSearcher {
       }
       
       // 步骤2：获取搜索模式配置
-      const searchModeConfig = knowledgeBaseTemplate.getSearchConfig();
+      const searchModeConfig = KnowledgeBaseTemplate.getSearchConfig();
       const modeNames = {
         exact: "精确",
         synonym: "同义词",
@@ -18434,8 +18455,8 @@ class SynonymManager {
       return this._cachedGroups;
     }
     
-    knowledgeBaseTemplate.initSearchConfig();
-    const userGroups = knowledgeBaseTemplate.searchRootConfigs.synonymGroups || [];
+    KnowledgeBaseTemplate.initSearchConfig();
+    const userGroups = KnowledgeBaseTemplate.searchRootConfigs.synonymGroups || [];
     // 合并默认组和用户组，用户组优先（可以覆盖默认组）
     const allGroups = [...this.synonymGroups];
     for (const userGroup of userGroups) {
@@ -18460,7 +18481,7 @@ class SynonymManager {
   
   // 添加新的同义词组（使用精简结构）
   static addSynonymGroup(words, options = {}) {
-    knowledgeBaseTemplate.initSearchConfig();
+    KnowledgeBaseTemplate.initSearchConfig();
     const group = {
       id: "group_" + Date.now(),
       words: words
@@ -18475,12 +18496,12 @@ class SynonymManager {
       if (options.contextMode) group.contextMode = options.contextMode;
     }
     
-    if (!knowledgeBaseTemplate.searchRootConfigs.synonymGroups) {
-      knowledgeBaseTemplate.searchRootConfigs.synonymGroups = [];
+    if (!KnowledgeBaseTemplate.searchRootConfigs.synonymGroups) {
+      KnowledgeBaseTemplate.searchRootConfigs.synonymGroups = [];
     }
     
-    knowledgeBaseTemplate.searchRootConfigs.synonymGroups.push(group);
-    knowledgeBaseTemplate.saveSearchConfig();
+    KnowledgeBaseTemplate.searchRootConfigs.synonymGroups.push(group);
+    KnowledgeBaseTemplate.saveSearchConfig();
     // 清除缓存
     this.clearCache();
     return group;
@@ -18567,8 +18588,8 @@ class ExclusionManager {
       return this._cachedGroups;
     }
     
-    knowledgeBaseTemplate.initSearchConfig();
-    const userGroups = knowledgeBaseTemplate.searchRootConfigs.exclusionGroups || [];
+    KnowledgeBaseTemplate.initSearchConfig();
+    const userGroups = KnowledgeBaseTemplate.searchRootConfigs.exclusionGroups || [];
     // 合并默认组和用户组，用户组优先（可以覆盖默认组）
     const allGroups = [...this.exclusionGroups];
     for (const userGroup of userGroups) {
@@ -18592,19 +18613,19 @@ class ExclusionManager {
   
   // 添加新的排除词组（使用精简结构）
   static addExclusionGroup(triggerWords, excludeWords) {
-    knowledgeBaseTemplate.initSearchConfig();
+    KnowledgeBaseTemplate.initSearchConfig();
     const group = {
       id: "excl_" + Date.now(),
       triggerWords: triggerWords,
       excludeWords: excludeWords
     };
     
-    if (!knowledgeBaseTemplate.searchRootConfigs.exclusionGroups) {
-      knowledgeBaseTemplate.searchRootConfigs.exclusionGroups = [];
+    if (!KnowledgeBaseTemplate.searchRootConfigs.exclusionGroups) {
+      KnowledgeBaseTemplate.searchRootConfigs.exclusionGroups = [];
     }
     
-    knowledgeBaseTemplate.searchRootConfigs.exclusionGroups.push(group);
-    knowledgeBaseTemplate.saveSearchConfig();
+    KnowledgeBaseTemplate.searchRootConfigs.exclusionGroups.push(group);
+    KnowledgeBaseTemplate.saveSearchConfig();
     
     // 清除缓存
     this.clearCache();
@@ -18784,7 +18805,7 @@ class IntermediateKnowledgeIndexer {
    * 与知识库不同，这里不判断卡片类型，统一处理所有卡片
    */
   static buildIndexEntry(note) {
-    // knowledgeBaseTemplate.renewLinks(note);
+    // KnowledgeBaseTemplate.renewLinks(note);
 
     const SOURCE = "IntermediateKnowledgeIndexer.buildIndexEntry";
 
@@ -18923,7 +18944,7 @@ class IntermediateKnowledgeIndexer {
       return null;
     }
 
-    knowledgeBaseTemplate.renewLinks(note); // 处理失效链接
+    KnowledgeBaseTemplate.renewLinks(note); // 处理失效链接
 
     // 构建索引条目
     const entry = {
@@ -18935,7 +18956,7 @@ class IntermediateKnowledgeIndexer {
 
     // 尝试获取并记录卡片类型
     try {
-      const noteType = knowledgeBaseTemplate.getNoteType(note);
+      const noteType = KnowledgeBaseTemplate.getNoteType(note);
       if (noteType) {
         entry.type = noteType;
       }
@@ -18944,7 +18965,7 @@ class IntermediateKnowledgeIndexer {
     }
 
     // 添加一个标记，表示是否已制卡
-    if (knowledgeBaseTemplate.ifTemplateMerged(note)) {
+    if (KnowledgeBaseTemplate.ifTemplateMerged(note)) {
       entry.isTemplated = true;
     } else {
       entry.isTemplated = false;
@@ -18995,7 +19016,7 @@ class IntermediateKnowledgeIndexer {
 
     try {
       // 获取卡片类型
-      const noteType = knowledgeBaseTemplate.getNoteType(note);
+      const noteType = KnowledgeBaseTemplate.getNoteType(note);
       const typeInfo = noteType ? `${noteType} ` : "";
 
       // 添加标题
@@ -19196,5 +19217,263 @@ class KnowledgeBaseUtils {
         detail:tem,
       })
     }
+  }
+}
+
+class KnowledgeBaseNetwork {
+  static async OCR(imageData, source = "doubao-seed-1-6-nothinking", prompt){
+    try {
+      let ocrSource = source
+      let config = JSON.parse(JSON.stringify(ocrConfig.config))
+      config.source = ocrSource
+      MNUtil.log(typeof imageData)
+      MNUtil.log("is imagedata: "+(imageData instanceof NSData))
+      let imageBase64 = (typeof imageData === "string") ? imageData : imageData.base64Encoding()
+      let strForMD5 = JSON.stringify(config)+imageBase64
+      let MD5 = MNUtil.MD5(strForMD5)
+      MNUtil.log("MD5: "+MD5)
+      let res = undefined;
+      switch (ocrSource) {
+        case "Doc2X":
+        case "doc2x":
+          res = await ocrNetwork.doc2xImgOCR(imageData)
+          if (res) {
+            ocrNetwork.OCRBuffer[MD5] = res
+            MNUtil.log({
+              source:"MN OCR",
+              message:"✅ OCR By Doc2X",
+              detail:res
+            })
+          }
+          break;
+        case "SimpleTex":
+        case "simpleTex":
+          res = await ocrNetwork.simpleTexOCR(imageData)
+          if (res) {
+            ocrNetwork.OCRBuffer[MD5] = res
+            MNUtil.log({
+              source:"MN OCR",
+              message:"✅ OCR By SimpleTex",
+              detail:res
+            })
+          }
+          break;
+        case "glm-4v-plus":
+        case "glm-4v-flash":
+        case "glm-4.1v-thinking-flashx":
+        case "glm-4.1v-thinking-flash":
+        case "glm-4.5v":
+        case "glm-4.5v-nothinking":
+        case "abab6.5s-chat":
+        case "claude-3-5-sonnet-20241022":
+        case "claude-3-5-haiku-20241022":
+        case "claude-3-7-sonnet":
+        case "claude-opus-4":
+        case "claude-sonnet-4":
+        case "claude-3-5-haiku":
+        case "gemini-2.0-flash-exp":
+        case "gemini-2.0-flash-lite":
+        case "gemini-2.5-flash-lite":
+        case "gemini-2.0-flash":
+        case "gemini-2.5-flash":
+        case "gemini-2.5-pro":
+        case "gemini-2.0-pro":
+        case "GPT-4o":
+        case "GPT-4o-mini":
+        case "GPT-4.1":
+        case "GPT-4.1-mini":
+        case "GPT-4.1-nano":
+        case "GPT-5":
+        case "GPT-5-mini":
+        case "GPT-5-nano":
+        case "doubao-seed-1-6":
+        case "doubao-seed-1-6-nothinking":
+        case "doubao-seed-1.6-flash":
+        case "doubao-seed-1.6-flash-nothinking":
+        case "Moonshot-v1":
+        case "MiniMax-Text-01":
+          let beginTime = Date.now()
+          res = await this.ChatGPTVision(imageBase64, ocrSource, prompt)
+          let endTime = Date.now()
+          let costTime = (endTime-beginTime)/1000
+          if (res) {
+            ocrNetwork.OCRBuffer[MD5] = res
+            MNUtil.log({
+              source:"MN OCR",
+              message:"✅ OCR By "+ocrSource+" ("+costTime.toFixed(2)+"s)",
+              detail:res
+            })
+          }
+          break;
+        default:
+          MNUtil.showHUD("Unsupported source: "+ocrSource)
+          return undefined
+      }
+      MNUtil.stopHUD()
+      res = ocrUtils.action(source, res)
+      return res
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "KnowledgeBaseNetwork.OCR")
+      return undefined
+    }
+  }
+
+  /**
+   * 允许直接传入base64图片,减少转换耗时
+   * @param {string|NSData} imageData
+   * @returns {Promise<Object>}
+   */
+  static async ChatGPTVision(imageData, source="GPT-4o",prompt = ocrConfig.getConfig("userPrompt")) {
+    try {
+      let key = subscriptionConfig.config.apikey
+      if (ocrConfig.modelSource(source).isFree) {
+        key = 'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44'
+      }
+      if (!key) {
+        MNUtil.showHUD("No ChatGPT API key")
+        return
+      }
+      MNUtil.waitHUD("OCR By "+source)
+      let url = subscriptionConfig.config.url + "/v1/chat/completions"
+      let imageUrl = "data:image/jpeg;base64,"
+      if (typeof imageData === "string") {
+        imageUrl = imageUrl+imageData
+      } else {
+        imageUrl = imageUrl+imageData.base64Encoding()
+      }
+      ocrNetwork.history = [
+        {
+          role:"system",
+          content:prompt
+        },
+        {
+          role: "user", 
+          content: [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url" : imageUrl
+              }
+            }
+          ]
+        }
+      ]
+
+      let modelName = ocrConfig.modelSource(source).model
+      let request = ocrNetwork.initRequestForChatGPT(key, url, modelName, 0.1)
+      let res = await ocrNetwork.sendRequest(request,"ChatGPTVision",false)
+      let ocrResult
+      if (res.choices && res.choices.length) {
+        ocrResult = res.choices[0].message.content
+      } else {
+        return undefined
+      }
+      let convertedText = ocrResult
+        .replace(/\$\$\n?/g, '$$$\n')
+        .replace(/(\\\[\s*\n?)|(\s*\\\]\n?)/g, '$$$\n')
+        .replace(/(\\\(\s*)|(\s*\\\))/g, '$')
+        .replace(/```/g,'')
+        .replace(/<\|begin_of_box\|>/g,'')
+        .replace(/<\|end_of_box\|>/g,'')
+      return convertedText
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "ChatGPTVision")
+      return undefined
+    }
+  }
+}
+
+class KnowledgeBaseConfig {
+  static excerptOCRSources = [
+    "doubao-seed-1-6",
+    "doubao-seed-1-6-nothinking",
+    "doubao-seed-1.6-flash",
+    "doubao-seed-1.6-flash-nothinking",
+    "Doc2X",
+    "Doc2XPDF",
+    "SimpleTex",
+    "abab6.5s-chat",
+    "MiniMax-Text-01",
+    "Moonshot-v1",
+    "claude-3-5-sonnet-20241022",
+    "claude-opus-4",
+    "claude-sonnet-4",
+    "claude-3-7-sonnet",
+    "claude-3-5-haiku-20241022",
+    "claude-3-5-haiku",
+    "gemini-2.0-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash-exp",
+    "gemini-2.0-pro",
+    "gemini-2.5-pro",
+    "glm-4v-plus",
+    "glm-4v-flash",
+    "glm-4.1v-thinking-flashx",
+    "glm-4.1v-thinking-flash",
+    "glm-4.5v",
+    "glm-4.5v-nothinking",
+    "GPT-4o",
+    "GPT-4o-mini",
+    "GPT-4.1",
+    "GPT-4.1-mini",
+    "GPT-4.1-nano",
+    "GPT-5",
+    "GPT-5-mini",
+    "GPT-5-nano",
+  ];
+  // 默认摘录 OCR 模型常量，避免在多个位置重复字面量
+  static DEFAULT_EXCERPT_OCR_MODEL = "doubao-seed-1-6";
+  static get defaultConfig() {
+    return {
+      excerptOCRModel: this.DEFAULT_EXCERPT_OCR_MODEL, // 摘录 OCR 模型
+      // 计算默认模型的索引，使用常量而不是再次访问 getter
+      excerptOCRModelIndex: this.excerptOCRSources.indexOf(this.DEFAULT_EXCERPT_OCR_MODEL)
+    }
+  }
+  
+  static getConfig(key){
+    if (!this.config) {
+      return false
+    }
+    if (this.config[key] !== undefined) {
+      return this.config[key]
+    }else{
+      return this.defaultConfig[key]
+    }
+  }
+
+  static init(mainPath) {
+    if (mainPath) {
+      this.mainPath = mainPath
+    }
+
+    this.config = this.getByDefault('MNKnowledgeBase_config', this.defaultConfig)
+  }
+
+  static getByDefault(key, defaultValue, backUpFile) { //记得在remove中增加备份文件的删除
+    let value = NSUserDefaults.standardUserDefaults().objectForKey(key)
+    if (value === undefined) {
+      if (backUpFile && MNUtil.isfileExists(backUpFile)) { //需要检查备份文件
+        let backupConfig = MNUtil.readJSON(backUpFile)
+        if (backupConfig && Object.keys(backupConfig).length > 0) {
+          MNUtil.log("backupConfig.readFromBackupFile")
+          return backupConfig
+        }
+      }
+      NSUserDefaults.standardUserDefaults().setObjectForKey(defaultValue, key)
+      return defaultValue
+    }
+    return value
+  }
+  static get(key) {
+    return NSUserDefaults.standardUserDefaults().objectForKey(key)
+  }
+  static save() {
+    NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, "MNKnowledgeBase_config")
+  }
+  static remove(key) {
+    NSUserDefaults.standardUserDefaults().removeObjectForKey(key)
   }
 }

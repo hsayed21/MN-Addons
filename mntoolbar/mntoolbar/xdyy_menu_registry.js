@@ -47,7 +47,7 @@ function registerAllMenuTemplates() {
       menuItems: [
         "✂️ 拆分评论",
         {
-          action: "splitCommentsByNotes",
+          action: "splitComments",
           menuTitle: "    拆分卡片评论为独立卡片",
         },
         "🔗 链接处理",
@@ -503,13 +503,13 @@ function registerAllMenuTemplates() {
               menuTitle: "基于 Markdown 拆卡",
             },
             {
-              action: "splitCommentsByNotes",
+              action: "splitComments",
               menuTitle: "拆分卡片评论为独立卡片",
             },
           ]
         },
         {
-          action: "splitCommentsByNotes",
+          action: "splitComments",
           menuTitle: "    ✂️ 拆分卡片评论为独立卡片",
         },
         {
@@ -705,7 +705,7 @@ function registerAllMenuTemplates() {
         "⚙️ 处理卡片",
         {
           action: "upwardMergeWithStyledComments",
-          menuTitle: "    将子卡片作为证明要点合并",
+          menuTitle: "    将子卡片作为证明要点合并 ⇒ 移动到证明区",
         },
         "🪄 生成卡片",
         {
@@ -789,13 +789,13 @@ function registerAllMenuTemplates() {
         //   action: "manageProofTemplates",
         //   menuTitle: "    管理证明模板",
         // },
-        // {
-        //   action: "splitCommentsByNotes",
-        //   menuTitle: "拆分评论为独立卡片",
-        // },
+        {
+          action: "extractProofContentAndSplitComments",
+          menuTitle: "提取证明字段内容并拆分评论为独立卡片",
+        },
         {
           action: "upwardMergeWithStyledComments",
-          menuTitle: "将子卡片作为证明要点合并",
+          menuTitle: "将子卡片作为证明要点合并 ⇒ 移动到证明区",
         },
         "🔍 OCR",
         {
@@ -943,19 +943,19 @@ function registerAllMenuTemplates() {
 
 
   global.registerMenuTemplate("menu_pin", {
-    action: "pinToMidwayTop",  // 单击：添加到中间知识顶部
+    action: "pinToFocusTop", 
     onLongPress: {
       // 长按：显示菜单
       action: "menu",
       menuWidth: 300,
       menuItems: [
         {
-          action: "pinToFocusTop",
-          menuTitle: "⬆️ 添加到 Focus 顶部",
-        },
-        {
           action: "pinToFocusBottom",
           menuTitle: "⬇️ 添加到 Focus 底部",
+        },
+        {
+          action: "pinToMidwayTop",
+          menuTitle: "⬆️ 添加到中间知识顶部",
         },
         {
           action: "pinToMidwayBottom",
