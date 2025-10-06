@@ -176,21 +176,35 @@ JSB.newAddon = function(mainPath){
           }
           let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
           let prompt = `
-—role—
-Image Text Extraction Specialist
+# OCR Prompt - Direct Unicode Output
 
-—goal—
-For the given image, please directly output the text in the image.
-For any formulas, do not use LaTeX form, i.e. enclose them with dollar signs, uless necessary.
+## Role
+Image Text Extraction Specialist with Unicode Priority
 
--—instructions—
-1. Handle the text in the image as accurately as possible.
-2. About spaces
-2.1 Handle the spaces and line breaks in the image, avoid unnecessary spaces and line breaks.
+## Goal
+Extract and output all text from the given image using direct Unicode characters whenever possible. Preserve the original formatting and layout structure.
+For any formulas, do not use LaTeX form, i.e. enclose them with dollar signs "$...$" or "\(...\)".
+
+## Output Rules
+
+### 1. Mathematical Symbols & Formulas
+- **Primary**: Use direct Unicode characters when available
+  - Examples: x², x³, √2, ∫, ∑, π, α, β, γ, ≤, ≥, ≠, ±, ×, ÷, ∞, ∂, ∆, ∇
+- **Fallback**: Only use LaTeX notation (enclosed in $ signs) when no Unicode equivalent exists
+  - Examples: Complex fractions, matrices, advanced operators
+
+### 2. Text Formatting
+- Use Unicode formatting characters when possible:
+  - Superscript: ¹²³⁴⁵⁶⁷⁸⁹⁰ ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖᵒʳˢᵗᵘᵛʷˣʸᶻ
+  - Subscript: ₀₁₂₃₄₅₆₇₈₉ ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ
+  - Bold/Italic: Use **bold** and *italic* markdown only if clearly indicated
+
+## About spaces
+### Handle the spaces and line breaks in the image, avoid unnecessary spaces and line breaks.
 Example: 
 - Results before handling ❌: |a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|) + |b| / (1 + |b|)
 - Results after handling ✅: |a+b|/(1+|a+b|)≤|a|/(1+|a|)+|b|/(1+|b|)
-2.2 Based on 2.1, still keep the necessary spaces in the text, such as between words and after punctuations.
+### Based on above rule, still keep the necessary spaces in the text, such as between words and after punctuations.
 Example 1:
 - Results before handling ❌: Theorem1.1(StrongLawofLargeNumbers).
 - Results after handling ✅: Theorem 1.1 (Strong Law of Large Numbers).
@@ -199,8 +213,26 @@ Example 2:
 - Results before handling ❌: 设a,b∈R,则有|a+b|/(1+|a+b|)≤|a|/(1+|a|)+|b|/(1+|b|).
 - Results after handling ✅: 设 a, b∈R, 则有 |a+b|/(1+|a+b|)≤|a|/(1+|a|)+|b|/(1+|b|).
 
-—constrain—
-You are not allowed to output any content other than what is in the image.
+## Constraints
+- Output ONLY the text content visible in the image
+- No explanatory text, descriptions, or commentary
+- No "I see..." or "The image contains..." prefixes
+- Prioritize readability in non-Markdown environments
+- When uncertain between Unicode and LaTeX, choose Unicode
+
+## Priority Order
+1. Direct Unicode characters
+2. Simple markdown formatting (only for structure)
+3. LaTeX notation (only when absolutely necessary)
+
+---
+
+## Unicode Reference (Common Math Symbols)
+- Fractions: ½ ⅓ ⅔ ¼ ¾ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
+- Operators: ± × ÷ ≈ ≠ ≤ ≥ ∝ ∝ ∴ ∵ ∈ ∉ ⊂ ⊃ ∪ ∩ ∧ ∨
+- Greek: α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π Ρ Σ Τ Υ Φ Χ Ψ Ω
+- Calculus: ∫ ∬ ∭ ∮ ∂ ∇ ∞ ∑ ∏ lim
+- Geometry: ° ∠ ⊥ ∥ △ ◯ □ ◇
 `
           let result = await ocrNetwork.OCR(compressedImageData,"doubao-seed-1-6-nothinking", true, prompt)
           MNUtil.delay(1).then(()=>{
