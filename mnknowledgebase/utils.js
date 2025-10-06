@@ -4799,11 +4799,12 @@ class knowledgeBaseTemplate {
       }
     });
     
-    // 从后向前删除重复的链接（避免索引混乱）
-    duplicateIndices.sort((a, b) => b - a);
-    duplicateIndices.forEach(index => {
-      note.removeCommentByIndex(index);
-    });
+    // // 从后向前删除重复的链接（避免索引混乱）
+    // duplicateIndices.sort((a, b) => b - a);
+    // duplicateIndices.forEach(index => {
+    //   note.removeCommentByIndex(index);
+    // });
+    note.removeCommentsByIndexArr(duplicateIndices);
   }
 
   /**

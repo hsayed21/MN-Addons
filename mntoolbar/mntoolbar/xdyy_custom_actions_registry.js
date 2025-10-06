@@ -5630,6 +5630,8 @@ function registerAllCustomActions() {
               break;
             case 2:
               MNUtil.undoGrouping(()=>{
+                knowledgeBaseTemplate.mergeTitleLinkWords(resultNote, focusNote); // 合并标题(去重)
+                focusNote.title = ""
                 focusNote.mergeInto(resultNote);
                 knowledgeBaseTemplate.autoMoveNewContentToField(resultNote, "摘录");
               })
@@ -5637,6 +5639,7 @@ function registerAllCustomActions() {
             case 3:
               MNUtil.undoGrouping(()=>{
                 focusNote.appendNoteLink(resultNote, "Both")
+                knowledgeBaseTemplate.removeDuplicateLinksInLastField(resultNote)  // 链接去重
               })
               break;
             case 4:
