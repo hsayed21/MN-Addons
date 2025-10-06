@@ -19167,3 +19167,33 @@ class IntermediateKnowledgeIndexer {
     }
   }
 }
+
+
+class KnowledgeBaseUtils {
+  static errorLog = []
+  static log(message, detail, level = "INFO"){
+    MNUtil.log({message:message, detail:detail, source:"MN KnowledgeBase", level:level})
+  }
+  static addErrorLog(error, source, info){
+    MNUtil.showHUD("MN KnowledgeBase Error ("+source+"): "+error)
+    let tem = {source:source,time:(new Date(Date.now())).toString()}
+    if (error.detail) {
+      tem.error = {message:error.message,detail:error.detail}
+    }else{
+      tem.error = error.message
+    }
+    if (info) {
+      tem.info = info
+    }
+    this.errorLog.push(tem)
+    MNUtil.copy(this.errorLog)
+    if (typeof MNUtil.log !== 'undefined') {
+      MNUtil.log({
+        source:"MN KnowledgeBase",
+        level:"error",
+        message:source,
+        detail:tem,
+      })
+    }
+  }
+}

@@ -714,7 +714,7 @@ static initRequestForChatGPT (apikey,url,model,temperature,funcIndices=[]) {
  * @param {string|NSData} imageData
  * @returns {Promise<Object>}
  */
- static async ChatGPTVision(imageData,source="GPT-4o") {
+ static async ChatGPTVision(imageData,source="GPT-4o",prompt = ocrConfig.getConfig("userPrompt")) {
   try {
   let key = subscriptionConfig.config.apikey
   if (ocrConfig.modelSource(source).isFree) {
@@ -726,7 +726,6 @@ static initRequestForChatGPT (apikey,url,model,temperature,funcIndices=[]) {
   }
   MNUtil.waitHUD("OCR By "+source)
   let url = subscriptionConfig.config.url + "/v1/chat/completions"
-  let prompt = ocrConfig.getConfig("userPrompt")
   // let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
   let imageUrl = "data:image/jpeg;base64,"
   if (typeof imageData === "string") {
@@ -1171,7 +1170,7 @@ static async OCRDev(question,source = ocrConfig.getConfig("source"),buffer=true)
     // ocrUtils.adder
   }
 }
-static async OCR(imageData,source = ocrConfig.getConfig("source"),buffer=true){
+static async OCR(imageData,source = ocrConfig.getConfig("source"),buffer=true, prompt = ocrConfig.getConfig("userPrompt")){
   try {
   let ocrSource = source
   let config = JSON.parse(JSON.stringify(ocrConfig.config))
@@ -1251,7 +1250,7 @@ static async OCR(imageData,source = ocrConfig.getConfig("source"),buffer=true){
     case "Moonshot-v1":
     case "MiniMax-Text-01":
       let beginTime = Date.now()
-      res = await this.ChatGPTVision(imageBase64,ocrSource)
+      res = await this.ChatGPTVision(imageBase64,ocrSource, prompt)
       let endTime = Date.now()
       let costTime = (endTime-beginTime)/1000
       if (res) {

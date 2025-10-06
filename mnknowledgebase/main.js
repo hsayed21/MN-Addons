@@ -33,7 +33,10 @@ JSB.newAddon = function(mainPath){
       MNUtil.undoGrouping(()=>{
         try {
           self.toggled = false
+          self.newExcerptWithOCRToTitle = false  // 新摘录 OCR 到标题
+          self.preExcerptMode = false  // 预摘录模式
           // MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
+          MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -51,7 +54,7 @@ JSB.newAddon = function(mainPath){
     sceneDidDisconnect: function() {
       MNUtil.undoGrouping(()=>{
         try {
-          // MNUtil.removeObserver(self,'PopupMenuOnNote')
+          MNUtil.removeObserver(self, 'ProcessNewExcerpt')
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -141,6 +144,79 @@ JSB.newAddon = function(mainPath){
       // 示例中为空实现
     },
 
+    /**
+     * 
+     * @param {{userInfo:{noteid:String}}} sender 
+     * @returns 
+     */
+    onProcessNewExcerpt: async function (sender) {
+      /**
+       * 1. 自动移动到预备知识库
+       * 2. 调用 MNOCR 插件进行 OCR 到标题，方便后续索引
+       */
+      if (typeof MNUtil === 'undefined') return
+      if (self.window !== MNUtil.currentWindow) return; 
+      try {
+        const noteId = sender.userInfo.noteid
+        const note = MNNote.new(noteId)
+        if (!note) return
+        if (self.preExcerptMode) {
+          // 预摘录模式：自动移动到预备知识库
+          const preExcerptRootNote = MNNote.new("marginnote4app://note/B48C92CF-A5FD-442A-BF8C-53E1E801F05D")
+          if (preExcerptRootNote) {
+            preExcerptRootNote.addChild(note)
+          }
+        }
+
+        if (self.newExcerptWithOCRToTitle) {
+          let imageData = ocrUtils.getImageFromNote(note)
+          if (!imageData) {
+            MNUtil.showHUD("No image found")
+            return
+          }
+          let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
+          let prompt = `
+—role—
+Image Text Extraction Specialist
+
+—goal—
+For the given image, please directly output the text in the image.
+For any formulas, do not use LaTeX form, i.e. enclose them with dollar signs, uless necessary.
+
+-—instructions—
+1. Handle the text in the image as accurately as possible.
+2. About spaces
+2.1 Handle the spaces and line breaks in the image, avoid unnecessary spaces and line breaks.
+Example: 
+- Results before handling ❌: |a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|) + |b| / (1 + |b|)
+- Results after handling ✅: |a+b|/(1+|a+b|)≤|a|/(1+|a|)+|b|/(1+|b|)
+2.2 Based on 2.1, still keep the necessary spaces in the text, such as between words and after punctuations.
+Example 1:
+- Results before handling ❌: Theorem1.1(StrongLawofLargeNumbers).
+- Results after handling ✅: Theorem 1.1 (Strong Law of Large Numbers).
+
+Example 2:
+- Results before handling ❌: 设a,b∈R,则有|a+b|/(1+|a+b|)≤|a|/(1+|a|)+|b|/(1+|b|).
+- Results after handling ✅: 设 a, b∈R, 则有 |a+b|/(1+|a+b|)≤|a|/(1+|a|)+|b|/(1+|b|).
+
+—constrain—
+You are not allowed to output any content other than what is in the image.
+`
+          let result = await ocrNetwork.OCR(compressedImageData,"doubao-seed-1-6-nothinking", true, prompt)
+          MNUtil.delay(1).then(()=>{
+            MNUtil.stopHUD()
+          })
+          if (result) {
+            MNUtil.undoGrouping(()=>{
+              note.title = result.trim()
+            })
+            MNUtil.postNotification("OCRFinished", {action:"toTitle", noteId:note.noteId, result:result})
+          }
+        }
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "onProcessNewExcerpt")
+      }
+    },
 
     queryAddonCommandStatus: function() {
       return MNUtil.studyMode !== 3
@@ -187,9 +263,12 @@ JSB.newAddon = function(mainPath){
           // === 配置管理 ===
           self.tableItem('📜   搜索历史', 'showSearchHistory:'),
           self.tableItem('🔍   搜索模式设置', 'configureSearchMode:'),
-          self.tableItem('🔤   同义词管理', 'manageSynonyms:'),
-          self.tableItem('🚫   排除词管理', 'manageExclusions:'),
-          self.tableItem('📤   分享索引文件', 'shareIndexFile:'),
+          // self.tableItem('🔤   同义词管理', 'manageSynonyms:'),
+          // self.tableItem('🚫   排除词管理', 'manageExclusions:'),
+          // self.tableItem('📤   分享索引文件', 'shareIndexFile:'),
+          self.tableItem('-------------------------------',''),
+          self.tableItem("⚙️   摘录自动 OCR 到标题", 'newExcerptWithOCRToTitleToggled:', undefined, self.newExcerptWithOCRToTitle),
+          self.tableItem('⚙️   预摘录模式', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
         ];
 
         // 显示菜单
@@ -208,6 +287,17 @@ JSB.newAddon = function(mainPath){
       }
     },
 
+    newExcerptWithOCRToTitleToggled: function() {
+      self.checkPopover()
+      self.newExcerptWithOCRToTitle = !self.newExcerptWithOCRToTitle
+      MNUtil.showHUD(self.newExcerptWithOCRToTitle ? "已开启摘录自动 OCR 到标题" : "已关闭摘录自动 OCR 到标题", 1)
+    },
+
+    preExcerptModeToggled: function() {
+      self.checkPopover()
+      self.preExcerptMode = !self.preExcerptMode
+      MNUtil.showHUD(self.preExcerptMode ? "已开启预摘录模式" : "已关闭预摘录模式", 1)
+    },
     openSetting: function() {
       MNUtil.showHUD("打开设置界面")
       // 关闭菜单
@@ -298,7 +388,7 @@ JSB.newAddon = function(mainPath){
           "marginnote4app://note/FC6181AF-1BAC-4D1D-9B86-7FAB3391F3EC",
           "marginnote4app://note/9D234BE6-9A7C-4BEC-8924-F18132FB6E64",
           "marginnote4app://note/74785805-661C-4836-AFA6-C85697056B0C",
-          "marginnote4app://note/B9DC3CB0-BB27-49B9-9200-9DE1A2C79799", // 预备知识库
+          "marginnote4app://note/B48C92CF-A5FD-442A-BF8C-53E1E801F05D", // 预备知识库
         ];
 
         // 验证根卡片
