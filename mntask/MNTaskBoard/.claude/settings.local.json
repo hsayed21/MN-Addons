@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(ls:*)",
+      "find",
+      "Bash(diff:*)",
+      "Bash(pnpm dev:*)",
+      "mcp__promptx__promptx_init",
+      "Bash(npx tsc:*)",
+      "Bash(npx next lint:*)",
+      "Bash(node:*)",
+      "Bash(npx next build:*)",
+      "Bash(find:*)",
+      "Bash(curl:*)",
+      "Bash(convert:*)",
+      "Bash(curl:*)",
+      "Bash(mv:*)",
+      "Bash(awk:*)",
+      "Bash(sed:*)",
+      "Bash(git add:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm list:*)",
+      "Bash(npm view:*)",
+      "Bash(pnpm update:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm store prune:*)",
+      "Bash(pnpm install:*)",
+      "WebFetch(domain:stagewise.io)",
+      "Bash(chmod:*)",
+      "Bash(zip:*)"
+    ],
+    "deny": []
+  }
+}

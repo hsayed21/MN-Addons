@@ -206,6 +206,11 @@ viewWillLayoutSubviews: function() {
     if (config.scheme === "about") {
       return
     }
+    // self.runJavaScript(`
+    //   document.addEventListener('copy',()=>{
+    //     window.location.href = "https://www.baidu.com"
+    //   })
+    // `)
     if (currentURL.startsWith("https://doc2x.noedgeai.com") && self.uploadOnDoc2X && self.uploadOnDoc2X.enabled) {
       let canDrop = await self.runJavaScript(`'ondrop' in document.createElement('div');`)
       if (!canDrop) {
@@ -217,13 +222,13 @@ viewWillLayoutSubviews: function() {
         case "uploadPDFToDoc2X":
           self.uploadOnDoc2X.enabled = false
           MNUtil.delay(1).then(()=>{
-            self.uploadPDFToDoc2X()
+            self.uploadPDF()
           })
           break;
         case "uploadImageToDoc2X":
           self.uploadOnDoc2X.enabled = false
           MNUtil.delay(1).then(()=>{
-            self.uploadImageToDoc2X()
+            self.uploadImage()
           })
           break;
       }
@@ -332,7 +337,7 @@ viewWillLayoutSubviews: function() {
     // MNUtil.log("webViewShouldStartLoadWithRequestNavigationType:"+type)
   //  https://qun.qq.com/universal-share/share?ac=1&authKey=7j5ESev4kHF%2BVOyv0MIP6xLGy7AxHqAv2aSo1zckqWUdLWKFloiCBbsmKsXAuvNY&busi_data=eyJncm91cENvZGUiOiI1MzkzMDUyMjciLCJ0b2tlbiI6IjA1c3R1azhjaVBvN1BmRUt6OGF5TXI0WEhzaEwrQ3IrN0k2ZklNU2tENnVjVzlRVlZSVFdFd3dPZGNCaG9LSlUiLCJ1aW4iOiIxNTE0NTAxNzY3In0%3D&data=g3UDk1OiVpEsWZsCg12Eau9l0pcVSSBZykMUIznWi8QSlSJfqWsr2m6VM4xiByyRC-t7sYSZmjr2z7s8dCsdxA&svctype=4&tempid=h5_group_info
   //  https://qm.qq.com/q/nuwBBTCwpi
-    let currentURL = webView.request.URL().absoluteString()
+    let currentURL = webView.request?.URL()?.absoluteString()
     let requestURL = request.URL().absoluteString()
     // MNUtil.copy(requestURL)
     // MNUtil.log(requestURL)
@@ -342,11 +347,13 @@ viewWillLayoutSubviews: function() {
     // }
     
     let config = MNUtil.parseURL(requestURL)
+    // browserUtils.log("webViewShouldStartLoadWithRequestNavigationType", config)
     // let currentConfig = MNUtil.parseURL(currentURL)
     // MNUtil.log({
     //   message:"webViewShouldStartLoadWithRequestNavigationType",
     //   detail:config
     // })
+    // MNUtil.log(config)
     switch (config.scheme) {
       case "zhihu":
         return false;
@@ -361,6 +368,14 @@ viewWillLayoutSubviews: function() {
         }
         if (currentURL.startsWith("https://moredraw.com") || currentURL.startsWith("http://moredraw.com")) {
           // MNUtil.showHUD("base64FromBlob")
+          self.base64FromBlob(requestURL)
+          return false
+        }
+        if (currentURL.startsWith("https://boardmix.cn")) {
+          self.base64FromBlob(requestURL)
+          return false
+        }
+        if (currentURL.startsWith("https://fireflycard.shushiai.com")) {
           self.base64FromBlob(requestURL)
           return false
         }
@@ -382,6 +397,7 @@ viewWillLayoutSubviews: function() {
               return false
             case "s1.hdslb.com":
               if (currentURL.startsWith("https://www.bilibili.com/video/")) {
+
                 self.enableWideMode()
               }
               return true
@@ -410,6 +426,7 @@ viewWillLayoutSubviews: function() {
         MNUtil.openURL(requestURL)
         return false
       case "browser":
+        browserUtils.log("config",config)
         switch (config.host) {
           case "showhud":
             self.showHUD(config.params.message)
@@ -417,8 +434,8 @@ viewWillLayoutSubviews: function() {
             return false
           case "getpdfdata":
             // MNUtil.showHUD("getpdfdata")
-            let tem = config.params.content.split(",")
-            let type = self.fileTypeFromBase64(tem[0])
+            let type = self.fileTypeFromBase64(config.params.content)
+            browserUtils.log("type",type)
             switch (type) {
               case "pdf":
                 if (currentURL.startsWith("https://doc2x.noedgeai.com")) {
@@ -426,6 +443,12 @@ viewWillLayoutSubviews: function() {
                 }
                 if (currentURL.startsWith("https://moredraw.com") || currentURL.startsWith("http://moredraw.com")) {
                   self.importPDFFromBase64MoreDraw(config.params.content,config.params.blobUrl)
+                }
+                if (currentURL.startsWith("https://boardmix.cn")) {
+                  self.importPDFFromBase64BoardMix(config.params.content,config.params.blobUrl)
+                }
+                if (currentURL.startsWith("https://fireflycard.shushiai.com")) {
+                  self.importPDFFromBase64FireflyCard(config.params.content,config.params.blobUrl)
                 }
                 break;
               case "png":
@@ -438,19 +461,6 @@ viewWillLayoutSubviews: function() {
             }
             // MNUtil.copy(tem[0])
             return false
-          // MNUtil.copy(config)
-//             self.runJavaScript(`// 手动使 Blob URL 失效
-//             try {
-              
-
-// window.URL.revokeObjectURL("${config.params.blobUrl}");
-//             } catch (error) {
-//               error.message
-//             }
-// `).then(res => {
-//   MNUtil.copy(res)
-// })
-            return false;
           case "downloadpdf":
             self.downloadPDF(config.params)
             return false
@@ -490,7 +500,36 @@ viewWillLayoutSubviews: function() {
             break;
         }
         return false
+      case "about":
+        return true
+      case "itms-appss":
+        return false
+      case "weixin":
+        self.openWX(config)
+        return false
+      case "imacopilot":
+        // MNUtil.openURL(requestURL)
+        // MNUtil.log({
+        //   message:"openIMA",
+        //   detail:requestURL
+        // })
+        self.openIMA(config)
+        return false
+      case "data":
+        if (browserUtils.isAllowedIconLibrary(currentURL) && /data:image\/png;base64/.test(requestURL)) {
+          //此时type为0
+          MNUtil.postNotification("newIconImage", {imageBase64:requestURL})
+          return false
+        }
+        break;
+      case "file":
+        return true
       default:
+        MNUtil.showHUD("Unknown scheme: "+config.scheme)
+        MNUtil.log({
+          message:"Unknown scheme: "+config.scheme,
+          detail:config
+        })
         break;
     }
     // MNUtil.copy(config)
@@ -506,13 +545,7 @@ viewWillLayoutSubviews: function() {
     // if (requestURL.startsWith("https://graph.qq.com/jsdkproxy/PMProxy.html")) {
     //   return false
     // }
-    if (browserUtils.isAllowedIconLibrary(currentURL) && /data:image\/png;base64/.test(requestURL)) {
-      //此时type为0
-      MNUtil.postNotification("newIconImage", {imageBase64:requestURL})
-      // let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(requestURL))
-      // MNUtil.copyImage(imageData)
-      return false
-    }
+
     if (type === 0) {
       let isLink = browserUtils.parseLink(requestURL)
       if (isLink.isPdfDownload) {
@@ -529,7 +562,7 @@ viewWillLayoutSubviews: function() {
             if (typeof snipasteUtils !== 'undefined') {
               MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
             }else{
-              let confirm = await MNUtil.confirm("MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
+              let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
               if (confirm) {
                 MNUtil.openDoc(md5,MNUtil.currentNotebookId)
                 if (MNUtil.docMapSplitMode === 0) {
@@ -639,17 +672,52 @@ viewWillLayoutSubviews: function() {
     menu.addMenuItem('📸  Screenshot', 'screenshot:',self.view.frame.width>1000?self.view.frame.width:1000)
     menu.addMenuItem('📸  Screenshot Full Page', 'screenshotFull:',self.view.frame.width>1000?self.view.frame.width:1000)
     menu.addMenuItem('📤  Export to PDF', 'exportToPDF:')
-    menu.addMenuItem('🎬  VideoFrame → Clipboard', 'videoFrame:',self.view.frame.width>1000?self.view.frame.width:1000)
-    menu.addMenuItem('🎬  VideoFrame → Snipaste', 'videoFrameToSnipaste:',self.view.frame.width>1000?self.view.frame.width:1000)
-    menu.addMenuItem('🎬  VideoFrame → Editor', 'videoFrameToEditor:',self.view.frame.width>1000?self.view.frame.width:1000)
-    menu.addMenuItem('🎬  VideoFrame → CurrentNote', 'videoFrameToNote:',false)
-    menu.addMenuItem('🎬  VideoFrame → ChildNote', 'videoFrameToNote:',true)
-    menu.addMenuItem('🎬  VideoFrame → NewNote', 'videoFrameToNewNote:',true)
-    menu.addMenuItem('🎬  VideoFrame → NewComment', 'videoFrameToComment:',true)
-    // menu.addMenuItem('🎬  VideoFrame → NewComment', 'changeZoomScale:',true)
-    if ((await self.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
-      menu.addMenuItem('📤  Upload to Doc2X', 'uploadToDoc2X:',true)
+    menu.addMenuItem('📤  Open Demo Page', 'openDemoPage:')
+    if (!self.inHomePage) {
+      menu.addMenuItem('🎬  VideoFrame → Clipboard', 'videoFrame:',self.view.frame.width>1000?self.view.frame.width:1000)
+      menu.addMenuItem('🎬  VideoFrame → Snipaste', 'videoFrameToSnipaste:',self.view.frame.width>1000?self.view.frame.width:1000)
+      menu.addMenuItem('🎬  VideoFrame → Editor', 'videoFrameToEditor:',self.view.frame.width>1000?self.view.frame.width:1000)
+      menu.addMenuItem('🎬  VideoFrame → CurrentNote', 'videoFrameToNote:',false)
+      menu.addMenuItem('🎬  VideoFrame → ChildNote', 'videoFrameToNote:',true)
+      menu.addMenuItem('🎬  VideoFrame → NewNote', 'videoFrameToNewNote:',true)
+      menu.addMenuItem('🎬  VideoFrame → NewComment', 'videoFrameToComment:',true)
     }
+    let sourceInfo = await self.getWebSource()
+    if (sourceInfo) {
+      menu.addMenuItem(sourceInfo.title, sourceInfo.selector,sourceInfo.source)
+    }
+    // let currentURL = await self.getCurrentURL()
+    // // menu.addMenuItem('🎬  VideoFrame → NewComment', 'changeZoomScale:',true)
+    // if (currentURL.startsWith("https://doc2x.noedgeai.com")) {
+    //   menu.addMenuItem('📤  Upload to Doc2X', 'uploadToDoc2X:','doc2x')
+    // }
+    // if (currentURL.startsWith("https://ima.qq.com")) {
+    //   menu.addMenuItem('📤  Upload to Ima', 'uploadToWebDefault:','ima')
+    // }
+    // if (currentURL.startsWith("https://www.kimi.com")) {
+    //   menu.addMenuItem('📤  Upload to Kimi', 'uploadToWebDefault:','kimi')
+    // }
+    // if (currentURL.startsWith("https://chat.qwen.ai")) {
+    //   menu.addMenuItem('📤  Upload to Qwen', 'uploadPDFToWebDefault:','qwen')
+    // }
+    // // if (currentURL.startsWith("https://www.doubao.com/chat/")) {
+    // //   menu.addMenuItem('📤  Upload to Doubao', 'uploadToWebDefault:','doubao')
+    // // }
+    // if (currentURL.startsWith("https://chat.z.ai")) {
+    //   menu.addMenuItem('📤  Upload to Z.ai', 'uploadPDFToWebDefault:','zhipu')
+    //   // menu.addMenuItem('📤  Upload to Z.ai', 'uploadToWebDefault:','zhipu')
+    // }
+    // if (currentURL.startsWith("https://chat.deepseek.com")) {
+    //   menu.addMenuItem('📤  Upload to DeepSeek', 'uploadToWebDefault:','deepseek')
+    // }
+    // if (currentURL.startsWith("https://yuanbao.tencent.com/chat")) {
+    //   menu.addMenuItem('📤  Upload to Yuanbao', 'uploadToWebDefault:','yuanbao')
+    //   // menu.addMenuItem('📤  Upload to Yuanbao', 'uploadPDFToWebDefault:','yuanbao')
+    // }
+    // if (currentURL.startsWith("https://space.coze.cn")) {
+    //   menu.addMenuItem('📤  Upload to Coze', 'uploadToWebDefault:','coze')
+    //   // menu.addMenuItem('📤  Upload to Yuanbao', 'uploadPDFToWebDefault:','yuanbao')
+    // }
     menu.show()
     // var commandTable = [
     //     {title:'🎛  Setting',object:self,selector:'openSettingView:',param:'right'},
@@ -665,6 +733,13 @@ viewWillLayoutSubviews: function() {
     //     {title:'UploadToDoc2X',object:self,selector:'uploadToDoc2X:',param:true},
     //   ];
     // self.view.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,250,1)
+  },
+  openDemoPage: function (button) {
+    Menu.dismissCurrentMenu()
+    MNConnection.loadFile(self.webview, browserUtils.mainPath + "/test.html", browserUtils.mainPath+"/")
+    if (self.view.hidden) {
+      self.show()
+    }
   },
   changeZoomScale: async function (params) {
   try {
@@ -750,72 +825,42 @@ viewWillLayoutSubviews: function() {
   uploadToDoc2X: async function (params) {
     let self = getBrowserController()
     Menu.dismissCurrentMenu()
-    let currentURL = await self.getCurrentURL()
     let currentImage = browserUtils.getCurrentImage()
     // MNUtil.copy(currentImage)
     if (currentImage) {
-      self.uploadImageToDoc2X(currentImage)
-      // self.waitHUD("Uploading file...")
-      // await MNUtil.delay(0.1)
-      // let fileName = "image.png"
-      // let fileBase64 = currentImage.base64Encoding().replace(/"/g, '\\"')
-      // self.uploadImageToDoc2X(fileBase64, fileName)
-      // await MNUtil.stopHUD(0.5)
-      // currentURL = await self.getCurrentURL()
-      // while (!currentURL.startsWith("https://doc2x.noedgeai.com/ocr?parseId_0=")) {
-      //   await MNUtil.delay(0.5)
-      //   currentURL = await self.getCurrentURL()
-      // }
-      // await MNUtil.delay(0.5)
-      // self.runJavaScript(`
-      // async function hideOriginalView() {
-      //   async function delay(seconds) {
-      //     return new Promise(resolve => setTimeout(resolve, seconds * 1000));
-      //   }
-      //   await delay(0.5);
-      //   document.getElementsByClassName("ant-splitter-panel")[0].style.display='none';
-      //   await delay(0.5);
-      //   document.getElementsByClassName("ant-splitter-panel")[0].style.display='none';
-      //   await delay(0.5);
-      //   document.getElementsByClassName("ant-splitter-panel")[0].style.display='none';
-      //   await delay(0.5);
-      //   document.getElementsByClassName("ant-splitter-panel")[0].style.display='none';
-      // }
-      // hideOriginalView();
-      // `)
+      self.uploadImage(currentImage)
     }else{
-      self.uploadPDFToDoc2X()
+      self.uploadPDF()
     }
     return
-    // MNUtil.copy(currentURL)
-    if (currentURL === "https://doc2x.noedgeai.com/") {
-
-    }else if (currentURL === "https://doc2x.noedgeai.com/ocrUpload") {
-      self.waitHUD("Uploading file...")
-      await MNUtil.delay(0.1)
-      let currentImage = MNUtil.currentSelection.image
-      let fileName = "image.png"
-      let fileBase64 = currentImage.base64Encoding().replace(/"/g, '\\"')
-      self.uploadImageToDoc2X(fileBase64, fileName)
-      MNUtil.stopHUD(0.5)
+  },
+  uploadToWebDefault: async function (params) {
+    let self = getBrowserController()
+    Menu.dismissCurrentMenu()
+    let currentImage = browserUtils.getCurrentImage()
+    // MNUtil.copy(currentImage)
+    if (currentImage) {
+      self.uploadImage(currentImage)
     }else{
-      // await self.runJavaScript(`window.location.href = 'https://doc2x.noedgeai.com/ocrUpload'`)
-      // currentURL = await self.getCurrentURL()
-      // while (currentURL !== "https://doc2x.noedgeai.com/ocrUpload") {
-      //   await MNUtil.delay(0.1)
-      //   currentURL = await self.getCurrentURL()
-      // }
-      // MNUtil.copy(currentURL)
-      await MNUtil.delay(0.1)
-      let currentImage = MNUtil.currentSelection.image
-      let fileName = "image.png"
-      let fileBase64 = currentImage.base64Encoding().replace(/"/g, '\\"')
-      self.uploadImageToDoc2X(fileBase64, fileName)
+      self.uploadPDF(undefined,params)
     }
-    // if (!currentURL.startsWith("https://doc2x.noedgeai.com")) {
-    //   MNUtil.showHUD("Please open Doc2X first")
-    //   return
-    // }
+  },
+  uploadPDFToWebDefault: async function (params) {
+    let self = getBrowserController()
+    Menu.dismissCurrentMenu()
+    self.uploadPDF(undefined,params)
+  },
+  uploadToKimi: async function (params) {
+    let self = getBrowserController()
+    Menu.dismissCurrentMenu()
+    let currentImage = browserUtils.getCurrentImage()
+    // MNUtil.copy(currentImage)
+    if (currentImage) {
+      self.uploadImage(currentImage)
+      
+    }else{
+      self.uploadPDF()
+    }
   },
   onLongPress: async function(gesture) {
     if (gesture.state === 1) {
@@ -895,17 +940,30 @@ viewWillLayoutSubviews: function() {
     commandTable.push({title:'🎛  Setting',object:self,selector:'openSettingView:',param:'engine'})
     self.view.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,200,2)
   },
-  changeWebApp: function(sender) {
-    var commandTable = browserConfig.webAppEntrieNames.map(entrieName => {
-      return {title:browserConfig.webAppEntries[entrieName].title,object:self,selector:'changeWebAppTo:',param:entrieName,checked:self.webApp === entrieName}
+  changeWebApp: function(button) {
+    let menu = new Menu(button,self)
+    // menu.width = 200
+    menu.preferredPosition = 2
+    browserConfig.webAppEntrieNames.forEach(entrieName => {
+      menu.addMenuItem(browserConfig.webAppEntries[entrieName].title, 'changeWebAppTo:', entrieName)
     })
     if (self.inHomePage) {
-      commandTable.push({title:'🎛  Setting',object:self,selector:'openSettingView:',param:'webApp'})
+      menu.addMenuItem('🎛  Setting', 'openSettingView:', 'webApp')
     }else{
-      commandTable.push({title:'➕  Add this page',object:self,selector:'addPageToWebApp:',param:'123'})
-      commandTable.push({title:'🎛  Setting',object:self,selector:'openSettingView:',param:'webApp'})
+      menu.addMenuItem('➕  Add this page', 'addPageToWebApp:', button)
+      menu.addMenuItem('🎛  Setting', 'openSettingView:', 'webApp')
     }
-    self.view.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,200)
+    menu.show()
+    // var commandTable = browserConfig.webAppEntrieNames.map(entrieName => {
+    //   return {title:browserConfig.webAppEntries[entrieName].title,object:self,selector:'changeWebAppTo:',param:entrieName}
+    // })
+    // if (self.inHomePage) {
+    //   commandTable.push({title:'🎛  Setting',object:self,selector:'openSettingView:',param:'webApp'})
+    // }else{
+    //   commandTable.push({title:'➕  Add this page',object:self,selector:'addPageToWebApp:',param:button})
+    //   commandTable.push({title:'🎛  Setting',object:self,selector:'openSettingView:',param:'webApp'})
+    // }
+    // self.view.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,200)
   },
   changeOpacity: function(slider) {
     self.view.layer.opacity = slider.value
@@ -936,15 +994,48 @@ viewWillLayoutSubviews: function() {
   },
   changeCustomButton: function(button){
     if (browserUtils.checkSubscribe(false)) {
-      var commandTable = browserConfig.allCustomActions.map(action=>{
-        return {title:browserConfig.getCustomDescription(action),object:self,selector:'setCustomAction:',param:{index:button.index,action:action}}
+      let menu = new Menu(button,self)
+      menu.width = 300
+      menu.preferredPosition = 1
+      menu.addMenuItem('🌐  WebAPP:', 'chooseWebApp:',{button:button,index:button.index})
+      browserConfig.allCustomActions.forEach(action=>{
+        menu.addMenuItem(browserConfig.getCustomDescription(action),'setCustomAction:',{index:button.index,action:action})
       })
-      self.view.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,300,1)
+      menu.show()
+      // self.view.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,300,1)
+      // var commandTable = browserConfig.allCustomActions.map(action=>{
+      //   return {title:browserConfig.getCustomDescription(action),object:self,selector:'setCustomAction:',param:{index:button.index,action:action}}
+      // })
+      // self.view.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,300,1)
     }
   },
-  setCustomAction: function(config){
+  chooseWebApp: function(params){
+  try {
+    Menu.dismissCurrentMenu()
+    let button = params.button
+    let index = params.index
+    let menu = new Menu(button,self)
+    menu.width = 200
+    menu.preferredPosition = 1
+    browserConfig.webAppEntrieNames.map(entrieName => {
+      menu.addMenuItem(browserConfig.webAppEntries[entrieName].title, 'setCustomAction:', {index:index,action:"webApp:"+entrieName})
+    })
+    menu.show()
+    
+  } catch (error) {
+    browserUtils.addErrorLog(error, "chooseWebApp")
+  }
+  },
+  setCustomAction: async function(config){
+  
+    if (!chatAIUtils.isSubscribed()) {
+      let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
+    }
+    Menu.dismissCurrentMenu()
     if (browserUtils.checkSubscribe(true)) {
-      if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
       if (config.index === 1) {
         browserConfig.config.custom = config.action
         // self["setCustomButton"+config.index].setTitleForState("Custom"+config.index+": "+browserConfig.getConfig("custom"),0)
@@ -964,18 +1055,18 @@ viewWillLayoutSubviews: function() {
     browserConfig.save("MNBrowser_config")
   },
   toggleAutoOpenVideoExcerpt: function (params) {
-    if (!browserUtils.checkSubscribe(true)) {
-      return undefined
-    }
+    // if (!browserUtils.checkSubscribe(true)) {
+    //   return undefined
+    // }
     let autoOpenVideoExcerpt = !browserConfig.getConfig("autoOpenVideoExcerpt")
     browserConfig.config.autoOpenVideoExcerpt = autoOpenVideoExcerpt
     self.autoOpenVideoExcerpt.setTitleForState("Auto Open Video Excerpt: "+(autoOpenVideoExcerpt?"✅":"❌"),0)
     browserConfig.save("MNBrowser_config")
   },
   toggleAutoExitWatchMode: function (params) {
-    if (!browserUtils.checkSubscribe(true)) {
-      return undefined
-    }
+    // if (!browserUtils.checkSubscribe(true)) {
+    //   return undefined
+    // }
     let autoExitWatchMode = !browserConfig.getConfig("autoExitWatchMode")
     browserConfig.config.autoExitWatchMode = autoExitWatchMode
     self.autoExitWatchMode.setTitleForState("Auto Exit Watch Mode: "+(autoExitWatchMode?"✅":"❌"),0)
@@ -1024,9 +1115,64 @@ try {
       self.showHUD("❌ Watch Mode: OFF")
     }
   },
-  toggleDesktop:function (param) {
+  setCustomIcon:async function (params) {
     let self = getBrowserController()
+    Menu.dismissCurrentMenu()
     if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
+    let res = await MNUtil.input("Custom Icon", "Enter the custom icon URL\n\n请输入自定义图标URL\n\nURL must starts with https:// and ends with .png")
+    if (res.button) {
+      let input = res.input
+      if (!input.startsWith("https://") || !input.endsWith(".png")) {
+        MNUtil.confirm("MN Browser", "Invalid icon URL\n\n请输入正确的图标URL\n\nURL must starts with https:// and ends with .png")
+        return
+      }
+      let confirm = await MNUtil.confirm(" MN Browser", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
+      if (!browserUtils.checkSubscribe(true)) {
+        return
+      }
+      browserConfig.webAppEntries[params.id].icon = input
+      browserConfig.save("MNBrowser_webAppEntries")
+      self.setTextview(params.id)
+    }
+    // self.setCustomIcon(params.id)
+  },
+  toggleDesktop:function (params) {
+  try {
+
+    let self = getBrowserController()
+    Menu.dismissCurrentMenu()
+    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
+
+    if (self.settingView && params && params.type) {
+      browserUtils.log("toggleDesktop", params)
+      if (params.type === "engine") {
+        let config = browserConfig.entries[params.id]
+        config.desktop = !config.desktop
+        browserConfig.entries[params.id] = config
+        browserConfig.save("MNBrowser_entries")
+        if (config.desktop) {
+          MNUtil.showHUD("✅ Desktop mode for engine: "+config.title)
+        }else{
+        MNUtil.showHUD("❌ Desktop mode for engine: "+config.title)
+        }
+        self.setTextview(params.id)
+      }else{
+        let config = browserConfig.webAppEntries[params.id]
+        config.desktop = !config.desktop
+        browserConfig.webAppEntries[params.id] = config
+        browserConfig.save("MNBrowser_webAppEntries")
+        if (config.desktop) {
+          MNUtil.showHUD("✅ Desktop mode for webapp: "+config.title)
+        }else{
+          MNUtil.showHUD("❌ Desktop mode for webapp: "+config.title)
+        }
+        self.setTextview(params.id)
+      }
+      return;
+    }
     if (self.desktop) {
       self.setWebMode(false)
     }else{
@@ -1036,6 +1182,10 @@ try {
       let newURL = self.webview.url.replace("www.baidu","m.baidu")
       MNConnection.loadRequest(self.webview, newURL)
     }
+    
+  } catch (error) {
+    browserUtils.addErrorLog(error, "toggleDesktop")
+  }
     return;
     // // self.view.popoverController.dismissPopoverAnimated(true);
     // let desktop
@@ -1090,8 +1240,13 @@ try {
       if (self.inHomePage) {
         MNUtil.postNotification('newWindow', {homePage:true})
       }else{
-        MNUtil.postNotification('newWindow', {url:url,desktop:self.desktop,engine:browserConfig.engine,webApp:self.webApp})
-        self.homePage();
+        if(url === "about:blank"){
+          MNUtil.postNotification('newWindow', {homePage:true})
+          self.homePage();
+        }else{
+          MNUtil.postNotification('newWindow', {url:url,desktop:self.desktop,engine:browserConfig.engine,webApp:self.webApp})
+          self.homePage();
+        }
       }
     }
   },
@@ -1164,7 +1319,7 @@ try {
   },
   uploadConfig: function (engine) {
 
-    let note = MNUtil.getNoteById(self.currentNoteId)
+    let note = self.currentNote()
     let customEntries
     let commentsLength = note.comments.length
     if (commentsLength === 0) {
@@ -1215,7 +1370,7 @@ try {
     self.runJavaScript(`
            // 动态加载脚本的函数
         function loadScript( callback) {
-            let url = 'https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js'
+            let url = '${browserUtils.cdn.html2canvas}'
             const script = document.createElement('script');
             script.type = 'text/javascript';
             script.src = url;
@@ -1351,7 +1506,7 @@ exportToPDF()
     self.runJavaScript(`
            // 动态加载脚本的函数
         function loadScript( callback) {
-            let url = 'https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js'
+            let url = '${browserUtils.cdn.html2canvas}'
             const script = document.createElement('script');
             script.type = 'text/javascript';
             script.src = url;
@@ -1456,13 +1611,13 @@ exportToPDF()
     let self = getBrowserController()
     Menu.dismissCurrentMenu()
     if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
-    self.videoFrameAction("clipboard")
+    self.videoFrameAction("clipboard",false)
   },
   videoFrameToSnipaste: async function (width) {
     let self = getBrowserController()
     Menu.dismissCurrentMenu()
     if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
-    self.videoFrameAction("snipaste")
+    self.videoFrameAction("snipaste",false)
   },
   videoFrameToEditor: async function (width) {
     let self = getBrowserController()
@@ -1491,10 +1646,10 @@ exportToPDF()
     self.videoFrameAction("comment")
   },
   homeButtonTapped: function() {
-    if (self.inHomePage) {
-      MNUtil.showHUD("Already in homepage")
-      return
-    }
+    // if (self.inHomePage) {
+    //   MNUtil.showHUD("Already in homepage")
+    //   return
+    // }
     self.homePage()
   },
   loadCKEditor:function (params) {
@@ -1517,144 +1672,24 @@ exportToPDF()
       return
     }
     try {
-      
-
-    let url
-    let text
+    if (self.settingView) {
+      let preOpacity = self.settingView.layer.opacity
+      UIView.animateWithDurationAnimationsCompletion(0.2,()=>{
+        self.settingView.layer.opacity = 0
+      },()=>{
+        self.settingView.layer.opacity = preOpacity
+        self.settingView.hidden = true
+      })
+    }
+    // let url
+    // let text
     let configName = (button.index === 1)?"custom":"custom"+button.index
-    switch (browserConfig.getConfig(configName)) {
-      case "uploadPDFToDoc2X":
-        if (!(await self.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
-          MNUtil.waitHUD("Opening Doc2X...")
-          self.setWebMode(true)
-          MNConnection.loadRequest(self.webview, "https://doc2x.noedgeai.com")
-          self.uploadOnDoc2X = {enabled:true,action:"uploadPDFToDoc2X"}
-          return
-        }
-        self.uploadPDFToDoc2X()
-        break;
-      case "uploadImageToDoc2X":
-        if (!(await self.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
-          MNUtil.waitHUD("Opening Doc2X...")
-          self.setWebMode(true)
-          MNConnection.loadRequest(self.webview, "https://doc2x.noedgeai.com")
-          self.uploadOnDoc2X = {enabled:true,action:"uploadImageToDoc2X"}
-          return
-        }
-        self.uploadImageToDoc2X()
-        break;
-      case "changeBilibiliVideoPart":
-        self.changeBilibiliVideoPart(button)
-        break;
-      case "screenshot":
-        let width = self.view.frame.width>1000?self.view.frame.width:1000
-        let imageData = await self.screenshot(width)
-        MNUtil.copyImage(imageData)
-        self.showHUD('截图已复制到剪贴板')
-        break;
-      case "videoFrame2Clipboard":
-        self.videoFrameAction("clipboard")
-        break;
-      case "videoFrame2Editor":
-        self.videoFrameAction("editor")
-        break;
-      case "videoFrame2Note":
-        self.videoFrameAction("excerpt")
-        break;
-      case "videoFrame2ChildNote":
-        self.videoFrameAction("childNote")
-        break;
-      case "videoFrameToNewNote":
-        self.videoFrameAction("newNote")
-        break;
-      case "videoFrameToComment":
-        self.videoFrameAction("comment")
-        break;
-      case "videoTime2Clipboard":
-        self.videoTimeAction("clipboard")
-        break;
-      case "videoTime2Editor":
-        self.videoTimeAction("editor")
-        break;
-      case "videoTime2Note":
-        self.videoTimeAction("excerpt")
-        break;
-      case "videoTime2ChildNote":
-        self.videoTimeAction("childNote")
-        break;
-      case "videoFrameToSnipaste":
-        self.videoFrameAction("snipaste")
-        break;
-      case "videoTimeToNewNote":
-        self.videoTimeAction("newNote")
-        break;
-      case "videoTimeToComment":
-        self.videoTimeAction("comment")
-        break;
-      case "bigbang":
-        url = await self.getCurrentURL()
-        text = await self.getTextInWebview()
-        MNUtil.postNotification('bigbangText', {text:text,url:url})
-        break;
-      case "copyCurrentURL":
-        url = await self.getCurrentURL()
-        MNUtil.copy(url)
-        self.showHUD("链接已复制")
-        break;
-      case "copyAsMDLink":
-        url = await self.getCurrentURL()
-        text = await self.getSelectedTextInWebview()
-        MNUtil.copy(`[${text}](${url})`)
-        self.showHUD("链接已复制")
-        break;
-      case "openInNewWindow":
-        if (browserUtils.checkSubscribe()) {
-          let agent = self.webview.customUserAgent
-          url = await self.getCurrentURL()
-          MNUtil.postNotification('newWindow', {url:url,desktop:browserConfig.entries[browserConfig.engine].desktop,engine:browserConfig.engine,webApp:self.webApp,agent:agent})
-          self.homePage();
-        }
-        break;
-      case "openNewWindow":
-        if (browserUtils.checkSubscribe()) {
-          MNUtil.postNotification('newWindow', {url:browserConfig.getConfig("homePage").url,desktop:browserConfig.entries[browserConfig.engine].desktop,engine:browserConfig.engine,webApp:self.webApp})
-        }
-        break;
-      case "openCopiedURL":
-        MNConnection.loadRequest(self.webview, MNUtil.clipboardText)
-        break;
-      case "pauseOrPlay":
-        self.runJavaScript(`function togglePlayPause() {
-    // 假设我们的video元素的id是'myVideo'
-  const video = document.getElementsByTagName('video')[0];
-    if (video.paused) {
-        // 如果视频是暂停的，开始播放
-        video.play();
-    } else {
-        // 如果视频正在播放，暂停它
-        video.pause();
+    let action = browserConfig.getConfig(configName)
+    if (action.startsWith("webApp:")) {
+      self.changeWebAppTo(action.split(":")[1])
+      return
     }
-};
-togglePlayPause()
-`)
-        break;
-      case "forward10s":
-        self.runJavaScript(` function forward10Seconds() {
-const video = document.getElementsByTagName('video')[0];
-video.currentTime += 10;
-};
-forward10Seconds()`);
-        break;
-      case "backward10s":
-        self.runJavaScript(` function backward10Seconds() {
-const video = document.getElementsByTagName('video')[0];
-video.currentTime -= 10;
-};
-backward10Seconds();`);
-        break;
-      default:
-        break;
-    }
+    self.executeCustomAction(action)
     } catch (error) {
       browserUtils.addErrorLog(error, "customButtonTapped")
     }
@@ -1717,7 +1752,7 @@ backward10Seconds();`);
   goBackButtonTapped: function() {
     self.webview.goBack();
   },
-  goForwardButtonTapµped: function() {
+  goForwardButtonTapped: function() {
     self.webview.goForward();
   },
   refreshButtonTapped: async function(para) {
@@ -1861,8 +1896,17 @@ backward10Seconds();`);
       self.hideAllButton()
       MNUtil.animate(()=>{
         self.setFrame(self.lastFrame)
-      },0.3).then(()=>{
+      },0.3).then(async ()=>{
         self.showAllButton()
+        let webInfo = await self.getCurrentWebInfo()
+        // browserUtils.log("getCurrentWebInfo", webInfo)
+        if (webInfo.hasVideo && webInfo.urlConfig.host === "www.bilibili.com") {
+          if (self.view.frame.width < 700) {
+            self.enableWideMode()
+          }else if (self.view.frame.width > 800) {
+            self.exitWideMode()
+          }
+        }
       })
       return
     }
@@ -1875,8 +1919,17 @@ backward10Seconds();`);
     self.hideAllButton()
     MNUtil.animate(()=>{
       self.setFrame(40,50,frame.width-80,frame.height-70)
-    },0.3).then(()=>{
+    },0.3).then(async ()=>{
       self.showAllButton()
+      let webInfo = await self.getCurrentWebInfo()
+      // browserUtils.log("getCurrentWebInfo", webInfo)
+      if (webInfo.hasVideo && webInfo.urlConfig.host === "www.bilibili.com") {
+        if (self.view.frame.width < 700) {
+          self.enableWideMode()
+        }else if (self.view.frame.width > 800) {
+          self.exitWideMode()
+        }
+      }
     })
   },
   minButtonTapped: function() {
@@ -2010,7 +2063,8 @@ backward10Seconds();`);
     self.custom = false;
     // MNUtil.copy(self.view.frame)
   },
-  onResizeGesture:function (gesture) {
+  onResizeGesture:async function (gesture) {
+    let self = getBrowserController()
     self.custom = false;
     browserConfig.dynamic = false;
     self.customMode = "none"
@@ -2040,85 +2094,55 @@ backward10Seconds();`);
       let size = {width:width,height:height}
       browserConfig.config.size = size
       browserConfig.save("MNBrowser_config")
-//       self.runJavaScript(`(function() {
-//     let resizeTimer;
-//     const container = document.documentElement; // 根元素作为基准（可替换为其他容器）
-
-//     function adjustScale() {
-//         // 1. 获取内容的实际宽度
-//         const contentWidth = container.scrollWidth; 
-        
-//         // 2. 计算动态缩放比例（限制最小比例为1，避免放大导致模糊）
-//         const windowWidth = window.innerWidth;
-//         const scale = Math.min(1, windowWidth / contentWidth); 
-        
-//         // 3. 应用缩放并同步占位尺寸
-//         container.style.transform = \`scale(\${scale})\`;
-//         container.style.transformOrigin = '0 0';
-//         container.style.width = \`\${contentWidth * scale}px\`;
-//         container.style.height = \`\${container.scrollHeight * scale}px\`; // 可选，防止纵向挤压
-//     }
-
-//     // 4. 防抖优化性能
-//     window.addEventListener('resize', () => {
-//         clearTimeout(resizeTimer);
-//         resizeTimer = setTimeout(adjustScale, 50);
-//     });
-
-//     // 初始化时执行一次调整
-//     adjustScale();
-// })();
-// `)
-      // MNUtil.showHUD("End")
+      let webInfo = await self.getCurrentWebInfo()
+      browserUtils.log("getCurrentWebInfo", webInfo)
+      if (webInfo.hasVideo && webInfo.urlConfig.host === "www.bilibili.com") {
+        if (self.view.frame.width < 700) {
+          self.enableWideMode()
+        }else if (self.view.frame.width > 800) {
+          self.exitWideMode()
+        }
+      }
     }
   },
   changeWebAppTo:function(webApp) {
+    Menu.dismissCurrentMenu()
     if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
-    if (webApp) {
-      self.webApp = webApp;
-    }
-    var url;
-    url = browserConfig.webAppEntries[self.webApp].link
-    self.setWebMode(browserConfig.webAppEntries[self.webApp].desktop)
-    self.inHomePage = false
-    if (self.webview.url !== url) {
-      MNConnection.loadRequest(self.webview, url)
-      self.webview.hidden = false
+    self.changeWebAppTo(webApp)
+
+  },
+  addPageToWebApp: async function (button) {
+    let self = getBrowserController()
+    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
+    let info = await self.getCurrentWebInfo()
+    let url = info.url
+    let config = {title:info.title,desktop:info.desktop,link:url}
+    let option = {default:info.title}
+    let userInput = await MNUtil.input("🌐 MN Browser","Name for this page?\n\n请输入网页名称\n\nCurrent URL/当前URL:\n"+url+"\n\nDefault/默认:",["Cancel / 取消","➕ Add / 添加"],option)
+    let buttonIndex = userInput.button
+    let input = userInput.input
+    if (buttonIndex === 0) {
       return
     }
-  },
-  addPageToWebApp: async function (params) {
-    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
-
-    let url = await self.getCurrentURL()
-    let config = {title:"test",desktop:false,link:url}
-    let title = await self.runJavaScript("document.title")
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "Name for this page?",url,2,"Cancel",[title,"Add"],
-      (alert, buttonIndex) => {
-        switch (buttonIndex) {
-          case 1:
-            // self.appInstance.showHUD(title,self.view.window,2)
-            config = {title:title,desktop:false,link:url}
-            break;
-          case 2:
-            // self.appInstance.showHUD(alert.textFieldAtIndex(0).text,self.view.window,2)
-            config = {title:alert.textFieldAtIndex(0).text,desktop:false,link:url}
-            break;
-          default:
-            break;
-        }
-        let i = 0
-        while (browserConfig.webAppEntries["customEWebApp"+i]) {
-          i = i+1
-        }
-        browserConfig.webAppEntries["customEWebApp"+i] = config
-        browserConfig.webAppEntrieNames = browserConfig.webAppEntrieNames.concat(("customEWebApp"+i))
-        self.configEngine = "customEWebApp"+i
-        browserConfig.save("MNBrowser_webAppEntrieNames")
-        browserConfig.save("MNBrowser_webAppEntries")
-
-      })
+    if (buttonIndex === 1) {
+      config.title = input
+    }
+    let entryKey = browserConfig.getAvailableWebAppEntryKey()
+    browserConfig.webAppEntries[entryKey] = config
+    browserConfig.webAppEntrieNames = browserConfig.webAppEntrieNames.concat((entryKey))
+    self.configEngine = entryKey
+    browserConfig.save("MNBrowser_webAppEntrieNames")
+    browserConfig.save("MNBrowser_webAppEntries")
+    self.showHUD("✅ WebApp Added: "+config.title)
+    Menu.dismissCurrentMenu(false)
+    let menu = new Menu(button,self)
+    // menu.width = 200
+    menu.preferredPosition = 2
+    browserConfig.webAppEntrieNames.forEach(entrieName => {
+      menu.addMenuItem(browserConfig.webAppEntries[entrieName].title, 'changeWebAppTo:', entrieName)
+    })
+    menu.addMenuItem('🎛  Setting', 'openSettingView:', 'webApp')
+    menu.show(true,false)
   },
   advancedButtonTapped: function (params) {
     self.configSearchView.hidden = true
@@ -2210,85 +2234,130 @@ backward10Seconds();`);
       }
       self.refreshLayout(true)
     }else{
-      MNUtil.confirm("MN Browser", "Invalid JSON format:\n\n"+configText)
+      MNUtil.confirm("🌐 MN Browser", "Invalid JSON format:\n\n"+configText)
     }
   },
-  configSaveTapped: function (params) {
+  configSaveTapped: async function (params) {
     // self.appInstance.showHUD(123, self.view.window, 2);
     try {
     self.textviewInput.text = self.textviewInput.text.replaceAll(`”`,`"`)
-    if (MNUtil.isValidJSON(self.textviewInput.text)) {
-      let config = JSON.parse(self.textviewInput.text)
+    let config = MNUtil.getValidJSON(self.textviewInput.text)
+    // browserUtils.log("config", config)
+
+    if (config && Object.keys(config).length > 0) {
       if (self.configMode === 0) {
         browserConfig.entries[self.configEngine] = config
         self.setButtonText(browserConfig.entrieNames,self.configEngine)
         browserConfig.save("MNBrowser_entries")
-        MNUtil.showHUD("Saved engine: "+config.title)
+        MNUtil.showHUD("✅ Save engine: "+config.title)
+        self.setTextview(self.configEngine)
       }else{
+        if ("icon" in config) {
+          browserUtils.log("check icon", config)
+          if (!config.icon.startsWith("https://") || !config.icon.endsWith(".png")) {
+            MNUtil.confirm("MN Browser", "Invalid icon URL\n\n请输入正确的图标URL\n\nURL must starts with https:// and ends with .png")
+            return
+          }
+          let preIcon = self.currentConfigBeforeSave.icon
+          if (preIcon !== config.icon) {
+            let res = await MNUtil.userSelect("MN Browser", "The Custom Icon has been changed. Using new icon requires subscription or free usage. Do you want to continue?\n\n自定义图标已更改，使用新图标需要订阅或免费额度，是否继续？",["Keep Icon / 保留原图标","Use New Icon / 使用新图标"])
+            switch (res) {
+              case 0: // Cancel
+                return
+              case 1: // Keep Icon
+
+                config.icon = preIcon
+                break
+              case 2: // Use New Icon
+                if (!browserUtils.checkSubscribe(true)) {
+                  return
+                }
+                break
+              default:
+                break;
+            }
+          }
+        }
+        // browserUtils.log("config after check icon", config)
+
         browserConfig.webAppEntries[self.configEngine] = config
         self.setButtonText(browserConfig.webAppEntrieNames,self.configEngine)
         browserConfig.save("MNBrowser_webAppEntries")
-        MNUtil.showHUD("Saved webapp: "+config.title)
+        MNUtil.showHUD("✅ Save webapp: "+config.title)
+        self.setTextview(self.configEngine)
       }
       self.refreshLayout(true)
     }else{
-      MNUtil.confirm("MN Browser", "Invalid JSON format:\n\n"+self.textviewInput.text)
+      MNUtil.confirm("🌐 MN Browser", "Invalid JSON format:\n\n"+self.textviewInput.text)
     }
     } catch (error) {
       browserUtils.addErrorLog(error, "configSaveTapped")
     }
   },
-  configAddTapped: function (params) {
-    if (self.configMode === 0) {
-      self.textviewInput.text = 
-`{
-  "title":   "🔍 new engine",
-  "symbol":  "🔍",
-  "engine":  "engine name",
-  "desktop": false,
-  "link":    "https://www.bing.com/search?q=%s"
-}`
-    let i = 0
-    while (browserConfig.entries["customEngine"+i]) {
-      i = i+1
+  openURLInBrowser: function (url) {
+    Menu.dismissCurrentMenu()
+    MNConnection.loadRequest(self.webview, url)
+    let preOpacity = self.settingView.layer.opacity
+    UIView.animateWithDurationAnimationsCompletion(0.2,()=>{
+      self.settingView.layer.opacity = 0
+    },()=>{
+      self.settingView.layer.opacity = preOpacity
+      self.settingView.hidden = true
+    })
+  },
+  importAction: function (action) {
+    let self = getBrowserController()
+    Menu.dismissCurrentMenu()
+    if (action === "New") {
+      self.newConfig()
     }
-    let entries = browserConfig.entries
-    entries["customEngine"+i] = JSON.parse(self.textviewInput.text)
-    browserConfig.entries = entries
-    browserConfig.entrieNames = browserConfig.entrieNames.concat(("customEngine"+i))
-    self.setButtonText(browserConfig.entrieNames,"customEngine"+i)
-    self.configEngine = "customEngine"+i
-    try {
-    browserConfig.save("MNBrowser_entrieNames")
-    NSUserDefaults.standardUserDefaults().setObjectForKey(browserConfig.entries,"MNBrowser_entries")
-    entries = NSUserDefaults.standardUserDefaults().objectForKey("MNBrowser_entries")
-    // self.appInstance.showHUD(Object.keys(entries),self.view.window,2)
-    
-    } catch (error) {
-      browserUtils.addErrorLog(error, "configAddTapped")
-    }
-    }else{
-      self.textviewInput.text = 
-`{
-  "title":   "📝 new webapp",
-  "desktop": false,
-  "link":    "https://www.bing.com"
-}`
-    let i = 0
-    while (browserConfig.webAppEntries["customEWebApp"+i]) {
-      i = i+1
-    }
-    browserConfig.webAppEntries["customEWebApp"+i] = JSON.parse(self.textviewInput.text)
-    browserConfig.webAppEntrieNames = browserConfig.webAppEntrieNames.concat(("customEWebApp"+i))
-    self.setButtonText(browserConfig.webAppEntrieNames,"customEWebApp"+i)
-    self.configEngine = "customEWebApp"+i
-    browserConfig.save("MNBrowser_webAppEntrieNames")
-    browserConfig.save("MNBrowser_webAppEntries")
-    }
+  },
+  configAddTapped: function (button) {
+    let self = getBrowserController()
+    let menu = new Menu(button,self,200)
+    menu.preferredPosition = 0
+    let selector = 'importAction:'
+    menu.addMenuItem("➕   New",selector,"New")
+    // menu.addMenuItem("📋   From Clipboard",selector,"Paste")
+    menu.addMenuItem("🌐   From Example","openURLInBrowser:","https://mnaddon.craft.me/browser/template")
+    menu.show()
+//     if (self.configMode === 0) {
+//       self.textviewInput.text = 
+// `{
+//   "title":   "🔍 new engine",
+//   "symbol":  "🔍",
+//   "engine":  "engine name",
+//   "desktop": false,
+//   "link":    "https://www.bing.com/search?q=%s"
+// }`
+//       let entryKey = browserConfig.getAvailableEngineEntryKey()
+//       browserConfig.entries[entryKey] = MNUtil.getValidJSON(self.textviewInput.text)
+//       browserConfig.entrieNames = browserConfig.entrieNames.concat((entryKey))
+//       browserConfig.save("MNBrowser_entrieNames")
+//       browserConfig.save("MNBrowser_entries")
+//       self.setButtonText(browserConfig.entrieNames,entryKey)
+//       self.configEngine = entryKey
+//       self.refreshLayout()
+//     }else{
+//       self.textviewInput.text = 
+// `{
+//   "title":   "📝 new webapp",
+//   "desktop": false,
+//   "link":    "https://www.bing.com"
+// }`
+//       let entryKey = browserConfig.getAvailableWebAppEntryKey()
+//       browserConfig.webAppEntries[entryKey] = MNUtil.getValidJSON(self.textviewInput.text)
+//       browserConfig.webAppEntrieNames = browserConfig.webAppEntrieNames.concat((entryKey))
+//       browserConfig.save("MNBrowser_webAppEntrieNames")
+//       browserConfig.save("MNBrowser_webAppEntries")
+//       self.setButtonText(browserConfig.webAppEntrieNames,entryKey)
+//       self.configEngine = entryKey
+//       self.refreshLayout()
+//     }
   },
   configDeleteTapped: async function (params) {
   try {
-    let confim = await MNUtil.confirm("Remove config?", "删除配置？")
+    let confim = await MNUtil.confirm("🌐 MN Browser","Remove current config?\n\n是否删除当前配置？")
     if (!confim) {
       return
     }
@@ -2316,6 +2385,7 @@ backward10Seconds();`);
         self.webApp = browserConfig.webAppEntrieNames[0]
       }
       self.configEngine = browserConfig.webAppEntrieNames[0]
+      self.webApp = self.configEngine
       self.setButtonText(browserConfig.webAppEntrieNames,self.configEngine)
       self.setTextview(self.configEngine)
       self.refreshLayout()
@@ -2394,13 +2464,26 @@ backward10Seconds();`);
     MNConnection.loadRequest(self.webview, url)
     self.webview.hidden = false
   },
-  toggleSelected:function (sender) {
-    if (sender.isSelected) {
-      return;
+  toggleSelected:function (button) {
+  try {
+    let self = getBrowserController()
+    if (button.isSelected) {
+      if (self.configMode === 1) {
+        if (self.webApp === button.id) {
+          self.configMoreOption(button)
+          return
+        }
+      }else{
+        self.configMoreOption(button)
+        return;
+      }
     }
-    sender.isSelected = !sender.isSelected
+    button.isSelected = !button.isSelected
+    if (self.configMode === 1) {
+      self.webApp = button.id
+    }
     // self.appInstance.showHUD(text,self.view.window,2)
-    let title = sender.id
+    let title = button.id
     self.configEngine = title
     self.words.forEach((entryName,index)=>{
       if (entryName !== title) {
@@ -2408,12 +2491,16 @@ backward10Seconds();`);
         self["nameButton"+index].backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
       }
     })
-    if (sender.isSelected) {
+    if (button.isSelected) {
       self.setTextview(title)
-      sender.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
+      button.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
     }else{
-      sender.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
+      button.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
     }
+    
+  } catch (error) {
+    browserUtils.addErrorLog(error, "toggleSelected")
+  }
   },
   exportConfig: async function (params) {
     let success = await browserConfig.export()
@@ -2719,6 +2806,25 @@ browserController.prototype.createWebview = function () {
     this.view.addSubview(this.webview);
 }
 
+/**
+ * @this {browserController}
+ * @param {string} superview
+ * @param {string} color
+ * @param {number} alpha
+ * @returns {UIScrollView}
+ */
+browserController.prototype.createScrollview = function (superview="view",color="#c0bfbf",alpha=0.8) {
+  let scrollview = UIScrollView.new()
+  scrollview.hidden = false
+  scrollview.delegate = this
+  scrollview.bounces = true
+  // scrollview.alwaysBounceVertical = true
+  scrollview.layer.cornerRadius = 8
+  scrollview.backgroundColor = MNUtil.hexColorAlpha(color,alpha)
+  this[superview].addSubview(scrollview)
+  return scrollview
+}
+
 /** @this {browserController} */
 browserController.prototype.init = function(){
     this.desktop = false
@@ -2863,7 +2969,7 @@ browserController.prototype.homePageCSS = function(){
 body {
       margin: 0;
       padding: 0;
-      background: url('https://vip.123pan.cn/1836303614/dl/win11.jpg') no-repeat center center fixed;
+      background: url('${browserUtils.cdn.win11}') no-repeat center center fixed;
       background-size: cover;
       font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
       min-height: 100vh;
@@ -3015,7 +3121,12 @@ body {
     .shortcut:hover .shortcut-icon {
       background: rgba(255,255,255,0.9);
     }
-    .shortcut img {
+    .shortcut .custom-img {
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+    }
+    .shortcut .default-img {
       width: 32px;
       height: 32px;
     }
@@ -3052,6 +3163,8 @@ body {
 }
 /** @this {browserController} */
 browserController.prototype.homePageHtml = function(){
+  let webAppEntriesWithIcon = browserConfig.getWebAppEntriesWithIcon()
+  // MNUtil.copy(webAppEntriesWithIcon)
   return `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -3079,11 +3192,11 @@ browserController.prototype.homePageHtml = function(){
     </div>
   </div>
   <div class="settings-button" onclick="openSetting()">
-    <img src="https://img.icons8.com/ios/50/000000/settings.png" alt="设置">
+    <img src="${browserUtils.cdn.setting}" alt="设置">
   </div>
   <script>
     // 快捷方式数据
-    const webapps = ${JSON.stringify(browserConfig.webAppEntries)};
+    const webapps = ${JSON.stringify(webAppEntriesWithIcon)};
     const webappOrder = ${JSON.stringify(browserConfig.webAppEntrieNames)};
 
     // 渲染快捷方式
@@ -3138,9 +3251,9 @@ browserController.prototype.homePageHtml = function(){
         name = name.slice(0,10)
         let nameSpan = \`<span style="font-weight: bold; font-size: 14px;">\${name}</span>\`
         if ("icon" in webapp) {
-          div.innerHTML = \`<div class="shortcut-icon"><img src="\${webapp.icon}" alt="\${name}"></div>\${nameSpan}\`;
+          div.innerHTML = \`<div class="shortcut-icon"><img src="\${webapp.icon}" alt="\${name}" class="custom-img"></div>\${nameSpan}\`;
         } else {
-          div.innerHTML = \`<div class="shortcut-icon"><img src="https://vip.123pan.cn/1836303614/dl/icon/webapp.png" alt="\${name}"></div>\${nameSpan}\`;
+          div.innerHTML = \`<div class="shortcut-icon"><img src="${browserUtils.cdn.webapp}" alt="\${name}" class="default-img"></div>\${nameSpan}\`;
           // 从URL中提取域名
           const url = new URL(webapp.link);
           const baseUrl = \`\${url.protocol}//\${url.hostname}\`;
@@ -3165,7 +3278,7 @@ browserController.prototype.homePageHtml = function(){
           function tryNextIcon() {
             if (currentPathIndex >= iconPaths.length) {
               // 如果所有路径都失败，使用默认图标
-              div.innerHTML = \`<div class="shortcut-icon"><img src="https://vip.123pan.cn/1836303614/dl/icon/webapp.png" alt="\${name}"></div>\${nameSpan}\`;
+              div.innerHTML = \`<div class="shortcut-icon"><img src="${browserUtils.cdn.webapp}" alt="\${name}" class="default-img"></div>\${nameSpan}\`;
               return;
             }
             
@@ -3173,7 +3286,7 @@ browserController.prototype.homePageHtml = function(){
             
             img.onload = function() {
               // 找到可用的图标，使用它
-              div.innerHTML = \`<div class="shortcut-icon"><img src="\${img.src}" alt="\${name}"></div>\${nameSpan}\`;
+              div.innerHTML = \`<div class="shortcut-icon"><img src="\${img.src}" alt="\${name}" class="default-img"></div>\${nameSpan}\`;
             };
             
             img.onerror = function() {
@@ -3210,7 +3323,7 @@ browserController.prototype.homePageHtml = function(){
       if (searchEngines[engine].icon) {
         selector.src = searchEngines[engine].icon;
       } else {
-        selector.src = 'https://vip.123pan.cn/1836303614/dl/icon/search.png';
+        selector.src = '${browserUtils.cdn.search}';
       }
       nameElement.textContent = searchEngines[engine].engine;
       document.getElementById('searchEngineDropdown').classList.remove('show');
@@ -3234,7 +3347,7 @@ browserController.prototype.homePageHtml = function(){
         if (item.icon) {
           icon = item.icon;
         } else {
-          icon = 'https://vip.123pan.cn/1836303614/dl/icon/search.png';
+          icon = '${browserUtils.cdn.search}';
         }
         dropdown.innerHTML += \`<div class="search-engine-option" onclick="changeSearchEngine('\${key}')">
           <img src="\${icon}" alt="\${item.engine}">
@@ -3294,6 +3407,8 @@ browserController.prototype.homePageHtml = function(){
 /** @this {browserController} */
 browserController.prototype.homePage = function() {
 try {
+
+
   MNUtil.stopHUD()
   this.webview.stopLoading();
   let homePage = browserConfig.getConfig("homePage")
@@ -3307,6 +3422,8 @@ try {
   }
   // return
   this.inHomePage = true
+  this.currentBvid = ""
+  this.currentP = 0
   
   // this.webview.loadFileURLAllowingReadAccessToURL(
   //   NSURL.fileURLWithPath(browserUtils.mainPath + '/milkdown.html'),
@@ -3337,6 +3454,16 @@ try {
     MNUtil.showHUD("No text to search")
     return
   }
+  // MNUtil.log({message:"text",detail:url})
+  // url = "https://fanyi.baidu.com/m/trans?from=en&to=zh&query=%E5%90%B4%E5%BF%97%E4%BC%9F%3B%2BAn%20empirical%2Bseasonal%2Bprediction%2Bmodel%2Bof%2Bthe%2Beast%2BAsian%2Bsummer%2Bmonsoon%2Busing%2BENSO%2Band%2BNAO%3B%2B2009"
+  // MNUtil.log({message:"text",detail:url})
+  // let host = MNUtil.genNSURL(browserConfig.entries[engine].link).host
+  // MNUtil.log("host: "+host)
+  // if (host === "fanyi.baidu.com") {
+  //   MNUtil.log({message:"old url",detail:url})
+  //   url = url.replace(/%20/g,"+")
+  //   MNUtil.log({message:"new url",detail:url})
+  // }
   this.setWebMode(browserConfig.entries[engine].desktop)
   if (this.webview.url !== url ) {
     this.webview.stopLoading()
@@ -3559,7 +3686,35 @@ browserController.prototype.updateThesaurusOffset = function() {
   });
   this.shouldCopy = false
   this.shouldComment = false
+}
+/** 
+* @description 获取当前网页的信息
+* @returns {Promise<{url:string, title:string, hasVideo:boolean, videoTime:number, urlConfig:{url: string, scheme: string, host: string, query: string ,params: any, pathComponents: string[], isBlank: boolean, fragment: string}}>} 当前网页的信息
+*/
+browserController.prototype.getCurrentWebInfo = async function() {
+  if(!this.webview || !this.webview.window) return;
+
+  let encodedInfo = await this.runJavaScript(`function currentWebInfo() {
+    let url = window.location.href
+    let title = document.title
+    let hasVideo = document.getElementsByTagName('video').length > 0
+    let info = {url, title, hasVideo}
+    if (hasVideo) {
+      info.videoTime = document.getElementsByTagName('video')[0].currentTime;
+    }
+    return encodeURIComponent(JSON.stringify(info))
+  }
+  currentWebInfo()
+  `)
+  let info = JSON.parse(decodeURIComponent(encodedInfo))
+  info.desktop = this.desktop ?? false
+  info.urlConfig = MNUtil.parseURL(info.url)
+  this.webview.url = info.url
+  // info.contentWidth = this.webview.scrollView.contentSize.width
+  // info.webviewWidth = this.webview.frame.width
+  return info
 };
+
 
 /** @this {browserController} */
 browserController.prototype.getCurrentURL = async function() {
@@ -3590,7 +3745,7 @@ browserController.prototype.getSelectedTextInWebview = async function() {
 /** @this {browserController} */
 browserController.prototype.getTextInWebview = async function() {
   let ret = await this.runJavaScript(`
-      function getSelectOrWholeText(){
+    function getSelectOrWholeText(){
 
       let selectionObj = null, rangeObj = null;
       let selectedText = "", selectedHtml = "";
@@ -3604,7 +3759,6 @@ browserController.prototype.getTextInWebview = async function() {
       }
     };
     getSelectOrWholeText()
-    // document.body.innerHTML;
     `)
   return ret
 }
@@ -3670,6 +3824,7 @@ browserController.prototype.settingViewLayout = function (){
     MNFrame.set(this.advanceView, 0, 40, width, height-10)
     MNFrame.set(this.syncView, 0, 40, width, height-10)
 
+
     this.setCustomButton1.frame = MNUtil.genFrame(5,0,width-10,35)
     this.setCustomButton2.frame = MNUtil.genFrame(5,40,width-10,35)
     this.setCustomButton3.frame = MNUtil.genFrame(5,80,width-10,35)
@@ -3717,6 +3872,12 @@ browserController.prototype.settingViewLayout = function (){
     settingFrame.x = 5
     settingFrame.y = 5
     settingFrame.height = 30
+    settingFrame.width = settingFrame.width-45
+    this.tabView.frame = settingFrame
+
+    settingFrame.x = 0
+    settingFrame.y = 0
+    settingFrame.height = 30
     settingFrame.width = this.configSearchButton.width
     this.configSearchButton.frame = settingFrame
     settingFrame.x = settingFrame.x + this.configSearchButton.width + 4.5
@@ -3732,6 +3893,7 @@ browserController.prototype.settingViewLayout = function (){
     settingFrame.width = this.advancedButton.width
     this.advancedButton.frame = settingFrame
     MNFrame.set(this.closeConfig, width - 35, 5, 30, 30)
+    this.tabView.contentSize = {width:settingFrame.x+settingFrame.width,height:30}
 
   } catch (error) {
     browserUtils.addErrorLog(error, "settingViewLayout")
@@ -3750,6 +3912,10 @@ try {
   this.settingView.layer.cornerRadius = 13
   this.settingView.hidden = true
   this.view.addSubview(this.settingView)
+
+  this.tabView = this.createScrollview("settingView","#aaaaaa",0.0)
+  this.tabView.alwaysBounceHorizontal = true
+  this.tabView.showsHorizontalScrollIndicator = false
 
   this.configSearchView = UIView.new()
   this.configSearchView.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.0)
@@ -3781,6 +3947,7 @@ try {
 
   // this.creatView("syncView",targetView,"#9bb2d6",0.0)
   // this.syncView.hidden = true
+  targetView = "tabView"
 
   this.createButton("configSearchButton","configSearchTapped:",targetView)
   // this.configSearchButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
@@ -3812,16 +3979,19 @@ try {
   size = this.advancedButton.sizeThatFits({width:100,height:100})
   this.advancedButton.width = size.width+15
 
-  this.createButton("closeConfig","closeConfigTapped:",targetView)
-  this.closeConfig.setImageForState(browserUtils.stopImage,0)
-  this.closeConfig.backgroundColor = MNUtil.hexColorAlpha("#e06c75",0.8)
-
   this.createButton("syncConfig","syncConfigTapped:",targetView)
   MNButton.setConfig(this.syncConfig, 
     {color:"#9bb2d6",alpha:0.8,opacity:1.0,title:"Sync",font:17,bold:true}
   )
   size = this.syncConfig.sizeThatFits({width:100,height:100})
   this.syncConfig.width = size.width+15
+
+  targetView = "settingView"
+
+  this.createButton("closeConfig","closeConfigTapped:",targetView)
+  this.closeConfig.setImageForState(browserUtils.stopImage,0)
+  this.closeConfig.backgroundColor = MNUtil.hexColorAlpha("#e06c75",0.8)
+
   
 
   targetView = "configSearchView"
@@ -4096,6 +4266,7 @@ browserController.prototype.setTextview = function (name) {
       if ("icon" in text) {
         config.icon = text.icon
       }
+      this.currentConfigBeforeSave = config
       this.textviewInput.text = JSON.stringify(config,null,2)
     }else{
       // let entries           = NSUserDefaults.standardUserDefaults().objectForKey('MNBrowser_webAppEntries');
@@ -4111,6 +4282,9 @@ browserController.prototype.setTextview = function (name) {
       if ("icon" in text) {
         config.icon = text.icon
       }
+      // browserUtils.log("setTextview", config)
+
+      this.currentConfigBeforeSave = config
       this.textviewInput.text = JSON.stringify(config,null,2)
     }
 
@@ -4180,16 +4354,22 @@ browserController.prototype.refreshLayout = function (refreshHomepage = false) {
     let initL = 0
     this.locs = [];
     this.words.map((word,index)=>{
+      let button = this["nameButton"+index]
+      if (this.configMode === 0) {
+        button.isSelected = word === this.configEngine
+      }else{
+        button.isSelected = word === this.webApp
+      }
       // let title = this.configMode===0?browserConfig.entries[word].title:browserConfig.webAppEntries[word].title
       // let width = strCode(title.replaceAll(" ",""))*9+15
-      let width = this["nameButton"+index].sizeThatFits({width:100,height:30}).width+15
+      let width = button.sizeThatFits({width:100,height:30}).width+15
 
       if (xLeft+initX+width > viewFrame.width-20) {
         initX = 8
         initY = initY+38
         initL = initL+1
       }
-      this["nameButton"+index].frame = {  x: xLeft+initX,  y: initY,  width: width,  height: 30,};
+      button.frame = {  x: xLeft+initX,  y: initY,  width: width,  height: 30,};
       this.locs.push({
         x:xLeft+initX,
         y:initY,
@@ -4214,14 +4394,20 @@ browserController.prototype.refreshLayout = function (refreshHomepage = false) {
     let initL = 0
     this.locs = [];
     this.words.map((word,index)=>{
-      let title = this.configMode===0?browserConfig.entries[word].title:browserConfig.webAppEntries[word].title
-      let width = this["nameButton"+index].sizeThatFits({width:100,height:30}).width+15
+      let button = this["nameButton"+index]
+      if (this.configMode === 0) {
+        button.isSelected = word === this.configEngine
+      }else{
+        button.isSelected = word === this.webApp
+      }
+      // let title = this.configMode===0?browserConfig.entries[word].title:browserConfig.webAppEntries[word].title
+      let width = button.sizeThatFits({width:100,height:30}).width+15
       if (xLeft+initX+width > viewFrame.width-20) {
         initX = 8
         initY = initY+38
         initL = initL+1
       }
-      this["nameButton"+index].frame = {  x: xLeft+initX,  y: initY,  width: width,  height: 30,};
+      button.frame = {  x: xLeft+initX,  y: initY,  width: width,  height: 30,};
       this.locs.push({
         x:xLeft+initX,
         y:initY,
@@ -4265,6 +4451,8 @@ browserController.prototype.setWebMode = function (desktop = false) {
     this.desktop = true
     // this.webview.customUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15'
     this.webview.customUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15'
+    // this.webview.customUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/604.1 Edg/139.0.0.0'
+    // this.webview.customUserAgent = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36'
     this.setAllButtonColor("#b5b5f5")
   }else{
     this.desktop = false
@@ -4324,6 +4512,8 @@ browserController.prototype.show = function (beginFrame,endFrame) {
   if (endFrame) {
     preFrame = endFrame
   }
+  // MNUtil.log({message:"show",preFrame})
+
   preFrame.height = MNUtil.constrain(preFrame.height, 100, studyFrame.height)
   preFrame.width = MNUtil.constrain(preFrame.width, 215, studyFrame.width)
   preFrame.x = MNUtil.constrain(preFrame.x, 0, studyFrame.width-preFrame.width)
@@ -4363,7 +4553,9 @@ browserController.prototype.show = function (beginFrame,endFrame) {
 }
 /** @this {browserController} */
 browserController.prototype.hide = function (frame) {
-  let preFrame = this.view.frame
+  let preFrame = this.currentFrame
+  this.view.frame = preFrame
+  // MNUtil.log({message:"hide",preFrame})
   let preOpacity = this.view.layer.opacity
   let preCustom = this.custom
   // let preFrame = this.view.frame
@@ -4376,6 +4568,7 @@ browserController.prototype.hide = function (frame) {
   if (frame) {
     this.webview.layer.borderWidth = 3
   }
+  this.onAnimate = true
   MNUtil.animate(()=>{
     this.view.layer.opacity = 0.2
     if (frame) {
@@ -4389,6 +4582,7 @@ browserController.prototype.hide = function (frame) {
     // MNUtil.copyJSON(this.view.currentFrame)
     this.webview.layer.borderWidth = 0
     this.custom = preCustom
+    this.onAnimate = false
   })
 }
 /** @this {browserController} */
@@ -4490,28 +4684,34 @@ try {
   browserUtils.addErrorLog(error, "refreshView")
 }
 }
-browserController.prototype.getCurrentURL = async function(url) {
-  return new Promise((resolve, reject) => {
-    if(!this.webview || !this.webview.window)return;
-    this.webview.evaluateJavaScript(
-      `window.location.href`,
-      (ret) => {
-        this.webview.url = ret
-        resolve(ret)
-      }
-    );
-  })
-};
+browserController.prototype.sameVideo = function (bvid,p) {
+  // browserUtils.log("openOrJump", {currentBvid:this.currentBvid,bvid:bvid,p:p})
+  if (!this.currentBvid) {
+    return false
+  }
+  if (this.currentBvid !== bvid) {
+    // browserUtils.log("not same videoId")
+    return false
+  }
+  if (this.currentP) {
+    // browserUtils.log("is same p: "+(this.currentP === p))
+    return this.currentP === p
+  }else{
+    if (p) {
+      return false
+    }
+  }
+  // browserUtils.log("is same videoId and p")
+  return true
+}
 /** @this {browserController} */
 browserController.prototype.openOrJump = async function(bvid,time = 0,p) {
 try {
-  
-
   if (this.view.hidden) {
     MNUtil.showHUD(`window is hidden`)
     return
   }
-  let timestamp = await this.getTimestamp()
+  // let timestamp = await this.getTimestamp()
 
   // await this.getCurrentURL()
 
@@ -4523,8 +4723,8 @@ try {
   //   this.currentBvid = ""
   // }
   let formatedVideoTime = browserUtils.formatSeconds(parseFloat(time))
-  if (this.currentBvid && this.currentBvid === bvid && (this.currentP === p)) {
-    MNUtil.showHUD(`Jump to ${formatedVideoTime}`)
+  if (this.sameVideo(bvid, p)) {
+    this.showHUD(`Jump to ${formatedVideoTime}`)
     this.runJavaScript(`document.getElementsByTagName("video")[0].currentTime = ${time}`)
   }else{
     //  Application.sharedInstance().showHUD("should open", this.view.window, 2);
@@ -4533,7 +4733,7 @@ try {
     if (p) {
       url = url+"&p="+p
     }
-    MNUtil.showHUD(url)
+    this.showHUD(url)
     this.setWebMode(true)
     // MNConnection.loadRequest(this.webview, url)
     this.runJavaScript(`window.location.href="${url}"`)
@@ -4577,34 +4777,53 @@ try {
 };
 /** @this {browserController} */
 browserController.prototype.getTimestamp = async function(){
-  let videoTime = await this.runJavaScript(`document.getElementsByTagName('video')[0].currentTime.toFixed(2);`)
-  if (videoTime) {
-    let url = await this.runJavaScript(`window.location.href`)
-    let res = url.match(/(?<=bilibili.com\/video\/)\w+/);
-    if (res) {
-      let timestamp = {time:parseFloat(videoTime),bv:res[0]}
+  let webInfo = await this.getCurrentWebInfo()
+  // browserUtils.log("webInfo", webInfo)
+  if (webInfo.hasVideo) {
+    let config = webInfo.urlConfig
+    let videoTime = webInfo.videoTime.toFixed(2)
+    if (config.host === "www.bilibili.com") {
+      let timestamp = {time:parseFloat(videoTime),bv:config.pathComponents[1]}
       this.currentBvid = timestamp.bv
-      let testP = url.match(/(?<=bilibili.com\/video\/.+(\?|&)p\=)\d+/);
-      if (testP) {
-        timestamp.p = parseInt(testP[0])
+      if ("p" in config.params) {
+        timestamp.p = parseInt(config.params.p)
         this.currentP = timestamp.p
       }else{
         this.currentP = 0
       }
-      // https://www.bilibili.com/video/BV1F34y1h7so/?p=4
-      // https://www.bilibili.com/video/BV1F34y1h7so?p=4
       return timestamp
     }
     this.currentBvid = ""
     this.currentP = 0
     return {time:parseFloat(videoTime)}
   }
+  // let videoTime = await this.runJavaScript(`document.getElementsByTagName('video')[0].currentTime.toFixed(2);`)
+  // if (videoTime) {
+  //   let url = await this.getCurrentURL()
+  //   let res = url.match(/(?<=bilibili.com\/video\/)\w+/);
+  //   if (res) {
+  //     let timestamp = {time:parseFloat(videoTime),bv:res[0]}
+  //     this.currentBvid = timestamp.bv
+  //     let testP = url.match(/(?<=bilibili.com\/video\/.+(\?|&)p\=)\d+/);
+  //     if (testP) {
+  //       timestamp.p = parseInt(testP[0])
+  //       this.currentP = timestamp.p
+  //     }else{
+  //       this.currentP = 0
+  //     }
+  //     // https://www.bilibili.com/video/BV1F34y1h7so/?p=4
+  //     // https://www.bilibili.com/video/BV1F34y1h7so?p=4
+  //     return timestamp
+  //   }
+  //   this.currentBvid = ""
+  //   this.currentP = 0
+  //   return {time:parseFloat(videoTime)}
+  // }
   return undefined
 }
 /** @this {browserController} */
-browserController.prototype.getVideoFrameInfo = async function(){
-try {
-    let imageBase64 = await this.runJavaScript(`
+browserController.prototype.getVideoFrameBase64 = async function(){
+let imageBase64 = await this.runJavaScript(`
 function getImage() {
 // try {
   const video = document.getElementsByTagName('video')[0];
@@ -4614,29 +4833,44 @@ function getImage() {
   canvas.width = video.videoWidth*2;
   canvas.height = video.videoHeight*2;
   context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/png');
+  return canvas.toDataURL('image/jpeg',1.0);
 // } catch (error) {
 //   return error.toString()
 // }
 };
 getImage();
 `)
-    if (browserUtils.isNSNull(imageBase64)) {
-        MNUtil.showHUD("Capture video frame failed!")
+return imageBase64
+}
+
+/** 
+* @this {browserController} 
+* @returns {Promise<{image:string,time:number,bv:string,p:number}>}
+*/
+browserController.prototype.getVideoFrameInfo = async function(){
+try {
+    let timestamp = await this.getTimestamp()
+    if (!timestamp) {
       return undefined
-      let width = this.view.frame.width>1000?this.view.frame.width:1000
-      let image = await this.screenshot(width)
-      if (!image) {
-        MNUtil.showHUD("Capture video frame failed!")
-        return undefined
-      }
-      imageBase64 = 'data:image/png;base64,'+image.base64Encoding()
     }
-    // let videoTime = await this.runJavaScript(`document.getElementsByTagName('video')[0].currentTime.toFixed(2);`)
-    let timestamp = await this.getTimestamp(this.webview.url)
-    if (timestamp) {
+    let imageBase64 = await this.getVideoFrameBase64()
+    if (imageBase64) {
       timestamp.image = imageBase64
     }
+
+    // if (browserUtils.isNSNull(imageBase64)) {
+    //     MNUtil.showHUD("Capture video frame failed!")
+    //   return undefined
+    //   let width = this.view.frame.width>1000?this.view.frame.width:1000
+    //   let image = await this.screenshot(width)
+    //   if (!image) {
+    //     MNUtil.showHUD("Capture video frame failed!")
+    //     return undefined
+    //   }
+    //   imageBase64 = 'data:image/png;base64,'+image.base64Encoding()
+    // }
+    // let videoTime = await this.runJavaScript(`document.getElementsByTagName('video')[0].currentTime.toFixed(2);`)
+
     return timestamp
 
 
@@ -4687,11 +4921,30 @@ getImage();
 }
 
 /**
- * 
+ * @this {browserController}
  * @param {*} width 
  * @returns {Promise<NSData>}
  */
 browserController.prototype.screenshot = async function(width){
+  if (!MNUtil.isMacOS()) {
+    let webInfo = await this.getCurrentWebInfo()
+    if (webInfo.hasVideo) {
+      let confirm = await MNUtil.confirm("🌐 MN Browser","检测到当前网页有视频标签，是否启用视频截图？\n\nPS：iPad/iOS端普通截图无法截取视频内容，需启用视频截图")
+      if (confirm) {
+        let videoFrameInfo = await this.getVideoFrameInfo()
+        if (videoFrameInfo && "image" in videoFrameInfo) {
+          let imageData = MNUtil.dataFromBase64(videoFrameInfo.image,"jpeg")
+          MNUtil.copyImage(imageData)
+          MNUtil.showHUD('✅ 视频截图已复制到剪贴板')
+          return imageData
+        }else{
+          MNUtil.showHUD("❌ 视频截图失败")
+          return undefined
+        }
+      }
+    }
+  }
+
   return new Promise((resolve, reject) => {
     this.webview.takeSnapshotWithWidth(width,(snapshot)=>{
       resolve(snapshot.pngData())
@@ -4699,12 +4952,14 @@ browserController.prototype.screenshot = async function(width){
   })
 }
 
-browserController.prototype.videoFrameAction= async function(target){
-    if (!browserUtils.checkSubscribe(true)) {
-      return
-    }
+browserController.prototype.videoFrameAction= async function(target,needSubscribe = true){
+    // let needSubscribe = (target !== "clipboard") && (target !== "snipaste")
     let videoFrameInfo= await this.getVideoFrameInfo()
     if (!videoFrameInfo) {
+      this.showHUD("No video frame found")
+      return
+    }
+    if (!browserUtils.checkSubscribe(true)) {
       return
     }
     let focusNote = MNNote.getFocusNote()
@@ -4839,8 +5094,7 @@ browserController.prototype.videoTimeAction= async function(target){
     if (!browserUtils.checkSubscribe(true)) {
       return
     }
-    let videoFrameInfo = await this.getTimestamp(this.webview.url)
-    // let videoFrameInfo= await this.getVideoFrameInfo()
+    let videoFrameInfo = await this.getTimestamp()
     if (!videoFrameInfo) {
       return
     }
@@ -4853,7 +5107,7 @@ try {
     switch (target) {
       case "clipboard":
         MNUtil.copy(formatedLink)
-        MNUtil.showHUD('视频时间戳已复制到剪贴板')
+        this.showHUD('视频时间戳已复制到剪贴板')
         break;
       case "editor":
         MNUtil.postNotification("editorInsert", {
@@ -4864,14 +5118,13 @@ try {
         break;
       case "excerpt":
         if (!focusNote) {
-          MNUtil.showHUD("No note selected!")
+          this.showHUD("No note selected!")
           return
         }
         if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoTime → Excerpt")
+          this.showHUD("videoTime → Excerpt")
           if (focusNote.excerptPic && !focusNote.textFirst) {
             this.webview.endEditing(true)
-            MNUtil.excuteCommand("EditTextMode")
           }
           let MDVideoInfo = formatedLink
           let excerptText = (focusNote.excerptText??"")+`\n`+MDVideoInfo
@@ -4883,11 +5136,11 @@ try {
         break;
       case "childNote":
         if (!focusNote) {
-          MNUtil.showHUD("No note selected!")
+          this.showHUD("No note selected!")
           return
         }
         if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoTime → ChildNote")
+          this.showHUD("videoTime → ChildNote")
           let MDVideoInfo = formatedLink
           let config = {excerptText:MDVideoInfo,excerptTextMarkdown:true}
           let childNote = focusNote.createChildNote(config)
@@ -4896,11 +5149,11 @@ try {
         break;
       case "comment":
         if (!focusNote) {
-          MNUtil.showHUD("No note selected!")
+          this.showHUD("No note selected!")
           return
         }
         if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoTime → Comment")
+          this.showHUD("videoTime → Comment")
           let MDVideoInfo = formatedLink
             MNUtil.undoGrouping(()=>{
               focusNote.appendMarkdownComment(MDVideoInfo)
@@ -4909,7 +5162,7 @@ try {
         break;
       case "newNote":
         if ("bv" in videoFrameInfo) {
-          MNUtil.showHUD("videoTime → ChildNote")
+          this.showHUD("videoTime → ChildNote")
           let MDVideoInfo = formatedLink
           let config = {excerptText:MDVideoInfo,excerptTextMarkdown:true}
           let mindmap = MNUtil.mindmapView.mindmapNodes[0].note.childMindMap
@@ -4918,7 +5171,7 @@ try {
             let childNote = MNNote.new(mindmap).createChildNote(config)
             childNote.focusInMindMap(0.5)
           }else{
-            MNUtil.showHUD("Create in main mindmap")
+            this.showHUD("Create in main mindmap")
             MNUtil.undoGrouping(()=>{
               let newNote = MNNote.new(config)
               newNote.focusInMindMap(0.5)
@@ -4927,7 +5180,7 @@ try {
         }
         break;
       default:
-        MNUtil.showHUD("Unsupported action: "+target)
+        this.showHUD("Unsupported action: "+target)
         break;
     }
   } catch (error) {
@@ -4978,6 +5231,8 @@ browserController.prototype.showHUD = function (title,duration = 1.5,view = this
  */
 browserController.prototype.openSetting = function(targetView){
 if (this.view.popoverController) {this.view.popoverController.dismissPopoverAnimated(true);}
+try {
+
     // this.settingController.view.hidden = false
     if (!this.settingView) {
       this.createSettingView()
@@ -4990,6 +5245,7 @@ if (this.view.popoverController) {this.view.popoverController.dismissPopoverAnim
     this.view.frame = frame
     this.currentFrame = frame
     if (targetView === "webApp") {
+      MNUtil.log("webapp: "+this.webApp)
       this.configSearchView.hidden = false
       this.advanceView.hidden = true
       this.syncView.hidden = true
@@ -5024,6 +5280,10 @@ if (this.view.popoverController) {this.view.popoverController.dismissPopoverAnim
     } catch (error) {
       browserUtils.addErrorLog(error, "openSettingView")
     }
+  
+} catch (error) {
+  browserUtils.addErrorLog(error, "openSettingView")
+}
 }
 /**
  * @this {browserController}
@@ -5058,11 +5318,30 @@ browserController.prototype.waitHUD = function (title,view = this.view) {
 /**
  * @this {browserController}
  */
-browserController.prototype.uploadPDFToDoc2XByBase64 = async function (fileBase64,fileName) {
+browserController.prototype.uploadPDFByBase64 = async function (fileBase64,fileName,source = "doc2x") {
+let dropZoneJS = ``
+switch (source) {
+  case "doc2x":
+  case "ima":
+  case "kimi":
+  case "deepseek":
+    dropZoneJS = `document.body;`
+    break;
+  case "qwen":
+  case "zhipu":
+    dropZoneJS = `document.getElementById("chat-container");`
+    break;
+  case "yuanbao":
+    dropZoneJS = `document.getElementsByClassName("agent-dialogue__content-wrapper")[0];`
+    break;
+  default:
+    dropZoneJS = `document.body;`
+    break;
+}
 this.runJavaScript(`
 function uploadPDFBase64(filebase64,fileName) {
   // 1. 获取页面的拖放区域
-  const dropZone = document.body;
+  const dropZone = ${dropZoneJS};
 
   // 2. 直接使用原始Base64数据
   const base64PDF = filebase64;
@@ -5081,6 +5360,152 @@ function uploadPDFBase64(filebase64,fileName) {
     const blob = new Blob([bytes.buffer], { type: 'application/pdf' });
     const file = new File([blob], fileName, { 
       type: 'application/pdf',
+      lastModified: Date.now()
+    });
+
+    // 5. 创建自定义DataTransfer对象
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+
+    // 6. 创建并触发拖拽事件序列
+    const events = [
+      new DragEvent('dragenter', { bubbles: true, dataTransfer, view: window }),
+      new DragEvent('dragover', { 
+        bubbles: true, 
+        dataTransfer, 
+        cancelable: true, 
+        view: window 
+      }),
+      new DragEvent('drop', { 
+        bubbles: true, 
+        dataTransfer, 
+        cancelable: true, 
+        view: window 
+      })
+    ];
+    
+    events.forEach(event => dropZone.dispatchEvent(event));
+    
+    console.log('✅ PDF文件重建成功，拖拽事件已触发');
+    
+  } catch (error) {
+    console.error('⚠️ 文件重建失败:', error);
+    console.warn('Base64长度:', base64PDF.length);
+    console.warn('前100字符:', base64PDF.substring(0, 100));
+  }
+}
+uploadPDFBase64("${fileBase64}","${fileName}")
+`)
+}
+/**
+ * 用不了
+ * @this {browserController}
+ */
+browserController.prototype.uploadPDFToDoubaoByBase64 = async function (fileBase64,fileName) {
+
+let js = `function uploadPDFBase64(filebase64,fileName) {
+  // 1. 获取页面的拖放区域
+  const dropZone = document.querySelector('[class*="drop-area-"]');
+try {
+    // ✅ Base64 解码（确保无header前缀）
+    let base64 = filebase64;
+    if (base64.includes(',')) {
+      base64 = base64.split(',')[1]; // 移除 data:application/pdf;base64,
+    }
+    const binaryStr = atob(base64);
+    const len = binaryStr.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    // 📄 构造 Blob 和 File
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const file = new File([blob], fileName || 'document.pdf', {
+      type: 'application/pdf',
+      lastModified: Date.now()
+    });
+    // 💾 创建 DataTransfer 并注入文件
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    // 🛠 添加临时监听器，强制阻止默认行为
+    ['dragenter', 'dragover', 'drop'].forEach(eventType => {
+      const listener = e => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer = dt;
+      };
+      dropZone.addEventListener(eventType, listener);
+      // 100ms后自动移除，防止干扰后续交互
+      setTimeout(() => dropZone.removeEventListener(eventType, listener), 100);
+    });
+    // 🚀 按顺序触发事件
+    const triggerEvent = (type, opts) => {
+      const event = new DragEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+        dataTransfer: dt,
+        ...opts
+      });
+      dropZone.dispatchEvent(event);
+    };
+    triggerEvent('dragenter');
+    triggerEvent('dragover');
+    triggerEvent('drop');
+    console.log('📤 成功发送模拟拖拽上传事件');
+  } catch (err) {
+    console.error('❌ 文件构造失败:', err);
+  }
+}
+uploadPDFBase64("${fileBase64}","${fileName}")
+`
+this.runJavaScript(js)
+}
+/**
+ * @this {browserController}
+ */
+browserController.prototype.uploadImageByBase64 = async function (fileBase64,fileName,source = "doc2x") {
+let dropZoneJS = ``
+switch (source) {
+  case "doc2x":
+  case "ima":
+  case "kimi":
+  case "deepseek":
+    dropZoneJS = `document.body;`
+    break;
+  case "qwen":
+  case "zhipu":
+    dropZoneJS = `document.getElementById("chat-container");`
+    break;
+  case "yuanbao":
+    dropZoneJS = `document.getElementsByClassName("agent-dialogue__content-wrapper")[0];`
+    break;
+  default:
+    dropZoneJS = `document.body;`
+    break;
+}
+this.runJavaScript(`
+function uploadPDFBase64(filebase64,fileName) {
+  // 1. 获取页面的拖放区域
+  const dropZone = ${dropZoneJS};
+
+  // 2. 直接使用原始Base64数据
+  const base64PDF = filebase64;
+  
+  try {
+    // 3. 正确解析Base64并重建文件
+    const binaryString = atob(base64PDF);
+    const bytes = new Uint8Array(binaryString.length);
+    
+    // 逐个字符转换为字节值
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i) & 0xFF;
+    }
+    
+    // 4. 创建有效的PDF文件
+    const blob = new Blob([bytes.buffer], { type: 'image/png' });
+    const file = new File([blob], fileName, { 
+      type: 'image/png',
       lastModified: Date.now()
     });
 
@@ -5184,8 +5609,16 @@ uploadPDFBase64("${fileBase64}","${fileName}")
 /**
  * @this {browserController}
  */
-browserController.prototype.fileTypeFromBase64 = function(prefix) {
-  if (prefix.includes("octet-stream") || prefix.includes("application/pdf")) {
+browserController.prototype.fileTypeFromBase64 = function(content) {
+  let tem = content.split(",")
+  let prefix = tem[0]
+
+  if (prefix.includes("octet-stream")) {//需要进一步判断
+    //通过base64前几个字符判断
+    let type = browserUtils.getBase64UrlFileType(content)
+    return type
+  }
+  if (prefix.includes("application/pdf")) {
     return "pdf"
   }
   if (prefix.includes("html")) {
@@ -5222,7 +5655,8 @@ browserController.prototype.importImageFromBase64 = async function(imageBase64,b
  */
 browserController.prototype.importPDFFromBase64Doc2X = async function(base64PDF,blobUrl) {
   // MNUtil.copy(base64PDF)
-  let tem = base64PDF.split(",")
+  // let tem = base64PDF.split(",")
+  // browserUtils.log("tem",tem)
   // let type = this.fileTypeFromBase64(tem[0])
   // if (type !== "pdf") {
   //   MNUtil.confirm("MN Browser","Not support file type: "+type)
@@ -5231,10 +5665,16 @@ browserController.prototype.importPDFFromBase64Doc2X = async function(base64PDF,
   this.runJavaScript(`window.URL.revokeObjectURL("${blobUrl}");`)
   MNUtil.waitHUD("Importing PDF...")
   await MNUtil.delay(0.1)
-  let pdfData = NSData.dataWithContentsOfURL(NSURL.URLWithString("data:application/pdf;base64,"+tem[1]))
+  // let pdfData = NSData.dataWithContentsOfURL(NSURL.URLWithString("data:application/pdf;base64,"+tem[1]))
+  let pdfData = NSData.dataWithContentsOfURL(NSURL.URLWithString(base64PDF))
+  // let size = pdfData.length()
+  // MNUtil.log("PDF Size: "+size)
   let fileName = await this.runJavaScript(`document.getElementsByClassName("doc2x-cander-breadcrumbs-item")[0].childNodes[0].textContent;`)
   fileName = fileName.replace(".pdf","")+"_translated.pdf"
-  let userInput = await MNUtil.input("MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:\n\n${fileName}`, ["Cancel / 取消","Default / 默认","Confirm / 确认"])
+  let option = {
+    default:fileName,
+  }
+  let userInput = await MNUtil.input("🌐 MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:`, ["Cancel / 取消","Confirm / 确认"],option)
   // MNUtil.copy(userInput)
   switch (userInput.button) {
     case 0:
@@ -5245,20 +5685,19 @@ browserController.prototype.importPDFFromBase64Doc2X = async function(base64PDF,
         fileName = userInput.input.trim().replace(".pdf","").replace(" ","_")+".pdf"
       }
       break;
-    case 2:
-      break;
     default:
       break;
   }
+  MNUtil.createFolderDev(MNUtil.documentFolder+"/WebDownloads")
   let targetPath = MNUtil.documentFolder+"/WebDownloads/"+fileName
   pdfData.writeToFileAtomically(targetPath, false)
   let docMd5 = MNUtil.importDocument(targetPath)
   if (typeof snipasteUtils !== 'undefined') {
     MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
   }else{
-    let confirm = await MNUtil.confirm("MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
+    let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
     if (confirm) {
-      MNUtil.openDoc(md5,MNUtil.currentNotebookId)
+      MNUtil.openDoc(docMd5,MNUtil.currentNotebookId)
       if (MNUtil.docMapSplitMode === 0) {
         MNUtil.studyController.docMapSplitMode = 1
       }
@@ -5300,18 +5739,20 @@ browserController.prototype.importPDFFromBase64MoreDraw = async function(base64P
   }
   getTtile()`)
   let fileName = res ? (res+".pdf") : ("moredraw_"+Date.now()+".pdf")
-  let userInput = await MNUtil.input("MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:\n\n${fileName}`, ["Cancel / 取消","Default / 默认","Confirm / 确认"])
+  let option = {
+    default:fileName,
+  }
+  let userInput = await MNUtil.input("🌐 MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:`, ["Cancel / 取消","Confirm / 确认"],option)
   // MNUtil.copy(userInput)
   switch (userInput.button) {
     case 0:
       MNUtil.stopHUD()
       return
     case 1:
+    case 2:
       if (userInput.input.trim()) {
         fileName = userInput.input.trim().replace(".pdf","").replace(" ","_")+".pdf"
       }
-      break;
-    case 2:
       break;
     default:
       break;
@@ -5322,7 +5763,7 @@ browserController.prototype.importPDFFromBase64MoreDraw = async function(base64P
   if (typeof snipasteUtils !== 'undefined') {
     MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
   }else{
-    let confirm = await MNUtil.confirm("MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
+    let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
     if (confirm) {
       MNUtil.openDoc(md5,MNUtil.currentNotebookId)
       if (MNUtil.docMapSplitMode === 0) {
@@ -5332,8 +5773,113 @@ browserController.prototype.importPDFFromBase64MoreDraw = async function(base64P
   }
   MNUtil.stopHUD()
 }
-function name(params) {
-  
+browserController.prototype.importPDFFromBase64BoardMix = async function(base64PDF,blobUrl) {
+ // MNUtil.copy(base64PDF)
+  let tem = base64PDF.split(",")
+
+  this.runJavaScript(`window.URL.revokeObjectURL("${blobUrl}");`)
+  MNUtil.waitHUD("Importing PDF...")
+  await MNUtil.delay(0.1)
+  let pdfData = NSData.dataWithContentsOfURL(NSURL.URLWithString("data:application/pdf;base64,"+tem[1]))
+  let res = await this.runJavaScript(`function getTtile() {
+    let title = document.title
+    if (title && title.trim()) {
+      return title.replace(" - boardmix","")
+    }
+    let element = document.getElementsByClassName("file-header--title")[0]
+    title = element.textContent
+    return title
+  }
+  getTtile()`)
+  let fileName = (res ? (res+".pdf") : ("boardmix_"+Date.now()+".pdf"))
+  let option = {
+    default:fileName,
+  }
+  let userInput = await MNUtil.input("🌐 MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:`, ["Cancel / 取消","Confirm / 确认"],option)
+  // MNUtil.copy(userInput)
+  switch (userInput.button) {
+    case 0:
+      MNUtil.stopHUD()
+      return
+    case 1:
+    case 2:
+      if (userInput.input.trim()) {
+        fileName = userInput.input.trim().replace(".pdf","").replace(" ","_")+".pdf"
+      }
+      break;
+    default:
+      break;
+  }
+  let targetPath = MNUtil.documentFolder+"/WebDownloads/"+fileName
+  pdfData.writeToFileAtomically(targetPath, false)
+  let docMd5 = MNUtil.importDocument(targetPath)
+  if (typeof snipasteUtils !== 'undefined') {
+    MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
+  }else{
+    let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
+    if (confirm) {
+      MNUtil.openDoc(md5,MNUtil.currentNotebookId)
+      if (MNUtil.docMapSplitMode === 0) {
+        MNUtil.studyController.docMapSplitMode = 1
+      }
+    }
+  }
+  MNUtil.stopHUD()
+}
+
+browserController.prototype.importPDFFromBase64FireflyCard = async function(base64PDF,blobUrl) {
+ // MNUtil.copy(base64PDF)
+  let tem = base64PDF.split(",")
+
+  this.runJavaScript(`window.URL.revokeObjectURL("${blobUrl}");`)
+  MNUtil.waitHUD("Importing PDF...")
+  await MNUtil.delay(0.1)
+  let pdfData = NSData.dataWithContentsOfURL(NSURL.URLWithString("data:application/pdf;base64,"+tem[1]))
+  // let res = await this.runJavaScript(`function getTtile() {
+  //   let title = document.title
+  //   if (title && title.trim()) {
+  //     return title.replace(" - boardmix","")
+  //   }
+  //   let element = document.getElementsByClassName("file-header--title")[0]
+  //   title = element.textContent
+  //   return title
+  // }
+  // getTtile()`)
+  // let fileName = (res ? (res+".pdf") : ("boardmix_"+Date.now()+".pdf"))
+  let fileName = ("fireflycard_"+Date.now()+".pdf")
+  let option = {
+    default:fileName,
+  }
+  let userInput = await MNUtil.input("🌐 MN Browser", `Please enter the file name or using Default.\n\n请输入下载的文件名,或使用默认名:`, ["Cancel / 取消","Confirm / 确认"],option)
+  // MNUtil.copy(userInput)
+  switch (userInput.button) {
+    case 0:
+      MNUtil.stopHUD()
+      return
+    case 1:
+    case 2:
+      if (userInput.input.trim()) {
+        fileName = userInput.input.trim().replace(".pdf","").replace(" ","_")+".pdf"
+      }
+      break;
+    default:
+      break;
+  }
+  let targetPath = MNUtil.documentFolder+"/WebDownloads/"+fileName
+  pdfData.writeToFileAtomically(targetPath, false)
+  let docMd5 = MNUtil.importDocument(targetPath)
+  if (typeof snipasteUtils !== 'undefined') {
+    MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
+  }else{
+    let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
+    if (confirm) {
+      MNUtil.openDoc(md5,MNUtil.currentNotebookId)
+      if (MNUtil.docMapSplitMode === 0) {
+        MNUtil.studyController.docMapSplitMode = 1
+      }
+    }
+  }
+  MNUtil.stopHUD()
 }
 /**
  * @this {browserController}
@@ -5387,33 +5933,31 @@ blobUrlToBase64("${requestURL}")
 /**
  * @this {browserController}
  */
-browserController.prototype.uploadPDFToDoc2X = async function (document = MNUtil.currentDoc) {
+browserController.prototype.uploadPDF = async function (document = MNUtil.currentDoc,source = "doc2x") {
 
   this.waitHUD("Uploading file...")
   await MNUtil.delay(0.1)
   let fileName = document.docTitle.replace(/"/g, '\\"')+".pdf"
   let fileBase64 = MNUtil.getFile(document.fullPathFileName).base64Encoding().replace(/"/g, '\\"')
-  this.uploadPDFToDoc2XByBase64(fileBase64, fileName)
+  this.uploadPDFByBase64(fileBase64, fileName, source)
   MNUtil.stopHUD(0.5)
-  // self.runJavaScript(`
-  //   if(window.location.href !== 'https://doc2x.noedgeai.com/'){
-  //     window.location.href = 'https://doc2x.noedgeai.com/';
-  //   }
-  // `)
 }
+
 /**
  * @this {browserController}
  */
-browserController.prototype.uploadImageToDoc2X = async function (currentImage = browserUtils.getCurrentImage()) {
+browserController.prototype.uploadImage = async function (currentImage = browserUtils.getCurrentImage(),source = "doc2x") {
   if (!currentImage) {
     MNUtil.showHUD("No image selected")
     return
   }
-      this.waitHUD("Uploading file...")
-      await MNUtil.delay(0.1)
-      let fileName = "image.png"
-      let fileBase64 = currentImage.base64Encoding().replace(/"/g, '\\"')
-      await this.uploadImageToDoc2XByBase64(fileBase64, fileName)
+    this.waitHUD("Uploading file...")
+    await MNUtil.delay(0.1)
+    let fileName = "image.png"
+    let fileBase64 = currentImage.base64Encoding().replace(/"/g, '\\"')
+    await this.uploadImageByBase64(fileBase64, fileName, source)
+    // await this.uploadImageToDoc2XByBase64(fileBase64, fileName)
+    if (source === "doc2x") {
       await MNUtil.stopHUD(0.5)
       let currentURL = await this.getCurrentURL()
       // MNUtil.log(currentURL)
@@ -5446,6 +5990,8 @@ browserController.prototype.uploadImageToDoc2X = async function (currentImage = 
       let res = await this.runJavaScript(`document.getElementById("txta_input").textContent`)
       MNUtil.copy(res)
       this.showHUD("识别结果已复制")
+    }
+
 }
 /**
  * 
@@ -5475,7 +6021,7 @@ try {
     defaultName = title+".pdf"
   }
   let option = {}
-  let userInput = await MNUtil.input("MN Browser","Please input the name of the document\n\n请输入文档名称\n\nDefault: "+defaultName+"\n\nFile Size: "+fileSize.toFixed(2)+"MB",["Cancel",defaultName,"Confirm"])
+  let userInput = await MNUtil.input("🌐 MN Browser","Please input the name of the document\n\n请输入文档名称\n\nDefault: "+defaultName+"\n\nFile Size: "+fileSize.toFixed(2)+"MB",["Cancel",defaultName,"Confirm"])
   if (userInput.button === 0) {
     return
   }
@@ -5595,25 +6141,19 @@ let encodedPartInfo = await this.runJavaScript(`
 }
 
 browserController.prototype.enableWideMode = async function() {
-    let scrollview = this.webview.scrollView
-  let webWidth = scrollview.contentSize.width
-  let notWide = (scrollview.zoomScale - scrollview.minimumZoomScale < 0.01) && (webWidth/this.view.frame.width > 1.1)
-    // MNUtil.log({
-    //   message:"enableWideMode",
-    //   detail:{
-    //     maximumZoomScale:scrollview.maximumZoomScale,
-    //     minimumZoomScale:scrollview.minimumZoomScale,
-    //     zoomScale:scrollview.zoomScale,
-    //     possibleZoomScales:webWidth/this.view.frame.width,
-    //     notWide:notWide
-    //   }
-    // })
-
-  // MNUtil.log(webWidth)
-  // MNUtil.log(this.view.frame.width)
-              if (this.view.frame.width < 700 && !notWide) {
-                
-                this.runJavaScript(`
+  let contentWidth = this.webview.scrollView.contentSize.width
+  let webviewWidth = this.webview.frame.width
+  if (this.view.frame.width < 700 && (contentWidth/webviewWidth) < 1.1) {
+    await this.runJavaScript(`
+function enableWideMode() {
+  let isFullScreen = document.getElementsByClassName("mode-webscreen").length > 0
+  if (isFullScreen) {
+    return
+  }
+  let isWideMode = document.querySelectorAll('[data-screen="wide"]').length > 0
+  if (isWideMode) {
+    return
+  }
 // 存储 interval ID
 const intervalId = setInterval(() => {
   const wideButton = document.querySelector('.bpx-player-ctrl-btn.bpx-player-ctrl-wide');
@@ -5622,7 +6162,498 @@ const intervalId = setInterval(() => {
     clearInterval(intervalId); // 取消 interval
     document.getElementById("biliMainHeader").style.display = 'none'
   }
-}, 1000);`)
+}, 1000);
+}
+enableWideMode()
+`)
+    }
+  this.updateBilibiliOffset()
+
+}
+browserController.prototype.exitWideMode = async function() {
+  if (this.view.frame.width > 800) {
+    await this.runJavaScript(`
+function exitWideMode() {
+  let isFullScreen = document.getElementsByClassName("mode-webscreen").length > 0
+  if (isFullScreen) {
+    return
+  }
+  let isWideMode = document.querySelectorAll('[data-screen="wide"]').length > 0
+  if (!isWideMode) {
+    return
+  }
+// 存储 interval ID
+const intervalId = setInterval(() => {
+  const wideButton = document.querySelector('.bpx-player-ctrl-btn.bpx-player-ctrl-wide');
+  if (wideButton) {
+    wideButton.click(); // 点击按钮
+    clearInterval(intervalId); // 取消 interval
+    document.getElementById("biliMainHeader").style.display = 'none'
+  }
+}, 1000);
+}
+exitWideMode()
+`)
               }
-                this.updateBilibiliOffset()
+  this.updateBilibiliOffset()
+}
+browserController.prototype.changeWebAppTo = function(webApp) {
+    if (webApp) {
+      this.webApp = webApp;
+    }
+    let config = browserConfig.webAppEntries[this.webApp]
+    var url = config.link
+    MNUtil.showHUD("Changing WebApp to "+config.title)
+
+    this.setWebMode(config.desktop)
+    this.inHomePage = false
+    if (this.webview.url !== url) {
+      MNConnection.loadRequest(this.webview, url)
+      this.webview.hidden = false
+      return
+    }
+}
+browserController.prototype.executeCustomAction = async function(action) {
+    let url
+    let text
+    let res = ""
+    let success = true
+    switch (action) {
+      case "uploadPDF":
+        let sourceInfo = await this.getWebSource()
+        if (!sourceInfo) {
+          this.showHUD("No source found")
+          return false
+        }
+        this.uploadPDF(undefined,sourceInfo.source)
+        break;
+      case "uploadPDFToDoc2X":
+        if (!(await this.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
+          MNUtil.waitHUD("Opening Doc2X...")
+          this.setWebMode(true)
+          MNConnection.loadRequest(this.webview, "https://doc2x.noedgeai.com")
+          this.uploadOnDoc2X = {enabled:true,action:"uploadPDFToDoc2X"}
+          return success
+        }
+        this.uploadPDF()
+        break;
+      case "uploadPDFToIma":
+        if (!(await this.currentURLStartsWith("https://ima.qq.com"))) {
+          MNUtil.waitHUD("Opening Doc2X...")
+          this.setWebMode(true)
+          MNConnection.loadRequest(this.webview, "https://ima.qq.com")
+          this.uploadOnIma = {enabled:true,action:"uploadPDFToIma"}
+          return success
+        }
+        this.uploadPDF()
+        break;
+      case "uploadImageToDoc2X":
+        if (!(await this.currentURLStartsWith("https://doc2x.noedgeai.com"))) {
+          MNUtil.waitHUD("Opening Doc2X...")
+          this.setWebMode(true)
+          MNConnection.loadRequest(this.webview, "https://doc2x.noedgeai.com")
+          this.uploadOnDoc2X = {enabled:true,action:"uploadImageToDoc2X"}
+          return success
+        }
+        this.uploadImage()
+        break;
+      case "changeBilibiliVideoPart":
+        this.changeBilibiliVideoPart(button)
+        break;
+      case "screenshot":
+        let width = this.view.frame.width>1000?this.view.frame.width:1000
+        let imageData = await this.screenshot(width)
+        MNUtil.copyImage(imageData)
+        this.showHUD('截图已复制到剪贴板')
+        break;
+      case "videoFrame2Clipboard":
+        this.videoFrameAction("clipboard")
+        break;
+      case "videoFrame2Editor":
+        this.videoFrameAction("editor")
+        break;
+      case "videoFrame2Note":
+        this.videoFrameAction("excerpt")
+        break;
+      case "videoFrame2ChildNote":
+        this.videoFrameAction("childNote")
+        break;
+      case "videoFrameToNewNote":
+        this.videoFrameAction("newNote")
+        break;
+      case "videoFrameToComment":
+        this.videoFrameAction("comment")
+        break;
+      case "videoTime2Clipboard":
+        this.videoTimeAction("clipboard")
+        break;
+      case "videoTime2Editor":
+        this.videoTimeAction("editor")
+        break;
+      case "videoTime2Note":
+        this.videoTimeAction("excerpt")
+        break;
+      case "videoTime2ChildNote":
+        this.videoTimeAction("childNote")
+        break;
+      case "videoFrameToSnipaste":
+        this.videoFrameAction("snipaste")
+        break;
+      case "videoTimeToNewNote":
+        this.videoTimeAction("newNote")
+        break;
+      case "videoTimeToComment":
+        this.videoTimeAction("comment")
+        break;
+      case "bigbang":
+        url = await this.getCurrentURL()
+        text = await this.getTextInWebview()
+        MNUtil.postNotification('bigbangText', {text:text,url:url})
+        break;
+      case "copyCurrentURL":
+        url = await this.getCurrentURL()
+        MNUtil.copy(url)
+        this.showHUD("链接已复制")
+        break;
+      case "copyAsMDLink":
+        url = await this.getCurrentURL()
+        text = await this.getSelectedTextInWebview()
+        MNUtil.copy(`[${text}](${url})`)
+        this.showHUD("链接已复制")
+        break;
+      case "openInNewWindow":
+        if (browserUtils.checkSubscribe()) {
+          let agent = this.webview.customUserAgent
+          url = await this.getCurrentURL()
+          MNUtil.postNotification('newWindow', {url:url,desktop:browserConfig.entries[browserConfig.engine].desktop,engine:browserConfig.engine,webApp:this.webApp,agent:agent})
+          this.homePage();
+        }
+        break;
+      case "openNewWindow":
+        if (browserUtils.checkSubscribe()) {
+          MNUtil.postNotification('newWindow', {url:browserConfig.getConfig("homePage").url,desktop:browserConfig.entries[browserConfig.engine].desktop,engine:browserConfig.engine,webApp:this.webApp})
+        }
+        break;
+      case "openCopiedURL":
+        MNConnection.loadRequest(this.webview, MNUtil.clipboardText)
+        break;
+      case "pauseOrPlay":
+        res = await this.runJavaScript(`
+function togglePlayPause() {
+  // 假设我们的video元素的id是'myVideo'
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  if (video.ended) {
+    video.currentTime = 0
+    video.play()
+  }else if (video.paused) {
+    video.play()
+  }else{
+    video.pause()
+  }
+  return ""
+};
+togglePlayPause()
+`)
+        break;
+      case "toggleMute":
+        res = await this.runJavaScript(`
+function toggleMute() {
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  video.muted = !video.muted;
+  return ""
+}
+toggleMute()`)
+        break;
+      case "volumeUp":
+        res = await this.runJavaScript(`
+function volumeUp() {
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  video.volume += 0.1;
+  return ""
+}
+volumeUp()`)
+        break;
+      case "volumeDown":
+        res = await this.runJavaScript(`
+function volumeDown() {
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  video.volume -= 0.1;
+  return ""
+}
+volumeDown()`)
+        break;
+      case "play0.5x":
+        res = await this.changePlaybackRate(0.5)
+        break;
+      case "play1.25x":
+        res = await this.changePlaybackRate(1.25)
+        break;
+      case "play1.5x":
+        res = await this.changePlaybackRate(1.5)
+        break;
+      case "play1.75x":
+        res = await this.changePlaybackRate(1.75)
+        break;
+      case "play2x":
+        res = await this.changePlaybackRate(2)
+        break;
+      case "play2.5x":
+        res = await this.changePlaybackRate(2.5)
+        break;
+      case "play3x":
+        res = await this.changePlaybackRate(3)
+        break;
+      case "play3.5x":
+        res = await this.changePlaybackRate(3.5)
+        break;
+      case "play4x":
+        res = await this.changePlaybackRate(4)
+        break;
+      case "forward10s":
+        res = await this.forwardSeconds(10)
+        break;
+      case "forward15s":
+        res = await this.forwardSeconds(15)
+        break;
+      case "forward30s":
+        res = await this.forwardSeconds(30)
+        break;
+      case "backward10s":
+        res = await this.backwardSeconds(10)
+        break;
+      case "backward15s":
+        res = await this.backwardSeconds(15)
+        break;
+      case "backward30s":
+        res = await this.backwardSeconds(30)
+        break;
+        default:
+        break;
+    }
+  if (res === "No video found") {
+    this.showHUD("No video found")
+    success = false
+  }
+  return success
+}
+browserController.prototype.backwardSeconds = async function(seconds) {
+  let res = await this.runJavaScript(`
+function backwardSeconds(seconds) {
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  let currentTime = video.currentTime;
+  if (currentTime - seconds < 0) {
+    video.currentTime = 0;
+  }else{
+    video.currentTime -= seconds;
+  }
+  video.play()
+  return ""
+};
+backwardSeconds(${seconds})`);
+  return res
+}
+browserController.prototype.forwardSeconds = async function(seconds) {
+  let res = await this.runJavaScript(`
+function forwardSeconds(seconds) {
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  video.currentTime += seconds;
+  video.play()
+  return ""
+};
+forwardSeconds(${seconds})`);
+  return res
+}
+browserController.prototype.changePlaybackRate = async function(rate) {
+  let res = await this.runJavaScript(`
+function changePlaybackRate(rate) {
+  const video = document.getElementsByTagName('video')[0];
+  if (!video) {
+    return "No video found"
+  }
+  if (video.playbackRate === rate) {
+    video.playbackRate = 1;
+  }else{
+    video.playbackRate = rate;
+  }
+  return ""
+}
+changePlaybackRate(${rate})`)
+  return res
+}
+
+browserController.prototype.configMoreOption = function(button) {
+  let id = button.id
+  let menu = new Menu(button,this)
+  menu.preferredPosition = 1
+  if (this.configMode === 0) {
+    let config = browserConfig.entries[id]
+    menu.addMenuItem('🖥️  Desktop', 'toggleDesktop:',{type:'engine',id:id},config.desktop)
+  }else{
+    let config = browserConfig.webAppEntries[id]
+    menu.addMenuItem('🖥️  Desktop', 'toggleDesktop:',{type:'webApp',id:id},config.desktop)
+    menu.addMenuItem('🖼️  Custom Icon', 'setCustomIcon:',{type:'webApp',id:id})
+  }
+  menu.show()
+}
+/**
+ * @this {browserController}
+ * @returns {MNNote}
+ */
+browserController.prototype.currentNote = function () {
+  return MNNote.new(this.currentNoteId)
+}
+
+browserController.prototype.getWebSource = async function () {
+    let currentURL = await this.getCurrentURL()
+    // menu.addMenuItem('🎬  VideoFrame → NewComment', 'changeZoomScale:',true)
+    if (currentURL.startsWith("https://doc2x.noedgeai.com")) {
+      return {
+        title: '📤  Upload to Doc2X',
+        source: 'doc2x',
+        selector: 'uploadToDoc2X:'
+      }
+    }
+    if (currentURL.startsWith("https://ima.qq.com")) {
+      return {
+        title: '📤  Upload to Ima',
+        source: 'ima',
+        selector: 'uploadToWebDefault:'
+      }
+    }
+    if (currentURL.startsWith("https://www.kimi.com")) {
+      return {
+        title: '📤  Upload to Kimi',
+        source: 'kimi',
+        selector: 'uploadToWebDefault:'
+      }
+    }
+    if (currentURL.startsWith("https://chat.qwen.ai")) {
+      return {
+        title: '📤  Upload to Qwen',
+        source: 'qwen',
+        selector: 'uploadPDFToWebDefault:'
+      }
+    }
+    // if (currentURL.startsWith("https://www.doubao.com/chat/")) {
+    //   menu.addMenuItem('📤  Upload to Doubao', 'uploadToWebDefault:','doubao')
+    // }
+    if (currentURL.startsWith("https://chat.z.ai")) {
+      return {
+        title: '📤  Upload to Z.ai',
+        source: 'zhipu',
+        selector: 'uploadPDFToWebDefault:'
+      }
+      // menu.addMenuItem('📤  Upload to Z.ai', 'uploadToWebDefault:','zhipu')
+    }
+    if (currentURL.startsWith("https://chat.deepseek.com")) {
+      return {
+        title: '📤  Upload to DeepSeek',
+        source: 'deepseek',
+        selector: 'uploadToWebDefault:'
+      }
+    }
+    if (currentURL.startsWith("https://yuanbao.tencent.com/chat")) {
+      return {
+        title: '📤  Upload to Yuanbao',
+        source: 'yuanbao',
+        selector: 'uploadToWebDefault:'
+      }
+      // menu.addMenuItem('📤  Upload to Yuanbao', 'uploadPDFToWebDefault:','yuanbao')
+    }
+    if (currentURL.startsWith("https://space.coze.cn")) {
+      return {
+        title: '📤  Upload to Coze',
+        source: 'coze',
+        selector: 'uploadToWebDefault:'
+      }
+      // menu.addMenuItem('📤  Upload to Yuanbao', 'uploadPDFToWebDefault:','yuanbao')
+    }
+    return undefined
+}
+browserController.prototype.openIMA = async function (config) {
+  let confirm = await MNUtil.confirm("MN Browser","Open IMA?\n\n是否打开IMA？")
+  if (confirm) {
+    // MNUtil.copy(config.url)
+    MNUtil.openURL(config.url)
+  }
+}
+
+browserController.prototype.openWX = async function (config) {
+  let confirm = await MNUtil.confirm("MN Browser","Open WeiXin?\n\n是否打开微信？")
+  if (confirm) {
+    // MNUtil.copy(config.url)
+    MNUtil.openURL(config.url)
+  }
+}
+browserController.prototype.newConfig = async function () {
+try {
+
+    if (this.configMode === 0) {
+      let res = await MNUtil.input("New Engine","Engine name?\n\n请输入新搜索引擎的名称",["❌ Cancel / 取消","📱 Mobile / 移动端","🖥️ Desktop / 桌面端"])
+      if (!res.button) {
+        return
+      }
+      let desktop = res.button === 2
+      let engineName = res.input
+      this.textviewInput.text = 
+`{
+  "title":   "🔍 ${engineName}",
+  "symbol":  "🔍",
+  "engine":  "${engineName}",
+  "desktop": ${desktop},
+  "link":    "https://www.bing.com/search?q=%s"
+}`
+      let entryKey = browserConfig.getAvailableEngineEntryKey()
+      browserConfig.entries[entryKey] = MNUtil.getValidJSON(this.textviewInput.text)
+      browserConfig.entrieNames = browserConfig.entrieNames.concat((entryKey))
+      browserConfig.save("MNBrowser_entrieNames")
+      browserConfig.save("MNBrowser_entries")
+      this.setButtonText(browserConfig.entrieNames,entryKey)
+      this.configEngine = entryKey
+      this.refreshLayout()
+    }else{
+      let res = await MNUtil.input("New Webapp","Webapp name?\n\n请输入新网页应用的名称",["❌ Cancel / 取消","📱 Mobile / 移动端","🖥️ Desktop / 桌面端"])
+      if (!res.button) {
+        return
+      }
+      let webappName = res.input
+      let desktop = res.button === 2
+      this.textviewInput.text = 
+`{
+  "title":   "🌐 ${webappName}",
+  "desktop": ${desktop},
+  "link":    "https://www.bing.com"
+}`
+      let entryKey = browserConfig.getAvailableWebAppEntryKey()
+      browserConfig.webAppEntries[entryKey] = MNUtil.getValidJSON(this.textviewInput.text)
+      browserConfig.webAppEntrieNames = browserConfig.webAppEntrieNames.concat((entryKey))
+      browserConfig.save("MNBrowser_webAppEntrieNames")
+      browserConfig.save("MNBrowser_webAppEntries")
+      this.setButtonText(browserConfig.webAppEntrieNames,entryKey)
+      this.configEngine = entryKey
+      this.refreshLayout()
+    }
+  
+} catch (error) {
+  browserUtils.addErrorLog(error, "newConfig")
+  return undefined
+}
 }

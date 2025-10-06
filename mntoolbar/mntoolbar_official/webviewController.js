@@ -1,9 +1,20 @@
-// JSB.require('utils')
-// JSB.require('settingController');
 /** @return {toolbarController} */
 const getToolbarController = ()=>self
+if (typeof toolbarControllerClassName === 'undefined') {
+  var toolbarControllerClassName = "toolbarController : UIViewController <UIImagePickerControllerDelegate,UINavigationControllerDelegate>"
+  if (MNUtil.isMN3()) {
+    toolbarControllerClassName = "toolbarController : UIViewController <UINavigationControllerDelegate>"
+  }
+}
+// if (MNUtil.isMN3()) {
+//   MNUtil.log("toolbarController : UIViewController <UINavigationControllerDelegate>")
+// }else{
+//   MNUtil.log("toolbarController : UIViewController <UIImagePickerControllerDelegate,UINavigationControllerDelegate>")
+// }
 
-var toolbarController = JSB.defineClass('toolbarController : UIViewController <UIImagePickerControllerDelegate,UINavigationControllerDelegate>', {
+// var toolbarController = JSB.defineClass('toolbarController : UIViewController <UIImagePickerControllerDelegate,UINavigationControllerDelegate>', {
+// var toolbarController = JSB.defineClass('toolbarController : UIViewController <UIImagePickerControllerDelegate,UINavigationControllerDelegate>', {
+var toolbarController = JSB.defineClass(toolbarControllerClassName, {
   viewDidLoad: async function() {
   try {
     
@@ -295,6 +306,7 @@ try {
   },
   customActionByMenu: async function (param) {
     let des = param.des
+    MNUtil.log({message:"customActionByMenu",des:des})
     if (typeof des === "string" || !("action" in des)) {
       return
     }
@@ -337,25 +349,33 @@ lastPopover: function (button) {
 },
   imagePickerControllerDidFinishPickingMediaWithInfo:async function (UIImagePickerController,info) {
     try {
-      
     let image = info.UIImagePickerControllerOriginalImage
     // MNUtil.copy(image.pngData().base64Encoding())
     // MNUtil.copyJSON(info)
     MNUtil.studyController.dismissViewControllerAnimatedCompletion(true,undefined)
-    if (self.compression) {
+    if (toolbarUtils.compression) {
       MNUtil.copyImage(image.jpegData(0.0))
     }else{
       MNUtil.copyImage(image.pngData())
     }
     await MNUtil.delay(0.1)
-    MNNote.new(self.currentNoteId).paste()
+    let focusNote = MNNote.new(toolbarUtils.currentNoteId)
+    if (!focusNote) {
+      await MNUtil.delay(0.5)
+      focusNote = MNNote.getFocusNote() 
+    }
+    if (focusNote) {
+      focusNote.paste()
+      focusNote.focusInMindMap(0.5)
+    }else{
+      MNUtil.showHUD("❌ No note found")
+    }
     // MNNote.getFocusNote().paste()
     } catch (error) {
-      MNUtil.showHUD(error)
+      toolbarUtils.addErrorLog(error, "imagePickerControllerDidFinishPickingMediaWithInfo")
     }
   },
   imagePickerControllerDidCancel:function (params) {
-    // MNUtil.copy("text")
     MNUtil.studyController.dismissViewControllerAnimatedCompletion(true,undefined)
     
   },
@@ -882,7 +902,10 @@ try {
   }
   },
   onLongPressGesture:async function (gesture) {
+  try {
     if (gesture.state === 1) {
+// MNUtil.log("onLongPressGesture")
+// MNUtil.showHUD("onLongPressGesture")
       let button = gesture.view
       let dynamicOrder = toolbarConfig.getWindowState("dynamicOrder")
       let useDynamic = dynamicOrder && self.dynamicWindow
@@ -899,55 +922,14 @@ try {
         }else{
           MNUtil.showHUD("No long press action")
         }
+      }else{
+        MNUtil.showHUD("No action name found")
       }
     }
-    // if (gesture.state === 1) {//触发
-    //   self.initLocation = gesture.locationInView(MNUtil.studyView)
-    //   self.initFrame = self.view.frame
-    //   MNUtil.showHUD("Move mode ✅")
-    //   MNButton.setColor(self.screenButton, "#9898ff",1.0)
-    //   // self.view.layer.backgroundColor = MNUtil.hexColorAlpha("#b5b5f5",1.0)
-    //   // self.view.layer.borderWidth = 2
-    //   return
-    // }
-    // if (gesture.state === 3) {//停止
-    //   MNUtil.showHUD("Move mode ❌")
-    //   MNButton.setColor(self.screenButton, "#9bb2d6",0.8)
-    //   return
-    // }
-    // if (gesture.state === 2) {
-    //   let studyFrame = MNUtil.studyView.bounds
-    //   let locationInView = gesture.locationInView(MNUtil.studyView)
-    //   let y = MNUtil.constrain(self.initFrame.y+locationInView.y - self.initLocation.y, 0, studyFrame.height-15)
-    //   let x = self.initFrame.x+locationInView.x - self.initLocation.x
-    //   let splitLine = MNUtil.splitLine
-    //   let docMapSplitMode = MNUtil.studyController.docMapSplitMode
-    //   if (x<20) {
-    //     x = 0
-    //     self.sideMode = "left"
-    //     self.splitMode = false
-    //   }
-    //   if (x>studyFrame.width-60) {
-    //     x = studyFrame.width-40
-    //     self.sideMode = "right"
-    //     self.splitMode = false
-    //   }
-    //   if (splitLine && docMapSplitMode===1) {
-    //     if (x<splitLine && x>splitLine-40) {
-    //       x = splitLine-20
-    //       self.splitMode = true
-    //       self.sideMode = ""
-    //     }else{
-    //       self.splitMode = false
-    //     }
-    //   }else{
-    //     self.splitMode = false
-    //   }
-    //   let frame = {x:x,y:y,width:self.initFrame.width,height:self.initFrame.height}
-    //   Frame.set(self.view,frame.x,frame.y,frame.width,frame.height)
-    // }
-    // MNUtil.showHUD("message"+gesture.state)
-
+    
+  } catch (error) {
+    toolbarUtils.addErrorLog(error, "onLongPressGesture")
+  }
   },
   onSwipeGesture:function (gesture) {
     if (gesture.state === 1) {
@@ -1220,9 +1202,12 @@ try {
       colorButton.width = 40
       colorButton.index = index
       // if (this.isMac) {
-        this.addPanGesture(colorButton, "onMoveGesture:")  
+        MNButton.addPanGesture(colorButton, this, "onMoveGesture:")
+        // this.addPanGesture(colorButton, "onMoveGesture:")  
       // }else{
-        this.addLongPressGesture(colorButton, "onLongPressGesture:")
+        MNButton.addLongPressGesture(colorButton, this, "onLongPressGesture:",0.3)
+
+        // this.addLongPressGesture(colorButton, "onLongPressGesture:")
         // this.addSwipeGesture(colorButton, "onSwipeGesture:")
       // }
 
@@ -1353,12 +1338,14 @@ toolbarController.prototype.customActionByDes = async function (button,actionDes
       //如果返回true则表示菜单弹出已执行，则不再执行下面的代码
       return
     }
+    // MNUtil.copy(actionDes)
     await toolbarUtils.customActionByDes(actionDes,button,this,false)
 
     while ("onFinish" in actionDes) {
       actionDes = actionDes.onFinish
+      let delay = actionDes.delay ?? 0.1
       await MNUtil.delay(delay)
-      await toolbarUtils.customActionByDes(actionDes,button)
+      await toolbarUtils.customActionByDes(actionDes,button,this,false)
     }
     return new Promise((resolve, reject) => {
       resolve()
@@ -1405,7 +1392,8 @@ toolbarController.prototype.replaceButtonTo = async function (button,target) {
   button.setTitleForState("", 0)
   button.setTitleForState("", 1)
   button.addTargetActionForControlEvents(this, target, 1 << 6);
-  this.addLongPressGesture(button, "onLongPressGesture:")
+  MNButton.addLongPressGesture(button, this, "onLongPressGesture:",0.3)
+  // this.addLongPressGesture(button, "onLongPressGesture:")
 
 }
 /**
@@ -1502,6 +1490,7 @@ toolbarController.prototype.popupReplace = async function (button) {
       }
       // MNUtil.showHUD("popupReplace:"+ids[i]+":"+toolbarConfig.getPopupConfig(ids[i]).enabled)
       if (popupConfig.enabled) {
+        // MNUtil.log({message:"popupReplace:"+ids[i],detail:popupConfig})
         // MNUtil.showHUD(toolbarConfig.getPopupConfig(ids[i]).target)
         let target = popupConfig.target
         if (target) {
@@ -1522,7 +1511,7 @@ toolbarController.prototype.popupReplace = async function (button) {
           toolbarUtils.addErrorLog(error, "popupReplaceSelector", ids[i])
         }
         }else{
-          MNUtil.showHUD("message"+ids[i])
+          // MNUtil.showHUD("message"+ids[i])
           // toolbarUtils.addErrorLog(error, "popupReplace", ids[i])
         }
       }
@@ -1573,7 +1562,7 @@ toolbarController.prototype.popupReplace = async function (button) {
               toolbarUtils.addErrorLog(error, "popupReplaceSelector", ids[i])
             }
             }else{
-              MNUtil.showHUD("message"+ids[i])
+              // MNUtil.showHUD("message"+ids[i])
               // toolbarUtils.addErrorLog(error, "popupReplace", ids[i])
             }
           }else{
@@ -1691,7 +1680,7 @@ toolbarController.prototype.popupReplaceAgain = async function (button) {
           toolbarUtils.addErrorLog(error, "popupReplaceSelector", ids[i])
         }
         }else{
-          MNUtil.showHUD("message"+ids[i])
+          // MNUtil.showHUD("message"+ids[i])
           // toolbarUtils.addErrorLog(error, "popupReplace", ids[i])
         }
       }
@@ -1767,7 +1756,6 @@ toolbarController.prototype.popupReplaceAgain = async function (button) {
 toolbarController.prototype.customActionMenu =  function (button,des) {
   let buttonX = toolbarUtils.getButtonFrame(button).x//转化成相对于studyview的
   try {
-    let selector = "customActionByMenu:"
     let object = this
     function tableItem(title,params,checked=false) {
       let des = {des:params,button:button}
@@ -1796,31 +1784,10 @@ toolbarController.prototype.customActionMenu =  function (button,des) {
       }
       return true
     }
-
-
-    // if (des.action === "chatAI" && des.target) {
-    //   if (des.target === "menu") {
-    //     this.onClick = true
-    //     let promptKeys = chatAIConfig.getConfig("promptNames")
-    //     let prompts = chatAIConfig.prompts
-    //     var commandTable = promptKeys.map(promptKey=>{
-    //       let title = prompts[promptKey].title.trim()
-    //       return {title:"🚀   "+title,object:this,selector:'customActionByMenu:',param:{des:{action:"chatAI",prompt:title},button:button}}
-    //     })
-    //     let width = 250
-    //     if (MNUtil.studyView.bounds.width - buttonX < (width+40)) {
-    //       this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,0)
-    //     }else{
-    //       this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,4)
-    //     }
-    //     return true
-    //   }
-    // }
     if (des.target && des.target === "menu") {
       this.onClick = true
       var commandTable
       let width = 250
-      let selector = "customActionByMenu:"
       switch (des.action) {
         case "chatAI":
           let promptKeys = chatAIConfig.getConfig("promptNames")
@@ -1828,47 +1795,181 @@ toolbarController.prototype.customActionMenu =  function (button,des) {
           let numberOfPrompts = des.numberOfPrompts ?? promptKeys.length
           commandTable = promptKeys.slice(0,numberOfPrompts).map(promptKey=>{
             let title = prompts[promptKey].title.trim()
-            return tableItem("🚀   "+title, {action:"chatAI",prompt:title})
+            if ('onFinish' in des) {
+              return tableItem("🚀   "+title, {action:"chatAI",prompt:title,onFinish:des.onFinish})
+            }else{
+              return tableItem("🚀   "+title, {action:"chatAI",prompt:title})
+            }
           })
           break;
         case "insertSnippet":
           commandTable = des.menuItems.map(item => {
             item.action = "insertSnippet"
+            if ('onFinish' in des) {
+              item.onFinish = des.onFinish
+            }
             return tableItem(item.menuTitle,item)
             // return this.tableItem(item.menuTitle, selector,{des:item,button:button})
             // return {title:item.menuTitle,object:this,selector:'customActionByMenu:',param:{des:item,button:button}}
           })
           break;
         case "paste":
-          commandTable = [
-            tableItem("default",{action:"paste",target:"default"}),
-            tableItem("title",{action:"paste",target:"title"}),
-            tableItem("excerpt",{action:"paste",target:"excerpt"}),
-            tableItem("appendTitle",{action:"paste",target:"appendTitle"}),
-            tableItem("appendExcerpt",{action:"paste",target:"appendExcerpt"}),
-          ]
+          if ('onFinish' in des) {
+            commandTable = [
+              tableItem("default",{action:"paste",target:"default",onFinish:des.onFinish}),
+              tableItem("title",{action:"paste",target:"title",onFinish:des.onFinish}),
+              tableItem("excerpt",{action:"paste",target:"excerpt",onFinish:des.onFinish}),
+              tableItem("appendTitle",{action:"paste",target:"appendTitle",onFinish:des.onFinish}),
+              tableItem("appendExcerpt",{action:"paste",target:"appendExcerpt",onFinish:des.onFinish}),
+            ]
+          }else{
+            commandTable = [
+              tableItem("default",{action:"paste",target:"default"}),
+              tableItem("title",{action:"paste",target:"title"}),
+              tableItem("excerpt",{action:"paste",target:"excerpt"}),
+              tableItem("appendTitle",{action:"paste",target:"appendTitle"}),
+              tableItem("appendExcerpt",{action:"paste",target:"appendExcerpt"}),
+            ]
+          }
+
+          break;
+        case "addTags":
+          commandTable = []
+          // MNUtil.log({message:"addTags",des:des})
+          if ("tags" in des) {
+            des.tags.map(tag=>{
+              commandTable.push(tableItem(tag,{action:"addTags",tag:tag}))
+            })
+            break;
+          }
+          // MNUtil.log("123")
+          let currentNotebook = MNUtil.currentNotebook
+          let tem = currentNotebook.hashtags
+          // MNUtil.log(tem)
+          let currentNotebookHashtags = []
+          if (tem) {
+            currentNotebookHashtags = tem.split(" ")
+          }
+          if (currentNotebookHashtags.length) {
+            commandTable.push(tableItem("👇  Tags in current notebook",{action:"none"}))
+            let tagInfo = toolbarUtils.parseTagComponents(currentNotebookHashtags)
+            // MNUtil.log({message:"tagInfo",tagInfo:tagInfo})
+            if (tagInfo.tagWithComponents.length) {
+              let componentsInfo = tagInfo.componentsInfo
+              tagInfo.tagWithComponents.map(tag=>{
+                let subTags = componentsInfo[tag].map(k=>tag+"/"+k)
+                if ("onFinish" in des) {
+                  commandTable.push(tableItem("➡️  "+tag,{action:"addTags",target:"menu",tags:subTags,onFinish:des.onFinish}))
+                }else{
+                  commandTable.push(tableItem("➡️  "+tag,{action:"addTags",target:"menu",tags:subTags}))
+                }
+              })
+            }
+            tagInfo.tagWithoutComponents.map(tag=>{
+              if ("onFinish" in des) {
+                commandTable.push(tableItem("   "+tag,{action:"addTags",tag:tag,onFinish:des.onFinish}))
+              }else{
+                commandTable.push(tableItem("   "+tag,{action:"addTags",tag:tag}))
+              }
+            })
+          }
+          let tagNumbers = commandTable.length-1
+          if ("numberOfTags" in des && des.numberOfTags < tagNumbers) {
+            commandTable = commandTable.slice(0,des.numberOfTags+1)
+          }
+          let ortherHashtags = []
+
+          
+          MNUtil.allStudySets().map(notebook=>{
+            if (notebook.topicId === currentNotebook.topicId) {
+              return
+            }
+            if (notebook.hashtags) {
+              let tags = notebook.hashtags.split(" ")
+              ortherHashtags = ortherHashtags.concat(tags)
+            }
+          })
+          ortherHashtags = MNUtil.unique(ortherHashtags)
+          if (ortherHashtags.length) {
+            commandTable.push(tableItem("👇  Tags in other notebooks",{action:"none"}))
+            let tagInfo = toolbarUtils.parseTagComponents(ortherHashtags)
+            // MNUtil.log({message:"tagInfo",tagInfo:tagInfo})
+            if (tagInfo.tagWithComponents.length) {
+              let componentsInfo = tagInfo.componentsInfo
+              tagInfo.tagWithComponents.map(tag=>{
+                let subTags = componentsInfo[tag].map(k=>tag+"/"+k)
+                if ("onFinish" in des) {
+                  commandTable.push(tableItem("➡️  "+tag,{action:"addTags",target:"menu",tags:subTags,onFinish:des.onFinish}))
+                }else{
+                  commandTable.push(tableItem("➡️  "+tag,{action:"addTags",target:"menu",tags:subTags}))
+                }
+              })
+            }
+            tagInfo.tagWithoutComponents.map(tag=>{
+              if ("onFinish" in des) {
+                commandTable.push(tableItem("   "+tag,{action:"addTags",tag:tag,onFinish:des.onFinish}))
+              }else{
+                commandTable.push(tableItem("   "+tag,{action:"addTags",tag:tag}))
+              }
+            })
+            tagNumbers = commandTable.length-2
+            if ("numberOfTags" in des && des.numberOfTags < tagNumbers) {
+              commandTable = commandTable.slice(0,des.numberOfTags+2)
+            }
+            // ortherHashtags.map(tag=>{
+            //   commandTable.push(tableItem("   "+tag,{action:"addTags",tag:tag}))
+            // })
+          }
+          // MNUtil.log({message:"commandTable",commandTable:commandTable})
           break;
         case "ocr":
-          commandTable = [
-            tableItem("option", {action:"ocr",target:"option"}),
-            tableItem("clipboard", {action:"ocr",target:"clipboard"}),
-            tableItem("comment", {action:"ocr",target:"comment"}),
-            tableItem("excerpt", {action:"ocr",target:"excerpt"}),
-            tableItem("editor", {action:"ocr",target:"editor"}),
-            tableItem("chatModeReference", {action:"ocr",target:"chatModeReference"})
-          ]
+          if ('onFinish' in des) {
+            commandTable = [
+              tableItem("option", {action:"ocr",target:"option",onFinish:des.onFinish}),
+              tableItem("clipboard", {action:"ocr",target:"clipboard",onFinish:des.onFinish}),
+              tableItem("comment", {action:"ocr",target:"comment",onFinish:des.onFinish}),
+              tableItem("excerpt", {action:"ocr",target:"excerpt",onFinish:des.onFinish}),
+              tableItem("editor", {action:"ocr",target:"editor",onFinish:des.onFinish}),
+              tableItem("childNote", {action:"ocr",target:"childNote",onFinish:des.onFinish}),
+              tableItem("chatModeReference", {action:"ocr",target:"chatModeReference",onFinish:des.onFinish})
+            ]
+          }else{
+            commandTable = [
+              tableItem("option", {action:"ocr",target:"option"}),
+              tableItem("clipboard", {action:"ocr",target:"clipboard"}),
+              tableItem("comment", {action:"ocr",target:"comment"}),
+              tableItem("excerpt", {action:"ocr",target:"excerpt"}),
+              tableItem("editor", {action:"ocr",target:"editor"}),
+              tableItem("childNote", {action:"ocr",target:"childNote"}),
+              tableItem("chatModeReference", {action:"ocr",target:"chatModeReference"})
+            ]
+          }
+
           break;
         case "setTimer":
-          commandTable = [
-            tableItem("⏰  Clock Mode", {action:"setTimer",timerMode:"clock"}),
-            tableItem("⏱️  Count Up", {action:"setTimer",timerMode:"countUp"}),
-            tableItem("⏱️  Countdown: 5mins", {action:"setTimer",timerMode:"countdown",minutes:5}),
-            tableItem("⏱️  Countdown: 10mins", {action:"setTimer",timerMode:"countdown",minutes:10}),
-            tableItem("⏱️  Countdown: 15mins", {action:"setTimer",timerMode:"countdown",minutes:15}),
-            tableItem("🍅  Countdown: 25mins", {action:"setTimer",timerMode:"countdown",minutes:25}),
-            tableItem("⏱️  Countdown: 40mins", {action:"setTimer",timerMode:"countdown",minutes:40}),
-            tableItem("⏱️  Countdown: 60mins", {action:"setTimer",timerMode:"countdown",minutes:60}),
-          ]
+          if ('onFinish' in des) {
+            commandTable = [
+              tableItem("⏰  Clock Mode", {action:"setTimer",timerMode:"clock",onFinish:des.onFinish}),
+              tableItem("⏱️  Count Up", {action:"setTimer",timerMode:"countUp",onFinish:des.onFinish}),
+              tableItem("⏱️  Countdown: 5mins", {action:"setTimer",timerMode:"countdown",minutes:5,onFinish:des.onFinish}),
+              tableItem("⏱️  Countdown: 10mins", {action:"setTimer",timerMode:"countdown",minutes:10,onFinish:des.onFinish}),
+              tableItem("⏱️  Countdown: 15mins", {action:"setTimer",timerMode:"countdown",minutes:15,onFinish:des.onFinish}),
+              tableItem("🍅  Countdown: 25mins", {action:"setTimer",timerMode:"countdown",minutes:25,onFinish:des.onFinish}),
+              tableItem("⏱️  Countdown: 40mins", {action:"setTimer",timerMode:"countdown",minutes:40,onFinish:des.onFinish}),
+              tableItem("⏱️  Countdown: 60mins", {action:"setTimer",timerMode:"countdown",minutes:60,onFinish:des.onFinish}),
+            ]
+          }else{
+            commandTable = [
+              tableItem("⏰  Clock Mode", {action:"setTimer",timerMode:"clock"}),
+              tableItem("⏱️  Count Up", {action:"setTimer",timerMode:"countUp"}),
+              tableItem("⏱️  Countdown: 5mins", {action:"setTimer",timerMode:"countdown",minutes:5}),
+              tableItem("⏱️  Countdown: 10mins", {action:"setTimer",timerMode:"countdown",minutes:10}),
+              tableItem("⏱️  Countdown: 15mins", {action:"setTimer",timerMode:"countdown",minutes:15}),
+              tableItem("🍅  Countdown: 25mins", {action:"setTimer",timerMode:"countdown",minutes:25}),
+              tableItem("⏱️  Countdown: 40mins", {action:"setTimer",timerMode:"countdown",minutes:40}),
+              tableItem("⏱️  Countdown: 60mins", {action:"setTimer",timerMode:"countdown",minutes:60}),
+            ]
+          }
           break;
         case "search":
           let names = browserConfig.entrieNames
@@ -1876,27 +1977,58 @@ toolbarController.prototype.customActionMenu =  function (button,des) {
           var commandTable = names.map(name=>{
             let title = entries[name].title
             let engine = entries[name].engine
-            return tableItem(title, {action:"search",engine:engine})
+            if ('onFinish' in des) {
+              return tableItem(title, {action:"search",engine:engine,onFinish:des.onFinish})
+            }else{
+              return tableItem(title, {action:"search",engine:engine})
+            }
             // return {title:title,object:this,selector:'customActionByMenu:',param:{des:{action:"search",engine:engine},button:button}}
           })
           break;
         case "copy":
+          if ('onFinish' in des) {
           commandTable = [
-            tableItem("selectionText", {action:"copy",target:"selectionText"}),
-            tableItem("selectionImage", {action:"copy",target:"selectionImage"}),
-            tableItem("title", {action:"copy",target:"title"}),
-            tableItem("excerpt", {action:"copy",target:"excerpt"}),
-            tableItem("excerpt (OCR)", {action:"copy",target:"excerptOCR"}),
-            tableItem("notesText", {action:"copy",target:"notesText"}),
-            tableItem("comment", {action:"copy",target:"comment"}),
-            tableItem("noteId", {action:"copy",target:"noteId"}),
-            tableItem("noteURL", {action:"copy",target:"noteURL"}),
-            tableItem("noteMarkdown", {action:"copy",target:"noteMarkdown"}),
-            tableItem("noteMarkdown (OCR)", {action:"copy",target:"noteMarkdownOCR"}),
-            tableItem("noteWithDecendentsMarkdown", {action:"copy",target:"noteWithDecendentsMarkdown"}),
+            tableItem("selectionText", {action:"copy",target:"selectionText",onFinish:des.onFinish}),
+            tableItem("selectionImage", {action:"copy",target:"selectionImage",onFinish:des.onFinish}),
+            tableItem("title", {action:"copy",target:"title",onFinish:des.onFinish}),
+            tableItem("excerpt", {action:"copy",target:"excerpt",onFinish:des.onFinish}),
+            tableItem("excerpt (OCR)", {action:"copy",target:"excerptOCR",onFinish:des.onFinish}),
+            tableItem("notesText", {action:"copy",target:"notesText",onFinish:des.onFinish}),
+            tableItem("comment", {action:"copy",target:"comment",onFinish:des.onFinish}),
+            tableItem("noteId", {action:"copy",target:"noteId",onFinish:des.onFinish}),
+            tableItem("noteURL", {action:"copy",target:"noteURL",onFinish:des.onFinish}),
+            tableItem("noteMarkdown", {action:"copy",target:"noteMarkdown",onFinish:des.onFinish}),
+            tableItem("noteMarkdown (OCR)", {action:"copy",target:"noteMarkdownOCR",onFinish:des.onFinish}),
+            tableItem("noteWithDecendentsMarkdown", {action:"copy",target:"noteWithDecendentsMarkdown",onFinish:des.onFinish}),
           ]
+          }else{            
+            commandTable = [
+              tableItem("selectionText", {action:"copy",target:"selectionText"}),
+              tableItem("selectionImage", {action:"copy",target:"selectionImage"}),
+              tableItem("title", {action:"copy",target:"title"}),
+              tableItem("excerpt", {action:"copy",target:"excerpt"}),
+              tableItem("excerpt (OCR)", {action:"copy",target:"excerptOCR"}),
+              tableItem("notesText", {action:"copy",target:"notesText"}),
+              tableItem("comment", {action:"copy",target:"comment"}),
+              tableItem("noteId", {action:"copy",target:"noteId"}),
+              tableItem("noteURL", {action:"copy",target:"noteURL"}),
+              tableItem("noteMarkdown", {action:"copy",target:"noteMarkdown"}),
+              tableItem("noteMarkdown (OCR)", {action:"copy",target:"noteMarkdownOCR"}),
+              tableItem("noteWithDecendentsMarkdown", {action:"copy",target:"noteWithDecendentsMarkdown"}),
+            ]
+          }
           break;
         case "showInFloatWindow":
+          if ('onFinish' in des) {
+          commandTable = [
+            tableItem("noteInClipboard", {action:"showInFloatWindow",target:"noteInClipboard",onFinish:des.onFinish}),
+            tableItem("currentNote", {action:"showInFloatWindow",target:"currentNote",onFinish:des.onFinish}),
+            tableItem("currentChildMap", {action:"showInFloatWindow",target:"currentChildMap",onFinish:des.onFinish}),
+            tableItem("parentNote", {action:"showInFloatWindow",target:"parentNote",onFinish:des.onFinish}),
+            tableItem("currentNoteInMindMap", {action:"showInFloatWindow",target:"currentNoteInMindMap",onFinish:des.onFinish}),
+          ]
+          }else{
+            
           commandTable = [
             tableItem("noteInClipboard", {action:"showInFloatWindow",target:"noteInClipboard"}),
             tableItem("currentNote", {action:"showInFloatWindow",target:"currentNote"}),
@@ -1904,13 +2036,23 @@ toolbarController.prototype.customActionMenu =  function (button,des) {
             tableItem("parentNote", {action:"showInFloatWindow",target:"parentNote"}),
             tableItem("currentNoteInMindMap", {action:"showInFloatWindow",target:"currentNoteInMindMap"}),
           ]
+          }
           break;
         case "addImageComment":
+          if ('onFinish' in des) {
+          commandTable = [
+            tableItem("photo", {action:"addImageComment",source:"photo",onFinish:des.onFinish}),
+            tableItem("camera", {action:"addImageComment",source:"camera",onFinish:des.onFinish}),
+            tableItem("file", {action:"addImageComment",source:"file",onFinish:des.onFinish}),
+          ]
+          }else{
+            
           commandTable = [
             tableItem("photo", {action:"addImageComment",source:"photo"}),
             tableItem("camera", {action:"addImageComment",source:"camera"}),
             tableItem("file", {action:"addImageComment",source:"file"}),
           ]
+          }
           break;
         case "removeTags":
           let focusNote = MNNote.getFocusNote()
@@ -1923,7 +2065,11 @@ toolbarController.prototype.customActionMenu =  function (button,des) {
             return true
           }
           commandTable = focusNote.tags.map(tag=>{
-            return tableItem("#"+tag, {action:"removeTags",tag:tag})
+            if ('onFinish' in des) {
+              return tableItem("#"+tag, {action:"removeTags",tag:tag,onFinish:des.onFinish})
+            }else{
+              return tableItem("#"+tag, {action:"removeTags",tag:tag})
+            }
           })
           break;
         default:
@@ -1936,161 +2082,6 @@ toolbarController.prototype.customActionMenu =  function (button,des) {
       }
       return true
     }
-    // if (des.action === "insertSnippet" && des.target && des.target === "menu") {
-    //   this.onClick = true
-    //   var commandTable = des.menuItems.map(item => {
-    //     item.action = "insertSnippet"
-    //     return {title:item.menuTitle,object:this,selector:'customActionByMenu:',param:{des:item,button:button}}
-    //   })
-    //   let width = 250
-    //   if (MNUtil.studyView.bounds.width - buttonX < (width+40)) {
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,0)
-    //   }else{
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,4)
-    //   }
-    //   return true
-    // }
-    // if (des.action === "paste" && des.target && des.target === "menu") {
-    //   this.onClick = true
-    //   var commandTable = [
-    //     {title:"default",object:this,selector:'customActionByMenu:',param:{des:{action:"paste",target:"default"},button:button}},
-    //     {title:"title",object:this,selector:'customActionByMenu:',param:{des:{action:"paste",target:"title"},button:button}},
-    //     {title:"excerpt",object:this,selector:'customActionByMenu:',param:{des:{action:"paste",target:"excerpt"},button:button}},
-    //     {title:"appendTitle",object:this,selector:'customActionByMenu:',param:{des:{action:"paste",target:"appendTitle"},button:button}},
-    //     {title:"appendExcerpt",object:this,selector:'customActionByMenu:',param:{des:{action:"paste",target:"appendExcerpt"},button:button}}
-    //   ]
-    //   let width = 250
-    //   if ((MNUtil.studyView.bounds.width - buttonX) < (width+40)) {
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,0)
-    //   }else{
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,4)
-    //   }
-    //   return true
-    // }
-
-    // if (des.action === "ocr" && des.target && des.target === "menu") {
-    //   this.onClick = true
-    //   var commandTable = [
-    //     {title:"clipboard",object:this,selector:'customActionByMenu:',param:{des:{action:"ocr",target:"clipboard"},button:button}},
-    //     {title:"comment",object:this,selector:'customActionByMenu:',param:{des:{action:"ocr",target:"comment"},button:button}},
-    //     {title:"excerpt",object:this,selector:'customActionByMenu:',param:{des:{action:"ocr",target:"excerpt"},button:button}},
-    //     {title:"editor",object:this,selector:'customActionByMenu:',param:{des:{action:"ocr",target:"editor"},button:button}},
-    //     {title:"chatModeReference",object:this,selector:'customActionByMenu:',param:{des:{action:"ocr",target:"chatModeReference"},button:button}}
-    //   ]
-    //   let width = 250
-    //   if (MNUtil.studyView.bounds.width - buttonX < (width+40)) {
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,0)
-    //   }else{
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,4)
-    //   }
-    //   return true
-    // }
-
-    // if (des.action === "setTimer" && des.target && des.target === "menu") {
-    //   this.onClick = true
-    //   var commandTable = [
-    //     // {title:'📝  Annotation',object:self,selector:'inputAnnotation:',param:'left'},
-    //     // {title:'⚙️  Setting',object:self,selector:'openSetting:',param:'left'},
-    //     {title:'⏰  Clock Mode',object:self,selector:'customActionByMenu:',param:{des:{action:"setTimer",timerMode:"clock"},button:button}},
-    //     {title:'⏱️  Count Up',object:self,selector:'customActionByMenu:',param:{des:{action:"setTimer",timerMode:"countUp"},button:button}},
-    //     {title:'⌛  Countdown: 5mins',object:self,selector:'customActionByMenu:',param:{des:{action:"setTimer",timerMode:"countdown",minutes:5},button:button}},
-    //     {title:'⌛  Countdown: 10mins',object:self,selector:'customActionByMenu:',param:{des:{action:"setTimer",timerMode:"countdown",minutes:10},button:button}},
-    //     {title:'⌛  Countdown: 15mins',object:self,selector:'customActionByMenu:',param:{des:{action:"setTimer",timerMode:"countdown",minutes:15},button:button}},
-    //     {title:'🍅  Countdown: 25mins',object:self,selector:'customActionByMenu:',param:{des:{action:"setTimer",timerMode:"countdown",minutes:25},button:button}},
-    //     {title:'⌛  Countdown: 40mins',object:self,selector:'customActionByMenu:',param:{des:{action:"setTimer",timerMode:"countdown",minutes:40},button:button}},
-    //     {title:'⌛  Countdown: 60mins',object:self,selector:'customActionByMenu:',param:{des:{action:"setTimer",timerMode:"countdown",minutes:60},button:button}},
-    //   ];
-    //   // var commandTable = [
-    //   //   {title:"clipboard",object:this,selector:'customActionByMenu:',param:{des:{action:"ocr",target:"clipboard"},button:button}},
-    //   //   {title:"comment",object:this,selector:'customActionByMenu:',param:{des:{action:"ocr",target:"comment"},button:button}},
-    //   //   {title:"excerpt",object:this,selector:'customActionByMenu:',param:{des:{action:"ocr",target:"excerpt"},button:button}},
-    //   //   {title:"editor",object:this,selector:'customActionByMenu:',param:{des:{action:"ocr",target:"editor"},button:button}},
-    //   //   {title:"chatModeReference",object:this,selector:'customActionByMenu:',param:{des:{action:"ocr",target:"chatModeReference"},button:button}}
-    //   // ]
-    //   let width = 250
-    //   if (MNUtil.studyView.bounds.width - buttonX < (width+40)) {
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,0)
-    //   }else{
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,4)
-    //   }
-    //   return true
-    // }
-
-    // if (des.action === "search" && des.target && des.target === "menu") {
-    //   this.onClick = true
-    //   let names = browserConfig.entrieNames
-    //   let entries = browserConfig.entries
-    //   var commandTable = names.map(name=>{
-    //     let title = entries[name].title
-    //     let engine = entries[name].engine
-    //     return {title:title,object:this,selector:'customActionByMenu:',param:{des:{action:"search",engine:engine},button:button}}
-    //   })
-    //   let width = 250
-    //   if (MNUtil.studyView.bounds.width - buttonX < (width+40)) {
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,0)
-    //   }else{
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,4)
-    //   }
-    //   return true
-    // }
-    // if (des.action === "copy" && des.target && des.target === "menu") {
-    //   this.onClick = true
-    //   var commandTable = [
-    //     {title:"selectionText",object:this,selector:'customActionByMenu:',param:{des:{action:"copy",target:"selectionText"},button:button}},
-    //     {title:"selectionImage",object:this,selector:'customActionByMenu:',param:{des:{action:"copy",target:"selectionImage"},button:button}},
-    //     {title:"title",object:this,selector:'customActionByMenu:',param:{des:{action:"copy",target:"title"},button:button}},
-    //     {title:"excerpt",object:this,selector:'customActionByMenu:',param:{des:{action:"copy",target:"excerpt"},button:button}},
-    //     {title:"excerpt (OCR)",object:this,selector:'customActionByMenu:',param:{des:{action:"copy",target:"excerptOCR"},button:button}},
-    //     {title:"notesText",object:this,selector:'customActionByMenu:',param:{des:{action:"copy",target:"notesText"},button:button}},
-    //     {title:"comment",object:this,selector:'customActionByMenu:',param:{des:{action:"copy",target:"comment"},button:button}},
-    //     {title:"noteId",object:this,selector:'customActionByMenu:',param:{des:{action:"copy",target:"noteId"},button:button}},
-    //     {title:"noteURL",object:this,selector:'customActionByMenu:',param:{des:{action:"copy",target:"noteURL"},button:button}},
-    //     {title:"noteMarkdown",object:this,selector:'customActionByMenu:',param:{des:{action:"copy",target:"noteMarkdown"},button:button}},
-    //     {title:"noteMarkdown (OCR)",object:this,selector:'customActionByMenu:',param:{des:{action:"copy",target:"noteMarkdownOCR"},button:button}},
-    //     {title:"noteWithDecendentsMarkdown",object:this,selector:'customActionByMenu:',param:{des:{action:"copy",target:"noteWithDecendentsMarkdown"},button:button}},
-    //   ]
-    //   let width = 250
-    //   if (MNUtil.studyView.bounds.width - buttonX < (width+40)) {
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,0)
-    //   }else{
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,4)
-    //   }
-    //   return true
-    // }
-    // if (des.action === "showInFloatWindow" && des.target && des.target === "menu") {
-    //   this.onClick = true
-    //   // MNUtil.showHUD("showInFloatWindow")
-    //   var commandTable = [
-    //     {title:"noteInClipboard",object:this,selector:'customActionByMenu:',param:{des:{action:"showInFloatWindow",target:"noteInClipboard"},button:button}},
-    //     {title:"currentNote",object:this,selector:'customActionByMenu:',param:{des:{action:"showInFloatWindow",target:"currentNote"},button:button}},
-    //     {title:"currentChildMap",object:this,selector:'customActionByMenu:',param:{des:{action:"showInFloatWindow",target:"currentChildMap"},button:button}},
-    //     {title:"parentNote",object:this,selector:'customActionByMenu:',param:{des:{action:"showInFloatWindow",target:"parentNote"},button:button}},
-    //     {title:"currentNoteInMindMap",object:this,selector:'customActionByMenu:',param:{des:{action:"showInFloatWindow",target:"currentNoteInMindMap"},button:button}}
-    //   ]
-    //   let width = 250
-    //   if (MNUtil.studyView.bounds.width - buttonX < (width+40)) {
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,0)
-    //   }else{
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,4)
-    //   }
-    //   return true
-    // }
-    // if (des.action === "addImageComment" && des.target === "menu") {
-    //   this.onClick = true
-    //   var commandTable = [
-    //     {title:"photo",object:this,selector:'customActionByMenu:',param:{des:{action:"addImageComment",source:"photo"},button:button}},
-    //     {title:"camera",object:this,selector:'customActionByMenu:',param:{des:{action:"addImageComment",source:"camera"},button:button}},
-    //     {title:"file",object:this,selector:'customActionByMenu:',param:{des:{action:"addImageComment",source:"file"},button:button}},
-    //   ]
-    //   let width = 250
-    //   if (MNUtil.studyView.bounds.width - buttonX < (width+40)) {
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,0)
-    //   }else{
-    //     this.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,width,4)
-    //   }
-    //   return true
-    // }
-    // MNUtil.showHUD("shouldShowMenu: false")
     return false
   } catch (error) {
     // toolbarUtils.addErrorLog(error, "customActionMenu")
@@ -2116,15 +2107,17 @@ toolbarController.prototype.addPanGesture = function (view,selector) {
  * @this {toolbarController}
  */
 toolbarController.prototype.addLongPressGesture = function (view,selector) {
-  let gestureRecognizer = new UILongPressGestureRecognizer(this,selector)
-  gestureRecognizer.minimumPressDuration = 0.3
+// MNUtil.log("addLongPressGesture")
+  MNButton.addLongPressGesture(view, this, selector,0.3)
+  // let gestureRecognizer = new UILongPressGestureRecognizer(this,selector)
+  // gestureRecognizer.minimumPressDuration = 0.3
   // if (view.target !== undefined) {
   //   gestureRecognizer.target = view.target
   // }
   // if (view.index !== undefined) {
   //   gestureRecognizer.index = view.index
   // }
-  view.addGestureRecognizer(gestureRecognizer)
+  // view.addGestureRecognizer(gestureRecognizer)
 }
 /**
  * 

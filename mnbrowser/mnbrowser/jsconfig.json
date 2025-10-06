@@ -1,3 +1,3 @@
 {
-  "include": ["main.js","webviewController.js","/Users/linlifei/extension/FeliksPro/.out/index.d.ts","utils.js","/Users/linlifei/extension/FeliksPro/.out/mnutils.js"]
+  "include": ["main.js","webviewController.js","/Users/linlifei/extension/FeliksPro/.out/index.d.ts","utils.js","/Users/linlifei/Library/CloudStorage/坚果云-linlf@zju.edu.cn/extension/FeliksPro/.out/mnnote.js","/Users/linlifei/Library/CloudStorage/坚果云-linlf@zju.edu.cn/extension/FeliksPro/.out/mnutils.js"]
 }

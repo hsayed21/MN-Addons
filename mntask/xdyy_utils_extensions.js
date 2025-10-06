@@ -360,7 +360,7 @@ class TaskFieldUtils {
 
 /**
  * MNTaskManager - 任务管理系统核心类
- * 参考 MNMath 的设计模式，定义任务类型预设和管理 API
+ * 参考 knowledgeBaseTemplate 的设计模式，定义任务类型预设和管理 API
  */
 class MNTaskManager {
   /**
@@ -1517,7 +1517,7 @@ class MNTaskManager {
     MNUtil.log("📝 要移动的索引：" + JSON.stringify(indices))
     
     // 使用 moveComment 方法移动评论
-    // 参考 MNMath 的实现，需要考虑移动方向
+    // 参考 knowledgeBaseTemplate 的实现，需要考虑移动方向
     indices.forEach(index => {
       MNUtil.log(`📍 准备移动评论: index=${index}, targetIndex=${targetIndex}, 评论总数=${note.MNComments.length}`)
       
@@ -1679,20 +1679,43 @@ class MNTaskManager {
     
     const defaultLaunchLink = "marginnote4app://uistatus/H4sIAAAAAAAAE5VSy5LbIBD8F87SFuIp%2BWbJ5VxyyCG3VCqF0LBmg4VKoM06W%2F73AHbiveY2j56mp5l3NHr%2F8zxxtEOGgNbYMNNJGGmHJWAsmRg7wRQIojpDZQtEj5ibpm0apeRI5ahBcKEx4agqZGFxNqIdzlmM%2Fjx5jXZGuQAV0mqdRv9WujmG6Q7Vzv%2BGB8zPEeYYSivNO3WB1U5JI2MDYw0b6l4OtGb7o6h72rY1wU2Hh33Ph%2BMh6YC3ND%2Bd%2FQSFwlgHNzLjvIpntdwSr7cw%2BwiFuj%2F27ND2pO4IYTXjvajbLqf4yEk74D2lXaI2m3MfV0pkn71W0foZ7d6RNyZAzNGPl%2BDnV%2BU2%2BHpZkg40fPri7RwTRzbgibWSck6YbEUjGO1khS6lzgWThLNUo7jlmF8rFLRyeZUnIiiTVGDcsK5JGHEtCgI4F9Kr375XyC%2Bw3uXgD5kfX26FLTo7P7xe1DMkf1O5tBc1gysTRUv6f960mLKOcdJgUqEVAqhVnwp6hVcLv26hfT7dnL0T32D5Iko%2F2AlGtT7a%2BUzsbHz2SvstGbNr0jZRjeFkpwnmf9B4gnM28ABGbS4bGP1i9f8cRJb59zCvfwCp6rmF9QIAAA%3D%3D";
     
-    let linkToUse = linkURL || defaultLaunchLink;
+    let linkToUse = null;
     let hudMessage = "";
     
-    // 如果没有传入链接，尝试从剪贴板获取
-    if (!linkURL) {
+    if (linkURL) {
+      // 1. 优先使用传入的链接
+      linkToUse = linkURL;
+    } else {
       const clipboardText = MNUtil.clipboardText;
-      if (clipboardText) {
-        if (clipboardText.startsWith("marginnote4app://uistatus/")) {
-          linkToUse = clipboardText;
-          hudMessage = "✅ 更新 UI 状态链接";
-        } else if (clipboardText.ifNoteIdorURL()) {
-          linkToUse = clipboardText.toNoteURL();
-          const linkedNote = MNNote.new(clipboardText);
-          hudMessage = "✅ 更新卡片链接: " + (linkedNote ? linkedNote.title : "");
+      
+      // 2. 检查剪贴板是否包含特定类型的链接
+      if (clipboardText && clipboardText.startsWith("marginnote4app://uistatus/")) {
+        linkToUse = clipboardText;
+        hudMessage = "✅ 更新 UI 状态链接";
+      } else if (clipboardText && clipboardText.ifNoteIdorURL()) {
+        linkToUse = clipboardText.toNoteURL();
+        const linkedNote = MNNote.new(clipboardText);
+        hudMessage = "✅ 更新卡片链接: " + (linkedNote ? linkedNote.title : "");
+      } else if (clipboardText && clipboardText.startsWith("marginnote4app://page/")) {
+        // 保留这个判断，用于从剪贴板粘贴页面链接
+        linkToUse = clipboardText;
+        hudMessage = "✅ 更新页面定位链接";
+      } else {
+        // 3. 剪贴板不是已知链接类型（或为空），检查是否有文档打开
+        if (MNUtil.studyController.docMapSplitMode) {  // 不为 0 表示有文档打开
+          const pageLink = this.generatePageLink();
+          if (pageLink) {
+            linkToUse = pageLink;
+            const pageNo = MNUtil.currentDocController.currPageNo || 
+                           (MNUtil.currentDocController.currPageIndex + 1);
+            hudMessage = `✅ 已保存当前页面链接（第 ${pageNo} 页）`;
+          }
+        }
+        
+        // 4. 如果没有文档打开或生成失败，使用默认链接
+        if (!linkToUse) {
+          linkToUse = defaultLaunchLink;
+          hudMessage = hudMessage || "✅ 使用默认 UI 状态链接";
         }
       }
     }
@@ -1728,6 +1751,64 @@ class MNTaskManager {
     } catch (error) {
       return { success: false, message: "操作失败：" + error.message };
     }
+  }
+
+  /**
+   * 复制当前页面链接到剪贴板
+   * @returns {Object} 操作结果
+   */
+  static copyCurrentPageLink() {
+    // 检查是否有文档打开
+    if (!MNUtil.studyController.docMapSplitMode) {
+      return { 
+        success: false, 
+        message: "❌ 没有打开的文档" 
+      };
+    }
+    
+    // 生成页面链接（调用同类的方法）
+    const pageLink = this.generatePageLink();
+    if (!pageLink) {
+      return { 
+        success: false, 
+        message: "❌ 无法生成页面链接" 
+      };
+    }
+    
+    // 复制到剪贴板
+    MNUtil.copy(pageLink);
+    
+    // 获取页面信息用于提示
+    const pageNo = MNUtil.currentDocController.currPageNo || 
+                   (MNUtil.currentDocController.currPageIndex + 1);
+    const doc = MNUtil.getDocById(MNUtil.currentDocMd5);
+    const docTitle = doc ? doc.docTitle : "未知文档";
+    
+    return { 
+      success: true, 
+      message: `📋 已复制页面链接\n${docTitle} - 第 ${pageNo} 页`,
+      link: pageLink
+    };
+  }
+
+  /**
+   * 生成当前页面的定位链接
+   * @returns {string|null} 页面链接URL
+   */
+  static generatePageLink() {
+    const docController = MNUtil.currentDocController;
+    if (!docController) return null;
+    
+    const docMd5 = MNUtil.currentDocmd5;
+    const pageIndex = docController.currPageIndex;
+    const pageNo = docController.currPageNo || (pageIndex + 1);
+    
+    // 获取文档标题（可选）
+    const doc = MNUtil.getDocById(docMd5);
+    const docTitle = doc ? encodeURIComponent(doc.docTitle || '') : '';
+    
+    // 生成页面链接，包含所有必要信息
+    return `marginnote4app://page/?doc=${docMd5}&index=${pageIndex}&page=${pageNo}&title=${docTitle}`;
   }
 
   /**
@@ -2260,7 +2341,7 @@ class MNTaskManager {
 
   /**
    * 清除失效的链接（目标卡片不存在的链接）
-   * 参考 MNMath.cleanupBrokenLinks 的实现
+   * 参考 knowledgeBaseTemplate.cleanupBrokenLinks 的实现
    * 
    * @param {MNNote} note - 要清理的卡片
    * @returns {number} 清除的失效链接数量
@@ -6413,6 +6494,11 @@ class MNTaskManager {
               }
               break
               
+            case 'page':
+              // 处理页面定位
+              this.launchPageLink(launchLink, focusNote)
+              break
+              
             default:
               MNUtil.showHUD("不支持的链接类型")
           }
@@ -6600,7 +6686,7 @@ ${content.trim()}`
   /**
    * 判断链接类型
    * @param {string} url - 要判断的URL
-   * @returns {string} - 'note' | 'uistatus' | 'other'
+   * @returns {string} - 'note' | 'uistatus' | 'page' | 'other'
    */
   static getLaunchLinkType(url) {
     if (!url) return 'other'
@@ -6609,8 +6695,72 @@ ${content.trim()}`
       return 'note'
     } else if (url.includes('marginnote4app://uistatus/')) {
       return 'uistatus'
+    } else if (url.includes('marginnote4app://page/')) {
+      return 'page'
     } else {
       return 'other'
+    }
+  }
+
+  /**
+   * 启动页面链接，定位到指定文档的指定页面
+   * @param {string} pageLink - 页面链接URL
+   * @param {MNNote} taskNote - 任务卡片
+   */
+  static async launchPageLink(pageLink, taskNote) {
+    try {
+      // 解析 URL 参数（使用 MNUtil.parseURL 替代 new URL）
+      const config = MNUtil.parseURL(pageLink);
+      const params = config.params || {};
+      
+      const docMd5 = params.doc;
+      const pageIndex = parseInt(params.index || '0');
+      const pageNo = parseInt(params.page || '1');
+      const docTitle = params.title || '';  // MNUtil.parseURL 已自动解码
+      
+      if (!docMd5) {
+        MNUtil.showHUD("❌ 页面链接无效");
+        return;
+      }
+      
+      // 检查文档是否存在
+      const doc = MNUtil.getDocById(docMd5);
+      if (!doc) {
+        MNUtil.showHUD(`❌ 找不到文档：${docTitle || docMd5}`);
+        return;
+      }
+      
+      // 如果不是当前文档，先打开文档
+      if (docMd5 !== MNUtil.currentDocmd5) {
+        MNUtil.openDoc(docMd5);
+        
+        // 如果当前是纯脑图模式，切换到分割模式以显示文档
+        if (MNUtil.docMapSplitMode === 0) {
+          MNUtil.studyController.docMapSplitMode = 1;
+        }
+        
+        // 等待文档加载
+        await MNUtil.delay(0.1);
+      }
+      
+      // 跳转到指定页面
+      const docController = MNUtil.currentDocController;
+      if (docController) {
+        if (docController.currPageIndex !== pageIndex) {
+          docController.setPageAtIndex(pageIndex);
+        }
+        
+        // 更新启动状态
+        this.isTaskLaunched = true;
+        this.currentLaunchedTaskId = taskNote.noteId;
+        
+        MNUtil.showHUD(`📍 已定位到第 ${pageNo} 页`);
+      } else {
+        MNUtil.showHUD("❌ 无法获取文档控制器");
+      }
+    } catch (error) {
+      MNUtil.log("页面定位失败：" + error.message);
+      MNUtil.showHUD("❌ 页面定位失败");
     }
   }
 
@@ -6633,6 +6783,39 @@ ${content.trim()}`
       return linkMatch[1];  // 返回 URL 部分
     }
     return null;
+  }
+
+  /**
+   * 获取启动链接的描述信息
+   * @param {string} url - 链接URL
+   * @returns {string} 链接描述
+   */
+  static getLaunchLinkDescription(url) {
+    const linkType = this.getLaunchLinkType(url);
+    
+    switch (linkType) {
+      case 'note':
+        const noteId = url.match(/marginnote4app:\/\/note\/([A-Za-z0-9-]+)/)?.[1];
+        const note = noteId ? MNNote.new(noteId) : null;
+        return note ? `卡片：${note.noteTitle || '无标题'}` : '卡片链接';
+        
+      case 'page':
+        try {
+          const urlObj = new URL(url);
+          const params = new URLSearchParams(urlObj.search);
+          const pageNo = params.get('page') || '1';
+          const title = decodeURIComponent(params.get('title') || '');
+          return `页面：${title ? title + ' - ' : ''}第 ${pageNo} 页`;
+        } catch {
+          return '页面链接';
+        }
+        
+      case 'uistatus':
+        return 'UI 状态链接';
+        
+      default:
+        return '未知链接';
+    }
   }
 
   /**
@@ -8010,7 +8193,7 @@ ${content.trim()}`;
       
       MNUtil.log(`✅ 选择的父任务: ${parentTask ? parentTask.noteTitle : '无（独立动作）'}`)
 
-      const titleParts = MNMath.parseNoteTitle(sourceNote)
+      const titleParts = knowledgeBaseTemplate.parseNoteTitle(sourceNote)
       const handledTitle = "「" + titleParts.type + " >> " + titleParts.prefixContent + " >> " + titleParts.content + "」"
 
       MNUtil.copy(handledTitle)
@@ -8084,10 +8267,10 @@ ${content.trim()}`;
       
       // 如果源卡片是知识点卡片，移动链接
       try {
-        if (typeof MNMath !== 'undefined' && MNMath.isKnowledgeNote) {
-          if (MNMath.isKnowledgeNote(sourceNote)) {
+        if (typeof knowledgeBaseTemplate !== 'undefined' && knowledgeBaseTemplate.isKnowledgeNote) {
+          if (knowledgeBaseTemplate.isKnowledgeNote(sourceNote)) {
             MNUtil.log('📚 检测到知识点卡片，移动任务链接...')
-            MNMath.moveTaskCardLinksToRelatedField(sourceNote)
+            knowledgeBaseTemplate.moveTaskCardLinksToRelatedField(sourceNote)
           }
         }
       } catch (e) {

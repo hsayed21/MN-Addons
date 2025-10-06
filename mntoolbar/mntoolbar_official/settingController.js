@@ -2,7 +2,14 @@
 // JSB.require('base64')
 /** @return {settingController} */
 const getSettingController = ()=>self
-var settingController = JSB.defineClass('settingController : UIViewController <NSURLConnectionDelegate,UIImagePickerControllerDelegate,UIWebViewDelegate>', {
+if (typeof toolbarSettingControllerClassName === 'undefined') {
+  var toolbarSettingControllerClassName = "settingController : UIViewController <NSURLConnectionDelegate,UIImagePickerControllerDelegate,UIWebViewDelegate>"
+  if (MNUtil.isMN3()) {
+    toolbarSettingControllerClassName = "settingController : UIViewController <NSURLConnectionDelegate,UIWebViewDelegate>"
+  }
+}
+// var settingController = JSB.defineClass('settingController : UIViewController <NSURLConnectionDelegate,UIImagePickerControllerDelegate,UIWebViewDelegate>', {
+var settingController = JSB.defineClass(toolbarSettingControllerClassName, {
   viewDidLoad: function() {
     let self = getSettingController()
 try {
@@ -202,7 +209,7 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
     let selector = "resetConfig:"
     if (isEditingDynamic) {
       menu.addMenuItem('🔄   Reset all button configs', selector, "config")
-      menu.addMenuItem('🔄   Reset button order', selector, "dynamicOrder")
+      menu.addMenuItem('🔄   Reset dynamic button order', selector, "dynamicOrder")
       menu.addMenuItem('🔄   Reset all button images', selector, "image")
       menu.show()
     }else{
@@ -226,21 +233,29 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
           // self.toolbarController.actions = actions
           self.setButtonText()
           self.setTextview()
-          MNUtil.showHUD("Reset prompts")
+          self.showHUD("Reset prompts")
         }
         break;
       case "order":
         toolbarConfig.reset("order")
         if (!isEditingDynamic) {
           self.setButtonText()
-          MNUtil.showHUD("Reset fixed order")
+          self.showHUD("Reset fixed order")
+          MNUtil.postNotification("refreshToolbarButton", {})
         }
         break;
       case "dynamicOrder":
         toolbarConfig.reset("dynamicOrder")
         if (isEditingDynamic) {
-          self.setButtonText()
-          MNUtil.showHUD("Reset dynamic order")
+          let dynamicAction = toolbarConfig.dynamicAction
+          // MNUtil.log("dynamicAction",dynamicAction)
+          if (dynamicAction.length === 0) {
+            toolbarConfig.dynamicAction = toolbarConfig.action
+            // MNUtil.log("dynamicAction",toolbarConfig.dynamicAction)
+          }
+          self.setButtonText(dynamicAction)
+          self.showHUD("Reset dynamic order")
+          MNUtil.postNotification("refreshToolbarButton", {})
         }
         break;
       case "image":
@@ -251,7 +266,7 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
           toolbarConfig.imageConfigs[key] = MNUtil.getImage(toolbarConfig.mainPath+"/"+toolbarConfig.getAction(key).image+".png")
         })
         MNUtil.postNotification("refreshToolbarButton", {})
-        MNUtil.showHUD("Reset button image")
+        self.showHUD("Reset button image")
         break
       default:
         break;
@@ -456,6 +471,10 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
       MNUtil.showHUD("wait for init")
       await MNUtil.delay(1)
     }
+    // MNUtil.copy(`updatePopupReplaceConfigEncoded("${encodeURIComponent(JSON.stringify(popupConfig))}");
+    // updateTargetActionsEncoded("${encodeURIComponent(JSON.stringify(config))}");
+    // updateConfigList();
+    // `)
     self.runJavaScript(`updatePopupReplaceConfigEncoded("${encodeURIComponent(JSON.stringify(popupConfig))}");
     updateTargetActionsEncoded("${encodeURIComponent(JSON.stringify(config))}");
     updateConfigList();
@@ -508,6 +527,17 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
       MNUtil.postNotification("openInBrowser", {url:"https://mnaddon.craft.me/toolbar/template"})
     }else{
       MNUtil.openURL("https://mnaddon.craft.me/toolbar/template")
+    }
+  },
+  showActionDocument: async function (button) {
+    let self = getSettingController()
+    let input = await self.getWebviewContent()
+    let des = JSON.parse(input)
+    let action = des.action
+    if (typeof browserUtils !== "undefined") {
+      MNUtil.postNotification("openInBrowser", {url:"https://mnaddon.craft.me/toolbar/action/"+action})
+    }else{
+      MNUtil.openURL("https://mnaddon.craft.me/toolbar/action/"+action)
     }
   },
   configCopyTapped: async function (params) {
@@ -624,6 +654,7 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
     self.popupEditView.endEditing()
     self.showHUD("Save Popup config")
     toolbarConfig.popupConfig = config
+    toolbarConfig.save("MNToolbar_popupConfig")
   },
   configRunTapped: async function (button) {
     let self = getSettingController()
@@ -711,7 +742,7 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
       // menu.addMenuItem("➕  New icon from 📄 File", 'changeIconFromFile:', selected)
       // menu.addMenuItem("➕  New icon from 🌐 Appicon Forge", 'changeIconFromWeb:', "https://zhangyu1818.github.io/appicon-forge/")
       // menu.addMenuItem("➕  New icon from 🌐 Icon Font", 'changeIconFromWeb:', "https://www.iconfont.cn/")
-      menu.addMenuItem("➕  New icon", 'chooseIconSource:')
+      menu.addMenuItem("➕  New icon", 'chooseIconSource:',selected)
       menu.addMenuItem("🔍  Change icon scale", 'changeIconScale:', selected)
       menu.addMenuItem("🔄  Reset icon", 'resetIcon:', selected)
       // var commandTable = [
@@ -748,6 +779,8 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
     }
   },
   chooseIconSource:async function (buttonName) {
+  try {
+
     let self = getSettingController()
     Menu.dismissCurrentMenu()
     self.checkPopoverController()
@@ -756,9 +789,7 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
       MNUtil.showHUD("Cancel")
       return
     }
-    if (!toolbarUtils.checkSubscribe(true)) {
-      return
-    }
+
     let beginFrame = self.view.frame
     let endFrame = self.view.frame
     if (endFrame.width < 800) {
@@ -769,6 +800,13 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
     }
     switch (userSelect) {
       case 1:
+        if (MNUtil.isMN3()) {
+          MNUtil.showHUD("Not supported")
+          return
+        }
+        if (!toolbarUtils.checkSubscribe(true)) {
+          return
+        }
         self.imagePickerController = UIImagePickerController.new()
         self.imagePickerController.buttonName = buttonName
         self.imagePickerController.delegate = self  // 设置代理
@@ -777,20 +815,37 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
         MNUtil.studyController.presentViewControllerAnimatedCompletion(self.imagePickerController,true,undefined)
         break;
       case 2:
+        if (!toolbarUtils.checkSubscribe(true)) {
+          return
+        }
         let UTI = ["public.image"]
         let path = await MNUtil.importFile(UTI)
         let image = MNUtil.getImage(path,1)
         toolbarConfig.setButtonImage(buttonName, image,true)
         break;
       case 3:
-        MNUtil.postNotification("openInBrowser", {url:"https://zhangyu1818.github.io/appicon-forge/",beginFrame:beginFrame,endFrame:endFrame})
+        if (typeof browserUtils === 'undefined') {
+          MNUtil.confirm("MN Toolbar","❌ MN Browser not installed\n\n请先安装'MN Browser'")
+          return
+        }
+
+        MNUtil.postNotification("openInBrowser", {url:"https://feliks.rth1.xyz",beginFrame:beginFrame,endFrame:endFrame})
         break;
       case 4:
+        if (typeof browserUtils === 'undefined') {
+          MNUtil.confirm("MN Toolbar","❌ MN Browser not installed\n\n请先安装'MN Browser'")
+          return
+        }
+
         MNUtil.postNotification("openInBrowser", {url:"https://www.iconfont.cn/",beginFrame:beginFrame,endFrame:endFrame})
         break;
       default:
         break;
     }
+    
+  } catch (error) {
+    toolbarUtils.addErrorLog(error, "chooseIconSource")
+  }
     // MNUtil.copy(userSelect)
   },
   copyActionURL:function (actionKey) {
@@ -828,6 +883,10 @@ ${input}
   },
   changeIconFromPhoto:function (buttonName) {
     self.checkPopoverController()
+    if (MNUtil.isMN3()) {
+      MNUtil.showHUD("Not supported")
+      return
+    }
     if (toolbarUtils.checkSubscribe(true)) {
       self.checkPopoverController()
       self.imagePickerController = UIImagePickerController.new()
@@ -850,6 +909,10 @@ ${input}
   },
   changeIconFromWeb: function (url) {
     self.checkPopoverController()
+    if (typeof browserUtils === 'undefined') {
+      MNUtil.confirm("MN Toolbar","❌ MN Browser not installed\n\n请先安装'MN Browser'")
+      return
+    }
     if (toolbarUtils.checkSubscribe(false)) {
       let beginFrame = self.view.frame
       let endFrame = self.view.frame
@@ -864,7 +927,17 @@ ${input}
   }, 
   changeIconScale:async function (buttonName) {
     self.checkPopoverController()
-    let res = await MNUtil.input("Custom scale","自定义图片缩放比例",["cancel","1","2","3","confirm"])
+    if (!(buttonName in toolbarConfig.imageScale)) {
+      MNUtil.showHUD("Not supported")
+      Menu.dismissCurrentMenu()
+      return
+    }
+    try {
+
+    let currentScale = toolbarConfig.imageScale[buttonName].scale
+    let image = toolbarConfig.imageConfigs[buttonName]
+    let size = UIImage.imageWithDataScale(image.pngData(), 1).size
+    let res = await MNUtil.input("MN Toolbar","Custom Icon Scale\n\n自定义图标缩放比例\n\nImage size: "+size.width+"x"+size.height,["cancel","1","2","3","4","5","confirm"],{default:currentScale})
     if (res.button === 0) {
       MNUtil.showHUD("Cancel")
       return
@@ -873,26 +946,37 @@ ${input}
     switch (res.button) {
       case 1:
         scale = 1
-        toolbarConfig.imageScale[buttonName].scale = 1
         break;
       case 2:
         scale = 2
-        toolbarConfig.imageScale[buttonName].scale = 2
         break;
       case 3:
         scale = 3
-        toolbarConfig.imageScale[buttonName].scale = 3
+        break;
+      case 4:
+        scale = 4
+        break;
+      case 5:
+        scale = 5
+        break;
+      case 6:
+        if (res.input.trim()) {
+          scale = parseFloat(res.input.trim())
+        }
         break;
       default:
         break;
     }
-    if (res.button === 4 && res.input.trim()) {
-      scale = parseFloat(res.input.trim())
-      toolbarConfig.imageScale[buttonName].scale = scale
-    }
-    let image = toolbarConfig.imageConfigs[buttonName]
-    toolbarConfig.imageConfigs[buttonName] = UIImage.imageWithDataScale(image.pngData(), scale)
+    // toolbarUtils.log("iconScale:"+scale)
+    // toolbarUtils.log("res.button:"+res.button)
+    toolbarConfig.imageScale[buttonName].scale = scale
+    toolbarConfig.imageConfigs[buttonName] = UIImage.imageWithDataScale(image.jpegData(1.0), scale)
     MNUtil.postNotification("refreshToolbarButton", {})
+    toolbarConfig.save("MNToolbar_imageScale")
+      
+    } catch (error) {
+      toolbarUtils.addErrorLog(error, "changeIconScale")
+    }
   },
   resetIcon:function (buttonName) {
     try {
@@ -920,7 +1004,7 @@ ${input}
     MNUtil.studyController.dismissViewControllerAnimatedCompletion(true,undefined)
     toolbarConfig.setButtonImage(ImagePickerController.buttonName, image,true)
     } catch (error) {
-      MNUtil.showHUD(error)
+      toolbarUtils.addErrorLog(error, "imagePickerControllerDidFinishPickingMediaWithInfo")
     }
   },
   imagePickerControllerDidCancel:function (params) {
@@ -980,6 +1064,7 @@ ${input}
   addOption:async function (params) {
     Menu.dismissCurrentMenu()
     let item = params.item
+    MNUtil.log(item)
     let config = params.currentDes
     if (item.startsWith("onFinish.")) {
       let items = item.split(".")
@@ -1204,6 +1289,7 @@ ${input}
     }
     toolbarConfig.save()
     MNUtil.postNotification("refreshView",{})
+    self.showHUD("✅ Import config success!")
     // MNUtil.copyJSON(config)
   },
   changeToolbarDirection:async function (button) {
@@ -1332,6 +1418,7 @@ settingController.prototype.settingViewLayout = function (){
       Frame.set(this.titleInput,5,155,width-122,35)
       Frame.set(this.saveButton,width-112,155)
       Frame.set(this.templateButton,width-188,199.5)
+      Frame.set(this.actionDocButton,width-218,199.5)
       Frame.set(this.runButton,width-42,155)
       Frame.set(this.addOptionButton,width-35,199.5)
       Frame.set(this.copyButton,width-158,199.5)
@@ -1347,6 +1434,7 @@ settingController.prototype.settingViewLayout = function (){
       Frame.set(this.titleInput,305,5,width-422,35)
       Frame.set(this.saveButton,width-112,5)
       Frame.set(this.templateButton,width-188,49.5)
+      Frame.set(this.actionDocButton,width-218,49.5)
       Frame.set(this.runButton,width-42,5)
       Frame.set(this.addOptionButton,width-35,49.5)
       Frame.set(this.copyButton,width-158,49.5)
@@ -1583,6 +1671,13 @@ try {
   this.templateButton.width = 26
   this.templateButton.height = 26
 
+  this.createButton("actionDocButton","showActionDocument:","configView")
+  MNButton.setConfig(this.actionDocButton, {opacity:0.8,color:"#457bd3"})
+  this.actionDocButton.layer.cornerRadius = 6
+  this.actionDocButton.setImageForState(toolbarConfig.questionImage,0)
+  this.actionDocButton.width = 26
+  this.actionDocButton.height = 26
+
 
 
   this.createButton("copyButton","configCopyTapped:","configView")
@@ -1637,6 +1732,7 @@ try {
  * @this {settingController}
  */
 settingController.prototype.setButtonText = function (names=toolbarConfig.getAllActions(),highlight=this.selectedItem) {
+    // toolbarUtils.log("setButtonText",names)
     this.words = names
     this.selectedItem = highlight
     names.map((word,index)=>{
@@ -1691,6 +1787,7 @@ settingController.prototype.setTextview = function (actionKey = this.selectedIte
  * @this {settingController}
  */
 settingController.prototype.refreshLayout = function () {
+try {
   if (!this.settingView) {return}
   if (!this.configView.hidden) {
     var viewFrame = this.scrollview.bounds;
@@ -1724,7 +1821,10 @@ settingController.prototype.refreshLayout = function () {
     }else{
       if (this.preLocs) {
         this.words.map((word,index)=>{
-          this["nameButton"+index].frame = {  x: this.preLocs[index].x,  y: this.preLocs[index].y,  width: buttonWidth,  height: buttonHeight,};
+          let preLoc = this.preLocs[index]
+          if (preLoc) {
+            this["nameButton"+index].frame = {  x: preLoc.x,  y: preLoc.y,  width: buttonWidth,  height: buttonHeight,};
+          }
         })
       }
       this.preLocs = this.locs
@@ -1745,6 +1845,10 @@ settingController.prototype.refreshLayout = function () {
     this.scrollview.contentSize= {width:viewFrame.width,height:initY+50}
   
   }
+  
+} catch (error) {
+  toolbarUtils.addErrorLog(error, "refreshLayout")
+}
 }
 
 settingController.prototype.refreshView = function (name) {
@@ -1956,7 +2060,6 @@ settingController.prototype.initRequest = function (url,options) {
  */
 settingController.prototype.createWebviewInput = function (superView) {
   try {
-  // this.webviewInput = MNUtil.createJsonEditor(this.mainPath + '/jsoneditor.html')
   this.webviewInput = new UIWebView(this.view.bounds);
   this.webviewInput.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",0.8)
   this.webviewInput.scalesPageToFit = false;
@@ -1971,16 +2074,25 @@ settingController.prototype.createWebviewInput = function (superView) {
   this.webviewInput.layer.opacity = 0.85
   this.webviewInput.scrollEnabled = false
   this.webviewInput.scrollView.scrollEnabled = false
+  // toolbarUtils.log('jsoneditor.html',toolbarUtils.mainPath + '/jsoneditor.html')
+  // toolbarUtils.log('jsoneditor.html',timerUtils.mainPath + '/jsoneditor.html')
   this.webviewInput.loadFileURLAllowingReadAccessToURL(
-    NSURL.fileURLWithPath(this.mainPath + '/jsoneditor.html'),
-    NSURL.fileURLWithPath(this.mainPath + '/')
+    NSURL.fileURLWithPath(toolbarUtils.mainPath + '/jsoneditor.html'),
+    NSURL.fileURLWithPath(toolbarUtils.mainPath + '/')
   );
   // this.webviewInput.loadFileURLAllowingReadAccessToURL(
-  //   NSURL.fileURLWithPath(this.mainPath + '/jsoneditor.html'),
-  //   NSURL.fileURLWithPath(MNUtil.mainPath + '/')
+  //   NSURL.fileURLWithPath(timerUtils.mainPath + '/jsoneditor.html'),
+  //   NSURL.fileURLWithPath(timerUtils.mainPath + '/')
   // );
+  // MNUtil.delay(1).then(()=>{
+  //   this.webviewInput.loadFileURLAllowingReadAccessToURL(
+  //     NSURL.fileURLWithPath(toolbarUtils.mainPath + '/jsoneditor.html'),
+  //     NSURL.fileURLWithPath(toolbarUtils.mainPath + '/')
+  //   );
+  // })
+  
     } catch (error) {
-    MNUtil.showHUD(error)
+    toolbarUtils.addErrorLog(error, "createWebviewInput")
   }
   if (superView) {
     this[superView].addSubview(this.webviewInput)
@@ -1992,7 +2104,6 @@ settingController.prototype.createWebviewInput = function (superView) {
  */
 settingController.prototype.createWebviewButtonReplace = function (superView) {
   try {
-  // this.popupEditView = MNUtil.createJsonEditor(this.mainPath + '/jsoneditor.html')
   this.popupEditView = new UIWebView(this.view.bounds);
   this.popupEditView.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",0.8)
   this.popupEditView.scalesPageToFit = false;

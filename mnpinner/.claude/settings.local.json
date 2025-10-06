@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnai/mnchatglm/**)",
+      "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnutils/**)",
+      "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/**)",
+      "mcp__serena__find_symbol",
+      "mcp__serena__activate_project",
+      "mcp__serena__search_for_pattern",
+      "mcp__serena__think_about_collected_information",
+      "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-API/API/**)",
+      "mcp__serena__list_dir",
+      "mcp__serena__find_file",
+      "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/**)",
+      "mcp__serena__check_onboarding_performed"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

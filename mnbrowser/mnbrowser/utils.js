@@ -25,6 +25,39 @@ class browserUtils {
     this.webappImage = MNUtil.getImage(mainPath + `/webapp.png`)
     this.moreImage = MNUtil.getImage(mainPath + `/more.png`,2.5)
   }
+  // static cdn = {
+  //   "html2canvas":"https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js",
+  //   "win11":"https://vip.123pan.cn/1836303614/dl/win11.jpg",
+  //   "webapp":"https://vip.123pan.cn/1836303614/dl/icon/webapp.png",
+  //   "search":"https://vip.123pan.cn/1836303614/dl/icon/search.png",
+  // }
+  static cdn = {
+    "html2canvas":"https://alist.feliks.top/d/cdn/js/html2canvas.js",
+    "win11":"https://alist.feliks.top/d/cdn/icon/win11.jpg",
+    "webapp":"https://alist.feliks.top/d/cdn/icon/webapp.png",
+    "search":"https://alist.feliks.top/d/cdn/icon/search.png",
+    "setting":"https://alist.feliks.top/d/cdn/icon/settings.png",
+    "www.bilibili.com":"https://alist.feliks.top/d/cdn/icon/bilibili.png",
+    "www.notion.so":"https://alist.feliks.top/d/cdn/icon/notion.png",
+    "pan.baidu.com":"https://alist.feliks.top/d/cdn/icon/baidupan.png",
+    "docs.craft.do":"https://alist.feliks.top/d/cdn/icon/craft.png",
+    "www.doubao.com":"https://alist.feliks.top/d/cdn/icon/doubao.png",
+    "chat.deepseek.com":"https://alist.feliks.top/d/cdn/icon/deepseek.png",
+    "chat.qwen.ai":"https://alist.feliks.top/d/cdn/icon/qwen.png",
+    "www.wolai.com":"https://alist.feliks.top/d/cdn/icon/wolai.png",
+    "www.yinian.pro":"https://alist.feliks.top/d/cdn/icon/yinian.png",
+    "yuanbao.tencent.com":"https://alist.feliks.top/d/cdn/icon/yuanbao.png",
+    "ima.qq.com":"https://alist.feliks.top/d/cdn/icon/ima.png",
+    "flowus.cn":"https://alist.feliks.top/d/cdn/icon/flowus.png",
+    "www.kimi.com":"https://alist.feliks.top/d/cdn/icon/kimi.png",
+    "chat.z.ai":"https://alist.feliks.top/d/cdn/icon/zai.png",
+    "v.flomoapp.com":"https://alist.feliks.top/d/cdn/icon/flomo.png",
+    "www.xiaohongshu.com":"https://alist.feliks.top/d/cdn/icon/rednote.png",
+    "doc2x.noedgeai.com":"https://alist.feliks.top/d/cdn/icon/doc2x.png",
+    "www.jianguoyun.com":"https://alist.feliks.top/d/cdn/icon/nutstore.png",
+    "boardmix.cn":"https://alist.feliks.top/d/cdn/icon/boardmix.png",
+    "fireflycard.shushiai.com":"https://alist.feliks.top/d/cdn/icon/fireflyCard.png"
+  }
   /**
    * 
    * @param {string} fullPath 
@@ -41,6 +74,57 @@ class browserUtils {
     let app = Application.sharedInstance()
     app.showHUD(message,app.focusWindow,duration)
   }
+/**
+ * 直接从 Base64 格式的 Data URL 判断文件格式
+ * @param {string} base64Url - Base64 Data URL（如 data:application/octet-stream;base64,...）
+ * @returns {string} 文件格式（如 'jpg', 'png', 'pdf' 等，未知则返回 'unknown'）
+ */
+static getBase64UrlFileType(base64Url) {
+  try {
+    // 步骤1：提取 Base64 内容部分（去除前缀）
+    const base64Data = base64Url.split(',')[1]; // 分割后第二个元素是 Base64 内容
+    if (!base64Data) throw new Error('无效的 Base64 URL');
+
+    // 步骤2：Base64 解码为二进制数据（Uint8Array），只需前 16 字节
+    const binaryStr = subscriptionNetwork.atob(base64Data); // 将 Base64 解码为二进制字符串
+    const uint8Array = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      uint8Array[i] = binaryStr.charCodeAt(i); // 转换为 Uint8Array
+    }
+    const fileHeaderBytes = uint8Array.slice(0, 16); // 取前 16 字节文件头
+
+    // 步骤3：将文件头转换为十六进制字符串（用于匹配）
+    const hexHeader = Array.from(fileHeaderBytes)
+      .map(byte => byte.toString(16).padStart(2, '0').toUpperCase())
+      .join('');
+
+    // 步骤4：通过文件头匹配格式（同之前的文件头规则）
+    const fileTypes = {
+      'FFD8FF': 'jpg',          // JPG/JPEG
+      '89504E47': 'png',        // PNG
+      '47494638': 'gif',        // GIF
+      '25504446': 'pdf',        // PDF
+      '504B0304': 'zip',        // ZIP（包括 docx、xlsx 等）
+      '7B5C727466': 'rtf',      // RTF
+      '4D5A': 'exe',            // EXE/DLL
+      '494433': 'mp3',          // MP3
+      '0000001466747970': 'mp4',// MP4
+    };
+
+    // 从长前缀到短前缀匹配（避免误判）
+    const sortedTypes = Object.entries(fileTypes).sort(([a], [b]) => b.length - a.length);
+    for (const [hexPrefix, type] of sortedTypes) {
+      if (hexHeader.startsWith(hexPrefix)) {
+        return type;
+      }
+    }
+    return 'unknown';
+  } catch (error) {
+    this.addErrorLog(error, "getBase64UrlFileType")
+    return 'unknown';
+  }
+}
+
   static checkMNUtilsFolder(fullPath){
     let extensionFolder = this.getExtensionFolder(fullPath)
     let folderExist = NSFileManager.defaultManager().fileExistsAtPath(extensionFolder+"/marginnote.extension.mnutils/main.js")
@@ -50,17 +134,64 @@ class browserUtils {
     return folderExist
   }
   static async checkMNUtil(alert = false,delay = 0.01){
+  try {
     if (typeof MNUtil === 'undefined') {//如果MNUtil未被加载，则执行一次延时，然后再检测一次
       //仅在MNUtil未被完全加载时执行delay
       await this.delay(delay)
       if (typeof MNUtil === 'undefined') {
         if (alert) {
+          let res = await this.confirm("MN Browser:", "Install 'MN Utils' first\n\n请先安装'MN Utils'",["Cancel","Open URL"])
+          if (res) {
+            this.openURL("https://bbs.marginnote.com.cn/t/topic/49699")
+          }
+        }else{
           this.showHUD("MN Browser: Please install 'MN Utils' first!",5)
         }
         return false
       }
     }
     return true
+  } catch (error) {
+    this.copy(error.toString())
+    // chatAIUtils.addErrorLog(error, "chatAITool.checkMNUtil")
+    return false
+  }
+  }
+  static copy(text) {
+    UIPasteboard.generalPasteboard().string = text
+  }
+  static openURL(url){
+    if (!this.app) {
+      this.app = Application.sharedInstance()
+    }
+    this.app.openURL(NSURL.URLWithString(url));
+  }
+  /**
+   * Displays a confirmation dialog with a main title and a subtitle.
+   * 
+   * This method shows a confirmation dialog with the specified main title and subtitle.
+   * It returns a promise that resolves with the button index of the button clicked by the user.
+   * 
+   * @param {string} mainTitle - The main title of the confirmation dialog.
+   * @param {string} subTitle - The subtitle of the confirmation dialog.
+   * @param {string[]} items - The items of the confirmation dialog.
+   * @returns {Promise<number|undefined>} A promise that resolves with the button index of the button clicked by the user.
+   */
+  static async confirm(mainTitle,subTitle,items = ["Cancel","Confirm"]){
+    if (MNOnAlert) {
+      return
+    }
+    MNOnAlert = true
+    return new Promise((resolve, reject) => {
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        mainTitle,subTitle,0,items[0],items.slice(1),
+        (alert, buttonIndex) => {
+          MNOnAlert = false
+          // MNUtil.copyJSON({alert:alert,buttonIndex:buttonIndex})
+          resolve(buttonIndex)
+        }
+      )
+    })
   }
   static async delay (seconds) {
     return new Promise((resolve, reject) => {
@@ -726,9 +857,9 @@ static async parseNoteInfo(note){
   return results;
 }
 static extractBilibiliLinks(markdownText) {
-  if (!this.checkSubscribe(true)) {
-    return undefined
-  }
+  // if (!this.checkSubscribe(true)) {
+  //   return undefined
+  // }
   // 正则表达式匹配以 "marginnote4app://addon/BilibiliExcerpt?videoId=" 开头的链接
   const regex = /marginnote4app:\/\/addon\/BilibiliExcerpt\?videoId=([^&\s)]+)(?:&t=([\d.]+))?(?:&p=([\d.]+))?/g;
 
@@ -755,19 +886,27 @@ static extractBilibiliLinks(markdownText) {
       return `![image.png](${videoFrameInfo.image})`
     }
   }
+  static genBilibiliExcerptLink(videoFrameInfo){
+    if ("p" in videoFrameInfo && videoFrameInfo.p) {
+      return `marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}&p=${videoFrameInfo.p}`
+    }else{
+      return `marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}`
+    }
+  }
   static videoTime2MD(videoFrameInfo){
+    let link = this.genBilibiliExcerptLink(videoFrameInfo)
     let formatedVideoTime = this.formatSeconds(videoFrameInfo.time)
     if ("p" in videoFrameInfo && videoFrameInfo.p) {
       if (browserConfig.getConfig("timestampDetail")) {
-        return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv}-${videoFrameInfo.p})](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}&p=${videoFrameInfo.p})`
+        return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv}-${videoFrameInfo.p})](${link})`
       }else{
-        return `[${formatedVideoTime}](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}&p=${videoFrameInfo.p})`
+        return `[${formatedVideoTime}](${link})`
       }
     }
     if (browserConfig.getConfig("timestampDetail")) {
-      return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv})](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time})`
+      return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv})](${link})`
     }else{
-      return `[${formatedVideoTime}](marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time})`
+      return `[${formatedVideoTime}](${link})`
     }
   }
   static getTargetFrame(popupFrame,arrow){
@@ -840,6 +979,9 @@ static extractBilibiliLinks(markdownText) {
       return true;
     }
     if (url.includes("https://zhangyu1818.github.io/appicon-forge/")) {
+      return true
+    }
+    if (url.includes("https://feliks.rth1.xyz")) {
       return true
     }
     return false
@@ -990,6 +1132,9 @@ static getWebJS(id) {
       return ""
   }
 }
+  static log(message,detail){
+    MNUtil.log({message:message,detail:detail,source:"MN Browser"})
+  }
 
 }
 class browserConfig{
@@ -999,7 +1144,7 @@ class browserConfig{
       Baidu:            { title: '🔍 Baidu',          symbol: "🔍", engine: "Baidu",    desktop:false, link: "https://www.baidu.com/s?wd=%s" },
       Zhihu:            { title: '🔍 Zhihu',          symbol: "🔍", engine: "Zhihu",    desktop:false, link: "https://www.zhihu.com/search?type=content&q=%s" },
       Google:           { title: '🔍 Google',         symbol: "🔍", engine: "Google",   desktop:false, link: "https://www.google.com/search?q=%s" },
-      BaiduTranslate:   { title: '📔 Baidu',          symbol: "📔", engine: "Baidu",    desktop:false, link: "https://fanyi.baidu.com/#en/zh/%s" },
+      BaiduTranslate:   { title: '📔 Baidu',          symbol: "📔", engine: "Baidu",    desktop:false, link: "https://fanyi.baidu.com/m/trans?from=en&to=zh&query=%s"},
       Deepl:            { title: '📔 Deepl',          symbol: "📔", engine: "Deepl",    desktop:false, link: "https://www.deepl.com/translator#en/zh/%s" },
       Youdao:           { title: '📔 Youdao',         symbol: "📔", engine: "Youdao",   desktop:false, link: "https://dict.youdao.com/m/result?word=%s&lang=en" },
       GoogleTranslate:  { title: '📔 Google',         symbol: "📔", engine: "Google",   desktop:false, link: "https://translate.google.com/?sl=en&tl=zh-CN&text=%s&op=translate" },
@@ -1043,17 +1188,39 @@ class browserConfig{
         "videoTimeToComment",
         "changeBilibiliVideoPart",
         "pauseOrPlay",
+        "play0.5x",
+        "play1.25x",
+        "play1.5x",
+        "play1.75x",
+        "play2x",
+        "play2.5x",
+        "play3x",
+        "play3.5x",
+        "play4x",
+        "toggleMute",
         "forward10s",
+        "forward15s",
+        "forward30s",
         "backward10s",
+        "backward15s",
+        "backward30s",
         "bigbang",
         "copyCurrentURL",
         "copyAsMDLink",
         "openCopiedURL",
+        "uploadPDF",
         "uploadPDFToDoc2X",
         "uploadImageToDoc2X"
       ]
   }
   static getCustomEmojiByAction(action){
+    if (action.startsWith("webApp:")) {
+      let webAppEntry = this.webAppEntries[action.split(":")[1]]
+      if ("symbol" in webAppEntry) {
+        return webAppEntry.symbol;
+      }
+      return "🌐";
+    }
     switch (action) {
       case "screenshot":
         return " 📸";
@@ -1073,11 +1240,31 @@ class browserConfig{
       case "videoTimeToNewNote":
         return "📌";
       case "forward10s":
+      case "forward15s":
+      case "forward30s":
         return "⏩";
       case "backward10s":
+      case "backward15s":
+      case "backward30s":
         return "⏪";
       case "pauseOrPlay":
         return "▶️"
+      case "toggleMute":
+        return "🔇"
+      case "volumeUp":
+        return "🔊"
+      case "volumeDown":
+        return "🔈"
+      case "play0.5x":
+      case "play1.25x":
+      case "play1.5x":
+      case "play1.75x":
+      case "play2x":
+      case "play2.5x":
+      case "play3x":
+      case "play3.5x":
+      case "play4x":
+        return "⏯️"
       case "bigbang":
         return "💥"
       case "openNewWindow":
@@ -1087,6 +1274,7 @@ class browserConfig{
       case "copyAsMDLink":
       case "openCopiedURL":
         return "🌐";
+      case "uploadPDF":
       case "uploadPDFToDoc2X":
       case "uploadImageToDoc2X":
         return "📤";
@@ -1095,13 +1283,17 @@ class browserConfig{
       default:
         break;
     }
-    return "";
+    return "🔨";
   }
   static getCustomEmoji(index){
     let configName = (index === 1)?"custom":"custom"+index
     return this.getCustomEmojiByAction(this.getConfig(configName))
   }
     static getCustomDescription(action){
+    if (action.startsWith("webApp:")) {
+      let webAppEntry = this.webAppEntries[action.split(":")[1]]
+      return webAppEntry.title;
+    }
     let actionConfig = {
       "openNewWindow":"open new window",
       "openInNewWindow":"open in new window",
@@ -1120,12 +1312,29 @@ class browserConfig{
       "videoTimeToNewNote":"timestamp to new note",
       "videoTimeToComment":"timestamp to comment",
       "pauseOrPlay":"pause or play",
+      "toggleMute":"toggle mute",
+      "volumeUp":"volume up",
+      "volumeDown":"volume down",
+      "play0.5x":"play 0.5x",
+      "play1.25x":"play 1.25x",
+      "play1.5x":"play 1.5x",
+      "play1.75x":"play 1.75x",
+      "play2x":"play 2x",
+      "play2.5x":"play 2.5x",
+      "play3x":"play 3x",
+      "play3.5x":"play 3.5x",
+      "play4x":"play 4x",
       "forward10s":"video forward 10s",
+      "forward15s":"video forward 15s",
+      "forward30s":"video forward 30s",
       "backward10s":"video backward 10s",
+      "backward15s":"video backward 15s",
+      "backward30s":"video backward 30s",
       "bigbang":"bigbang",
       "copyCurrentURL":"copy current URL",
       "copyAsMDLink":"copy as MD link",
       "openCopiedURL":"open copied URL",
+      "uploadPDF":"upload PDF",
       "uploadPDFToDoc2X":"upload PDF to Doc2X",
       "uploadImageToDoc2X":"upload Image to Doc2X",
       "changeBilibiliVideoPart":"Change Bilibili Video part"
@@ -1180,9 +1389,26 @@ class browserConfig{
     }
     return engine
   }
+  static getAvailableEngineEntryKey(){
+    let i = 0
+    while (this.entries["customEngine"+i]) {
+      i = i+1
+    }
+    return "customEngine"+i
+  }
+  static getAvailableWebAppEntryKey(){
+    let i = 0
+    while (this.webAppEntries["customEWebApp"+i]) {
+      i = i+1
+    }
+    return "customEWebApp"+i
+  }
   static init(){
     this.config = this.getByDefault('MNBrowser_config', this.defaultConfig)
     this.entries = this.getByDefault('MNBrowser_entries', this.defaultEntries)
+    if ("BaiduTranslate" in this.entries && this.entries.BaiduTranslate.link === "https://fanyi.baidu.com/#en/zh/%s") {
+      this.entries.BaiduTranslate.link = "https://fanyi.baidu.com/m/trans?from=en&to=zh&query=%s"
+    }
     this.entrieNames = this.getByDefault('MNBrowser_entrieNames',Object.keys(this.entries));
     this.webAppEntries = this.getByDefault('MNBrowser_webAppEntries', this.defaultWebAppEntries)
     this.webAppEntrieNames = this.getByDefault('MNBrowser_webAppEntrieNames', Object.keys(this.webAppEntries))
@@ -1764,6 +1990,10 @@ class browserConfig{
     return Math.max(lastSyncTime,modifiedTime)
   }
   static async import(alert = true,force = false){
+    let syncSource = this.getConfig("syncSource")
+    if (syncSource === "None") {
+      return false
+    }
     if (!browserUtils.checkSubscribe(true)) {
       return false
     }
@@ -1773,7 +2003,6 @@ class browserConfig{
       }
       return false
     }
-    let syncSource = this.getConfig("syncSource")
     // if (syncSource === "iCloud") {
     //   return false
     // }
@@ -1845,6 +2074,10 @@ class browserConfig{
   static async export(alert = true,force = false){
   try {
     
+    let syncSource = this.getConfig("syncSource")
+    if (syncSource === "None") {
+      return false
+    }
     if (!browserUtils.checkSubscribe(true)) {
       return false
     }
@@ -1852,7 +2085,6 @@ class browserConfig{
       MNUtil.showHUD("onSync")
       return
     }
-    let syncSource = this.getConfig("syncSource")
     this.setSyncStatus(true)
     if (force) {
       switch (syncSource) {
@@ -2187,6 +2419,24 @@ class browserConfig{
  } catch (error) {
   MNUtil.showHUD(error)
  }
+ }
+ static getWebAppEntriesWithIcon(){
+  let webapp = JSON.parse(JSON.stringify(this.webAppEntries))
+  let webappWithIcon = {}
+  Object.keys(webapp).map(item=>{
+    let entry = webapp[item]
+    if (!entry.icon){//如果icon为空，则从link中提取域名
+      let url = MNUtil.genNSURL(entry.link)
+      let host = url.host
+      let icon = browserUtils.cdn[host]
+      if (icon) {
+        entry.icon = icon
+      }
+    }
+    webappWithIcon[item] = entry
+    return entry
+  })
+  return webappWithIcon
  }
    /**
    * 

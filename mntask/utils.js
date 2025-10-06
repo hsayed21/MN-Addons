@@ -4830,7 +4830,7 @@ class taskConfig {
     this.popupConfig = this.getByDefault("MNTask_popupConfig", this.defaultPopupReplaceConfig)
     this.syncConfig = this.getByDefault("MNTask_syncConfig", this.defaultSyncConfig)
     // 标签触发器开关配置
-    this.tagTriggerEnabled = this.getByDefault("MNTask_tagTriggerEnabled", true)
+    this.tagTriggerEnabled = this.getByDefault("MNTask_tagTriggerEnabled", false)
     this.initImage()
     this.checkCloudStore(false)
   }

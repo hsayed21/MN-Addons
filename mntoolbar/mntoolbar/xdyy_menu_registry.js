@@ -45,6 +45,11 @@ function registerAllMenuTemplates() {
       action: "menu",
       menuWidth: 300,
       menuItems: [
+        "✂️ 拆分评论",
+        {
+          action: "splitCommentsByNotes",
+          menuTitle: "    拆分卡片评论为独立卡片",
+        },
         "🔗 链接处理",
         {
           action: "removeBidirectionalLinks",
@@ -55,12 +60,16 @@ function registerAllMenuTemplates() {
           menuTitle: "    更新链接",
         },
         {
+          action: "showMarkdownLinksInField",
+          menuTitle: "    查看 Markdown 链接",
+        },
+        {
           action: "linkRemoveDuplicatesAfterApplication",
-          menuTitle: "    “应用”下方的链接去重",
+          menuTitle: "    \"应用\"下方的链接去重",
         },
         {
           action: "reorderContainsFieldLinks",
-          menuTitle: "  定义“相关链接”下方的链接重新排序",
+          menuTitle: "    定义卡片\"相关链接\"下方的链接重新排序",
         },
         "⬇️ 字段处理",
         {
@@ -80,11 +89,28 @@ function registerAllMenuTemplates() {
           action: "clearContentKeepExcerpt",
           menuTitle: "    只保留摘录，无标题",
         },
-        "⬇️ 移动最后一条评论",
+        "⬇️ 移动最后 1️⃣ 条评论",
         {
           action: "moveLastCommentToBelongArea",
           menuTitle: "    移动到所属区",
         },
+        {
+          action: "moveLastCommentToProofAreaTop",
+          menuTitle: "    🔝 移动到证明区顶部",
+        },
+        {
+          action: "moveLastCommentToProofAreaBottom",
+          menuTitle: "    ▼ 移动到证明区底部",
+        },
+        "⬇️ 移动最后 2️⃣ 条评论",
+        {
+          action: "moveLastTwoCommentsToProofAreaTop",
+          menuTitle: "    🔝 移动到证明区顶部",
+        },
+        {
+          action: "moveLastTwoCommentsToProofAreaBottom",
+          menuTitle: "    ▼ 移动到证明区底部",
+        }
       ],
     },
   });
@@ -95,7 +121,12 @@ function registerAllMenuTemplates() {
     onLongPress: {
       action: "menu",
       menuWidth: 330,
-      menuItems: [],
+      menuItems: [
+        {
+          action: "mergeToParentThought",
+          menuTitle: "📝 合并为父卡片思考"
+        }
+      ],
     },
   });
 
@@ -371,64 +402,213 @@ function registerAllMenuTemplates() {
     action: "copyMarkdownVersionFocusNoteURL",
     onLongPress: {
       action: "menu",
-      menuWidth: 350,
+      menuWidth: 360,
       menuItems: [
-        "⬇️ 卡片处理",
         {
-          action: "toBeIndependent",
-          menuTitle: "    ⇨ 独立",
+          action: "copyFocusNotesURLArr",
+          menuTitle: "复制卡片 URL",
+        },
+        "---",
+        {
+          action: "clearContentKeepExcerptWithTitle",
+          menuTitle: "只保留摘录和标题",
         },
         {
-          action: "convertNoteToNonexcerptVersion",
-          menuTitle: "    转化为非摘录版本",
-        },
-        {
-          action: "splitMarkdownTextInFocusNote",
-          menuTitle: "    基于 Markdown 拆卡",
-        },
-        "⬇️ 合并到父卡片",
-        {
-          action: "mergeInParentNote",
-          menuTitle: "    合并到父卡片",
-        },
-        {
-          action: "mergeInParentNoteWithPopup",
-          menuTitle: "    合并到父卡片：弹窗选择类型",
-        },
-        {
-          action: "mergIntoParenNoteAndRenewReplaceholder",
-          menuTitle: "    合并到父卡片 & 替换占位符",
-        },
-        {
-          action: "mergIntoParenNoteAndRenewReplaceholderWithPopup",
-          menuTitle: "    合并到父卡片 & 替换占位符: 弹窗选择类型",
-        },
-        {
-          action: "renewExcerptInParentNoteByFocusNote",
-          menuTitle: "    父卡片的摘录替换为选中卡片的摘录",
-        },
-        "🔄 处理旧卡片",
-        {
-          action: "batchChangeClassificationTitles",
-          menuTitle: "    批量更新归类卡片标题",
+          action: "clearContentKeepExcerpt",
+          menuTitle: "只保留摘录，无标题",
         },
         {
           action: "renewKnowledgeNoteIntoParentNote",
-          menuTitle: "    更新知识点卡片到父卡片中",
+          menuTitle: "🔀 合并重复知识点",
+        },
+        {
+          action: "mergeInParentNote",
+          menuTitle: "🔀 合并到父卡片",
+        },
+        {
+          action: "mergeApplicationFieldInParentNote",
+          menuTitle: "🔀 合并应用字段到父卡片",
+        },
+        {
+          action: "renewExcerptInParentNoteByFocusNote",
+          menuTitle: "🔀 摘录替换掉父卡片的摘录",
+        },
+        {
+          action: "descendNotesToBeIndependent",
+          menuTitle: "✂️ 子孙卡片独立为单张",
+        },
+        {
+          action: "removeAllClassificationNotes",
+          menuTitle: "❌ 删除归类子孙卡片，保留知识点",
+        },
+        {
+          action: "fixBrokenLinks",
+          menuTitle: "🏥 修复失效链接",
+        },
+        "---------",
+        "⬇️ 卡片处理",
+        {
+          action: "convertNoteToNonexcerptVersion",
+          menuTitle: "    🔄 转化为非摘录版本",
+        },
+        {
+          action: "handleOldCardWithoutMakeNote",
+          menuTitle: "    旧卡片处理 & 不制卡",
+        },
+        "⬇️ 定位",
+        {
+          "action": "focusLastChildNote",
+          "menuTitle": "⇨ 定位最后一张子卡片",
+        },
+        {
+          "action": "menu",
+          "menuTitle": "⇨ 🚗 卡片移动 ⇦",
+          "menuWidth": 250,
+          "menuItems": [
+            "⇩  ⇩",
+            {
+              action: "addAsBrotherNoteofParentNote",
+              menuTitle: "⇨ 成为父卡片的兄弟卡片",
+            },
+            {
+              action: "sendNotesToInboxArea",
+              menuTitle: "⇨ Inbox",
+            },
+            {
+              action: "sendNotesToRoughReadingArea",
+              menuTitle: "⇨ 粗读区",
+            },
+            {
+              action: "sendNotesToRoughReadingAreaAndFocus",
+              menuTitle: "⇨ 粗读区 & 定位",
+            },
+            {
+              action: "toBeIndependent",
+              menuTitle: "⇨ 独立",
+            },
+          ]
+        },
+        {
+          action: "addAsBrotherNoteofParentNote",
+          menuTitle: "    ⇨ 成为父卡片的兄弟卡片",
+        },
+        {
+          "action": "menu",
+          "menuTitle": "⇨ ✂️ 拆卡 ⇦",
+          "menuWidth": 200,
+          "menuItems": [
+            "⇩  ⇩",
+            {
+              action: "splitMarkdownTextInFocusNote",
+              menuTitle: "基于 Markdown 拆卡",
+            },
+            {
+              action: "splitCommentsByNotes",
+              menuTitle: "拆分卡片评论为独立卡片",
+            },
+          ]
+        },
+        {
+          action: "splitCommentsByNotes",
+          menuTitle: "    ✂️ 拆分卡片评论为独立卡片",
+        },
+        {
+          "action": "menu",
+          "menuTitle": "⇨ 🔄 处理子孙卡片 ⇦",
+          "menuWidth": 300,
+          "menuItems": [
+            "⇩  ⇩",
+            {
+              action: "updateChildNotesPrefixes",
+              menuTitle: "🔄 更新「子卡片」前缀和链接",
+            },
+            {
+              action: "updateDescentNotesPrefixes",
+              menuTitle: "🔄 更新「子孙卡片」前缀和链接",
+            },
+            {
+              action: "oldChildrenMakeNotes",
+              menuTitle: "🔄 子孙卡片批量制卡",
+            },
+          ]
+        },
+        {
+          "action": "menu",
+          "menuTitle": "⇨ 🔀 合并到父卡片 ⇦",
+          "menuWidth": 340,
+          "menuItems": [
+            "⇩  ⇩",
+            {
+              action: "mergeInParentNote",
+              menuTitle: "    合并到父卡片",
+            },
+            {
+              action: "mergeApplicationFieldInParentNote",
+              menuTitle: "    合并应用字段到父卡片",
+            },
+            {
+              action: "mergeInParentNoteWithPopup",
+              menuTitle: "    合并到父卡片：弹窗选择类型",
+            },
+            {
+              action: "mergIntoParenNoteAndRenewReplaceholder",
+              menuTitle: "    合并到父卡片 & 替换占位符",
+            },
+            {
+              action: "mergIntoParenNoteAndRenewReplaceholderWithPopup",
+              menuTitle: "    合并到父卡片 & 替换占位符: 弹窗选择类型",
+            },
+          ]
+        },
+        {
+          "action": "menu",
+          "menuTitle": "⇨ 🔄 处理旧卡片 ⇦",
+          "menuWidth": 250,
+          "menuItems": [
+            "⇩  ⇩",
+            {
+              action: "clearContentKeepExcerptWithTitle",
+              menuTitle: "只保留摘录和标题",
+            },
+            {
+              action: "clearContentKeepExcerpt",
+              menuTitle: "只保留摘录，无标题",
+            },
+            {
+              action: "forceOldCardMakeNote",
+              menuTitle: "强制按旧卡片制卡",
+            },
+            {
+              action: "handleOldCardWithoutMakeNote",
+              menuTitle: "旧卡片处理 & 不制卡",
+            },
+            // {
+            //   action: "batchChangeClassificationTitles",
+            //   menuTitle: "    批量更新归类卡片标题",
+            // },
+          ]
+        },
+        {
+          action: "renewKnowledgeNoteIntoParentNote",
+          menuTitle: "    🔀 合并重复知识点",
+        },
+        {
+          action: "renewExcerptInParentNoteByFocusNote",
+          menuTitle: "    摘录替换掉父卡片的摘录",
         },
         "⬇️ 修改标题",
         {
           action: "removeTitlePrefix",
           menuTitle: "    去掉卡片前缀",
         },
+        {
+          action: "forceUpdateTitlePrefix",
+          menuTitle: "    ⚡ 强制修改标题前缀",
+        },
         "ℹ️ 获取卡片信息",
         {
           action: "copyFocusNotesIdArr",
           menuTitle: "    复制卡片🆔",
-        },
-        {
-          action: "copyFocusNotesURLArr",
-          menuTitle: "    复制卡片 URL",
         },
       ],
     },
@@ -441,36 +621,37 @@ function registerAllMenuTemplates() {
       action: "menu",
       menuWidth: 300,
       menuItems: [
+        "✂️ 修改",
+        {
+          action: "renewExcerptInParentNoteByFocusNote",
+          menuTitle: "    摘录替换掉父卡片的摘录",
+        },
+        "⬇️ 移动",
+        {
+          "action": "moveLinksInExcerptToThoughtArea",
+          "menuTitle": "    移动摘录区的链接到「相关思考区」",
+        },
+        "☯️ 合并",
+        {
+          "action": "mergeLastChildToExcerpt",
+          "menuTitle": "    合并最后一张子卡片到摘录区",
+        },
+        {
+          "action": "mergeToPreviousBrotherExcerpt",
+          "menuTitle": "    合并到前一张兄弟卡片的摘录区",
+        },
         {
           action: "mergeToParentAndMoveCommentToExcerpt",
-          menuTitle: "合并到父卡片并移动评论到摘录",
+          menuTitle: "    合并到父卡片并移动评论到摘录",
         },
         {
           action: "mergeToParentAndMoveCommentToTop",
-          menuTitle: "合并到父卡片并移动到最顶端",
+          menuTitle: "    合并到父卡片并移动到最顶端",
         },
       ],
     },
   });
 
-  // menu_card_pin
-  global.registerMenuTemplate("menu_card_pin", {
-    action: "menu",
-    menuItems: [
-      {
-        action: "openPinnedNote-1",
-        menuTitle: "Hᵖ(𝔻)",
-      },
-      {
-        action: "openPinnedNote-2",
-        menuTitle: "Lᵖ(𝕋)",
-      },
-      {
-        action: "openPinnedNote-3",
-        menuTitle: "Hᵖ(𝕋)",
-      },
-    ],
-  });
 
   // menu_makeCards
   global.registerMenuTemplate("menu_makeCards", {
@@ -486,6 +667,14 @@ function registerAllMenuTemplates() {
         {
           action: "makeCardWithoutFocus",
           menuTitle: "    不定位制卡",
+        },
+        {
+          action: "preprocessNote",
+          menuTitle: "    预处理制卡",
+        },
+        {
+          action: "clearContentKeepExcerptWithTitleAndMakeCard",
+          menuTitle: "    只保留摘录和标题后制卡",
         },
         {
           action: "menu",
@@ -526,6 +715,10 @@ function registerAllMenuTemplates() {
         {
           action: "addNewSummaryNote",
           menuTitle: "    生成「总结」卡片",
+        },
+        {
+          action: "addNewDefinitionNote",
+          menuTitle: "    生成「定义」卡片",
         },
         {
           action: "addNewCounterexampleNote",
@@ -581,17 +774,25 @@ function registerAllMenuTemplates() {
     action: "addProofCheckComment",
     onLongPress: {
       action: "menu",
-      menuWidth: 320,
+      menuWidth: 350,
       menuItems: [
-        "⇔ 等价证明",
         {
-          action: "addEquivalenceProof",
-          menuTitle: "    添加等价证明",
+          action: "checkProofInReview",
+          menuTitle: "检查证明区中链接对应的卡片是否加入复习",
         },
-        {
-          action: "manageProofTemplates",
-          menuTitle: "    管理证明模板",
-        },
+        // "⇔ 等价证明",
+        // {
+        //   action: "addEquivalenceProof",
+        //   menuTitle: "    添加等价证明",
+        // },
+        // {
+        //   action: "manageProofTemplates",
+        //   menuTitle: "    管理证明模板",
+        // },
+        // {
+        //   action: "splitCommentsByNotes",
+        //   menuTitle: "拆分评论为独立卡片",
+        // },
         {
           action: "upwardMergeWithStyledComments",
           menuTitle: "将子卡片作为证明要点合并",
@@ -658,28 +859,42 @@ function registerAllMenuTemplates() {
           menuTitle: "    📋 打开搜索看板",
         },
         {
+          action: "clearSearchBoard",
+          menuTitle: "    🗑 清除搜索看板",
+        },
+        {
           action: "searchDefinition",
           menuTitle: "    📚 搜索上层定义卡片的目录",
         },
-        "⚙️ 基础配置",
+        
+        "📁 根目录管理",
         {
           action: "manageSearchRoots",
-          menuTitle: "    📁 管理搜索根目录",
+          menuTitle: "    📝 管理根目录列表",
         },
+        {
+          action: "adjustRootOrder",
+          menuTitle: "    ↕️ 调整根目录顺序",
+        },
+        {
+          action: "manageRootGroups",
+          menuTitle: "    ⚡ 管理根目录群组",
+        },
+        
+        "⚙️ 搜索配置",
         {
           action: "showSearchSettings",
-          menuTitle: "    🎯 搜索设置",
+          menuTitle: "    🎯 基础搜索设置",
         },
-        "📝 同义词管理",
         {
           action: "manageSynonymGroups",
-          menuTitle: "    （包含导入导出功能）",
+          menuTitle: "    📝 同义词组管理",
         },
-        "🚫 排除词管理",
         {
           action: "manageExclusionGroups",
-          menuTitle: "    （智能过滤搜索结果）",
+          menuTitle: "    🚫 排除词组管理",
         },
+        
         "📊 配置同步",
         {
           action: "exportSearchConfig",
@@ -724,6 +939,76 @@ function registerAllMenuTemplates() {
         menuTitle: "    ⚙️ 切换 OCR 源"
       }
     ]
+  });
+
+
+  global.registerMenuTemplate("menu_pin", {
+    action: "pinToMidwayTop",  // 单击：添加到中间知识顶部
+    onLongPress: {
+      // 长按：显示菜单
+      action: "menu",
+      menuWidth: 300,
+      menuItems: [
+        {
+          action: "pinToFocusTop",
+          menuTitle: "⬆️ 添加到 Focus 顶部",
+        },
+        {
+          action: "pinToFocusBottom",
+          menuTitle: "⬇️ 添加到 Focus 底部",
+        },
+        {
+          action: "pinToMidwayBottom",
+          menuTitle: "⬇️ 添加到中间知识底部",
+        },
+        {
+          action: "temporarilyPinFocusNoteWithTitle",
+          menuTitle: "✏️ 自定义标题后添加",
+        },
+        {
+          action: "showPinBoard",
+          menuTitle: "📋 打开 Pin 卡片库",
+        },
+      ]
+    }
+  });
+
+  global.registerMenuTemplate("menu_classification", {
+    action: "searchAndAddClassification",
+    onLongPress: {
+      action: "menu",
+      menuWidth: 300,
+      menuItems: [
+        {
+          action: "",
+          menuTitle: "",
+        },
+        {
+          action: "",
+          menuTitle: "",
+        },
+        {
+          action: "",
+          menuTitle: "",
+        },
+        {
+          action: "",
+          menuTitle: "",
+        },
+        {
+          action: "",
+          menuTitle: "",
+        },
+        {
+          action: "",
+          menuTitle: "",
+        },
+        {
+          action: "",
+          menuTitle: "",
+        },
+      ]
+    }
   });
 
   if (typeof MNUtil !== "undefined" && MNUtil.log) {

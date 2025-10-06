@@ -418,7 +418,7 @@ function registerAllCustomActions() {
       return;
     }
     
-    // 准备字段名列表作为按钮（参考 MNMath 的做法）
+    // 准备字段名列表作为按钮（参考 knowledgeBaseTemplate 的做法）
     const fieldButtons = subFields.map(field => `${field.fieldName}: ${field.content || '(空)'}`);
     
     // 第一步：使用 UIAlertView 让用户选择字段
@@ -504,6 +504,22 @@ function registerAllCustomActions() {
     
     // 显示结果
     MNUtil.showHUD(result.message, 2);
+  });
+
+  // copyCurrentPageLink - 复制当前页面链接到剪贴板
+  MNTaskGlobal.registerCustomAction("copyCurrentPageLink", function(context) {
+    const { button, des, focusNote, focusNotes, self } = context;
+    
+    try {
+      // 调用 MNTaskManager 的方法
+      const result = MNTaskManager.copyCurrentPageLink();
+      
+      // 显示结果
+      MNUtil.showHUD(result.message, 2);
+    } catch (error) {
+      MNUtil.log(`❌ copyCurrentPageLink 执行失败: ${error.message || error}`);
+      MNUtil.showHUD(`复制页面链接失败: ${error.message || "未知错误"}`);
+    }
   });
 
   MNTaskGlobal.registerCustomAction("addTimestampRecord", async function(context) {

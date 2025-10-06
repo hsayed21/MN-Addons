@@ -770,47 +770,7 @@ JSB.newAddon = function (mainPath) {
         }
         self.checkUpdate()
       },
-      testBoardSync: async function (sender) {
-        let self = getMNTaskClass()
-        if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
-        
-        try {
-          MNUtil.showHUD("🔄 开始测试看板同步...")
-          
-          // 检查看板绑定状态
-          const boards = {
-            target: taskConfig.getBoardNoteId('target'),
-            project: taskConfig.getBoardNoteId('project'),
-            action: taskConfig.getBoardNoteId('action'),
-            completed: taskConfig.getBoardNoteId('completed'),
-            today: taskConfig.getBoardNoteId('today')
-          }
-          
-          let boundBoards = 0
-          for (const [key, noteId] of Object.entries(boards)) {
-            if (noteId) {
-              boundBoards++
-              MNUtil.log(`✅ ${key} 看板已绑定: ${noteId}`)
-            } else {
-              MNUtil.log(`❌ ${key} 看板未绑定`)
-            }
-          }
-          
-          if (boundBoards === 0) {
-            MNUtil.showHUD("❌ 没有绑定任何看板")
-            return
-          }
-          
-          // 执行同步
-          await self.syncTasksToWebView()
-          
-          MNUtil.showHUD(`✅ 同步完成 (${boundBoards} 个看板)`)
-          
-        } catch (error) {
-          taskUtils.addErrorLog(error, "testBoardSync")
-          MNUtil.showHUD("❌ 同步失败: " + error.message)
-        }
-      },
+      // testBoardSync 方法已移除 - WebView 功能不再需要
       /**
        * 处理笔记更新事件，用于实时同步看板数据
        * @param {Object} sender - 通知对象
@@ -979,11 +939,6 @@ try {
         self.checkPopoverController()
         self.openSetting()
       },
-      openTodayBoard:function () {
-        let self = getMNTaskClass()
-        self.checkPopoverController()
-        self.openTodayBoard()
-      },
       toggleTask:function () {
         let self = getMNTaskClass()
         self.checkPopoverController()
@@ -1094,7 +1049,6 @@ try {
         
         var commandTable = [
             self.tableItem('⚙️   Setting', 'openSetting:'),
-            self.tableItem('📋   今日看板', 'openTodayBoard:'),
             self.tableItem('🛠️   Task', 'toggleTask:',undefined,!self.addonController.view.hidden),
             self.tableItem('🛠️   Direction   '+(taskConfig.vertical()?'↕️':'↔️'), selector,"fixed"),
             self.tableItem('🌟   Dynamic   ', "toggleDynamic",undefined,taskConfig.dynamic),
@@ -1102,8 +1056,7 @@ try {
             self.tableItem('🗂️   卡片预处理模式  ',"togglePreprocess:", undefined, taskConfig.windowState.preprocess),
             self.tableItem(triggerIcon + '   标签触发器', 'toggleTrigger:'),
             self.tableItem('📄   Document', 'openDocument:'),
-            self.tableItem('🔄   Manual Sync','manualSync:'),
-            self.tableItem('📊   Test Board Sync','testBoardSync:')
+            self.tableItem('🔄   Manual Sync','manualSync:')
         ];
         if (self.addonBar.frame.x < 100) {
           self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,200,4)
@@ -1210,41 +1163,6 @@ try {
       taskUtils.addErrorLog(error, "openSetting")
     }
 }
-  /**
-   * 打开今日看板视图
-   * @this {MNTaskClass} 
-   */
-  MNTaskClass.prototype.openTodayBoard = function () {
-    try {
-      // 先打开设置面板
-      if (!this.settingController) {
-        this.settingController = taskSettingController.new();
-        this.settingController.taskController = this.addonController
-        this.settingController.mainPath = taskConfig.mainPath;
-        this.settingController.action = taskConfig.action
-        MNUtil.studyView.addSubview(this.settingController.view)
-      }
-      
-      // 显示设置面板
-      this.settingController.show()
-      
-      // 切换到今日看板视图
-      if (this.settingController.viewManager) {
-        MNUtil.log("切换到今日看板视图")
-        this.settingController.viewManager.switchTo('todayBoard')
-      } else {
-        MNUtil.log("viewManager 尚未初始化，延迟切换")
-        // 延迟执行，等待 viewManager 初始化
-        MNUtil.delay(0.1).then(() => {
-          if (this.settingController.viewManager) {
-            this.settingController.viewManager.switchTo('todayBoard')
-          }
-        })
-      }
-    } catch (error) {
-      taskUtils.addErrorLog(error, "openTodayBoard")
-    }
-  }
   MNTaskClass.prototype.checkUpdate = async function () {
     try {
       let shouldUpdate = await taskConfig.readCloudConfig(false)
@@ -1268,139 +1186,9 @@ try {
     }
   }
   
-  /**
-   * 同步任务数据到 WebView
-   * @this {MNTaskClass}
-   */
-  MNTaskClass.prototype.syncTasksToWebView = async function() {
-    try {
-      MNUtil.log("🔄 开始同步任务数据到 WebView")
-      
-      // 确保设置控制器存在
-      if (!this.settingController) {
-        MNUtil.log("❌ 设置控制器不存在")
-        return
-      }
-      
-      // 获取所有看板绑定
-      const boards = {
-        target: taskConfig.getBoardNoteId('target'),
-        project: taskConfig.getBoardNoteId('project'),
-        action: taskConfig.getBoardNoteId('action'),
-        completed: taskConfig.getBoardNoteId('completed'),
-        today: taskConfig.getBoardNoteId('today')
-      }
-      
-      MNUtil.log(`📋 看板绑定状态: ${JSON.stringify(boards)}`)
-      
-      // 提取每个看板的任务数据
-      const allTasks = {}
-      
-      for (const [boardKey, boardNoteId] of Object.entries(boards)) {
-        if (boardNoteId) {
-          try {
-            allTasks[boardKey] = await TaskDataExtractor.extractTasksFromBoard(boardNoteId)
-            MNUtil.log(`✅ ${boardKey} 看板提取了 ${allTasks[boardKey].length} 个任务`)
-          } catch (error) {
-            MNUtil.log(`❌ 提取 ${boardKey} 看板任务失败: ${error.message}`)
-            allTasks[boardKey] = []
-          }
-        } else {
-          allTasks[boardKey] = []
-        }
-      }
-      
-      // 传递给 WebView
-      const script = `
-        (function() {
-          if (typeof window.TaskSync !== 'undefined' && window.TaskSync.receiveTasks) {
-            window.TaskSync.receiveTasks(${JSON.stringify(allTasks)});
-            return 'success';
-          } else {
-            return 'TaskSync not ready';
-          }
-        })()
-      `
-      
-      const result = await this.settingController.runJavaScriptInWebView(script)
-      MNUtil.log(`📡 数据同步结果: ${result}`)
-      
-    } catch (error) {
-      taskUtils.addErrorLog(error, "syncTasksToWebView")
-      MNUtil.log(`❌ 同步任务数据失败: ${error.message}`)
-    }
-  }
+  // syncTasksToWebView 方法已移除 - WebView 功能不再需要
   
-  /**
-   * 处理来自 WebView 的任务更新
-   * @param {Object} taskData - 任务数据
-   * @this {MNTaskClass}
-   */
-  MNTaskClass.prototype.updateTaskFromWebView = function(taskData) {
-    try {
-      MNUtil.log(`📝 收到 WebView 的任务更新: ${taskData.id}`)
-      
-      MNUtil.undoGrouping(() => {
-        const note = MNNote.new(taskData.id)
-        if (!note) {
-          MNUtil.log(`❌ 任务卡片不存在: ${taskData.id}`)
-          return
-        }
-        
-        // 更新标题（如果改变了）
-        if (taskData.titleContent !== undefined || taskData.titlePath !== undefined || 
-            taskData.status !== undefined || taskData.type !== undefined) {
-          
-          // 构建新标题
-          const typeMap = {
-            'action': '动作',
-            'project': '项目',
-            'target': '目标',
-            'keyresult': '关键结果'
-          }
-          const type = typeMap[taskData.type] || taskData.type
-          const newTitle = `【${type} >> ${taskData.titlePath}｜${taskData.status}】${taskData.titleContent}`
-          note.noteTitle = newTitle
-          MNUtil.log(`✅ 更新标题: ${newTitle}`)
-        }
-        
-        // 更新描述字段
-        if (taskData.description !== undefined) {
-          // 查找并更新第一个纯文本评论
-          let descriptionUpdated = false
-          for (let i = 0; i < note.comments.length; i++) {
-            const comment = note.comments[i]
-            if (!comment.text.includes('<span') && !comment.text.includes('[') && 
-                i > 0) { // 跳过标题
-              note.removeCommentByIndex(i)
-              note.insertCommentAtIndex(taskData.description, i)
-              descriptionUpdated = true
-              break
-            }
-          }
-          
-          // 如果没有找到描述评论，在标题后添加
-          if (!descriptionUpdated && taskData.description) {
-            note.insertCommentAtIndex(taskData.description, 1)
-          }
-          MNUtil.log(`✅ 更新描述: ${taskData.description}`)
-        }
-        
-        // 添加新进展
-        if (taskData.newProgress) {
-          MNTaskManager.addProgress(note, taskData.newProgress)
-          MNUtil.log(`✅ 添加进展: ${taskData.newProgress}`)
-        }
-      })
-      
-      MNUtil.showHUD("✅ 任务已更新")
-      
-    } catch (error) {
-      taskUtils.addErrorLog(error, "updateTaskFromWebView")
-      MNUtil.log(`❌ 更新任务失败: ${error.message}`)
-      MNUtil.showHUD("❌ 更新失败")
-    }
-  }
+  // updateTaskFromWebView 方法已移除 - WebView 功能不再需要
   MNTaskClass.prototype.checkPopoverController = function () {
     if (this.popoverController) {this.popoverController.dismissPopoverAnimated(true);}
   }

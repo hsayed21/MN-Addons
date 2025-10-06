@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="favicon.ico">
+  <title>Clock</title>
+  <link href="app.css" rel="preload" as="style">
+  <link href="app.js" rel="preload" as="script">
+  <link href="chunk-vendors.js" rel="preload" as="script">
+  <link href="app.css" rel="stylesheet">
+  <style>
+  .bg { /* 记得去掉CSS里的bg*/
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #000
+  }
+  </style>
+</head>
+
+<body><noscript><strong>We're sorry but timer doesn't work properly without JavaScript enabled. Please enable it to
+      continue.</strong></noscript>
+  <div id="app"></div>
+  <script>
+window.colorTop = '#161616'
+window.colorBottom = '#0c0c0c'
+window.textColorTop = '#bcbcbc'
+window.textColorBottom = '#b8b8b8'
+window.lineColor = '#b8b8b8'
+window.showSecond = true
+  </script>
+  <script src="chunk-vendors.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Dark Theme File Manager with Context Menu</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #282C34;
+            color: #d4d4d4;
+            margin-top: 10px;
+            margin-left: 0;
+            padding: 0;
+            width: 270px;
+            max-width: 270px;
+        }
+        #title{
+          font-size: 20px;
+          padding-left: 15px;
+          position: fixed;
+          top: 0;
+          padding-top: 5px;
+          background-color: #282C34;
+          width: 100%;
+          height: 30px;
+        }
+        .file-manager {
+            width: 270px;
+            max-width: 270px;
+            min-height: calc(100vh - 76px);
+            background-color: #282C34;
+            padding-top: 20px;
+            padding-left: 10px;
+            margin-top: 10px;
+            border-radius: 7px;
+            white-space: nowrap;
+            overflow-x: hidden;
+-webkit-user-select: none; /* Safari */
+    -moz-user-select: none;    /* Firefox */
+    -ms-user-select: none;     /* Internet Explorer/Edge */
+    user-select: none;         /* Non-prefixed version, currently supported by Chrome, Opera and Edge */
+        }
+        .folder, .file {
+            cursor: pointer;
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+            padding: 3px 5px;
+            border-radius: 10px;
+        }
+        .folder:hover, .file:hover {
+            background-color: #1e1e1e;
+            border-radius: 10px;
+        }
+        .folder {
+            font-weight: bold;
+        }
+        .hidden {
+            display: none;
+        }
+        .nested {
+            margin-left: 20px;
+        }
+        .icon {
+            margin-right: 5px;
+        }
+        .context-menu {
+            position: fixed;
+            background-color: #333;
+            border: 1px solid #444;
+            padding: 5px 0;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+        .context-menu-item {
+            padding: 5px 20px;
+            cursor: pointer;
+        }
+        .context-menu-item:hover {
+            background-color: #444;
+        }
+        .highlighted {
+            background-color: #282828;
+        }
+    </style>
+</head>
+<body>
+    <strong id="title">Workspace</strong>
+    <div class="file-manager">
+        <!-- 文件管理器将插入在这里 -->
+    </div>
+
+    <div id="contextMenu" class="context-menu hidden">
+        <div class="context-menu-item" data-action="rename">Rename</div>
+        <div class="context-menu-item" data-action="delete">Delete</div>
+        <div class="context-menu-item" data-action="copy">Copy</div>
+        <div class="context-menu-item" data-action="cut">Cut</div>
+        <div class="context-menu-item" data-action="paste">Paste</div>
+        <div class="context-menu-item" data-action="new-folder">New Folder</div>
+        <div class="context-menu-item" data-action="new-file">New File</div>
+    </div>
+
+    <script>
+  function setTitle(title){
+    document.getElementById("title").innerText = title
+  }
+  function buildFileData(paths) {
+    const root = [];
+    function addPath(root, path) {
+        const parts = path.split('/');
+        let currentLevel = root;
+
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            let existingNode = currentLevel.find(node => node.name === part);
+
+            if (!existingNode) {
+                existingNode = {
+                    name: part,
+                    type: i === parts.length - 1 && !part.includes('.') ? 'folder' : (part.includes('.') ? 'file' : 'folder'),
+                    children: i === parts.length - 1 && part.includes('.') ? undefined : []
+                };
+                currentLevel.push(existingNode);
+            }
+
+            if (existingNode.type === 'folder') {
+                currentLevel = existingNode.children;
+            }
+        }
+    }
+
+    paths.forEach(path => addPath(root, path));
+    return root;
+}
+        let clipboard = { action: '', item: null };
+
+        // 模拟API数据
+  let focusedPath = ""
+  let highlightedElement = null;
+  let fileData = [];
+          function highlightFile(element) {
+            if (highlightedElement) {
+                highlightedElement.classList.remove('highlighted');
+            }
+            element.classList.add('highlighted');
+            highlightedElement = element;
+        }
+        // 渲染文件和文件夹
+        function renderFiles(container, files) {
+            container.innerHTML = '';
+            files.forEach(file => {
+                if (file.type === 'folder') {
+                    const folderElement = document.createElement('div');
+                    folderElement.className = 'folder';
+                    folderElement.innerHTML = `<span class="icon">📁</span>${file.name}`;
+                    folderElement.onclick = (event) => {
+                        event.stopPropagation();
+                        const nested = folderElement.nextElementSibling;
+                        nested.classList.toggle('hidden');
+                        const contextMenu = document.getElementById('contextMenu');
+                        if (contextMenu) {
+                          contextMenu.classList.add('hidden');
+                        }
+                    };
+                    folderElement.oncontextmenu = (event) => showContextMenu(event, file);
+
+                    const nestedContainer = document.createElement('div');
+                    nestedContainer.className = 'nested hidden';
+                    renderFiles(nestedContainer, file.children);
+
+                    container.appendChild(folderElement);
+                    container.appendChild(nestedContainer);
+                } else if (file.type === 'file') {
+                    const fileElement = document.createElement('div');
+                    fileElement.className = 'file';
+                    if (/\.png$/.test(file.name)) {
+                      fileElement.innerHTML = `<span class="icon">🏞️</span>${file.name}`;
+                    }else if(/\.html$/.test(file.name)) {
+                      fileElement.innerHTML = `<span class="icon">🌐</span>${file.name}`;
+                    }else{
+                      fileElement.innerHTML = `<span class="icon">📝</span>${file.name}`;
+                    }
+                    if (file.path === focusedPath) {
+                      fileElement.style.backgroundColor = "black"
+                    }
+                    fileElement.onclick = (event) => {
+                        event.stopPropagation();
+                        const contextMenu = document.getElementById('contextMenu');
+                        if (contextMenu && !contextMenu.classList.contains('hidden')) {
+                          contextMenu.classList.add('hidden');
+                          return
+                        }
+                        highlightFile(fileElement)
+                        // focusedPath = file.path
+                        // renderFiles(fileManagerContainer, fileData);
+
+                        // fileElement.style.backgroundColor = "black"
+                        openFile(file.path)
+                        // alert(`You clicked on ${file.name}`);
+                    };
+                    fileElement.oncontextmenu = (event) => showContextMenu(event, file);
+
+                    container.appendChild(fileElement);
+                }
+            });
+        }
+
+        // 显示右键菜单
+        function showContextMenu(event, file) {
+            event.preventDefault();
+            let managerHeight = document.getElementsByClassName('file-manager')[0].scrollHeight
+            const contextMenu = document.getElementById('contextMenu');
+            let left = (event.pageX>180)?180:event.pageX
+            contextMenu.style.left = `${left}px`;
+            contextMenu.style.top = `${event.pageY-window.pageYOffset}px`;
+            contextMenu.classList.remove('hidden');
+
+            // 设置右键菜单项的点击事件
+            contextMenu.querySelectorAll('.context-menu-item').forEach(item => {
+                item.onclick = () => handleContextMenuAction(item.dataset.action, file);
+            });
+
+            // 点击其他地方时隐藏右键菜单
+            document.onclick = () => contextMenu.classList.add('hidden');
+        }
+
+        // 处理右键菜单操作
+        function handleContextMenuAction(action, file) {
+            switch(action) {
+                case 'open':
+                    alert(`Opening ${file.name}`);
+                    break;
+                case 'rename':
+                    const newName = prompt(`Rename ${file.name} to:`, file.name);
+                    if (newName) {
+                        alert(`Renamed ${file.name} to ${newName}`);
+                        // 这里应该有实际的重命名逻辑
+                    }
+                    break;
+                case 'delete':
+                    if (confirm(`Are you sure you want to delete ${file.name}?`)) {
+                        alert(`Deleted ${file.name}`);
+                        // 这里应该有实际的删除逻辑
+                    }
+                    break;
+                case 'copy':
+                    clipboard = { action: 'copy', item: file };
+                    alert(`Copied ${file.name}`);
+                    break;
+                case 'cut':
+                    clipboard = { action: 'cut', item: file };
+                    alert(`Cut ${file.name}`);
+                    break;
+                case 'paste':
+                    if (clipboard.item) {
+                        alert(`Pasted ${clipboard.item.name}`);
+                        // 这里应该有实际的粘贴逻辑
+                        clipboard = { action: '', item: null };
+                    } else {
+                        alert('Clipboard is empty');
+                    }
+                    break;
+                case 'new-folder':
+                    const folderName = prompt('Enter the name of the new folder:');
+                    if (folderName) {
+                        alert(`Created new folder ${folderName}`);
+                        // 这里应该有实际的新建文件夹逻辑
+                    }
+                    break;
+                case 'new-file':
+                    const fileName = prompt('Enter the name of the new file:');
+                    if (fileName) {
+                        alert(`Created new file ${fileName}`);
+                        // 这里应该有实际的新建文件逻辑
+                    }
+                    break;
+            }
+        }
+        function render(text) {
+          // copyToClipboard(text)
+          fileData = JSON.parse(text)
+          renderFiles(fileManagerContainer, fileData);
+          // renderFiles(fileManagerContainer, fileData);
+        }
+        function copyToClipboard(text) {
+          window.location.href = "nativecopy://content="+encodeURIComponent(text);
+        }
+        function openFile(path) {
+          window.location.href = "nativeopen://content="+encodeURIComponent(path);
+        }
+        // 初始化文件管理器
+        const fileManagerContainer = document.querySelector('.file-manager');
+        renderFiles(fileManagerContainer, fileData);
+
+        
+    </script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>插件管理面板</title>
+    <link rel="stylesheet" href="sidebar.css">
+    <link rel="stylesheet" href="notyf.min.css">
+    <script src="notyf.min.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div id="tags-bar"></div>
+            <ul id="plugin-list">
+                <!-- 这里将动态插入插件列表 -->
+            </ul>
+        </div>
+    </div>
+    <script src="subfunc.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+          notyf = new Notyf({position: {x: 'center', y: 'top'}, duration: 2000,ripple:false});
+      })
+      function showNotification(message,type = 'success') {
+        notyf.open({
+          message: message,
+          type: type
+        })
+      }
+    </script>
+</body>
+</html>

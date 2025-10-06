@@ -1,0 +1,847 @@
+/**
+ * 文献管理插件的工具类
+ * 提供视图控制器管理和辅助功能
+ */
+class pinnerUtils {
+  static init(mainPath) {
+    try {
+      this.mainPath = mainPath
+      this.errorLog = []
+    } catch (error) {
+      MNLog.error(error, "pinnerUtils:init")
+    }
+  }
+  static addErrorLog(error, source, info){
+    MNUtil.showHUD("MN Pinner Error ("+ source +"): "+error)
+    let tem = {source:source, time:(new Date(Date.now())).toString()}
+    if (error.detail) {
+      tem.error = {message: error.message, detail:error.detail}
+    } else {
+      tem.error = error.message
+    }
+    if (info) {
+      tem.info = info
+    }
+    this.errorLog.push(tem)
+    MNUtil.copy(this.errorLog)
+    if (typeof MNUtil.log !== 'undefined') {
+      MNUtil.log({
+        source:"MN Pinner",
+        level:"error",
+        message:source,
+        detail:tem,
+      })
+    }
+  }
+
+  static log(log, source){
+    let tem = {source:source, time:(new Date(Date.now())).toString(), log:log}
+    if (typeof MNUtil.log !== 'undefined') {
+      MNUtil.log({
+        source:"MN Pinner",
+        level:"log",
+        message:source,
+        detail:tem,
+      })
+    }
+  }
+  /**
+   * 获取插件文件夹路径
+   * @param {string} fullPath - 完整文件路径
+   * @returns {string} 文件夹路径
+   */
+  static getExtensionFolder(fullPath) {
+      // 找到最后一个'/'的位置
+      let lastSlashIndex = fullPath.lastIndexOf('/');
+      // 从最后一个'/'之后截取字符串，得到文件名
+      let fileName = fullPath.substring(0,lastSlashIndex);
+      return fileName;
+  }
+
+  /**
+   * 检查 MNUtils 框架是否已安装
+   * @param {string} fullPath - 插件的完整路径
+   * @returns {boolean} MNUtils 是否存在
+   */
+  static checkMNUtilsFolder(fullPath){
+    let extensionFolder = this.getExtensionFolder(fullPath)
+    let folderExist = MNUtil.isfileExists(extensionFolder+"/marginnote.extension.mnutils/main.js")
+    if (!folderExist) {
+      pinnerUtils.showHUD("MN Pinner: Please install 'MN Utils' first!",5)
+    }
+    return folderExist
+  }
+
+  /**
+   * 检查并创建视图控制器（单例模式）
+   * 
+   * 这是整个视图系统的核心方法，负责：
+   * 1. 创建视图控制器实例（只创建一次）
+   * 2. 确保视图被添加到正确的父视图中
+   * 
+   * 技术要点：
+   * - pinnerController.new() 会创建 UIViewController 实例
+   * - 创建时会自动调用 viewDidLoad 生命周期方法
+   * - studyView 是 MarginNote 的主学习视图，所有插件视图都应添加到这里
+   */
+  static checkPinnerController(){
+    // 单例模式：如果控制器不存在则创建
+    if (!this.pinnerController) {
+      // 创建视图控制器实例
+      // 这会触发 webviewController.js 中的 viewDidLoad 方法
+      this.pinnerController = pinnerController.new();
+      // 初始状态设为隐藏，等待用户手动打开
+      this.pinnerController.view.hidden = true
+    }
+    // 确保视图在正确的父视图中
+    // 这是必要的，因为视图可能被其他操作移除
+    if (!MNUtil.isDescendantOfStudyView(this.pinnerController.view)) {
+      // 将视图添加到 studyView（MarginNote 的主视图容器）
+      // addSubview 是 iOS UIView 的标准方法
+      MNUtil.studyView.addSubview(this.pinnerController.view)
+    }
+  }
+
+  /**
+   * 同时设置视图的 frame 和 currentFrame
+   * 
+   * 为什么需要两个 frame 属性？
+   * - view.frame：iOS 标准属性，决定视图的实际位置和大小
+   * - currentFrame：自定义属性，用于记录当前位置，在动画时使用
+   * 
+   * @param {pinnerController} target - 视图控制器对象
+   * @param {Object} frame - 位置和大小 {x, y, width, height}
+   */
+  static setFrame(target,frame){
+    target.view.frame = frame
+    target.currentFrame = frame
+  }
+
+  /**
+   * 确保视图在正确的父视图中
+   * 
+   * 这个方法解决了一个常见问题：
+   * 插件视图可能因为各种原因（窗口切换、内存管理等）从父视图中移除
+   * 在显示视图前，必须确保它在正确的容器中
+   * 
+   * @param {UIView} view - 需要确保的视图对象
+   */
+  static ensureView(view){
+    // 检查视图是否在 studyView 的子视图树中
+    if (!MNUtil.isDescendantOfStudyView(view)) {
+      // 如果不在，先隐藏它（避免闪烁）
+      view.hidden = true
+      // 然后添加到 studyView 中
+      MNUtil.studyView.addSubview(view)
+    }
+  }
+}
+
+
+class pinnerConfig {
+  // 路径和定时器
+  static mainPath
+  static dataDir
+  static backUpTimer
+
+  // 数据存储 - 不直接初始化，在 init 中赋值
+  static sections       // {focus: [], midway: []}
+  static config         // {version, modifiedTime, lastSyncTime}
+  static previousConfig // 用于备份上一次的配置
+
+  // 默认值通过 getter 返回，避免多窗口共享问题
+  static get defaultSections() {
+    return {
+      focus: [],
+      midway: []
+    }
+  }
+  
+  // 会造成 iPad 闪退，先去掉
+  // static defaultConfig = {
+  //   version: "1.0.0",
+  //   modifiedTime: 0,
+  //   lastSyncTime: null,
+  //   autoImport: false,  // 预留自动导入功能
+  //   autoExport: false,  // 预留自动导出功能
+  // }
+  
+  /**
+   * 初始化配置管理
+   * @param {string} mainPath - 插件主路径
+   */
+  static init(mainPath) {
+    try {
+      if (mainPath) {
+        this.mainPath = mainPath
+      }
+
+      // 初始化配置
+      this.config = {
+        version: "1.0.0",
+        source: "focus"  // 默认显示的分区
+      }
+
+      // 尝试读取新格式数据
+      let sections = NSUserDefaults.standardUserDefaults().objectForKey("MNPinner_sections")
+
+      if (!sections) {
+        // 没有新格式，检查旧格式并迁移
+        let tempPins = NSUserDefaults.standardUserDefaults().objectForKey("MNPinner_temporaryPins")
+
+        if (tempPins && tempPins.length > 0) {
+          // 执行数据迁移：旧的临时卡片迁移到中间知识
+          this.sections = {
+            focus: [],              // 新的focus分区初始为空
+            midway: tempPins        // 旧的临时卡片迁移到中间知识
+          }
+
+          pinnerUtils.log("数据迁移：将临时卡片迁移到中间知识分区", "pinnerConfig:init")
+
+          // 保存迁移后的数据
+          this.save()
+
+          // 清理旧数据
+          NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_temporaryPins")
+          NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_permanentPins")
+        } else {
+          // 全新安装，初始化空数据
+          this.sections = this.defaultSections
+          this.save()
+        }
+      } else {
+        // 已有新格式数据，直接使用
+        this.sections = sections
+      }
+
+      // 加载图片资源
+      this.closeImage = this.mainPath + "/close.png"
+      this.resizeImage = this.mainPath + "/resize.png"
+
+      pinnerUtils.log("pinnerConfig initialized with sections", "pinnerConfig:init")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:init")
+    }
+  }
+  
+  /**
+   * 检查并创建数据目录
+   */
+  static checkDataDir() {
+    if (MNUtil.initialized) {
+      return
+    }
+    let extensionPath = subscriptionUtils.extensionPath
+    if (extensionPath) {
+      let dataPath = extensionPath+"/data"
+      if (MNUtil.isfileExists(dataPath)) {
+        return
+      }
+      MNUtil.createFolderDev(dataPath)
+    }
+  }
+  
+  /**
+   * 检查本地配置是否存在
+   * @param {string} key - 配置键名
+   */
+  static isLocalConfigExists(key) {
+    let value = NSUserDefaults.standardUserDefaults().objectForKey(key)
+    if (value && Object.keys(value).length > 0) {
+      return true
+    }
+    return false
+  }
+  
+  /**
+   * 检查备份文件是否存在
+   */
+  static isBackUpConfigExists() {
+    if (MNUtil.isfileExists(this.backUpFile)) {
+      let backupConfig = MNUtil.readJSON(this.backUpFile)
+      if (backupConfig && Object.keys(backupConfig).length > 0) {
+        return true
+      }
+    }
+    return false
+  }
+  
+  /**
+   * 获取数据，如果不存在则使用默认值
+   * @param {string} key - 存储键名
+   * @param {any} defaultValue - 默认值
+   * @param {string} backUpFile - 备份文件路径（可选）
+   */
+  static getByDefault(key, defaultValue, backUpFile) {
+    let value = NSUserDefaults.standardUserDefaults().objectForKey(key)
+    
+    if (value === undefined) {
+      // 如果不存在，检查备份文件
+      if (backUpFile && MNUtil.isfileExists(backUpFile)) {
+        let backupConfig = MNUtil.readJSON(backUpFile)
+        if (backupConfig && Object.keys(backupConfig).length > 0) {
+          MNUtil.log("backupConfig.readFromBackupFile")
+          return backupConfig
+        }
+      }
+      // 使用默认值并保存
+      NSUserDefaults.standardUserDefaults().setObjectForKey(defaultValue, key)
+      return defaultValue
+    }
+    return value
+  }
+  
+  /**
+   * 获取配置项
+   * @param {string} key - 配置键名
+   */
+  static getConfig(key) {
+    return this.config[key]
+  }
+  
+  /**
+   * 设置配置项
+   * @param {string} key - 配置键名
+   * @param {any} value - 配置值
+   */
+  static setConfig(key, value) {
+    this.config[key] = value
+    // this.save("MNPinner_config")
+  }
+  
+  /**
+   * 保存数据到本地存储
+   * @param {string} sectionName - 特定分区名，undefined 则保存所有
+   */
+  static save(sectionName) {
+    try {
+      // 保存整个sections对象
+      NSUserDefaults.standardUserDefaults().setObjectForKey(this.sections, "MNPinner_sections")
+
+      // 保存配置
+      NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, "MNPinner_config")
+
+      // 为了向后兼容，清理旧的key
+      NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_temporaryPins")
+      NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_permanentPins")
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:save")
+    }
+  }
+  
+  /**
+   * 导入后保存
+   */
+  static saveAfterImport() {
+    this.save(undefined, true, true)  // 忽略自动导出，立即同步
+  }
+  
+  /**
+   * 备份到 JSON 文件
+   */
+  static backUp() {
+    try {
+      pinnerUtils.log("Backing up data", "pinnerConfig:backUp")
+      let totalConfig = this.getAllConfig()
+      MNUtil.writeJSON(this.backUpFile, totalConfig)
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:backUp")
+    }
+  }
+  
+  /**
+   * 获取所有配置（统一命名）
+   */
+  static getAllConfig() {
+    return {
+      sections: this.sections,
+      config: this.config,
+      version: "1.0.0"
+    }
+  }
+  
+  /**
+   * 验证配置格式（统一命名）
+   */
+  static isValidTotalConfig(data) {
+    if (!data || typeof data !== 'object') return false
+
+    // 验证 pin 数据格式 (只需要 noteId 和 title)
+    let validatePins = (pins) => {
+      if (!Array.isArray(pins)) return true
+      return pins.every(pin =>
+        pin && typeof pin === 'object' &&
+        'noteId' in pin && 'title' in pin
+      )
+    }
+
+    // 新版本格式
+    if (data.version === "1.0.0") {
+      if (!data.sections || typeof data.sections !== 'object') return false
+      if (data.sections.focus && !validatePins(data.sections.focus)) return false
+      if (data.sections.midway && !validatePins(data.sections.midway)) return false
+      return true
+    }
+
+    // 旧版本格式（兼容）
+    if (data.temporaryPins) {
+      if (data.temporaryPins && !validatePins(data.temporaryPins)) return false
+      return true
+    }
+
+    return false
+  }
+  
+  /**
+   * 导入配置
+   */
+  static importConfig(newConfig) {
+    try {
+      if (!this.isValidTotalConfig(newConfig)) {
+        MNUtil.showHUD("Invalid config format")
+        return false
+      }
+
+      // 保存当前配置作为备份
+      this.previousConfig = this.getAllConfig()
+
+      // 判断版本并导入
+      if (newConfig.version === "1.0.0") {
+        // 新版本格式
+        this.sections = newConfig.sections || this.defaultSections
+        this.config = newConfig.config || { version: "1.0.0", source: "focus" }
+      } else {
+        // 旧版本格式，执行迁移
+        this.sections = {
+          focus: [],
+          midway: newConfig.temporaryPins || []
+        }
+        this.config = { version: "1.0.0", source: "focus" }
+      }
+
+      // 保存
+      this.save()
+
+      MNUtil.showHUD("导入成功!")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:importConfig")
+      return false
+    }
+  }
+  
+  /**
+   * 导出配置到文件
+   */
+  static exportToFile() {
+    try {
+      // 更新最后同步时间
+      this.config.lastSyncTime = Date.now()
+      
+      let data = JSON.stringify(this.getAllConfig(), null, 2)
+      let fileData = NSString.stringWithString(data).dataUsingEncoding(4)
+      let fileName = "MNPinner_export_" + new Date().toISOString().slice(0,10) + ".json"
+      let filePath = MNUtil.tempPath + "/" + fileName
+      
+      fileData.writeToFileAtomically(filePath, false)
+      MNUtil.saveFile(filePath, "public.json")
+      
+      MNUtil.showHUD("Exported to file")
+      
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:exportToFile")
+    }
+  }
+  
+  /**
+   * 从文件导入配置
+   */
+  static importFromFile() {
+    try {
+      MNUtil.importFile("public.json", (filePath) => {
+        if (!filePath) {
+          MNUtil.showHUD("No file selected")
+          return
+        }
+        
+        let fileData = NSData.dataWithContentsOfFile(filePath)
+        let jsonString = NSString.alloc().initWithDataEncoding(fileData, 4)
+        let data = JSON.parse(jsonString)
+        
+        this.importConfig(data)  // 使用 importConfig 而不是 importData
+      })
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:importFromFile")
+    }
+  }
+  
+  // ========== Pin 操作方法 ==========
+
+  /**
+   * 添加 Pin
+   * @param {string} noteId - 笔记ID
+   * @param {string} title - 标题
+   * @param {string} section - 分区名称 ("focus" 或 "midway")
+   */
+  static addPin(noteId, title, section = "midway") {
+    try {
+      if (!this.sections[section]) {
+        pinnerUtils.addErrorLog("Invalid section: " + section, "pinnerConfig:addPin")
+        return false
+      }
+
+      let pins = this.sections[section]
+
+      // 检查是否已存在
+      if (pins.find(p => p.noteId === noteId)) {
+        MNUtil.showHUD("卡片已存在")
+        return false
+      }
+
+      // 添加新的 pin
+      pins.push({
+        noteId: noteId,
+        title: title || "未命名卡片"
+      })
+
+      // 保存
+      this.save()
+
+      pinnerUtils.log(`Added pin to ${section}: ${title}`, "pinnerConfig:addPin")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:addPin")
+      return false
+    }
+  }
+
+  /**
+   * 在指定位置添加卡片
+   * @param {string} noteId - 卡片ID
+   * @param {string} title - 卡片标题
+   * @param {string} section - 分区名称
+   * @param {string|number} position - 位置：'top', 'bottom' 或具体索引
+   * @returns {boolean} 是否添加成功
+   */
+  static addPinAtPosition(noteId, title, section = "midway", position = "bottom") {
+    try {
+      if (!this.sections[section]) {
+        pinnerUtils.addErrorLog("Invalid section: " + section, "pinnerConfig:addPinAtPosition")
+        return false
+      }
+
+      let pins = this.sections[section]
+
+      // 检查是否已存在
+      if (pins.find(p => p.noteId === noteId)) {
+        MNUtil.showHUD("卡片已存在")
+        return false
+      }
+
+      // 创建新的 pin 对象
+      let newPin = {
+        noteId: noteId,
+        title: title || "未命名卡片"
+      }
+
+      // 根据 position 参数插入到指定位置
+      if (position === "top") {
+        pins.unshift(newPin)  // 插入到开头
+      } else if (position === "bottom") {
+        pins.push(newPin)  // 插入到末尾
+      } else if (typeof position === "number" || !isNaN(Number(position))) {
+        let index = Number(position)
+        // 确保索引在有效范围内
+        if (index < 0) index = 0
+        if (index > pins.length) index = pins.length
+        pins.splice(index, 0, newPin)  // 插入到指定位置
+      } else {
+        // 无效的 position 参数，默认添加到末尾
+        pins.push(newPin)
+      }
+
+      // 保存
+      this.save()
+
+      pinnerUtils.log(`Added pin at position ${position} to ${section}: ${title}`, "pinnerConfig:addPinAtPosition")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:addPinAtPosition")
+      return false
+    }
+  }
+
+  /**
+   * 将已存在的卡片移动到指定位置
+   * @param {string} noteId - 卡片ID
+   * @param {string} section - 分区名称
+   * @param {string} position - 位置：'top' 或 'bottom'
+   * @returns {boolean} 是否移动成功
+   */
+  static movePinToPosition(noteId, section, position) {
+    try {
+      if (!this.sections[section]) {
+        pinnerUtils.addErrorLog("Invalid section: " + section, "pinnerConfig:movePinToPosition")
+        return false
+      }
+
+      let pins = this.sections[section]
+
+      // 查找卡片索引
+      let currentIndex = pins.findIndex(p => p.noteId === noteId)
+      if (currentIndex === -1) {
+        MNUtil.showHUD("卡片不存在")
+        return false
+      }
+
+      let targetIndex
+      if (position === "top") {
+        targetIndex = 0
+      } else if (position === "bottom") {
+        targetIndex = pins.length - 1
+      } else {
+        return false
+      }
+
+      // 如果已经在目标位置，不需要移动
+      if (currentIndex === targetIndex) {
+        return true
+      }
+
+      // 移动卡片
+      let [item] = pins.splice(currentIndex, 1)
+      pins.splice(targetIndex, 0, item)
+
+      // 保存
+      this.save()
+
+      if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
+        pinnerUtils.pinnerController.refreshView(section + "View")
+      }
+
+      pinnerUtils.log(`Moved pin to ${position} in ${section}`, "pinnerConfig:movePinToPosition")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:movePinToPosition")
+      return false
+    }
+  }
+  
+  /**
+   * 删除 Pin
+   * @param {string} noteId - 笔记ID
+   * @param {string} section - 分区名称
+   */
+  static removePin(noteId, section) {
+    try {
+      // 如果没有指定分区，在所有分区中查找并删除
+      if (!section) {
+        for (let sec in this.sections) {
+          let pins = this.sections[sec]
+          let index = pins.findIndex(p => p.noteId === noteId)
+          if (index !== -1) {
+            pins.splice(index, 1)
+            this.save()
+            pinnerUtils.log(`Removed pin from ${sec}`, "pinnerConfig:removePin")
+            return true
+          }
+        }
+        return false
+      }
+
+      // 指定分区删除
+      if (!this.sections[section]) return false
+
+      let pins = this.sections[section]
+      let index = pins.findIndex(p => p.noteId === noteId)
+
+      if (index === -1) {
+        return false
+      }
+
+      pins.splice(index, 1)
+      this.save()
+
+      pinnerUtils.log(`Removed pin from ${section}`, "pinnerConfig:removePin")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:removePin")
+      return false
+    }
+  }
+  
+  /**
+   * 移动 Pin 顺序
+   * @param {number} oldIndex - 原位置
+   * @param {number} newIndex - 新位置
+   * @param {string} section - 分区名称
+   */
+  static movePin(oldIndex, newIndex, section) {
+    try {
+      if (!this.sections[section]) return false
+
+      let pins = this.sections[section]
+
+      if (oldIndex < 0 || oldIndex >= pins.length ||
+          newIndex < 0 || newIndex >= pins.length) {
+        return false
+      }
+
+      let [item] = pins.splice(oldIndex, 1)
+      pins.splice(newIndex, 0, item)
+
+      this.save()
+
+      if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
+        pinnerUtils.pinnerController.refreshView(section + "View")
+      }
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:movePin")
+      return false
+    }
+  }
+  
+  /**
+   * 清空分区
+   * @param {string} section - 分区名称
+   */
+  static async clearPins(section) {
+    try {
+      if (!this.sections[section]) return false
+
+      let sectionName = section === 'focus' ? 'Focus' : '中间知识'
+      let confirm = await MNUtil.confirm(`清空 ${sectionName} 分区的所有卡片？`, "")
+      if (!confirm) return false
+
+      this.sections[section] = []
+      this.save()
+
+      if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
+        pinnerUtils.pinnerController.refreshView(section + "View")
+      }
+      MNUtil.showHUD(`已清空 ${sectionName}`)
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:clearPins")
+      return false
+    }
+  }
+  
+  /**
+   * 获取分区卡片
+   * @param {string} section - 分区名称
+   */
+  static getPins(section) {
+    return this.sections[section] || []
+  }
+
+  /**
+   * 转移卡片到其他分区
+   * @param {string} noteId - 笔记ID
+   * @param {string} fromSection - 源分区
+   * @param {string} toSection - 目标分区
+   */
+  static transferPin(noteId, fromSection, toSection) {
+    try {
+      if (!this.sections[fromSection] || !this.sections[toSection]) {
+        pinnerUtils.addErrorLog("Invalid section", "pinnerConfig:transferPin")
+        return false
+      }
+
+      let fromPins = this.sections[fromSection]
+      let toPins = this.sections[toSection]
+
+      let index = fromPins.findIndex(p => p.noteId === noteId)
+      if (index === -1) return false
+
+      // 检查目标分区是否已存在
+      if (toPins.find(p => p.noteId === noteId)) {
+        MNUtil.showHUD("目标分区已存在该卡片")
+        return false
+      }
+
+      // 执行转移
+      let [pin] = fromPins.splice(index, 1)
+      toPins.push(pin)
+
+      this.save()
+
+      let toSectionName = toSection === 'focus' ? 'Focus' : '中间知识'
+      MNUtil.showHUD(`已转移到 ${toSectionName}`)
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:transferPin")
+      return false
+    }
+  }
+  
+  /**
+   * 更新 Pin 的标题
+   * @param {string} noteId - 笔记ID
+   * @param {string} newTitle - 新标题
+   * @param {string} section - 分区名称（可选，不指定则在所有分区中查找）
+   */
+  static updatePinTitle(noteId, newTitle, section) {
+    try {
+      // 如果指定了分区
+      if (section && this.sections[section]) {
+        let pins = this.sections[section]
+        let pin = pins.find(p => p.noteId === noteId)
+
+        if (!pin) return false
+
+        pin.title = newTitle
+        this.save()
+        return true
+      }
+
+      // 没有指定分区，在所有分区中查找
+      for (let sec in this.sections) {
+        let pins = this.sections[sec]
+        let pin = pins.find(p => p.noteId === noteId)
+
+        if (pin) {
+          pin.title = newTitle
+          this.save()
+          pinnerUtils.log(`Updated pin title in ${sec}: ${newTitle}`, "pinnerConfig:updatePinTitle")
+          return true
+        }
+      }
+
+      return false
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:updatePinTitle")
+      return false
+    }
+  }
+
+  /**
+   * 获取所有分区名称
+   */
+  static getSectionNames() {
+    return Object.keys(this.sections)
+  }
+
+  /**
+   * 获取分区显示名称
+   * @param {string} section - 分区键名
+   */
+  static getSectionDisplayName(section) {
+    const displayNames = {
+      'focus': 'Focus',
+      'midway': '中间知识'
+    }
+    return displayNames[section] || section
+  }
+}

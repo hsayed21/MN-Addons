@@ -1,0 +1,19 @@
+{
+	"folders": [
+    {
+      "name": "monaco",
+      "path": "."
+    },
+    {
+      "name": "mnaddonStore",
+      "path": "../../mnaddonStore"
+    },
+    {
+      "name": "FeliksPro",
+      "path": "../FeliksPro"
+    }
+  ],
+  "settings": {
+    "js/ts.implicitProjectConfig.checkJs": true
+  }
+}

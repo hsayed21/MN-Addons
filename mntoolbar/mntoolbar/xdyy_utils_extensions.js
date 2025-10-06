@@ -63,7 +63,7 @@ function initXDYYExtensions() {
           if (typeof MNUtil !== "undefined" && MNUtil.log) {
             MNUtil.log("🔍 [粗读制卡] 检测到摘录卡片，开始转换");
           }
-          note = MNMath.toNoExcerptVersion(note);
+          note = knowledgeBaseTemplate.toNoExcerptVersion(note);
           if (!note) {
             MNUtil.log("❌ 转换为非摘录版本失败");
             return;
@@ -84,10 +84,10 @@ function initXDYYExtensions() {
         }
 
         // 1. 先判断是否需要移动到根目录
-        const noteTypeByColor = MNMath.getNoteTypeByColor(note.colorIndex); // 根据颜色判断类型
-        const noteTypeByTitle = MNMath.getNoteType(note, false); // 根据标题判断类型（不使用颜色后备）
+        const noteTypeByColor = knowledgeBaseTemplate.getNoteTypeByColor(note.colorIndex); // 根据颜色判断类型
+        const noteTypeByTitle = knowledgeBaseTemplate.getNoteType(note, false); // 根据标题判断类型（不使用颜色后备）
         const classificationParent =
-          MNMath.getFirstClassificationParentNote(note);
+          knowledgeBaseTemplate.getFirstClassificationParentNote(note);
 
         // 判断是否需要移动：
         // 1) 没有归类父卡片
@@ -112,9 +112,9 @@ function initXDYYExtensions() {
         if (
           needMove &&
           noteTypeByColor &&
-          MNMath.roughReadingRootNoteIds[noteTypeByColor]
+          knowledgeBaseTemplate.roughReadingRootNoteIds[noteTypeByColor]
         ) {
-          const rootNoteId = MNMath.roughReadingRootNoteIds[noteTypeByColor];
+          const rootNoteId = knowledgeBaseTemplate.roughReadingRootNoteIds[noteTypeByColor];
           if (rootNoteId && toolbarUtils.isValidNoteId(rootNoteId)) {
             try {
               // 移动到对应类型的根目录
@@ -129,24 +129,24 @@ function initXDYYExtensions() {
           }
         }
 
-        // 2. 使用 MNMath 的制卡体系
+        // 2. 使用 knowledgeBaseTemplate 的制卡体系
         // addToReview = false, reviewEverytime = true, focusInMindMap = true
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
           const beforeMakeCardClipboard = MNUtil.clipboardText;
           MNUtil.log(
-            "🔍 [粗读制卡] 调用 MNMath.makeCard 前，剪贴板: " +
+            "🔍 [粗读制卡] 调用 knowledgeBaseTemplate.makeCard 前，剪贴板: " +
               (beforeMakeCardClipboard === originalClipboard
                 ? "未变化"
                 : "已变化为: " + beforeMakeCardClipboard),
           );
         }
 
-        MNMath.makeCard(note, false, true, true);
+        knowledgeBaseTemplate.makeCard(note, false, true, true);
 
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
           const afterMakeCardClipboard = MNUtil.clipboardText;
           MNUtil.log(
-            "🔍 [粗读制卡] 调用 MNMath.makeCard 后，剪贴板: " +
+            "🔍 [粗读制卡] 调用 knowledgeBaseTemplate.makeCard 后，剪贴板: " +
               (afterMakeCardClipboard === originalClipboard
                 ? "未变化"
                 : "已变化为: " + afterMakeCardClipboard),
@@ -2535,6 +2535,16 @@ function extendToolbarConfigInit() {
       const hasClassInName = className.includes("Class") || pureClassName.includes("Class");
       
       switch (type) {
+        case "lifecycle":  // 生命周期
+          const lifecycleMethods = [`${methodName}`, `${pureClassName}.${methodName}`];
+          
+          // 只有在有文件路径时才添加 this 版本
+          if (hasFilePath) {
+            lifecycleMethods.push(`this.${methodName}`);
+          }
+          
+          return lifecycleMethods;
+        
         case "staticProperty":  // 类的静态变量
         case "staticMethod":  // 类的静态方法
           const methods = [`${pureClassName}.${methodName}`];
@@ -2599,7 +2609,7 @@ function extendToolbarConfigInit() {
           ];
         
         case "prototype":  // 原型链方法
-          const prototypeMethods = [`${pureClassName}.${methodName}`];
+          const prototypeMethods = [`${methodName}`, `${pureClassName}.${methodName}`];
           
           // 如果有文件路径，添加 this 版本
           if (hasFilePath) {
@@ -2648,8 +2658,11 @@ function extendToolbarConfigInit() {
 
         // 根据类型生成前缀
         const typePrefix = {
+          "lifecycle": "插件：生命周期",
           "staticProperty": "类：静态属性",
           "staticMethod": "类：静态方法",
+          "staticGetter": "类：静态 Getter",
+          "staticSetter": "类：静态 Setter",
           "instanceMethod": "实例方法",
           "getter": "实例：Getter 方法",
           "setter": "实例：Setter 方法",
@@ -2835,9 +2848,9 @@ if (typeof HtmlMarkdownUtils !== "undefined") {
 }
 
 /**
- * MNMath 扩展 - 带序号评论的便捷方法
+ * knowledgeBaseTemplate 扩展 - 带序号评论的便捷方法
  */
-if (typeof MNMath !== "undefined") {
+if (typeof knowledgeBaseTemplate !== "undefined") {
   /**
    * 为笔记添加带序号的 Case 评论
    * @param {MNNote} note - 笔记对象
@@ -2845,7 +2858,7 @@ if (typeof MNMath !== "undefined") {
    * @param {number} customNumber - 自定义序号（可选）
    * @returns {number} 使用的序号
    */
-  MNMath.addCaseComment = function(note, text, customNumber) {
+  knowledgeBaseTemplate.addCaseComment = function(note, text, customNumber) {
     const number = customNumber || HtmlMarkdownUtils.getNextNumberForType(note, 'Case');
     const htmlText = HtmlMarkdownUtils.createNumberedHtmlText(text, 'case', number, note);
     note.appendMarkdownComment(htmlText);
@@ -2859,7 +2872,7 @@ if (typeof MNMath !== "undefined") {
    * @param {number} customNumber - 自定义序号（可选）
    * @returns {number} 使用的序号
    */
-  MNMath.addStepComment = function(note, text, customNumber) {
+  knowledgeBaseTemplate.addStepComment = function(note, text, customNumber) {
     const number = customNumber || HtmlMarkdownUtils.getNextNumberForType(note, 'Step');
     const htmlText = HtmlMarkdownUtils.createNumberedHtmlText(text, 'step', number, note);
     note.appendMarkdownComment(htmlText);
@@ -2874,7 +2887,7 @@ if (typeof MNMath !== "undefined") {
    * @param {number} customNumber - 自定义序号（可选）
    * @returns {number} 使用的序号
    */
-  MNMath.addNumberedComment = function(note, text, type, customNumber) {
+  knowledgeBaseTemplate.addNumberedComment = function(note, text, type, customNumber) {
     // 获取类型对应的前缀
     const numberedTypes = {
       'case': 'Case',
@@ -2895,6 +2908,6 @@ if (typeof MNMath !== "undefined") {
   };
   
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
-    MNUtil.log("✨ 已添加 MNMath 带序号评论便捷方法");
+    MNUtil.log("✨ 已添加 knowledgeBaseTemplate 带序号评论便捷方法");
   }
 }
