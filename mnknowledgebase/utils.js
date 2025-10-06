@@ -8116,11 +8116,11 @@ class KnowledgeBaseTemplate {
                     "选择类型",
                     typeArr
                   )
-                  KnowledgeBaseUtils.log(typeArr, "addTemplate:typeArr")
-                  KnowledgeBaseUtils.log(userInputRes, "addTemplate:button")
+                  // KnowledgeBaseUtils.log(typeArr, "addTemplate:typeArr")
+                  // KnowledgeBaseUtils.log(userInputRes, "addTemplate:button")
                   if (userInputRes === 0) { return; }
                   type = typeArr[userInputRes - 1]
-                  KnowledgeBaseUtils.log(type, "addTemplate:type")
+                  // KnowledgeBaseUtils.log(type, "addTemplate:type")
                   titlesArray.forEach(title => {
                     newClassificationNote = this.createClassificationNote(lastNote, title, type)
                     lastNote = newClassificationNote
@@ -8139,11 +8139,19 @@ class KnowledgeBaseTemplate {
       }
 
 
+      // 在 undoGrouping 完成后将 lastClassificationNote 返回给调用者
       MNUtil.undoGrouping(() => {
-        KnowledgeBaseUtils.log("lastClassificationNote:" + lastClassificationNote?lastClassificationNote.title:"", "addTemplate:lastClassificationNote")
-        return lastClassificationNote
-        
-      })
+        try {
+          KnowledgeBaseUtils.log(
+            "lastClassificationNote:" + (lastClassificationNote ? lastClassificationNote.title : ""),
+            "addTemplate:lastClassificationNote",
+          );
+        } catch (e) {
+          KnowledgeBaseUtils.log(e, "addTemplate:logError");
+        }
+      });
+      // 明确返回创建的分类卡片（如果有），以便外部 await 可以接收到
+      return lastClassificationNote;
     } catch (error) {
       KnowledgeBaseUtils.log(error, "addTemplate")
       MNUtil.showHUD(error);
