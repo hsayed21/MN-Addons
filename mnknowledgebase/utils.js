@@ -16926,7 +16926,7 @@ class KnowledgeBaseIndexer {
     
     if (noteType === "归类") {
       // 归类卡片：使用content（引号内的内容）+ 类型
-      searchableContent = `${parsedTitle.content || ""} ${parsedTitle.type || ""}`.trim();
+      searchableContent = `${parsedTitle.content || ""} ${parsedTitle.type || ""} 归类`.trim();
     } else {
       // 其他卡片类型（定义、命题等）：包含前缀内容和标题链接词
       let contentParts = [];
@@ -16972,7 +16972,7 @@ class KnowledgeBaseIndexer {
     
     try {
       // 先检查是否已经包含搜索语法符号，如果有则不扩展
-      if (query.includes('//') || query.includes(';;') || query.includes('!!') || query.includes('[[') || query.includes("{{")) {
+      if (query.includes('v方根') || query.includes('//') || query.includes(';;') || query.includes('!!') || query.includes('[[') || query.includes("{{")) {
         return query;
       }
       
@@ -17424,8 +17424,17 @@ class KnowledgeBaseSearcher {
     }
     
     // 4. 处理 AND 运算 //（默认）
-    if (query.includes('//')) {
-      result.andGroups = query.split('//').map(s => s.trim().toLowerCase()).filter(s => s);
+    const separators = ['//', 'v方根'];
+    const hasSeparator = separators.some(sep => query.includes(sep));
+
+    if (hasSeparator) {
+      // 构建正则表达式，转义特殊字符
+      const regexPattern = separators.map(sep => 
+        sep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      ).join('|');
+      const regex = new RegExp(regexPattern);
+      
+      result.andGroups = query.split(regex).map(s => s.trim().toLowerCase()).filter(s => s);
     } else {
       // 没有 // 时，整个查询作为一个 AND 组
       const trimmed = query.trim().toLowerCase();
@@ -17856,7 +17865,7 @@ class KnowledgeBaseSearcher {
           defaultTypes: searchOptions.types,
           enableTypeSelection: searchOptions.config ? searchOptions.config.enableTypeSelection : true
         };
-        this.showSearchDialog(searcher, config, focusMode);
+        this.showSearchDialog(searcher, config, focusMode, defaultHandle);
       } else if (selectResult > 0) {
         const selectedResult = results[selectResult - 1];
         const note = MNNote.new(selectedResult.id);
@@ -17896,6 +17905,7 @@ class KnowledgeBaseSearcher {
       // 构建操作菜单选项
       const menuOptions = [
         "📋 复制 Markdown 链接",
+        "📋 复制卡片 URL",
         "🗺️ 在脑图中定位",
         "🪟 在浮窗中定位",
         "📌 Pin 到位置",
@@ -17920,8 +17930,11 @@ class KnowledgeBaseSearcher {
         case 1: // 复制 Markdown 链接
           knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
           break;
-          
-        case 2: // 在脑图中定位
+        case 2:
+          MNUtil.copy(note.noteURL);
+          MNUtil.showHUD("已复制" + note.noteURL, 1);
+          break;
+        case 3: // 在脑图中定位
           if (MNUtil.mindmapView) {
             note.focusInMindMap();
           } else {
@@ -17929,7 +17942,7 @@ class KnowledgeBaseSearcher {
           }
           break;
           
-        case 3: // 在浮窗中定位
+        case 4: // 在浮窗中定位
           if (MNUtil.mindmapView) {
             note.focusInFloatMindMap();
           } else {
@@ -17937,7 +17950,7 @@ class KnowledgeBaseSearcher {
           }
           break;
           
-        case 4: // Pin 到位置
+        case 5: // Pin 到位置
           // 显示位置选择子菜单
           const pinOptions = [
             "📍 Midway Top",
@@ -17971,7 +17984,7 @@ class KnowledgeBaseSearcher {
           }
           break;
 
-        case 5: // 合并剪贴板卡片到摘录区
+        case 6: // 合并剪贴板卡片到摘录区
           try {
             // 获取剪贴板内容
             const clipboardContent = MNUtil.clipboardText;
@@ -18012,7 +18025,7 @@ class KnowledgeBaseSearcher {
           }
           break;
 
-        case 6: // 返回搜索结果
+        case 7: // 返回搜索结果
           if (searchOptions.results && searchOptions.searcher) {
             KnowledgeBaseSearcher.showSearchResults(searchOptions.results, searchOptions.searcher, searchOptions);
           }
@@ -18315,6 +18328,20 @@ class SynonymManager {
    * 默认同义词组（精简结构）
    */
   static synonymGroups = [
+    {
+      "words": ["无{{}}", "没有{{}}"],
+      "partialReplacement": false,
+      "patternMode": true
+    },
+    {
+      "words": ["闭包点", "接触点", "粘着点"],
+      "partialReplacement": true,
+    },
+    {
+      "words": ["不是{{}}", "非{{}}"],
+      "partialReplacement": true,
+      "patternMode": true
+    },
     { "id": "group_1754759704820", "words": ["⇔", "等价", "等价刻画", "等价条件", "当且仅当", "等价于"] },
     { "id": "group_1754814563774", "words": ["依范数收敛", "按范数收敛"] },
     { "id": "group_1754911082498", "words": ["𝕋", "单位圆周"] },

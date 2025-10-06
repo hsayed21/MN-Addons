@@ -789,10 +789,10 @@ function registerAllMenuTemplates() {
         //   action: "manageProofTemplates",
         //   menuTitle: "    管理证明模板",
         // },
-        {
-          action: "splitCommentsByNotes",
-          menuTitle: "拆分评论为独立卡片",
-        },
+        // {
+        //   action: "splitCommentsByNotes",
+        //   menuTitle: "拆分评论为独立卡片",
+        // },
         {
           action: "upwardMergeWithStyledComments",
           menuTitle: "将子卡片作为证明要点合并",

@@ -5609,8 +5609,11 @@ function registerAllCustomActions() {
 
         if (resultNote) {
           const menuOptions = [
+            "📋 复制 Markdown 链接",
             "🔗 合并 focusNote 到目标卡片的摘录区",
-            "🗺️ 将 focusNote 添加为目标卡片的子卡片",
+            "🔗 focusNote 与目标卡片双向链接",
+            "🗺️ 将 focusNote 移到目标卡片的子卡片",
+            "🗺️ 将 focusNote 移到目标卡片的子卡片 & 主脑图定位",
             "🗺️ 目标卡片增加模板并添加 focusNote 为子卡片"
           ];
           const actionChoice = await MNUtil.userSelect(
@@ -5623,17 +5626,31 @@ function registerAllCustomActions() {
             case 0:
               break;
             case 1:
+              knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(resultNote);
+              break;
+            case 2:
               MNUtil.undoGrouping(()=>{
                 focusNote.mergeInto(resultNote);
                 knowledgeBaseTemplate.autoMoveNewContentToField(resultNote, "摘录");
               })
               break;
-            case 2:
+            case 3:
+              MNUtil.undoGrouping(()=>{
+                focusNote.appendNoteLink(resultNote, "Both")
+              })
+              break;
+            case 4:
               MNUtil.undoGrouping(()=>{
                 resultNote.addChild(focusNote);
               })
               break;
-            case 3:
+            case 5:
+              MNUtil.undoGrouping(()=>{
+                resultNote.addChild(focusNote);
+                focusNote.focusInMindMap(0.3)
+              })
+              break;
+            case 6:
               MNUtil.undoGrouping(()=>{
                 try {
                   let classificationNote = knowledgeBaseTemplate.addTemplate(resultNote, false);

@@ -297,7 +297,8 @@ JSB.newAddon = function(mainPath){
         const intermediateRootIds = [
           "marginnote4app://note/FC6181AF-1BAC-4D1D-9B86-7FAB3391F3EC",
           "marginnote4app://note/9D234BE6-9A7C-4BEC-8924-F18132FB6E64",
-          "marginnote4app://note/74785805-661C-4836-AFA6-C85697056B0C"
+          "marginnote4app://note/74785805-661C-4836-AFA6-C85697056B0C",
+          "marginnote4app://note/B9DC3CB0-BB27-49B9-9200-9DE1A2C79799", // 预备知识库
         ];
 
         // 验证根卡片
@@ -680,14 +681,14 @@ JSB.newAddon = function(mainPath){
 
     // 生命周期测试
 
-    onPopupMenuOnNote: async function (sender) {
-      MNUtil.undoGrouping(()=>{
-        try {
-        } catch (error) {
-          MNUtil.showHUD(error);
-        }
-      })
-    }
+    // onPopupMenuOnNote: async function (sender) {
+    //   MNUtil.undoGrouping(()=>{
+    //     try {
+    //     } catch (error) {
+    //       MNUtil.showHUD(error);
+    //     }
+    //   })
+    // }
   }, 
   
   /*=== 类成员（Class members）===
