@@ -977,15 +977,15 @@ function registerAllMenuTemplates() {
     action: "searchAndAddClassification",
     onLongPress: {
       action: "menu",
-      menuWidth: 300,
+      menuWidth: 400,
       menuItems: [
         {
-          action: "",
-          menuTitle: "",
+          action: "AddTemplateOnLastestParentDefinitionAndAddAsChild",
+          menuTitle: "最近的上级定义卡片增加模板 & 移动 focusNote 成为子卡片",
         },
         {
-          action: "",
-          menuTitle: "",
+          action: "OCRToTitle",
+          menuTitle: "OCR 摘录为标题",
         },
         {
           action: "",

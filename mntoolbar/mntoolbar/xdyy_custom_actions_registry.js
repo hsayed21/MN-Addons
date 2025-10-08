@@ -131,26 +131,27 @@ function registerAllCustomActions() {
 
   // HTML 设置
   const htmlSetting = [
-    { title: "CHECK: 🔍", type: "check" },
-    { title: "SKETCH: ✍️", type: "sketch" },
+    { title: "注: 📝", type: "remark" },
+    { title: "方法: ✔", type: "method" },
+    { title: "关键: 🔑", type: "key" },
+    { title: "问题: ❓", type: "question" },
+    { title: "注意: ⚠️", type: "alert" },
+    { title: "特别注意: ❗❗❗", type: "danger" },
     { title: "Case: 📋", type: "case" },
     { title: "Step: 👣", type: "step" },
-    { title: "方法: ✔", type: "method" },
+    { title: "SKETCH: ✍️", type: "sketch" },
     { title: "目标: 🎯", type: "goal" },
     { title: "level1: 🚩", type: "level1" },
     { title: "level2: ▸", type: "level2" },
     { title: "level3: ▪", type: "level3" },
     { title: "level4: •", type: "level4" },
     { title: "level5: ·", type: "level5" },
-    { title: "关键: 🔑", type: "key" },
-    { title: "问题: ❓", type: "question" },
-    { title: "注: 📝", type: "remark" },
-    { title: "注意: ⚠️", type: "alert" },
-    { title: "特别注意: ❗❗❗", type: "danger" },
+    { title: "CHECK: 🔍", type: "check" },
   ];
   const htmlSettingTitles = htmlSetting.map((config) => config.title);
 
   const levelHtmlSetting = [
+    { title: "方法: ✔", type: "method" },
     { title: "目标: 🎯", type: "goal" },
     { title: "level1: 🚩", type: "level1" },
     { title: "level2: ▸", type: "level2" },
@@ -159,7 +160,6 @@ function registerAllCustomActions() {
     { title: "level5: ·", type: "level5" },
     { title: "Case: 📋", type: "case" },
     { title: "Step: 👣", type: "step" },
-    { title: "方法: ✔", type: "method" },
   ];
   const levelHtmlSettingTitles = levelHtmlSetting.map((config) => config.title);
 
@@ -5670,7 +5670,7 @@ function registerAllCustomActions() {
             case 6:
               MNUtil.undoGrouping(()=>{
                 resultNote.addChild(focusNote);
-                focusNote.focusInMindMap(0.3)
+                focusNote.focusInMindMap(0.5)
               })
               break;
             case 7:
@@ -5691,7 +5691,7 @@ function registerAllCustomActions() {
                 let classificationNote = await KnowledgeBaseTemplate.addTemplate(resultNote, false);
                 if (classificationNote) {
                   classificationNote.addChild(focusNote);
-                  focusNote.focusInMindMap(0.3)
+                  focusNote.focusInMindMap(0.5)
                 } else {
                   MNLog.log("未找到新卡片");
                 }
@@ -5708,6 +5708,37 @@ function registerAllCustomActions() {
       }
     }
   )
+
+
+  global.registerCustomAction("AddTemplateOnLastestParentDefinitionAndAddAsChild", async function(context) {
+      const { focusNote } = context;
+      try {
+        let searchResult = KnowledgeBaseTemplate.findDefinitionCards(focusNote, 1).lastNote;
+        if (MNNote.new(searchResult)) {
+          let definitionNote = MNNote.new(searchResult)
+          let classificationNote = await KnowledgeBaseTemplate.addTemplate(definitionNote, false);
+          if (classificationNote) {
+            classificationNote.addChild(focusNote);
+            focusNote.focusInMindMap(0.5)
+          }
+        }
+      } catch (error) {
+        MNUtil.showHUD("AddTemplateOnLastestParentDefinitionAndAddAsChild: " + error.message);
+      }
+    }
+  )
+
+  global.registerCustomAction("OCRToTitle", async function(context) {
+      const { focusNote } = context;
+      try {
+        await KnowledgeBaseNetwork.OCRToTitle(focusNote);
+      } catch (error) {
+        MNUtil.showHUD("OCRToTitle: " + error.message);
+      }
+    }
+  )
+
+
 }
 
 // 立即注册
