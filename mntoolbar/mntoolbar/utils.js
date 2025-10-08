@@ -4652,7 +4652,8 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
         })
       })
     }else if(des.noteURL){
-      let parentNote = MNNote.new(des.noteURL)
+      let realURL = await this.render(des.noteURL)
+      let parentNote = MNNote.new(realURL)
       let notebookId = parentNote.notebookId
       if (parentNote) {
         MNUtil.undoGrouping(()=>{
