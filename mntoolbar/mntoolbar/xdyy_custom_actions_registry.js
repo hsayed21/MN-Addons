@@ -5620,6 +5620,7 @@ function registerAllCustomActions() {
 
         if (resultNote) {
           const menuOptions = [
+            "📍 在浮窗中定位",
             "📋 复制 Markdown 链接",
             "🔗 合并 focusNote 到目标卡片的摘录区",
             "🔗 清空标题 & 合并 focusNote 到目标卡片的摘录区",
@@ -5639,9 +5640,12 @@ function registerAllCustomActions() {
             case 0:
               break;
             case 1:
-              KnowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(resultNote);
+              resultNote.focusInFloatMindMap();
               break;
             case 2:
+              KnowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(resultNote);
+              break;
+            case 3:
               MNUtil.undoGrouping(()=>{
                 KnowledgeBaseTemplate.mergeTitleLinkWords(resultNote, focusNote); // 合并标题(去重)
                 focusNote.title = ""
@@ -5649,31 +5653,31 @@ function registerAllCustomActions() {
                 KnowledgeBaseTemplate.autoMoveNewContentToField(resultNote, "摘录");
               })
               break;
-            case 3:
+            case 4:
               MNUtil.undoGrouping(()=>{
                 focusNote.title = ""
                 focusNote.mergeInto(resultNote);
                 KnowledgeBaseTemplate.autoMoveNewContentToField(resultNote, "摘录");
               })
               break;
-            case 4:
+            case 5:
               MNUtil.undoGrouping(()=>{
                 focusNote.appendNoteLink(resultNote, "Both")
                 KnowledgeBaseTemplate.removeDuplicateLinksInLastField(resultNote)  // 链接去重
               })
               break;
-            case 5:
+            case 6:
               MNUtil.undoGrouping(()=>{
                 resultNote.addChild(focusNote);
               })
               break;
-            case 6:
+            case 7:
               MNUtil.undoGrouping(()=>{
                 resultNote.addChild(focusNote);
                 focusNote.focusInMindMap(0.5)
               })
               break;
-            case 7:
+            case 8:
               try {
                 let classificationNote = await KnowledgeBaseTemplate.addTemplate(resultNote, false);
                 // await MNUtil.delay(2)
@@ -5686,7 +5690,7 @@ function registerAllCustomActions() {
                 MNLog.error("新建模板失败: " + error.message);
               }
               break;
-            case 8:
+            case 9:
               try {
                 let classificationNote = await KnowledgeBaseTemplate.addTemplate(resultNote, false);
                 if (classificationNote) {

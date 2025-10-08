@@ -18645,6 +18645,19 @@ class SynonymManager {
     //   "partialReplacement": false,
     // },
     {
+      "words": ["并", "并上", "并集"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["交", "交上", "交集"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["一列{{}}的并", "{{}}的可列并"],
+      "partialReplacement": false,
+      "patternMode": true
+    },
+    {
       "words": ["稠{{}}集", "稠密{{}}集","{{}}稠集","{{}}稠密集"],
       "partialReplacement": false,
       "patternMode": true
@@ -18686,7 +18699,7 @@ class SynonymManager {
       "partialReplacement": false,
     },
     {
-      "words": ["包含内点","有内点", "内部非空"],
+      "words": ["存在内点","包含内点","有内点", "内部非空"],
     },
     {
       "words": ["无{{}}", "没有{{}}"],
