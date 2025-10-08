@@ -204,7 +204,7 @@ JSB.newAddon = function(mainPath){
           self.tableItem('🔎   搜索中间知识库', 'searchInIntermediateKB:'),
           self.tableItem('-------------------------------',''),
           // === 通用搜索（支持自定义类型）===
-          self.tableItem('🔍   全部搜索(脑图定位)', 'searchInKB:', true),
+          self.tableItem('🔍   全部搜索', 'searchInKB:', true),
           
           // === 快捷搜索 - 脑图定位 ===
           self.tableItem('    📚  知识卡片', 'searchWithPreset:', {preset: 'knowledge', mode: 'mindmap'}),
