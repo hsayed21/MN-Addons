@@ -2263,6 +2263,8 @@ class KnowledgeBaseTemplate {
     }
 
     note.title = Pangu.spacing(note.title)
+
+    KnowledgeBaseIndexer.addToIncrementalIndex(note)
   }
 
   /**
@@ -17681,7 +17683,7 @@ class KnowledgeBaseIndexer {
       const saved = this.saveIncrementalIndex(incrementalIndex);
       
       if (saved) {
-        MNUtil.showHUD(`已添加到增量索引 (共 ${incrementalIndex.metadata.cardCount} 张)`);
+        // MNUtil.showHUD(`已添加到增量索引 (共 ${incrementalIndex.metadata.cardCount} 张)`);
         return true;
       } else {
         return false;
@@ -19808,7 +19810,7 @@ class IntermediateKnowledgeIndexer {
       const saved = this.saveIncrementalIndex(incrementalIndex);
 
       if (saved) {
-        MNUtil.showHUD(`已添加到中间知识库增量索引 (共 ${incrementalIndex.metadata.cardCount} 张)`);
+        MNUtil.showHUD(`已添加到中间知识库增量索引 (共 ${incrementalIndex.metadata.cardCount} 张)`, 0.5);
         return true;
       } else {
         return false;
@@ -20145,7 +20147,10 @@ IV. 数学无衬线粗体 (Mathematical Sans-serif Bold)
     if (result) {
       MNUtil.undoGrouping(()=>{
         note.title = result.trim()
+        return true
       })
+    } else {
+      return false
     }
   }
   static async OCR(imageData, source = "doubao-seed-1-6-nothinking", prompt){
