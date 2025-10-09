@@ -17824,11 +17824,17 @@ class KnowledgeBaseSearcher {
    * 从中间知识库索引加载搜索器
    */
   static async loadFromIntermediateKB() {
+    // 加载增量索引
+    const incrementalIndex = IntermediateKnowledgeIndexer.loadIncrementalIndex();
+    if (incrementalIndex && incrementalIndex.metadata.cardCount > 0) {
+      MNUtil.log(`加载中间知识库增量索引：${incrementalIndex.metadata.cardCount} 张卡片`);
+    }
+
     // 加载中间知识库的分片索引
     const manifest = IntermediateKnowledgeIndexer.loadIndexManifest();
     if (manifest && manifest.metadata) {
       MNUtil.log("加载中间知识库分片索引");
-      return new KnowledgeBaseSearcher(manifest);
+      return new KnowledgeBaseSearcher(manifest, incrementalIndex);
     }
 
     return null;
@@ -19311,6 +19317,9 @@ class IntermediateKnowledgeIndexer {
       // 保存主索引文件
       await this.saveIndexManifest(manifest);
 
+      // 清空增量索引（全局索引已包含所有卡片）
+      this.clearIncrementalIndex();
+
       MNUtil.showHUD(`中间知识库索引构建完成：共 ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
 
     } catch (error) {
@@ -19479,21 +19488,24 @@ class IntermediateKnowledgeIndexer {
       searchText: this.buildSearchText(note)
     };
 
-    // 尝试获取并记录卡片类型
-    try {
-      const noteType = KnowledgeBaseTemplate.getNoteType(note);
-      if (noteType) {
-        entry.type = noteType;
-      }
-    } catch (e) {
-      // 忽略错误
-    }
+    // 判断是否已制卡
+    const isTemplated = KnowledgeBaseTemplate.ifTemplateMerged(note);
+    entry.isTemplated = isTemplated;
 
-    // 添加一个标记，表示是否已制卡
-    if (KnowledgeBaseTemplate.ifTemplateMerged(note)) {
-      entry.isTemplated = true;
+    // 设置卡片类型
+    if (isTemplated) {
+      // 已制卡：获取实际类型（定义、命题等）
+      try {
+        const noteType = KnowledgeBaseTemplate.getNoteType(note);
+        if (noteType) {
+          entry.type = noteType;
+        }
+      } catch (e) {
+        // 忽略错误
+      }
     } else {
-      entry.isTemplated = false;
+      // 未制卡：统一标记为"中间知识"
+      entry.type = "中间知识";
     }
 
     return entry;
@@ -19711,6 +19723,128 @@ class IntermediateKnowledgeIndexer {
     } catch (error) {
       MNLog.error(error, "IntermediateKnowledgeIndexer: loadIndexPart");
       return null;
+    }
+  }
+
+
+  /**
+   * 加载增量索引
+   * @returns {Object|null} 增量索引对象，失败返回 null
+   */
+  static loadIncrementalIndex() {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/intermediate-kb-incremental-index.json";
+      const data = MNUtil.readJSON(filepath);
+      return data || null;
+    } catch (error) {
+      // 文件不存在时返回 null，这是正常情况
+      return null;
+    }
+  }
+
+  /**
+   * 保存增量索引
+   * @param {Object} data - 增量索引数据
+   * @returns {boolean} 保存成功返回 true
+   */
+  static saveIncrementalIndex(data) {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/intermediate-kb-incremental-index.json";
+      MNUtil.writeJSON(filepath, data);
+      return true;
+    } catch (error) {
+      MNUtil.showHUD("保存中间知识库增量索引失败: " + error.message);
+      MNLog.error(error, "IntermediateKnowledgeIndexer: saveIncrementalIndex");
+      return false;
+    }
+  }
+
+  /**
+   * 添加单张卡片到增量索引
+   * 如果卡片已存在，会删除旧条目并添加新条目
+   * @param {MNNote} note - 要添加的卡片
+   * @returns {boolean} 添加成功返回 true
+   */
+  static addToIncrementalIndex(note) {
+    try {
+      // 1. 加载现有增量索引
+      let incrementalIndex = this.loadIncrementalIndex();
+
+      // 2. 如果索引不存在，初始化新索引
+      if (!incrementalIndex) {
+        incrementalIndex = {
+          metadata: {
+            version: "intermediate-incremental-1.0",
+            lastUpdated: new Date().toISOString(),
+            cardCount: 0
+          },
+          cards: []
+        };
+      }
+
+      // 3. 检查卡片是否已存在，存在则删除旧条目
+      const noteId = note.noteId;
+      const existingIndex = incrementalIndex.cards.findIndex(card => card.id === noteId);
+      if (existingIndex !== -1) {
+        incrementalIndex.cards.splice(existingIndex, 1);
+        MNUtil.log(`中间知识库增量索引：移除卡片 ${noteId} 的旧条目`);
+      }
+
+      // 4. 构建新的索引条目
+      const entry = this.buildIndexEntry(note);
+      if (!entry) {
+        MNUtil.showHUD("无法为该卡片构建索引条目");
+        return false;
+      }
+
+      // 5. 添加新条目
+      incrementalIndex.cards.push(entry);
+
+      // 6. 更新元数据
+      incrementalIndex.metadata.lastUpdated = new Date().toISOString();
+      incrementalIndex.metadata.cardCount = incrementalIndex.cards.length;
+
+      // 7. 保存增量索引
+      const saved = this.saveIncrementalIndex(incrementalIndex);
+
+      if (saved) {
+        MNUtil.showHUD(`已添加到中间知识库增量索引 (共 ${incrementalIndex.metadata.cardCount} 张)`);
+        return true;
+      } else {
+        return false;
+      }
+
+    } catch (error) {
+      MNUtil.showHUD("添加到中间知识库增量索引失败: " + error.message);
+      MNLog.error(error, "IntermediateKnowledgeIndexer: addToIncrementalIndex");
+      return false;
+    }
+  }
+
+  /**
+   * 清空增量索引
+   * @returns {boolean} 清空成功返回 true
+   */
+  static clearIncrementalIndex() {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/intermediate-kb-incremental-index.json";
+
+      // 初始化空的增量索引
+      const emptyIndex = {
+        metadata: {
+          version: "intermediate-incremental-1.0",
+          lastUpdated: new Date().toISOString(),
+          cardCount: 0
+        },
+        cards: []
+      };
+
+      MNUtil.writeJSON(filepath, emptyIndex);
+      MNUtil.log("中间知识库增量索引已清空");
+      return true;
+    } catch (error) {
+      MNLog.error(error, "IntermediateKnowledgeIndexer: clearIncrementalIndex");
+      return false;
     }
   }
 }
