@@ -919,6 +919,24 @@
     <!-- 右侧卡片区域 -->
     <div class="container">
       <div class="results" id="results"></div>
+      <!-- 加载更多按钮 -->
+      <div id="loadMoreContainer" style="display: none; text-align: center; padding: 20px 0;">
+        <button id="loadMoreBtn" style="
+          padding: 12px 32px;
+          background: var(--accent);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        " onmouseover="this.style.background='#1b6cef'" onmouseout="this.style.background='var(--accent)'">
+          加载更多
+        </button>
+        <div id="loadingIndicator" style="display: none; color: var(--accent); font-size: 14px;">
+          加载中...
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1115,6 +1133,10 @@
         { id: 'mid-3006', title: '尚未分类：随机想法备忘', searchText: '随机 想法 备忘 临时 条目 需要 分类', isTemplated: false },
       ];
 
+      // 分页相关常量
+      const PAGE_SIZE = 50; // 每页显示50条数据
+      const INITIAL_PAGE_SIZE = 100; // 初始加载100条，提供更好的初始体验
+
       const state = {
         config: {
           presetGroups: JSON.parse(JSON.stringify(DEFAULT_PRESET_GROUPS)),
@@ -1147,6 +1169,11 @@
         classificationOptions: [],
         currentClassificationSubtype: 'all',
         lastQueryPayload: null,
+        // 分页相关状态
+        currentPage: 1,
+        displayedCards: [],
+        hasMore: false,
+        isLoadingMore: false,
       };
 
       const dom = {
@@ -1183,6 +1210,10 @@
         scrollToTopBtn: document.getElementById('scrollToTopBtn'),
         topbar: document.querySelector('.topbar'),
         container: document.querySelector('.container'),
+        // 加载更多相关
+        loadMoreContainer: document.getElementById('loadMoreContainer'),
+        loadMoreBtn: document.getElementById('loadMoreBtn'),
+        loadingIndicator: document.getElementById('loadingIndicator'),
       };
 
       let toastTimer = null;
@@ -1298,42 +1329,31 @@
       function setupScrollBehavior() {
         if (!dom.container) return;
 
-        // 节流函数：限制滚动事件处理频率
-        let scrollTimeout = null;
+        // 简化滚动行为：只处理返回顶部按钮的显示/隐藏
+        // 移除了自动隐藏搜索栏的逻辑，避免遮挡内容
         const handleScroll = () => {
-          if (scrollTimeout) return;
+          const currentScrollY = dom.container.scrollTop;
 
-          scrollTimeout = setTimeout(() => {
-            scrollTimeout = null;
-
-            const currentScrollY = dom.container.scrollTop;
-            const scrollThreshold = 100; // 滚动超过 100px 时触发隐藏
-
-            // 向下滚动且超过阈值：隐藏工具栏
-            if (currentScrollY > scrollThreshold && currentScrollY > lastScrollY && !isToolbarHidden) {
-              hideToolbars();
-            }
-            // 向上滚动或回到顶部：显示工具栏
-            else if ((currentScrollY < lastScrollY || currentScrollY <= scrollThreshold) && isToolbarHidden) {
-              showToolbars();
-            }
-
-            // 更新滚动到顶部按钮的显示状态
-            if (currentScrollY > 200) {
-              dom.scrollToTopBtn?.classList.add('show');
-            } else {
-              dom.scrollToTopBtn?.classList.remove('show');
-            }
-
-            lastScrollY = currentScrollY;
-          }, 100); // 100ms 节流
+          // 只更新滚动到顶部按钮的显示状态
+          if (currentScrollY > 200) {
+            dom.scrollToTopBtn?.classList.add('show');
+          } else {
+            dom.scrollToTopBtn?.classList.remove('show');
+          }
         };
 
-        // 监听容器滚动事件
-        dom.container.addEventListener('scroll', handleScroll, { passive: true });
+        // 监听容器滚动事件（使用防抖处理）
+        let scrollTimer = null;
+        dom.container.addEventListener('scroll', () => {
+          if (scrollTimer) clearTimeout(scrollTimer);
+          scrollTimer = setTimeout(handleScroll, 50);
+        }, { passive: true });
 
         // 返回顶部按钮点击事件
         dom.scrollToTopBtn?.addEventListener('click', scrollToTop);
+
+        // 加载更多按钮点击事件
+        dom.loadMoreBtn?.addEventListener('click', loadMore);
       }
 
       function hideToolbars() {
@@ -1392,6 +1412,67 @@
           top: 0,
           behavior: 'smooth'
         });
+      }
+
+      // 加载更多功能
+      function loadMore() {
+        if (state.isLoadingMore || !state.hasMore) return;
+
+        state.isLoadingMore = true;
+
+        // 显示加载中状态
+        if (dom.loadMoreBtn) dom.loadMoreBtn.style.display = 'none';
+        if (dom.loadingIndicator) dom.loadingIndicator.style.display = 'block';
+
+        // 模拟异步加载（实际是同步的，但使用 setTimeout 避免阻塞UI）
+        setTimeout(() => {
+          const startIndex = state.displayedCards.length;
+          const endIndex = Math.min(startIndex + PAGE_SIZE, state.filteredCards.length);
+          const newCards = state.filteredCards.slice(startIndex, endIndex);
+
+          // 添加到显示列表
+          state.displayedCards = [...state.displayedCards, ...newCards];
+          state.hasMore = state.displayedCards.length < state.filteredCards.length;
+
+          // 追加渲染新卡片（而不是重新渲染全部）
+          appendCards(newCards);
+
+          // 更新加载更多按钮状态
+          state.isLoadingMore = false;
+          updateLoadMoreButton();
+        }, 100);
+      }
+
+      // 追加渲染卡片（用于加载更多）
+      function appendCards(cards) {
+        const fragment = document.createDocumentFragment();
+
+        cards.forEach((card) => {
+          const element = createCardElement(card);
+          fragment.appendChild(element);
+        });
+
+        dom.results.appendChild(fragment);
+        updateSearchCount(state.displayedCards.length);
+      }
+
+      // 更新加载更多按钮状态
+      function updateLoadMoreButton() {
+        if (!dom.loadMoreContainer) return;
+
+        if (state.hasMore && state.filteredCards.length > 0) {
+          dom.loadMoreContainer.style.display = 'block';
+          if (dom.loadMoreBtn) dom.loadMoreBtn.style.display = 'inline-block';
+          if (dom.loadingIndicator) dom.loadingIndicator.style.display = 'none';
+
+          // 更新按钮文本显示剩余数量
+          const remaining = state.filteredCards.length - state.displayedCards.length;
+          if (dom.loadMoreBtn && remaining > 0) {
+            dom.loadMoreBtn.textContent = `加载更多 (剩余 ${remaining} 项)`;
+          }
+        } else {
+          dom.loadMoreContainer.style.display = 'none';
+        }
       }
 
       function toggleSidebar() {
@@ -1905,7 +1986,20 @@
         });
 
         state.filteredCards = results;
-        renderResults(results);
+
+        // 重置分页状态
+        state.currentPage = 1;
+        state.displayedCards = [];
+        state.hasMore = results.length > INITIAL_PAGE_SIZE;
+
+        // 初始加载第一批数据
+        const initialCards = results.slice(0, INITIAL_PAGE_SIZE);
+        state.displayedCards = initialCards;
+
+        renderResults(initialCards);
+
+        // 如果有更多数据，显示加载更多按钮
+        updateLoadMoreButton();
       }
 
       function passesNegativeFilter(card, negativeTokens) {
@@ -2099,6 +2193,78 @@
         updateSearchCount(items.length);
         updateSelectionInfo();
         updateActionButtonsState();
+      }
+
+      // 创建单个卡片元素（提取出来用于复用）
+      function createCardElement(card) {
+        const element = document.createElement('div');
+        element.className = 'card';
+        element.dataset.id = card.id;
+
+        if (state.selectedCardId === card.id) {
+          element.classList.add('selected');
+        }
+
+        const color = resolveTypeColor(card);
+        element.style.borderLeftColor = color;
+
+        // 添加定位图标
+        const locateIcon = document.createElement('div');
+        locateIcon.className = 'card-locate-icon';
+        locateIcon.textContent = '📍';
+        locateIcon.title = '在主脑图定位';
+        locateIcon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          handleCardLocate(card.id);
+        });
+
+        const title = document.createElement('div');
+        title.className = 'card-title';
+        title.innerHTML = card.titleHtml || escapeHtml(card.title || '');
+
+        const meta = document.createElement('div');
+        meta.className = 'card-meta';
+
+        const typeBadge = document.createElement('span');
+        typeBadge.className = 'card-type';
+        typeBadge.style.background = color;
+        typeBadge.textContent = card.type || '未知类型';
+        meta.appendChild(typeBadge);
+
+        if (card.type === '归类' && card.classificationSubtype) {
+          const subBadge = document.createElement('span');
+          subBadge.className = 'classification-subtype';
+          subBadge.textContent = card.classificationSubtype;
+          meta.appendChild(subBadge);
+        }
+
+        if (typeof card.matchCount === 'number' && card.matchCount > 0) {
+          const mc = document.createElement('span');
+          mc.className = 'match-count';
+          mc.textContent = `匹配 ${card.matchCount}`;
+          meta.appendChild(mc);
+        }
+
+        if (typeof card.score === 'number') {
+          const scoreChip = document.createElement('span');
+          scoreChip.className = 'chip-score';
+          scoreChip.textContent = `score ${Math.round(card.score)}`;
+          meta.appendChild(scoreChip);
+        }
+
+        element.appendChild(locateIcon);
+        element.appendChild(title);
+        element.appendChild(meta);
+
+        if (card.snippetHtml) {
+          const snippet = document.createElement('div');
+          snippet.className = 'card-snippet';
+          snippet.innerHTML = card.snippetHtml;
+          element.appendChild(snippet);
+        }
+
+        element.addEventListener('click', () => toggleSelection(card.id, element));
+        return element;
       }
 
       function resolveTypeColor(card) {

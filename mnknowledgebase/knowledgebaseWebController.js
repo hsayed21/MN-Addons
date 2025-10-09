@@ -10,36 +10,75 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
   // ========================================
 
   viewDidLoad: function() {
-    self.view.layer.shadowOffset = {width: 0, height: 0};
-    self.view.layer.shadowRadius = 15;
-    self.view.layer.shadowOpacity = 0.5;
-    self.view.layer.shadowColor = UIColor.colorWithWhiteAlpha(0.5, 1);
-    
-    self.view.layer.opacity = 1.0
-    self.view.layer.cornerRadius = 15
-    self.view.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0.8)
-    self.highlightColor = UIColor.blendedColor(MNUtil.hexColorAlpha("#2c4d81", 0.8),
-      MNUtil.app.defaultTextColor,
-      0.8
-    );
+    try {
+      // 初始化状态
+      self.init()
 
-    // 创建 WebView
-    self.webView = new UIWebView({x: 10, y: 10, width: 700, height: 700})
-    self.webView.backgroundColor = UIColor.whiteColor()
-    self.webView.delegate = self
-    self.webView.scalesPageToFit = true
-    self.view.addSubview(self.webView)
-    self.webViewLoaded = false
+      // 设置初始 frame
+      self.view.frame = {x: 50, y: 30, width: 720, height: 720}
+      self.lastFrame = self.view.frame
+      self.currentFrame = self.view.frame
 
-    // try {
-    //   // 加载本地 HTML
-    //   let htmlPath = KnowledgeBaseConfig.mainPath + "/search.html"
-    //   let htmlURL = NSURL.fileURLWithPath(htmlPath)
-    //   let request = NSURLRequest.requestWithURL(htmlURL)
-    //   self.webview.loadRequest(request)
-    // } catch (error) {
-    //   MNUtil.showHUD("加载 HTML 失败: " + error)
-    // }
+      // 创建 WebView（调整位置给顶部按钮留空间）
+      self.webView = new UIWebView({x: 10, y: 25, width: 700, height: 685})
+      self.webView.backgroundColor = UIColor.whiteColor()
+      self.webView.delegate = self
+      self.webView.scalesPageToFit = true
+      self.view.addSubview(self.webView)
+      self.webViewLoaded = false
+
+      // 创建移动按钮
+      self.createButton("moveButton", "moveButtonTapped:")
+      self.moveButton.clickDate = 0
+      MNButton.setColor(self.moveButton, "#3a81fb", 0.5)
+      MNButton.addPanGesture(self.moveButton, self, "onMoveGesture:")
+
+      // 创建关闭按钮
+      self.createButton("closeButton", "closeButtonTapped:")
+      self.closeButton.layer.cornerRadius = 10
+      MNButton.setImage(self.closeButton, self.closeImage)
+      MNButton.setColor(self.closeButton, "#e06c75")
+
+      // 创建调整大小按钮
+      self.createButton("resizeButton")
+      self.resizeButton.layer.cornerRadius = 10
+      self.resizeButton.backgroundColor = UIColor.clearColor()
+      MNButton.setImage(self.resizeButton, self.resizeImage)
+      MNButton.setColor(self.resizeButton, "#457bd3")
+      MNButton.addPanGesture(self.resizeButton, self, "onResizeGesture:")
+
+    } catch (error) {
+      MNUtil.showHUD("初始化失败: " + error)
+      MNUtil.copyJSON(error)
+    }
+  },
+
+  viewWillLayoutSubviews: function() {
+    try {
+      // miniMode 时不重新布局
+      if (self.miniMode) {
+        return
+      }
+
+      let viewFrame = self.view.bounds
+      let width = viewFrame.width
+      let height = viewFrame.height
+
+      // 布局移动按钮
+      self.moveButton.frame = {x: width * 0.5 - 75, y: 0, width: 150, height: 16}
+
+      // 布局关闭按钮（右上角）
+      self.closeButton.frame = {x: width - 40, y: 5, width: 30, height: 30}
+
+      // 布局调整大小按钮（右下角）
+      self.resizeButton.frame = {x: width - 30, y: height - 40, width: 30, height: 30}
+
+      // 布局 WebView
+      self.webView.frame = {x: 10, y: 25, width: width - 20, height: height - 35}
+
+    } catch (error) {
+      MNUtil.showHUD("布局失败: " + error)
+    }
   },
 
   viewWillDisappear: function(animated) {
@@ -95,6 +134,192 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
 
   webViewDidFailLoadWithError: function(webView, error) {
     MNUtil.showHUD("页面加载失败")
+  },
+
+  // ========================================
+  // 按钮响应方法
+  // ========================================
+
+  /**
+   * 移动按钮点击响应
+   */
+  moveButtonTapped: async function(button) {
+    try {
+      // Mini 模式下单击恢复
+      if (self.miniMode) {
+        MNUtil.log("Mini 模式点击，准备恢复")
+        self.fromMinimode()
+        return
+      }
+
+      // 正常模式下显示功能菜单
+      let commandTable = [
+        {title: '🔧  菜单栏待丰富中', object: self, selector: '', param: ""},
+      ]
+      self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable, 200, 1)
+    } catch (error) {
+      MNUtil.showHUD("操作失败")
+      MNUtil.copyJSON(error)
+    }
+  },
+
+  /**
+   * 关闭按钮响应
+   */
+  closeButtonTapped: function() {
+    if (self.addonBar) {
+      self.hide(self.addonBar.frame)
+    } else {
+      self.hide()
+    }
+  },
+
+  // ========================================
+  // 手势处理方法
+  // ========================================
+
+  /**
+   * 拖动手势处理（带边缘吸附功能）
+   */
+  onMoveGesture: function(gesture) {
+    // 如果正在动画中，忽略拖动操作
+    if (self.onAnimate) {
+      return
+    }
+
+    // 获取当前位置
+    let locationToMN = gesture.locationInView(MNUtil.studyView)
+
+    // 双击检测和位置计算初始化
+    if (!self.locationToButton || !self.miniMode && (Date.now() - self.moveDate) > 100) {
+      let translation = gesture.translationInView(MNUtil.studyView)
+      let locationToBrowser = gesture.locationInView(self.view)
+      let locationToButton = gesture.locationInView(gesture.view)
+      let newY = locationToButton.y - translation.y
+      let newX = locationToButton.x - translation.x
+
+      if (gesture.state === 1) {
+        self.lastFrame = self.view.frame
+        self.locationToBrowser = {x: locationToBrowser.x - translation.x, y: locationToBrowser.y - translation.y}
+        self.locationToButton = {x: newX, y: newY}
+      }
+    }
+    self.moveDate = Date.now()
+
+    // 计算新位置
+    let location = {
+      x: locationToMN.x - self.locationToButton.x - gesture.view.frame.x,
+      y: locationToMN.y - self.locationToButton.y - gesture.view.frame.y
+    }
+
+    let frame = self.view.frame
+    let studyFrame = MNUtil.studyView.bounds
+    let y = MNUtil.constrain(location.y, 0, studyFrame.height - 15)
+    let x = location.x
+
+    // 边缘检测逻辑
+    if (!self.miniMode) {
+      // 非 mini 模式：靠近边缘 40px 内触发吸附
+      if (locationToMN.x < 40) {
+        self.toMinimode(MNUtil.genFrame(0, locationToMN.y, 40, 40), self.lastFrame)
+        return
+      }
+      if (locationToMN.x > studyFrame.width - 40) {
+        self.toMinimode(MNUtil.genFrame(studyFrame.width - 40, locationToMN.y, 40, 40), self.lastFrame)
+        return
+      }
+    } else {
+      // mini 模式的处理
+      if (locationToMN.x < 50) {
+        self.view.frame = MNUtil.genFrame(0, locationToMN.y - 20, 40, 40)
+        return
+      } else if (locationToMN.x > studyFrame.width - 50) {
+        self.view.frame = MNUtil.genFrame(studyFrame.width - 40, locationToMN.y - 20, 40, 40)
+        return
+      } else if (locationToMN.x > 50) {
+        // 从 mini 模式恢复
+        let preOpacity = self.view.layer.opacity
+        self.view.layer.opacity = 0
+        self.setAllButton(true)
+        self.onAnimate = true
+        let color = "#9bb2d6"
+        self.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.8)
+        self.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.8)
+
+        MNUtil.animate(() => {
+          self.view.layer.opacity = preOpacity
+          self.setFrame(x, y, self.lastFrame.width, self.lastFrame.height)
+        }).then(() => {
+          self.onAnimate = false
+          let viewFrame = self.view.bounds
+          self.moveButton.frame = {x: viewFrame.width * 0.5 - 75, y: 5, width: 150, height: 10}
+          self.view.layer.borderWidth = 0
+          self.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.0)
+          self.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.0)
+          self.view.hidden = false
+          self.setAllButton(false)
+          self.moveButton.setTitleForState("", 0)
+        })
+        self.miniMode = false
+        return
+      }
+    }
+
+    // 正常拖动
+    self.setFrame(x, y, frame.width, frame.height)
+  },
+
+  /**
+   * 调整大小手势处理
+   */
+  onResizeGesture: function(gesture) {
+    try {
+      // 如果正在动画中，忽略调整大小操作
+      if (self.onAnimate) {
+        return
+      }
+
+      if (gesture.state === 1) {
+        self.originalLocationToMN = gesture.locationInView(MNUtil.studyView)
+        self.originalFrame = self.view.frame
+      }
+      if (gesture.state === 2) {
+        let locationToMN = gesture.locationInView(MNUtil.studyView)
+        let locationDiff = {x: locationToMN.x - self.originalLocationToMN.x, y: locationToMN.y - self.originalLocationToMN.y}
+        let frame = self.view.frame
+        let studyFrame = MNUtil.studyView.bounds
+
+        // 计算新的宽度和高度
+        frame.width = self.originalFrame.width + locationDiff.x
+        frame.height = self.originalFrame.height + locationDiff.y
+
+        // 最小尺寸限制
+        if (frame.width <= 300) {
+          frame.width = 300
+        }
+        if (frame.height <= 200) {
+          frame.height = 200
+        }
+
+        // 确保调整大小后不超出屏幕右边界
+        if (frame.x + frame.width > studyFrame.width) {
+          frame.width = studyFrame.width - frame.x
+        }
+
+        // 确保调整大小后不超出屏幕底部
+        if (frame.y + frame.height > studyFrame.height - 20) {
+          frame.height = studyFrame.height - frame.y - 20
+        }
+
+        self.setFrame(frame)
+      }
+      if (gesture.state === 3) {
+        MNUtil.studyView.bringSubviewToFront(self.view)
+      }
+    } catch (error) {
+      MNUtil.showHUD("调整大小失败: " + error)
+      MNUtil.copyJSON(error)
+    }
   }
 })
 
@@ -509,12 +734,219 @@ knowledgebaseWebController.prototype.show = function(beginFrame, endFrame) {
 }
 
 /**
- * 隐藏浮动窗口
+ * 隐藏浮动窗口（增强版）
  */
-knowledgebaseWebController.prototype.hide = function() {
+knowledgebaseWebController.prototype.hide = function(frame) {
+  // 保存当前位置
+  let preFrame = this.view.frame
+
+  if (preFrame.width < 200) {
+    preFrame.width = Math.max(preFrame.width, 300)
+  }
+  this.view.frame = preFrame
+
+  // 标记动画状态
+  this.onAnimate = true
+
+  // 保存当前透明度
+  let preOpacity = this.view.layer.opacity
+
   MNUtil.animate(() => {
     this.view.layer.opacity = 0.2
-  }).then(() => {
+    if (frame) {
+      this.view.frame = frame
+      this.currentFrame = frame
+    }
+  }, 0.3).then(() => {
+    this.onAnimate = false
     this.view.hidden = true
+    this.view.layer.opacity = preOpacity
+    this.view.frame = preFrame
+    this.currentFrame = preFrame
   })
+}
+
+/**
+ * 初始化状态和样式
+ */
+knowledgebaseWebController.prototype.init = function() {
+  this.isFirst = true
+  this.miniMode = false
+  this.onAnimate = false
+  this.lastTapTime = 0
+  this.moveDate = 0
+
+  if (!this.lastFrame) {
+    this.lastFrame = this.view.frame
+  }
+  if (!this.currentFrame) {
+    this.currentFrame = this.view.frame
+  }
+
+  this.view.layer.shadowOffset = {width: 0, height: 0}
+  this.view.layer.shadowRadius = 15
+  this.view.layer.shadowOpacity = 0.5
+  this.view.layer.shadowColor = UIColor.colorWithWhiteAlpha(0.5, 1)
+  this.view.layer.cornerRadius = 15
+  this.view.layer.opacity = 1.0
+  this.view.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0.8)
+  this.view.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6", 0.8)
+  this.view.layer.borderWidth = 0
+
+  this.highlightColor = UIColor.blendedColor(
+    MNUtil.hexColorAlpha("#2c4d81", 0.8),
+    MNUtil.app.defaultTextColor,
+    0.8
+  )
+
+  // 设置图片路径
+  this.closeImage = KnowledgeBaseConfig.mainPath + "/close.png"
+  this.resizeImage = KnowledgeBaseConfig.mainPath + "/resize.png"
+}
+
+/**
+ * 设置面板位置
+ */
+knowledgebaseWebController.prototype.setFrame = function(frame) {
+  if (typeof frame === "object") {
+    this.view.frame = frame
+  } else if (arguments.length === 4) {
+    this.view.frame = MNUtil.genFrame(arguments[0], arguments[1], arguments[2], arguments[3])
+  }
+  this.currentFrame = this.view.frame
+}
+
+/**
+ * 显示/隐藏所有按钮
+ */
+knowledgebaseWebController.prototype.setAllButton = function(hidden) {
+  if (this.moveButton) {
+    this.moveButton.hidden = hidden
+  }
+  if (this.closeButton) {
+    this.closeButton.hidden = hidden
+  }
+  if (this.resizeButton) {
+    this.resizeButton.hidden = hidden
+  }
+  if (this.webView) {
+    this.webView.hidden = hidden
+  }
+}
+
+/**
+ * 创建按钮辅助方法
+ */
+knowledgebaseWebController.prototype.createButton = function(buttonName, targetAction, superview) {
+  this[buttonName] = UIButton.buttonWithType(0)
+  this[buttonName].autoresizingMask = (1 << 0 | 1 << 3)
+  this[buttonName].setTitleColorForState(UIColor.whiteColor(), 0)
+  this[buttonName].setTitleColorForState(this.highlightColor, 1)
+  this[buttonName].backgroundColor = MNUtil.hexColorAlpha("#9bb2d6", 0.8)
+  this[buttonName].layer.cornerRadius = 8
+  this[buttonName].layer.masksToBounds = true
+  this[buttonName].titleLabel.font = UIFont.systemFontOfSize(16)
+
+  if (targetAction) {
+    this[buttonName].addTargetActionForControlEvents(this, targetAction, 1 << 6)
+  }
+  if (superview) {
+    this[superview].addSubview(this[buttonName])
+  } else {
+    this.view.addSubview(this[buttonName])
+  }
+}
+
+/**
+ * 转换到迷你模式
+ */
+knowledgebaseWebController.prototype.toMinimode = function(frame, lastFrame) {
+  this.miniMode = true
+  if (lastFrame) {
+    this.lastFrame = lastFrame
+  } else {
+    this.lastFrame = this.view.frame
+  }
+
+  this.currentFrame = this.view.frame
+
+  // 隐藏所有按钮和 WebView
+  this.setAllButton(true)
+
+  // 设置背景色
+  this.view.layer.borderWidth = 0
+  let color = "#9bb2d6"
+  this.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.8)
+  this.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.8)
+
+  // 执行动画
+  MNUtil.animate(() => {
+    this.setFrame(frame)
+  }).then(() => {
+    // 动画完成后，重新设置 moveButton
+    this.moveButton.frame = MNUtil.genFrame(0, 0, 40, 40)
+    this.moveButton.hidden = false
+    this.moveButton.enabled = true
+
+    // 设置图标并居中
+    this.moveButton.setTitleForState("📌", 0)
+    this.moveButton.titleLabel.font = UIFont.systemFontOfSize(20)
+    this.moveButton.titleLabel.textAlignment = 1
+
+    // 确保按钮在最上层
+    this.view.bringSubviewToFront(this.moveButton)
+  })
+}
+
+/**
+ * 从迷你模式恢复
+ */
+knowledgebaseWebController.prototype.fromMinimode = function() {
+  try {
+    if (!this.miniMode) return
+
+    // 确保 lastFrame 在屏幕范围内
+    let studyFrame = MNUtil.studyView.bounds
+    if (this.lastFrame) {
+      this.lastFrame.x = MNUtil.constrain(this.lastFrame.x, 0, studyFrame.width - this.lastFrame.width)
+      this.lastFrame.y = MNUtil.constrain(this.lastFrame.y, 20, studyFrame.height - this.lastFrame.height - 20)
+    } else {
+      // 如果没有 lastFrame，使用默认位置
+      this.lastFrame = {x: 50, y: 30, width: 720, height: 720}
+    }
+
+    // 完全照抄拖拽恢复的代码
+    let preOpacity = this.view.layer.opacity
+    this.view.layer.opacity = 0
+    this.setAllButton(true)
+    this.onAnimate = true
+    let color = "#9bb2d6"
+    this.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.8)
+    this.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.8)
+
+    MNUtil.animate(() => {
+      this.view.layer.opacity = preOpacity
+      this.setFrame(this.lastFrame.x, this.lastFrame.y, this.lastFrame.width, this.lastFrame.height)
+    }).then(() => {
+      this.onAnimate = false
+      let viewFrame = this.view.bounds
+      this.moveButton.frame = {x: viewFrame.width * 0.5 - 75, y: 5, width: 150, height: 10}
+      this.view.layer.borderWidth = 0
+      this.view.layer.borderColor = MNUtil.hexColorAlpha(color, 0.0)
+      this.view.layer.backgroundColor = MNUtil.hexColorAlpha(color, 0.0)
+      this.view.hidden = false
+      this.setAllButton(false)
+      this.moveButton.setTitleForState("", 0)
+    })
+    this.miniMode = false
+
+    // 确保视图在最前面
+    MNUtil.studyView.bringSubviewToFront(this.view)
+  } catch (error) {
+    // 确保重置状态，防止界面卡死
+    this.onAnimate = false
+    this.miniMode = false
+    MNUtil.showHUD("恢复正常模式失败")
+    MNUtil.copyJSON(error)
+  }
 }
