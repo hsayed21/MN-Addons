@@ -930,6 +930,46 @@
   </button>
 
   <script>
+    // ========================================
+    // Bridge 对象 - Native ↔ JS 通信接口
+    // ========================================
+    window.Bridge = {
+      /**
+       * 加载搜索索引数据 (Native → JS)
+       * @param {Object} indexData - 索引数据对象
+       * @param {Array} indexData.cards - 卡片数组
+       */
+      loadSearchIndex: function(indexData) {
+        console.log('Bridge.loadSearchIndex 被调用', indexData);
+        if (window.app && typeof window.app.loadDataset === 'function') {
+          window.app.loadDataset('default', indexData.cards || []);
+        }
+      },
+
+      /**
+       * 更新搜索结果 (Native → JS)
+       * @param {Array} results - 搜索结果数组
+       */
+      updateResults: function(results) {
+        console.log('Bridge.updateResults 被调用', results);
+        if (window.app && typeof window.app.loadDataset === 'function') {
+          window.app.loadDataset('default', results || []);
+        }
+      },
+
+      /**
+       * 通知初始化完成 (JS → Native)
+       */
+      notifyReady: function() {
+        console.log('Bridge.notifyReady 被调用');
+        try {
+          window.location.href = 'mnknowledgebase://ready';
+        } catch (error) {
+          console.warn('notifyReady 失败', error);
+        }
+      }
+    };
+
     (function () {
       'use strict';
 
@@ -2328,6 +2368,11 @@
             postToAddon(action, params);
           };
         }
+
+        // 通知 Native 端 WebView 初始化完成
+        if (window.Bridge && typeof window.Bridge.notifyReady === 'function') {
+          window.Bridge.notifyReady();
+        }
       }
 
       function setCardsForDataset(datasetKey, results, options = {}) {
@@ -2355,9 +2400,8 @@
       }
 
       function postToAddon(action, params = {}) {
-        const scheme = 'mnaddon';
-        const payload = { action, ...params };
-        const url = generateUrlScheme(scheme, '', payload);
+        const scheme = 'mnknowledgebase';
+        const url = generateUrlScheme(scheme, action, params);
         window.location.href = url;
       }
 

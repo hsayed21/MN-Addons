@@ -10,6 +10,7 @@
  */
 JSB.newAddon = function(mainPath){
   JSB.require('utils');
+  JSB.require('knowledgebaseWebController');
   // 使用 JSB.defineClass 定义一个继承自 JSExtension 的插件类
   // 格式：'类名 : 父类名'
   var MNKnowledgeBaseClass = JSB.defineClass('MNKnowledgeBase : JSExtension', 
@@ -30,18 +31,20 @@ JSB.newAddon = function(mainPath){
      * 注意：此时可能还没有笔记本或文档打开
      */
     sceneWillConnect: function() {
-      MNUtil.undoGrouping(()=>{
-        try {
-          KnowledgeBaseConfig.init(mainPath)
-          self.toggled = false
-          self.newExcerptWithOCRToTitle = false  // 新摘录 OCR 到标题
-          self.preExcerptMode = false  // 预摘录模式
-          // MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
-          MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
-        } catch (error) {
-          KnowledgeBaseUtils.addErrorLog(error, "sceneWillConnect")
-        }
-      })
+      try {
+        KnowledgeBaseConfig.init(mainPath)
+
+        // 注册插件通信观察者
+        MNUtil.addObserver(self, 'onOpenKnowledgeBaseSearch:', 'openKnowledgeBaseSearch')
+
+        self.toggled = false
+        self.newExcerptWithOCRToTitle = false  // 新摘录 OCR 到标题
+        self.preExcerptMode = false  // 预摘录模式
+        // MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
+        MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "sceneWillConnect")
+      }
     },
     
     /**
@@ -56,6 +59,7 @@ JSB.newAddon = function(mainPath){
       MNUtil.undoGrouping(()=>{
         try {
           MNUtil.removeObserver(self, 'ProcessNewExcerpt')
+          MNUtil.removeObserver(self, 'openKnowledgeBaseSearch')
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -97,9 +101,7 @@ JSB.newAddon = function(mainPath){
      * @param {String} notebookid 笔记本的唯一标识符
      */
     notebookWillOpen: function(notebookid) {
-      // JSB.log 用于调试输出，类似于 console.log
-      // %@ 是 Objective-C 风格的字符串占位符
-      JSB.log('MNLOG Open Notebook: %@',notebookid);
+      // 笔记本打开时的处理（控制器已在 queryAddonCommandStatus 中延迟初始化）
     },
     
     /**
@@ -181,14 +183,23 @@ JSB.newAddon = function(mainPath){
     },
 
     queryAddonCommandStatus: function() {
-      return MNUtil.studyMode !== 3
-        ? {
-            image: "logo.png",
-            object: self,
-            selector: "toggleAddon:",
-            checked: self.toggled
-          }
-        : null
+      // 延迟初始化控制器（参考 mnliterature）
+      KnowledgeBaseUtils.checkWebViewController()
+
+      if (MNUtil.studyMode < 3) {
+        return {
+          image: "logo.png",
+          object: self,
+          selector: "toggleAddon:",
+          checked: self.toggled
+        }
+      } else {
+        // 复习模式下隐藏控制器
+        if (KnowledgeBaseUtils.webViewController) {
+          KnowledgeBaseUtils.webViewController.view.hidden = true
+        }
+        return null
+      }
     },
 
     // 点击插件图标执行的方法。
@@ -207,6 +218,7 @@ JSB.newAddon = function(mainPath){
           self.tableItem('🔎   搜索中间知识库', 'searchInIntermediateKB:'),
           self.tableItem('-------------------------------',''),
           // === 通用搜索（支持自定义类型）===
+          self.tableItem('🌐   可视化搜索', 'openSearchWebView:'),
           self.tableItem('🔍   全部搜索', 'searchInKB:'),
 
           // === 快捷搜索 ===
@@ -282,21 +294,6 @@ JSB.newAddon = function(mainPath){
       self.preExcerptMode = !self.preExcerptMode
       MNUtil.showHUD(self.preExcerptMode ? "已开启预摘录模式" : "已关闭预摘录模式", 1)
     },
-    openSetting: function() {
-      MNUtil.showHUD("打开设置界面")
-      // 关闭菜单
-      if (self.popoverController) {
-        self.popoverController.dismissPopoverAnimated(true);
-      }
-    },
-
-    openKnowledgeBaseLibrary: function() {
-      MNUtil.showHUD("打开文献数据库")
-      // 关闭菜单
-      if (self.popoverController) {
-        self.popoverController.dismissPopoverAnimated(true);
-      }
-    },
     
     /**
      * 更新搜索索引（异步版本）
@@ -308,7 +305,14 @@ JSB.newAddon = function(mainPath){
           self.popoverController.dismissPopoverAnimated(true);
         }
         
-        let rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
+        let focusNote = MNNote.getFocusNote()
+        let rootNote
+        if (focusNote) {
+          rootNote = focusNote
+        } else {
+          rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
+        }
+        
         if (!rootNote) {
           MNUtil.showHUD("知识库不存在！");
           return;
@@ -356,6 +360,45 @@ JSB.newAddon = function(mainPath){
       } catch (error) {
         MNUtil.showHUD("快速搜索失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: searchInKB");
+      }
+    },
+
+    /**
+     * 打开可视化搜索 WebView（新增功能）
+     */
+    openSearchWebView: async function() {
+      try {
+        self.checkPopover()
+
+        // 确保控制器已初始化（使用新的延迟初始化方法）
+        KnowledgeBaseUtils.checkWebViewController()
+
+        // 如果已显示，直接返回前台
+        if (!KnowledgeBaseUtils.webViewController.view.hidden) {
+          MNUtil.studyView.bringSubviewToFront(KnowledgeBaseUtils.webViewController.view)
+          MNUtil.showHUD("知识库搜索")
+          return
+        }
+
+        // // 检查索引文件
+        // let indexPath = MNUtil.dbFolder + "/data/kb-search-index.json"
+        // if (!MNUtil.isfileExists(indexPath)) {
+        //   MNUtil.showHUD("索引未找到，请先更新搜索索引")
+        //   return
+        // }
+
+        // 显示窗口 - 传入合适的参数
+        KnowledgeBaseUtils.webViewController.show(
+          null,  // 无起始位置动画
+          { x: 50, y: 50, width: 420, height: 600 }  // 目标位置和大小
+        )
+
+        // 异步加载数据
+        await self.loadSearchDataToWebView()
+
+      } catch (error) {
+        MNUtil.showHUD("打开可视化搜索失败")
+        KnowledgeBaseUtils.addErrorLog(error, "openSearchWebView")
       }
     },
 
@@ -1010,7 +1053,7 @@ JSB.newAddon = function(mainPath){
         "确定要清空所有搜索历史吗？此操作不可恢复。",
         ["取消", "确认清空"]
       );
-      
+
       if (confirm === 1) {
         this.searchHistory = [];
         MNUtil.showHUD("搜索历史已清空");
@@ -1020,7 +1063,125 @@ JSB.newAddon = function(mainPath){
       MNLog.error(error, "MNKnowledgeBase: clearSearchHistory");
     }
   }
-  
+
+  /**
+   * 加载搜索数据到 WebView
+   */
+  MNKnowledgeBaseClass.prototype.loadSearchDataToWebView = async function() {
+    try {
+      let allCards = [];
+      let metadata = {};
+      
+      // 1. 尝试加载分片索引（新版模式）
+      let manifestPath = MNUtil.dbFolder + "/data/kb-search-index-manifest.json"
+      let manifest = MNUtil.readJSON(manifestPath);
+      
+      if (manifest && manifest.parts) {
+        // 分片模式：加载所有分片
+        MNUtil.log("加载分片索引数据");
+        
+        for (const partInfo of manifest.parts) {
+          let partPath = MNUtil.dbFolder + "/data/" + partInfo.filename;
+          let partData = MNUtil.readJSON(partPath);
+          
+          if (partData && partData.data) {
+            allCards = allCards.concat(partData.data);
+          }
+        }
+        
+        metadata = manifest.metadata || {};
+        
+      } else {
+        // 旧版模式：尝试加载单文件
+        MNUtil.log("尝试加载旧版单文件索引");
+        let indexPath = MNUtil.dbFolder + "/data/kb-search-index.json"
+        let indexData = MNUtil.readJSON(indexPath);
+        
+        if (!indexData || !indexData.cards) {
+          MNUtil.showHUD("索引未找到，请先更新搜索索引")
+          return
+        }
+        
+        allCards = indexData.cards;
+        metadata = indexData.metadata || {};
+      }
+      
+      // 2. 加载增量索引（如果存在）
+      let incrementalPath = MNUtil.dbFolder + "/data/kb-incremental-index.json";
+      if (MNUtil.isfileExists(incrementalPath)) {
+        let incrementalData = MNUtil.readJSON(incrementalPath);
+        if (incrementalData && incrementalData.cards) {
+          MNUtil.log(`加载增量索引：${incrementalData.cards.length} 张卡片`);
+          
+          // 合并并去重（基于 noteId）
+          const existingIds = new Set(allCards.map(card => card.id));
+          for (const card of incrementalData.cards) {
+            if (!existingIds.has(card.id)) {
+              allCards.push(card);
+            }
+          }
+        }
+      }
+      
+      // 3. 构建完整的索引数据
+      const fullIndexData = {
+        cards: allCards,
+        metadata: {
+          totalCards: allCards.length,
+          updateTime: metadata.updateTime || Date.now(),
+          ...metadata
+        }
+      };
+      
+      MNUtil.log(`WebView 数据准备完成：共 ${allCards.length} 张卡片`);
+      
+      // 等待 WebView 加载完成
+      await MNUtil.delay(0.5)
+      
+      // 调用 Bridge 方法加载数据
+      let script = `window.Bridge.loadSearchIndex(${JSON.stringify(fullIndexData)})`
+      await KnowledgeBaseUtils.webViewController.runJavaScript(script)
+      
+      MNUtil.showHUD(`加载成功：${allCards.length} 张卡片`)
+
+    } catch (error) {
+      MNUtil.showHUD("加载索引失败：" + error.message)
+      KnowledgeBaseUtils.addErrorLog(error, "loadSearchDataToWebView")
+    }
+  }
+
+  /**
+   * 响应其他插件的打开请求（插件通信）
+   */
+  MNKnowledgeBaseClass.prototype.onOpenKnowledgeBaseSearch = function(sender) {
+    if (typeof MNUtil === 'undefined') return
+    if (self.window !== self.appInstance.focusWindow) return
+
+    try {
+      let userInfo = sender.userInfo || {}
+
+      // 确保控制器已初始化（使用新的延迟初始化方法）
+      KnowledgeBaseUtils.checkWebViewController()
+
+      // 如果已显示，直接返回前台
+      if (!KnowledgeBaseUtils.webViewController.view.hidden) {
+        MNUtil.studyView.bringSubviewToFront(KnowledgeBaseUtils.webViewController.view)
+        return
+      }
+
+      // 显示窗口（支持自定义位置）
+      let beginFrame = userInfo.beginFrame
+      let endFrame = userInfo.endFrame
+      KnowledgeBaseUtils.webViewController.show(beginFrame, endFrame)
+
+      // 加载数据
+      self.loadSearchDataToWebView()
+
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "onOpenKnowledgeBaseSearch")
+    }
+  }
+
   // 返回定义的插件类，MarginNote 会自动实例化这个类
   return MNKnowledgeBaseClass;
 };

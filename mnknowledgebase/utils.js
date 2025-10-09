@@ -19854,6 +19854,27 @@ class IntermediateKnowledgeIndexer {
 
 class KnowledgeBaseUtils {
   static errorLog = []
+  static webViewController = null  // 存储控制器实例
+
+  /**
+   * 检查并创建 WebView 控制器（单例模式 - 参考 mnliterature）
+   *
+   * 这是延迟初始化策略，避免在 sceneWillConnect 中创建控制器导致崩溃
+   */
+  static checkWebViewController() {
+    // 单例模式：如果控制器不存在则创建
+    if (!this.webViewController) {
+      // 创建视图控制器实例
+      this.webViewController = knowledgebaseWebController.new()
+      // 初始状态设为隐藏，等待用户手动打开
+      this.webViewController.view.hidden = true
+    }
+    // 确保视图在正确的父视图中
+    if (!MNUtil.isDescendantOfStudyView(this.webViewController.view)) {
+      MNUtil.studyView.addSubview(this.webViewController.view)
+    }
+  }
+
   static log(message, source, detail, level = "INFO"){
     MNUtil.log({message:message, detail:detail, source:"MN KnowledgeBase:" + source , level:level})
   }
