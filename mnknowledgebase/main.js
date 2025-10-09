@@ -204,27 +204,18 @@ JSB.newAddon = function(mainPath){
           self.tableItem('🔎   搜索中间知识库', 'searchInIntermediateKB:'),
           self.tableItem('-------------------------------',''),
           // === 通用搜索（支持自定义类型）===
-          self.tableItem('🔍   全部搜索', 'searchInKB:', true),
-          
-          // === 快捷搜索 - 脑图定位 ===
-          self.tableItem('    📚  知识卡片', 'searchWithPreset:', {preset: 'knowledge', mode: 'mindmap'}),
-          self.tableItem('    📘  仅定义', 'searchWithPreset:', {preset: 'definitions', mode: 'mindmap'}),
-          self.tableItem('    📁  仅归类', 'searchWithPreset:', {preset: 'classifications', mode: 'mindmap'}),
-          self.tableItem('    📒  定义与归类', 'searchWithPreset:', {preset: 'definitionsAndClassifications', mode: 'mindmap'}),
+          self.tableItem('🔍   全部搜索', 'searchInKB:'),
 
-          // // === 快捷搜索 - 浮窗定位 ===
-          // self.tableItem('🔍   全部搜索(浮窗定位)', 'searchInKB:', false),
-          // self.tableItem('    📚  知识卡片(浮窗)', 'searchWithPreset:', {preset: 'knowledge', mode: 'float'}),
-          // self.tableItem('    📘  仅定义(浮窗)', 'searchWithPreset:', {preset: 'definitions', mode: 'float'}),
-          // self.tableItem('    📁  仅归类(浮窗)', 'searchWithPreset:', {preset: 'classifications', mode: 'float'}),
-          // self.tableItem('    📒  定义与归类(浮窗)', 'searchWithPreset:', {preset: 'definitionsAndClassifications', mode: 'float'}),
+          // === 快捷搜索 ===
+          self.tableItem('    📚  知识卡片', 'searchWithPreset:', 'knowledge'),
+          self.tableItem('    📘  仅定义', 'searchWithPreset:', 'definitions'),
+          self.tableItem('    📁  仅归类', 'searchWithPreset:', 'classifications'),
+          self.tableItem('    📒  定义与归类', 'searchWithPreset:', 'definitionsAndClassifications'),
           self.tableItem('-------------------------------',''),
           // === 配置管理 ===
           self.tableItem('📜   搜索历史', 'showSearchHistory:'),
           self.tableItem('🔍   搜索模式设置', 'configureSearchMode:'),
           self.tableItem('🔤   同义词管理', 'manageSynonyms:'),
-          // self.tableItem('🚫   排除词管理', 'manageExclusions:'),
-          // self.tableItem('📤   分享索引文件', 'shareIndexFile:'),
           self.tableItem('-------------------------------',''),
           self.tableItem('⚙️   摘录 OCR 模型设置', 'excerptOCRModelSetting:', button),
           self.tableItem("🤖   摘录自动 OCR 到标题", 'newExcerptWithOCRToTitleToggled:', undefined, self.newExcerptWithOCRToTitle),
@@ -342,7 +333,10 @@ JSB.newAddon = function(mainPath){
       }
     },
     
-    searchInKB: async function(focusInMindMap = true) {
+    /**
+     * 搜索知识库（通用搜索，支持自定义类型）
+     */
+    searchInKB: async function() {
       try {
         self.checkPopover()
 
@@ -353,8 +347,8 @@ JSB.newAddon = function(mainPath){
           return;
         }
 
-        // 注意：showSearchDialog 内部也需要支持异步搜索
-        KnowledgeBaseSearcher.showSearchDialog(searcher, {}, focusInMindMap);
+        // 显示搜索对话框（允许类型选择）
+        KnowledgeBaseSearcher.showSearchDialog(searcher, {});
 
       } catch (error) {
         MNUtil.showHUD("快速搜索失败: " + error.message);
@@ -610,12 +604,11 @@ JSB.newAddon = function(mainPath){
             isFromHistory: true
           };
 
-          // 显示历史搜索结果（不再使用保存的 mode，由用户在点击卡片时选择）
+          // 显示历史搜索结果（用户在点击卡片时通过菜单选择操作）
           KnowledgeBaseSearcher.showSearchResults(
             selectedHistory.results,
             searcher,
-            searchOptions,
-            true  // focusMode 参数在历史记录模式下不再使用
+            searchOptions
           );
         }
         
@@ -687,40 +680,35 @@ JSB.newAddon = function(mainPath){
 
     /**
      * 使用预设类型进行快捷搜索
-     * @param {Object} config - 配置对象 {preset: string, mode: string}
+     * @param {String} preset - 预设类型键名（如 'knowledge', 'definitions' 等）
      */
-    searchWithPreset: async function(config) {
+    searchWithPreset: async function(preset) {
       try {
         self.checkPopover();
-        
-        const { preset, mode } = config;
-        
+
         // 异步加载搜索器
         const searcher = await KnowledgeBaseSearcher.loadFromFile();
         if (!searcher) {
           MNUtil.showHUD("索引未找到，请先更新搜索索引");
           return;
         }
-        
+
         // 获取预设类型
         const types = SearchConfig.getTypesByPreset(preset);
         if (!types) {
           MNUtil.showHUD("无效的搜索预设");
           return;
         }
-        
-        // 根据 mode 确定定位方式
-        const focusMode = mode === 'mindmap' ? true : false;
-        
+
         // 显示搜索对话框，跳过类型选择
         const searchConfig = {
           enableTypeSelection: false,  // 禁用类型选择
           defaultTypes: types,         // 使用预设类型
           presetKey: preset            // 传递预设键用于显示
         };
-        
-        KnowledgeBaseSearcher.showSearchDialog(searcher, searchConfig, focusMode);
-        
+
+        KnowledgeBaseSearcher.showSearchDialog(searcher, searchConfig);
+
       } catch (error) {
         MNUtil.showHUD("快捷搜索失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: searchWithPreset");
@@ -733,25 +721,24 @@ JSB.newAddon = function(mainPath){
     searchForMarkdown: async function() {
       try {
         self.checkPopover();
-        
+
         // 异步加载搜索器
         const searcher = await KnowledgeBaseSearcher.loadFromFile();
         if (!searcher) {
           MNUtil.showHUD("索引未找到，请先更新搜索索引");
           return;
         }
-        
+
         // 获取知识卡片类型
         const types = SearchConfig.getTypesByPreset('knowledge');
-        
+
         // 显示搜索对话框，使用知识卡片类型
-        // 传递 true 作为 focusMode，表示正常的搜索（将在选中后显示操作菜单）
         KnowledgeBaseSearcher.showSearchDialog(searcher, {
           enableTypeSelection: false,  // 禁用类型选择
           defaultTypes: types,         // 使用知识卡片类型
           presetKey: 'knowledge'       // 使用知识卡片预设
-        }, true);
-        
+        });
+
       } catch (error) {
         MNUtil.showHUD("搜索失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: searchForMarkdown");
