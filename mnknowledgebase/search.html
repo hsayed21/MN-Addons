@@ -2,494 +2,1307 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>MNKnowledgeBase - 搜索可视化框架</title>
   <style>
-  :root{
-      --bg:#f7f8fb;
-      --card-bg:#fff;
-      --accent:#2b7cff;
-      --muted:#666;
-      --pill-bg:#eef5ff;
-      --pill-active-bg:#cfe1ff;
-      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    :root {
+      --bg: #f7f8fb;
+      --card-bg: #fff;
+      --accent: #2b7cff;
+      --muted: #666;
+      --pill-bg: #eef5ff;
+      --pill-active-bg: #cfe1ff;
+      --negative-bg: #ffeef4;
+      --negative-active-bg: #ffdfee;
+      --type-pill-bg: #e7f4ee;
+      --type-pill-active-bg: #c4e6d5;
+      --type-pill-color: #1c8054;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      --topbar-height: 64px;
+      --toolbar-gap: 78px;
     }
-    html,body{height:100%;margin:0;font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:var(--bg); color:#111}
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: var(--bg);
+      color: #111;
+      -webkit-font-smoothing: antialiased;
+      touch-action: manipulation;
+      overscroll-behavior: contain;
+    }
 
     /* 固定顶部搜索栏 */
-    .topbar{
-      position:sticky; top:0; z-index:80; backdrop-filter: blur(6px);
-      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.9));
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 90;
+      backdrop-filter: blur(6px);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.9));
       border-bottom: 1px solid #e6e9ef;
-      padding:14px 20px; display:flex; gap:12px; align-items:center;
+      padding: 14px 20px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      min-height: var(--topbar-height);
     }
-    .search-input-wrap{display:flex; gap:8px; align-items:center; flex:1}
-    .search-input{flex:1; padding:10px 14px; border-radius:10px; border:1px solid #d6dbe8; background:var(--card-bg); box-shadow:var(--shadow); font-size:15px}
-    .search-count{color:var(--muted); font-size:13px}
 
-    /* 预设词区域，固定在搜索框下方（粘附在页面顶部） */
-    .preset-bar{position:sticky; top:64px; z-index:70; background:transparent; padding:10px 20px; display:flex; gap:10px; align-items:center; overflow:auto}
-    .preset-pill{background:var(--pill-bg); border-radius:999px; padding:8px 12px; font-size:13px; cursor:pointer; white-space:nowrap; border:1px solid transparent}
-    .preset-pill.active{background:var(--pill-active-bg); border-color:var(--accent); color:var(--accent); box-shadow:0 2px 6px rgba(43,124,255,0.12)}
+    .search-input-wrap {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex: 1;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #d6dbe8;
+      background: var(--card-bg);
+      box-shadow: var(--shadow);
+      font-size: 15px;
+    }
+
+    .search-count {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    /* 工具栏胶囊 */
+    .pill-section {
+      position: sticky;
+      z-index: 80;
+      background: linear-gradient(180deg, rgba(247, 248, 251, 0.95), rgba(247, 248, 251, 0.78));
+      padding: 10px 20px 14px;
+      backdrop-filter: blur(4px);
+    }
+
+    .pill-section--type {
+      top: var(--topbar-height);
+    }
+
+    .pill-section--preset {
+      top: calc(var(--topbar-height) + var(--toolbar-gap));
+    }
+
+    .pill-section--negative {
+      top: calc(var(--topbar-height) + var(--toolbar-gap) * 2);
+    }
+
+    .pill-section__label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #5b6a80;
+      margin-bottom: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill-section__label::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.45;
+    }
+
+    .pill-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .pill-row::-webkit-scrollbar {
+      display: none;
+    }
+
+    .pill {
+      background: var(--pill-bg);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      border: 1px solid transparent;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      user-select: none;
+    }
+
+    .pill:active {
+      transform: scale(0.96);
+    }
+
+    .pill.active {
+      background: var(--pill-active-bg);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 2px 6px rgba(43, 124, 255, 0.12);
+    }
+
+    .type-bar .pill {
+      background: var(--type-pill-bg);
+      color: var(--type-pill-color);
+    }
+
+    .type-bar .pill.active {
+      background: var(--type-pill-active-bg);
+      border-color: rgba(21, 122, 82, 0.4);
+      color: #0d5c39;
+      box-shadow: 0 2px 6px rgba(21, 122, 82, 0.14);
+    }
+
+    .pill.negative {
+      background: var(--negative-bg);
+      color: #c23b6b;
+    }
+
+    .pill.negative.active {
+      background: var(--negative-active-bg);
+      border-color: #f0b6d0;
+      box-shadow: 0 2px 6px rgba(194, 59, 107, 0.08);
+    }
 
     /* 主体 */
-    .container{max-width:1000px; margin:20px auto; padding:0 16px}
+    .container {
+      max-width: 1000px;
+      margin: 24px auto 0 auto;
+      padding: 0 16px 80px;
+    }
 
     /* 操作工具栏 */
-    .toolbar{display:flex; gap:8px; align-items:center; margin-bottom:12px}
-    .btn{background:var(--card-bg); border:1px solid #e3e6ee; padding:8px 10px; border-radius:8px; cursor:pointer; font-size:13px}
-    .btn.primary{background:var(--accent); color:#fff; border-color:transparent}
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      background: var(--card-bg);
+      border: 1px solid #e3e6ee;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 6px 16px rgba(43, 124, 255, 0.16);
+    }
+
+    .btn[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
 
     /* 结果列表 */
-  .results{display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:12px}
-    .card{background:var(--card-bg); padding:12px; border-radius:10px; box-shadow:var(--shadow); border-left:6px solid transparent; cursor:pointer; display:flex; flex-direction:column; gap:6px}
-  .card.selected{box-shadow:0 14px 36px rgba(43,124,255,0.18); transform: translateY(-6px); border-left-width:10px}
-  .card-title{font-weight:600}
-  .card-snippet{font-size:13px;color:#444;line-height:1.4}
-  .match-count{font-size:12px;color:var(--muted);margin-left:8px}
-  mark.matched{background:rgba(255,230,120,0.9); color:#111; padding:0 2px; border-radius:2px}
-  .card-meta{font-size:13px; color:var(--muted)}
-  .card-type{display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; color:#fff}
-  /* 负向排除词 pill（粉色） */
-  .negative-pill{background:#ffeef4; border-radius:999px; padding:8px 12px; font-size:13px; cursor:pointer; white-space:nowrap; border:1px solid transparent; color:#c23b6b}
-  .negative-pill.active{background:#ffdfee; box-shadow:0 2px 6px rgba(194,59,107,0.08); border-color:#f0b6d0}
-  .negative-bar{position:sticky; top:104px; z-index:69}
+    .results {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 12px;
+    }
 
-    /* 选中高亮 */
-    .card.highlighted{box-shadow:0 6px 20px rgba(43,124,255,0.12); transform: translateY(-2px)}
+    .card {
+      background: var(--card-bg);
+      padding: 12px;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      border-left: 6px solid transparent;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
 
-    /* 页脚占位，留出空间 */
-    .spacer{height:120px}
+    .card.selected {
+      box-shadow: 0 12px 28px rgba(43, 124, 255, 0.18);
+      transform: translateY(-4px);
+      border-left-width: 10px;
+    }
 
-    /* 响应 */
-    @media (max-width:640px){
-      .container{padding:0 10px}
-      .topbar{padding:10px}
-      .preset-bar{top:56px}
+    .card-title {
+      font-weight: 600;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .card-snippet {
+      font-size: 13px;
+      color: #444;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .match-count {
+      font-size: 12px;
+      color: var(--muted);
+      margin-left: 8px;
+    }
+
+    mark.matched {
+      background: rgba(255, 230, 120, 0.9);
+      color: #111;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+
+    .card-meta {
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .card-type {
+      display: inline-flex;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #fff;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    .card-type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chip-score {
+      background: rgba(43, 124, 255, 0.08);
+      color: #2b7cff;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    .component-hidden {
+      display: none !important;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(33, 33, 33, 0.88);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 120;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    @media (max-width: 640px) {
+      :root {
+        --topbar-height: 56px;
+        --toolbar-gap: 40px;
+      }
+
+      .topbar {
+        padding: 12px 14px;
+      }
+
+      .pill-row {
+        padding: 8px 14px;
+      }
+
+      .container {
+        padding: 0 12px 80px;
+        margin-top: 20px;
+      }
+
+      .results {
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      }
     }
   </style>
 </head>
 <body>
   <div class="topbar">
     <div class="search-input-wrap">
-      <input id="searchInput" class="search-input" placeholder="搜索知识库：输入关键字或选择下方预设" />
+      <input id="searchInput" class="search-input" placeholder="搜索知识库：输入关键字或选择下方预设" autocomplete="off" />
       <div id="searchCount" class="search-count">0 条结果</div>
     </div>
     <div>
-      <button id="clearBtn" class="btn">清空</button>
+      <button id="clearBtn" class="btn" type="button">清空</button>
     </div>
   </div>
 
-  <div class="preset-bar" id="presetBar">
-    <!-- 预设词标签将在 JS 中渲染 -->
-    </div>
-    <div class="preset-bar" id="typeBar" style="margin-top:4px">
+  <div class="pill-section pill-section--type" data-section="type">
+    <div class="pill-section__label">类型筛选</div>
+    <div class="pill-row type-bar" id="typeBar" aria-label="类型筛选">
       <!-- 类型筛选 pill 将在 JS 中渲染 -->
     </div>
-    <div class="preset-bar" id="negativeBar" style="margin-top:4px">
+  </div>
+  <div class="pill-section pill-section--preset" data-section="preset">
+    <div class="pill-section__label">搜索预设</div>
+    <div class="pill-row preset-bar" id="presetBar" aria-label="搜索预设">
+      <!-- 预设词标签将在 JS 中渲染 -->
+    </div>
+  </div>
+  <div class="pill-section pill-section--negative" data-section="negative">
+    <div class="pill-section__label">排除关键词</div>
+    <div class="pill-row negative-bar" id="negativeBar" aria-label="排除词">
       <!-- 负向排除词（粉色）将在 JS 中渲染 -->
     </div>
+  </div>
 
   <div class="container">
     <div class="toolbar" id="toolbar">
-      <button class="btn" id="locateBtn">定位</button>
-      <button class="btn" id="copyUrlBtn">复制 URL</button>
-      <button class="btn" id="copyMdBtn">复制 Markdown 链接</button>
-      <button class="btn primary" id="multiActionBtn">对所选执行操作</button>
-      <div style="flex:1"></div>
+      <button class="btn" id="locateBtn" type="button">定位</button>
+      <button class="btn" id="copyUrlBtn" type="button">复制 URL</button>
+      <button class="btn" id="copyMdBtn" type="button">复制 Markdown 链接</button>
+      <button class="btn primary" id="multiActionBtn" type="button">对所选执行操作</button>
+      <div style="flex:1 1 auto"></div>
       <div class="search-count" id="selectionInfo">未选中</div>
     </div>
 
     <div class="results" id="results"></div>
 
-    <div class="spacer"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
   </div>
 
   <script>
-    // 假数据：更具代表性的卡片列表，包含多词短语以演示精确短语匹配
-    const fakeCards = [
-      {id: 'card-1001', title: '机器学习概述', type: '定义', color:'#7bb8ff', searchText: '机器学习 基本概念 监督学习 无监督学习'},
-      {id: 'card-1002', title: '深度学习与神经网络', type: '知识', color:'#ffd07b', searchText: '深度学习 神经网络 卷积神经网络 CNN RNN'},
-      {id: 'card-1003', title: '支持向量机（SVM）', type: '定义', color:'#ff7b7b', searchText: '支持向量机 SVM 分类 算法'},
-      {id: 'card-1004', title: '自然语言处理简介', type: '知识', color:'#7bd389', searchText: '自然语言处理 NLP 词向量 BERT'},
-      {id: 'card-1005', title: '卷积 神经 网络 详解', type: '归类', color:'#7bb8ff', searchText: '卷积 神经 网络 卷积 池化'},
-      {id: 'card-1006', title: '优化算法对比', type: '知识', color:'#ffd07b', searchText: '梯度下降 Adam RMSprop 优化'},
-      {id: 'card-1007', title: '检索系统概念', type: '定义', color:'#ff7b7b', searchText: '信息检索 搜索 排序 倒排索引'},
-      {id: 'card-1008', title: '注意力机制（Attention）', type: '知识', color:'#7bd389', searchText: '注意力 机制 Transformer 自注意力'},
-  {id: 'card-1009', title: '半监督学习实例', type: '知识', color:'#7bb8ff', searchText: '半监督 学习 实例 应用'},
-  {id: 'card-1010', title: 'Evaluation Metrics', type: '定义', color:'#ffd07b', searchText: 'precision recall F1 score 混淆矩阵'},
-  {id: 'card-1011', title: 'Neural Network Architectures', type: '归类', color:'#ff7b7b', searchText: 'MLP CNN RNN Transformer architectures'},
-  {id: 'card-1012', title: 'Embedding Techniques', type: '知识', color:'#7bd389', searchText: '词向量 embedding word2vec GloVe BERT'},
-  // 以下是为测试负向排除词准备的示例卡片
-  {id: 'card-2001', title: '复 Hilbert 空间 中的性质', type: '定义', color:'#ffb6c1', searchText: 'Hilbert 空间 复 数 线性 代数'},
-  {id: 'card-2002', title: '实 Hilbert 空间 示例', type: '定义', color:'#ffb6c1', searchText: 'Hilbert 空间 实 数 例子'},
-  {id: 'card-2003', title: '多项式 回归 的鲁棒性', type: '知识', color:'#ffc0cb', searchText: '回归 多项式 回归 过拟合'},
-  {id: 'card-2004', title: '噪声 分析 方法', type: '知识', color:'#ffccd9', searchText: '噪声 信号 过滤 去噪'},
-  {id: 'card-2005', title: '异常 值 检测 技术', type: '知识', color:'#ffd6e8', searchText: '异常 值 检测 异常 数据'},
-    ]
+    (function () {
+      'use strict';
 
-  // 预设词（可包含空格作为精确短语）
-  const presets = ['机器学习','深度学习','支持向量机','卷积 神经 网络','自然语言处理','优化','检索']
-  // 负向排除词（粉色），选中后将从结果中排除标题包含该词的卡片
-  const negativePresets = ['复','多项式 回归','噪声','异常 值']
+      // 默认配置，真实环境可以通过 window.MNKB API 覆盖
+      const DEFAULT_PRESETS = [
+        '机器学习',
+        '深度学习',
+        '支持向量机',
+        '卷积 神经 网络',
+        '自然语言处理',
+        '优化',
+        '检索',
+        '泛函 分析',
+        'Hilbert 空间',
+        '紧致 性质',
+        '梯度 下降',
+        '注意力 机制',
+        '学习 曲线',
+        '统计 推断',
+      ];
 
-  // 状态
-  let activePresets = new Set()
-  let activeNegativePresets = new Set()
-  // 支持多选（Set）
-  let selectedCardIds = new Set()
-  // 类型筛选
-  const typesList = ['所有类型','归类','所有知识点','定义','命题','例子','反例','思想方法']
-  let currentTypeFilter = '所有类型'
-  // 保存用户实际输入的文本（不包含由预设自动追加的词）
-  let userTyped = ''
+      const DEFAULT_NEGATIVE_PRESETS = ['复 Hilbert', '实验 数据', '噪声', '异常 值', '反例', '离线 演示'];
 
-    // 元素
-    const presetBar = document.getElementById('presetBar')
-    const resultsEl = document.getElementById('results')
-    const searchInput = document.getElementById('searchInput')
-    const searchCount = document.getElementById('searchCount')
-    const selectionInfo = document.getElementById('selectionInfo')
+      // 对齐 SearchConfig.typePresets，便于后续与 utils.js 保持一致
+      const DEFAULT_TYPE_FILTERS = [
+        { key: 'all', label: '全部类型', types: null },
+        { key: 'classifications', label: '归类', types: ['归类'] },
+        { key: 'definitions', label: '定义', types: ['定义'] },
+        { key: 'definitionsAndClassifications', label: '定义与归类', types: ['定义', '归类'] },
+        { key: 'knowledge', label: '知识点卡片', types: ['定义', '命题', '例子', '反例', '思想方法'] },
+        { key: 'propositions', label: '命题', types: ['命题'] },
+        { key: 'examples', label: '例子', types: ['例子'] },
+        { key: 'counterexamples', label: '反例', types: ['反例'] },
+        { key: 'methods', label: '思想方法', types: ['思想方法'] },
+        // { key: 'problems', label: '问题', types: ['问题'] },
+        // { key: 'ideas', label: '思路', types: ['思路'] },
+        // { key: 'research', label: '研究进展', types: ['研究进展'] },
+        // { key: 'papers', label: '论文', types: ['论文'] },
+      ];
 
-    // 初始化预设词
-    function renderPresets(){
-      presetBar.innerHTML = ''
-      presets.forEach(p =>{
-        const el = document.createElement('div')
-        el.className = 'preset-pill'
-        el.textContent = p
-        el.dataset.preset = p
-        el.addEventListener('click', () => {
-          if (activePresets.has(p)) {
-            activePresets.delete(p)
-            el.classList.remove('active')
-          } else {
-            activePresets.add(p)
-            el.classList.add('active')
-          }
-          syncInputWithPresets()
-          doSearch()
-        })
-        presetBar.appendChild(el)
-      })
-    }
+      // 颜色映射：优先类型、其次颜色索引，最后回退色
+      const TYPE_COLOR_MAP = {
+        定义: '#7bb8ff',
+        命题: '#5569ff',
+        例子: '#8f7bff',
+        反例: '#ff7b7b',
+        归类: '#ffd07b',
+        思想方法: '#5bd0a9',
+        问题: '#ffa857',
+        思路: '#50c4a4',
+        研究进展: '#5fa3ff',
+        研究: '#5fa3ff',
+        论文: '#a36bff',
+        书作: '#a36bff',
+        作者: '#7bb8ff',
+        总结: '#7d8799',
+      };
 
-      // 渲染负向排除词
-      function renderNegativePresets(){
-        const negBar = document.getElementById('negativeBar')
-        negBar.innerHTML = ''
-        negativePresets.forEach(p =>{
-          const el = document.createElement('div')
-          el.className = 'negative-pill'
-          el.textContent = p
-          el.dataset.preset = p
-          el.addEventListener('click', () => {
-            if (activeNegativePresets.has(p)) {
-              activeNegativePresets.delete(p)
-              el.classList.remove('active')
+      const COLOR_INDEX_PALETTE = {
+        0: '#ffd07b',
+        1: '#ffb37b',
+        2: '#7bb8ff',
+        3: '#ff7b7b',
+        4: '#ff9db5',
+        5: '#5bd0a9',
+        6: '#5fa3ff',
+        7: '#aa7bff',
+        8: '#ff9d4d',
+        9: '#339972',
+        10: '#5067ff',
+        11: '#a36bff',
+        12: '#ff914d',
+        13: '#4d9dff',
+        14: '#ffbf5f',
+        15: '#b5bac7',
+      };
+
+      // 假数据：本地预览用，真实环境通过原生注入
+      const FAKE_CARDS = [
+        { id: 'card-1001', title: '机器学习概述', type: '定义', color: '#7bb8ff', searchText: '机器学习 基本概念 监督学习 无监督学习' },
+        { id: 'card-1002', title: '深度学习与神经网络', type: '命题', color: '#5569ff', searchText: '深度学习 神经网络 卷积神经网络 CNN RNN 表征 学习' },
+        { id: 'card-1003', title: '支持向量机（SVM）', type: '定义', color: '#ff7b7b', searchText: '支持向量机 SVM 分类 算法' },
+        { id: 'card-1004', title: '自然语言处理简介', type: '思想方法', color: '#5bd0a9', searchText: '自然语言处理 NLP 词向量 BERT' },
+        { id: 'card-1005', title: '卷积 神经 网络 详解', type: '归类', color: '#ffd07b', searchText: '卷积 神经 网络 卷积 池化' },
+        { id: 'card-1006', title: '优化算法对比', type: '思想方法', color: '#5bd0a9', searchText: '梯度下降 Adam RMSprop 优化 学习率 调度' },
+        { id: 'card-1007', title: '检索系统概念', type: '定义', color: '#7bb8ff', searchText: '信息检索 搜索 排序 倒排索引 查询 扩展' },
+        { id: 'card-1008', title: '注意力机制（Attention）', type: '命题', color: '#5569ff', searchText: '注意力 机制 Transformer 自注意力' },
+        { id: 'card-1009', title: '半监督学习实例', type: '例子', color: '#8f7bff', searchText: '半监督 学习 实例 应用' },
+        { id: 'card-1010', title: 'Evaluation Metrics', type: '定义', color: '#7bb8ff', searchText: 'precision recall F1 score 混淆矩阵' },
+        { id: 'card-1011', title: 'Neural Network Architectures', type: '归类', color: '#ffd07b', searchText: 'MLP CNN RNN Transformer architectures' },
+        { id: 'card-1012', title: 'Embedding Techniques', type: '例子', color: '#8f7bff', searchText: '词向量 embedding word2vec GloVe BERT' },
+        { id: 'card-2001', title: '复 Hilbert 空间 中的性质', type: '命题', color: '#5569ff', searchText: 'Hilbert 空间 复 数 线性 代数 内积 空间' },
+        { id: 'card-2002', title: '实 Hilbert 空间 示例', type: '命题', color: '#5569ff', searchText: 'Hilbert 空间 实 数 例子 正交 基' },
+        { id: 'card-2003', title: '多项式 回归 的鲁棒性', type: '思想方法', color: '#5bd0a9', searchText: '回归 多项式 回归 过拟合 正则化' },
+        { id: 'card-2004', title: '噪声 分析 方法', type: '思想方法', color: '#5bd0a9', searchText: '噪声 信号 过滤 去噪 谱 分析' },
+        { id: 'card-2005', title: '异常 值 检测 技术', type: '思想方法', color: '#5bd0a9', searchText: '异常 值 检测 异常 数据 离群 点' },
+        { id: 'card-2101', title: '统计学习理论核心问题', type: '问题', color: '#ffa857', searchText: '统计 学习 理论 泛化 能力 VC 维 经验 风险' },
+        { id: 'card-2102', title: '梯度消失的排查思路', type: '思路', color: '#50c4a4', searchText: '梯度 消失 激活 函数 批量 归一化 残差 连接 排查 流程' },
+        { id: 'card-2103', title: 'Transformer 研究前沿', type: '研究进展', color: '#5fa3ff', searchText: 'Transformer 研究 前沿 多模态 视觉 Transformers 参数 高效 化' },
+        { id: 'card-2104', title: '注意力机制综述论文', type: '论文', color: '#a36bff', searchText: '注意力 机制 综述 论文 引用 统计 Transformer 原理' },
+        { id: 'card-2105', title: '文献阅读提纲：深度概率模型', type: '归类', color: '#ffd07b', searchText: '深度 概率 模型 结构 学习 变分 推断 综述 提纲' },
+        { id: 'card-2106', title: '学习曲线与早停策略', type: '思想方法', color: '#5bd0a9', searchText: '学习 曲线 早停 验证集 过拟合 模型 选择' },
+        { id: 'card-2107', title: '张量分解——定义与例子', type: '定义', color: '#7bb8ff', searchText: '张量 分解 定义 Tucker CP 分解 高阶 数据' },
+        { id: 'card-2108', title: '张量分解常见反例', type: '反例', color: '#ff7b7b', searchText: '张量 分解 反例 唯一性 失败 情况 反例 构造' },
+        { id: 'card-2109', title: '泛函分析入门提纲', type: '归类', color: '#ffd07b', searchText: '泛函 分析 入门 提纲 线性 空间 赋范 空间 Banach' },
+        { id: 'card-2110', title: 'Hilbert 空间的典型例子', type: '例子', color: '#8f7bff', searchText: 'Hilbert 空间 例子 L2 空间 Fourier 基 正交 系' },
+        { id: 'card-2111', title: 'Hilbert 空间的反例', type: '反例', color: '#ff7b7b', searchText: 'Hilbert 空间 反例 非完备 内积 空间 counterexample' },
+        { id: 'card-2112', title: '统计推断的关键定义', type: '定义', color: '#7bb8ff', searchText: '统计 推断 定义 参数 估计 假设 检验 置信 区间' },
+        { id: 'card-2113', title: '贝叶斯推断的思想方法', type: '思想方法', color: '#5bd0a9', searchText: '贝叶斯 推断 先验 后验 共轭 分布 不确定性' },
+        { id: 'card-2114', title: '模型压缩研究路线', type: '思路', color: '#50c4a4', searchText: '模型 压缩 剪枝 量化 知识 蒸馏 研究 路线' },
+        { id: 'card-2115', title: '学习率调度器对比', type: '思想方法', color: '#5bd0a9', searchText: '学习率 调度 余弦 退火 热重启 循环 学习率 SEA' },
+        { id: 'card-2116', title: 'ResNet 设计演化史', type: '研究进展', color: '#5fa3ff', searchText: 'ResNet 残差 网络 设计 演化 历史 多分支 架构' },
+        { id: 'card-2117', title: '深度学习失败案例收集', type: '反例', color: '#ff7b7b', searchText: '深度 学习 失败 案例 模型 崩溃 对抗 样本' },
+      ];
+
+      const state = {
+        config: {
+          presets: DEFAULT_PRESETS.slice(),
+          negativePresets: DEFAULT_NEGATIVE_PRESETS.slice(),
+          typeFilters: DEFAULT_TYPE_FILTERS.slice(),
+          typeColors: { ...TYPE_COLOR_MAP },
+          colorIndexPalette: { ...COLOR_INDEX_PALETTE },
+        },
+        cards: FAKE_CARDS.slice(),
+        filteredCards: [],
+        activePresets: new Set(),
+        activeNegativePresets: new Set(),
+        selectedCardId: null,
+        userInput: '',
+        currentTypeKey: 'all',
+        lastQueryPayload: null,
+      };
+
+      const dom = {
+        typeSection: document.querySelector('[data-section="type"]'),
+        presetSection: document.querySelector('[data-section="preset"]'),
+        negativeSection: document.querySelector('[data-section="negative"]'),
+        presetBar: document.getElementById('presetBar'),
+        typeBar: document.getElementById('typeBar'),
+        negativeBar: document.getElementById('negativeBar'),
+        results: document.getElementById('results'),
+        searchInput: document.getElementById('searchInput'),
+        searchCount: document.getElementById('searchCount'),
+        selectionInfo: document.getElementById('selectionInfo'),
+        locateBtn: document.getElementById('locateBtn'),
+        copyUrlBtn: document.getElementById('copyUrlBtn'),
+        copyMdBtn: document.getElementById('copyMdBtn'),
+        multiActionBtn: document.getElementById('multiActionBtn'),
+        clearBtn: document.getElementById('clearBtn'),
+        toast: document.getElementById('toast'),
+      };
+
+      let toastTimer = null;
+      const debouncedInputHandler = debounce(handleSearchInputChange, 180);
+
+      init();
+
+      function init() {
+        renderPresetBar();
+        renderTypeBar();
+        renderNegativeBar();
+        attachEventListeners();
+        registerBridge();
+        applyFilters(buildQueryPayload());
+      }
+
+      function attachEventListeners() {
+        dom.searchInput.addEventListener('input', debouncedInputHandler, { passive: true });
+        dom.clearBtn.addEventListener('click', handleClearFilters);
+        dom.locateBtn.addEventListener('click', () => handleToolbarAction('locate'));
+        dom.copyUrlBtn.addEventListener('click', () => handleToolbarAction('copyUrl'));
+        dom.copyMdBtn.addEventListener('click', () => handleToolbarAction('copyMarkdown'));
+        dom.multiActionBtn.addEventListener('click', () => handleToolbarAction('multiAction'));
+      }
+
+      function handleSearchInputChange() {
+        state.userInput = dom.searchInput.value.trim();
+        scheduleSearch();
+      }
+
+      function handleClearFilters() {
+        dom.searchInput.value = '';
+        state.userInput = '';
+        state.activePresets.clear();
+        state.activeNegativePresets.clear();
+        state.currentTypeKey = state.config.typeFilters[0]?.key || 'all';
+        renderPresetBar();
+        renderTypeBar();
+        renderNegativeBar();
+        clearSelection();
+        scheduleSearch();
+      }
+
+      function renderPresetBar() {
+        const presets = state.config.presets || [];
+        dom.presetBar.innerHTML = '';
+        if (!presets.length) {
+          dom.presetSection?.classList.add('component-hidden');
+          return;
+        }
+        dom.presetSection?.classList.remove('component-hidden');
+
+        presets.forEach((preset) => {
+          const pill = document.createElement('div');
+          pill.className = 'pill';
+          if (state.activePresets.has(preset)) pill.classList.add('active');
+          pill.textContent = preset;
+          pill.tabIndex = 0;
+          const toggle = () => {
+            if (state.activePresets.has(preset)) {
+              state.activePresets.delete(preset);
             } else {
-              activeNegativePresets.add(p)
-              el.classList.add('active')
+              state.activePresets.add(preset);
             }
-            // 负向词不同步到输入框，直接重新搜索排除匹配标题的项
-            doSearch()
-          })
-          negBar.appendChild(el)
-        })
+            renderPresetBar();
+            scheduleSearch();
+          };
+          pill.addEventListener('click', toggle);
+          pill.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              toggle();
+            }
+          });
+          dom.presetBar.appendChild(pill);
+        });
       }
 
-      // 渲染类型筛选 pill
-      function renderTypeBar(){
-        const typeBar = document.getElementById('typeBar')
-        typeBar.innerHTML = ''
-        typesList.forEach(t=>{
-          const el = document.createElement('div')
-          el.className = 'preset-pill'
-          if (t === currentTypeFilter) el.classList.add('active')
-          el.textContent = t
-          el.dataset.type = t
-          el.addEventListener('click', ()=>{
-            currentTypeFilter = t
-            // 更新样式
-            typeBar.querySelectorAll('.preset-pill').forEach(x=>x.classList.remove('active'))
-            el.classList.add('active')
-            doSearch()
-          })
-          typeBar.appendChild(el)
-        })
+      function renderNegativeBar() {
+        const presets = state.config.negativePresets || [];
+        dom.negativeBar.innerHTML = '';
+        if (!presets.length) {
+          dom.negativeSection?.classList.add('component-hidden');
+          return;
+        }
+        dom.negativeSection?.classList.remove('component-hidden');
+
+        presets.forEach((preset) => {
+          const pill = document.createElement('div');
+          pill.className = 'pill negative';
+          if (state.activeNegativePresets.has(preset)) pill.classList.add('active');
+          pill.textContent = preset;
+          pill.tabIndex = 0;
+          const toggle = () => {
+            if (state.activeNegativePresets.has(preset)) {
+              state.activeNegativePresets.delete(preset);
+            } else {
+              state.activeNegativePresets.add(preset);
+            }
+            renderNegativeBar();
+            scheduleSearch();
+          };
+          pill.addEventListener('click', toggle);
+          pill.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              toggle();
+            }
+          });
+          dom.negativeBar.appendChild(pill);
+        });
       }
 
-    // 将选中的预设同步到输入框里（作为输入的一部分）
-    // 语义：预设与用户输入之间用双空格分隔，这样包含单空格的短语可以作为精确短语保留
-    function syncInputWithPresets(){
-      const arr = Array.from(activePresets)
-      if (arr.length === 0) {
-        searchInput.value = userTyped
-      } else {
-        if (userTyped && userTyped.length) {
-          searchInput.value = userTyped + '  ' + arr.join('  ')
+      function renderTypeBar() {
+        const filters = state.config.typeFilters || [];
+        dom.typeBar.innerHTML = '';
+        if (!filters.length) {
+          dom.typeSection?.classList.add('component-hidden');
+          return;
+        }
+        dom.typeSection?.classList.remove('component-hidden');
+
+        filters.forEach((filter) => {
+          const pill = document.createElement('div');
+          pill.className = 'pill';
+          if (filter.key === state.currentTypeKey) pill.classList.add('active');
+          pill.textContent = filter.label || filter.key;
+          pill.dataset.key = filter.key;
+          pill.tabIndex = 0;
+          const select = () => {
+            state.currentTypeKey = filter.key;
+            renderTypeBar();
+            scheduleSearch();
+          };
+          pill.addEventListener('click', select);
+          pill.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              select();
+            }
+          });
+          dom.typeBar.appendChild(pill);
+        });
+      }
+
+      function scheduleSearch(options = {}) {
+        const payload = buildQueryPayload();
+        state.lastQueryPayload = payload;
+
+        const shouldNotifyNative = options.triggerNative !== false;
+        if (shouldNotifyNative && window.MNKBBridge && typeof window.MNKBBridge.performSearch === 'function') {
+          try {
+            window.MNKBBridge.performSearch(payload);
+          } catch (error) {
+            console.warn('performSearch 调用失败', error);
+          }
+        }
+
+        applyFilters(payload);
+      }
+
+      function buildQueryPayload() {
+        const currentType = getCurrentTypePreset();
+        const includePresets = Array.from(state.activePresets);
+        const excludePresets = Array.from(state.activeNegativePresets);
+        const highlightTokens = deriveTokens(state.userInput, includePresets);
+
+        return {
+          rawInput: state.userInput,
+          includePresets,
+          excludePresets,
+          typeKey: currentType.key,
+          typeList: currentType.types ? currentType.types.slice() : null,
+          highlightTokens,
+          tokensLower: highlightTokens.map((token) => token.toLowerCase()),
+          timestamp: Date.now(),
+        };
+      }
+
+      function deriveTokens(rawInput, includePresets) {
+        const tokens = [];
+        if (rawInput) {
+          rawInput.split(/\s+/).forEach((part) => {
+            const value = part.trim();
+            if (value && !tokens.includes(value)) tokens.push(value);
+          });
+        }
+        (includePresets || []).forEach((part) => {
+          const value = part.trim();
+          if (value && !tokens.includes(value)) tokens.push(value);
+        });
+        return tokens;
+      }
+
+      function getCurrentTypePreset() {
+        const filters = state.config.typeFilters || [];
+        const fallback = filters[0] || { key: 'all', label: '全部类型', types: null };
+        return filters.find((filter) => filter.key === state.currentTypeKey) || fallback;
+      }
+
+      function applyFilters(payload) {
+        const query = payload || state.lastQueryPayload || buildQueryPayload();
+        const allowedTypes = query.typeList ? new Set(query.typeList) : null;
+        const negatives = query.excludePresets.map((word) => word.toLowerCase());
+        const tokensLower = query.tokensLower;
+        const highlightTokens = query.highlightTokens;
+
+        const results = [];
+      const availableIds = new Set();
+
+      (state.cards || []).forEach((card) => {
+        if (!card || !card.id) return;
+
+        availableIds.add(card.id);
+
+          if (allowedTypes && allowedTypes.size > 0) {
+            if (!card.type || !allowedTypes.has(card.type)) return;
+          }
+
+          if (!passesNegativeFilter(card, negatives)) return;
+
+        const evaluation = evaluateCard(card, tokensLower);
+        if (tokensLower.length > 0 && evaluation.matchCount < tokensLower.length) return;
+
+          const prepared = { ...card };
+          prepared.matchCount = evaluation.matchCount;
+          prepared.score = typeof card.score === 'number' ? card.score : evaluation.score;
+
+          if (!prepared.titleHtml) {
+            prepared.titleHtml = highlightTextWithTokens(prepared.title || '', highlightTokens);
+          }
+
+          if (!prepared.snippetHtml) {
+            const sourceText = prepared.snippet || prepared.searchText || prepared.title || '';
+            const snippet = extractSnippet(sourceText, tokensLower);
+            prepared.snippetHtml = highlightTextWithTokens(snippet, highlightTokens);
+          }
+
+          results.push(prepared);
+        });
+
+        pruneSelections(availableIds);
+
+        results.sort((a, b) => {
+          const scoreDiff = (b.score || 0) - (a.score || 0);
+          if (scoreDiff !== 0) return scoreDiff;
+          return (a.title || '').localeCompare(b.title || '');
+        });
+
+        state.filteredCards = results;
+        renderResults(results);
+      }
+
+      function passesNegativeFilter(card, negativeTokens) {
+        if (!negativeTokens || negativeTokens.length === 0) return true;
+
+        if (card.excludedGroups && Array.isArray(card.excludedGroups) && card.excludedGroups.length > 0) {
+          const hit = card.excludedGroups.some((group) => {
+            if (!group) return false;
+            const pool = [
+              group.groupName || '',
+              ...(group.excludeWords || []),
+              ...(group.affectedTriggers || []),
+            ]
+              .join(' ')
+              .toLowerCase();
+            return negativeTokens.some((token) => pool.includes(token));
+          });
+          if (hit) return false;
+        }
+
+        const text = [
+          card.title || '',
+          card.searchText || '',
+          card.snippet || '',
+          card.content || '',
+        ]
+          .join(' ')
+          .toLowerCase();
+
+        return !negativeTokens.some((token) => token && text.includes(token));
+      }
+
+      function evaluateCard(card, tokensLower) {
+        if (!tokensLower || tokensLower.length === 0) {
+          return { score: card.score || 0, matchCount: 0, matchedTokens: new Set() };
+        }
+
+        const baseScore = typeof card.score === 'number' ? card.score : 0;
+        let score = baseScore;
+        const matchedTokens = new Set();
+
+        const title = (card.title || '').toLowerCase();
+        const type = (card.type || '').toLowerCase();
+        const searchText = (card.searchText || '').toLowerCase();
+        const keywords = (card.keywords || '').toLowerCase();
+        const prefix = (card.prefix || '').toLowerCase();
+        const snippet = (card.snippet || '').toLowerCase();
+
+        tokensLower.forEach((token) => {
+          if (!token) return;
+          let hit = false;
+
+          if (title.includes(token)) {
+            score += 60;
+            hit = true;
+          }
+          if (searchText.includes(token)) {
+            score += 25;
+            hit = true;
+          }
+          if (keywords.includes(token)) {
+            score += 20;
+            hit = true;
+          }
+          if (prefix.includes(token)) {
+            score += 18;
+            hit = true;
+          }
+          if (type.includes(token)) {
+            score += 12;
+            hit = true;
+          }
+          if (snippet.includes(token)) {
+            score += 8;
+            hit = true;
+          }
+
+          if (hit) matchedTokens.add(token);
+        });
+
+        return { score, matchCount: matchedTokens.size, matchedTokens };
+      }
+
+      function extractSnippet(text, tokensLower) {
+        if (!text) return '';
+        if (!tokensLower || tokensLower.length === 0) {
+          return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+        }
+
+        const lower = text.toLowerCase();
+        let firstIndex = -1;
+        tokensLower.forEach((token) => {
+          const idx = lower.indexOf(token);
+          if (idx !== -1 && (firstIndex === -1 || idx < firstIndex)) {
+            firstIndex = idx;
+          }
+        });
+
+        if (firstIndex === -1) {
+          return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+        }
+
+        const start = Math.max(0, firstIndex - 30);
+        const end = Math.min(text.length, firstIndex + 80);
+        const prefix = start > 0 ? '…' : '';
+        const suffix = end < text.length ? '…' : '';
+        return `${prefix}${text.slice(start, end)}${suffix}`;
+      }
+
+      function renderResults(items) {
+        dom.results.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+
+        items.forEach((card) => {
+          const element = document.createElement('div');
+          element.className = 'card';
+          element.dataset.id = card.id;
+
+          if (state.selectedCardId === card.id) {
+            element.classList.add('selected');
+          }
+
+          const color = resolveTypeColor(card);
+          element.style.borderLeftColor = color;
+
+          const title = document.createElement('div');
+          title.className = 'card-title';
+          title.innerHTML = card.titleHtml || escapeHtml(card.title || '');
+
+          const meta = document.createElement('div');
+          meta.className = 'card-meta';
+
+          const typeBadge = document.createElement('span');
+          typeBadge.className = 'card-type';
+          typeBadge.style.background = color;
+          typeBadge.textContent = card.type || '未知类型';
+          meta.appendChild(typeBadge);
+
+          const idInfo = document.createElement('span');
+          idInfo.textContent = card.id;
+          meta.appendChild(idInfo);
+
+          if (typeof card.matchCount === 'number' && card.matchCount > 0) {
+            const mc = document.createElement('span');
+            mc.className = 'match-count';
+            mc.textContent = `匹配 ${card.matchCount}`;
+            meta.appendChild(mc);
+          }
+
+          if (typeof card.score === 'number') {
+            const scoreChip = document.createElement('span');
+            scoreChip.className = 'chip-score';
+            scoreChip.textContent = `score ${Math.round(card.score)}`;
+            meta.appendChild(scoreChip);
+          }
+
+          element.appendChild(title);
+          element.appendChild(meta);
+
+          if (card.snippetHtml) {
+            const snippet = document.createElement('div');
+            snippet.className = 'card-snippet';
+            snippet.innerHTML = card.snippetHtml;
+            element.appendChild(snippet);
+          }
+
+          element.addEventListener('click', () => toggleSelection(card.id, element));
+          fragment.appendChild(element);
+        });
+
+        dom.results.appendChild(fragment);
+        updateSearchCount(items.length);
+        updateSelectionInfo();
+        updateActionButtonsState();
+      }
+
+      function resolveTypeColor(card) {
+        if (card.color && /^#/.test(card.color)) return card.color;
+        if (typeof card.colorIndex === 'number' && state.config.colorIndexPalette[card.colorIndex]) {
+          return state.config.colorIndexPalette[card.colorIndex];
+        }
+        if (card.type && state.config.typeColors[card.type]) {
+          return state.config.typeColors[card.type];
+        }
+        return '#d4d9e6';
+      }
+
+      function toggleSelection(cardId, element) {
+        if (!cardId) return;
+        if (state.selectedCardId === cardId) {
+          state.selectedCardId = null;
+          if (element) element.classList.remove('selected');
         } else {
-          searchInput.value = arr.join('  ')
+          state.selectedCardId = cardId;
+          dom.results.querySelectorAll('.card.selected').forEach((node) => node.classList.remove('selected'));
+          if (element) element.classList.add('selected');
+        }
+        updateSelectionInfo();
+        updateActionButtonsState();
+      }
+
+      function pruneSelections(availableIds) {
+        if (state.selectedCardId && !availableIds.has(state.selectedCardId)) {
+          state.selectedCardId = null;
+          updateSelectionInfo();
+          updateActionButtonsState();
         }
       }
-    }
 
-    // 在用户输入时，提取 userTyped：如果存在双空格，则取第一个双空格前的部分作为 userTyped
-    function updateUserTypedFromInput(text){
-      if (text.includes('  ')) {
-        userTyped = text.split(/\s{2,}/)[0].trim()
-      } else {
-        // 没有双空格时，整个文本视作 userTyped（按单空格拆分用于搜索）
-        userTyped = text.trim()
+      function clearSelection() {
+        if (!state.selectedCardId) return;
+        state.selectedCardId = null;
+        dom.results.querySelectorAll('.card.selected').forEach((node) => node.classList.remove('selected'));
+        updateSelectionInfo();
+        updateActionButtonsState();
       }
-    }
 
-    // 渲染结果
-    function renderResults(items){
-      resultsEl.innerHTML = ''
-      items.forEach(card =>{
-        const el = document.createElement('div')
-        el.className = 'card'
-        el.dataset.id = card.id
-        el.style.borderLeftColor = card.color
+      function updateSearchCount(count) {
+        dom.searchCount.textContent = `${count} 条结果`;
+      }
 
-        const title = document.createElement('div')
-        title.className = 'card-title'
-        if (card.titleHtml) title.innerHTML = card.titleHtml
-        else title.textContent = card.title
+      function updateSelectionInfo() {
+        dom.selectionInfo.textContent = state.selectedCardId ? `已选 ${state.selectedCardId}` : '未选中';
+      }
 
-        const meta = document.createElement('div')
-        meta.className = 'card-meta'
-        const typeEl = document.createElement('span')
-        typeEl.className = 'card-type'
-        typeEl.textContent = card.type
-        typeEl.style.background = card.color
-        meta.appendChild(typeEl)
-        meta.appendChild(document.createTextNode('  •  ' + card.id))
-        if (card.matchCount) {
-          const mc = document.createElement('span')
-          mc.className = 'match-count'
-          mc.textContent = `匹配 ${card.matchCount}`
-          meta.appendChild(mc)
+      function updateActionButtonsState() {
+        const disabled = !state.selectedCardId;
+        [dom.locateBtn, dom.copyUrlBtn, dom.copyMdBtn, dom.multiActionBtn].forEach((btn) => {
+          if (btn) btn.disabled = disabled;
+        });
+      }
+
+      function handleToolbarAction(action) {
+        if (!state.selectedCardId) {
+          showToast('请先选择卡片');
+          return;
         }
 
-        el.appendChild(title)
-        el.appendChild(meta)
-        if (card.snippetHtml) {
-          const sn = document.createElement('div')
-          sn.className = 'card-snippet'
-          sn.innerHTML = card.snippetHtml
-          el.appendChild(sn)
+        const id = state.selectedCardId;
+        const card = state.cards.find((item) => item.id === id) || { title: id };
+
+        switch (action) {
+          case 'locate':
+            if (!postBridge('locateNotes', { ids: [id] })) {
+              showToast('暂未连接到 MarginNote');
+            }
+            break;
+          case 'copyUrl': {
+            const url = `marginnote4app://note/${id}`;
+            if (!postBridge('copyNoteUrls', { ids: [id] })) {
+              copyToClipboard(url, '已复制 URL');
+            }
+            break;
+          }
+          case 'copyMarkdown': {
+            const title = card.title || id;
+            const markdown = `[${title}](marginnote4app://note/${id})`;
+            if (!postBridge('copyNoteMarkdown', { ids: [id] })) {
+              copyToClipboard(markdown, '已复制 Markdown');
+            }
+            break;
+          }
+          case 'multiAction':
+            if (!postBridge('batchAction', { ids: [id] })) {
+              showToast('未接入批量操作，请在原生端处理');
+            }
+            break;
+          default:
+            break;
+        }
+      }
+
+      function copyToClipboard(text, successMessage = '已复制') {
+        if (!text) {
+          showToast('无可复制的内容');
+          return;
         }
 
-        // 点击选中
-        // 点击切换选中状态（支持多选）
-        el.addEventListener('click', (e)=>{
-          if (selectedCardIds.has(card.id)) {
-            selectedCardIds.delete(card.id)
-            el.classList.remove('selected')
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          navigator.clipboard
+            .writeText(text)
+            .then(() => showToast(successMessage))
+            .catch(() => fallbackCopy(text, successMessage));
+        } else {
+          fallbackCopy(text, successMessage);
+        }
+      }
+
+      function fallbackCopy(text, successMessage) {
+        try {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          try {
+            textarea.focus({ preventScroll: true });
+          } catch (focusError) {
+            textarea.focus();
+          }
+          textarea.select();
+          const ok = document.execCommand('copy');
+          document.body.removeChild(textarea);
+          if (ok) {
+            showToast(successMessage);
           } else {
-            selectedCardIds.add(card.id)
-            el.classList.add('selected')
+            showToast('复制失败，请在原生端使用');
           }
-          if (selectedCardIds.size === 0) selectionInfo.textContent = '未选中'
-          else selectionInfo.textContent = `已选 ${selectedCardIds.size} 项`
-        })
-        resultsEl.appendChild(el)
-      })
-      searchCount.textContent = `${items.length} 条结果`
-    }
-
-    // 解析搜索 tokens：若包含双空格则以双空格为分隔（双空格分隔后保留单空格短语作为精确短语），否则按单空格分割
-    // 返回 { tokens: [...], isDoubleSep: boolean }
-    function parseSearchTokens(text){
-      if (!text || !text.trim()) return {tokens: [], isDoubleSep:false}
-      if (text.includes('  ')) {
-        return { tokens: text.split(/\s{2,}/).map(t=>t.trim()).filter(Boolean), isDoubleSep: true }
-      } else {
-        return { tokens: text.split(/\s+/).map(t=>t.trim()).filter(Boolean), isDoubleSep: false }
-      }
-    }
-
-    // 工具：转义正则特殊字符
-    function escapeRegExp(string) {
-      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    // 高亮文本（优先长词匹配），返回 HTML 字符串
-    function highlightTextWithTokens(text, tokens){
-      if (!tokens || tokens.length === 0) return text
-      const placeholders = []
-      let tmp = text
-      const sorted = tokens.slice().sort((a,b)=>b.length - a.length)
-      let idx = 0
-      for (const tok of sorted) {
-        if (!tok) continue
-        const re = new RegExp(escapeRegExp(tok), 'ig')
-        tmp = tmp.replace(re, match => {
-          const key = `__HL_${idx}__`
-          placeholders.push({key, text: match})
-          idx++
-          return key
-        })
-      }
-      for (const ph of placeholders) {
-        tmp = tmp.replace(ph.key, `<mark class="matched">${ph.text}</mark>`)
-      }
-      return tmp
-    }
-
-    // 防抖辅助
-    function debounce(fn, wait){
-      let t = null
-      return function(...args){
-        clearTimeout(t)
-        t = setTimeout(()=>fn.apply(this, args), wait)
-      }
-    }
-
-    // 搜索：评分、过滤、排序并准备高亮片段
-    function doSearch(){
-      const raw = searchInput.value || ''
-      const parsed = parseSearchTokens(raw)
-      const tokens = parsed.tokens.map(t=>t.toLowerCase())
-      const useAnd = parsed.isDoubleSep
-      if (!tokens.length) {
-        renderResults(fakeCards)
-        return
-      }
-
-      const scored = fakeCards.map(card => {
-        const txt = (card.searchText + ' ' + card.title + ' ' + card.type).toLowerCase()
-        let score = 0
-        let matchCount = 0
-        const matched = []
-        for (const tok of tokens) {
-          if (!tok) continue
-          const inTitle = card.title.toLowerCase().includes(tok)
-          const inType = (card.type || '').toLowerCase().includes(tok)
-          const inText = (card.searchText || '').toLowerCase().includes(tok)
-          if (inTitle) { score += 50; matchCount++; matched.push(tok); }
-          if (inType) { score += 30; matchCount++; matched.push(tok); }
-          if (inText) { score += 10; matchCount++; matched.push(tok); }
+        } catch (error) {
+          console.warn('fallback copy failed', error);
+          showToast('复制失败，请在原生端使用');
         }
-        return Object.assign({}, card, {score, matchCount, matched})
-      })
-
-      const filtered = scored.filter(card => {
-        if (!useAnd) return card.matchCount > 0
-        const txt = (card.searchText + ' ' + card.title + ' ' + card.type).toLowerCase()
-        return tokens.every(tok => txt.includes(tok))
-      })
-
-      filtered.sort((a,b)=> (b.score - a.score) || a.title.localeCompare(b.title))
-
-      const tokensForHighlight = parsed.tokens
-      const prepared = filtered.map(card => {
-        const titleHtml = highlightTextWithTokens(card.title, tokensForHighlight)
-        let snippet = card.searchText
-        const lower = card.searchText.toLowerCase()
-        let firstIdx = -1
-        for (const tok of tokens) {
-          const i = lower.indexOf(tok)
-          if (i >= 0 && (firstIdx === -1 || i < firstIdx)) firstIdx = i
-        }
-        if (firstIdx >= 0) {
-          const start = Math.max(0, firstIdx - 20)
-          snippet = (start > 0 ? '...':'') + card.searchText.substring(start, Math.min(card.searchText.length, firstIdx + 60)) + (firstIdx + 60 < card.searchText.length ? '...':'')
-        } else if (snippet.length > 100) {
-          snippet = snippet.substring(0, 100) + '...'
-        }
-        const snippetHtml = highlightTextWithTokens(snippet, tokensForHighlight)
-        return Object.assign({}, card, {titleHtml, snippetHtml})
-      })
-
-      // 负向排除：如果 activeNegativePresets 中包含某项且标题包含该项，则排除
-      let final = prepared
-      if (activeNegativePresets && activeNegativePresets.size > 0) {
-        const negs = Array.from(activeNegativePresets).map(s=>s.toLowerCase())
-        final = prepared.filter(card => {
-          const t = (card.title || '').toLowerCase()
-          for (const neg of negs) {
-            if (!neg) continue
-            if (t.includes(neg)) return false
-          }
-          return true
-        })
       }
 
-      // 类型过滤：根据 currentTypeFilter 进一步筛选 final（'所有类型'不过滤）
-      if (currentTypeFilter && currentTypeFilter !== '所有类型') {
-        const cf = currentTypeFilter
-        if (cf === '归类') {
-          final = final.filter(c => (c.type || '').toLowerCase() === '归类')
-        } else if (cf === '所有知识点') {
-          // 包含常见知识类类型
-          const know = ['知识','定义','归类','命题','例子','反例','思想方法']
-          final = final.filter(c => know.includes((c.type || '')))
+      function registerBridge() {
+        const api = {
+          setSearchResults(results, options = {}) {
+            setCards(results, options);
+          },
+          appendSearchResults(results) {
+            setCards(results, { replace: false });
+          },
+          setPresets(presets) {
+            if (!Array.isArray(presets)) return;
+            state.config.presets = Array.from(new Set(presets.filter(Boolean)));
+            state.activePresets.clear();
+            renderPresetBar();
+            scheduleSearch({ triggerNative: false });
+          },
+          setNegativePresets(presets) {
+            if (!Array.isArray(presets)) return;
+            state.config.negativePresets = Array.from(new Set(presets.filter(Boolean)));
+            state.activeNegativePresets.clear();
+            renderNegativeBar();
+            scheduleSearch({ triggerNative: false });
+          },
+          setTypeFilters(filters) {
+            if (!Array.isArray(filters) || !filters.length) return;
+            state.config.typeFilters = filters
+              .map((filter, index) => ({
+                key: filter.key || filter.value || `preset-${index}`,
+                label: filter.label || filter.name || filter.key || `类型 ${index + 1}`,
+                types: Array.isArray(filter.types) ? filter.types.slice() : null,
+              }))
+              .filter(Boolean);
+
+            state.currentTypeKey = state.config.typeFilters[0]?.key || 'all';
+            renderTypeBar();
+            scheduleSearch({ triggerNative: false });
+          },
+          updateConfig(config) {
+            if (!config || typeof config !== 'object') return;
+            if (config.typeColors) {
+              state.config.typeColors = { ...state.config.typeColors, ...config.typeColors };
+            }
+            if (config.colorIndexPalette) {
+              state.config.colorIndexPalette = { ...state.config.colorIndexPalette, ...config.colorIndexPalette };
+            }
+            scheduleSearch({ triggerNative: false });
+          },
+          resetSelection() {
+            clearSelection();
+          },
+          showToast,
+          postMessage: postBridge,
+        };
+
+        window.MNKB = Object.assign({}, window.MNKB || {}, api);
+
+        if (!window.MNKBBridge) {
+          window.MNKBBridge = {};
+        }
+        if (typeof window.MNKBBridge.performSearch !== 'function') {
+          window.MNKBBridge.performSearch = function () {
+            return false;
+          };
+        }
+        if (typeof window.MNKBBridge.postMessage !== 'function') {
+          window.MNKBBridge.postMessage = function (action, params) {
+            postToAddon(action, params);
+          };
+        }
+      }
+
+      function setCards(results, options = {}) {
+        if (!Array.isArray(results)) return;
+        const replace = options.replace !== false;
+
+        if (replace) {
+          state.cards = results.filter(Boolean);
         } else {
-          // 具体知识点，匹配类型相等或包含
-          final = final.filter(c => (c.type || '').toLowerCase() === cf.toLowerCase() || (c.type || '').indexOf(cf) >= 0)
+          const existing = new Map(state.cards.map((card) => [card.id, card]));
+          results.forEach((card) => {
+            if (!card || !card.id || existing.has(card.id)) return;
+            state.cards.push(card);
+          });
         }
+
+        scheduleSearch({ triggerNative: false });
       }
 
-      // 清理已选的 ID，如果某些已选项不在当前 final 列表中，则取消选中
-      const visibleIds = new Set(final.map(c=>c.id))
-      for (const id of Array.from(selectedCardIds)) {
-        if (!visibleIds.has(id)) selectedCardIds.delete(id)
+      function postBridge(action, params = {}) {
+        try {
+          if (window.MNKBBridge && typeof window.MNKBBridge.postMessage === 'function') {
+            window.MNKBBridge.postMessage(action, params);
+            return true;
+          }
+        } catch (error) {
+          console.warn('postMessage 调用失败', error);
+        }
+
+        try {
+          postToAddon(action, params);
+          return true;
+        } catch (error) {
+          console.warn('postToAddon 调用失败', error);
+        }
+
+        return false;
       }
-      selectionInfo.textContent = selectedCardIds.size ? `已选 ${selectedCardIds.size} 项` : '未选中'
 
-      renderResults(final)
-    }
+      function postToAddon(action, params = {}) {
+        const scheme = 'mnaddon';
+        const payload = { action, ...params };
+        const url = generateUrlScheme(scheme, '', payload);
+        window.location.href = url;
+      }
 
-    // 工具栏操作
-    document.getElementById('locateBtn').addEventListener('click', ()=>{
-      if (selectedCardIds.size === 0) return alert('请先选择一张卡片')
-      alert('定位卡片: ' + Array.from(selectedCardIds).join(', '))
-    })
-    document.getElementById('copyUrlBtn').addEventListener('click', ()=>{
-      if (selectedCardIds.size === 0) return alert('请先选择一张卡片')
-      const urls = Array.from(selectedCardIds).map(id=>`marginnote4app://note/${id}`).join('\n')
-      navigator.clipboard?.writeText(urls).then(()=>alert('已复制 URL 列表'), ()=>alert('复制失败'))
-    })
-    document.getElementById('copyMdBtn').addEventListener('click', ()=>{
-      if (selectedCardIds.size === 0) return alert('请先选择一张卡片')
-      const mds = Array.from(selectedCardIds).map(id=>{
-        const card = fakeCards.find(c=>c.id===id) || {title:id}
-        return `[${card.title}](marginnote4app://note/${id})`
-      }).join('\n')
-      navigator.clipboard?.writeText(mds).then(()=>alert('已复制 Markdown 列表'), ()=>alert('复制失败'))
-    })
-    document.getElementById('multiActionBtn').addEventListener('click', ()=>{
-      if (selectedCardIds.size === 0) return alert('请先选择一张卡片')
-      alert('对卡片执行操作: ' + Array.from(selectedCardIds).join(', '))
-    })
+      function generateUrlScheme(scheme, path, params) {
+        let url = `${scheme}://${path || ''}`;
+        const keys = Object.keys(params || {});
+        if (keys.length > 0) {
+          const query = keys
+            .map((key) => {
+              const value = params[key];
+              const serialised = typeof value === 'object' ? JSON.stringify(value) : value;
+              return `${encodeURIComponent(key)}=${encodeURIComponent(serialised)}`;
+            })
+            .join('&');
+          url += query ? `?${query}` : '';
+        }
+        return url;
+      }
 
-    // 清空
-    document.getElementById('clearBtn').addEventListener('click', ()=>{
-      searchInput.value = ''
-      userTyped = ''
-      activePresets.clear()
-      activeNegativePresets.clear()
-      currentTypeFilter = '所有类型'
-      document.querySelectorAll('.preset-pill.active').forEach(el=>el.classList.remove('active'))
-      document.querySelectorAll('.negative-pill.active').forEach(el=>el.classList.remove('active'))
-      doSearch()
-    })
+      function showToast(message, duration = 1600) {
+        if (!dom.toast) return;
+        dom.toast.textContent = message;
+        dom.toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          dom.toast.classList.remove('show');
+        }, duration);
+      }
 
-    // 输入监听：使用防抖以减少频繁计算
-    const debouncedSearch = debounce(()=>{
-      updateUserTypedFromInput(searchInput.value)
-      doSearch()
-    }, 180)
-    searchInput.addEventListener('input', debouncedSearch)
+      function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
 
-    // 初始化
-    renderPresets()
-    renderTypeBar()
-    renderNegativePresets()
-    renderResults(fakeCards)
+      function highlightTextWithTokens(text, tokens) {
+        if (!text) return '';
+        if (!tokens || tokens.length === 0) {
+          if (/<[^>]+>/.test(text)) return text;
+          return escapeHtml(text);
+        }
+
+        if (/<[^>]+>/.test(text)) {
+          // 已经是高亮/富文本，直接返回
+          return text;
+        }
+
+        let safe = escapeHtml(text);
+        const placeholders = [];
+        const sorted = tokens.slice().sort((a, b) => b.length - a.length);
+
+        sorted.forEach((token, index) => {
+          if (!token) return;
+          const regexp = new RegExp(escapeRegExp(token), 'ig');
+          safe = safe.replace(regexp, (match) => {
+            const key = `__HL_${index}_${placeholders.length}__`;
+            placeholders.push({ key, text: match });
+            return key;
+          });
+        });
+
+        placeholders.forEach((placeholder) => {
+          safe = safe.split(placeholder.key).join(`<mark class="matched">${placeholder.text}</mark>`);
+        });
+
+        return safe;
+      }
+
+      function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\$&');
+      }
+
+      function debounce(fn, wait) {
+        let timer = null;
+        return function (...args) {
+          clearTimeout(timer);
+          timer = setTimeout(() => fn.apply(this, args), wait);
+        };
+      }
+    })();
   </script>
 </body>
 </html>

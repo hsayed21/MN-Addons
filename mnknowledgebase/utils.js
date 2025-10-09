@@ -18645,6 +18645,10 @@ class SynonymManager {
     //   "partialReplacement": false,
     // },
     {
+      "words": ["自己", "自身"],
+      "partialReplacement": false,
+    },
+    {
       "words": ["并", "并上", "并集"],
       "partialReplacement": false,
     },
