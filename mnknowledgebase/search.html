@@ -24,6 +24,9 @@
       --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
       --topbar-height: 64px;
       --toolbar-gap: 78px;
+      --preset-max-height: 220px;
+      --negative-height: 78px;
+      --spacing-buffer: 20px;
     }
 
     html,
@@ -148,19 +151,51 @@
       top: calc(var(--topbar-height) + var(--toolbar-gap));
     }
 
-    .pill-section--preset {
-      top: var(--preset-top, calc(var(--topbar-height) + var(--toolbar-gap) * 2));
+    .pill-section--negative {
+      top: var(--negative-top, calc(var(--topbar-height) + var(--toolbar-gap) * 2));
     }
 
-    .pill-section--negative {
-      top: var(--negative-top, calc(var(--topbar-height) + var(--toolbar-gap) * 3));
+    .pill-section--preset {
+      top: var(--preset-top, calc(var(--topbar-height) + var(--toolbar-gap) * 3));
+      max-height: var(--preset-max-height);
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+    }
+
+    .pill-section--preset::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .pill-section--preset::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .pill-section--preset::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 3px;
+    }
+
+    .pill-section--preset::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .pill-section__header {
+      margin-bottom: 8px;
+    }
+
+    .pill-section__label-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
     .pill-section__label {
       font-size: 12px;
       font-weight: 600;
       color: #5b6a80;
-      margin-bottom: 8px;
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -173,6 +208,76 @@
       border-radius: 50%;
       background: currentColor;
       opacity: 0.45;
+    }
+
+    .pill-section__clear-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      background: rgba(255, 59, 48, 0.08);
+      border: 1px solid rgba(255, 59, 48, 0.25);
+      border-radius: 12px;
+      color: #ff3b30;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      min-height: 28px;
+      min-width: 60px;
+    }
+
+    .pill-section__clear-btn .clear-icon {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .pill-section__clear-btn:hover:not(.disabled) {
+      background: rgba(255, 59, 48, 0.15);
+      border-color: rgba(255, 59, 48, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .pill-section__clear-btn:active:not(.disabled) {
+      transform: translateY(0) scale(0.96);
+    }
+
+    .pill-section__clear-btn.disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      background: rgba(0, 0, 0, 0.04);
+      border-color: rgba(0, 0, 0, 0.1);
+      color: #999;
+    }
+
+    /* 预设分组样式 */
+    .preset-group {
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .preset-group:last-child {
+      border-bottom: none;
+      margin-bottom: 6px;
+      padding-bottom: 0;
+    }
+
+    .preset-group__label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #5b6a80;
+      margin-bottom: 8px;
+      padding-left: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 最近使用分组特殊样式 */
+    .preset-group--recent .preset-group__label {
+      color: #2b7cff;
     }
 
     .pill-row {
@@ -239,7 +344,7 @@
     .main-layout {
       display: flex;
       height: 100vh;
-      padding-top: var(--main-padding-top, calc(var(--toolbar-gap) * 4 + var(--topbar-height)));
+      padding-top: var(--main-padding-top, calc(var(--topbar-height) + var(--toolbar-gap) * 2 + var(--negative-height) + var(--preset-max-height) + var(--spacing-buffer)));
       overflow: hidden;
       transition: padding-top 0.3s ease;
     }
@@ -678,6 +783,19 @@
       .results {
         grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       }
+
+      .pill-section__clear-btn {
+        min-height: 32px;
+        padding: 6px 12px;
+      }
+
+      .pill-section__clear-btn .clear-text {
+        display: none;
+      }
+
+      .pill-section__clear-btn .clear-icon {
+        font-size: 16px;
+      }
     }
   </style>
 </head>
@@ -709,13 +827,29 @@
     </div>
   </div>
   <div class="pill-section pill-section--preset" data-section="preset">
-    <div class="pill-section__label">搜索预设</div>
-    <div class="pill-row preset-bar" id="presetBar" aria-label="搜索预设">
-      <!-- 预设词标签将在 JS 中渲染 -->
+    <div class="pill-section__header">
+      <div class="pill-section__label-group">
+        <div class="pill-section__label">搜索预设</div>
+        <button class="pill-section__clear-btn" id="clearPresetsBtn" type="button">
+          <span class="clear-icon">✕</span>
+          <span class="clear-text">清除</span>
+        </button>
+      </div>
+    </div>
+    <div id="presetBar" aria-label="搜索预设">
+      <!-- 预设分组将在 JS 中渲染 -->
     </div>
   </div>
   <div class="pill-section pill-section--negative" data-section="negative">
-    <div class="pill-section__label">排除关键词</div>
+    <div class="pill-section__header">
+      <div class="pill-section__label-group">
+        <div class="pill-section__label">排除关键词</div>
+        <button class="pill-section__clear-btn" id="clearNegativesBtn" type="button">
+          <span class="clear-icon">✕</span>
+          <span class="clear-text">清除</span>
+        </button>
+      </div>
+    </div>
     <div class="pill-row negative-bar" id="negativeBar" aria-label="排除词">
       <!-- 负向排除词（粉色）将在 JS 中渲染 -->
     </div>
@@ -800,21 +934,27 @@
       'use strict';
 
       // 默认配置，真实环境可以通过 window.MNKB API 覆盖
-      const DEFAULT_PRESETS = [
-        '机器学习',
-        '深度学习',
-        '支持向量机',
-        '卷积 神经 网络',
-        '自然语言处理',
-        '优化',
-        '检索',
-        '泛函 分析',
-        'Hilbert 空间',
-        '紧致 性质',
-        '梯度 下降',
-        '注意力 机制',
-        '学习 曲线',
-        '统计 推断',
+      const DEFAULT_PRESET_GROUPS = [
+        {
+          name: '机器学习',
+          icon: '🤖',
+          presets: ['机器学习', '深度学习', '支持向量机', '卷积 神经 网络', '自然语言处理', '注意力 机制']
+        },
+        {
+          name: '优化与算法',
+          icon: '⚡',
+          presets: ['优化', '梯度 下降', '学习 曲线']
+        },
+        {
+          name: '泛函分析',
+          icon: '📐',
+          presets: ['泛函 分析', 'Hilbert 空间', '紧致 性质']
+        },
+        {
+          name: '信息检索',
+          icon: '🔍',
+          presets: ['检索', '统计 推断']
+        }
       ];
 
       const DEFAULT_NEGATIVE_PRESETS = ['复 Hilbert', '实验 数据', '噪声', '异常 值', '反例', '离线 演示'];
@@ -927,12 +1067,13 @@
 
       const state = {
         config: {
-          presets: DEFAULT_PRESETS.slice(),
+          presetGroups: JSON.parse(JSON.stringify(DEFAULT_PRESET_GROUPS)),
           negativePresets: DEFAULT_NEGATIVE_PRESETS.slice(),
           typeFilters: DEFAULT_TYPE_FILTERS.slice(),
           typeColors: { ...TYPE_COLOR_MAP },
           colorIndexPalette: { ...COLOR_INDEX_PALETTE },
         },
+        recentPresets: [],
         datasets: {
           knowledge: {
             label: '知识库',
@@ -973,6 +1114,8 @@
         searchCount: document.getElementById('searchCount'),
         selectedCardInfo: document.getElementById('selectedCardInfo'),
         clearBtn: document.getElementById('clearBtn'),
+        clearPresetsBtn: document.getElementById('clearPresetsBtn'),
+        clearNegativesBtn: document.getElementById('clearNegativesBtn'),
         toast: document.getElementById('toast'),
         sidebar: document.getElementById('sidebar'),
         sidebarToggle: document.getElementById('sidebarToggle'),
@@ -997,6 +1140,76 @@
       let isToolbarHidden = false;
       const debouncedInputHandler = debounce(handleSearchInputChange, 180);
 
+      // ========== 辅助函数 ==========
+
+      // 格式兼容：支持旧的数组格式和新的分组格式
+      function normalizePresetConfig(config) {
+        if (!config) return [];
+        if (Array.isArray(config)) {
+          // 旧格式：["词1", "词2"]
+          if (config.length > 0 && typeof config[0] === 'string') {
+            return [{ name: '常用', presets: config }];
+          }
+          // 新格式：[{ name, presets }]
+          return config;
+        }
+        return [];
+      }
+
+      // 获取包含"最近使用"的分组列表
+      function getPresetGroupsWithRecent() {
+        const groups = state.config.presetGroups ? [...state.config.presetGroups] : [];
+        if (state.recentPresets && state.recentPresets.length > 0) {
+          groups.unshift({
+            name: '最近使用',
+            icon: '⏱️',
+            presets: [...state.recentPresets],
+            isRecent: true
+          });
+        }
+        return groups;
+      }
+
+      // 更新最近使用列表
+      function updateRecentPresets(preset) {
+        if (!preset) return;
+        // 移除旧记录
+        state.recentPresets = state.recentPresets.filter(p => p !== preset);
+        // 添加到最前面
+        state.recentPresets.unshift(preset);
+        // 限制长度为 8
+        if (state.recentPresets.length > 8) {
+          state.recentPresets = state.recentPresets.slice(0, 8);
+        }
+        // 保存到 localStorage
+        saveRecentPresets();
+      }
+
+      // 保存最近使用到 localStorage
+      function saveRecentPresets() {
+        try {
+          localStorage.setItem('mnkb_recent_presets', JSON.stringify(state.recentPresets));
+        } catch (error) {
+          console.warn('保存最近使用失败', error);
+        }
+      }
+
+      // 从 localStorage 加载最近使用
+      function loadRecentPresets() {
+        try {
+          const saved = localStorage.getItem('mnkb_recent_presets');
+          if (saved) {
+            state.recentPresets = JSON.parse(saved);
+          }
+        } catch (error) {
+          console.warn('加载最近使用失败', error);
+          state.recentPresets = [];
+        }
+      }
+
+      // ========== 初始化 ==========
+
+      loadRecentPresets();
       init();
 
       function init() {
@@ -1155,6 +1368,8 @@
       function attachEventListeners() {
         dom.searchInput.addEventListener('input', debouncedInputHandler, { passive: true });
         dom.clearBtn.addEventListener('click', handleClearFilters);
+        dom.clearPresetsBtn?.addEventListener('click', handleClearPresets);
+        dom.clearNegativesBtn?.addEventListener('click', handleClearNegatives);
 
         // Sidebar 按钮事件
         dom.locateInFloatBtn?.addEventListener('click', () => handleSidebarAction('locateInFloat'));
@@ -1195,6 +1410,44 @@
         renderNegativeBar();
         clearSelection();
         scheduleSearch();
+      }
+
+      function handleClearPresets() {
+        if (state.activePresets.size === 0) return;
+
+        state.activePresets.clear();
+        renderPresetBar();
+        scheduleSearch();
+        showToast('已清除所有预设');
+      }
+
+      function handleClearNegatives() {
+        if (state.activeNegativePresets.size === 0) return;
+
+        state.activeNegativePresets.clear();
+        renderNegativeBar();
+        scheduleSearch();
+        showToast('已清除所有排除词');
+      }
+
+      function updateClearPresetsButton() {
+        if (!dom.clearPresetsBtn) return;
+
+        if (state.activePresets.size === 0) {
+          dom.clearPresetsBtn.classList.add('disabled');
+        } else {
+          dom.clearPresetsBtn.classList.remove('disabled');
+        }
+      }
+
+      function updateClearNegativesButton() {
+        if (!dom.clearNegativesBtn) return;
+
+        if (state.activeNegativePresets.size === 0) {
+          dom.clearNegativesBtn.classList.add('disabled');
+        } else {
+          dom.clearNegativesBtn.classList.remove('disabled');
+        }
       }
 
       function renderDatasetToggle() {
@@ -1260,38 +1513,70 @@
       }
 
       function renderPresetBar() {
-        const presets = state.config.presets || [];
+        const groups = getPresetGroupsWithRecent();
         dom.presetBar.innerHTML = '';
-        if (!presets.length) {
+
+        if (!groups.length) {
           dom.presetSection?.classList.add('component-hidden');
           return;
         }
         dom.presetSection?.classList.remove('component-hidden');
 
-        presets.forEach((preset) => {
-          const pill = document.createElement('div');
-          pill.className = 'pill';
-          if (state.activePresets.has(preset)) pill.classList.add('active');
-          pill.textContent = preset;
-          pill.tabIndex = 0;
-          const toggle = () => {
-            if (state.activePresets.has(preset)) {
-              state.activePresets.delete(preset);
-            } else {
-              state.activePresets.add(preset);
-            }
-            renderPresetBar();
-            scheduleSearch();
-          };
-          pill.addEventListener('click', toggle);
-          pill.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              toggle();
-            }
+        groups.forEach((group) => {
+          if (!group || !group.presets || !group.presets.length) return;
+
+          // 创建分组容器
+          const groupDiv = document.createElement('div');
+          groupDiv.className = 'preset-group';
+          if (group.isRecent) {
+            groupDiv.classList.add('preset-group--recent');
+          }
+
+          // 创建分组标签
+          const label = document.createElement('div');
+          label.className = 'preset-group__label';
+          const labelText = (group.icon ? group.icon + ' ' : '') + group.name;
+          label.textContent = labelText;
+          groupDiv.appendChild(label);
+
+          // 创建预设词行
+          const pillRow = document.createElement('div');
+          pillRow.className = 'pill-row';
+
+          group.presets.forEach((preset) => {
+            const pill = document.createElement('div');
+            pill.className = 'pill';
+            if (state.activePresets.has(preset)) pill.classList.add('active');
+            pill.textContent = preset;
+            pill.tabIndex = 0;
+
+            const toggle = () => {
+              if (state.activePresets.has(preset)) {
+                state.activePresets.delete(preset);
+              } else {
+                state.activePresets.add(preset);
+                // 更新最近使用
+                updateRecentPresets(preset);
+              }
+              renderPresetBar();
+              scheduleSearch();
+            };
+
+            pill.addEventListener('click', toggle);
+            pill.addEventListener('keydown', (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggle();
+              }
+            });
+            pillRow.appendChild(pill);
           });
-          dom.presetBar.appendChild(pill);
+
+          groupDiv.appendChild(pillRow);
+          dom.presetBar.appendChild(groupDiv);
         });
+
+        updateClearPresetsButton();
       }
 
       function renderNegativeBar() {
@@ -1327,6 +1612,8 @@
           });
           dom.negativeBar.appendChild(pill);
         });
+
+        updateClearNegativesButton();
       }
 
       function renderTypeBar() {
@@ -1396,20 +1683,20 @@
           dom.classificationBar.innerHTML = '';
           state.currentClassificationSubtype = 'all';
 
-          // 归类区域隐藏时，调整预设和排除区域的位置
-          document.documentElement.style.setProperty('--preset-top', 'calc(var(--topbar-height) + var(--toolbar-gap))');
-          document.documentElement.style.setProperty('--negative-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2)');
-          document.documentElement.style.setProperty('--main-padding-top', 'calc(var(--toolbar-gap) * 3 + var(--topbar-height))');
+          // 归类区域隐藏时，调整排除和预设区域的位置
+          document.documentElement.style.setProperty('--negative-top', 'calc(var(--topbar-height) + var(--toolbar-gap))');
+          document.documentElement.style.setProperty('--preset-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2)');
+          document.documentElement.style.setProperty('--main-padding-top', 'calc(var(--topbar-height) + var(--toolbar-gap) + var(--negative-height) + var(--preset-max-height) + var(--spacing-buffer))');
           return;
         }
 
         dom.classificationSection.classList.remove('component-hidden');
         dom.classificationBar.innerHTML = '';
 
-        // 归类区域显示时，恢复预设和排除区域的默认位置
-        document.documentElement.style.setProperty('--preset-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2)');
-        document.documentElement.style.setProperty('--negative-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 3)');
-        document.documentElement.style.setProperty('--main-padding-top', 'calc(var(--toolbar-gap) * 4 + var(--topbar-height))');
+        // 归类区域显示时，恢复排除和预设区域的默认位置
+        document.documentElement.style.setProperty('--negative-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2)');
+        document.documentElement.style.setProperty('--preset-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 3)');
+        document.documentElement.style.setProperty('--main-padding-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2 + var(--negative-height) + var(--preset-max-height) + var(--spacing-buffer))');
 
         const options = ['all', ...state.classificationOptions];
         options.forEach((option) => {
@@ -1822,7 +2109,14 @@
         if (selected) {
           const title = selected.title || '(无标题)';
           const type = selected.type || '未分类';
-          dom.selectedCardInfo.innerHTML = `<strong>${title}</strong><br><small>${type} · ${selected.id.substring(0, 8)}</small>`;
+
+          // 构建类型显示文本
+          let typeDisplay = type;
+          if (type === '归类' && selected.classificationSubtype) {
+            typeDisplay = `${type} - ${selected.classificationSubtype}`;
+          }
+
+          dom.selectedCardInfo.innerHTML = `<strong>${title}</strong><br><small>${typeDisplay}</small>`;
           dom.selectedCardInfo.classList.remove('empty');
         } else {
           dom.selectedCardInfo.textContent = '已选 1 项';
@@ -1971,8 +2265,9 @@
             setCardsForDataset(datasetKey, results, { replace: false });
           },
           setPresets(presets) {
-            if (!Array.isArray(presets)) return;
-            state.config.presets = Array.from(new Set(presets.filter(Boolean)));
+            if (!presets) return;
+            // 支持新旧两种格式
+            state.config.presetGroups = normalizePresetConfig(presets);
             state.activePresets.clear();
             renderPresetBar();
             scheduleSearch({ triggerNative: false });
