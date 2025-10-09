@@ -149,11 +149,11 @@
     }
 
     .pill-section--preset {
-      top: calc(var(--topbar-height) + var(--toolbar-gap) * 2);
+      top: var(--preset-top, calc(var(--topbar-height) + var(--toolbar-gap) * 2));
     }
 
     .pill-section--negative {
-      top: calc(var(--topbar-height) + var(--toolbar-gap) * 3);
+      top: var(--negative-top, calc(var(--topbar-height) + var(--toolbar-gap) * 3));
     }
 
     .pill-section__label {
@@ -239,7 +239,7 @@
     .main-layout {
       display: flex;
       height: 100vh;
-      padding-top: calc(var(--toolbar-gap) * 4 + var(--topbar-height));
+      padding-top: var(--main-padding-top, calc(var(--toolbar-gap) * 4 + var(--topbar-height)));
       overflow: hidden;
       transition: padding-top 0.3s ease;
     }
@@ -1395,11 +1395,21 @@
           dom.classificationSection.classList.add('component-hidden');
           dom.classificationBar.innerHTML = '';
           state.currentClassificationSubtype = 'all';
+
+          // 归类区域隐藏时，调整预设和排除区域的位置
+          document.documentElement.style.setProperty('--preset-top', 'calc(var(--topbar-height) + var(--toolbar-gap))');
+          document.documentElement.style.setProperty('--negative-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2)');
+          document.documentElement.style.setProperty('--main-padding-top', 'calc(var(--toolbar-gap) * 3 + var(--topbar-height))');
           return;
         }
 
         dom.classificationSection.classList.remove('component-hidden');
         dom.classificationBar.innerHTML = '';
+
+        // 归类区域显示时，恢复预设和排除区域的默认位置
+        document.documentElement.style.setProperty('--preset-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2)');
+        document.documentElement.style.setProperty('--negative-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 3)');
+        document.documentElement.style.setProperty('--main-padding-top', 'calc(var(--toolbar-gap) * 4 + var(--topbar-height))');
 
         const options = ['all', ...state.classificationOptions];
         options.forEach((option) => {
