@@ -6281,10 +6281,11 @@ class KnowledgeBaseTemplate {
    * 将选中的评论提取为新的子卡片
    */
   static performExtract(note, extractCommentIndexArr) {
+    let extractResultNote
     // 第一步：创建子卡片
     MNUtil.undoGrouping(() => {
       try {
-        let extractResultNote = this.extractComments(note, extractCommentIndexArr)
+        extractResultNote = this.extractComments(note, extractCommentIndexArr)
         
         // 刷新显示
         extractResultNote.refresh();
@@ -17735,12 +17736,12 @@ class KnowledgeBaseSearcher {
       return result; // OR 运算优先级最低，有 OR 就不处理 AND
     }
     
-    // 4. 处理 AND 运算 //（默认）
+    // 4. 处理 AND 运算（增强空格支持）
     const separators = ['//', 'v方根'];
     const hasSeparator = separators.some(sep => query.includes(sep));
 
     if (hasSeparator) {
-      // 构建正则表达式，转义特殊字符
+      // 使用显式分隔符（// 或 v方根）
       const regexPattern = separators.map(sep => 
         sep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       ).join('|');
@@ -17748,10 +17749,19 @@ class KnowledgeBaseSearcher {
       
       result.andGroups = query.split(regex).map(s => s.trim().toLowerCase()).filter(s => s);
     } else {
-      // 没有 // 时，整个查询作为一个 AND 组
-      const trimmed = query.trim().toLowerCase();
-      if (trimmed) {
-        result.andGroups = [trimmed];
+      // 智能空格分割逻辑
+      if (query.includes('  ')) {
+        // 有双空格或更多：用双空格及以上分割，单空格保留
+        result.andGroups = query.split(/\s{2,}/).map(s => s.trim().toLowerCase()).filter(s => s);
+      } else if (query.includes(' ')) {
+        // 只有单空格：用单空格分割
+        result.andGroups = query.split(' ').map(s => s.trim().toLowerCase()).filter(s => s);
+      } else {
+        // 没有空格：整个查询作为一个 AND 组
+        const trimmed = query.trim().toLowerCase();
+        if (trimmed) {
+          result.andGroups = [trimmed];
+        }
       }
     }
     
@@ -18644,6 +18654,10 @@ class SynonymManager {
     //   "words": ["", ""],
     //   "partialReplacement": false,
     // },
+    {
+      "words": ["是全空间", "等于全空间"],
+      "partialReplacement": false,
+    },
     {
       "words": ["自己", "自身"],
       "partialReplacement": false,
@@ -19591,7 +19605,7 @@ For any formulas, do not use LaTeX form, i.e. enclose them with dollar signs "$.
 
 ## Output Format
 Case1: If the text is in English or other languages, output as:
-[Original extracted text with Unicode formatting] [Professional Chinese translation with mathematical terminology]
+[Professional Chinese translation with mathematical terminology]: [Original extracted text with Unicode formatting]
 Case2: If the text is already in Chinese, output as:
 [Original extracted Chinese text]
 
@@ -19615,6 +19629,9 @@ Case2: If the text is already in Chinese, output as:
 - **Context Sensitivity**: Adapt translation based on mathematical context (analysis, algebra, geometry, etc.)
 - **Formula Preservation**: Keep mathematical formulas in original Unicode form, translate only the descriptive text
 - **Theorem Names**: Use established Chinese names for well-known theorems, provide transliteration for less common ones
+- 不需要末尾的标点
+- 开头的“例子 2”, “定理 1.2”, “练习 3” 这种不需要
+- 如果这是一个有名称的定理或者定义, 把这个名词单独放在最后, 用 ; 链接, 比如 “如果……, 则范数一致有界; 一致有界原理; uniformly bounded principle”
 
 #### Common Mathematical Term Translations:
 - Theorem → 定理
