@@ -17,6 +17,10 @@
       --type-pill-bg: #e7f4ee;
       --type-pill-active-bg: #c4e6d5;
       --type-pill-color: #1c8054;
+      --toggle-bg: #f0f3f9;
+      --toggle-border: #d2d9e5;
+      --toggle-active-bg: #2b7cff;
+      --toggle-active-color: #fff;
       --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
       --topbar-height: 64px;
       --toolbar-gap: 78px;
@@ -46,6 +50,7 @@
       display: flex;
       gap: 12px;
       align-items: center;
+      flex-wrap: wrap;
       min-height: var(--topbar-height);
     }
 
@@ -72,6 +77,42 @@
       white-space: nowrap;
     }
 
+    .dataset-toggle {
+      display: inline-flex;
+      background: var(--toggle-bg);
+      border: 1px solid var(--toggle-border);
+      border-radius: 999px;
+      padding: 4px;
+      gap: 4px;
+      align-items: center;
+      margin-right: 12px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .dataset-toggle button {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: #4d5e78;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .dataset-toggle button.active {
+      background: var(--toggle-active-bg);
+      color: var(--toggle-active-color);
+      box-shadow: 0 6px 14px rgba(43, 124, 255, 0.18);
+    }
+
+    .dataset-toggle button:focus-visible {
+      outline: 2px solid rgba(43, 124, 255, 0.4);
+      outline-offset: 2px;
+    }
+
     /* 工具栏胶囊 */
     .pill-section {
       position: sticky;
@@ -85,12 +126,16 @@
       top: var(--topbar-height);
     }
 
-    .pill-section--preset {
+    .pill-section--classification {
       top: calc(var(--topbar-height) + var(--toolbar-gap));
     }
 
-    .pill-section--negative {
+    .pill-section--preset {
       top: calc(var(--topbar-height) + var(--toolbar-gap) * 2);
+    }
+
+    .pill-section--negative {
+      top: calc(var(--topbar-height) + var(--toolbar-gap) * 3);
     }
 
     .pill-section__label {
@@ -288,6 +333,27 @@
       white-space: nowrap;
     }
 
+    .classification-subtype {
+      background: rgba(32, 52, 87, 0.08);
+      color: #2f466b;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 0.2px;
+    }
+
+    .classification-bar .pill {
+      background: #eef1ff;
+      color: #2f4a8a;
+    }
+
+    .classification-bar .pill.active {
+      background: #4d6cff;
+      color: #fff;
+      border-color: rgba(77, 108, 255, 0.6);
+      box-shadow: 0 4px 12px rgba(77, 108, 255, 0.18);
+    }
+
     .card-type-badge {
       display: inline-flex;
       align-items: center;
@@ -354,6 +420,10 @@
 </head>
 <body>
   <div class="topbar">
+    <div class="dataset-toggle" id="datasetToggle" role="group" aria-label="数据源切换">
+      <button type="button" data-dataset="knowledge" class="active">知识库</button>
+      <button type="button" data-dataset="intermediate">中间知识库</button>
+    </div>
     <div class="search-input-wrap">
       <input id="searchInput" class="search-input" placeholder="搜索知识库：输入关键字或选择下方预设" autocomplete="off" />
       <div id="searchCount" class="search-count">0 条结果</div>
@@ -367,6 +437,12 @@
     <div class="pill-section__label">类型筛选</div>
     <div class="pill-row type-bar" id="typeBar" aria-label="类型筛选">
       <!-- 类型筛选 pill 将在 JS 中渲染 -->
+    </div>
+  </div>
+  <div class="pill-section pill-section--classification component-hidden" data-section="classification">
+    <div class="pill-section__label">归类子类型</div>
+    <div class="pill-row classification-bar" id="classificationBar" aria-label="归类二级类型">
+      <!-- 归类二级类型 pill -->
     </div>
   </div>
   <div class="pill-section pill-section--preset" data-section="preset">
@@ -422,20 +498,23 @@
       const DEFAULT_NEGATIVE_PRESETS = ['复 Hilbert', '实验 数据', '噪声', '异常 值', '反例', '离线 演示'];
 
       // 对齐 SearchConfig.typePresets，便于后续与 utils.js 保持一致
+      const RAW_TYPE_LABEL = '未分类';
+
       const DEFAULT_TYPE_FILTERS = [
         { key: 'all', label: '全部类型', types: null },
         { key: 'classifications', label: '归类', types: ['归类'] },
         { key: 'definitions', label: '定义', types: ['定义'] },
         { key: 'definitionsAndClassifications', label: '定义与归类', types: ['定义', '归类'] },
-        { key: 'knowledge', label: '知识点卡片', types: ['定义', '命题', '例子', '反例', '思想方法'] },
+        { key: 'knowledge', label: '知识点卡片', types: ['定义', '命题', '例子', '反例', '思想方法', '知识'] },
         { key: 'propositions', label: '命题', types: ['命题'] },
         { key: 'examples', label: '例子', types: ['例子'] },
         { key: 'counterexamples', label: '反例', types: ['反例'] },
         { key: 'methods', label: '思想方法', types: ['思想方法'] },
-        // { key: 'problems', label: '问题', types: ['问题'] },
-        // { key: 'ideas', label: '思路', types: ['思路'] },
-        // { key: 'research', label: '研究进展', types: ['研究进展'] },
-        // { key: 'papers', label: '论文', types: ['论文'] },
+        { key: 'problems', label: '问题', types: ['问题'] },
+        { key: 'ideas', label: '思路', types: ['思路'] },
+        { key: 'research', label: '研究进展', types: ['研究进展'] },
+        { key: 'papers', label: '论文', types: ['论文'] },
+        { key: 'untagged', label: RAW_TYPE_LABEL, types: [RAW_TYPE_LABEL] },
       ];
 
       // 颜色映射：优先类型、其次颜色索引，最后回退色
@@ -454,6 +533,8 @@
         书作: '#a36bff',
         作者: '#7bb8ff',
         总结: '#7d8799',
+        知识: '#7bb8ff',
+        未分类: '#b7c2d0',
       };
 
       const COLOR_INDEX_PALETTE = {
@@ -481,13 +562,13 @@
         { id: 'card-1002', title: '深度学习与神经网络', type: '命题', color: '#5569ff', searchText: '深度学习 神经网络 卷积神经网络 CNN RNN 表征 学习' },
         { id: 'card-1003', title: '支持向量机（SVM）', type: '定义', color: '#ff7b7b', searchText: '支持向量机 SVM 分类 算法' },
         { id: 'card-1004', title: '自然语言处理简介', type: '思想方法', color: '#5bd0a9', searchText: '自然语言处理 NLP 词向量 BERT' },
-        { id: 'card-1005', title: '卷积 神经 网络 详解', type: '归类', color: '#ffd07b', searchText: '卷积 神经 网络 卷积 池化' },
+        { id: 'card-1005', title: '卷积 神经 网络 详解', type: '归类', classificationSubtype: '命题', color: '#ffd07b', searchText: '卷积 神经 网络 卷积 池化' },
         { id: 'card-1006', title: '优化算法对比', type: '思想方法', color: '#5bd0a9', searchText: '梯度下降 Adam RMSprop 优化 学习率 调度' },
         { id: 'card-1007', title: '检索系统概念', type: '定义', color: '#7bb8ff', searchText: '信息检索 搜索 排序 倒排索引 查询 扩展' },
         { id: 'card-1008', title: '注意力机制（Attention）', type: '命题', color: '#5569ff', searchText: '注意力 机制 Transformer 自注意力' },
         { id: 'card-1009', title: '半监督学习实例', type: '例子', color: '#8f7bff', searchText: '半监督 学习 实例 应用' },
         { id: 'card-1010', title: 'Evaluation Metrics', type: '定义', color: '#7bb8ff', searchText: 'precision recall F1 score 混淆矩阵' },
-        { id: 'card-1011', title: 'Neural Network Architectures', type: '归类', color: '#ffd07b', searchText: 'MLP CNN RNN Transformer architectures' },
+        { id: 'card-1011', title: 'Neural Network Architectures', type: '归类', classificationSubtype: '例子', color: '#ffd07b', searchText: 'MLP CNN RNN Transformer architectures' },
         { id: 'card-1012', title: 'Embedding Techniques', type: '例子', color: '#8f7bff', searchText: '词向量 embedding word2vec GloVe BERT' },
         { id: 'card-2001', title: '复 Hilbert 空间 中的性质', type: '命题', color: '#5569ff', searchText: 'Hilbert 空间 复 数 线性 代数 内积 空间' },
         { id: 'card-2002', title: '实 Hilbert 空间 示例', type: '命题', color: '#5569ff', searchText: 'Hilbert 空间 实 数 例子 正交 基' },
@@ -498,11 +579,11 @@
         { id: 'card-2102', title: '梯度消失的排查思路', type: '思路', color: '#50c4a4', searchText: '梯度 消失 激活 函数 批量 归一化 残差 连接 排查 流程' },
         { id: 'card-2103', title: 'Transformer 研究前沿', type: '研究进展', color: '#5fa3ff', searchText: 'Transformer 研究 前沿 多模态 视觉 Transformers 参数 高效 化' },
         { id: 'card-2104', title: '注意力机制综述论文', type: '论文', color: '#a36bff', searchText: '注意力 机制 综述 论文 引用 统计 Transformer 原理' },
-        { id: 'card-2105', title: '文献阅读提纲：深度概率模型', type: '归类', color: '#ffd07b', searchText: '深度 概率 模型 结构 学习 变分 推断 综述 提纲' },
+        { id: 'card-2105', title: '文献阅读提纲：深度概率模型', type: '归类', classificationSubtype: '定义', color: '#ffd07b', searchText: '深度 概率 模型 结构 学习 变分 推断 综述 提纲' },
         { id: 'card-2106', title: '学习曲线与早停策略', type: '思想方法', color: '#5bd0a9', searchText: '学习 曲线 早停 验证集 过拟合 模型 选择' },
         { id: 'card-2107', title: '张量分解——定义与例子', type: '定义', color: '#7bb8ff', searchText: '张量 分解 定义 Tucker CP 分解 高阶 数据' },
         { id: 'card-2108', title: '张量分解常见反例', type: '反例', color: '#ff7b7b', searchText: '张量 分解 反例 唯一性 失败 情况 反例 构造' },
-        { id: 'card-2109', title: '泛函分析入门提纲', type: '归类', color: '#ffd07b', searchText: '泛函 分析 入门 提纲 线性 空间 赋范 空间 Banach' },
+        { id: 'card-2109', title: '泛函分析入门提纲', type: '归类', classificationSubtype: '命题', color: '#ffd07b', searchText: '泛函 分析 入门 提纲 线性 空间 赋范 空间 Banach' },
         { id: 'card-2110', title: 'Hilbert 空间的典型例子', type: '例子', color: '#8f7bff', searchText: 'Hilbert 空间 例子 L2 空间 Fourier 基 正交 系' },
         { id: 'card-2111', title: 'Hilbert 空间的反例', type: '反例', color: '#ff7b7b', searchText: 'Hilbert 空间 反例 非完备 内积 空间 counterexample' },
         { id: 'card-2112', title: '统计推断的关键定义', type: '定义', color: '#7bb8ff', searchText: '统计 推断 定义 参数 估计 假设 检验 置信 区间' },
@@ -513,6 +594,15 @@
         { id: 'card-2117', title: '深度学习失败案例收集', type: '反例', color: '#ff7b7b', searchText: '深度 学习 失败 案例 模型 崩溃 对抗 样本' },
       ];
 
+      const FAKE_INTERMEDIATE = [
+        { id: 'mid-3001', title: '待整理：测度论阅读思路', type: '思路', color: '#50c4a4', searchText: '测度论 阅读 提纲 任务 清单', isTemplated: false },
+        { id: 'mid-3002', title: '待总结：泛函分析术语', type: '问题', color: '#ffa857', searchText: '泛函 分析 术语 待整理 列表', isTemplated: false },
+        { id: 'mid-3003', title: '草稿：Hilbert 空间课堂笔记', searchText: 'Hilbert 空间 课堂 笔记 草稿 需要补充', isTemplated: false },
+        { id: 'mid-3004', title: '待确认：注意力机制资料收集', type: '知识', color: '#5569ff', searchText: '注意力 机制 资料 收集 参考 链接 待确认', isTemplated: false },
+        { id: 'mid-3005', title: '临时：梯度消失实验记录', searchText: '梯度 消失 实验 记录 待总结 结果', isTemplated: false },
+        { id: 'mid-3006', title: '尚未分类：随机想法备忘', searchText: '随机 想法 备忘 临时 条目 需要 分类', isTemplated: false },
+      ];
+
       const state = {
         config: {
           presets: DEFAULT_PRESETS.slice(),
@@ -521,6 +611,19 @@
           typeColors: { ...TYPE_COLOR_MAP },
           colorIndexPalette: { ...COLOR_INDEX_PALETTE },
         },
+        datasets: {
+          knowledge: {
+            label: '知识库',
+            cards: FAKE_CARDS.slice(),
+            count: FAKE_CARDS.length,
+          },
+          intermediate: {
+            label: '中间知识库',
+            cards: FAKE_INTERMEDIATE.slice(),
+            count: FAKE_INTERMEDIATE.length,
+          },
+        },
+        currentDatasetKey: 'knowledge',
         cards: FAKE_CARDS.slice(),
         filteredCards: [],
         activePresets: new Set(),
@@ -528,6 +631,8 @@
         selectedCardId: null,
         userInput: '',
         currentTypeKey: 'all',
+        classificationOptions: [],
+        currentClassificationSubtype: 'all',
         lastQueryPayload: null,
       };
 
@@ -535,8 +640,11 @@
         typeSection: document.querySelector('[data-section="type"]'),
         presetSection: document.querySelector('[data-section="preset"]'),
         negativeSection: document.querySelector('[data-section="negative"]'),
+        classificationSection: document.querySelector('[data-section="classification"]'),
+        datasetToggle: document.getElementById('datasetToggle'),
         presetBar: document.getElementById('presetBar'),
         typeBar: document.getElementById('typeBar'),
+        classificationBar: document.getElementById('classificationBar'),
         negativeBar: document.getElementById('negativeBar'),
         results: document.getElementById('results'),
         searchInput: document.getElementById('searchInput'),
@@ -556,6 +664,8 @@
       init();
 
       function init() {
+        renderDatasetToggle();
+        refreshClassificationOptions();
         renderPresetBar();
         renderTypeBar();
         renderNegativeBar();
@@ -571,6 +681,9 @@
         dom.copyUrlBtn.addEventListener('click', () => handleToolbarAction('copyUrl'));
         dom.copyMdBtn.addEventListener('click', () => handleToolbarAction('copyMarkdown'));
         dom.multiActionBtn.addEventListener('click', () => handleToolbarAction('multiAction'));
+        dom.datasetToggle?.querySelectorAll('button').forEach((btn) => {
+          btn.addEventListener('click', () => setActiveDataset(btn.dataset.dataset, { requestIfEmpty: true }));
+        });
       }
 
       function handleSearchInputChange() {
@@ -584,11 +697,76 @@
         state.activePresets.clear();
         state.activeNegativePresets.clear();
         state.currentTypeKey = state.config.typeFilters[0]?.key || 'all';
+        state.currentClassificationSubtype = 'all';
+        refreshClassificationOptions();
         renderPresetBar();
         renderTypeBar();
+        renderClassificationBar();
         renderNegativeBar();
         clearSelection();
         scheduleSearch();
+      }
+
+      function renderDatasetToggle() {
+        if (!dom.datasetToggle) return;
+        dom.datasetToggle.querySelectorAll('button').forEach((btn) => {
+          const key = btn.dataset.dataset;
+          if (!key) return;
+          const dataset = state.datasets[key];
+          btn.classList.toggle('active', key === state.currentDatasetKey);
+          if (dataset && dataset.label) {
+            const count = dataset.count ?? dataset.cards?.length ?? 0;
+            btn.textContent = count ? `${dataset.label} (${count})` : dataset.label;
+          }
+        });
+      }
+
+      function setActiveDataset(datasetKey, options = {}) {
+        if (!datasetKey || datasetKey === state.currentDatasetKey) return;
+        const dataset = state.datasets[datasetKey];
+        if (!dataset) {
+          showToast('数据源未准备好');
+          return;
+        }
+        const requestIfEmpty = options.requestIfEmpty !== false;
+        state.currentDatasetKey = datasetKey;
+        state.cards = (dataset.cards || []).slice();
+        state.currentClassificationSubtype = 'all';
+        clearSelection();
+        renderDatasetToggle();
+        if (!state.cards.length && requestIfEmpty) {
+          postBridge('requestDataset', { datasetKey });
+        }
+        refreshClassificationOptions();
+        scheduleSearch({ triggerNative: false });
+      }
+
+      function updateDatasetCards(datasetKey, cards, { replace = true } = {}) {
+        if (!datasetKey) datasetKey = state.currentDatasetKey;
+        const current = state.datasets[datasetKey] || { label: datasetKey, cards: [] };
+        const sanitized = Array.isArray(cards) ? cards.filter(Boolean) : [];
+        if (replace) {
+          current.cards = sanitized.slice();
+        } else {
+          const existing = new Map((current.cards || []).map((item) => [item.id, item]));
+          sanitized.forEach((item) => {
+            if (!item || !item.id || existing.has(item.id)) return;
+            existing.set(item.id, item);
+          });
+          current.cards = Array.from(existing.values());
+        }
+        current.count = current.cards.length;
+        if (!current.label) current.label = datasetKey;
+        state.datasets[datasetKey] = current;
+
+        if (datasetKey === state.currentDatasetKey) {
+          state.cards = current.cards.slice();
+          clearSelection();
+          refreshClassificationOptions();
+          scheduleSearch({ triggerNative: false });
+        }
+
+        renderDatasetToggle();
       }
 
       function renderPresetBar() {
@@ -680,6 +858,7 @@
           const select = () => {
             state.currentTypeKey = filter.key;
             renderTypeBar();
+            renderClassificationBar();
             scheduleSearch();
           };
           pill.addEventListener('click', select);
@@ -690,6 +869,71 @@
             }
           });
           dom.typeBar.appendChild(pill);
+        });
+
+        renderClassificationBar();
+      }
+
+      function refreshClassificationOptions() {
+        const options = new Set();
+        (state.cards || []).forEach((card) => {
+          if (!card) return;
+          if (card.type === '归类' && card.classificationSubtype) {
+            options.add(card.classificationSubtype);
+          }
+        });
+        state.classificationOptions = Array.from(options).sort();
+        if (
+          state.currentClassificationSubtype !== 'all' &&
+          !state.classificationOptions.includes(state.currentClassificationSubtype)
+        ) {
+          state.currentClassificationSubtype = 'all';
+        }
+        renderClassificationBar();
+      }
+
+      function shouldShowClassificationFilter() {
+        if (!dom.classificationSection || !state.classificationOptions.length) return false;
+        const preset = getCurrentTypePreset();
+        const types = preset.types;
+        return Array.isArray(types) && types.includes('归类');
+      }
+
+      function renderClassificationBar() {
+        if (!dom.classificationBar || !dom.classificationSection) return;
+        if (!shouldShowClassificationFilter()) {
+          dom.classificationSection.classList.add('component-hidden');
+          dom.classificationBar.innerHTML = '';
+          state.currentClassificationSubtype = 'all';
+          return;
+        }
+
+        dom.classificationSection.classList.remove('component-hidden');
+        dom.classificationBar.innerHTML = '';
+
+        const options = ['all', ...state.classificationOptions];
+        options.forEach((option) => {
+          const pill = document.createElement('div');
+          pill.className = 'pill';
+          const isAll = option === 'all';
+          const value = isAll ? 'all' : option;
+          if (state.currentClassificationSubtype === value) pill.classList.add('active');
+          pill.textContent = isAll ? '全部子类型' : option;
+          pill.dataset.subtype = value;
+          pill.tabIndex = 0;
+          const select = () => {
+            state.currentClassificationSubtype = value;
+            renderClassificationBar();
+            scheduleSearch({ triggerNative: false });
+          };
+          pill.addEventListener('click', select);
+          pill.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              select();
+            }
+          });
+          dom.classificationBar.appendChild(pill);
         });
       }
 
@@ -721,6 +965,7 @@
           excludePresets,
           typeKey: currentType.key,
           typeList: currentType.types ? currentType.types.slice() : null,
+          classificationSubtype: state.currentClassificationSubtype,
           highlightTokens,
           tokensLower: highlightTokens.map((token) => token.toLowerCase()),
           timestamp: Date.now(),
@@ -756,25 +1001,35 @@
         const highlightTokens = query.highlightTokens;
 
         const results = [];
-      const availableIds = new Set();
+        const availableIds = new Set();
+        const subtypeFilter = query.classificationSubtype;
+        const enforceSubtype = subtypeFilter && subtypeFilter !== 'all';
 
-      (state.cards || []).forEach((card) => {
-        if (!card || !card.id) return;
+        (state.cards || []).forEach((card) => {
+          if (!card || !card.id) return;
 
-        availableIds.add(card.id);
+          const normalizedType = card.type && String(card.type).trim() ? card.type : RAW_TYPE_LABEL;
+          availableIds.add(card.id);
 
-          if (allowedTypes && allowedTypes.size > 0) {
-            if (!card.type || !allowedTypes.has(card.type)) return;
+          if (allowedTypes && allowedTypes.size > 0 && !allowedTypes.has(normalizedType)) {
+            return;
+          }
+
+          if (enforceSubtype && normalizedType === '归类') {
+            if (!card.classificationSubtype || card.classificationSubtype !== subtypeFilter) {
+              return;
+            }
           }
 
           if (!passesNegativeFilter(card, negatives)) return;
 
-        const evaluation = evaluateCard(card, tokensLower);
-        if (tokensLower.length > 0 && evaluation.matchCount < tokensLower.length) return;
+          const evaluation = evaluateCard({ ...card, type: normalizedType }, tokensLower);
+          if (tokensLower.length > 0 && evaluation.matchCount < tokensLower.length) return;
 
-          const prepared = { ...card };
+          const prepared = { ...card, type: normalizedType };
           prepared.matchCount = evaluation.matchCount;
           prepared.score = typeof card.score === 'number' ? card.score : evaluation.score;
+          if (!card.type) prepared.isRaw = true;
 
           if (!prepared.titleHtml) {
             prepared.titleHtml = highlightTextWithTokens(prepared.title || '', highlightTokens);
@@ -842,6 +1097,7 @@
 
         const title = (card.title || '').toLowerCase();
         const type = (card.type || '').toLowerCase();
+        const subtype = (card.classificationSubtype || '').toLowerCase();
         const searchText = (card.searchText || '').toLowerCase();
         const keywords = (card.keywords || '').toLowerCase();
         const prefix = (card.prefix || '').toLowerCase();
@@ -869,6 +1125,10 @@
           }
           if (type.includes(token)) {
             score += 12;
+            hit = true;
+          }
+          if (subtype && subtype.includes(token)) {
+            score += 14;
             hit = true;
           }
           if (snippet.includes(token)) {
@@ -937,9 +1197,12 @@
           typeBadge.textContent = card.type || '未知类型';
           meta.appendChild(typeBadge);
 
-          const idInfo = document.createElement('span');
-          idInfo.textContent = card.id;
-          meta.appendChild(idInfo);
+          if (card.type === '归类' && card.classificationSubtype) {
+            const subBadge = document.createElement('span');
+            subBadge.className = 'classification-subtype';
+            subBadge.textContent = card.classificationSubtype;
+            meta.appendChild(subBadge);
+          }
 
           if (typeof card.matchCount === 'number' && card.matchCount > 0) {
             const mc = document.createElement('span');
@@ -1021,7 +1284,16 @@
       }
 
       function updateSelectionInfo() {
-        dom.selectionInfo.textContent = state.selectedCardId ? `已选 ${state.selectedCardId}` : '未选中';
+        if (!state.selectedCardId) {
+          dom.selectionInfo.textContent = '未选中';
+          return;
+        }
+        const selected = state.cards.find((item) => item.id === state.selectedCardId) || state.filteredCards.find((item) => item.id === state.selectedCardId);
+        if (selected && selected.title) {
+          dom.selectionInfo.textContent = `已选 ${selected.title}`;
+        } else {
+          dom.selectionInfo.textContent = '已选 1 项';
+        }
       }
 
       function updateActionButtonsState() {
@@ -1116,10 +1388,12 @@
       function registerBridge() {
         const api = {
           setSearchResults(results, options = {}) {
-            setCards(results, options);
+            const datasetKey = options.datasetKey || state.currentDatasetKey;
+            setCardsForDataset(datasetKey, results, options);
           },
-          appendSearchResults(results) {
-            setCards(results, { replace: false });
+          appendSearchResults(results, options = {}) {
+            const datasetKey = options.datasetKey || state.currentDatasetKey;
+            setCardsForDataset(datasetKey, results, { replace: false });
           },
           setPresets(presets) {
             if (!Array.isArray(presets)) return;
@@ -1162,6 +1436,9 @@
           resetSelection() {
             clearSelection();
           },
+          switchDataset(datasetKey) {
+            setActiveDataset(datasetKey, { requestIfEmpty: true });
+          },
           showToast,
           postMessage: postBridge,
         };
@@ -1183,21 +1460,8 @@
         }
       }
 
-      function setCards(results, options = {}) {
-        if (!Array.isArray(results)) return;
-        const replace = options.replace !== false;
-
-        if (replace) {
-          state.cards = results.filter(Boolean);
-        } else {
-          const existing = new Map(state.cards.map((card) => [card.id, card]));
-          results.forEach((card) => {
-            if (!card || !card.id || existing.has(card.id)) return;
-            state.cards.push(card);
-          });
-        }
-
-        scheduleSearch({ triggerNative: false });
+      function setCardsForDataset(datasetKey, results, options = {}) {
+        updateDatasetCards(datasetKey, results, { replace: options.replace !== false });
       }
 
       function postBridge(action, params = {}) {
