@@ -170,7 +170,10 @@ JSB.newAddon = function(mainPath){
         }
 
         if (self.newExcerptWithOCRToTitle) {
-          await KnowledgeBaseNetwork.OCRToTitle(note)
+          let OCRResult = await KnowledgeBaseNetwork.OCRToTitle(note)
+          if (OCRResult) {
+            IntermediateKnowledgeIndexer.addToIncrementalIndex(note)
+          }
         }
       } catch (error) {
         KnowledgeBaseUtils.addErrorLog(error, "onProcessNewExcerpt")
