@@ -10,41 +10,39 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
   // ========================================
 
   viewDidLoad: function() {
-    let self = this
-
-    // 设置浮动窗口样式（参考 mnbrowser）
-    self.view.frame = { x: 50, y: 50, width: 420, height: 600 }
-    self.view.backgroundColor = UIColor.whiteColor()
-
-    // 设置阴影效果
-    self.view.layer.shadowOffset = {width: 0, height: 0}
-    self.view.layer.shadowRadius = 15
-    self.view.layer.shadowOpacity = 0.5
-    self.view.layer.shadowColor = UIColor.colorWithWhiteAlpha(0.5, 1)
-    self.view.layer.cornerRadius = 11
+    self.view.layer.shadowOffset = {width: 0, height: 0};
+    self.view.layer.shadowRadius = 15;
+    self.view.layer.shadowOpacity = 0.5;
+    self.view.layer.shadowColor = UIColor.colorWithWhiteAlpha(0.5, 1);
+    
     self.view.layer.opacity = 1.0
+    self.view.layer.cornerRadius = 15
+    self.view.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0.8)
+    self.highlightColor = UIColor.blendedColor(MNUtil.hexColorAlpha("#2c4d81", 0.8),
+      MNUtil.app.defaultTextColor,
+      0.8
+    );
 
     // 创建 WebView
-    self.webview = new UIWebView({
-      frame: self.view.bounds,
-      autoresizingMask: (1 << 1) | (1 << 4) // flexible width and height
-    })
-    self.webview.delegate = self
-    self.view.addSubview(self.webview)
+    self.webView = new UIWebView({x: 10, y: 10, width: 700, height: 700})
+    self.webView.backgroundColor = UIColor.whiteColor()
+    self.webView.delegate = self
+    self.webView.scalesPageToFit = true
+    self.view.addSubview(self.webView)
+    self.webViewLoaded = false
 
-    try {
-      // 加载本地 HTML
-      let htmlPath = KnowledgeBaseConfig.mainPath + "/search.html"
-      let htmlURL = NSURL.fileURLWithPath(htmlPath)
-      let request = NSURLRequest.requestWithURL(htmlURL)
-      self.webview.loadRequest(request)
-    } catch (error) {
-      MNUtil.showHUD("加载 HTML 失败: " + error)
-    }
+    // try {
+    //   // 加载本地 HTML
+    //   let htmlPath = KnowledgeBaseConfig.mainPath + "/search.html"
+    //   let htmlURL = NSURL.fileURLWithPath(htmlPath)
+    //   let request = NSURLRequest.requestWithURL(htmlURL)
+    //   self.webview.loadRequest(request)
+    // } catch (error) {
+    //   MNUtil.showHUD("加载 HTML 失败: " + error)
+    // }
   },
 
   viewWillDisappear: function(animated) {
-    let self = this
     // 清理定时器
     if (self.viewTimer) {
       self.viewTimer.invalidate()
@@ -58,7 +56,7 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
 
   webViewShouldStartLoadWithRequestNavigationType: function(webView, request, type) {
     try {
-      let self = this
+  
       let config = MNUtil.parseURL(request)
 
       // 拦截自定义 scheme
@@ -79,15 +77,29 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
   // ========================================
 
   webViewDidFinishLoad: function(webView) {
-    let self = this
     // WebView 加载完成后初始化数据
     self.loadSearchData()
+    MNUtil.log("WebView 加载完成")
+    self.webViewLoaded = true
   },
 
   webViewDidFailLoadWithError: function(webView, error) {
     MNUtil.showHUD("页面加载失败")
   }
 })
+
+knowledgebaseWebController.prototype.loadHTMLFile = function() {
+  try {
+    let htmlPath = KnowledgeBaseConfig.mainPath + "/search.html"
+    let htmlURL = NSURL.fileURLWithPath(htmlPath)
+    let request = NSURLRequest.requestWithURL(htmlURL)
+    this.webView.loadRequest(request)
+    MNUtil.log("开始加载 HTML 文件: " + htmlPath)
+  } catch (error) {
+    MNUtil.showHUD("加载 HTML 失败: " + error)
+    MNUtil.log("加载 HTML 错误: " + error)
+  }
+}
 
 // ========================================
 // 核心方法 - 动作执行器
@@ -278,7 +290,7 @@ knowledgebaseWebController.prototype.locateCardInMindMap = async function(noteId
 
     let note = MNNote.getFocusNote()
     if (!note || note.noteId !== noteId) {
-      note = MNNote.getNoteById(noteId)
+      note = MNNote.new(noteId)
     }
 
     if (!note) {
@@ -314,7 +326,7 @@ knowledgebaseWebController.prototype.focusCardInDocument = async function(noteId
       return
     }
 
-    let note = MNNote.getNoteById(noteId)
+    let note = MNNote.new(noteId)
     if (!note) {
       MNUtil.showHUD("未找到卡片")
       return
@@ -347,7 +359,7 @@ knowledgebaseWebController.prototype.addCardToReview = async function(noteId) {
       return
     }
 
-    let note = MNNote.getNoteById(noteId)
+    let note = MNNote.new(noteId)
     if (!note) {
       MNUtil.showHUD("未找到卡片")
       return

@@ -35,7 +35,7 @@ JSB.newAddon = function(mainPath){
         KnowledgeBaseConfig.init(mainPath)
 
         // 注册插件通信观察者
-        MNUtil.addObserver(self, 'onOpenKnowledgeBaseSearch:', 'openKnowledgeBaseSearch')
+        // MNUtil.addObserver(self, 'onOpenKnowledgeBaseSearch:', 'openKnowledgeBaseSearch')
 
         self.toggled = false
         self.newExcerptWithOCRToTitle = false  // 新摘录 OCR 到标题
@@ -59,7 +59,7 @@ JSB.newAddon = function(mainPath){
       MNUtil.undoGrouping(()=>{
         try {
           MNUtil.removeObserver(self, 'ProcessNewExcerpt')
-          MNUtil.removeObserver(self, 'openKnowledgeBaseSearch')
+          // MNUtil.removeObserver(self, 'openKnowledgeBaseSearch')
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -205,6 +205,10 @@ JSB.newAddon = function(mainPath){
     // 点击插件图标执行的方法。
     toggleAddon: async function(button) {
       try {
+        if (!self.addonBar) {
+          self.addonBar = button.superview.superview
+          KnowledgeBaseUtils.addonBar = self.addonBar
+        }
         self.toggled = !self.toggled
         MNUtil.refreshAddonCommands()
 
@@ -377,20 +381,17 @@ JSB.newAddon = function(mainPath){
         if (!KnowledgeBaseUtils.webViewController.view.hidden) {
           MNUtil.studyView.bringSubviewToFront(KnowledgeBaseUtils.webViewController.view)
           MNUtil.showHUD("知识库搜索")
-          return
         }
 
-        // // 检查索引文件
-        // let indexPath = MNUtil.dbFolder + "/data/kb-search-index.json"
-        // if (!MNUtil.isfileExists(indexPath)) {
-        //   MNUtil.showHUD("索引未找到，请先更新搜索索引")
-        //   return
-        // }
+        if (!KnowledgeBaseUtils.webViewController.webViewLoaded) {
+          MNUtil.showHUD("正在加载搜索界面，请稍候...")
+          KnowledgeBaseUtils.webViewController.loadHTMLFile()
+        }
 
         // 显示窗口 - 传入合适的参数
         KnowledgeBaseUtils.webViewController.show(
           null,  // 无起始位置动画
-          { x: 50, y: 50, width: 420, height: 600 }  // 目标位置和大小
+          { x: 50, y: 50, width: 800, height: 800 }  // 目标位置和大小
         )
 
         // 异步加载数据
@@ -403,6 +404,7 @@ JSB.newAddon = function(mainPath){
     },
 
     /**
+>>>>>>> Stashed changes
      * 更新中间知识库索引
      */
     updateIntermediateKnowledgeIndex: async function() {
@@ -863,6 +865,10 @@ JSB.newAddon = function(mainPath){
     },
   });
 
+  MNKnowledgeBaseClass.prototype.init = function(){
+    KnowledgeBaseConfig.init(mainPath)
+  }
+
   MNKnowledgeBaseClass.prototype.checkPopover = function(){
     // 关闭菜单
     if (this.popoverController) {
@@ -1175,7 +1181,7 @@ JSB.newAddon = function(mainPath){
       KnowledgeBaseUtils.webViewController.show(beginFrame, endFrame)
 
       // 加载数据
-      self.loadSearchDataToWebView()
+      this.loadSearchDataToWebView()
 
     } catch (error) {
       KnowledgeBaseUtils.addErrorLog(error, "onOpenKnowledgeBaseSearch")
