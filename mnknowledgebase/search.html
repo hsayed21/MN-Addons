@@ -40,8 +40,10 @@
 
     /* 固定顶部搜索栏 */
     .topbar {
-      position: sticky;
+      position: fixed;
       top: 0;
+      left: 0;
+      right: 0;
       z-index: 90;
       backdrop-filter: blur(6px);
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.9));
@@ -52,6 +54,13 @@
       align-items: center;
       flex-wrap: wrap;
       min-height: var(--topbar-height);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    .topbar.hidden {
+      transform: translateY(-100%);
+      opacity: 0;
+      pointer-events: none;
     }
 
     .search-input-wrap {
@@ -115,11 +124,20 @@
 
     /* 工具栏胶囊 */
     .pill-section {
-      position: sticky;
+      position: fixed;
+      left: 0;
+      right: 0;
       z-index: 80;
       background: linear-gradient(180deg, rgba(247, 248, 251, 0.95), rgba(247, 248, 251, 0.78));
       padding: 10px 20px 14px;
       backdrop-filter: blur(4px);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    .pill-section.hidden {
+      transform: translateY(-100%);
+      opacity: 0;
+      pointer-events: none;
     }
 
     .pill-section--type {
@@ -217,11 +235,127 @@
       box-shadow: 0 2px 6px rgba(194, 59, 107, 0.08);
     }
 
-    /* 主体 */
+    /* 主体布局 */
+    .main-layout {
+      display: flex;
+      height: 100vh;
+      padding-top: calc(var(--toolbar-gap) * 4 + var(--topbar-height));
+      overflow: hidden;
+      transition: padding-top 0.3s ease;
+    }
+
+    body.toolbar-hidden .main-layout {
+      padding-top: 0;
+    }
+
+    /* 左侧操作面板 */
+    .sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      background: var(--card-bg);
+      border-right: 1px solid #e6e9ef;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      position: sticky;
+      top: 0;
+      height: 100%;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid #e6e9ef;
+      background: linear-gradient(180deg, #fafbfc, #fff);
+    }
+
+    .sidebar-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #5b6a80;
+      margin-bottom: 8px;
+    }
+
+    .selected-card-info {
+      font-size: 14px;
+      color: #2a3a52;
+      line-height: 1.5;
+      padding: 10px;
+      background: #f7f9fc;
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+      max-height: 80px;
+      overflow-y: auto;
+    }
+
+    .selected-card-info.empty {
+      color: var(--muted);
+      font-style: italic;
+      border-left-color: #d6dbe8;
+    }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid #f0f2f5;
+    }
+
+    .sidebar-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #5b6a80;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .sidebar-btn {
+      width: 100%;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      background: var(--card-bg);
+      border: 1px solid #e3e6ee;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      text-align: left;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-btn:hover:not(:disabled) {
+      background: #f7f9fc;
+      border-color: var(--accent);
+      transform: translateX(2px);
+    }
+
+    .sidebar-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .sidebar-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .sidebar-btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 4px 12px rgba(43, 124, 255, 0.2);
+    }
+
+    .sidebar-btn.primary:hover:not(:disabled) {
+      background: #1b6cef;
+      transform: translateX(2px);
+    }
+
+    /* 右侧卡片区域 */
     .container {
-      max-width: 1000px;
-      margin: 24px auto 0 auto;
-      padding: 0 16px 80px;
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
     }
 
     /* 操作工具栏 */
@@ -278,12 +412,40 @@
       flex-direction: column;
       gap: 6px;
       transition: transform 0.18s ease, box-shadow 0.18s ease;
+      position: relative;
     }
 
     .card.selected {
       box-shadow: 0 12px 28px rgba(43, 124, 255, 0.18);
       transform: translateY(-4px);
       border-left-width: 10px;
+    }
+
+    .card-locate-icon {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      opacity: 1;
+      transform: scale(1);
+      transition: all 0.2s ease;
+      z-index: 10;
+    }
+
+    .card-locate-icon:active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(43, 124, 255, 0.3);
+      transform: scale(0.95);
     }
 
     .card-title {
@@ -393,6 +555,108 @@
       opacity: 1;
     }
 
+    /* 返回顶部按钮 */
+    .scroll-to-top {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      width: 56px;
+      height: 56px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      box-shadow: 0 8px 24px rgba(43, 124, 255, 0.35);
+      cursor: pointer;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 110;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.8);
+    }
+
+    .scroll-to-top.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+
+    .scroll-to-top:hover {
+      background: #1b6cef;
+      transform: scale(1.1);
+    }
+
+    .scroll-to-top:active {
+      transform: scale(0.95);
+    }
+
+    /* iPad 竖屏和小屏幕设备 */
+    @media (max-width: 1024px) {
+      .sidebar {
+        position: fixed;
+        left: 0;
+        top: var(--topbar-height);
+        height: calc(100vh - var(--topbar-height));
+        z-index: 100;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+
+      .sidebar.show {
+        transform: translateX(0);
+        box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
+      }
+
+      .container {
+        margin-left: 0;
+      }
+
+      /* Sidebar 切换按钮 */
+      .sidebar-toggle {
+        position: fixed;
+        left: 16px;
+        bottom: 24px;
+        width: 56px;
+        height: 56px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 50%;
+        box-shadow: 0 8px 24px rgba(43, 124, 255, 0.35);
+        cursor: pointer;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 90;
+        transition: transform 0.2s ease;
+      }
+
+      .sidebar-toggle:active {
+        transform: scale(0.92);
+      }
+
+      .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 95;
+        backdrop-filter: blur(2px);
+      }
+
+      .sidebar-overlay.show {
+        display: block;
+      }
+    }
+
     @media (max-width: 640px) {
       :root {
         --topbar-height: 56px;
@@ -409,7 +673,6 @@
 
       .container {
         padding: 0 12px 80px;
-        margin-top: 20px;
       }
 
       .results {
@@ -458,20 +721,79 @@
     </div>
   </div>
 
-  <div class="container">
-    <div class="toolbar" id="toolbar">
-      <button class="btn" id="locateBtn" type="button">定位</button>
-      <button class="btn" id="copyUrlBtn" type="button">复制 URL</button>
-      <button class="btn" id="copyMdBtn" type="button">复制 Markdown 链接</button>
-      <button class="btn primary" id="multiActionBtn" type="button">对所选执行操作</button>
-      <div style="flex:1 1 auto"></div>
-      <div class="search-count" id="selectionInfo">未选中</div>
+  <!-- Sidebar 遮罩层 (仅移动端) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- Sidebar 切换按钮 (仅移动端) -->
+  <button class="sidebar-toggle" id="sidebarToggle" type="button" style="display: none;">
+    ⚙️
+  </button>
+
+  <div class="main-layout">
+    <!-- 左侧操作面板 -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">当前选中</div>
+        <div class="selected-card-info empty" id="selectedCardInfo">未选中卡片</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">对选中卡片的操作</div>
+        <button class="sidebar-btn primary" id="locateInFloatBtn" type="button" disabled>
+          <span>📍</span>
+          <span>在浮窗中定位</span>
+        </button>
+        <button class="sidebar-btn" id="copyMarkdownBtn" type="button" disabled>
+          <span>📋</span>
+          <span>复制 Markdown 链接</span>
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">与 focusNote 交互</div>
+        <button class="sidebar-btn" id="mergeToExcerptBtn" type="button" disabled>
+          <span>🔗</span>
+          <span>合并到目标卡片的摘录区</span>
+        </button>
+        <button class="sidebar-btn" id="clearAndMergeBtn" type="button" disabled>
+          <span>🔗</span>
+          <span>清空标题 & 合并</span>
+        </button>
+        <button class="sidebar-btn" id="bidirectionalLinkBtn" type="button" disabled>
+          <span>🔗</span>
+          <span>双向链接</span>
+        </button>
+        <button class="sidebar-btn" id="moveAsChildBtn" type="button" disabled>
+          <span>🗺️</span>
+          <span>移到子卡片</span>
+        </button>
+        <button class="sidebar-btn" id="moveAsChildAndLocateBtn" type="button" disabled>
+          <span>🗺️</span>
+          <span>移到子卡片 & 主脑图定位</span>
+        </button>
+        <button class="sidebar-btn" id="addTemplateAsChildBtn" type="button" disabled>
+          <span>🗺️</span>
+          <span>增加模板并添加为子卡片</span>
+        </button>
+        <button class="sidebar-btn" id="addTemplateAsChildAndLocateBtn" type="button" disabled>
+          <span>🗺️</span>
+          <span>增加模板并添加为子卡片 & 定位</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- 右侧卡片区域 -->
+    <div class="container">
+      <div class="results" id="results"></div>
     </div>
-
-    <div class="results" id="results"></div>
-
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
   </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- 返回顶部按钮 -->
+  <button class="scroll-to-top" id="scrollToTopBtn" type="button" aria-label="返回顶部">
+    ⬆️
+  </button>
 
   <script>
     (function () {
@@ -649,16 +971,30 @@
         results: document.getElementById('results'),
         searchInput: document.getElementById('searchInput'),
         searchCount: document.getElementById('searchCount'),
-        selectionInfo: document.getElementById('selectionInfo'),
-        locateBtn: document.getElementById('locateBtn'),
-        copyUrlBtn: document.getElementById('copyUrlBtn'),
-        copyMdBtn: document.getElementById('copyMdBtn'),
-        multiActionBtn: document.getElementById('multiActionBtn'),
+        selectedCardInfo: document.getElementById('selectedCardInfo'),
         clearBtn: document.getElementById('clearBtn'),
         toast: document.getElementById('toast'),
+        sidebar: document.getElementById('sidebar'),
+        sidebarToggle: document.getElementById('sidebarToggle'),
+        sidebarOverlay: document.getElementById('sidebarOverlay'),
+        // Sidebar 按钮
+        locateInFloatBtn: document.getElementById('locateInFloatBtn'),
+        copyMarkdownBtn: document.getElementById('copyMarkdownBtn'),
+        mergeToExcerptBtn: document.getElementById('mergeToExcerptBtn'),
+        clearAndMergeBtn: document.getElementById('clearAndMergeBtn'),
+        bidirectionalLinkBtn: document.getElementById('bidirectionalLinkBtn'),
+        moveAsChildBtn: document.getElementById('moveAsChildBtn'),
+        moveAsChildAndLocateBtn: document.getElementById('moveAsChildAndLocateBtn'),
+        addTemplateAsChildBtn: document.getElementById('addTemplateAsChildBtn'),
+        addTemplateAsChildAndLocateBtn: document.getElementById('addTemplateAsChildAndLocateBtn'),
+        scrollToTopBtn: document.getElementById('scrollToTopBtn'),
+        topbar: document.querySelector('.topbar'),
+        container: document.querySelector('.container'),
       };
 
       let toastTimer = null;
+      let lastScrollY = 0;
+      let isToolbarHidden = false;
       const debouncedInputHandler = debounce(handleSearchInputChange, 180);
 
       init();
@@ -672,18 +1008,172 @@
         attachEventListeners();
         registerBridge();
         applyFilters(buildQueryPayload());
+        setupResponsive();
+        setupScrollBehavior();
+      }
+
+      function setupResponsive() {
+        // 检测是否是移动端或 iPad 竖屏
+        const checkMobile = () => window.innerWidth <= 1024;
+
+        // 初始化显示状态
+        if (dom.sidebarToggle) {
+          dom.sidebarToggle.style.display = checkMobile() ? 'flex' : 'none';
+        }
+
+        // 监听窗口大小变化
+        window.addEventListener('resize', () => {
+          if (dom.sidebarToggle) {
+            dom.sidebarToggle.style.display = checkMobile() ? 'flex' : 'none';
+          }
+          if (!checkMobile()) {
+            closeSidebar();
+          }
+        });
+      }
+
+      function setupScrollBehavior() {
+        if (!dom.container) return;
+
+        // 节流函数：限制滚动事件处理频率
+        let scrollTimeout = null;
+        const handleScroll = () => {
+          if (scrollTimeout) return;
+
+          scrollTimeout = setTimeout(() => {
+            scrollTimeout = null;
+
+            const currentScrollY = dom.container.scrollTop;
+            const scrollThreshold = 100; // 滚动超过 100px 时触发隐藏
+
+            // 向下滚动且超过阈值：隐藏工具栏
+            if (currentScrollY > scrollThreshold && currentScrollY > lastScrollY && !isToolbarHidden) {
+              hideToolbars();
+            }
+            // 向上滚动或回到顶部：显示工具栏
+            else if ((currentScrollY < lastScrollY || currentScrollY <= scrollThreshold) && isToolbarHidden) {
+              showToolbars();
+            }
+
+            // 更新滚动到顶部按钮的显示状态
+            if (currentScrollY > 200) {
+              dom.scrollToTopBtn?.classList.add('show');
+            } else {
+              dom.scrollToTopBtn?.classList.remove('show');
+            }
+
+            lastScrollY = currentScrollY;
+          }, 100); // 100ms 节流
+        };
+
+        // 监听容器滚动事件
+        dom.container.addEventListener('scroll', handleScroll, { passive: true });
+
+        // 返回顶部按钮点击事件
+        dom.scrollToTopBtn?.addEventListener('click', scrollToTop);
+      }
+
+      function hideToolbars() {
+        isToolbarHidden = true;
+
+        // 添加全局隐藏状态,触发 padding-top 的过渡
+        document.body.classList.add('toolbar-hidden');
+
+        // 隐藏顶部搜索栏
+        dom.topbar?.classList.add('hidden');
+
+        // 隐藏所有工具栏
+        const toolbars = [
+          dom.typeSection,
+          dom.classificationSection,
+          dom.presetSection,
+          dom.negativeSection
+        ];
+
+        toolbars.forEach(toolbar => {
+          if (toolbar && !toolbar.classList.contains('component-hidden')) {
+            toolbar.classList.add('hidden');
+          }
+        });
+      }
+
+      function showToolbars() {
+        isToolbarHidden = false;
+
+        // 移除全局隐藏状态,恢复 padding-top
+        document.body.classList.remove('toolbar-hidden');
+
+        // 显示顶部搜索栏
+        dom.topbar?.classList.remove('hidden');
+
+        // 显示所有工具栏
+        const toolbars = [
+          dom.typeSection,
+          dom.classificationSection,
+          dom.presetSection,
+          dom.negativeSection
+        ];
+
+        toolbars.forEach(toolbar => {
+          if (toolbar) {
+            toolbar.classList.remove('hidden');
+          }
+        });
+      }
+
+      function scrollToTop() {
+        if (!dom.container) return;
+
+        // 平滑滚动到顶部
+        dom.container.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }
+
+      function toggleSidebar() {
+        if (!dom.sidebar) return;
+
+        const isShow = dom.sidebar.classList.contains('show');
+        if (isShow) {
+          closeSidebar();
+        } else {
+          openSidebar();
+        }
+      }
+
+      function openSidebar() {
+        dom.sidebar?.classList.add('show');
+        dom.sidebarOverlay?.classList.add('show');
+      }
+
+      function closeSidebar() {
+        dom.sidebar?.classList.remove('show');
+        dom.sidebarOverlay?.classList.remove('show');
       }
 
       function attachEventListeners() {
         dom.searchInput.addEventListener('input', debouncedInputHandler, { passive: true });
         dom.clearBtn.addEventListener('click', handleClearFilters);
-        dom.locateBtn.addEventListener('click', () => handleToolbarAction('locate'));
-        dom.copyUrlBtn.addEventListener('click', () => handleToolbarAction('copyUrl'));
-        dom.copyMdBtn.addEventListener('click', () => handleToolbarAction('copyMarkdown'));
-        dom.multiActionBtn.addEventListener('click', () => handleToolbarAction('multiAction'));
+
+        // Sidebar 按钮事件
+        dom.locateInFloatBtn?.addEventListener('click', () => handleSidebarAction('locateInFloat'));
+        dom.copyMarkdownBtn?.addEventListener('click', () => handleSidebarAction('copyMarkdown'));
+        dom.mergeToExcerptBtn?.addEventListener('click', () => handleSidebarAction('mergeToExcerpt'));
+        dom.clearAndMergeBtn?.addEventListener('click', () => handleSidebarAction('clearAndMerge'));
+        dom.bidirectionalLinkBtn?.addEventListener('click', () => handleSidebarAction('bidirectionalLink'));
+        dom.moveAsChildBtn?.addEventListener('click', () => handleSidebarAction('moveAsChild'));
+        dom.moveAsChildAndLocateBtn?.addEventListener('click', () => handleSidebarAction('moveAsChildAndLocate'));
+        dom.addTemplateAsChildBtn?.addEventListener('click', () => handleSidebarAction('addTemplateAsChild'));
+        dom.addTemplateAsChildAndLocateBtn?.addEventListener('click', () => handleSidebarAction('addTemplateAsChildAndLocate'));
+
         dom.datasetToggle?.querySelectorAll('button').forEach((btn) => {
           btn.addEventListener('click', () => setActiveDataset(btn.dataset.dataset, { requestIfEmpty: true }));
         });
+
+        // Sidebar 切换
+        dom.sidebarToggle?.addEventListener('click', toggleSidebar);
+        dom.sidebarOverlay?.addEventListener('click', closeSidebar);
       }
 
       function handleSearchInputChange() {
@@ -974,16 +1464,30 @@
 
       function deriveTokens(rawInput, includePresets) {
         const tokens = [];
+
+        // 智能空格分隔：检测是否有双空格
         if (rawInput) {
-          rawInput.split(/\s+/).forEach((part) => {
+          let parts;
+          if (/\s{2,}/.test(rawInput)) {
+            // 有双空格：按双空格分割，保留单空格作为短语的一部分
+            parts = rawInput.split(/\s{2,}/);
+          } else {
+            // 无双空格：按单空格分割
+            parts = rawInput.split(/\s+/);
+          }
+
+          parts.forEach((part) => {
             const value = part.trim();
             if (value && !tokens.includes(value)) tokens.push(value);
           });
         }
+
+        // 预设词始终作为独立 token
         (includePresets || []).forEach((part) => {
           const value = part.trim();
           if (value && !tokens.includes(value)) tokens.push(value);
         });
+
         return tokens;
       }
 
@@ -1024,6 +1528,7 @@
           if (!passesNegativeFilter(card, negatives)) return;
 
           const evaluation = evaluateCard({ ...card, type: normalizedType }, tokensLower);
+          // AND 逻辑：所有关键词必须匹配
           if (tokensLower.length > 0 && evaluation.matchCount < tokensLower.length) return;
 
           const prepared = { ...card, type: normalizedType };
@@ -1184,6 +1689,16 @@
           const color = resolveTypeColor(card);
           element.style.borderLeftColor = color;
 
+          // 添加定位图标
+          const locateIcon = document.createElement('div');
+          locateIcon.className = 'card-locate-icon';
+          locateIcon.textContent = '📍';
+          locateIcon.title = '在主脑图定位';
+          locateIcon.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止冒泡到卡片点击事件
+            handleCardLocate(card.id);
+          });
+
           const title = document.createElement('div');
           title.className = 'card-title';
           title.innerHTML = card.titleHtml || escapeHtml(card.title || '');
@@ -1218,6 +1733,7 @@
             meta.appendChild(scoreChip);
           }
 
+          element.appendChild(locateIcon);
           element.appendChild(title);
           element.appendChild(meta);
 
@@ -1285,60 +1801,109 @@
 
       function updateSelectionInfo() {
         if (!state.selectedCardId) {
-          dom.selectionInfo.textContent = '未选中';
+          dom.selectedCardInfo.textContent = '未选中卡片';
+          dom.selectedCardInfo.classList.add('empty');
           return;
         }
-        const selected = state.cards.find((item) => item.id === state.selectedCardId) || state.filteredCards.find((item) => item.id === state.selectedCardId);
-        if (selected && selected.title) {
-          dom.selectionInfo.textContent = `已选 ${selected.title}`;
+
+        const selected = state.cards.find((item) => item.id === state.selectedCardId) ||
+                        state.filteredCards.find((item) => item.id === state.selectedCardId);
+
+        if (selected) {
+          const title = selected.title || '(无标题)';
+          const type = selected.type || '未分类';
+          dom.selectedCardInfo.innerHTML = `<strong>${title}</strong><br><small>${type} · ${selected.id.substring(0, 8)}</small>`;
+          dom.selectedCardInfo.classList.remove('empty');
         } else {
-          dom.selectionInfo.textContent = '已选 1 项';
+          dom.selectedCardInfo.textContent = '已选 1 项';
+          dom.selectedCardInfo.classList.remove('empty');
         }
       }
 
       function updateActionButtonsState() {
         const disabled = !state.selectedCardId;
-        [dom.locateBtn, dom.copyUrlBtn, dom.copyMdBtn, dom.multiActionBtn].forEach((btn) => {
+
+        // 更新所有 Sidebar 按钮状态
+        const sidebarButtons = [
+          dom.locateInFloatBtn,
+          dom.copyMarkdownBtn,
+          dom.mergeToExcerptBtn,
+          dom.clearAndMergeBtn,
+          dom.bidirectionalLinkBtn,
+          dom.moveAsChildBtn,
+          dom.moveAsChildAndLocateBtn,
+          dom.addTemplateAsChildBtn,
+          dom.addTemplateAsChildAndLocateBtn,
+        ];
+
+        sidebarButtons.forEach((btn) => {
           if (btn) btn.disabled = disabled;
         });
       }
 
-      function handleToolbarAction(action) {
+      function handleCardLocate(cardId) {
+        if (!cardId) return;
+
+        if (!postBridge('locateInMindMap', { id: cardId })) {
+          showToast('功能开发中：在主脑图定位');
+        }
+      }
+
+      function handleSidebarAction(action) {
         if (!state.selectedCardId) {
           showToast('请先选择卡片');
           return;
         }
 
         const id = state.selectedCardId;
-        const card = state.cards.find((item) => item.id === id) || { title: id };
+        const card = state.cards.find((item) => item.id === id) ||
+                     state.filteredCards.find((item) => item.id === id) ||
+                     { title: id };
 
         switch (action) {
-          case 'locate':
-            if (!postBridge('locateNotes', { ids: [id] })) {
-              showToast('暂未连接到 MarginNote');
+          case 'locateInFloat':
+            if (!postBridge('locateInFloat', { id })) {
+              showToast('功能开发中：在浮窗中定位');
             }
             break;
-          case 'copyUrl': {
-            const url = `marginnote4app://note/${id}`;
-            if (!postBridge('copyNoteUrls', { ids: [id] })) {
-              copyToClipboard(url, '已复制 URL');
-            }
-            break;
-          }
+
           case 'copyMarkdown': {
             const title = card.title || id;
             const markdown = `[${title}](marginnote4app://note/${id})`;
-            if (!postBridge('copyNoteMarkdown', { ids: [id] })) {
-              copyToClipboard(markdown, '已复制 Markdown');
-            }
+            copyToClipboard(markdown, '已复制 Markdown 链接');
             break;
           }
-          case 'multiAction':
-            if (!postBridge('batchAction', { ids: [id] })) {
-              showToast('未接入批量操作，请在原生端处理');
-            }
+
+          case 'mergeToExcerpt':
+            showToast('功能开发中：合并到目标卡片');
             break;
+
+          case 'clearAndMerge':
+            showToast('功能开发中：清空标题并合并');
+            break;
+
+          case 'bidirectionalLink':
+            showToast('功能开发中：双向链接');
+            break;
+
+          case 'moveAsChild':
+            showToast('功能开发中：移到子卡片');
+            break;
+
+          case 'moveAsChildAndLocate':
+            showToast('功能开发中：移到子卡片并定位');
+            break;
+
+          case 'addTemplateAsChild':
+            showToast('功能开发中：增加模板并添加为子卡片');
+            break;
+
+          case 'addTemplateAsChildAndLocate':
+            showToast('功能开发中：增加模板并添加为子卡片并定位');
+            break;
+
           default:
+            showToast('未知操作');
             break;
         }
       }
