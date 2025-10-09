@@ -17151,9 +17151,12 @@ class KnowledgeBaseIndexer {
       
       // 保存主索引文件
       await this.saveIndexManifest(manifest);
-      
+
+      // 清空增量索引（全局索引已包含所有卡片）
+      this.clearIncrementalIndex();
+
       MNUtil.showHUD(`索引构建完成：共 ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
-      
+
     } catch (error) {
       // 清理临时文件
       if (manifest.metadata.tempFiles && manifest.metadata.tempFiles.length > 0) {
@@ -17596,13 +17599,134 @@ class KnowledgeBaseIndexer {
       return null;
     }
   }
+
+  /**
+   * 加载增量索引
+   * @returns {Object|null} 增量索引对象，失败返回 null
+   */
+  static loadIncrementalIndex() {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/kb-incremental-index.json";
+      const data = MNUtil.readJSON(filepath);
+      return data || null;
+    } catch (error) {
+      // 文件不存在时返回 null，这是正常情况
+      return null;
+    }
+  }
+  
+  /**
+   * 保存增量索引
+   * @param {Object} data - 增量索引数据
+   * @returns {boolean} 保存成功返回 true
+   */
+  static saveIncrementalIndex(data) {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/kb-incremental-index.json";
+      MNUtil.writeJSON(filepath, data);
+      return true;
+    } catch (error) {
+      MNUtil.showHUD("保存增量索引失败: " + error.message);
+      MNLog.error(error, "KnowledgeBaseIndexer: saveIncrementalIndex");
+      return false;
+    }
+  }
+  
+  /**
+   * 添加单张卡片到增量索引
+   * 如果卡片已存在，会删除旧条目并添加新条目
+   * @param {MNNote} note - 要添加的卡片
+   * @returns {boolean} 添加成功返回 true
+   */
+  static addToIncrementalIndex(note) {
+    try {
+      // 1. 加载现有增量索引
+      let incrementalIndex = this.loadIncrementalIndex();
+      
+      // 2. 如果索引不存在，初始化新索引
+      if (!incrementalIndex) {
+        incrementalIndex = {
+          metadata: {
+            version: "incremental-1.0",
+            lastUpdated: new Date().toISOString(),
+            cardCount: 0
+          },
+          cards: []
+        };
+      }
+      
+      // 3. 检查卡片是否已存在，存在则删除旧条目
+      const noteId = note.noteId;
+      const existingIndex = incrementalIndex.cards.findIndex(card => card.id === noteId);
+      if (existingIndex !== -1) {
+        incrementalIndex.cards.splice(existingIndex, 1);
+        MNUtil.log(`增量索引：移除卡片 ${noteId} 的旧条目`);
+      }
+      
+      // 4. 构建新的索引条目
+      const entry = this.buildIndexEntry(note);
+      if (!entry) {
+        MNUtil.showHUD("无法为该卡片构建索引条目");
+        return false;
+      }
+      
+      // 5. 添加新条目
+      incrementalIndex.cards.push(entry);
+      
+      // 6. 更新元数据
+      incrementalIndex.metadata.lastUpdated = new Date().toISOString();
+      incrementalIndex.metadata.cardCount = incrementalIndex.cards.length;
+      
+      // 7. 保存增量索引
+      const saved = this.saveIncrementalIndex(incrementalIndex);
+      
+      if (saved) {
+        MNUtil.showHUD(`已添加到增量索引 (共 ${incrementalIndex.metadata.cardCount} 张)`);
+        return true;
+      } else {
+        return false;
+      }
+      
+    } catch (error) {
+      MNUtil.showHUD("添加到增量索引失败: " + error.message);
+      MNLog.error(error, "KnowledgeBaseIndexer: addToIncrementalIndex");
+      return false;
+    }
+  }
+  
+  /**
+   * 清空增量索引
+   * @returns {boolean} 清空成功返回 true
+   */
+  static clearIncrementalIndex() {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/kb-incremental-index.json";
+      
+      // 初始化空的增量索引
+      const emptyIndex = {
+        metadata: {
+          version: "incremental-1.0",
+          lastUpdated: new Date().toISOString(),
+          cardCount: 0
+        },
+        cards: []
+      };
+      
+      MNUtil.writeJSON(filepath, emptyIndex);
+      MNUtil.log("增量索引已清空");
+      return true;
+    } catch (error) {
+      MNLog.error(error, "KnowledgeBaseIndexer: clearIncrementalIndex");
+      return false;
+    }
+  }
 }
 
 /**
  * 快速搜索器 - 基于索引的快速搜索
  */
 class KnowledgeBaseSearcher {
-  constructor(indexOrManifest) {
+  constructor(indexOrManifest, incrementalIndex = null) {
     // 判断是新版分片索引还是旧版单文件索引
     if (indexOrManifest && indexOrManifest.metadata) {
       if (indexOrManifest.metadata.version !== "1.0" && indexOrManifest.parts) {
@@ -17621,6 +17745,9 @@ class KnowledgeBaseSearcher {
       this.manifest = null;
       this.mode = 'unknown';
     }
+
+    // 保存增量索引
+    this.incrementalIndex = incrementalIndex;
   }
 
   static lastSearchTypes
@@ -17670,18 +17797,24 @@ class KnowledgeBaseSearcher {
    * 从文件加载索引并创建搜索器
    */
   static async loadFromFile(filename = "kb-search-index.json") {
+    // 加载增量索引
+    const incrementalIndex = KnowledgeBaseIndexer.loadIncrementalIndex();
+    if (incrementalIndex && incrementalIndex.metadata.cardCount > 0) {
+      MNUtil.log(`加载增量索引：${incrementalIndex.metadata.cardCount} 张卡片`);
+    }
+
     // 首先尝试加载新版分片索引
     const manifest = KnowledgeBaseIndexer.loadIndexManifest();
     if (manifest && manifest.metadata) {
       MNUtil.log("加载分片索引模式");
-      return new KnowledgeBaseSearcher(manifest);
+      return new KnowledgeBaseSearcher(manifest, incrementalIndex);
     }
 
     // 向后兼容：尝试加载旧版单文件索引
     const index = KnowledgeBaseIndexer.loadIndex(filename);
     if (index) {
       MNUtil.log("加载单文件索引模式（旧版）");
-      return new KnowledgeBaseSearcher(index);
+      return new KnowledgeBaseSearcher(index, incrementalIndex);
     }
 
     return null;
@@ -17912,12 +18045,35 @@ class KnowledgeBaseSearcher {
         MNUtil.showHUD("索引格式未知");
         return [];
       }
-      
+
+      // 搜索增量索引（如果存在）
+      if (this.incrementalIndex && this.incrementalIndex.cards && this.incrementalIndex.cards.length > 0) {
+        MNUtil.log(`搜索增量索引：${this.incrementalIndex.cards.length} 张卡片`);
+
+        const incrementalResults = this.searchInData(this.incrementalIndex.cards, parsedQuery, {
+          types,
+          classificationSubtypes,
+          limit: limit - results.length,
+          exclusionInfo,
+          hasActiveExclusions,
+          userKeywords
+        });
+
+        // 合并结果并去重（按 noteId）
+        const existingIds = new Set(results.map(r => r.id));
+        for (const result of incrementalResults) {
+          if (!existingIds.has(result.id)) {
+            results.push(result);
+            existingIds.add(result.id);
+          }
+        }
+      }
+
     } catch (error) {
       MNUtil.showHUD("搜索失败: " + error.message);
       MNLog.error(error, "KnowledgeBaseSearcher: search");
     }
-    
+
     return results.slice(0, limit);
   }
   
