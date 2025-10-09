@@ -941,8 +941,13 @@
        */
       loadSearchIndex: function(indexData) {
         console.log('Bridge.loadSearchIndex 被调用', indexData);
-        if (window.app && typeof window.app.loadDataset === 'function') {
-          window.app.loadDataset('default', indexData.cards || []);
+        // 使用 MNKB API 或直接调用 setCardsForDataset
+        if (window.MNKB && typeof window.MNKB.setSearchResults === 'function') {
+          window.MNKB.setSearchResults(indexData.cards || []);
+        } else if (typeof setCardsForDataset === 'function') {
+          setCardsForDataset('default', indexData.cards || []);
+        } else {
+          console.error('无法加载数据：setCardsForDataset 和 MNKB.setSearchResults 都未定义');
         }
       },
 
@@ -952,8 +957,13 @@
        */
       updateResults: function(results) {
         console.log('Bridge.updateResults 被调用', results);
-        if (window.app && typeof window.app.loadDataset === 'function') {
-          window.app.loadDataset('default', results || []);
+        // 使用 MNKB API 或直接调用 setCardsForDataset
+        if (window.MNKB && typeof window.MNKB.setSearchResults === 'function') {
+          window.MNKB.setSearchResults(results || []);
+        } else if (typeof setCardsForDataset === 'function') {
+          setCardsForDataset('default', results || []);
+        } else {
+          console.error('无法更新结果：setCardsForDataset 和 MNKB.setSearchResults 都未定义');
         }
       },
 

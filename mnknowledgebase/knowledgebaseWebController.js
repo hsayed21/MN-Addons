@@ -77,10 +77,20 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
   // ========================================
 
   webViewDidFinishLoad: function(webView) {
+    MNUtil.log("=== webViewDidFinishLoad 被调用 ===")
+    MNUtil.log("webView URL: " + webView.request.URL())
+
     // WebView 加载完成后初始化数据
-    self.loadSearchData()
-    MNUtil.log("WebView 加载完成")
+    try {
+      self.loadSearchData()
+      MNUtil.log("loadSearchData 调用成功")
+    } catch (error) {
+      MNUtil.log("loadSearchData 调用失败: " + error)
+      MNUtil.copyJSON(error)
+    }
+
     self.webViewLoaded = true
+    MNUtil.log("webViewLoaded 设置为 true")
   },
 
   webViewDidFailLoadWithError: function(webView, error) {
@@ -90,14 +100,29 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
 
 knowledgebaseWebController.prototype.loadHTMLFile = function() {
   try {
+    MNUtil.log("=== loadHTMLFile 开始 ===")
     let htmlPath = KnowledgeBaseConfig.mainPath + "/search.html"
+    MNUtil.log("HTML 路径: " + htmlPath)
+
+    // 检查文件是否存在
+    if (!MNUtil.isfileExists(htmlPath)) {
+      MNUtil.log("错误: HTML 文件不存在!")
+      MNUtil.showHUD("HTML 文件不存在: " + htmlPath)
+      return
+    }
+
     let htmlURL = NSURL.fileURLWithPath(htmlPath)
+    MNUtil.log("HTML URL: " + htmlURL)
+
     let request = NSURLRequest.requestWithURL(htmlURL)
+    MNUtil.log("NSURLRequest 创建成功")
+
     this.webView.loadRequest(request)
-    MNUtil.log("开始加载 HTML 文件: " + htmlPath)
+    MNUtil.log("loadRequest 调用成功,等待加载完成...")
   } catch (error) {
     MNUtil.showHUD("加载 HTML 失败: " + error)
     MNUtil.log("加载 HTML 错误: " + error)
+    MNUtil.copyJSON(error)
   }
 }
 
@@ -161,31 +186,59 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
  * @returns {Promise} 返回执行结果
  */
 knowledgebaseWebController.prototype.runJavaScript = async function(script, delay) {
-  if (!this.webview || !this.webview.window) {
+  MNUtil.log("=== runJavaScript 被调用 ===")
+  MNUtil.log("脚本前100个字符: " + script.substring(0, 100))
+  MNUtil.log("延迟执行: " + (delay || "否"))
+
+  if (!this.webView || !this.webView.window) {
+    MNUtil.log("错误: webView 或 webView.window 不存在!")
+    MNUtil.log("webView: " + this.webView)
+    MNUtil.log("webView.window: " + (this.webView ? this.webView.window : "N/A"))
     return undefined
   }
+
+  MNUtil.log("webView 状态正常,准备执行 JavaScript")
 
   return new Promise((resolve, reject) => {
     if (delay) {
       // 使用定时器延迟执行
+      MNUtil.log("使用定时器延迟 " + delay + " 秒执行")
       this.viewTimer = NSTimer.scheduledTimerWithTimeInterval(delay, true, () => {
-        this.webview.evaluateJavaScript(script, (result) => {
+        MNUtil.log("定时器触发,执行 JavaScript")
+        this.webView.evaluateJavaScript(script, (result) => {
+          MNUtil.log("evaluateJavaScript 回调执行")
+          MNUtil.log("返回结果: " + result)
           if (MNUtil.isNSNull(result)) {
+            MNUtil.log("结果为 null")
             resolve(undefined)
           } else {
+            MNUtil.log("结果非 null: " + JSON.stringify(result))
             resolve(result)
           }
         })
       })
     } else {
       // 立即执行
-      this.webview.evaluateJavaScript(script, (result) => {
-        if (MNUtil.isNSNull(result)) {
-          resolve(undefined)
-        } else {
-          resolve(result)
-        }
-      })
+      MNUtil.log("立即执行 JavaScript")
+      try {
+        this.webView.evaluateJavaScript(script, (result) => {
+          MNUtil.log("evaluateJavaScript 回调执行")
+          MNUtil.log("返回结果类型: " + typeof result)
+          MNUtil.log("返回结果: " + result)
+          if (MNUtil.isNSNull(result)) {
+            MNUtil.log("结果为 null,返回 undefined")
+            resolve(undefined)
+          } else {
+            MNUtil.log("结果非 null: " + JSON.stringify(result))
+            resolve(result)
+          }
+        })
+        MNUtil.log("evaluateJavaScript 调用完成")
+      } catch (error) {
+        MNUtil.log("evaluateJavaScript 发生错误: " + error)
+        MNUtil.copyJSON(error)
+        reject(error)
+      }
     }
   })
 }
@@ -199,60 +252,82 @@ knowledgebaseWebController.prototype.runJavaScript = async function(script, dela
  */
 knowledgebaseWebController.prototype.loadSearchData = async function() {
   try {
+    MNUtil.log("=== loadSearchData 开始执行 ===")
     let allCards = [];
     let metadata = {};
-    
+
     // 1. 尝试加载分片索引（新版模式）
     let manifestPath = MNUtil.dbFolder + "/data/kb-search-index-manifest.json"
+    MNUtil.log("检查 manifest 文件: " + manifestPath)
     let manifest = MNUtil.readJSON(manifestPath);
-    
+
     if (manifest && manifest.parts) {
       // 分片模式：加载所有分片
-      MNUtil.log("WebView: 加载分片索引数据");
-      
+      MNUtil.log("发现分片索引,共 " + manifest.parts.length + " 个分片");
+
       for (const partInfo of manifest.parts) {
         let partPath = MNUtil.dbFolder + "/data/" + partInfo.filename;
+        MNUtil.log("加载分片: " + partInfo.filename);
         let partData = MNUtil.readJSON(partPath);
-        
+
         if (partData && partData.data) {
           allCards = allCards.concat(partData.data);
+          MNUtil.log("分片加载成功,当前总卡片数: " + allCards.length);
         }
       }
-      
+
       metadata = manifest.metadata || {};
-      
+
     } else {
       // 旧版模式：尝试加载单文件
-      MNUtil.log("WebView: 尝试加载旧版单文件索引");
+      MNUtil.log("未找到分片索引,尝试加载旧版单文件索引");
       let indexPath = MNUtil.dbFolder + "/data/kb-search-index.json"
-      let indexData = MNUtil.readJSON(indexPath);
-      
-      if (!indexData || !indexData.cards) {
+      MNUtil.log("索引文件路径: " + indexPath)
+
+      if (!MNUtil.isfileExists(indexPath)) {
+        MNUtil.log("错误: 索引文件不存在!")
         MNUtil.showHUD("索引未找到，请先更新搜索索引")
         return
       }
-      
+
+      let indexData = MNUtil.readJSON(indexPath);
+      MNUtil.log("索引文件读取完成")
+
+      if (!indexData || !indexData.cards) {
+        MNUtil.log("错误: 索引数据格式不正确!")
+        MNUtil.showHUD("索引未找到，请先更新搜索索引")
+        return
+      }
+
       allCards = indexData.cards;
       metadata = indexData.metadata || {};
+      MNUtil.log("旧版索引加载成功,卡片数: " + allCards.length);
     }
-    
+
     // 2. 加载增量索引（如果存在）
     let incrementalPath = MNUtil.dbFolder + "/data/kb-incremental-index.json";
+    MNUtil.log("检查增量索引: " + incrementalPath);
+
     if (MNUtil.isfileExists(incrementalPath)) {
       let incrementalData = MNUtil.readJSON(incrementalPath);
       if (incrementalData && incrementalData.cards) {
-        MNUtil.log(`WebView: 加载增量索引：${incrementalData.cards.length} 张卡片`);
-        
+        MNUtil.log(`发现增量索引：${incrementalData.cards.length} 张卡片`);
+
         // 合并并去重（基于 noteId）
         const existingIds = new Set(allCards.map(card => card.id));
+        let addedCount = 0;
         for (const card of incrementalData.cards) {
           if (!existingIds.has(card.id)) {
             allCards.push(card);
+            addedCount++;
           }
         }
+        MNUtil.log(`增量索引合并完成,新增 ${addedCount} 张卡片`);
       }
+    } else {
+      MNUtil.log("未发现增量索引文件");
     }
-    
+
     // 3. 构建完整的索引数据
     const fullIndexData = {
       cards: allCards,
@@ -262,16 +337,26 @@ knowledgebaseWebController.prototype.loadSearchData = async function() {
         ...metadata
       }
     };
-    
-    MNUtil.log(`WebView: 数据准备完成：共 ${allCards.length} 张卡片`);
-    
+
+    MNUtil.log(`数据准备完成：共 ${allCards.length} 张卡片`);
+    MNUtil.log("准备调用 JavaScript...");
+
+    // 检查 webView 状态
+    MNUtil.log("webView 存在: " + (this.webView ? "是" : "否"));
+    MNUtil.log("webView.window 存在: " + (this.webView && this.webView.window ? "是" : "否"));
+
     // 将数据传递给 HTML
     let script = `window.Bridge.loadSearchIndex(${JSON.stringify(fullIndexData)})`
-    await this.runJavaScript(script)
-    
+    MNUtil.log("JavaScript 脚本长度: " + script.length + " 字符");
+
+    let result = await this.runJavaScript(script)
+    MNUtil.log("runJavaScript 返回结果: " + result);
+
     MNUtil.showHUD(`已加载 ${allCards.length} 张卡片`)
+    MNUtil.log("=== loadSearchData 执行完成 ===")
 
   } catch (error) {
+    MNUtil.log("loadSearchData 发生错误: " + error)
     MNUtil.showHUD("加载数据失败: " + error)
     MNUtil.copyJSON(error)
   }
@@ -305,7 +390,7 @@ knowledgebaseWebController.prototype.locateCardInMindMap = async function(noteId
     await MNUtil.delay(0.3)
 
     // 聚焦到卡片
-    MNNote.focusNote(note)
+    note.focusInMindMap()
 
     MNUtil.showHUD("已定位")
 
@@ -339,7 +424,7 @@ knowledgebaseWebController.prototype.focusCardInDocument = async function(noteId
     await MNUtil.delay(0.3)
 
     // 聚焦到文档位置
-    MNNote.focusNote(note)
+    note.focusInMindMap()
 
     MNUtil.showHUD("已定位到文档")
 

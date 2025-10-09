@@ -1146,9 +1146,12 @@ JSB.newAddon = function(mainPath){
       
       // 调用 Bridge 方法加载数据
       let script = `window.Bridge.loadSearchIndex(${JSON.stringify(fullIndexData)})`
-      await KnowledgeBaseUtils.webViewController.runJavaScript(script)
+      let input = await KnowledgeBaseUtils.webViewController.runJavaScript(script)
       
-      MNUtil.showHUD(`加载成功：${allCards.length} 张卡片`)
+      if (input) {
+        MNUtil.showHUD(`加载成功：${allCards.length} 张卡片`)
+        KnowledgeBaseUtils.log(`加载成功：${allCards.length} 张卡片`)
+      }
 
     } catch (error) {
       MNUtil.showHUD("加载索引失败：" + error.message)
