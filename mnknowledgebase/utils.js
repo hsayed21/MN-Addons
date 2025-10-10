@@ -19924,9 +19924,9 @@ For any formulas, do not use LaTeX form, i.e. enclose them with dollar signs "$.
 
 ## Output Format
 Case1: If the text is in English or other languages, output as:
-[Professional Chinese translation with mathematical terminology]: [Original extracted text with Unicode formatting]
+Professional Chinese translation with mathematical terminology: Original extracted text with Unicode formatting
 Case2: If the text is already in Chinese, output as:
-[Original extracted Chinese text]
+Original extracted Chinese text
 
 ## Output Rules
 

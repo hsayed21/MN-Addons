@@ -34,6 +34,11 @@ JSB.newAddon = function(mainPath){
       try {
         KnowledgeBaseConfig.init(mainPath)
 
+        // 保存插件实例引用，供 knowledgebaseWebController 调用
+        if (typeof MNKnowledgeBaseInstance === 'undefined') {
+          global.MNKnowledgeBaseInstance = self
+        }
+
         // 注册插件通信观察者
         // MNUtil.addObserver(self, 'onOpenKnowledgeBaseSearch:', 'openKnowledgeBaseSearch')
 
@@ -368,7 +373,9 @@ JSB.newAddon = function(mainPath){
     },
 
     /**
-     * 打开可视化搜索 WebView（新增功能）
+     * 打开可视化搜索 WebView
+     *
+     * 注意：数据加载由 show() 方法自动处理，无需手动加载
      */
     openSearchWebView: async function() {
       try {
@@ -377,10 +384,13 @@ JSB.newAddon = function(mainPath){
         // 确保控制器已初始化（使用新的延迟初始化方法）
         KnowledgeBaseUtils.checkWebViewController()
 
-        // 如果已显示，直接返回前台
+        // 如果已显示，直接返回前台（会自动刷新数据）
         if (!KnowledgeBaseUtils.webViewController.view.hidden) {
           MNUtil.studyView.bringSubviewToFront(KnowledgeBaseUtils.webViewController.view)
           MNUtil.showHUD("知识库搜索")
+          // 即使已显示，也刷新一次数据
+          await KnowledgeBaseUtils.webViewController.refreshAllData()
+          return
         }
 
         if (!KnowledgeBaseUtils.webViewController.webViewLoaded) {
@@ -388,14 +398,11 @@ JSB.newAddon = function(mainPath){
           KnowledgeBaseUtils.webViewController.loadHTMLFile()
         }
 
-        // 显示窗口 - 传入合适的参数
-        KnowledgeBaseUtils.webViewController.show(
+        // 显示窗口（show 方法会自动刷新所有数据）
+        await KnowledgeBaseUtils.webViewController.show(
           null,  // 无起始位置动画
           { x: 50, y: 50, width: 800, height: 800 }  // 目标位置和大小
         )
-
-        // 异步加载数据
-        await self.loadSearchDataToWebView()
 
       } catch (error) {
         MNUtil.showHUD("打开可视化搜索失败")
@@ -1156,6 +1163,95 @@ JSB.newAddon = function(mainPath){
     } catch (error) {
       MNUtil.showHUD("加载索引失败：" + error.message)
       KnowledgeBaseUtils.addErrorLog(error, "loadSearchDataToWebView")
+    }
+  }
+
+  /**
+   * 加载中间知识库数据到 WebView
+   */
+  MNKnowledgeBaseClass.prototype.loadIntermediateDataToWebView = async function() {
+    try {
+      let allCards = [];
+      let metadata = {};
+
+      // 1. 尝试加载中间知识库的分片索引
+      let manifestPath = MNUtil.dbFolder + "/data/intermediate-kb-index-manifest.json"
+      let manifest = MNUtil.readJSON(manifestPath);
+
+      if (manifest && manifest.parts) {
+        // 分片模式：加载所有分片
+        MNUtil.log("加载中间知识库分片索引数据");
+
+        for (const partInfo of manifest.parts) {
+          let partPath = MNUtil.dbFolder + "/data/" + partInfo.filename;
+          let partData = MNUtil.readJSON(partPath);
+
+          if (partData && partData.data) {
+            allCards = allCards.concat(partData.data);
+          }
+        }
+
+        metadata = manifest.metadata || {};
+
+      } else {
+        // 旧版模式：尝试加载单文件
+        MNUtil.log("尝试加载旧版中间知识库单文件索引");
+        let indexPath = MNUtil.dbFolder + "/data/intermediate-kb-index.json"
+        let indexData = MNUtil.readJSON(indexPath);
+
+        if (!indexData || !indexData.cards) {
+          MNUtil.log("中间知识库索引未找到")
+          // 不显示错误提示，因为中间知识库可能还没有建立索引
+          return
+        }
+
+        allCards = indexData.cards;
+        metadata = indexData.metadata || {};
+      }
+
+      // 2. 加载中间知识库的增量索引（如果存在）
+      let incrementalPath = MNUtil.dbFolder + "/data/intermediate-kb-incremental-index.json";
+      if (MNUtil.isfileExists(incrementalPath)) {
+        let incrementalData = MNUtil.readJSON(incrementalPath);
+        if (incrementalData && incrementalData.cards) {
+          MNUtil.log(`加载中间知识库增量索引：${incrementalData.cards.length} 张卡片`);
+
+          // 合并并去重（基于 noteId）
+          const existingIds = new Set(allCards.map(card => card.id));
+          for (const card of incrementalData.cards) {
+            if (!existingIds.has(card.id)) {
+              allCards.push(card);
+            }
+          }
+        }
+      }
+
+      // 3. 构建完整的索引数据
+      const fullIndexData = {
+        cards: allCards,
+        metadata: {
+          totalCards: allCards.length,
+          updateTime: metadata.updateTime || Date.now(),
+          ...metadata
+        }
+      };
+
+      MNUtil.log(`中间知识库数据准备完成：共 ${allCards.length} 张卡片`);
+
+      // 等待 WebView 加载完成
+      await MNUtil.delay(0.5)
+
+      // 调用 Bridge 方法加载中间知识库数据
+      let script = `window.Bridge.loadIntermediateIndex(${JSON.stringify(fullIndexData)})`
+      let input = await KnowledgeBaseUtils.webViewController.runJavaScript(script)
+
+      if (input) {
+        MNUtil.log(`中间知识库加载成功：${allCards.length} 张卡片`)
+      }
+
+    } catch (error) {
+      MNUtil.log("加载中间知识库失败：" + error.message)
+      KnowledgeBaseUtils.addErrorLog(error, "loadIntermediateDataToWebView")
     }
   }
 

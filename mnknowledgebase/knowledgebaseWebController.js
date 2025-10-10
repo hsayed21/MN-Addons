@@ -119,15 +119,9 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
     MNUtil.log("=== webViewDidFinishLoad 被调用 ===")
     MNUtil.log("webView URL: " + webView.request.URL())
 
-    // WebView 加载完成后初始化数据
-    try {
-      self.loadSearchData()
-      MNUtil.log("loadSearchData 调用成功")
-    } catch (error) {
-      MNUtil.log("loadSearchData 调用失败: " + error)
-      MNUtil.copyJSON(error)
-    }
-
+    // 标记 WebView 已加载完成
+    // 注意：不再在这里自动加载数据，改为在 show() 方法中主动刷新
+    // 这样可以避免重复加载，并确保每次显示时都是最新数据
     self.webViewLoaded = true
     MNUtil.log("webViewLoaded 设置为 true")
   },
@@ -609,10 +603,11 @@ knowledgebaseWebController.prototype.refreshSearchResults = async function(resul
 
 /**
  * 显示浮动窗口（参考 mnbrowser）
+ * 增强功能：每次显示时自动刷新所有数据
  * @param {Object} beginFrame - 动画起始位置（可选）
  * @param {Object} endFrame - 最终位置和大小（可选）
  */
-knowledgebaseWebController.prototype.show = function(beginFrame, endFrame) {
+knowledgebaseWebController.prototype.show = async function(beginFrame, endFrame) {
   let targetFrame = endFrame || { x: 50, y: 50, width: 420, height: 600 }
   let studyFrame = MNUtil.studyView.frame
 
@@ -633,8 +628,16 @@ knowledgebaseWebController.prototype.show = function(beginFrame, endFrame) {
   MNUtil.animate(() => {
     this.view.layer.opacity = 1.0
     this.view.frame = targetFrame
-  }).then(() => {
+  }).then(async () => {
     MNUtil.studyView.bringSubviewToFront(this.view)
+
+    // 显示完成后自动刷新数据（确保 WebView 已加载）
+    if (this.webViewLoaded) {
+      MNUtil.log("WebView 已加载，开始自动刷新数据")
+      await this.refreshAllData()
+    } else {
+      MNUtil.log("WebView 尚未加载，跳过自动刷新")
+    }
   })
 }
 
@@ -938,14 +941,70 @@ knowledgebaseWebController.prototype.copyMarkdownLink = async function(noteId) {
   }
 }
 
-// /**
-//  * 
-//  * @param {string} noteId - 卡片 ID
-//  */
-// knowledgebaseWebController.prototype. = async function(noteId) {
-//   try {
+// ========================================
+// 数据刷新方法（供外部调用）
+// ========================================
 
-//   } catch (error) {
-//     KnowledgeBaseUtils.addErrorLog()
-//   }
-// }
+/**
+ * 刷新主知识库数据
+ * 调用 main.js 中的 loadSearchDataToWebView 方法
+ */
+knowledgebaseWebController.prototype.refreshKnowledgeData = async function() {
+  try {
+    MNUtil.log("=== refreshKnowledgeData 开始执行 ===")
+
+    // 调用 main.js 中的数据加载方法（注意使用 global 前缀访问）
+    if (typeof global.MNKnowledgeBaseInstance !== 'undefined' && global.MNKnowledgeBaseInstance.loadSearchDataToWebView) {
+      await global.MNKnowledgeBaseInstance.loadSearchDataToWebView()
+      MNUtil.log("主知识库数据刷新成功")
+    } else {
+      MNUtil.log("错误: MNKnowledgeBaseInstance 或 loadSearchDataToWebView 方法不存在")
+    }
+  } catch (error) {
+    MNUtil.log("refreshKnowledgeData 发生错误: " + error)
+    MNUtil.showHUD("刷新主知识库数据失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "refreshKnowledgeData")
+  }
+}
+
+/**
+ * 刷新中间知识库数据
+ * 调用 main.js 中的 loadIntermediateDataToWebView 方法
+ */
+knowledgebaseWebController.prototype.refreshIntermediateData = async function() {
+  try {
+    MNUtil.log("=== refreshIntermediateData 开始执行 ===")
+
+    // 调用 main.js 中的数据加载方法（注意使用 global 前缀访问）
+    if (typeof global.MNKnowledgeBaseInstance !== 'undefined' && global.MNKnowledgeBaseInstance.loadIntermediateDataToWebView) {
+      await global.MNKnowledgeBaseInstance.loadIntermediateDataToWebView()
+      MNUtil.log("中间知识库数据刷新成功")
+    } else {
+      MNUtil.log("错误: MNKnowledgeBaseInstance 或 loadIntermediateDataToWebView 方法不存在")
+    }
+  } catch (error) {
+    MNUtil.log("refreshIntermediateData 发生错误: " + error)
+    MNUtil.showHUD("刷新中间知识库数据失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "refreshIntermediateData")
+  }
+}
+
+/**
+ * 刷新所有数据集（主知识库 + 中间知识库）
+ * 这是推荐的统一刷新接口
+ */
+knowledgebaseWebController.prototype.refreshAllData = async function() {
+  try {
+    MNUtil.log("=== refreshAllData 开始执行 ===")
+
+    // 依次刷新两个数据集
+    await this.refreshKnowledgeData()
+    await this.refreshIntermediateData()
+
+    MNUtil.log("=== refreshAllData 执行完成 ===")
+  } catch (error) {
+    MNUtil.log("refreshAllData 发生错误: " + error)
+    MNUtil.showHUD("刷新数据失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "refreshAllData")
+  }
+}

@@ -851,6 +851,7 @@
       font-weight: 600;
       line-height: 1.4;
       word-break: break-word;
+      padding-right: 120px;  /* 为右侧图标留出空间,避免遮挡 */
     }
 
     .card-snippet {
@@ -1393,9 +1394,26 @@
         if (window.MNKB && typeof window.MNKB.setSearchResults === 'function') {
           window.MNKB.setSearchResults(indexData.cards || []);
         } else if (typeof setCardsForDataset === 'function') {
-          setCardsForDataset('default', indexData.cards || []);
+          setCardsForDataset('knowledge', indexData.cards || []);
         } else {
           console.error('无法加载数据：setCardsForDataset 和 MNKB.setSearchResults 都未定义');
+        }
+      },
+
+      /**
+       * 加载中间知识库索引数据 (Native → JS)
+       * @param {Object} indexData - 索引数据对象
+       * @param {Array} indexData.cards - 卡片数组
+       */
+      loadIntermediateIndex: function(indexData) {
+        console.log('Bridge.loadIntermediateIndex 被调用', indexData);
+
+        // 直接调用 setCardsForDataset 加载中间知识库数据
+        if (typeof setCardsForDataset === 'function') {
+          setCardsForDataset('intermediate', indexData.cards || []);
+          console.log('已加载中间知识库数据：', indexData.cards ? indexData.cards.length : 0, '张卡片');
+        } else {
+          console.error('无法加载中间知识库数据：setCardsForDataset 未定义');
         }
       },
 
@@ -1409,7 +1427,7 @@
         if (window.MNKB && typeof window.MNKB.setSearchResults === 'function') {
           window.MNKB.setSearchResults(results || []);
         } else if (typeof setCardsForDataset === 'function') {
-          setCardsForDataset('default', results || []);
+          setCardsForDataset('knowledge', results || []);
         } else {
           console.error('无法更新结果：setCardsForDataset 和 MNKB.setSearchResults 都未定义');
         }
@@ -2327,20 +2345,31 @@
 
       function updateDatasetCards(datasetKey, cards, { replace = true } = {}) {
         if (!datasetKey) datasetKey = state.currentDatasetKey;
-        const current = state.datasets[datasetKey] || { label: datasetKey, cards: [] };
+
+        // 创建新对象而不是获取引用,避免修改原对象
+        const existing = state.datasets[datasetKey];
+        const current = {
+          label: existing?.label || datasetKey,
+          cards: [],  // 将在下面设置
+          count: 0
+        };
+
         const sanitized = Array.isArray(cards) ? cards.filter(Boolean) : [];
         if (replace) {
+          // 替换模式:直接使用新卡片数组
           current.cards = sanitized.slice();
         } else {
-          const existing = new Map((current.cards || []).map((item) => [item.id, item]));
+          // 合并模式:保留现有卡片,添加新卡片
+          const existingCards = existing?.cards || [];
+          const cardMap = new Map(existingCards.map((item) => [item.id, item]));
           sanitized.forEach((item) => {
-            if (!item || !item.id || existing.has(item.id)) return;
-            existing.set(item.id, item);
+            if (!item || !item.id || cardMap.has(item.id)) return;
+            cardMap.set(item.id, item);
           });
-          current.cards = Array.from(existing.values());
+          current.cards = Array.from(cardMap.values());
         }
+
         current.count = current.cards.length;
-        if (!current.label) current.label = datasetKey;
         state.datasets[datasetKey] = current;
 
         if (datasetKey === state.currentDatasetKey) {
