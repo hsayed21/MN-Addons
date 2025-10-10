@@ -17222,7 +17222,13 @@ class KnowledgeBaseIndexer {
       
       // 构建搜索文本
       entry.searchText = this.buildSearchText(parsedTitle, noteType, keywordsContent);
-      
+
+      // 添加排除词组信息（用于搜索时过滤）
+      const applicableGroups = this.analyzeExclusionGroups(entry.searchText);
+      if (applicableGroups.length > 0) {
+        entry.excludedGroups = applicableGroups;
+      }
+
       return entry;
       
     } catch (error) {

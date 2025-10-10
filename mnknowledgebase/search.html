@@ -47,7 +47,7 @@
       top: 0;
       left: 0;
       right: 0;
-      z-index: 90;
+      z-index: 130;
       backdrop-filter: blur(6px);
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.9));
       border-bottom: 1px solid #e6e9ef;
@@ -60,10 +60,105 @@
       transition: transform 0.3s ease, opacity 0.3s ease;
     }
 
+    .topbar-main {
+      flex: 1 1 640px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .topbar-dataset-slot {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .btn.ghost {
+      background: transparent;
+      border-color: transparent;
+      color: #4d5e78;
+      box-shadow: none;
+    }
+
+    .btn.ghost:hover {
+      background: rgba(43, 124, 255, 0.08);
+      border-color: rgba(43, 124, 255, 0.12);
+      color: #2b7cff;
+    }
+
+    .btn.ghost:active {
+      transform: scale(0.97);
+    }
+
+    .filter-toggle {
+      position: relative;
+      padding-right: 32px;
+    }
+
+    .filter-toggle::after {
+      content: '▾';
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: currentColor;
+      transition: transform 0.2s ease;
+    }
+
+    .filter-toggle.collapsed::after {
+      transform: translateY(-50%) rotate(-90deg);
+    }
+
     .topbar.hidden {
       transform: translateY(-100%);
       opacity: 0;
       pointer-events: none;
+    }
+
+    .filters-panel {
+      position: relative;
+      z-index: 80;
+      transition: opacity 0.25s ease;
+    }
+
+    .filters-panel__section {
+      margin-bottom: 18px;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .filters-panel__section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #5b6a80;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .filters-panel__dataset {
+      display: none;
+    }
+
+    .filters-panel__dataset .dataset-toggle {
+      width: 100%;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    #filtersPanel[data-layout="compact"] .filters-panel__dataset {
+      display: block;
     }
 
     .search-input-wrap {
@@ -71,6 +166,7 @@
       gap: 8px;
       align-items: center;
       flex: 1;
+      min-width: 240px;
     }
 
     .search-input {
@@ -97,8 +193,18 @@
       padding: 4px;
       gap: 4px;
       align-items: center;
-      margin-right: 12px;
       box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+      flex-wrap: wrap;
+    }
+
+    [data-variant="primary"].dataset-toggle {
+      flex-wrap: nowrap;
+    }
+
+    [data-variant="overlay"].dataset-toggle button {
+      flex: 1 1 calc(50% - 6px);
+      min-width: 120px;
+      text-align: center;
     }
 
     .dataset-toggle button {
@@ -134,7 +240,7 @@
       background: linear-gradient(180deg, rgba(247, 248, 251, 0.95), rgba(247, 248, 251, 0.78));
       padding: 10px 20px 14px;
       backdrop-filter: blur(4px);
-      transition: transform 0.3s ease, opacity 0.3s ease;
+      transition: transform 0.3s ease, opacity 0.3s ease, max-height 0.3s ease, padding 0.3s ease;
     }
 
     .pill-section.hidden {
@@ -289,6 +395,60 @@
       color: #999;
     }
 
+    body.filters-collapsed {
+      --toolbar-gap: 18px;
+      --preset-max-height: 0px;
+      --negative-height: 0px;
+      --spacing-buffer: 12px;
+    }
+
+    body.filters-overlay {
+      overflow: hidden;
+    }
+
+    body.filters-collapsed .topbar {
+      box-shadow: 0 12px 30px rgba(20, 50, 100, 0.12);
+      border-bottom-color: transparent;
+    }
+
+    body.filters-collapsed .filters-panel {
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    body.filters-collapsed .pill-section {
+      opacity: 0;
+      pointer-events: none;
+      max-height: 0 !important;
+      padding-top: 0;
+      padding-bottom: 0;
+      transform: translateY(-12px);
+      overflow: hidden;
+      border-bottom-color: transparent;
+    }
+
+    body.filters-collapsed .filters-panel__section {
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(-12px);
+    }
+
+    body.filters-collapsed .filters-panel__dataset {
+      max-height: 0;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    body.filters-collapsed .pill-section__header,
+    body.filters-collapsed .pill-section__content {
+      opacity: 0;
+    }
+
+    body.filters-collapsed .pill-section__content {
+      max-height: 0 !important;
+    }
+
     /* 预设分组样式 */
     .preset-group {
       margin-bottom: 12px;
@@ -377,6 +537,89 @@
       border-color: #f0b6d0;
       box-shadow: 0 2px 6px rgba(194, 59, 107, 0.08);
     }
+
+    /* ========== 分层预设样式 ========== */
+
+    /* 可展开的 pill */
+    .pill--expandable {
+      font-weight: 500;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .pill--expandable:hover {
+      background: #e7f5ff;
+      border-color: #339af0;
+      transform: translateY(-1px);
+    }
+
+    /* 子级行容器 */
+    .pill-row--child {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      border-left: 3px solid #dee2e6;
+    }
+
+    /* Level 2 子级 */
+    .pill-row--level-2 {
+      margin-left: 20px;
+      background: #f8f9fa;
+      border-left-color: #adb5bd;
+    }
+
+    /* Level 3 子级 */
+    .pill-row--level-3 {
+      margin-left: 40px;
+      background: #f1f3f5;
+      border-left-color: #868e96;
+    }
+
+    /* Level 4 子级 */
+    .pill-row--level-4 {
+      margin-left: 60px;
+      background: #e9ecef;
+      border-left-color: #495057;
+    }
+
+    /* 子级 pill 样式微调 */
+    .pill[data-level="2"],
+    .pill[data-level="3"],
+    .pill[data-level="4"] {
+      background: white;
+      font-size: 0.9em;
+      padding: 6px 10px;
+    }
+
+    .pill[data-level="2"]:hover {
+      background: #e7f5ff;
+      border-color: #74c0fc;
+    }
+
+    .pill[data-level="3"]:hover {
+      background: #d0ebff;
+      border-color: #4dabf7;
+    }
+
+    .pill[data-level="4"]:hover {
+      background: #a5d8ff;
+      border-color: #339af0;
+    }
+
+    /* 子级 pill 选中状态 */
+    .pill[data-level="2"].active,
+    .pill[data-level="3"].active,
+    .pill[data-level="4"].active {
+      background: var(--pill-active-bg);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ========== 分层预设样式结束 ========== */
 
     /* 主体布局 */
     .main-layout {
@@ -564,10 +807,18 @@
       border-left-width: 10px;
     }
 
-    .card-locate-icon {
+    /* 卡片操作图标容器 */
+    .card-actions {
       position: absolute;
       top: 8px;
       right: 8px;
+      display: flex;
+      gap: 6px;
+      z-index: 10;
+    }
+
+    /* 单个操作图标 */
+    .card-action-icon {
       width: 32px;
       height: 32px;
       display: flex;
@@ -581,10 +832,15 @@
       opacity: 1;
       transform: scale(1);
       transition: all 0.2s ease;
-      z-index: 10;
     }
 
-    .card-locate-icon:active {
+    .card-action-icon:hover {
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+      transform: scale(1.05);
+    }
+
+    .card-action-icon:active {
       background: var(--accent);
       color: #fff;
       box-shadow: 0 4px 12px rgba(43, 124, 255, 0.3);
@@ -758,26 +1014,71 @@
 
     /* 小屏幕设备（手机和小平板）*/
     @media (max-width: 767px) {
-      /* 所有工具栏都可折叠 */
       .pill-section__toggle-btn {
         display: inline-flex !important;
-      }
-
-      /* 默认折叠预设和排除词 */
-      .pill-section--preset .pill-section__content,
-      .pill-section--negative .pill-section__content {
-        max-height: 0;
-        opacity: 0;
-      }
-
-      .pill-section--preset .pill-section__toggle-btn,
-      .pill-section--negative .pill-section__toggle-btn {
-        transform: rotate(180deg);
       }
     }
 
     /* iPad 竖屏和小屏幕设备 */
     @media (max-width: 1024px) {
+      .topbar-dataset-slot {
+        display: none;
+      }
+
+      .filters-panel {
+        position: fixed;
+        top: calc(var(--topbar-height) + 12px);
+        left: 16px;
+        right: 16px;
+        z-index: 120;
+        background: rgba(255, 255, 255, 0.96);
+        border-radius: 16px;
+        padding: 16px 18px 18px;
+        box-shadow: 0 20px 44px rgba(30, 52, 92, 0.18);
+        overflow-y: auto;
+        max-height: calc(100vh - var(--topbar-height) - 40px);
+        pointer-events: auto;
+        transform: translateY(0);
+        opacity: 1;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+      }
+
+      body.filters-collapsed .filters-panel {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-14px);
+      }
+
+      .filters-panel .pill-section {
+        position: static;
+        background: transparent;
+        padding: 0;
+        border: none;
+        backdrop-filter: none;
+        transform: none;
+      }
+
+      .filters-panel .pill-section + .pill-section {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid rgba(210, 217, 229, 0.5);
+      }
+
+      .filters-panel .pill-section__header {
+        margin-bottom: 10px;
+      }
+
+      .filters-panel .pill-section__content {
+        max-height: 1000px;
+        opacity: 1;
+        padding-bottom: 0;
+      }
+
+      .filters-panel .pill-section__content.collapsed {
+        max-height: 0;
+        opacity: 0;
+      }
+
       .sidebar {
         position: fixed;
         left: 0;
@@ -847,6 +1148,19 @@
 
       .topbar {
         padding: 12px 14px;
+        align-items: stretch;
+      }
+
+      .topbar-main {
+        flex-direction: column;
+        align-items: stretch;
+        min-width: 100%;
+        gap: 10px;
+      }
+
+      .topbar-actions {
+        width: 100%;
+        justify-content: flex-end;
       }
 
       .pill-row {
@@ -878,84 +1192,98 @@
 </head>
 <body>
   <div class="topbar">
-    <div class="dataset-toggle" id="datasetToggle" role="group" aria-label="数据源切换">
-      <button type="button" data-dataset="knowledge" class="active">知识库</button>
-      <button type="button" data-dataset="intermediate">中间知识库</button>
+    <div class="topbar-main">
+      <div class="topbar-dataset-slot">
+        <div class="dataset-toggle" id="datasetToggle" data-role="dataset-toggle" data-variant="primary" role="group" aria-label="数据源切换">
+          <button type="button" data-dataset="knowledge" class="active">知识库</button>
+          <button type="button" data-dataset="intermediate">中间知识库</button>
+        </div>
+      </div>
+      <div class="search-input-wrap">
+        <input id="searchInput" class="search-input" placeholder="搜索知识库：输入关键字或选择下方预设" autocomplete="off" />
+        <div id="searchCount" class="search-count">0 条结果</div>
+      </div>
     </div>
-    <div class="search-input-wrap">
-      <input id="searchInput" class="search-input" placeholder="搜索知识库：输入关键字或选择下方预设" autocomplete="off" />
-      <div id="searchCount" class="search-count">0 条结果</div>
-    </div>
-    <div>
+    <div class="topbar-actions">
+      <button id="toggleFiltersBtn" class="btn ghost filter-toggle" type="button" aria-expanded="true">收起筛选</button>
       <button id="clearBtn" class="btn" type="button">清空</button>
     </div>
   </div>
 
-  <div class="pill-section pill-section--type" data-section="type">
-    <div class="pill-section__header">
-      <div class="pill-section__label-group">
-        <div class="pill-section__label">类型筛选</div>
-        <button class="pill-section__toggle-btn" data-toggle="type" type="button" aria-label="折叠/展开">
-          ▼
-        </button>
+  <div class="filters-panel" id="filtersPanel" aria-label="筛选面板">
+    <div class="filters-panel__section filters-panel__dataset">
+      <div class="filters-panel__section-title">数据源</div>
+      <div class="dataset-toggle" id="datasetToggleOverlay" data-role="dataset-toggle" data-variant="overlay" role="group" aria-label="数据源切换">
+        <button type="button" data-dataset="knowledge" class="active">知识库</button>
+        <button type="button" data-dataset="intermediate">中间知识库</button>
       </div>
     </div>
-    <div class="pill-section__content" data-content="type">
-      <div class="pill-row type-bar" id="typeBar" aria-label="类型筛选">
-        <!-- 类型筛选 pill 将在 JS 中渲染 -->
+    <div class="pill-section pill-section--type" data-section="type">
+      <div class="pill-section__header">
+        <div class="pill-section__label-group">
+          <div class="pill-section__label">类型筛选</div>
+          <button class="pill-section__toggle-btn" data-toggle="type" type="button" aria-label="折叠/展开">
+            ▼
+          </button>
+        </div>
+      </div>
+      <div class="pill-section__content" data-content="type">
+        <div class="pill-row type-bar" id="typeBar" aria-label="类型筛选">
+          <!-- 类型筛选 pill 将在 JS 中渲染 -->
+        </div>
       </div>
     </div>
-  </div>
-  <div class="pill-section pill-section--classification component-hidden" data-section="classification">
-    <div class="pill-section__header">
-      <div class="pill-section__label-group">
-        <div class="pill-section__label">归类子类型</div>
-        <button class="pill-section__toggle-btn" data-toggle="classification" type="button" aria-label="折叠/展开">
-          ▼
-        </button>
+    <div class="pill-section pill-section--classification component-hidden" data-section="classification">
+      <div class="pill-section__header">
+        <div class="pill-section__label-group">
+          <div class="pill-section__label">归类子类型</div>
+          <button class="pill-section__toggle-btn" data-toggle="classification" type="button" aria-label="折叠/展开">
+            ▼
+          </button>
+        </div>
+      </div>
+      <div class="pill-section__content" data-content="classification">
+        <div class="pill-row classification-bar" id="classificationBar" aria-label="归类二级类型">
+          <!-- 归类二级类型 pill -->
+        </div>
       </div>
     </div>
-    <div class="pill-section__content" data-content="classification">
-      <div class="pill-row classification-bar" id="classificationBar" aria-label="归类二级类型">
-        <!-- 归类二级类型 pill -->
+    <div class="pill-section pill-section--preset" data-section="preset">
+      <div class="pill-section__header">
+        <div class="pill-section__label-group">
+          <div class="pill-section__label">搜索预设</div>
+          <button class="pill-section__clear-btn" id="clearPresetsBtn" type="button">
+            <span class="clear-icon">✕</span>
+            <span class="clear-text">清除</span>
+          </button>
+          <button class="pill-section__toggle-btn" data-toggle="preset" type="button" aria-label="折叠/展开">
+            ▼
+          </button>
+        </div>
+      </div>
+      <div class="pill-section__content" data-content="preset">
+        <div id="presetBar" aria-label="搜索预设">
+          <!-- 预设分组将在 JS 中渲染 -->
+        </div>
       </div>
     </div>
-  </div>
-  <div class="pill-section pill-section--preset" data-section="preset">
-    <div class="pill-section__header">
-      <div class="pill-section__label-group">
-        <div class="pill-section__label">搜索预设</div>
-        <button class="pill-section__clear-btn" id="clearPresetsBtn" type="button">
-          <span class="clear-icon">✕</span>
-          <span class="clear-text">清除</span>
-        </button>
-        <button class="pill-section__toggle-btn" data-toggle="preset" type="button" aria-label="折叠/展开">
-          ▼
-        </button>
+    <div class="pill-section pill-section--negative" data-section="negative">
+      <div class="pill-section__header">
+        <div class="pill-section__label-group">
+          <div class="pill-section__label">排除关键词</div>
+          <button class="pill-section__clear-btn" id="clearNegativesBtn" type="button">
+            <span class="clear-icon">✕</span>
+            <span class="clear-text">清除</span>
+          </button>
+          <button class="pill-section__toggle-btn" data-toggle="negative" type="button" aria-label="折叠/展开">
+            ▼
+          </button>
+        </div>
       </div>
-    </div>
-    <div class="pill-section__content" data-content="preset">
-      <div id="presetBar" aria-label="搜索预设">
-        <!-- 预设分组将在 JS 中渲染 -->
-      </div>
-    </div>
-  </div>
-  <div class="pill-section pill-section--negative" data-section="negative">
-    <div class="pill-section__header">
-      <div class="pill-section__label-group">
-        <div class="pill-section__label">排除关键词</div>
-        <button class="pill-section__clear-btn" id="clearNegativesBtn" type="button">
-          <span class="clear-icon">✕</span>
-          <span class="clear-text">清除</span>
-        </button>
-        <button class="pill-section__toggle-btn" data-toggle="negative" type="button" aria-label="折叠/展开">
-          ▼
-        </button>
-      </div>
-    </div>
-    <div class="pill-section__content" data-content="negative">
-      <div class="pill-row negative-bar" id="negativeBar" aria-label="排除词">
-        <!-- 负向排除词（粉色）将在 JS 中渲染 -->
+      <div class="pill-section__content" data-content="negative">
+        <div class="pill-row negative-bar" id="negativeBar" aria-label="排除词">
+          <!-- 负向排除词（粉色）将在 JS 中渲染 -->
+        </div>
       </div>
     </div>
   </div>
@@ -976,17 +1304,7 @@
         <div class="selected-card-info empty" id="selectedCardInfo">未选中卡片</div>
       </div>
 
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">对选中卡片的操作</div>
-        <button class="sidebar-btn primary" id="locateInFloatBtn" type="button" disabled>
-          <span>📍</span>
-          <span>在浮窗中定位</span>
-        </button>
-        <button class="sidebar-btn" id="copyMarkdownBtn" type="button" disabled>
-          <span>📋</span>
-          <span>复制 Markdown 链接</span>
-        </button>
-      </div>
+      <!-- 已移除「对选中卡片的操作」区域,功能已迁移到卡片上的图标 -->
 
       <div class="sidebar-section">
         <div class="sidebar-section-title">与 focusNote 交互</div>
@@ -1064,6 +1382,13 @@
        */
       loadSearchIndex: function(indexData) {
         console.log('Bridge.loadSearchIndex 被调用', indexData);
+
+        // 加载排除词组配置
+        if (indexData.exclusionGroups) {
+          state.exclusionGroups = indexData.exclusionGroups;
+          console.log('已加载排除词组配置：', state.exclusionGroups.length, '个');
+        }
+
         // 使用 MNKB API 或直接调用 setCardsForDataset
         if (window.MNKB && typeof window.MNKB.setSearchResults === 'function') {
           window.MNKB.setSearchResults(indexData.cards || []);
@@ -1106,31 +1431,120 @@
     (function () {
       'use strict';
 
-      // 默认配置，真实环境可以通过 window.MNKB API 覆盖
+      // 默认配置 - 分层级预设结构
       const DEFAULT_PRESET_GROUPS = [
         {
-          name: '机器学习',
-          icon: '🤖',
-          presets: ['机器学习', '深度学习', '支持向量机', '卷积 神经 网络', '自然语言处理', '注意力 机制']
+          name: '归类关键词',
+          icon: '📦',
+          presets: [
+            { value: '基本性质' },
+            {
+              value: '判定',
+              children: [
+                { value: '判定：充分条件' },
+                { value: '判定：等价刻画/充要条件' }
+              ]
+            }
+          ]
         },
         {
-          name: '优化与算法',
+          name: '空间',
+          icon: '🌍',
+          presets: [
+            { value: '拓扑空间' },
+            { value: '度量空间' },
+            { value: '赋范线性空间' },
+            {
+              value: 'Banach 空间',
+              children: [
+                { value: '内积空间' },
+                { value: 'Hilbert 空间' }
+              ]
+            }
+          ]
+        },
+        {
+          name: '算子/函数',
           icon: '⚡',
-          presets: ['优化', '梯度 下降', '学习 曲线']
+          type: 'exclusive',  // 互斥组
+          presets: [
+            {
+              value: '算子',
+              children: [
+                { value: '线性算子' },
+                {
+                  value: '有界线性算子',
+                  children: [
+                    { value: '紧算子' },
+                    { value: '伴随算子' },
+                    { value: '共轭算子' },
+                    { value: '正规算子' }
+                  ]
+                }
+              ]
+            },
+            {
+              value: '函数',
+              children: [
+                { value: '实值函数' },
+                { value: '复值函数' },
+                {
+                  value: '泛函',
+                  children: [
+                    { value: '实值泛函' },
+                    { value: '复值泛函' },
+                    {
+                      value: '线性泛函',
+                      children: [
+                        { value: '实值线性泛函' },
+                        { value: '复值线性泛函' },
+                        {
+                          value: '有界线性泛函',
+                          children: [
+                            { value: '实值有界线性泛函' },
+                            { value: '复值有界线性泛函' }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         },
         {
-          name: '泛函分析',
-          icon: '📐',
-          presets: ['泛函 分析', 'Hilbert 空间', '紧致 性质']
+          name: '拓扑',
+          icon: '🍩',
+          presets: [
+            { value: '开集' },
+            { value: '闭集' },
+            { value: '紧集' },
+            { value: '内部' },
+            { value: '闭包' },
+            { value: '邻域' },
+            { value: '开邻域' },
+            { value: '边界' },
+            { value: '疏朗集' },
+            { value: '第一纲集' },
+            { value: '第二纲集' }
+          ]
         },
         {
-          name: '信息检索',
+          name: '度量空间',
           icon: '🔍',
-          presets: ['检索', '统计 推断']
+          presets: [
+            { value: '开球' },
+            { value: '闭球' },
+            { value: '球面' },
+            { value: '开单位球' },
+            { value: '闭单位球' },
+            { value: '单位球面' }
+          ]
         }
       ];
 
-      const DEFAULT_NEGATIVE_PRESETS = ['复 Hilbert', '实验 数据', '噪声', '异常 值', '反例', '离线 演示'];
+      const DEFAULT_NEGATIVE_PRESETS = ['实', '复'];
 
       // 对齐 SearchConfig.typePresets，便于后续与 utils.js 保持一致
       const RAW_TYPE_LABEL = '未分类';
@@ -1268,6 +1682,7 @@
         filteredCards: [],
         activePresets: new Set(),
         activeNegativePresets: new Set(),
+        expandedPresets: new Set(),  // 记录展开的预设项
         selectedCardId: null,
         userInput: '',
         currentTypeKey: 'all',
@@ -1279,6 +1694,9 @@
         displayedCards: [],
         hasMore: false,
         isLoadingMore: false,
+        // 排除词相关状态
+        exclusionGroups: [],  // 存储排除词组配置
+        activeExclusions: null  // 当前激活的排除词信息
       };
 
       const dom = {
@@ -1286,7 +1704,8 @@
         presetSection: document.querySelector('[data-section="preset"]'),
         negativeSection: document.querySelector('[data-section="negative"]'),
         classificationSection: document.querySelector('[data-section="classification"]'),
-        datasetToggle: document.getElementById('datasetToggle'),
+        datasetToggleElements: Array.from(document.querySelectorAll('[data-role="dataset-toggle"]')),
+        filtersPanel: document.getElementById('filtersPanel'),
         presetBar: document.getElementById('presetBar'),
         typeBar: document.getElementById('typeBar'),
         classificationBar: document.getElementById('classificationBar'),
@@ -1296,15 +1715,14 @@
         searchCount: document.getElementById('searchCount'),
         selectedCardInfo: document.getElementById('selectedCardInfo'),
         clearBtn: document.getElementById('clearBtn'),
+        toggleFiltersBtn: document.getElementById('toggleFiltersBtn'),
         clearPresetsBtn: document.getElementById('clearPresetsBtn'),
         clearNegativesBtn: document.getElementById('clearNegativesBtn'),
         toast: document.getElementById('toast'),
         sidebar: document.getElementById('sidebar'),
         sidebarToggle: document.getElementById('sidebarToggle'),
         sidebarOverlay: document.getElementById('sidebarOverlay'),
-        // Sidebar 按钮
-        locateInFloatBtn: document.getElementById('locateInFloatBtn'),
-        copyMarkdownBtn: document.getElementById('copyMarkdownBtn'),
+        // Sidebar 按钮（已移除 focusCardInFloatMindMapBtn 和 copyMarkdownLinkBtn）
         mergeToExcerptBtn: document.getElementById('mergeToExcerptBtn'),
         clearAndMergeBtn: document.getElementById('clearAndMergeBtn'),
         bidirectionalLinkBtn: document.getElementById('bidirectionalLinkBtn'),
@@ -1324,7 +1742,10 @@
       let toastTimer = null;
       let lastScrollY = 0;
       let isToolbarHidden = false;
+      let isFilterPanelCollapsed = false;
+      let isFilterPanelManuallySet = false;
       const debouncedInputHandler = debounce(handleSearchInputChange, 180);
+      const isCompactLayout = () => window.innerWidth <= 1024;
 
       // ========== 辅助函数 ==========
 
@@ -1407,19 +1828,24 @@
         attachEventListeners();
         registerBridge();
         applyFilters(buildQueryPayload());
+        loadToolbarStates(); // 加载工具栏折叠状态
+        loadFilterPanelState(); // 根据视口自动折叠筛选面板
         setupResponsive();
         setupScrollBehavior();
-        loadToolbarStates(); // 加载工具栏折叠状态
       }
 
       function setupResponsive() {
         // 检测是否是移动端或 iPad 竖屏
         const checkMobile = () => window.innerWidth <= 1024;
+        const handleViewportChange = () => {
+          applyFilterPanelState(isFilterPanelCollapsed, { skipSave: true });
+        };
 
         // 初始化显示状态
         if (dom.sidebarToggle) {
           dom.sidebarToggle.style.display = checkMobile() ? 'flex' : 'none';
         }
+        handleViewportChange();
 
         // 监听窗口大小变化
         window.addEventListener('resize', () => {
@@ -1429,6 +1855,7 @@
           if (!checkMobile()) {
             closeSidebar();
           }
+          handleViewportChange();
         });
       }
 
@@ -1632,12 +2059,14 @@
 
       // 动态计算并更新 main-layout 的 padding-top
       function updateMainPaddingTop() {
-        let totalHeight = 0;
+        const topbarHeight = dom.topbar ? (dom.topbar.offsetHeight || 64) : 64;
 
-        // 搜索栏高度
-        if (dom.topbar) {
-          totalHeight += dom.topbar.offsetHeight || 64;
+        if (document.body.classList.contains('filters-collapsed') || isCompactLayout()) {
+          document.documentElement.style.setProperty('--main-padding-top', `${topbarHeight + 20}px`);
+          return;
         }
+
+        let totalHeight = topbarHeight;
 
         // 所有显示且未折叠的工具栏
         document.querySelectorAll('.pill-section').forEach((section) => {
@@ -1700,15 +2129,78 @@
         }
       }
 
+      function applyFilterPanelState(collapsed, options = {}) {
+        const { skipSave = false } = options;
+        isFilterPanelCollapsed = collapsed;
+        document.body.classList.toggle('filters-collapsed', collapsed);
+        const compact = isCompactLayout();
+        document.body.classList.toggle('filters-overlay', !collapsed && compact);
+        if (dom.filtersPanel) {
+          dom.filtersPanel.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
+          dom.filtersPanel.dataset.layout = compact ? 'compact' : 'wide';
+        }
+        if (dom.toggleFiltersBtn) {
+          dom.toggleFiltersBtn.setAttribute('aria-expanded', (!collapsed).toString());
+          dom.toggleFiltersBtn.textContent = collapsed ? '展开筛选' : '收起筛选';
+          dom.toggleFiltersBtn.setAttribute('aria-label', collapsed ? '展开筛选工具栏' : '收起筛选工具栏');
+          dom.toggleFiltersBtn.classList.toggle('collapsed', collapsed);
+        }
+        updateMainPaddingTop();
+        if (!skipSave) {
+          saveFilterPanelState(collapsed);
+        }
+      }
+
+      function saveFilterPanelState(collapsed) {
+        try {
+          localStorage.setItem('mnkb_filter_panel_collapsed', JSON.stringify(collapsed));
+        } catch (error) {
+          console.warn('保存筛选面板状态失败', error);
+        }
+      }
+
+      function loadFilterPanelState() {
+        try {
+          const stored = localStorage.getItem('mnkb_filter_panel_collapsed');
+          if (stored !== null) {
+            const parsed = JSON.parse(stored);
+            if (typeof parsed === 'boolean') {
+              isFilterPanelManuallySet = true;
+              applyFilterPanelState(parsed, { skipSave: true });
+              return;
+            }
+          }
+        } catch (error) {
+          console.warn('加载筛选面板状态失败，即将使用默认行为', error);
+        }
+        applyFilterPanelState(true, { skipSave: true });
+      }
+
+      // 输入框聚焦时自动展开筛选面板
+      function expandFiltersForSearchInput() {
+        if (!isFilterPanelCollapsed) return;
+        isFilterPanelManuallySet = false;
+        applyFilterPanelState(false, { skipSave: true });
+      }
+
+      // 选中卡片后自动收起筛选面板
+      function collapseFiltersAfterCardSelection() {
+        if (isFilterPanelCollapsed) return;
+        isFilterPanelManuallySet = false;
+        applyFilterPanelState(true, { skipSave: true });
+      }
+
       function attachEventListeners() {
         dom.searchInput.addEventListener('input', debouncedInputHandler, { passive: true });
+        dom.searchInput.addEventListener('focus', expandFiltersForSearchInput);
+        dom.searchInput.addEventListener('pointerdown', () => {
+          if (isFilterPanelCollapsed) expandFiltersForSearchInput();
+        }, { passive: true });
         dom.clearBtn.addEventListener('click', handleClearFilters);
         dom.clearPresetsBtn?.addEventListener('click', handleClearPresets);
         dom.clearNegativesBtn?.addEventListener('click', handleClearNegatives);
 
-        // Sidebar 按钮事件
-        dom.locateInFloatBtn?.addEventListener('click', () => handleSidebarAction('locateInFloat'));
-        dom.copyMarkdownBtn?.addEventListener('click', () => handleSidebarAction('copyMarkdown'));
+        // Sidebar 按钮事件（已移除 focusCardInFloatMindMapBtn 和 copyMarkdownLinkBtn 的监听器）
         dom.mergeToExcerptBtn?.addEventListener('click', () => handleSidebarAction('mergeToExcerpt'));
         dom.clearAndMergeBtn?.addEventListener('click', () => handleSidebarAction('clearAndMerge'));
         dom.bidirectionalLinkBtn?.addEventListener('click', () => handleSidebarAction('bidirectionalLink'));
@@ -1717,8 +2209,15 @@
         dom.addTemplateAsChildBtn?.addEventListener('click', () => handleSidebarAction('addTemplateAsChild'));
         dom.addTemplateAsChildAndLocateBtn?.addEventListener('click', () => handleSidebarAction('addTemplateAsChildAndLocate'));
 
-        dom.datasetToggle?.querySelectorAll('button').forEach((btn) => {
-          btn.addEventListener('click', () => setActiveDataset(btn.dataset.dataset, { requestIfEmpty: true }));
+        dom.datasetToggleElements.forEach((toggle) => {
+          toggle.querySelectorAll('button').forEach((btn) => {
+            btn.addEventListener('click', () => setActiveDataset(btn.dataset.dataset, { requestIfEmpty: true }));
+          });
+        });
+
+        dom.toggleFiltersBtn?.addEventListener('click', () => {
+          isFilterPanelManuallySet = true;
+          applyFilterPanelState(!isFilterPanelCollapsed);
         });
 
         // Sidebar 切换
@@ -1791,16 +2290,18 @@
       }
 
       function renderDatasetToggle() {
-        if (!dom.datasetToggle) return;
-        dom.datasetToggle.querySelectorAll('button').forEach((btn) => {
-          const key = btn.dataset.dataset;
-          if (!key) return;
-          const dataset = state.datasets[key];
-          btn.classList.toggle('active', key === state.currentDatasetKey);
-          if (dataset && dataset.label) {
-            const count = dataset.count ?? dataset.cards?.length ?? 0;
-            btn.textContent = count ? `${dataset.label} (${count})` : dataset.label;
-          }
+        if (!dom.datasetToggleElements || !dom.datasetToggleElements.length) return;
+        dom.datasetToggleElements.forEach((toggle) => {
+          toggle.querySelectorAll('button').forEach((btn) => {
+            const key = btn.dataset.dataset;
+            if (!key) return;
+            const dataset = state.datasets[key];
+            btn.classList.toggle('active', key === state.currentDatasetKey);
+            if (dataset && dataset.label) {
+              const count = dataset.count ?? dataset.cards?.length ?? 0;
+              btn.textContent = count ? `${dataset.label} (${count})` : dataset.label;
+            }
+          });
         });
       }
 
@@ -1852,6 +2353,146 @@
         renderDatasetToggle();
       }
 
+      /**
+       * 创建预设 pill 元素
+       * @param {Object|String} item - 预设项（可以是字符串或对象）
+       * @param {Number} level - 层级（1-4）
+       * @param {Object} group - 所属分组（用于互斥组逻辑）
+       * @returns {HTMLElement} pill 元素
+       */
+      function createPresetPill(item, level, group) {
+        const preset = typeof item === 'string' ? item : item.value;
+        const hasChildren = item.children && item.children.length > 0;
+
+        const pill = document.createElement('div');
+        pill.className = 'pill';
+        pill.setAttribute('data-level', level);
+        pill.setAttribute('data-preset', preset);
+        pill.tabIndex = 0;
+
+        // 设置选中状态
+        if (state.activePresets.has(preset)) {
+          pill.classList.add('active');
+        }
+
+        if (hasChildren) {
+          // 可展开的 pill
+          pill.classList.add('pill--expandable');
+          const isExpanded = state.expandedPresets.has(preset);
+          pill.innerHTML = `${preset} ${isExpanded ? '▼' : '▶'}`;
+
+          // 点击展开/收起
+          pill.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleExpand(item, group);
+          });
+        } else {
+          // 普通 pill（可选中）
+          pill.textContent = preset;
+
+          const toggle = () => {
+            if (state.activePresets.has(preset)) {
+              state.activePresets.delete(preset);
+            } else {
+              state.activePresets.add(preset);
+              updateRecentPresets(preset);
+            }
+            renderPresetBar();
+            scheduleSearch();
+          };
+
+          pill.addEventListener('click', toggle);
+          pill.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              toggle();
+            }
+          });
+        }
+
+        return pill;
+      }
+
+      /**
+       * 切换展开/收起状态
+       * @param {Object} item - 预设项
+       * @param {Object} group - 所属分组
+       */
+      function toggleExpand(item, group) {
+        const preset = item.value;
+        const isExpanded = state.expandedPresets.has(preset);
+
+        // 判断当前项是否是分组的直接子项
+        const isDirectChild = group?.presets?.some(p => p.value === preset);
+
+        // 只有直接子项才触发互斥逻辑（避免子孙项误触发）
+        if (group?.type === 'exclusive' && !isExpanded && isDirectChild) {
+          group.presets.forEach(p => {
+            if (p.value !== preset) {
+              state.expandedPresets.delete(p.value);
+              // 递归清除所有子项的展开状态
+              clearChildrenExpanded(p);
+            }
+          });
+        }
+
+        // 切换当前项
+        if (isExpanded) {
+          state.expandedPresets.delete(preset);
+          // 收起时也清除子项的展开状态
+          clearChildrenExpanded(item);
+        } else {
+          state.expandedPresets.add(preset);
+        }
+
+        renderPresetBar();
+      }
+
+      /**
+       * 递归清除子项的展开状态
+       * @param {Object} item - 预设项
+       */
+      function clearChildrenExpanded(item) {
+        if (!item.children) return;
+        item.children.forEach(child => {
+          state.expandedPresets.delete(child.value);
+          clearChildrenExpanded(child);
+        });
+      }
+
+      /**
+       * 递归渲染预设项及其子项
+       * @param {Array} items - 预设项数组
+       * @param {HTMLElement} container - 容器元素
+       * @param {Number} level - 层级
+       * @param {Object} group - 所属分组
+       */
+      function renderPresetItems(items, container, level, group) {
+        items.forEach(item => {
+          const preset = typeof item === 'string' ? item : item.value;
+          const hasChildren = item.children && item.children.length > 0;
+
+          // 创建当前层级的 pill
+          const pill = createPresetPill(item, level, group);
+          container.appendChild(pill);
+
+          // 如果有子项且已展开，创建子行并递归渲染
+          if (hasChildren && state.expandedPresets.has(preset)) {
+            const childRow = document.createElement('div');
+            childRow.className = `pill-row pill-row--child pill-row--level-${level + 1}`;
+            childRow.setAttribute('data-level', level + 1);
+
+            // 递归渲染子项到子行（统一逻辑，避免重复）
+            renderPresetItems(item.children, childRow, level + 1, group);
+
+            container.appendChild(childRow);
+          }
+        });
+      }
+
+      /**
+       * 渲染预设栏（主函数）
+       */
       function renderPresetBar() {
         const groups = getPresetGroupsWithRecent();
         dom.presetBar.innerHTML = '';
@@ -1879,38 +2520,12 @@
           label.textContent = labelText;
           groupDiv.appendChild(label);
 
-          // 创建预设词行
+          // 创建父级预设行
           const pillRow = document.createElement('div');
           pillRow.className = 'pill-row';
 
-          group.presets.forEach((preset) => {
-            const pill = document.createElement('div');
-            pill.className = 'pill';
-            if (state.activePresets.has(preset)) pill.classList.add('active');
-            pill.textContent = preset;
-            pill.tabIndex = 0;
-
-            const toggle = () => {
-              if (state.activePresets.has(preset)) {
-                state.activePresets.delete(preset);
-              } else {
-                state.activePresets.add(preset);
-                // 更新最近使用
-                updateRecentPresets(preset);
-              }
-              renderPresetBar();
-              scheduleSearch();
-            };
-
-            pill.addEventListener('click', toggle);
-            pill.addEventListener('keydown', (event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                toggle();
-              }
-            });
-            pillRow.appendChild(pill);
-          });
+          // 渲染预设项（支持递归展开）
+          renderPresetItems(group.presets, pillRow, 1, group);
 
           groupDiv.appendChild(pillRow);
           dom.presetBar.appendChild(groupDiv);
@@ -2024,9 +2639,12 @@
           state.currentClassificationSubtype = 'all';
 
           // 归类区域隐藏时，调整排除和预设区域的位置
-          document.documentElement.style.setProperty('--negative-top', 'calc(var(--topbar-height) + var(--toolbar-gap))');
-          document.documentElement.style.setProperty('--preset-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2)');
-          document.documentElement.style.setProperty('--main-padding-top', 'calc(var(--topbar-height) + var(--toolbar-gap) + var(--negative-height) + var(--preset-max-height) + var(--spacing-buffer))');
+          if (!document.body.classList.contains('filters-collapsed')) {
+            document.documentElement.style.setProperty('--negative-top', 'calc(var(--topbar-height) + var(--toolbar-gap))');
+            document.documentElement.style.setProperty('--preset-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2)');
+            document.documentElement.style.setProperty('--main-padding-top', 'calc(var(--topbar-height) + var(--toolbar-gap) + var(--negative-height) + var(--preset-max-height) + var(--spacing-buffer))');
+          }
+          updateMainPaddingTop();
           return;
         }
 
@@ -2034,9 +2652,11 @@
         dom.classificationBar.innerHTML = '';
 
         // 归类区域显示时，恢复排除和预设区域的默认位置
-        document.documentElement.style.setProperty('--negative-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2)');
-        document.documentElement.style.setProperty('--preset-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 3)');
-        document.documentElement.style.setProperty('--main-padding-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2 + var(--negative-height) + var(--preset-max-height) + var(--spacing-buffer))');
+        if (!document.body.classList.contains('filters-collapsed')) {
+          document.documentElement.style.setProperty('--negative-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2)');
+          document.documentElement.style.setProperty('--preset-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 3)');
+          document.documentElement.style.setProperty('--main-padding-top', 'calc(var(--topbar-height) + var(--toolbar-gap) * 2 + var(--negative-height) + var(--preset-max-height) + var(--spacing-buffer))');
+        }
 
         const options = ['all', ...state.classificationOptions];
         options.forEach((option) => {
@@ -2062,6 +2682,8 @@
           });
           dom.classificationBar.appendChild(pill);
         });
+
+        updateMainPaddingTop();
       }
 
       function scheduleSearch(options = {}) {
@@ -2136,6 +2758,10 @@
 
       function applyFilters(payload) {
         const query = payload || state.lastQueryPayload || buildQueryPayload();
+
+        // 计算当前搜索激活的排除词组
+        state.activeExclusions = getActiveExclusions(query.tokensLower);
+
         const allowedTypes = query.typeList ? new Set(query.typeList) : null;
         const negatives = query.excludePresets.map((word) => word.toLowerCase());
         const tokensLower = query.tokensLower;
@@ -2163,6 +2789,13 @@
           }
 
           if (!passesNegativeFilter(card, negatives)) return;
+
+          // 排除词过滤
+          if (state.activeExclusions && state.activeExclusions.groups.length > 0) {
+            if (shouldExcludeCard(card, state.activeExclusions)) {
+              return;  // 排除这张卡片
+            }
+          }
 
           const evaluation = evaluateCard({ ...card, type: normalizedType }, tokensLower);
           // AND 逻辑：所有关键词必须匹配
@@ -2239,6 +2872,76 @@
           .toLowerCase();
 
         return !negativeTokens.some((token) => token && text.includes(token));
+      }
+
+      /**
+       * 获取激活的排除词组信息
+       * @param {Array<string>} keywords - 搜索关键词数组
+       * @returns {Object} 包含 excludeWords 和 groups 的对象
+       */
+      function getActiveExclusions(keywords) {
+        if (!keywords || keywords.length === 0 || !state.exclusionGroups) {
+          return { excludeWords: [], groups: [] };
+        }
+
+        const exclusions = new Set();
+        const activeGroups = [];
+
+        for (const keyword of keywords) {
+          for (const group of state.exclusionGroups) {
+            if (group.enabled === false) continue;
+
+            const matchedTrigger = (group.triggerWords || []).find(trigger =>
+              trigger.toLowerCase() === keyword
+            );
+
+            if (matchedTrigger) {
+              (group.excludeWords || []).forEach(word => exclusions.add(word));
+
+              if (!activeGroups.find(g => g.id === group.id)) {
+                activeGroups.push({
+                  id: group.id,
+                  name: group.name,
+                  triggerWords: group.triggerWords,
+                  excludeWords: group.excludeWords
+                });
+              }
+            }
+          }
+        }
+
+        return {
+          excludeWords: Array.from(exclusions),
+          groups: activeGroups
+        };
+      }
+
+      /**
+       * 判断卡片是否应该被排除
+       * @param {Object} card - 卡片对象
+       * @param {Object} activeExclusions - 激活的排除词信息
+       * @returns {boolean} true 表示应该排除
+       */
+      function shouldExcludeCard(card, activeExclusions) {
+        if (!card.excludedGroups || card.excludedGroups.length === 0) {
+          return false;
+        }
+
+        for (const activeGroup of activeExclusions.groups) {
+          for (const cardGroup of card.excludedGroups) {
+            if (cardGroup.groupId === activeGroup.id) {
+              const hasAffectedTrigger = activeGroup.triggerWords.some(trigger =>
+                (cardGroup.affectedTriggers || []).includes(trigger)
+              );
+
+              if (hasAffectedTrigger) {
+                return true;  // 应该排除
+              }
+            }
+          }
+        }
+
+        return false;
       }
 
       function evaluateCard(card, tokensLower) {
@@ -2339,15 +3042,50 @@
           const color = resolveTypeColor(card);
           element.style.borderLeftColor = color;
 
-          // 添加定位图标
-          const locateIcon = document.createElement('div');
-          locateIcon.className = 'card-locate-icon';
-          locateIcon.textContent = '📍';
-          locateIcon.title = '在主脑图定位';
-          locateIcon.addEventListener('click', (e) => {
-            e.stopPropagation(); // 阻止冒泡到卡片点击事件
-            handleCardLocate(card.id);
+          // 创建操作图标容器
+          const actionsContainer = document.createElement('div');
+          actionsContainer.className = 'card-actions';
+
+          // 图标1: 在主脑图定位
+          const mindMapIcon = document.createElement('div');
+          mindMapIcon.className = 'card-action-icon';
+          mindMapIcon.textContent = '📍';
+          mindMapIcon.title = '在主脑图定位';
+          mindMapIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            handleCardFocus(card.id);
           });
+
+          // 图标2: 在浮窗中定位
+          const floatMapIcon = document.createElement('div');
+          floatMapIcon.className = 'card-action-icon';
+          floatMapIcon.textContent = '🎯';
+          floatMapIcon.title = '在浮窗中定位';
+          floatMapIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!postBridge('focusCardInFloatMindMap', { id: card.id })) {
+              showToast('功能开发中：在浮窗中定位');
+            }
+          });
+
+          // 图标3: 复制 Markdown 链接
+          const copyLinkIcon = document.createElement('div');
+          copyLinkIcon.className = 'card-action-icon';
+          copyLinkIcon.textContent = '🔗';
+          copyLinkIcon.title = '复制 Markdown 链接';
+          copyLinkIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!postBridge('copyMarkdownLink', { id: card.id })) {
+              showToast('功能开发中：复制行内链接');
+            } else {
+              showToast('已复制行内链接');
+            }
+          });
+
+          // 将图标添加到容器
+          actionsContainer.appendChild(mindMapIcon);
+          actionsContainer.appendChild(floatMapIcon);
+          actionsContainer.appendChild(copyLinkIcon);
 
           const title = document.createElement('div');
           title.className = 'card-title';
@@ -2383,7 +3121,7 @@
             meta.appendChild(scoreChip);
           }
 
-          element.appendChild(locateIcon);
+          element.appendChild(actionsContainer);
           element.appendChild(title);
           element.appendChild(meta);
 
@@ -2395,6 +3133,17 @@
           }
 
           element.addEventListener('click', () => toggleSelection(card.id, element));
+          element.addEventListener('dblclick', () => {
+            const isMobile = window.innerWidth <= 1024;
+            if (isMobile) {
+              // 确保已选中
+              if (state.selectedCardId !== card.id) {
+                toggleSelection(card.id, element);
+              }
+              // 展开侧边栏
+              openSidebar();
+            }
+          });
           fragment.appendChild(element);
         });
 
@@ -2417,15 +3166,50 @@
         const color = resolveTypeColor(card);
         element.style.borderLeftColor = color;
 
-        // 添加定位图标
-        const locateIcon = document.createElement('div');
-        locateIcon.className = 'card-locate-icon';
-        locateIcon.textContent = '📍';
-        locateIcon.title = '在主脑图定位';
-        locateIcon.addEventListener('click', (e) => {
+        // 创建操作图标容器
+        const actionsContainer = document.createElement('div');
+        actionsContainer.className = 'card-actions';
+
+        // 图标1: 在主脑图定位
+        const mindMapIcon = document.createElement('div');
+        mindMapIcon.className = 'card-action-icon';
+        mindMapIcon.textContent = '📍';
+        mindMapIcon.title = '在主脑图定位';
+        mindMapIcon.addEventListener('click', (e) => {
           e.stopPropagation();
-          handleCardLocate(card.id);
+          handleCardFocus(card.id);
         });
+
+        // 图标2: 在浮窗中定位
+        const floatMapIcon = document.createElement('div');
+        floatMapIcon.className = 'card-action-icon';
+        floatMapIcon.textContent = '🎯';
+        floatMapIcon.title = '在浮窗中定位';
+        floatMapIcon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!postBridge('focusCardInFloatMindMap', { id: card.id })) {
+            showToast('功能开发中：在浮窗中定位');
+          }
+        });
+
+        // 图标3: 复制 Markdown 链接
+        const copyLinkIcon = document.createElement('div');
+        copyLinkIcon.className = 'card-action-icon';
+        copyLinkIcon.textContent = '🔗';
+        copyLinkIcon.title = '复制 Markdown 链接';
+        copyLinkIcon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!postBridge('copyMarkdownLink', { id: card.id })) {
+            showToast('功能开发中：复制行内链接');
+          } else {
+            showToast('已复制行内链接');
+          }
+        });
+
+        // 将图标添加到容器
+        actionsContainer.appendChild(mindMapIcon);
+        actionsContainer.appendChild(floatMapIcon);
+        actionsContainer.appendChild(copyLinkIcon);
 
         const title = document.createElement('div');
         title.className = 'card-title';
@@ -2461,7 +3245,7 @@
           meta.appendChild(scoreChip);
         }
 
-        element.appendChild(locateIcon);
+        element.appendChild(actionsContainer);
         element.appendChild(title);
         element.appendChild(meta);
 
@@ -2473,6 +3257,17 @@
         }
 
         element.addEventListener('click', () => toggleSelection(card.id, element));
+        element.addEventListener('dblclick', () => {
+          const isMobile = window.innerWidth <= 1024;
+          if (isMobile) {
+            // 确保已选中
+            if (state.selectedCardId !== card.id) {
+              toggleSelection(card.id, element);
+            }
+            // 展开侧边栏
+            openSidebar();
+          }
+        });
         return element;
       }
 
@@ -2489,16 +3284,32 @@
 
       function toggleSelection(cardId, element) {
         if (!cardId) return;
-        if (state.selectedCardId === cardId) {
+
+        const isMobile = window.innerWidth <= 1024;
+        const wasAlreadySelected = (state.selectedCardId === cardId);
+
+        if (wasAlreadySelected) {
+          // 再次点击已选中卡片
+          if (isMobile) {
+            // 移动端：展开侧边栏（保持选中状态）
+            openSidebar();
+            return;
+          }
+          // 桌面端：取消选中
           state.selectedCardId = null;
           if (element) element.classList.remove('selected');
         } else {
+          // 选中新卡片
           state.selectedCardId = cardId;
           dom.results.querySelectorAll('.card.selected').forEach((node) => node.classList.remove('selected'));
           if (element) element.classList.add('selected');
         }
+
         updateSelectionInfo();
         updateActionButtonsState();
+        if (state.selectedCardId) {
+          collapseFiltersAfterCardSelection();
+        }
       }
 
       function pruneSelections(availableIds) {
@@ -2552,10 +3363,8 @@
       function updateActionButtonsState() {
         const disabled = !state.selectedCardId;
 
-        // 更新所有 Sidebar 按钮状态
+        // 更新所有 Sidebar 按钮状态（已移除 focusCardInFloatMindMapBtn 和 copyMarkdownLinkBtn）
         const sidebarButtons = [
-          dom.locateInFloatBtn,
-          dom.copyMarkdownBtn,
           dom.mergeToExcerptBtn,
           dom.clearAndMergeBtn,
           dom.bidirectionalLinkBtn,
@@ -2570,10 +3379,10 @@
         });
       }
 
-      function handleCardLocate(cardId) {
+      function handleCardFocus(cardId) {
         if (!cardId) return;
 
-        if (!postBridge('locateInMindMap', { id: cardId })) {
+        if (!postBridge('focusCardInMindMap', { id: cardId })) {
           showToast('功能开发中：在主脑图定位');
         }
       }
@@ -2590,16 +3399,18 @@
                      { title: id };
 
         switch (action) {
-          case 'locateInFloat':
-            if (!postBridge('locateInFloat', { id })) {
+          case 'focusCardInFloatMindMap':
+            if (!postBridge('focusCardInFloatMindMap', { id })) {
               showToast('功能开发中：在浮窗中定位');
             }
             break;
 
-          case 'copyMarkdown': {
-            const title = card.title || id;
-            const markdown = `[${title}](marginnote4app://note/${id})`;
-            copyToClipboard(markdown, '已复制 Markdown 链接');
+          case 'copyMarkdownLink': {
+            if (!postBridge('copyMarkdownLink', { id })) {
+              showToast('功能开发中：复制行内链接');
+            } else {
+              showToast('复制行内链接')
+            }
             break;
           }
 

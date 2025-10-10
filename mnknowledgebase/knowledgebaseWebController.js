@@ -365,27 +365,27 @@ knowledgebaseWebController.prototype.loadHTMLFile = function() {
 knowledgebaseWebController.prototype.executeAction = async function(config) {
   try {
     switch (config.host) {
-      case "locateInMindMap":
+      case "focusCardInMindMap":
         // 定位卡片到脑图
-        await this.locateCardInMindMap(config.params.id)
+        await this.focusCardInMindMap(config.params.id)
         break
 
-      case "focusInDocument":
+      case "focusCardInFloatMindMap":
         // 聚焦到文档位置
-        await this.focusCardInDocument(config.params.id)
+        await this.focusCardInFloatMindMap(config.params.id)
         break
 
-      case "addToReview":
-        // 添加到复习
-        await this.addCardToReview(config.params.id)
+      case "copyMarkdownLink":  // 调用 copyMarkdownLinkWithQuickPhrases 复制卡片行内链接
+        await this.copyMarkdownLink(config.params.id)
+        break;
+      case "":
+        break;
+      case "":
+        break;
+      case "":
         break
-
-      case "copyContent":
-        // 复制内容
-        MNUtil.copy(config.params.content)
-        MNUtil.showHUD("已复制")
-        break
-
+      case "":
+        break;
       case "ready":
         // HTML 初始化完成信号
         MNUtil.showHUD("知识库搜索已就绪")
@@ -560,7 +560,9 @@ knowledgebaseWebController.prototype.loadSearchData = async function() {
         totalCards: allCards.length,
         updateTime: metadata.updateTime || Date.now(),
         ...metadata
-      }
+      },
+      // 传递排除词组配置到前端
+      exclusionGroups: ExclusionManager.getExclusionGroups()
     };
 
     MNUtil.log(`数据准备完成：共 ${allCards.length} 张卡片`);
@@ -587,103 +589,6 @@ knowledgebaseWebController.prototype.loadSearchData = async function() {
   }
 }
 
-/**
- * 定位卡片到脑图
- * @param {string} noteId - 卡片 ID
- */
-knowledgebaseWebController.prototype.locateCardInMindMap = async function(noteId) {
-  try {
-    if (!noteId) {
-      MNUtil.showHUD("卡片ID为空")
-      return
-    }
-
-    let note = MNNote.getFocusNote()
-    if (!note || note.noteId !== noteId) {
-      note = MNNote.new(noteId)
-    }
-
-    if (!note) {
-      MNUtil.showHUD("未找到卡片")
-      return
-    }
-
-    // 切换到脑图模式
-    MNUtil.studyMode = 2
-
-    // 延迟以确保模式切换完成
-    await MNUtil.delay(0.3)
-
-    // 聚焦到卡片
-    note.focusInMindMap()
-
-    MNUtil.showHUD("已定位")
-
-  } catch (error) {
-    MNUtil.showHUD("定位失败: " + error)
-    MNUtil.copyJSON(error)
-  }
-}
-
-/**
- * 聚焦卡片到文档位置
- * @param {string} noteId - 卡片 ID
- */
-knowledgebaseWebController.prototype.focusCardInDocument = async function(noteId) {
-  try {
-    if (!noteId) {
-      MNUtil.showHUD("卡片ID为空")
-      return
-    }
-
-    let note = MNNote.new(noteId)
-    if (!note) {
-      MNUtil.showHUD("未找到卡片")
-      return
-    }
-
-    // 切换到文档模式
-    MNUtil.studyMode = 1
-
-    // 延迟以确保模式切换完成
-    await MNUtil.delay(0.3)
-
-    // 聚焦到文档位置
-    note.focusInMindMap()
-
-    MNUtil.showHUD("已定位到文档")
-
-  } catch (error) {
-    MNUtil.showHUD("文档定位失败: " + error)
-  }
-}
-
-/**
- * 添加卡片到复习
- * @param {string} noteId - 卡片 ID
- */
-knowledgebaseWebController.prototype.addCardToReview = async function(noteId) {
-  try {
-    if (!noteId) {
-      MNUtil.showHUD("卡片ID为空")
-      return
-    }
-
-    let note = MNNote.new(noteId)
-    if (!note) {
-      MNUtil.showHUD("未找到卡片")
-      return
-    }
-
-    // 添加到复习
-    MNNote.addNoteToReview(note)
-
-    MNUtil.showHUD("已添加到复习")
-
-  } catch (error) {
-    MNUtil.showHUD("添加复习失败: " + error)
-  }
-}
 
 /**
  * 刷新搜索结果
@@ -950,3 +855,97 @@ knowledgebaseWebController.prototype.fromMinimode = function() {
     MNUtil.copyJSON(error)
   }
 }
+
+
+// ========================================
+// 对卡片进行操作
+// ========================================
+
+/**
+ * 定位卡片到脑图
+ * @param {string} noteId - 卡片 ID
+ */
+knowledgebaseWebController.prototype.focusCardInMindMap = async function(noteId) {
+  try {
+    if (!noteId) {
+      MNUtil.showHUD("卡片ID为空")
+      return
+    }
+
+    let note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    // 聚焦到卡片
+    note.focusInMindMap()
+
+    MNUtil.showHUD("已定位到主脑图")
+  } catch (error) {
+    MNUtil.showHUD("定位失败: " + error)
+    MNUtil.copyJSON(error)
+  }
+}
+
+/**
+ * 聚焦卡片到浮窗
+ * @param {string} noteId - 卡片 ID
+ */
+knowledgebaseWebController.prototype.focusCardInFloatMindMap = async function(noteId) {
+  try {
+    if (!noteId) {
+      MNUtil.showHUD("卡片ID为空")
+      return
+    }
+
+    let note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    // 聚焦到卡片
+    note.focusInFloatMindMap()
+
+    MNUtil.showHUD("已定位到浮窗")
+
+  } catch (error) {
+    MNUtil.showHUD("文档定位失败: " + error)
+  }
+}
+
+/**
+ * 复制行内链接
+ * @param {string} noteId - 卡片 ID
+ */
+knowledgebaseWebController.prototype.copyMarkdownLink = async function(noteId) {
+  try {
+    if (!noteId) {
+      MNUtil.showHUD("卡片ID为空")
+      return
+    }
+    
+    let note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    KnowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note)
+  } catch (error) {
+    KnowledgeBaseUtils.addErrorLog()
+  }
+}
+
+// /**
+//  * 
+//  * @param {string} noteId - 卡片 ID
+//  */
+// knowledgebaseWebController.prototype. = async function(noteId) {
+//   try {
+
+//   } catch (error) {
+//     KnowledgeBaseUtils.addErrorLog()
+//   }
+// }
