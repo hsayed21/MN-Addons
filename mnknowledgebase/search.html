@@ -210,6 +210,44 @@
       opacity: 0.45;
     }
 
+    /* 折叠/展开按钮 */
+    .pill-section__toggle-btn {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: rgba(43, 124, 255, 0.08);
+      border: 1px solid rgba(43, 124, 255, 0.2);
+      border-radius: 6px;
+      color: #2b7cff;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s ease;
+      margin-left: auto;
+    }
+
+    .pill-section__toggle-btn:hover {
+      background: rgba(43, 124, 255, 0.15);
+      transform: scale(1.05);
+    }
+
+    .pill-section__toggle-btn.collapsed {
+      transform: rotate(180deg);
+    }
+
+    /* 可折叠内容区 */
+    .pill-section__content {
+      max-height: 1000px;
+      overflow: hidden;
+      transition: max-height 0.3s ease, opacity 0.3s ease;
+    }
+
+    .pill-section__content.collapsed {
+      max-height: 0;
+      opacity: 0;
+    }
+
     .pill-section__clear-btn {
       display: inline-flex;
       align-items: center;
@@ -699,6 +737,45 @@
       transform: scale(0.95);
     }
 
+    /* 响应式设计 - 中等屏幕（iPad 竖屏）*/
+    @media (min-width: 768px) and (max-width: 1024px) {
+      /* 类型筛选始终显示 */
+      .pill-section--type .pill-section__toggle-btn {
+        display: inline-flex;
+      }
+
+      /* 预设和排除默认折叠 */
+      .pill-section--preset .pill-section__toggle-btn,
+      .pill-section--negative .pill-section__toggle-btn {
+        display: inline-flex;
+      }
+
+      /* 归类子类型显示时也可折叠 */
+      .pill-section--classification .pill-section__toggle-btn {
+        display: inline-flex;
+      }
+    }
+
+    /* 小屏幕设备（手机和小平板）*/
+    @media (max-width: 767px) {
+      /* 所有工具栏都可折叠 */
+      .pill-section__toggle-btn {
+        display: inline-flex !important;
+      }
+
+      /* 默认折叠预设和排除词 */
+      .pill-section--preset .pill-section__content,
+      .pill-section--negative .pill-section__content {
+        max-height: 0;
+        opacity: 0;
+      }
+
+      .pill-section--preset .pill-section__toggle-btn,
+      .pill-section--negative .pill-section__toggle-btn {
+        transform: rotate(180deg);
+      }
+    }
+
     /* iPad 竖屏和小屏幕设备 */
     @media (max-width: 1024px) {
       .sidebar {
@@ -815,15 +892,33 @@
   </div>
 
   <div class="pill-section pill-section--type" data-section="type">
-    <div class="pill-section__label">类型筛选</div>
-    <div class="pill-row type-bar" id="typeBar" aria-label="类型筛选">
-      <!-- 类型筛选 pill 将在 JS 中渲染 -->
+    <div class="pill-section__header">
+      <div class="pill-section__label-group">
+        <div class="pill-section__label">类型筛选</div>
+        <button class="pill-section__toggle-btn" data-toggle="type" type="button" aria-label="折叠/展开">
+          ▼
+        </button>
+      </div>
+    </div>
+    <div class="pill-section__content" data-content="type">
+      <div class="pill-row type-bar" id="typeBar" aria-label="类型筛选">
+        <!-- 类型筛选 pill 将在 JS 中渲染 -->
+      </div>
     </div>
   </div>
   <div class="pill-section pill-section--classification component-hidden" data-section="classification">
-    <div class="pill-section__label">归类子类型</div>
-    <div class="pill-row classification-bar" id="classificationBar" aria-label="归类二级类型">
-      <!-- 归类二级类型 pill -->
+    <div class="pill-section__header">
+      <div class="pill-section__label-group">
+        <div class="pill-section__label">归类子类型</div>
+        <button class="pill-section__toggle-btn" data-toggle="classification" type="button" aria-label="折叠/展开">
+          ▼
+        </button>
+      </div>
+    </div>
+    <div class="pill-section__content" data-content="classification">
+      <div class="pill-row classification-bar" id="classificationBar" aria-label="归类二级类型">
+        <!-- 归类二级类型 pill -->
+      </div>
     </div>
   </div>
   <div class="pill-section pill-section--preset" data-section="preset">
@@ -834,10 +929,15 @@
           <span class="clear-icon">✕</span>
           <span class="clear-text">清除</span>
         </button>
+        <button class="pill-section__toggle-btn" data-toggle="preset" type="button" aria-label="折叠/展开">
+          ▼
+        </button>
       </div>
     </div>
-    <div id="presetBar" aria-label="搜索预设">
-      <!-- 预设分组将在 JS 中渲染 -->
+    <div class="pill-section__content" data-content="preset">
+      <div id="presetBar" aria-label="搜索预设">
+        <!-- 预设分组将在 JS 中渲染 -->
+      </div>
     </div>
   </div>
   <div class="pill-section pill-section--negative" data-section="negative">
@@ -848,10 +948,15 @@
           <span class="clear-icon">✕</span>
           <span class="clear-text">清除</span>
         </button>
+        <button class="pill-section__toggle-btn" data-toggle="negative" type="button" aria-label="折叠/展开">
+          ▼
+        </button>
       </div>
     </div>
-    <div class="pill-row negative-bar" id="negativeBar" aria-label="排除词">
-      <!-- 负向排除词（粉色）将在 JS 中渲染 -->
+    <div class="pill-section__content" data-content="negative">
+      <div class="pill-row negative-bar" id="negativeBar" aria-label="排除词">
+        <!-- 负向排除词（粉色）将在 JS 中渲染 -->
+      </div>
     </div>
   </div>
 
@@ -1304,6 +1409,7 @@
         applyFilters(buildQueryPayload());
         setupResponsive();
         setupScrollBehavior();
+        loadToolbarStates(); // 加载工具栏折叠状态
       }
 
       function setupResponsive() {
@@ -1496,6 +1602,104 @@
         dom.sidebarOverlay?.classList.remove('show');
       }
 
+      // 处理工具栏折叠/展开
+      function handleToolbarToggle(event) {
+        const btn = event.currentTarget;
+        const sectionName = btn.dataset.toggle;
+        if (!sectionName) return;
+
+        const content = document.querySelector(`[data-content="${sectionName}"]`);
+        if (!content) return;
+
+        const isCollapsed = content.classList.contains('collapsed');
+
+        if (isCollapsed) {
+          // 展开
+          content.classList.remove('collapsed');
+          btn.classList.remove('collapsed');
+        } else {
+          // 折叠
+          content.classList.add('collapsed');
+          btn.classList.add('collapsed');
+        }
+
+        // 动态调整 main-layout 的 padding-top
+        updateMainPaddingTop();
+
+        // 保存折叠状态到 localStorage
+        saveToolbarState(sectionName, !isCollapsed);
+      }
+
+      // 动态计算并更新 main-layout 的 padding-top
+      function updateMainPaddingTop() {
+        let totalHeight = 0;
+
+        // 搜索栏高度
+        if (dom.topbar) {
+          totalHeight += dom.topbar.offsetHeight || 64;
+        }
+
+        // 所有显示且未折叠的工具栏
+        document.querySelectorAll('.pill-section').forEach((section) => {
+          if (section.classList.contains('component-hidden')) return;
+
+          const content = section.querySelector('.pill-section__content');
+          if (content && !content.classList.contains('collapsed')) {
+            totalHeight += section.offsetHeight || 0;
+          } else if (!content) {
+            // 没有内容包装器的，直接计算整个 section
+            totalHeight += section.offsetHeight || 0;
+          } else {
+            // 折叠状态，只计算 header 高度
+            const header = section.querySelector('.pill-section__header');
+            if (header) {
+              totalHeight += header.offsetHeight || 0;
+            }
+          }
+        });
+
+        // 添加缓冲空间
+        totalHeight += 20;
+
+        // 更新 CSS 变量
+        document.documentElement.style.setProperty('--main-padding-top', `${totalHeight}px`);
+      }
+
+      // 保存工具栏折叠状态
+      function saveToolbarState(sectionName, isCollapsed) {
+        try {
+          const states = JSON.parse(localStorage.getItem('mnkb_toolbar_states') || '{}');
+          states[sectionName] = isCollapsed;
+          localStorage.setItem('mnkb_toolbar_states', JSON.stringify(states));
+        } catch (error) {
+          console.warn('保存工具栏状态失败', error);
+        }
+      }
+
+      // 加载工具栏折叠状态
+      function loadToolbarStates() {
+        try {
+          const states = JSON.parse(localStorage.getItem('mnkb_toolbar_states') || '{}');
+          Object.entries(states).forEach(([sectionName, isCollapsed]) => {
+            if (isCollapsed) {
+              const content = document.querySelector(`[data-content="${sectionName}"]`);
+              const btn = document.querySelector(`[data-toggle="${sectionName}"]`);
+              if (content) {
+                content.classList.add('collapsed');
+              }
+              if (btn) {
+                btn.classList.add('collapsed');
+              }
+            }
+          });
+
+          // 初始化后更新 padding
+          updateMainPaddingTop();
+        } catch (error) {
+          console.warn('加载工具栏状态失败', error);
+        }
+      }
+
       function attachEventListeners() {
         dom.searchInput.addEventListener('input', debouncedInputHandler, { passive: true });
         dom.clearBtn.addEventListener('click', handleClearFilters);
@@ -1520,6 +1724,11 @@
         // Sidebar 切换
         dom.sidebarToggle?.addEventListener('click', toggleSidebar);
         dom.sidebarOverlay?.addEventListener('click', closeSidebar);
+
+        // 工具栏折叠按钮
+        document.querySelectorAll('.pill-section__toggle-btn').forEach((btn) => {
+          btn.addEventListener('click', handleToolbarToggle);
+        });
       }
 
       function handleSearchInputChange() {
