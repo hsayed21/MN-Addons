@@ -17182,7 +17182,7 @@ class KnowledgeBaseIndexer {
     if (!note || !note.noteId) {
       return null;
     }
-    
+
     // 初始化基本条目信息
     let entry = {
       id: note.noteId,
@@ -17190,18 +17190,23 @@ class KnowledgeBaseIndexer {
       title: note.title || "",
       parentId: note.parentNoteId || null
     };
-    
+
     try {
       // 获取卡片类型
       const noteType = KnowledgeBaseTemplate.getNoteType(note);
       entry.type = noteType;
-      
+
+      // ✅ 过滤掉 noteType 为 undefined 的卡片
+      if (!noteType) {
+        return null;
+      }
+
       // 解析标题
       const parsedTitle = KnowledgeBaseTemplate.parseNoteTitle(note) || {};
-      
+
       // 获取关键词
       const keywordsContent = KnowledgeBaseTemplate.getKeywordsFromNote(note) || "";
-      
+
       // 根据卡片类型设置不同字段
       if (noteType === "归类") {
         entry.classificationSubtype = parsedTitle.type || "";
@@ -17214,14 +17219,21 @@ class KnowledgeBaseIndexer {
           entry.titleLinkWords = parsedTitle.titleLinkWordsArr.join("; ");
         }
       }
-      
+
       // 添加关键词
       if (keywordsContent) {
         entry.keywords = keywordsContent;
       }
-      
+
       // 构建搜索文本
       entry.searchText = this.buildSearchText(parsedTitle, noteType, keywordsContent);
+
+      // ✅ 过滤掉搜索文本为空或只有类型名的卡片
+      // 移除类型名后，如果没有实质性内容，则过滤掉
+      const searchTextWithoutType = entry.searchText.replace(new RegExp(`^${noteType}\\s*`, 'i'), '').trim();
+      if (!searchTextWithoutType) {
+        return null;
+      }
 
       // 添加排除词组信息（用于搜索时过滤）
       const applicableGroups = this.analyzeExclusionGroups(entry.searchText);
@@ -17230,11 +17242,10 @@ class KnowledgeBaseIndexer {
       }
 
       return entry;
-      
+
     } catch (error) {
-      // 静默失败，返回基础条目
-      entry.searchText = (entry.title || "").toLowerCase();
-      return entry;
+      // 静默失败，返回 null（不索引出错的卡片）
+      return null;
     }
   }
   
@@ -17250,7 +17261,7 @@ class KnowledgeBaseIndexer {
     
     if (noteType === "归类") {
       // 归类卡片：使用content（引号内的内容）+ 类型
-      searchableContent = `${parsedTitle.content || ""} ${parsedTitle.type || ""} 归类`.trim();
+      searchableContent = `${parsedTitle.content || ""} ${parsedTitle.type || ""}`.trim();
     } else {
       // 其他卡片类型（定义、命题等）：包含前缀内容和标题链接词
       let contentParts = [];
@@ -19909,260 +19920,312 @@ class KnowledgeBaseUtils {
 }
 
 class KnowledgeBaseNetwork {
-    static OCRDirectlyPrompt = `
-# OCR Prompt - Direct Unicode Output with Chinese Translation
+  static OCRDirectlyPrompt = `
+# 数学文本 OCR 提示词
 
-## Role
-Image Text Extraction Specialist with Unicode Priority and Mathematical Chinese Translation Expert
+## 核心任务
+从图片中提取文本，优先使用 Unicode 字符输出，并提供专业的中文数学翻译。
 
-## Goal
-Extract and output all text from the given image using direct Unicode characters whenever possible. Preserve the original formatting and layout structure. Provide professional Chinese translation for mathematical content.
+**关键要求**：
+- 已是中文的内容保持原样，不翻译
+- 禁止使用 LaTeX 包裹符号（$...$），优先 Unicode
+- 无需添加 "我看到..." 等描述性前缀
 
-If text is already in Chinese, retain it as is and do not translate.
+## 输出格式
 
-For any formulas, do not use LaTeX form, i.e. enclose them with dollar signs "$...$" or "\(...\)".
+### 格式 1：英文/其他语言 → 翻译
+    [中文专业翻译]: [原文 Unicode 格式]
 
-## Output Format
-Case1: If the text is in English or other languages, output as:
-Professional Chinese translation with mathematical terminology: Original extracted text with Unicode formatting
-Case2: If the text is already in Chinese, output as:
-Original extracted Chinese text
+**示例**：
+- 输入：Let f be a continuous function on [a,b]
+- 输出：设 f 是 [a,b] 上的连续函数: Let f be a continuous function on [a,b]
 
-## Output Rules
+### 格式 2：中文 → 保持原样
+    [原文]
 
-### 1. Mathematical Symbols & Formulas
-- **Primary**: Use direct Unicode characters when available
-  - Examples: x², x³, √2, ∫, ∑, π, α, β, γ, ≤, ≥, ≠, ±, ×, ÷, ∞, ∂, ∆, ∇
-- **Fallback**: Only use LaTeX notation (enclosed in $ signs) when no Unicode equivalent exists
-  - Examples: Complex fractions, matrices, advanced operators
+**示例**：
+- 输入：设 f 是连续函数
+- 输出：设 f 是连续函数
 
-### 2. Text Formatting
-- Use Unicode formatting characters when possible:
-  - Superscript: ¹²³⁴⁵⁶⁷⁸⁹⁰ ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖᵒʳˢᵗᵘᵛʷˣʸᶻ
-  - Subscript: ₀₁₂₃₄₅₆₇₈₉ ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ
-  - Bold/Italic: Use **bold** and *italic* markdown only if clearly indicated
+## 处理规则
 
-### 3. Chinese Translation Rules
-- **Mathematical Terminology**: Use standard Chinese mathematical terms from authoritative sources (e.g., 高等教育出版社数学词汇)
-- **Professional Standards**: Follow conventions used in Chinese mathematical literature and textbooks
-- **Context Sensitivity**: Adapt translation based on mathematical context (analysis, algebra, geometry, etc.)
-- **Formula Preservation**: Keep mathematical formulas in original Unicode form, translate only the descriptive text
-- **Theorem Names**: Use established Chinese names for well-known theorems, provide transliteration for less common ones
-- 不需要末尾的标点
-- 开头的“例子 2”, “定理 1.2”, “练习 3” 这种不需要
-- 如果这是一个有名称的定理或者定义, 把这个名词单独放在最后, 用 ; 链接, 比如 “如果……, 则范数一致有界; 一致有界原理; uniformly bounded principle”
+### 1. 数学符号（优先级递减）
+**✅ 优先使用 Unicode**：
+- 上标：x², x³, xⁿ
+- 根式：√2, ∛8
+- 运算符：±, ×, ÷, ≠, ≤, ≥, ≈
+- 希腊字母：α, β, γ, δ, ε, θ, λ, μ, π, σ, ω
+- 微积分：∫, ∑, ∏, ∂, ∇, ∞, lim
 
-#### Common Mathematical Term Translations:
-- Theorem → 定理
-- Lemma → 引理  
-- Corollary → 推论
-- Proof → 证明
-- Definition → 定义
-- Proposition → 命题
-- Example → 例子/例题
-- Exercise → 练习
-- Strong Law of Large Numbers → 强大数定律
-- Limit → 极限
-- Convergence → 收敛
-- Derivative → 导数
-- Integral → 积分
-- Function → 函数
-- Continuous → 连续
-- Differentiable → 可微
-- Measurable → 可测
+**⚠️ LaTeX 仅作后备**（仅当 Unicode 不可用时，用 $ 包裹）：
+- 复杂分数、矩阵、高级算子
 
-## About spaces
-### Handle the spaces and line breaks in the image, avoid unnecessary spaces and line breaks.
-Example: 
-- Results before handling ❌: |a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|) + |b| / (1 + |b|)
-- Results after handling ✅: |a+b|/(1+|a+b|)≤|a|/(1+|a|)+|b|/(1+|b|)
+### 2. 文本格式
+- **上标**：¹²³⁴⁵⁶⁷⁸⁹⁰ / ᵃᵇᶜᵈᵉ
+- **下标**：₀₁₂₃₄₅₆₇₈₉ / ₐₑₕᵢⱼₖ
+- **粗体/斜体**：仅当图片中明确标示时使用 **粗体** 和 *斜体*
 
-### Based on above rule, still keep the necessary spaces in the text, such as between words and after punctuations.
-Example 1:
-- Results before handling ❌: Theorem1.1(StrongLawofLargeNumbers).
-- Results after handling ✅: Theorem 1.1 (Strong Law of Large Numbers).
+### 3. 空格处理
 
-Example 2:
-- Results before handling ❌: 设a,b∈R,则有|a+b|/(1+|a+b|)≤|a|/(1+|a|)+|b|/(1+|b|).
-- Results after handling ✅: 设 a, b∈R, 则有 |a+b|/(1+|a+b|)≤|a|/(1+|a|)+|b|/(1+|b|).
-
-## Translation Quality Standards
-- **Accuracy**: Ensure mathematical concepts are translated correctly
-- **Consistency**: Use consistent terminology throughout the translation
-- **Readability**: Maintain natural Chinese expression while preserving technical precision
-- **Authority**: Prefer terminology used in standard Chinese mathematical textbooks
-- **Context**: Consider the mathematical field (分析学、代数学、几何学、概率论、统计学 etc.)
-
-## Constraints
-- Output ONLY the text content visible in the image followed by Chinese translation
-- No explanatory text, descriptions, or commentary beyond the translation
-- No "I see..." or "The image contains..." prefixes
-- Prioritize readability in non-Markdown environments
-- When uncertain between Unicode and LaTeX, choose Unicode
-- For Chinese translation, prioritize professional mathematical terminology over literal translation
-
-## Priority Order
-1. Direct Unicode characters
-2. Simple markdown formatting (only for structure)
-3. LaTeX notation (only when absolutely necessary)
-4. Professional Chinese mathematical terminology over colloquial translation
-
+**规则 A：数学公式内紧凑，移除多余空格**
+---
+❌ 错误：|a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|)
+✅ 正确：|a+b|/(1+|a+b|)≤|a|/(1+|a|)
 ---
 
-## Unicode Reference
-- Fractions: ½ ⅓ ⅔ ¼ ¾ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
-- Operators: ± × ÷ ≈ ≠ ≤ ≥ ∝ ∝ ∴ ∵ ∈ ∉ ⊂ ⊃ ∪ ∩ ∧ ∨
-- Greek: α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π Ρ Σ Τ Υ Φ Χ Ψ Ω
-- Calculus: ∫ ∬ ∭ ∮ ∂ ∇ ∞ ∑ ∏ lim
-- Geometry: ° ∠ ⊥ ∥ △ ◯ □ ◇
-带 Hat (^) 的组合字符 (Unicode U+0302 COMBINING CIRCUMFLEX ACCENT)
+**规则 B：文本间保留必要空格**
+---
+❌ 错误：Theorem1.1(StrongLaw)
+✅ 正确：Theorem 1.1 (Strong Law)
 
-拉丁字母 (小写): â, b̂, ĉ, d̂, ê, f̂, ĝ, ĥ, î, ĵ, k̂, l̂, m̂, n̂, ô, p̂, q̂, r̂, ŝ, t̂, û, v̂, ŵ, x̂, ŷ, ẑ
-拉丁字母 (大写): Â, B̂, Ĉ, D̂, Ê, F̂, Ĝ, Ĥ, Î, Ĵ, K̂, L̂, M̂, N̂, Ô, P̂, Q̂, R̂, Ŝ, T̂, Û, V̂, Ŵ, X̂, Ŷ, Ẑ
-希腊字母 (小写): α̂, β̂, γ̂, δ̂, ε̂, ζ̂, η̂, θ̂, ι̂, κ̂, λ̂, μ̂, ν̂, ξ̂, ο̂, π̂, ρ̂, σ̂, τ̂, υ̂, φ̂, ϕ̂, χ̂, ψ̂, ω̂
-希腊字母 (大写): Γ̂, Δ̂, Θ̂, Λ̂, Ξ̂, Π̂, Σ̂, Υ̂, Φ̂, Ψ̂, Ω̂
-数字: 0̂, 1̂, 2̂, 3̂, 4̂, 5̂, 6̂, 7̂, 8̂, 9̂ (不太常用，但可能用于向量/基向量分量)
-向量基: î (基于 ı, dotless i, U+0131), ĵ (基于 ȷ, dotless j, U+0237), k̂ (基于 k)
+❌ 错误：设a,b∈R,则有
+✅ 正确：设 a, b∈R, 则有
+---
 
-数学字母数字 (示例 - 需用字符检视器):
-数学手写体 (Mathematical Script)
-- 大写: 𝒜̂ ℬ̂ 𝒞̂ 𝒟̂ ℰ̂ ℱ̂ 𝒢̂ ℋ̂ ℐ̂ 𝒥̂ 𝒦̂ ℒ̂ ℳ̂ 𝒩̂ 𝒪̂ 𝒫̂ 𝒬̂ ℛ̂ 𝒮̂ 𝒯̂ 𝒰̂ 𝒱̂ 𝒲̂ 𝒳̂ 𝒴̂ 𝒵̂
-- 小写: 𝒶̂ 𝒷̂ 𝒸̂ 𝒹̂ ℯ̂ 𝒻̂ ℊ̂ 𝒽̂ 𝒾̂ 𝒿̂ 𝓀̂ 𝓁̂ 𝓂̂ 𝓃̂ ℴ̂ 𝓅̂ 𝓆̂ 𝓇̂ 𝓈̂ 𝓉̂ 𝓊̂ 𝓋̂ 𝓌̂ 𝓍̂ 𝓎̂ 𝓏̂
+### 4. 翻译规则
 
-数学哥特体 (Mathematical Fraktur)
-- 大写: 𝔄̂ 𝔅̂ ℭ̂ 𝔇̂ 𝔈̂ 𝔉̂ 𝔊̂ ℌ̂ ℑ̂ 𝔍̂ 𝔎̂ 𝔏̂ 𝔐̂ 𝔑̂ 𝔒̂ 𝔓̂ 𝔔̂ ℜ̂ 𝔖̂ 𝔗̂ 𝔘̂ 𝔙̂ 𝔚̂ 𝔛̂ 𝔜̂ ℨ̂
-- 小写: 𝔞̂ 𝔟̂ 𝔠̂ 𝔡̂ 𝔢̂ 𝔣̂ 𝔤̂ 𝔥̂ 𝔦̂ 𝔧̂ 𝔨̂ 𝔩̂ 𝔪̂ 𝔫̂ 𝔬̂ 𝔭̂ 𝔮̂ 𝔯̂ 𝔰̂ 𝔱̂ 𝔲̂ 𝔳̂ 𝔴̂ 𝔵̂ 𝔶̂ 𝔷̂
+**核心原则**：
+- ✅ 使用标准数学教材术语（如高等教育出版社数学词汇）
+- ✅ 公式保持原样，仅翻译描述性文字
+- ✅ 根据数学分支（分析/代数/几何等）选择恰当术语
+- ❌ 去掉开头标记（如 "例子 2"、"定理 1.2"）
+- ❌ 去掉末尾标点
 
-数学双线体/黑板粗体 (Mathematical Blackboard Bold)
-- 大写: 𝔸̂ 𝔹̂ ℂ̂ 𝔻̂ 𝔼̂ 𝔽̂ 𝔾̂ ℍ̂ 𝕀̂ 𝕁̂ 𝕂̂ 𝕃̂ 𝕄̂ ℕ̂ 𝕆̂ ℙ̂ ℚ̂ ℝ̂ 𝕊̂ 𝕋̂ 𝕌̂ 𝕍̂ 𝕎̂ 𝕏̂ 𝕐̂ ℤ̂
-- 小写: 𝕒̂ 𝕓̂ 𝕔̂ 𝕕̂ 𝕖̂ 𝕗̂ 𝕘̂ 𝕙̂ 𝕚̂ 𝕛̂ 𝕜̂ 𝕝̂ 𝕞̂ 𝕟̂ 𝕠̂ 𝕡̂ 𝕢̂ 𝕣̂ 𝕤̂ 𝕥̂ 𝕦̂ 𝕧̂ 𝕨̂ 𝕩̂ 𝕪̂ 𝕫̂
+**定理名称格式**（用分号分隔中文、英文）：
+    示例：如果……, 则范数一致有界; 一致有界原理; uniformly bounded principle
 
-数学无衬线粗体 (Mathematical Sans-serif Bold)
-- 大写: 𝗔̂ 𝗕̂ 𝗖̂ 𝗗̂ 𝗘̂ 𝗙̂ 𝗚̂ 𝗛̂ 𝗜̂ 𝗝̂ 𝗞̂ 𝗟̂ 𝗠̂ 𝗡̂ 𝗢̂ 𝗣̂ 𝗤̂ 𝗥̂ 𝗦̂ 𝗧̂ 𝗨̂ 𝗩̂ 𝗪̂ 𝗫̂ 𝗬̂ 𝗭̂
-- 小写: 𝗮̂ 𝗯̂ 𝗰̂ 𝗱̂ 𝗲̂ 𝗳̂ 𝗴̂ 𝗵̂ 𝗶̂ 𝗷̂ 𝗸̂ 𝗹̂ 𝗺̂ 𝗻̂ 𝗼̂ 𝗽̂ 𝗾̂ 𝗿̂ 𝘀̂ 𝘁̂ 𝘂̂ 𝘃̂ 𝘄̂ 𝘅̂ 𝘆̂ 𝘇̂
+**常用术语对照**：
+- Theorem → 定理 | Lemma → 引理 | Corollary → 推论 | Proposition → 命题
+- Definition → 定义 | Proof → 证明 | Example → 例子 | Exercise → 练习
+- Limit → 极限 | Convergence → 收敛 | Derivative → 导数 | Integral → 积分
+- Continuous → 连续 | Differentiable → 可微 | Measurable → 可测
 
-∂̂ ∇̂ Δ̂ □̂ ⊗̂ ⊕̂
+## Unicode 快速参考
 
+**常用符号**：
+- 分数：½ ⅓ ⅔ ¼ ¾ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
+- 运算符：± × ÷ ≈ ≠ ≤ ≥ ∝ ∴ ∵ ∈ ∉ ⊂ ⊃ ∪ ∩ ∧ ∨
+- 希腊字母：α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω
+- 微积分：∫ ∬ ∭ ∮ ∂ ∇ ∞ ∑ ∏ lim
+- 几何：° ∠ ⊥ ∥ △ ◯ □ ◇
 
-
-带 Bar (¯) 的组合字符 (Unicode U+0304 COMBINING MACRON)
-拉丁字母 (小写): ā, b̄, c̄, d̄, ē, f̄, ḡ, h̄, ī, j̄, k̄, l̄, m̄, n̄, ō, p̄, q̄, r̄, s̄, t̄, ū, v̄, w̄, x̄, ȳ, z̄
-拉丁字母 (大写): Ā, B̄, C̄, D̄, Ē, F̄, Ḡ, H̄, Ī, J̄, K̄, L̄, M̄, N̄, Ō, P̄, Q̄, R̄, S̄, T̄, Ū, V̄, W̄, X̄, Ȳ, Z̄
-希腊字母 (小写): ᾱ, β̄, γ̄, δ̄, ε̄, ζ̄, η̄, θ̄, ῑ, κ̄, λ̄, μ̄, ν̄, ξ̄, ο̄, π̄, ρ̄, σ̄, τ̄, ῡ, φ̄, χ̄, ψ̄, ω̄
-希腊字母 (大写): Γ̄, Δ̄, Θ̄, Λ̄, Ξ̄, Π̄, Σ̄, Ῡ, Φ̄, Ψ̄, Ω̄
-数字: 0̄, 1̄, 2̄, 3̄, 4̄, 5̄, 6̄, 7̄, 8̄, 9̄ (非常少见)
-
-数学字母数字 (示例 - 需用字符检视器):
-数学手写体 (Mathematical Script)
-- 大写: 𝒜̄ ℬ̄ 𝒞̄ 𝒟̄ ℰ̄ ℱ̄ 𝒢̄ ℋ̄ ℐ̄ 𝒥̄ 𝒦̄ ℒ̄ ℳ̄ 𝒩̄ 𝒪̄ 𝒫̄ 𝒬̄ ℛ̄ 𝒮̄ 𝒯̄ 𝒰̄ 𝒱̄ 𝒲̄ 𝒳̄ 𝒴̄ 𝒵̄
-- 小写: 𝒶̄ 𝒷̄ 𝒸̄ 𝒹̄ ℯ̄ 𝒻̄ ℊ̄ 𝒽̄ 𝒾̄ 𝒿̄ 𝓀̄ 𝓁̄ 𝓂̄ 𝓃̄ ℴ̄ 𝓅̄ 𝓆̄ 𝓇̄ 𝓈̄ 𝓉̄ 𝓊̄ 𝓋̄ 𝓌̄ 𝓍̄ 𝓎̄ 𝓏̄
-
-数学哥特体 (Mathematical Fraktur)
-- 大写: 𝔄̂ 𝔅̂ ℭ̂ 𝔇̂ 𝔈̂ 𝔉̂ 𝔊̂ ℌ̂ ℑ̂ 𝔍̂ 𝔎̂ 𝔏̂ 𝔐̂ 𝔑̂ 𝔒̂ 𝔓̂ 𝔔̂ ℜ̂ 𝔖̂ 𝔗̂ 𝔘̂ 𝔙̂ 𝔚̂ 𝔛̂ 𝔜̂ ℨ̂
-- 小写: 𝔞̂ 𝔟̂ 𝔠̂ 𝔡̂ 𝔢̂ 𝔣̂ 𝔤̂ 𝔥̂ 𝔦̂ 𝔧̂ 𝔨̂ 𝔩̂ 𝔪̂ 𝔫̂ 𝔬̂ 𝔭̂ 𝔮̂ 𝔯̂ 𝔰̂ 𝔱̂ 𝔲̂ 𝔳̂ 𝔴̂ 𝔵̂ 𝔶̂ 𝔷̂
-
-数学双线体/黑板粗体 (Mathematical Blackboard Bold)
-- 大写: 𝔸̄ 𝔹̄ ℂ̄ 𝔻̄ 𝔼̄ 𝔽̄ 𝔾̄ ℍ̄ 𝕀̄ 𝕁̄ 𝕂̄ 𝕃̄ 𝕄̄ ℕ̄ 𝕆̄ ℙ̄ ℚ̄ ℝ̄ 𝕊̄ 𝕋̄ 𝕌̄ 𝕍̄ 𝕎̄ 𝕏̄ 𝕐̄ ℤ̄
-- 小写: 𝕒̄ 𝕓̄ 𝕔̄ 𝕕̄ 𝕖̄ 𝕗̄ 𝕘̄ 𝕙̄ 𝕚̄ 𝕛̄ 𝕜̄ 𝕝̄ 𝕞̄ 𝕟̄ 𝕠̄ 𝕡̄ 𝕢̄ 𝕣̄ 𝕤̄ 𝕥̄ 𝕦̄ 𝕧̄ 𝕨̄ 𝕩̄ 𝕪̄ 𝕫̄
-
-数学无衬线粗体 (Mathematical Sans-serif Bold)
-- 大写: 𝗔̄ 𝗕̄ 𝗖̄ 𝗗̄ 𝗘̄ 𝗙̄ 𝗚̄ 𝗛̄ 𝗜̄ 𝗝̄ 𝗞̄ 𝗟̄ 𝗠̄ 𝗡̄ 𝗢̄ 𝗣̄ 𝗤̄ 𝗥̄ 𝗦̄ 𝗧̄ 𝗨̄ 𝗩̄ 𝗪̄ 𝗫̄ 𝗬̄ 𝗭̄
-- 小写: 𝗮̄ 𝗯̄ 𝗰̄ 𝗱̄ 𝗲̄ 𝗳̄ 𝗴̄ 𝗵̄ 𝗶̄ 𝗷̄ 𝗸̄ 𝗹̄ 𝗺̄ 𝗻̄ 𝗼̄ 𝗽̄ 𝗾̄ 𝗿̄ 𝘀̄ 𝘁̄ 𝘂̄ 𝘃̄ 𝘄̄ 𝘅̄ 𝘆̄ 𝘇̄
-
-̄  ∂̄ ∇̄ Δ̄ □̄ ⊗̄ ⊕̄
-
-带 Tilde (~) 的组合字符 (Unicode U+0303 COMBINING TILDE)
-
-拉丁字母 (小写): ã, b̃, c̃, d̃, ẽ, f̃, g̃, h̃, ĩ, j̃, k̃, l̃, m̃, ñ, õ, p̃, q̃, r̃, s̃, t̃, ũ, ṽ, w̃, x̃, ỹ, z̃ (ñ 是西班牙语常用字母)
-拉丁字母 (大写): Ã, B̃, C̃, D̃, Ẽ, F̃, G̃, H̃, Ĩ, J̃, K̃, L̃, M̃, Ñ, Õ, P̃, Q̃, R̃, S̃, T̃, Ũ, Ṽ, W̃, X̃, Ỹ, Z̃
-希腊字母 (小写): α̃, β̃, γ̃, δ̃, ε̃, ζ̃, η̃, θ̃, ι̃, κ̃, λ̃, μ̃, ν̃, ξ̃, ο̃, π̃, ρ̃, σ̃, τ̃, υ̃, φ̃, χ̃, ψ̃, ω̃
-希腊字母 (大写): Γ̃, Δ̃, Θ̃, Λ̃, Ξ̃, Π̃, Σ̃, Υ̃, Φ̃, Ψ̃, Ω̃
-数字: 0̃, 1̃, 2̃, 3̃, 4̃, 5̃, 6̃, 7̃, 8̃, 9̃ (非常少见)
-
-数学字母数字 (示例 - 需用字符检视器):
-数学手写体 (Mathematical Script)
-- 大写: 𝒜̃ ℬ̃ 𝒞̃ 𝒟̃ ℰ̃ ℱ̃ 𝒢̃ ℋ̃ ℐ̃ 𝒥̃ 𝒦̃ ℒ̃ ℳ̃ 𝒩̃ 𝒪̃ 𝒫̃ 𝒬̃ ℛ̃ 𝒮̃ 𝒯̃ 𝒰̃ 𝒱̃ 𝒲̃ 𝒳̃ 𝒴̃ 𝒵̃
-- 小写: 𝒶̃ 𝒷̃ 𝒸̃ 𝒹̃ ℯ̃ 𝒻̃ ℊ̃ 𝒽̃ 𝒾̃ 𝒿̃ 𝓀̃ 𝓁̃ 𝓂̃ 𝓃̃ ℴ̃ 𝓅̃ 𝓆̃ 𝓇̃ 𝓈̃ 𝓉̃ 𝓊̃ 𝓋̃ 𝓌̃ 𝓍̃ 𝓎̃ 𝓏̃
-
-数学哥特体 (Mathematical Fraktur)
-- 大写: 𝔄̃ 𝔅̃ ℭ̃ 𝔇̃ 𝔈̃ 𝔉̃ 𝔊̃ ℌ̃ ℑ̃ 𝔍̃ 𝔎̃ 𝔏̃ 𝔐̃ 𝔑̃ 𝔒̃ 𝔓̃ 𝔔̃ ℜ̃ 𝔖̃ 𝔗̃ 𝔘̃ 𝔙̃ 𝔚̃ 𝔛̃ 𝔜̃ ℨ̃
-- 小写: 𝔞̃ 𝔟̃ 𝔠̃ 𝔡̃ 𝔢̃ 𝔣̃ 𝔤̃ 𝔥̃ 𝔦̃ 𝔧̃ 𝔨̃ 𝔩̃ 𝔪̃ 𝔫̃ 𝔬̃ 𝔭̃ 𝔮̃ 𝔯̃ 𝔰̃ 𝔱̃ 𝔲̃ 𝔳̃ 𝔴̃ 𝔵̃ 𝔶̃ 𝔷̃
-
-数学双线体/黑板粗体 (Mathematical Blackboard Bold)
-- 大写: 𝔸̃ 𝔹̃ ℂ̃ 𝔻̃ 𝔼̃ 𝔽̃ 𝔾̃ ℍ̃ 𝕀̃ 𝕁̃ 𝕂̃ 𝕃̃ 𝕄̃ ℕ̃ 𝕆̃ ℙ̃ ℚ̃ ℝ̃ 𝕊̃ 𝕋̃ 𝕌̃ 𝕍̃ 𝕎̃ 𝕏̃ 𝕐̃ ℤ̃
-- 小写: 𝕒̃ 𝕓̃ 𝕔̃ 𝕕̃ 𝕖̃ 𝕗̃ 𝕘̃ 𝕙̃ 𝕚̃ 𝕛̃ 𝕜̃ 𝕝̃ 𝕞̃ 𝕟̃ 𝕠̃ 𝕡̃ 𝕢̃ 𝕣̃ 𝕤̃ 𝕥̃ 𝕦̃ 𝕧̃ 𝕨̃ 𝕩̃ 𝕪̃ 𝕫̃
-
-数学无衬线粗体 (Mathematical Sans-serif Bold)
-- 大写: 𝗔̃ 𝗕̃ 𝗖̃ 𝗗̃ 𝗘̃ 𝗙̃ 𝗚̃ 𝗛̃ 𝗜̃ 𝗝̃ 𝗞̃ 𝗟̃ 𝗠̃ 𝗡̃ 𝗢̃ 𝗣̃ 𝗤̃ 𝗥̃ 𝗦̃ 𝗧̃ 𝗨̃ 𝗩̃ 𝗪̃ 𝗫̃ 𝗬̃ 𝗭̃
-- 小写: 𝗮̃ 𝗯̃ 𝗰̃ 𝗱̃ 𝗲̃ 𝗳̃ 𝗴̃ 𝗵̃ 𝗶̃ 𝗷̃ 𝗸̃ 𝗹̃ 𝗺̃ 𝗻̃ 𝗼̃ 𝗽̃ 𝗾̃ 𝗿̃ 𝘀̃ 𝘁̃ 𝘂̃ 𝘃̃ 𝘄̃ 𝘅̃ 𝘆̃ 𝘇̃
-
-∂̃ ∇̃ Δ̃ □̃ ⊗̃ ⊕̃
-
-I. 数学手写体 (Mathematical Script)
-
-𝒜 ℬ 𝒞 𝒟 ℰ ℱ 𝒢 ℋ ℐ 𝒥 𝒦 ℒ ℳ 𝒩 𝒪 𝒫 𝒬 ℛ 𝒮 𝒯 𝒰 𝒱 𝒲 𝒳 𝒴 𝒵
-𝒶 𝒷 𝒸 𝒹 ℯ 𝒻 ℊ 𝒽 𝒾 𝒿 𝓀 𝓁 𝓂 𝓃 ℴ 𝓅 𝓆 𝓇 𝓈 𝓉 𝓊 𝓋 𝓌 𝓍 𝓎 𝓏
-
-II. 数学哥特体 (Mathematical Fraktur)
-
-𝔄 𝔅 ℭ 𝔇 𝔈 𝔉 𝔊 ℌ ℑ 𝔍 𝔎 𝔏 𝔐 𝔑 𝔒 𝔓 𝔔 ℜ 𝔖 𝔗 𝔘 𝔙 𝔚 𝔛 𝔜 ℨ
-𝔞 𝔟 𝔠 𝔡 𝔢 𝔣 𝔤 𝔥 𝔦 𝔧 𝔨 𝔩 𝔪 𝔫 𝔬 𝔭 𝔮 𝔯 𝔰 𝔱 𝔲 𝔳 𝔴 𝔵 𝔶 𝔷
-
-III. 数学双线体/黑板粗体 (Mathematical Blackboard Bold)
-
-𝔸 𝔹 ℂ 𝔻 𝔼 𝔽 𝔾 ℍ 𝕀 𝕁 𝕂 𝕃 𝕄 ℕ 𝕆 ℙ ℚ ℝ 𝕊 𝕋 𝕌 𝕍 𝕎 𝕏 𝕐 ℤ
-𝕒 𝕓 𝕔 𝕕 𝕖 𝕗 𝕘 𝕙 𝕚 𝕛 𝕜 𝕝 𝕞 𝕟 𝕠 𝕡 𝕢 𝕣 𝕤 𝕥 𝕦 𝕧 𝕨 𝕩 𝕪 𝕫
-
-IV. 数学无衬线粗体 (Mathematical Sans-serif Bold)
-
-𝗔 𝗕 𝗖 𝗗 𝗘 𝗙 𝗚 𝗛 𝗜 𝗝 𝗞 𝗟 𝗠 𝗡 𝗢 𝗣 𝗤 𝗥 𝗦 𝗧 𝗨 𝗩 𝗪 𝗫 𝗬 𝗭 
-𝗮 𝗯 𝗰 𝗱 𝗲 𝗳 𝗴 𝗵 𝗶 𝗷 𝗸 𝗹 𝗺 𝗻 𝗼 𝗽 𝗾 𝗿 𝘀 𝘁 𝘂 𝘃 𝘄 𝘅 𝘆 𝘇
-
-上标 (Superscripts)
-* 数字 (Digits): ⁰ ¹ ² ³ ⁴ ⁵ ⁶ ⁷ ⁸ ⁹
-* 字母 (Letters): ᵃ ᵇ ᶜ ᵈ ᵉ ᶠ ᵍ ʰ ⁱ ʲ ᵏ ˡ ᵐ ⁿ ᵒ ᵖ ʳ ˢ ᵗ ᵘ ᵛ ʷ ˣ ʸ ᶻ ᴬ ᴮ ᴰ ᴱ ᴳ ᴴ ᴵ ᴶ ᴷ ᴸ ᴹ ᴺ ᴼ ᴾ ᴿ ᵀ ᵁ ᵂ (大写字母上标较少有单一字符，ᵀ (U+1D40) 常用作转置)
-* 符号 (Symbols): ⁺ ⁻ ⁼ ⁽ ⁾
-下标 (Subscripts)
-* 数字 (Digits): ₀ ₁ ₂ ₃ ₄ ₅ ₆ ₇ ₈ ₉
-* 字母 (Letters): ₐ ₑ ₕ ᵢ ⱼ ₖ ₗ ₘ ₙ ₒ ₚ ᵣ ₛ ₜ ᵤ ᵥ ₓ (其他下标字母如 ♭ ꞔ ᑯ 𝘧 ɡ ħ ইত্যাদি 在特定领域外不常用作直接输入的下标)
-* 符号 (Symbols): ₊ ₋ ₌ ₍ ₎
-
-希腊字母
-Α α
-Β β
-Γ γ
-Δ δ
-Ε ε
-Ζ ζ
-Η η
-Θ θ
-Ι ι
-Κ κ
-Λ λ
-Μ μ
-Ν ν
-Ξ ξ
-Ο ο
-Π π
-Ρ ρ
-Σ σ/ς
-Τ τ
-Υ υ
-Φ φ
-Χ χ
-Ψ ψ
-Ω ω
-
-## Mathematical Field Terminology Reference
-- **Analysis**: 分析学、实分析、复分析、泛函分析
-- **Algebra**: 代数学、线性代数、抽象代数、群论
-- **Topology**: 拓扑学、一般拓扑、代数拓扑
-- **Probability**: 概率论、随机过程、统计学
-- **Geometry**: 几何学、微分几何、代数几何
-- **Number Theory**: 数论、解析数论、代数数论
+**组合字符**（用 Unicode 组合符）：
+- 带帽 (^)：â b̂ ĉ x̂ ŷ / α̂ β̂ γ̂ / Â B̂ Ĉ
+- 上划线 (¯)：ā b̄ c̄ x̄ ȳ / ᾱ β̄ γ̄ / Ā B̄ C̄
+- 波浪 (~)：ã b̃ c̃ x̃ ỹ / α̃ β̃ γ̃ / Ã B̃ C̃
+- 点 (·)：ȧ ḃ ċ ẋ ẏ / α̇ β̇ γ̇ / Ȧ Ḃ Ċ
 `
 
-  static async OCRToTitle(note) {
+
+  static OCRToMarkdownPrompt = `
+# 数学文本 OCR - Markdown LaTeX 格式
+
+## 核心任务
+从图片中提取数学内容，并以 Markdown + LaTeX 格式输出，适用于数学笔记和文档。
+
+**关键要求**：
+- 所有数学公式使用 LaTeX 语法，并用 $ 或 $$ 包裹
+- 行内公式使用 $...$
+- 独立公式使用 $$...$$（单独成行）
+- 文本部分保持中文或原文
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式
+
+### 格式 1：纯公式
+对于纯数学公式的图片，直接输出 LaTeX：
+$$公式内容$$
+
+**示例**：
+- 输入：f(x) = x²+2x+1
+- 输出：$f(x) = x^2+2x+1$
+
+### 格式 2：混合内容
+对于包含文字描述的内容，混合使用文本和公式：
+
+**示例**：
+- 输入：设 f 是 [a,b] 上的连续函数
+- 输出：设 $f$ 是 $[a,b]$ 上的连续函数
+
+- 输入：The function f: R→R is continuous
+- 输出：函数 $f: \\mathbb{R} \\to \\mathbb{R}$ 是连续的
+
+## LaTeX 语法规则
+
+### 1. 基本符号
+- 上标：x^2, x^{n+1}
+- 下标：x_1, x_{i,j}
+- 分数：\\frac{a}{b}
+- 根式：\\sqrt{2}, \\sqrt[3]{8}
+- 希腊字母：\\alpha, \\beta, \\gamma, \\delta, \\epsilon, \\theta, \\lambda, \\pi, \\sigma
+
+### 2. 运算符
+- \\pm (±), \\times (×), \\div (÷), \\cdot (·)
+- \\leq (≤), \\geq (≥), \\neq (≠), \\approx (≈)
+- \\in (∈), \\notin (∉), \\subset (⊂), \\subseteq (⊆)
+- \\cup (∪), \\cap (∩), \\emptyset (∅)
+
+### 3. 微积分
+- 极限：\\lim_{x \\to a}, \\lim_{n \\to \\infty}
+- 求和：\\sum_{i=1}^{n}, \\sum_{k=0}^{\\infty}
+- 积分：\\int_{a}^{b}, \\iint, \\iiint, \\oint
+- 偏导：\\frac{\\partial f}{\\partial x}, \\nabla
+- 导数：f'(x), f''(x), \\dot{x}, \\ddot{x}
+
+### 4. 括号
+- 小括号：(x), 自动调整：\\left( ... \\right)
+- 中括号：[a,b], 自动调整：\\left[ ... \\right]
+- 大括号：\\{ ... \\}, 自动调整：\\left\\{ ... \\right\\}
+- 范数：\\| x \\|, 绝对值：\\| a \\|
+
+### 5. 常用数学集合
+- 自然数：\\mathbb{N}
+- 整数：\\mathbb{Z}
+- 有理数：\\mathbb{Q}
+- 实数：\\mathbb{R}
+- 复数：\\mathbb{C}
+
+### 6. 函数和映射
+- 映射：f: A \\to B
+- 复合：f \\circ g
+- 反函数：f^{-1}
+
+### 7. 逻辑符号
+- 任意：\\forall
+- 存在：\\exists
+- 蕴含：\\Rightarrow, \\Leftarrow, \\Leftrightarrow
+- 非：\\neg
+- 且：\\wedge (∧)
+- 或：\\vee (∨)
+
+## 空格处理规则
+
+**规则 A：LaTeX 内不需要手动空格**
+LaTeX 会自动处理公式内的间距：
+- ✅ $f(x)=x^2+2x+1$（无空格）
+- ❌ $f(x) = x^2 + 2x + 1$（不必要的空格）
+
+**规则 B：文本部分保留必要空格**
+- ✅ 设 $f$ 是连续函数（中文词间有空格）
+- ✅ Let $f$ be continuous（英文单词间有空格）
+
+## 翻译规则
+- 已是中文的保持原样
+- 英文数学术语翻译为标准中文（参考高教出版社数学词典）
+- 公式符号保持原样，仅翻译描述性文字
+- 去掉例题编号、定理编号等标记
+- 去掉末尾标点
+
+**示例**：
+- Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...
+- Example 2.3: Let f be ... → 设 $f$ 为 ...
+`
+
+  static OCRExtractConceptPrompt = `
+# 数学概念/定理提取
+
+## 核心任务
+从图片中的数学定义或定理中提取关键概念名称，并输出为标准格式。
+
+**关键要求**：
+- 识别定义、定理、命题等数学陈述
+- 提取核心概念名称（中文和英文）
+- 输出格式：中文1; 英文1; 中文2; 英文2; ...
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式
+
+标准格式（分号分隔，中英文交替）：
+概念中文名; 概念英文名; 别名中文; 别名英文; ...
+
+**单个概念示例**：
+- 输入：我们称函数 f 是连续的，如果...
+- 输出：连续函数; continuous function
+
+**多个概念示例**：
+- 输入：称算子 T 为线性算子或线性映射，如果...
+- 输出：线性算子; linear operator; 线性映射; linear mapping
+
+## 识别模式
+
+### 模式 1：定义句式
+常见的定义句式模板：
+- "我们称 [概念] 为 [名称], 如果..."
+- "定义 [名称] 为满足...的 [概念]"
+- "若 [条件], 则称 [概念] 为 [名称]"
+- "[概念] 是满足...的 [对象], 记为 [符号]"
+
+**示例**：
+- "我们称实数列 {xₙ} 是 Cauchy 列, 如果..." → Cauchy 列; Cauchy sequence
+- "若函数 f 在点 a 的某邻域内可微, 则称 f 在 a 处可微" → 可微函数; differentiable function
+
+### 模式 2：定理/命题句式
+定理通常有专有名称：
+- "[定理名称]: 若 [条件], 则 [结论]"
+- "定理 ([定理名]): ..."
+- "[结论], 这就是 [定理名]"
+
+**示例**：
+- "强大数定律: 若随机变量序列..." → 强大数定律; strong law of large numbers
+- "一致有界原理: 若算子族..." → 一致有界原理; uniform boundedness principle
+- "闭图像定理 (Closed Graph Theorem): ..." → 闭图像定理; closed graph theorem
+
+### 模式 3：等价定义
+多个等价名称：
+- "[名称1] 或称 [名称2], 是指..."
+- "[名称1] (也叫 [名称2]), 定义为..."
+
+**示例**：
+- "Borel 集或称 Borel 可测集, 是指..." → Borel 集; Borel set; Borel 可测集; Borel measurable set
+
+## 提取规则
+
+### 1. 概念识别
+- ✅ 提取核心数学概念（函数、空间、算子、定理等）
+- ✅ 包含所有等价名称和别名
+- ❌ 不提取例子编号（如 "例 2.1"）
+- ❌ 不提取章节标号（如 "定理 3.5"）
+
+### 2. 中英文配对
+- 优先使用图片中已有的翻译
+- 若仅有中文，补充标准英文术语
+- 若仅有英文，补充标准中文翻译
+- 使用标准数学词典术语（高教出版社）
+
+### 3. 多概念处理
+- 按照重要性排序（核心概念在前）
+- 同一概念的不同名称放在一起
+- 使用分号分隔不同名称
+
+**示例**：
+- "连续函数; continuous function; 连续映射; continuous map"
+- "Hilbert 空间; Hilbert space; 完备内积空间; complete inner product space"
+
+## 常用数学术语对照
+
+### 基本概念
+- 函数 function | 映射 mapping | 算子 operator
+- 集合 set | 空间 space | 域 field
+- 序列 sequence | 级数 series | 极限 limit
+
+### 性质
+- 连续 continuous | 可微 differentiable | 可积 integrable
+- 收敛 convergent | 有界 bounded | 紧 compact
+- 线性 linear | 单调 monotone | 凸 convex
+
+### 理论
+- 定理 theorem | 引理 lemma | 推论 corollary
+- 命题 proposition | 原理 principle | 法则 law
+
+## 注意事项
+1. 仅输出概念名称，不输出定义内容
+2. 去掉所有标点符号（除分号外）
+3. 中文和英文名称必须一一对应
+4. 若有多个等价名称，全部列出
+5. 保持术语的标准性和专业性
+`
+
+  static async OCRToTitle(note, mode = 1) {
     let imageData = ocrUtils.getImageFromNote(note)
     if (!imageData) {
       MNUtil.showHUD("No image found")
@@ -20170,7 +20233,23 @@ IV. 数学无衬线粗体 (Mathematical Sans-serif Bold)
     }
     let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
 
-    let result = await this.OCR(compressedImageData, KnowledgeBaseConfig.config.excerptOCRModel, this.OCRDirectlyPrompt)
+    // 根据模式选择 prompt
+    let prompt
+    switch (mode) {
+      case 1:
+        prompt = this.OCRDirectlyPrompt
+        break
+      case 2:
+        prompt = this.OCRToMarkdownPrompt
+        break
+      case 3:
+        prompt = this.OCRExtractConceptPrompt
+        break
+      default:
+        prompt = this.OCRDirectlyPrompt
+    }
+
+    let result = await this.OCR(compressedImageData, KnowledgeBaseConfig.config.excerptOCRModel, prompt)
     if (result) {
       MNUtil.undoGrouping(()=>{
         note.title = result.trim()
@@ -20388,7 +20467,8 @@ class KnowledgeBaseConfig {
     return {
       excerptOCRModel: this.DEFAULT_EXCERPT_OCR_MODEL, // 摘录 OCR 模型
       // 计算默认模型的索引，使用常量而不是再次访问 getter
-      excerptOCRModelIndex: this.excerptOCRSources.indexOf(this.DEFAULT_EXCERPT_OCR_MODEL)
+      excerptOCRModelIndex: this.excerptOCRSources.indexOf(this.DEFAULT_EXCERPT_OCR_MODEL),
+      excerptOCRMode: 0 // 摘录 OCR 模式：0=关闭, 1=直接OCR, 2=Markdown格式, 3=概念提取
     }
   }
   

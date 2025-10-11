@@ -358,27 +358,121 @@ knowledgebaseWebController.prototype.loadHTMLFile = function() {
  */
 knowledgebaseWebController.prototype.executeAction = async function(config) {
   try {
+    let targetNoteId = config.params.id
+    let targetNote = MNNote.new(targetNoteId)
+    let focusNote = MNNote.getFocusNote()
+    if (!targetNote) { return }
     switch (config.host) {
       case "focusCardInMindMap":
         // 定位卡片到脑图
-        await this.focusCardInMindMap(config.params.id)
+        await this.focusCardInMindMap(targetNoteId)
         break
 
       case "focusCardInFloatMindMap":
         // 聚焦到文档位置
-        await this.focusCardInFloatMindMap(config.params.id)
+        await this.focusCardInFloatMindMap(targetNoteId)
         break
 
       case "copyMarkdownLink":  // 调用 copyMarkdownLinkWithQuickPhrases 复制卡片行内链接
-        await this.copyMarkdownLink(config.params.id)
+        await this.copyMarkdownLink(targetNoteId)
         break;
-      case "":
+      case 'mergeFocusNoteToTargetNoteExcerptPart':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return 
+          }
+          KnowledgeBaseTemplate.mergeTitleLinkWords(targetNote, focusNote); // 合并标题(去重)
+          focusNote.title = ""
+          focusNote.mergeInto(targetNote);
+          KnowledgeBaseTemplate.autoMoveNewContentToField(targetNote, "摘录");
+        })
         break;
-      case "":
+
+      case 'clearTitleAndMergeFocusNoteToTargetNoteExcerptPart':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return 
+          }
+          focusNote.title = ""
+          focusNote.mergeInto(targetNote);
+          KnowledgeBaseTemplate.autoMoveNewContentToField(targetNote, "摘录");
+        })
         break;
-      case "":
-        break
-      case "":
+
+      case 'bidirectionalLinkFromeFocusNoteToTargetNote':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return 
+          }
+          focusNote.appendNoteLink(targetNote, "Both")
+          KnowledgeBaseTemplate.removeDuplicateLinksInLastField(targetNote)  // 链接去重
+        })
+        break;
+
+      case 'moveFocusNoteToTargetNoteAsChild':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return 
+          }
+          targetNote.addChild(focusNote);
+        })
+        break;
+
+      case 'moveFocusNoteToTargetNoteAsChildAndLocate':
+         MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return 
+          }
+          targetNote.addChild(focusNote);
+          focusNote.focusInMindMap(0.5)
+        })
+        break;
+
+      case 'addTemplateToTargetNoteAndMoveFocusNoteAsChild':
+        try {
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return 
+          }
+          let classificationNote = await KnowledgeBaseTemplate.addTemplate(targetNote, false);
+          // await MNUtil.delay(2)
+          if (classificationNote) {
+            classificationNote.addChild(focusNote);
+          } else {
+            MNLog.log("未找到新卡片");
+          }
+        } catch (error) {
+          MNLog.error("新建模板失败: " + error.message);
+        }
+        break;
+
+      case 'addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocate':
+        try {
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return 
+          }
+          let classificationNote = await KnowledgeBaseTemplate.addTemplate(targetNote, false);
+          if (classificationNote) {
+            classificationNote.addChild(focusNote);
+            focusNote.focusInMindMap(0.5)
+          } else {
+            MNLog.log("未找到新卡片");
+          }
+        } catch (error) {
+          MNLog.error("新建模板失败: " + error.message);
+        }
+        break;
+      case "refreshAllData":
+        // 刷新所有数据
+        MNUtil.showHUD("正在刷新数据...")
+        await this.refreshAllData()
+        MNUtil.showHUD("数据刷新完成")
         break;
       case "ready":
         // HTML 初始化完成信号
@@ -968,38 +1062,15 @@ knowledgebaseWebController.prototype.refreshKnowledgeData = async function() {
 }
 
 /**
- * 刷新中间知识库数据
- * 调用 main.js 中的 loadIntermediateDataToWebView 方法
- */
-knowledgebaseWebController.prototype.refreshIntermediateData = async function() {
-  try {
-    MNUtil.log("=== refreshIntermediateData 开始执行 ===")
-
-    // 调用 main.js 中的数据加载方法（注意使用 global 前缀访问）
-    if (typeof global.MNKnowledgeBaseInstance !== 'undefined' && global.MNKnowledgeBaseInstance.loadIntermediateDataToWebView) {
-      await global.MNKnowledgeBaseInstance.loadIntermediateDataToWebView()
-      MNUtil.log("中间知识库数据刷新成功")
-    } else {
-      MNUtil.log("错误: MNKnowledgeBaseInstance 或 loadIntermediateDataToWebView 方法不存在")
-    }
-  } catch (error) {
-    MNUtil.log("refreshIntermediateData 发生错误: " + error)
-    MNUtil.showHUD("刷新中间知识库数据失败: " + error)
-    KnowledgeBaseUtils.addErrorLog(error, "refreshIntermediateData")
-  }
-}
-
-/**
- * 刷新所有数据集（主知识库 + 中间知识库）
+ * 刷新所有知识库数据（主知识库 + 中间知识库，已合并）
  * 这是推荐的统一刷新接口
  */
 knowledgebaseWebController.prototype.refreshAllData = async function() {
   try {
     MNUtil.log("=== refreshAllData 开始执行 ===")
 
-    // 依次刷新两个数据集
+    // 只需刷新主知识库，其中已包含中间知识库数据
     await this.refreshKnowledgeData()
-    await this.refreshIntermediateData()
 
     MNUtil.log("=== refreshAllData 执行完成 ===")
   } catch (error) {

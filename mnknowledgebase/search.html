@@ -480,6 +480,7 @@
 
     .pill-row {
       display: flex;
+      flex-wrap: wrap;  /* 允许换行，确保子行可以独立成行 */
       gap: 10px;
       align-items: center;
       overflow-x: auto;
@@ -545,12 +546,57 @@
       font-weight: 500;
       cursor: pointer;
       position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0;
+      padding: 0;
     }
 
     .pill--expandable:hover {
       background: #e7f5ff;
       border-color: #339af0;
       transform: translateY(-1px);
+    }
+
+    /* 可展开 pill 的文本区域（可点击选中） */
+    .pill__text {
+      flex: 1;
+      cursor: pointer;
+      user-select: none;
+      padding: 8px 4px 8px 12px;
+    }
+
+    .pill__text:hover {
+      opacity: 0.8;
+    }
+
+    /* 可展开 pill 的展开按钮（可点击展开/收起） */
+    .pill__toggle {
+      flex-shrink: 0;
+      cursor: pointer;
+      user-select: none;
+      opacity: 0.7;
+      font-size: 14px;
+      padding: 8px 12px 8px 4px;
+      min-width: 28px;
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+    }
+
+    .pill__toggle:hover {
+      opacity: 1;
+      transform: scale(1.1);
+      background-color: rgba(51, 154, 240, 0.1);
+    }
+
+    .pill__toggle:active {
+      transform: scale(0.95);
+      background-color: rgba(51, 154, 240, 0.15);
     }
 
     /* 子级行容器 */
@@ -562,6 +608,7 @@
       padding: 8px 12px;
       border-radius: 4px;
       border-left: 3px solid #dee2e6;
+      flex-basis: 100%;  /* 强制子行占据完整宽度，独立成行 */
     }
 
     /* Level 2 子级 */
@@ -1194,12 +1241,6 @@
 <body>
   <div class="topbar">
     <div class="topbar-main">
-      <div class="topbar-dataset-slot">
-        <div class="dataset-toggle" id="datasetToggle" data-role="dataset-toggle" data-variant="primary" role="group" aria-label="数据源切换">
-          <button type="button" data-dataset="knowledge" class="active">知识库</button>
-          <button type="button" data-dataset="intermediate">中间知识库</button>
-        </div>
-      </div>
       <div class="search-input-wrap">
         <input id="searchInput" class="search-input" placeholder="搜索知识库：输入关键字或选择下方预设" autocomplete="off" />
         <div id="searchCount" class="search-count">0 条结果</div>
@@ -1207,18 +1248,12 @@
     </div>
     <div class="topbar-actions">
       <button id="toggleFiltersBtn" class="btn ghost filter-toggle" type="button" aria-expanded="true">收起筛选</button>
+      <button id="refreshBtn" class="btn" type="button">🔄 刷新</button>
       <button id="clearBtn" class="btn" type="button">清空</button>
     </div>
   </div>
 
   <div class="filters-panel" id="filtersPanel" aria-label="筛选面板">
-    <div class="filters-panel__section filters-panel__dataset">
-      <div class="filters-panel__section-title">数据源</div>
-      <div class="dataset-toggle" id="datasetToggleOverlay" data-role="dataset-toggle" data-variant="overlay" role="group" aria-label="数据源切换">
-        <button type="button" data-dataset="knowledge" class="active">知识库</button>
-        <button type="button" data-dataset="intermediate">中间知识库</button>
-      </div>
-    </div>
     <div class="pill-section pill-section--type" data-section="type">
       <div class="pill-section__header">
         <div class="pill-section__label-group">
@@ -1309,33 +1344,33 @@
 
       <div class="sidebar-section">
         <div class="sidebar-section-title">与 focusNote 交互</div>
-        <button class="sidebar-btn" id="mergeToExcerptBtn" type="button" disabled>
+        <button class="sidebar-btn" id="mergeFocusNoteToTargetNoteExcerptPartBtn" type="button" disabled>
           <span>🔗</span>
-          <span>合并到目标卡片的摘录区</span>
+          <span>合并 FocusNote 到选中卡片的摘录区</span>
         </button>
-        <button class="sidebar-btn" id="clearAndMergeBtn" type="button" disabled>
+        <button class="sidebar-btn" id="clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn" type="button" disabled>
           <span>🔗</span>
-          <span>清空标题 & 合并</span>
+          <span>清空 FocusNote 标题 & 合并到选中卡片的摘录区</span>
         </button>
-        <button class="sidebar-btn" id="bidirectionalLinkBtn" type="button" disabled>
+        <button class="sidebar-btn" id="bidirectionalLinkFromeFocusNoteToTargetNoteBtn" type="button" disabled>
           <span>🔗</span>
-          <span>双向链接</span>
+          <span>FocusNote 与选中卡片双向链接</span>
         </button>
-        <button class="sidebar-btn" id="moveAsChildBtn" type="button" disabled>
+        <button class="sidebar-btn" id="moveFocusNoteToTargetNoteAsChildBtn" type="button" disabled>
           <span>🗺️</span>
-          <span>移到子卡片</span>
+          <span>移动 FocusNote 成为选中卡片的子卡片</span>
         </button>
-        <button class="sidebar-btn" id="moveAsChildAndLocateBtn" type="button" disabled>
+        <button class="sidebar-btn" id="moveFocusNoteToTargetNoteAsChildAndLocateBtn" type="button" disabled>
           <span>🗺️</span>
-          <span>移到子卡片 & 主脑图定位</span>
+          <span>移动 FocusNote 成为选中卡片的子卡片 & 主脑图定位 FocusNote</span>
         </button>
-        <button class="sidebar-btn" id="addTemplateAsChildBtn" type="button" disabled>
+        <button class="sidebar-btn" id="addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn" type="button" disabled>
           <span>🗺️</span>
-          <span>增加模板并添加为子卡片</span>
+          <span>选中卡片增加归类卡片 & 添加 FocusNote 为新归类卡片的子卡片</span>
         </button>
-        <button class="sidebar-btn" id="addTemplateAsChildAndLocateBtn" type="button" disabled>
+        <button class="sidebar-btn" id="addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn" type="button" disabled>
           <span>🗺️</span>
-          <span>增加模板并添加为子卡片 & 定位</span>
+          <span>选中卡片增加归类卡片 & 添加 FocusNote 为新归类卡片的子卡片 & 主脑图定位 FocusNote</span>
         </button>
       </div>
     </aside>
@@ -1401,20 +1436,12 @@
       },
 
       /**
-       * 加载中间知识库索引数据 (Native → JS)
-       * @param {Object} indexData - 索引数据对象
-       * @param {Array} indexData.cards - 卡片数组
+       * 刷新所有数据 (JS → Native)
+       * 通过 URL scheme 通知 Native 端重新加载数据
        */
-      loadIntermediateIndex: function(indexData) {
-        console.log('Bridge.loadIntermediateIndex 被调用', indexData);
-
-        // 直接调用 setCardsForDataset 加载中间知识库数据
-        if (typeof setCardsForDataset === 'function') {
-          setCardsForDataset('intermediate', indexData.cards || []);
-          console.log('已加载中间知识库数据：', indexData.cards ? indexData.cards.length : 0, '张卡片');
-        } else {
-          console.error('无法加载中间知识库数据：setCardsForDataset 未定义');
-        }
+      refreshAllData: function() {
+        console.log('Bridge.refreshAllData 被调用');
+        window.location.href = 'mnknowledgebase://refreshAllData';
       },
 
       /**
@@ -1468,37 +1495,155 @@
         {
           name: '空间',
           icon: '🌍',
+          type: 'exclusive', 
           presets: [
-            { value: '拓扑空间' },
-            { value: '度量空间' },
-            { value: '赋范线性空间' },
+            { 
+              value: '拓扑空间',
+              children: [
+                { value: '开集' },
+                { value: '闭集' },
+                { value: '紧集' },
+                { value: '内部' },
+                { value: '闭包' },
+                { value: '邻域' },
+                { value: '开邻域' },
+                { value: '边界' },
+                { value: '疏朗集' },
+                { value: '第一纲集' },
+                { value: '第二纲集' }
+              ]
+            },
+            { value: '度量空间',
+              children: [
+                { value: '开球' },
+                { value: '闭球' },
+                { value: '球面' },
+                { value: '开单位球' },
+                { value: '闭单位球' },
+                { value: '单位球面' },
+                { value: '开集' },
+                { value: '闭集' },
+                { value: '紧集' },
+                { value: '内部' },
+                { value: '闭包' },
+                { value: '邻域' },
+                { value: '开邻域' },
+                { value: '边界' },
+                { value: '疏朗集' },
+                { value: '第一纲集' },
+                { value: '第二纲集' }
+              ]
+            },
             {
+              value: '赋范线性空间',
+              children: [
+                {
+                  value: '之间的算子',
+                  children: [
+                    { value: '线性算子' },
+                    { value: '有界线性算子' },
+                    { value: '闭算子' },
+                    { value: '开映射' },
+                    { value: '闭值域算子' },
+                  ]
+                },
+                {
+                  value: '到自身的算子',
+                  children: [
+                    { value: '线性算子' },
+                    { value: '有界线性算子' },
+                    { value: '闭算子' },
+                    { value: '开映射' },
+                    { value: '闭值域算子' },
+                  ]
+                },
+              ]
+            },
+            { 
               value: 'Banach 空间',
               children: [
-                { value: '内积空间' },
-                { value: 'Hilbert 空间' }
+                {
+                  value: '之间的算子',
+                  children: [
+                    { value: '线性算子' },
+                    { value: '有界线性算子' },
+                    { value: '闭算子' },
+                    { value: '开映射' },
+                    { value: '闭值域算子' },
+                  ]
+                },
+                {
+                  value: '到自身的算子',
+                  children: [
+                    { value: '线性算子' },
+                    { value: '有界线性算子' },
+                    { value: '闭算子' },
+                    { value: '开映射' },
+                    { value: '闭值域算子' },
+                  ]
+                },
+              ]
+            },
+            { 
+              value: '内积空间',
+              children: [
+                {
+                  value: '到自身的算子',
+                  children: [
+                    { value: '线性算子'},
+                    { value: '有界线性算子'},
+                    { value: '紧算子' },
+                    { value: '伴随算子' },
+                    { value: '正规算子' }
+                  ]
+                },
+                {
+                  value: '之间的算子',
+                  children: [
+                    { value: '线性算子'},
+                    { value: '有界线性算子'},
+                    { value: '紧算子' },
+                    { value: '伴随算子' },
+                  ]
+                },
+              ]
+            },
+            { 
+              value: 'Hilbert 空间',
+              children: [
+                {
+                  value: '到自身的算子',
+                  children: [
+                    { value: '线性算子'},
+                    { value: '有界线性算子'},
+                    { value: '紧算子' },
+                    { value: '伴随算子' },
+                    { value: '正规算子' }
+                  ]
+                },
+                {
+                  value: '之间的算子',
+                  children: [
+                    { value: '线性算子'},
+                    { value: '有界线性算子'},
+                    { value: '紧算子' },
+                    { value: '伴随算子' },
+                  ]
+                },
               ]
             }
           ]
         },
         {
-          name: '算子/函数',
+          name: '映射/函数',
           icon: '⚡',
           type: 'exclusive',  // 互斥组
           presets: [
             {
-              value: '算子',
+              value: '映射',
               children: [
-                { value: '线性算子' },
-                {
-                  value: '有界线性算子',
-                  children: [
-                    { value: '紧算子' },
-                    { value: '伴随算子' },
-                    { value: '共轭算子' },
-                    { value: '正规算子' }
-                  ]
-                }
+                { value: '线性映射' },
+                { value: '线性变换' },
               ]
             },
             {
@@ -1530,39 +1675,10 @@
               ]
             }
           ]
-        },
-        {
-          name: '拓扑',
-          icon: '🍩',
-          presets: [
-            { value: '开集' },
-            { value: '闭集' },
-            { value: '紧集' },
-            { value: '内部' },
-            { value: '闭包' },
-            { value: '邻域' },
-            { value: '开邻域' },
-            { value: '边界' },
-            { value: '疏朗集' },
-            { value: '第一纲集' },
-            { value: '第二纲集' }
-          ]
-        },
-        {
-          name: '度量空间',
-          icon: '🔍',
-          presets: [
-            { value: '开球' },
-            { value: '闭球' },
-            { value: '球面' },
-            { value: '开单位球' },
-            { value: '闭单位球' },
-            { value: '单位球面' }
-          ]
         }
       ];
 
-      const DEFAULT_NEGATIVE_PRESETS = ['实', '复'];
+      const DEFAULT_NEGATIVE_PRESETS = ['实', '复', '赋范'];
 
       // 对齐 SearchConfig.typePresets，便于后续与 utils.js 保持一致
       const RAW_TYPE_LABEL = '未分类';
@@ -1683,19 +1799,6 @@
           colorIndexPalette: { ...COLOR_INDEX_PALETTE },
         },
         recentPresets: [],
-        datasets: {
-          knowledge: {
-            label: '知识库',
-            cards: FAKE_CARDS.slice(),
-            count: FAKE_CARDS.length,
-          },
-          intermediate: {
-            label: '中间知识库',
-            cards: FAKE_INTERMEDIATE.slice(),
-            count: FAKE_INTERMEDIATE.length,
-          },
-        },
-        currentDatasetKey: 'knowledge',
         cards: FAKE_CARDS.slice(),
         filteredCards: [],
         activePresets: new Set(),
@@ -1722,7 +1825,6 @@
         presetSection: document.querySelector('[data-section="preset"]'),
         negativeSection: document.querySelector('[data-section="negative"]'),
         classificationSection: document.querySelector('[data-section="classification"]'),
-        datasetToggleElements: Array.from(document.querySelectorAll('[data-role="dataset-toggle"]')),
         filtersPanel: document.getElementById('filtersPanel'),
         presetBar: document.getElementById('presetBar'),
         typeBar: document.getElementById('typeBar'),
@@ -1733,6 +1835,7 @@
         searchCount: document.getElementById('searchCount'),
         selectedCardInfo: document.getElementById('selectedCardInfo'),
         clearBtn: document.getElementById('clearBtn'),
+        refreshBtn: document.getElementById('refreshBtn'),
         toggleFiltersBtn: document.getElementById('toggleFiltersBtn'),
         clearPresetsBtn: document.getElementById('clearPresetsBtn'),
         clearNegativesBtn: document.getElementById('clearNegativesBtn'),
@@ -1741,13 +1844,13 @@
         sidebarToggle: document.getElementById('sidebarToggle'),
         sidebarOverlay: document.getElementById('sidebarOverlay'),
         // Sidebar 按钮（已移除 focusCardInFloatMindMapBtn 和 copyMarkdownLinkBtn）
-        mergeToExcerptBtn: document.getElementById('mergeToExcerptBtn'),
-        clearAndMergeBtn: document.getElementById('clearAndMergeBtn'),
-        bidirectionalLinkBtn: document.getElementById('bidirectionalLinkBtn'),
-        moveAsChildBtn: document.getElementById('moveAsChildBtn'),
-        moveAsChildAndLocateBtn: document.getElementById('moveAsChildAndLocateBtn'),
-        addTemplateAsChildBtn: document.getElementById('addTemplateAsChildBtn'),
-        addTemplateAsChildAndLocateBtn: document.getElementById('addTemplateAsChildAndLocateBtn'),
+        mergeFocusNoteToTargetNoteExcerptPartBtn: document.getElementById('mergeFocusNoteToTargetNoteExcerptPartBtn'),
+        clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn: document.getElementById('clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn'),
+        bidirectionalLinkFromeFocusNoteToTargetNoteBtn: document.getElementById('bidirectionalLinkFromeFocusNoteToTargetNoteBtn'),
+        moveFocusNoteToTargetNoteAsChildBtn: document.getElementById('moveFocusNoteToTargetNoteAsChildBtn'),
+        moveFocusNoteToTargetNoteAsChildAndLocateBtn: document.getElementById('moveFocusNoteToTargetNoteAsChildAndLocateBtn'),
+        addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn: document.getElementById('addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn'),
+        addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn: document.getElementById('addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn'),
         scrollToTopBtn: document.getElementById('scrollToTopBtn'),
         topbar: document.querySelector('.topbar'),
         container: document.querySelector('.container'),
@@ -1838,7 +1941,6 @@
       init();
 
       function init() {
-        renderDatasetToggle();
         refreshClassificationOptions();
         renderPresetBar();
         renderTypeBar();
@@ -2211,26 +2313,28 @@
       function attachEventListeners() {
         dom.searchInput.addEventListener('input', debouncedInputHandler, { passive: true });
         dom.searchInput.addEventListener('focus', expandFiltersForSearchInput);
-        dom.searchInput.addEventListener('pointerdown', () => {
-          if (isFilterPanelCollapsed) expandFiltersForSearchInput();
-        }, { passive: true });
         dom.clearBtn.addEventListener('click', handleClearFilters);
         dom.clearPresetsBtn?.addEventListener('click', handleClearPresets);
         dom.clearNegativesBtn?.addEventListener('click', handleClearNegatives);
 
         // Sidebar 按钮事件（已移除 focusCardInFloatMindMapBtn 和 copyMarkdownLinkBtn 的监听器）
-        dom.mergeToExcerptBtn?.addEventListener('click', () => handleSidebarAction('mergeToExcerpt'));
-        dom.clearAndMergeBtn?.addEventListener('click', () => handleSidebarAction('clearAndMerge'));
-        dom.bidirectionalLinkBtn?.addEventListener('click', () => handleSidebarAction('bidirectionalLink'));
-        dom.moveAsChildBtn?.addEventListener('click', () => handleSidebarAction('moveAsChild'));
-        dom.moveAsChildAndLocateBtn?.addEventListener('click', () => handleSidebarAction('moveAsChildAndLocate'));
-        dom.addTemplateAsChildBtn?.addEventListener('click', () => handleSidebarAction('addTemplateAsChild'));
-        dom.addTemplateAsChildAndLocateBtn?.addEventListener('click', () => handleSidebarAction('addTemplateAsChildAndLocate'));
+        dom.mergeFocusNoteToTargetNoteExcerptPartBtn?.addEventListener('click', () => handleSidebarAction('mergeFocusNoteToTargetNoteExcerptPart'));
+        dom.clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn?.addEventListener('click', () => handleSidebarAction('clearTitleAndMergeFocusNoteToTargetNoteExcerptPart'));
+        dom.bidirectionalLinkFromeFocusNoteToTargetNoteBtn?.addEventListener('click', () => handleSidebarAction('bidirectionalLinkFromeFocusNoteToTargetNote'));
+        dom.moveFocusNoteToTargetNoteAsChildBtn?.addEventListener('click', () => handleSidebarAction('moveFocusNoteToTargetNoteAsChild'));
+        dom.moveFocusNoteToTargetNoteAsChildAndLocateBtn?.addEventListener('click', () => handleSidebarAction('moveFocusNoteToTargetNoteAsChildAndLocate'));
+        dom.addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn?.addEventListener('click', () => handleSidebarAction('addTemplateToTargetNoteAndMoveFocusNoteAsChild'));
+        dom.addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn?.addEventListener('click', () => handleSidebarAction('addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocate'));
 
-        dom.datasetToggleElements.forEach((toggle) => {
-          toggle.querySelectorAll('button').forEach((btn) => {
-            btn.addEventListener('click', () => setActiveDataset(btn.dataset.dataset, { requestIfEmpty: true }));
-          });
+        // 刷新按钮事件
+        dom.refreshBtn?.addEventListener('click', () => {
+          showToast('正在刷新数据...');
+          if (window.Bridge && typeof window.Bridge.refreshAllData === 'function') {
+            window.Bridge.refreshAllData();
+          } else {
+            console.error('Bridge.refreshAllData 方法不存在');
+            showToast('刷新功能不可用');
+          }
         });
 
         dom.toggleFiltersBtn?.addEventListener('click', () => {
@@ -2307,79 +2411,39 @@
         }
       }
 
-      function renderDatasetToggle() {
-        if (!dom.datasetToggleElements || !dom.datasetToggleElements.length) return;
-        dom.datasetToggleElements.forEach((toggle) => {
-          toggle.querySelectorAll('button').forEach((btn) => {
-            const key = btn.dataset.dataset;
-            if (!key) return;
-            const dataset = state.datasets[key];
-            btn.classList.toggle('active', key === state.currentDatasetKey);
-            if (dataset && dataset.label) {
-              const count = dataset.count ?? dataset.cards?.length ?? 0;
-              btn.textContent = count ? `${dataset.label} (${count})` : dataset.label;
-            }
-          });
+      /**
+       * 更新卡片数据（简化版：直接更新 state.cards）
+       * @param {Array} cards - 卡片数组
+       * @param {Object} options - 选项
+       * @param {boolean} options.replace - 是否替换（true）或合并（false）
+       */
+      function updateCards(cards, { replace = true } = {}) {
+        console.log(`🔄 updateCards 被调用:`, {
+          cardsLength: cards?.length,
+          replace,
+          currentCardsLength: state.cards.length
         });
-      }
-
-      function setActiveDataset(datasetKey, options = {}) {
-        if (!datasetKey || datasetKey === state.currentDatasetKey) return;
-        const dataset = state.datasets[datasetKey];
-        if (!dataset) {
-          showToast('数据源未准备好');
-          return;
-        }
-        const requestIfEmpty = options.requestIfEmpty !== false;
-        state.currentDatasetKey = datasetKey;
-        state.cards = (dataset.cards || []).slice();
-        state.currentClassificationSubtype = 'all';
-        clearSelection();
-        renderDatasetToggle();
-        if (!state.cards.length && requestIfEmpty) {
-          postBridge('requestDataset', { datasetKey });
-        }
-        refreshClassificationOptions();
-        scheduleSearch({ triggerNative: false });
-      }
-
-      function updateDatasetCards(datasetKey, cards, { replace = true } = {}) {
-        if (!datasetKey) datasetKey = state.currentDatasetKey;
-
-        // 创建新对象而不是获取引用,避免修改原对象
-        const existing = state.datasets[datasetKey];
-        const current = {
-          label: existing?.label || datasetKey,
-          cards: [],  // 将在下面设置
-          count: 0
-        };
 
         const sanitized = Array.isArray(cards) ? cards.filter(Boolean) : [];
+
         if (replace) {
           // 替换模式:直接使用新卡片数组
-          current.cards = sanitized.slice();
+          state.cards = sanitized.slice();
         } else {
           // 合并模式:保留现有卡片,添加新卡片
-          const existingCards = existing?.cards || [];
-          const cardMap = new Map(existingCards.map((item) => [item.id, item]));
+          const cardMap = new Map(state.cards.map((item) => [item.id, item]));
           sanitized.forEach((item) => {
             if (!item || !item.id || cardMap.has(item.id)) return;
             cardMap.set(item.id, item);
           });
-          current.cards = Array.from(cardMap.values());
+          state.cards = Array.from(cardMap.values());
         }
 
-        current.count = current.cards.length;
-        state.datasets[datasetKey] = current;
+        console.log(`✅ 卡片数据更新完成,当前卡片数: ${state.cards.length}`);
 
-        if (datasetKey === state.currentDatasetKey) {
-          state.cards = current.cards.slice();
-          clearSelection();
-          refreshClassificationOptions();
-          scheduleSearch({ triggerNative: false });
-        }
-
-        renderDatasetToggle();
+        clearSelection();
+        refreshClassificationOptions();
+        scheduleSearch({ triggerNative: false });
       }
 
       /**
@@ -2405,15 +2469,67 @@
         }
 
         if (hasChildren) {
-          // 可展开的 pill
+          // 可展开的 pill（同时支持选中和展开）
           pill.classList.add('pill--expandable');
           const isExpanded = state.expandedPresets.has(preset);
-          pill.innerHTML = `${preset} ${isExpanded ? '▼' : '▶'}`;
 
-          // 点击展开/收起
-          pill.addEventListener('click', (e) => {
+          // 创建文本区域（用于选中）
+          const textSpan = document.createElement('span');
+          textSpan.className = 'pill__text';
+          textSpan.textContent = preset;
+
+          // 创建展开按钮（用于展开/收起）
+          const toggleSpan = document.createElement('span');
+          toggleSpan.className = 'pill__toggle';
+          toggleSpan.textContent = isExpanded ? '▼' : '▶';
+
+          pill.appendChild(textSpan);
+          pill.appendChild(toggleSpan);
+
+          // 选中/取消选中逻辑
+          const toggleSelection = () => {
+            if (state.activePresets.has(preset)) {
+              state.activePresets.delete(preset);
+            } else {
+              state.activePresets.add(preset);
+              updateRecentPresets(preset);
+            }
+            renderPresetBar();
+            scheduleSearch();
+          };
+
+          // 文本区域：点击选中/取消选中
+          textSpan.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSelection();
+          });
+
+          // 展开按钮：点击展开/收起
+          toggleSpan.addEventListener('click', (e) => {
             e.stopPropagation();
             toggleExpand(item, group);
+          });
+
+          // 阻止 pill 本身的点击事件冒泡（处理 padding 和 gap 区域的点击）
+          pill.addEventListener('click', (e) => {
+            // 如果点击的不是 textSpan 或 toggleSpan，阻止冒泡
+            if (e.target === pill) {
+              e.stopPropagation();
+            }
+          });
+
+          // 键盘支持
+          pill.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              toggleSelection();
+            } else if (event.key === 'ArrowRight' && !isExpanded) {
+              event.preventDefault();
+              toggleExpand(item, group);
+            } else if (event.key === 'ArrowLeft' && isExpanded) {
+              event.preventDefault();
+              toggleExpand(item, group);
+            }
           });
         } else {
           // 普通 pill（可选中）
@@ -3394,13 +3510,13 @@
 
         // 更新所有 Sidebar 按钮状态（已移除 focusCardInFloatMindMapBtn 和 copyMarkdownLinkBtn）
         const sidebarButtons = [
-          dom.mergeToExcerptBtn,
-          dom.clearAndMergeBtn,
-          dom.bidirectionalLinkBtn,
-          dom.moveAsChildBtn,
-          dom.moveAsChildAndLocateBtn,
-          dom.addTemplateAsChildBtn,
-          dom.addTemplateAsChildAndLocateBtn,
+          dom.mergeFocusNoteToTargetNoteExcerptPartBtn,
+          dom.clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn,
+          dom.bidirectionalLinkFromeFocusNoteToTargetNoteBtn,
+          dom.moveFocusNoteToTargetNoteAsChildBtn,
+          dom.moveFocusNoteToTargetNoteAsChildAndLocateBtn,
+          dom.addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn,
+          dom.addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn,
         ];
 
         sidebarButtons.forEach((btn) => {
@@ -3443,32 +3559,53 @@
             break;
           }
 
-          case 'mergeToExcerpt':
-            showToast('功能开发中：合并到目标卡片');
+          case 'mergeFocusNoteToTargetNoteExcerptPart':
+            if (!postBridge('mergeFocusNoteToTargetNoteExcerptPart', { id })) {
+              
+            }
+            // showToast('功能开发中：合并到目标卡片');
             break;
 
-          case 'clearAndMerge':
-            showToast('功能开发中：清空标题并合并');
+          case 'clearTitleAndMergeFocusNoteToTargetNoteExcerptPart':
+            if (!postBridge('clearTitleAndMergeFocusNoteToTargetNoteExcerptPart', { id })) {
+              
+            }
+            // showToast('功能开发中：清空标题并合并');
             break;
 
-          case 'bidirectionalLink':
-            showToast('功能开发中：双向链接');
+          case 'bidirectionalLinkFromeFocusNoteToTargetNote':
+            if (!postBridge('bidirectionalLinkFromeFocusNoteToTargetNote', { id })) {
+              
+            }
+            // showToast('功能开发中：双向链接');
             break;
 
-          case 'moveAsChild':
-            showToast('功能开发中：移到子卡片');
+          case 'moveFocusNoteToTargetNoteAsChild':
+            if (!postBridge('moveFocusNoteToTargetNoteAsChild', { id })) {
+              
+            }
+            // showToast('功能开发中：移到子卡片');
             break;
 
-          case 'moveAsChildAndLocate':
-            showToast('功能开发中：移到子卡片并定位');
+          case 'moveFocusNoteToTargetNoteAsChildAndLocate':
+            if (!postBridge('moveFocusNoteToTargetNoteAsChildAndLocate', { id })) {
+              
+            }
+            // showToast('功能开发中：移到子卡片并定位');
             break;
 
-          case 'addTemplateAsChild':
-            showToast('功能开发中：增加模板并添加为子卡片');
+          case 'addTemplateToTargetNoteAndMoveFocusNoteAsChild':
+            if (!postBridge('addTemplateToTargetNoteAndMoveFocusNoteAsChild', { id })) {
+              
+            }
+            // showToast('功能开发中：增加模板并添加为子卡片');
             break;
 
-          case 'addTemplateAsChildAndLocate':
-            showToast('功能开发中：增加模板并添加为子卡片并定位');
+          case 'addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocate':
+            if (!postBridge('addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocate', { id })) {
+              
+            }
+            // showToast('功能开发中：增加模板并添加为子卡片并定位');
             break;
 
           default:
@@ -3600,8 +3737,15 @@
         }
       }
 
+      /**
+       * 设置卡片数据（兼容旧接口，忽略 datasetKey）
+       * @param {string} datasetKey - 数据集键（已废弃，保留用于兼容性）
+       * @param {Array} results - 卡片数组
+       * @param {Object} options - 选项
+       */
       function setCardsForDataset(datasetKey, results, options = {}) {
-        updateDatasetCards(datasetKey, results, { replace: options.replace !== false });
+        console.log(`📥 setCardsForDataset 被调用 (datasetKey 已忽略):`, datasetKey);
+        updateCards(results, { replace: options.replace !== false });
       }
 
       function postBridge(action, params = {}) {

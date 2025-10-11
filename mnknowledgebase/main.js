@@ -43,7 +43,7 @@ JSB.newAddon = function(mainPath){
         // MNUtil.addObserver(self, 'onOpenKnowledgeBaseSearch:', 'openKnowledgeBaseSearch')
 
         self.toggled = false
-        self.newExcerptWithOCRToTitle = false  // 新摘录 OCR 到标题
+        self.excerptOCRMode = KnowledgeBaseConfig.config.excerptOCRMode || 0  // 摘录 OCR 模式：0=关闭, 1=直接OCR, 2=Markdown格式, 3=概念提取
         self.preExcerptMode = false  // 预摘录模式
         // MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
         MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
@@ -176,8 +176,8 @@ JSB.newAddon = function(mainPath){
           }
         }
 
-        if (self.newExcerptWithOCRToTitle) {
-          let OCRResult = await KnowledgeBaseNetwork.OCRToTitle(note)
+        if (self.excerptOCRMode > 0) {
+          let OCRResult = await KnowledgeBaseNetwork.OCRToTitle(note, self.excerptOCRMode)
           if (OCRResult) {
             IntermediateKnowledgeIndexer.addToIncrementalIndex(note)
           }
@@ -242,7 +242,7 @@ JSB.newAddon = function(mainPath){
           self.tableItem('🔤   同义词管理', 'manageSynonyms:'),
           self.tableItem('-------------------------------',''),
           self.tableItem('⚙️   摘录 OCR 模型设置', 'excerptOCRModelSetting:', button),
-          self.tableItem("🤖   摘录自动 OCR 到标题", 'newExcerptWithOCRToTitleToggled:', undefined, self.newExcerptWithOCRToTitle),
+          self.tableItem('🤖   摘录 OCR 模式', 'excerptOCRModeSetting:', button),
           self.tableItem('🤖   预摘录模式', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
         ];
 
@@ -292,10 +292,35 @@ JSB.newAddon = function(mainPath){
       }
     },
 
-    newExcerptWithOCRToTitleToggled: function() {
-      self.checkPopover()
-      self.newExcerptWithOCRToTitle = !self.newExcerptWithOCRToTitle
-      MNUtil.showHUD(self.newExcerptWithOCRToTitle ? "已开启摘录自动 OCR 到标题" : "已关闭摘录自动 OCR 到标题", 1)
+    excerptOCRModeSetting: function(button) {
+      try {
+        self.checkPopover()
+        const modeNames = ['❌ 关闭', '📝 直接OCR', '🔤 Markdown格式', '🎯 概念提取']
+        let commandTable = modeNames.map((name, index) =>
+          self.tableItem(name, 'setExcerptOCRMode:', index, self.excerptOCRMode === index)
+        )
+        self.popoverController = MNUtil.getPopoverAndPresent(
+          button,
+          commandTable,
+          250,
+          0
+        )
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "excerptOCRModeSetting")
+      }
+    },
+
+    setExcerptOCRMode: function(mode) {
+      try {
+        self.checkPopover()
+        self.excerptOCRMode = mode
+        KnowledgeBaseConfig.config.excerptOCRMode = mode
+        KnowledgeBaseConfig.save()
+        const modeNames = ['关闭', '直接OCR', 'Markdown格式', '概念提取']
+        MNUtil.showHUD(`摘录 OCR 模式已设置为: ${modeNames[mode]}`, 1)
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "setExcerptOCRMode")
+      }
     },
 
     preExcerptModeToggled: function() {
@@ -1078,54 +1103,59 @@ JSB.newAddon = function(mainPath){
   }
 
   /**
-   * 加载搜索数据到 WebView
+   * 加载搜索数据到 WebView（合并主知识库和中间知识库）
    */
   MNKnowledgeBaseClass.prototype.loadSearchDataToWebView = async function() {
     try {
       let allCards = [];
       let metadata = {};
-      
-      // 1. 尝试加载分片索引（新版模式）
+
+      // ========== 第1部分：加载主知识库 ==========
+      MNUtil.log("=== 开始加载主知识库 ===");
+
+      // 1.1 尝试加载分片索引（新版模式）
       let manifestPath = MNUtil.dbFolder + "/data/kb-search-index-manifest.json"
       let manifest = MNUtil.readJSON(manifestPath);
-      
+
       if (manifest && manifest.parts) {
         // 分片模式：加载所有分片
-        MNUtil.log("加载分片索引数据");
-        
+        MNUtil.log("加载主知识库分片索引数据");
+
         for (const partInfo of manifest.parts) {
           let partPath = MNUtil.dbFolder + "/data/" + partInfo.filename;
           let partData = MNUtil.readJSON(partPath);
-          
+
           if (partData && partData.data) {
             allCards = allCards.concat(partData.data);
           }
         }
-        
+
         metadata = manifest.metadata || {};
-        
+
       } else {
         // 旧版模式：尝试加载单文件
-        MNUtil.log("尝试加载旧版单文件索引");
+        MNUtil.log("尝试加载旧版主知识库单文件索引");
         let indexPath = MNUtil.dbFolder + "/data/kb-search-index.json"
         let indexData = MNUtil.readJSON(indexPath);
-        
+
         if (!indexData || !indexData.cards) {
           MNUtil.showHUD("索引未找到，请先更新搜索索引")
           return
         }
-        
+
         allCards = indexData.cards;
         metadata = indexData.metadata || {};
       }
-      
-      // 2. 加载增量索引（如果存在）
+
+      MNUtil.log(`主知识库加载完成：${allCards.length} 张卡片`);
+
+      // 1.2 加载主知识库增量索引（如果存在）
       let incrementalPath = MNUtil.dbFolder + "/data/kb-incremental-index.json";
       if (MNUtil.isfileExists(incrementalPath)) {
         let incrementalData = MNUtil.readJSON(incrementalPath);
         if (incrementalData && incrementalData.cards) {
-          MNUtil.log(`加载增量索引：${incrementalData.cards.length} 张卡片`);
-          
+          MNUtil.log(`加载主知识库增量索引：${incrementalData.cards.length} 张卡片`);
+
           // 合并并去重（基于 noteId）
           const existingIds = new Set(allCards.map(card => card.id));
           for (const card of incrementalData.cards) {
@@ -1135,8 +1165,80 @@ JSB.newAddon = function(mainPath){
           }
         }
       }
-      
-      // 3. 构建完整的索引数据
+
+      // ========== 第2部分：加载中间知识库 ==========
+      MNUtil.log("=== 开始加载中间知识库 ===");
+
+      let intermediateCards = [];
+
+      // 2.1 尝试加载中间知识库的分片索引
+      let intermediateManifestPath = MNUtil.dbFolder + "/data/intermediate-kb-index-manifest.json"
+      let intermediateManifest = MNUtil.readJSON(intermediateManifestPath);
+
+      if (intermediateManifest && intermediateManifest.parts) {
+        // 分片模式：加载所有分片
+        MNUtil.log("加载中间知识库分片索引数据");
+
+        for (const partInfo of intermediateManifest.parts) {
+          let partPath = MNUtil.dbFolder + "/data/" + partInfo.filename;
+          let partData = MNUtil.readJSON(partPath);
+
+          if (partData && partData.data) {
+            intermediateCards = intermediateCards.concat(partData.data);
+          }
+        }
+
+      } else {
+        // 旧版模式：尝试加载单文件
+        MNUtil.log("尝试加载旧版中间知识库单文件索引");
+        let intermediateIndexPath = MNUtil.dbFolder + "/data/intermediate-kb-index.json"
+        let intermediateIndexData = MNUtil.readJSON(intermediateIndexPath);
+
+        if (intermediateIndexData && intermediateIndexData.cards) {
+          intermediateCards = intermediateIndexData.cards;
+        } else {
+          MNUtil.log("中间知识库索引未找到（跳过）");
+        }
+      }
+
+      // 2.2 加载中间知识库的增量索引（如果存在）
+      let intermediateIncrementalPath = MNUtil.dbFolder + "/data/intermediate-kb-incremental-index.json";
+      if (MNUtil.isfileExists(intermediateIncrementalPath)) {
+        let intermediateIncrementalData = MNUtil.readJSON(intermediateIncrementalPath);
+        if (intermediateIncrementalData && intermediateIncrementalData.cards) {
+          MNUtil.log(`加载中间知识库增量索引：${intermediateIncrementalData.cards.length} 张卡片`);
+
+          // 合并并去重（基于 noteId）
+          const existingIntermediateIds = new Set(intermediateCards.map(card => card.id));
+          for (const card of intermediateIncrementalData.cards) {
+            if (!existingIntermediateIds.has(card.id)) {
+              intermediateCards.push(card);
+            }
+          }
+        }
+      }
+
+      if (intermediateCards.length > 0) {
+        MNUtil.log(`中间知识库加载完成：${intermediateCards.length} 张卡片`);
+
+        // ========== 第3部分：合并两个知识库 ==========
+        // 使用 Set 去重，以主知识库的卡片为准
+        const mainCardIds = new Set(allCards.map(card => card.id));
+        let addedCount = 0;
+
+        for (const card of intermediateCards) {
+          if (!mainCardIds.has(card.id)) {
+            allCards.push(card);
+            addedCount++;
+          }
+        }
+
+        MNUtil.log(`合并完成：主知识库 ${allCards.length - addedCount} 张，中间知识库新增 ${addedCount} 张`);
+      } else {
+        MNUtil.log("中间知识库为空，仅使用主知识库数据");
+      }
+
+      // ========== 第4部分：构建完整的索引数据并发送到前端 ==========
       const fullIndexData = {
         cards: allCards,
         metadata: {
@@ -1145,113 +1247,23 @@ JSB.newAddon = function(mainPath){
           ...metadata
         }
       };
-      
-      MNUtil.log(`WebView 数据准备完成：共 ${allCards.length} 张卡片`);
-      
+
+      MNUtil.log(`=== 数据准备完成：共 ${allCards.length} 张卡片 ===`);
+
       // 等待 WebView 加载完成
       await MNUtil.delay(0.5)
-      
-      // 调用 Bridge 方法加载数据
+
+      // 调用 Bridge 方法加载数据（只调用一次，传递合并后的数据）
       let script = `window.Bridge.loadSearchIndex(${JSON.stringify(fullIndexData)})`
       let input = await KnowledgeBaseUtils.webViewController.runJavaScript(script)
-      
+
       if (input) {
         MNUtil.showHUD(`加载成功：${allCards.length} 张卡片`)
-        KnowledgeBaseUtils.log(`加载成功：${allCards.length} 张卡片`)
       }
 
     } catch (error) {
       MNUtil.showHUD("加载索引失败：" + error.message)
       KnowledgeBaseUtils.addErrorLog(error, "loadSearchDataToWebView")
-    }
-  }
-
-  /**
-   * 加载中间知识库数据到 WebView
-   */
-  MNKnowledgeBaseClass.prototype.loadIntermediateDataToWebView = async function() {
-    try {
-      let allCards = [];
-      let metadata = {};
-
-      // 1. 尝试加载中间知识库的分片索引
-      let manifestPath = MNUtil.dbFolder + "/data/intermediate-kb-index-manifest.json"
-      let manifest = MNUtil.readJSON(manifestPath);
-
-      if (manifest && manifest.parts) {
-        // 分片模式：加载所有分片
-        MNUtil.log("加载中间知识库分片索引数据");
-
-        for (const partInfo of manifest.parts) {
-          let partPath = MNUtil.dbFolder + "/data/" + partInfo.filename;
-          let partData = MNUtil.readJSON(partPath);
-
-          if (partData && partData.data) {
-            allCards = allCards.concat(partData.data);
-          }
-        }
-
-        metadata = manifest.metadata || {};
-
-      } else {
-        // 旧版模式：尝试加载单文件
-        MNUtil.log("尝试加载旧版中间知识库单文件索引");
-        let indexPath = MNUtil.dbFolder + "/data/intermediate-kb-index.json"
-        let indexData = MNUtil.readJSON(indexPath);
-
-        if (!indexData || !indexData.cards) {
-          MNUtil.log("中间知识库索引未找到")
-          // 不显示错误提示，因为中间知识库可能还没有建立索引
-          return
-        }
-
-        allCards = indexData.cards;
-        metadata = indexData.metadata || {};
-      }
-
-      // 2. 加载中间知识库的增量索引（如果存在）
-      let incrementalPath = MNUtil.dbFolder + "/data/intermediate-kb-incremental-index.json";
-      if (MNUtil.isfileExists(incrementalPath)) {
-        let incrementalData = MNUtil.readJSON(incrementalPath);
-        if (incrementalData && incrementalData.cards) {
-          MNUtil.log(`加载中间知识库增量索引：${incrementalData.cards.length} 张卡片`);
-
-          // 合并并去重（基于 noteId）
-          const existingIds = new Set(allCards.map(card => card.id));
-          for (const card of incrementalData.cards) {
-            if (!existingIds.has(card.id)) {
-              allCards.push(card);
-            }
-          }
-        }
-      }
-
-      // 3. 构建完整的索引数据
-      const fullIndexData = {
-        cards: allCards,
-        metadata: {
-          totalCards: allCards.length,
-          updateTime: metadata.updateTime || Date.now(),
-          ...metadata
-        }
-      };
-
-      MNUtil.log(`中间知识库数据准备完成：共 ${allCards.length} 张卡片`);
-
-      // 等待 WebView 加载完成
-      await MNUtil.delay(0.5)
-
-      // 调用 Bridge 方法加载中间知识库数据
-      let script = `window.Bridge.loadIntermediateIndex(${JSON.stringify(fullIndexData)})`
-      let input = await KnowledgeBaseUtils.webViewController.runJavaScript(script)
-
-      if (input) {
-        MNUtil.log(`中间知识库加载成功：${allCards.length} 张卡片`)
-      }
-
-    } catch (error) {
-      MNUtil.log("加载中间知识库失败：" + error.message)
-      KnowledgeBaseUtils.addErrorLog(error, "loadIntermediateDataToWebView")
     }
   }
 
