@@ -239,7 +239,6 @@ JSB.newAddon = function(mainPath){
           // === 配置管理 ===
           self.tableItem('📜   搜索历史', 'showSearchHistory:'),
           self.tableItem('🔍   搜索模式设置', 'configureSearchMode:'),
-          self.tableItem('🔤   同义词管理', 'manageSynonyms:'),
           self.tableItem('-------------------------------',''),
           self.tableItem('⚙️   通用 OCR 模型', 'excerptOCRModelSetting:', button),
           self.tableItem('    ⚙️ 模式1 模型', 'excerptOCRModelSettingForMode1:', button),
@@ -812,24 +811,6 @@ JSB.newAddon = function(mainPath){
         await KnowledgeBaseTemplate.configureSearchMode();
       } catch (error) {
         MNUtil.showHUD("配置搜索模式失败: " + error.message);
-      }
-    },
-
-    /**
-     * 管理同义词
-     */
-    manageSynonyms: async function() {
-      try {
-        // 关闭菜单
-        if (self.popoverController) {
-          self.popoverController.dismissPopoverAnimated(true);
-        }
-        
-        // 调用同义词管理界面
-        await KnowledgeBaseTemplate.manageSynonymGroups();
-      } catch (error) {
-        MNUtil.showHUD("管理同义词失败: " + error.message);
-        MNLog.error(error, "MNKnowledgeBase: manageSynonyms");
       }
     },
 

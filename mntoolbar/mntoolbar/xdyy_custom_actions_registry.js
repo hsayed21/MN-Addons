@@ -5742,6 +5742,87 @@ function registerAllCustomActions() {
     }
   )
 
+  // 模式1：直接 OCR (Unicode)
+  global.registerCustomAction("ocrMode1WithTranslation", async function(context) {
+    const { focusNote } = context;
+    try {
+      if (!focusNote) {
+        MNUtil.showHUD("请先选中一张卡片");
+        return;
+      }
+      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 1, true);
+    } catch (error) {
+      MNUtil.showHUD("模式1翻译版 OCR 失败: " + error.message);
+    }
+  })
+
+  global.registerCustomAction("ocrMode1NoTranslation", async function(context) {
+    const { focusNote } = context;
+    try {
+      if (!focusNote) {
+        MNUtil.showHUD("请先选中一张卡片");
+        return;
+      }
+      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 1, false);
+    } catch (error) {
+      MNUtil.showHUD("模式1原文版 OCR 失败: " + error.message);
+    }
+  })
+
+  // 模式2：Markdown OCR (LaTeX)
+  global.registerCustomAction("ocrMode2WithTranslation", async function(context) {
+    const { focusNote } = context;
+    try {
+      if (!focusNote) {
+        MNUtil.showHUD("请先选中一张卡片");
+        return;
+      }
+      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 2, true);
+    } catch (error) {
+      MNUtil.showHUD("模式2翻译版 OCR 失败: " + error.message);
+    }
+  })
+
+  global.registerCustomAction("ocrMode2NoTranslation", async function(context) {
+    const { focusNote } = context;
+    try {
+      if (!focusNote) {
+        MNUtil.showHUD("请先选中一张卡片");
+        return;
+      }
+      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 2, false);
+    } catch (error) {
+      MNUtil.showHUD("模式2原文版 OCR 失败: " + error.message);
+    }
+  })
+
+  // 模式3：智能 OCR (根据卡片类型)
+  global.registerCustomAction("ocrMode3WithTranslation", async function(context) {
+    const { focusNote } = context;
+    try {
+      if (!focusNote) {
+        MNUtil.showHUD("请先选中一张卡片");
+        return;
+      }
+      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 3, true);
+    } catch (error) {
+      MNUtil.showHUD("模式3翻译版 OCR 失败: " + error.message);
+    }
+  })
+
+  global.registerCustomAction("ocrMode3NoTranslation", async function(context) {
+    const { focusNote } = context;
+    try {
+      if (!focusNote) {
+        MNUtil.showHUD("请先选中一张卡片");
+        return;
+      }
+      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 3, false);
+    } catch (error) {
+      MNUtil.showHUD("模式3原文版 OCR 失败: " + error.message);
+    }
+  })
+
 
 }
 

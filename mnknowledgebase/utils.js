@@ -3896,8 +3896,9 @@ class KnowledgeBaseTemplate {
     if (!note) {
       return {};
     }
-    
-    let title = note.title || "";
+
+    // 清理标题中的高亮标记
+    let title = KnowledgeBaseIndexer.cleanHighlightMarkers(note.title || "");
     let titleParts = {}
     let match
     
@@ -10005,8 +10006,6 @@ class KnowledgeBaseTemplate {
           onlyClassification: false,  // 默认不启用只搜索归类卡片
           skipEmptyTitle: false,  // 默认不跳过空白标题卡片
           enableRegexSearch: false,  // 默认不启用正则表达式搜索
-          synonymGroups: [],  // 同义词组
-          exclusionGroups: [],  // 排除词组
           lastModified: Date.now()
         };
       }
@@ -10023,14 +10022,6 @@ class KnowledgeBaseTemplate {
       }
       if (config && config.onlyClassification === undefined) {
         config.onlyClassification = false;  // 默认不启用只搜索归类卡片
-      }
-      // 添加同义词组字段
-      if (config && !config.synonymGroups) {
-        config.synonymGroups = [];
-      }
-      // 添加排除词组字段
-      if (config && !config.exclusionGroups) {
-        config.exclusionGroups = [];
       }
       // 添加跳过空白标题字段
       if (config && config.skipEmptyTitle === undefined) {
@@ -10082,8 +10073,6 @@ class KnowledgeBaseTemplate {
         onlyClassification: false,  // 默认不启用只搜索归类卡片
         skipEmptyTitle: false,  // 默认不跳过空白标题卡片
         enableRegexSearch: false,  // 默认不启用正则表达式搜索
-        synonymGroups: [],  // 同义词组
-        exclusionGroups: [],  // 排除词组
         lastModified: Date.now()
       };
     }
@@ -10405,10 +10394,9 @@ class KnowledgeBaseTemplate {
           ignorePrefix: this.searchRootConfigs.ignorePrefix,
           searchInKeywords: this.searchRootConfigs.searchInKeywords,
           skipEmptyTitle: this.searchRootConfigs.skipEmptyTitle
-        },
-        synonymGroups: this.searchRootConfigs.synonymGroups || []
+        }
       };
-      
+
       const jsonStr = JSON.stringify(config, null, 2);
       MNUtil.copy(jsonStr);
       
@@ -10445,9 +10433,7 @@ class KnowledgeBaseTemplate {
         ignorePrefix: this.searchRootConfigs.ignorePrefix,
         searchInKeywords: this.searchRootConfigs.searchInKeywords,
         skipEmptyTitle: this.searchRootConfigs.skipEmptyTitle
-      },
-      synonymGroups: this.searchRootConfigs.synonymGroups || [],
-      exclusionGroups: this.searchRootConfigs.exclusionGroups || []  // 新增：排除词组配置
+      }
     };
   }
 
@@ -10604,12 +10590,11 @@ class KnowledgeBaseTemplate {
         return false;
       }
       
-      // 处理新版本格式（包含 searchConfig 和 synonymGroups）
-      let searchConfig, synonymGroups;
+      // 处理新版本格式（包含 searchConfig）
+      let searchConfig;
       if (config.searchConfig) {
         // 新格式
         searchConfig = config.searchConfig;
-        synonymGroups = config.synonymGroups;
       } else if (config.roots) {
         // 旧格式
         searchConfig = {
@@ -10618,7 +10603,6 @@ class KnowledgeBaseTemplate {
           lastUsedRoot: config.lastUsedRoot,
           ...config.settings
         };
-        synonymGroups = config.synonymGroups;
       } else {
         MNUtil.showHUD("❌ 配置格式无效");
         return false;
@@ -10668,16 +10652,6 @@ class KnowledgeBaseTemplate {
               if (searchConfig.skipEmptyTitle !== undefined) {
                 this.searchRootConfigs.skipEmptyTitle = searchConfig.skipEmptyTitle;
               }
-              
-              // 替换同义词组
-              if (synonymGroups) {
-                this.searchRootConfigs.synonymGroups = synonymGroups;
-              }
-              
-              // 新增：替换排除词组
-              if (config.exclusionGroups) {
-                this.searchRootConfigs.exclusionGroups = config.exclusionGroups;
-              }
             } else if (buttonIndex === 2) {
               // 合并模式
               // 合并根目录
@@ -10712,34 +10686,6 @@ class KnowledgeBaseTemplate {
                     if (!this.searchRootConfigs.rootGroups[groupName]) {
                       this.searchRootConfigs.rootGroups[groupName] = searchConfig.rootGroups[groupName];
                     }
-                  }
-                }
-              }
-              
-              // 合并同义词组
-              if (synonymGroups && synonymGroups.length > 0) {
-                if (!this.searchRootConfigs.synonymGroups) {
-                  this.searchRootConfigs.synonymGroups = [];
-                }
-                // 避免重复
-                const existingIds = new Set(this.searchRootConfigs.synonymGroups.map(g => g.id));
-                for (const group of synonymGroups) {
-                  if (!existingIds.has(group.id)) {
-                    this.searchRootConfigs.synonymGroups.push(group);
-                  }
-                }
-              }
-              
-              // 新增：合并排除词组
-              if (config.exclusionGroups && config.exclusionGroups.length > 0) {
-                if (!this.searchRootConfigs.exclusionGroups) {
-                  this.searchRootConfigs.exclusionGroups = [];
-                }
-                // 避免重复
-                const existingIds = new Set(this.searchRootConfigs.exclusionGroups.map(g => g.id));
-                for (const group of config.exclusionGroups) {
-                  if (!existingIds.has(group.id)) {
-                    this.searchRootConfigs.exclusionGroups.push(group);
                   }
                 }
               }
@@ -10872,17 +10818,9 @@ class KnowledgeBaseTemplate {
   }
 
   /**
-   * 管理同义词组界面
-   * 提供同义词组的管理功能（保留原方法名兼容）
-   */
-  static async manageSynonymGroupsUI() {
-    return this.manageSynonymGroups();
-  }
-
-  /**
    * 综合搜索配置管理界面（已废弃）
    * 此方法已被拆分为独立的配置功能，不再使用
-   * @deprecated 使用 showSearchSettingsDialog、manageSearchRootsUI、manageSynonymGroups 等独立方法
+   * @deprecated 使用 showSearchSettingsDialog、manageSearchRootsUI 等独立方法
    */
   /*
   static async manageSearchConfig() {
@@ -11274,57 +11212,6 @@ class KnowledgeBaseTemplate {
     
     // 优先级4：单空格分割
     return input.split(/\s+/).map(w => w.trim()).filter(w => w);
-  }
-
-  /**
-   * 添加同义词组（精简结构）
-   * @param {Array<string>} words - 词汇数组
-   * @param {Object} options - 可选配置
-   * @param {boolean} options.partialReplacement - 是否启用局部替换
-   * @param {Array<string>} options.contextTriggers - 上下文触发词数组
-   * @param {string} options.contextMode - 上下文匹配模式："any"或"all"
-   * @param {boolean} options.caseSensitive - 是否大小写敏感
-   * @param {boolean} options.patternMode - 是否启用模式匹配
-   */
-  static addSynonymGroup(words, options = {}) {
-    // 调用SynonymManager的精简方法
-    return SynonymManager.addSynonymGroup(words, options);
-  }
-
-  /**
-   * 更新同义词组
-   * @param {string} id - 组ID
-   * @param {Object} updates - 更新内容
-   */
-  static updateSynonymGroup(id, updates) {
-    this.initSearchConfig();
-    const groups = this.searchRootConfigs.synonymGroups || [];
-    const group = groups.find(g => g.id === id);
-    
-    if (group) {
-      Object.assign(group, updates);
-      group.updatedAt = Date.now();
-      this.saveSearchConfig();
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * 删除同义词组
-   * @param {string} id - 组ID
-   */
-  static deleteSynonymGroup(id) {
-    this.initSearchConfig();
-    const groups = this.searchRootConfigs.synonymGroups || [];
-    const index = groups.findIndex(g => g.id === id);
-    
-    if (index !== -1) {
-      groups.splice(index, 1);
-      this.saveSearchConfig();
-      return true;
-    }
-    return false;
   }
 
   /**
@@ -11727,52 +11614,6 @@ class KnowledgeBaseTemplate {
   }
 
   /**
-   * 添加排除词组（精简结构）
-   * @param {Array<string>} triggerWords - 触发词数组
-   * @param {Array<string>} excludeWords - 排除词数组
-   */
-  static addExclusionGroup(triggerWords, excludeWords) {
-    // 使用ExclusionManager的精简方法
-    return ExclusionManager.addExclusionGroup(triggerWords, excludeWords);
-  }
-
-  /**
-   * 更新排除词组
-   * @param {string} id - 组ID
-   * @param {Object} updates - 更新内容
-   */
-  static updateExclusionGroup(id, updates) {
-    this.initSearchConfig();
-    const groups = this.searchRootConfigs.exclusionGroups || [];
-    const group = groups.find(g => g.id === id);
-    
-    if (group) {
-      Object.assign(group, updates);
-      group.updatedAt = Date.now();
-      this.saveSearchConfig();
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * 删除排除词组
-   * @param {string} id - 组ID
-   */
-  static deleteExclusionGroup(id) {
-    this.initSearchConfig();
-    const groups = this.searchRootConfigs.exclusionGroups || [];
-    const index = groups.findIndex(g => g.id === id);
-    
-    if (index !== -1) {
-      groups.splice(index, 1);
-      this.saveSearchConfig();
-      return true;
-    }
-    return false;
-  }
-
-  /**
    * 根据关键词获取激活的排除词列表和详细信息
    * @param {Array<string>} keywords - 关键词数组
    * @returns {Object} 包含排除词列表和详细信息的对象
@@ -11782,38 +11623,35 @@ class KnowledgeBaseTemplate {
     const activeTriggers = new Set();
     const activeGroups = [];
     const groups = this.getExclusionGroups();
-    
+
     for (const keyword of keywords) {
       for (const group of groups) {
-        if (!group.enabled) continue;
-        
         // 检查是否匹配触发词（不区分大小写）
-        const matchedTrigger = group.triggerWords.find(trigger => 
+        const matchedTrigger = group.triggerWords.find(trigger =>
           trigger.toLowerCase() === keyword.toLowerCase()
         );
-        
+
         if (matchedTrigger) {
           // 记录激活的触发词
           activeTriggers.add(matchedTrigger);
-          
+
           // 添加所有排除词
           group.excludeWords.forEach(word => exclusions.add(word));
-          
-          // 记录激活的组（避免重复）
-          if (!activeGroups.find(g => g.id === group.id)) {
+
+          // 使用触发词第一个作为标识，避免重复
+          const groupKey = group.triggerWords[0];
+          if (!activeGroups.find(g => g.triggerWords[0] === groupKey)) {
             activeGroups.push({
-              id: group.id,
-              name: group.name,
               triggerWords: group.triggerWords,
               excludeWords: group.excludeWords
             });
           }
-          
-          MNUtil.log(`触发排除词组 "${group.name}": ${keyword} → 排除 [${group.excludeWords.join(", ")}]`);
+
+          MNUtil.log(`触发排除词组 [${group.triggerWords.join(", ")}]: ${keyword} → 排除 [${group.excludeWords.join(", ")}]`);
         }
       }
     }
-    
+
     return {
       excludeWords: Array.from(exclusions),
       triggerWords: Array.from(activeTriggers),
@@ -11916,320 +11754,6 @@ class KnowledgeBaseTemplate {
     return null;
   }
 
-  /**
-   * 同义词配置导出到指定目标
-   * @param {string} target - 导出目标: 'icloud', 'clipboard', 'note', 'file'
-   * @returns {Promise<boolean>} 导出是否成功
-   */
-  static async exportSynonymConfigTo(target) {
-    try {
-      this.initSearchConfig();
-      const config = {
-        version: "1.0",
-        type: "synonymGroups",
-        exportDate: new Date().toISOString(),
-        synonymGroups: this.getSynonymGroups()
-      };
-      
-      const jsonStr = JSON.stringify(config, null, 2);
-      
-      switch (target) {
-        case 'icloud':
-          // MNUtil.setByiCloud("KnowledgeBaseTemplate_SynonymGroups_Config", jsonStr);
-          MNUtil.showHUD("✅ 已同步到 iCloud");
-          return true;
-          
-        case 'clipboard':
-          MNUtil.copy(jsonStr);
-          MNUtil.showHUD("✅ 已复制到剪贴板");
-          return true;
-          
-        case 'note':
-          const focusNote = MNNote.getFocusNote();
-          if (!focusNote) {
-            MNUtil.showHUD("❌ 请先选中一个笔记");
-            return false;
-          }
-          
-          // 格式化为 Markdown 代码块
-          const formattedJson = this.formatJsonAsCodeBlock(jsonStr);
-          
-          // 查找已有的同义词配置评论
-          const existingConfig = this.findSynonymConfigComment(focusNote);
-          
-          if (existingConfig) {
-            // 替换已有配置
-            focusNote.MNComments[existingConfig.index].text = formattedJson;
-            MNUtil.showHUD("✅ 已更新当前笔记中的配置");
-          } else {
-            // 添加新配置
-            focusNote.appendTextComment(formattedJson);
-            MNUtil.showHUD("✅ 已保存到当前笔记");
-          }
-          return true;
-          
-        case 'file':
-          const fileName = `synonym_groups_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
-          const documentsPath = NSFileManager.defaultManager().documentsPath;
-          if (documentsPath) {
-            const filePath = documentsPath + "/" + fileName;
-            NSString.stringWithString(jsonStr).writeToFileAtomicallyEncodingError(
-              filePath, true, 4, null // NSUTF8StringEncoding = 4
-            );
-            MNUtil.showHUD(`✅ 已导出到文件\n📁 ${fileName}`);
-            return true;
-          } else {
-            throw new Error("无法访问文档目录");
-          }
-          
-        default:
-          throw new Error("未知的导出目标");
-      }
-    } catch (error) {
-      MNUtil.showHUD(`❌ 导出到 ${target} 失败：${error.message}`);
-      MNUtil.log(`导出同义词配置到 ${target} 失败: ${error.toString()}`);
-      return false;
-    }
-  }
-
-  /**
-   * 从指定来源导入同义词配置
-   * @param {string} source - 导入来源: 'icloud', 'clipboard', 'note', 'file'
-   * @returns {Promise<boolean>} 导入是否成功
-   */
-  static async importSynonymConfigFrom(source) {
-    try {
-      let jsonStr = null;
-      
-      switch (source) {
-        case 'icloud':
-          jsonStr = MNUtil.getByiCloud("KnowledgeBaseTemplate_SynonymGroups_Config", null);
-          if (!jsonStr) {
-            MNUtil.showHUD("❌ iCloud 中未找到同义词配置");
-            return false;
-          }
-          break;
-          
-        case 'clipboard':
-          jsonStr = MNUtil.clipboardText;
-          if (!jsonStr) {
-            MNUtil.showHUD("❌ 剪贴板为空");
-            return false;
-          }
-          break;
-          
-        case 'note':
-          const focusNote = MNNote.getFocusNote();
-          if (!focusNote) {
-            MNUtil.showHUD("❌ 请先选中包含配置的笔记");
-            return false;
-          }
-          
-          // 使用辅助方法查找同义词配置评论
-          const configComment = this.findSynonymConfigComment(focusNote);
-          if (!configComment) {
-            MNUtil.showHUD("❌ 当前笔记中未找到同义词配置");
-            return false;
-          }
-          
-          // 从评论中提取 JSON（支持代码块格式和纯文本格式）
-          jsonStr = this.extractJsonFromCodeBlock(configComment.comment.text);
-          if (!jsonStr) {
-            MNUtil.showHUD("❌ 无法解析笔记中的配置格式");
-            return false;
-          }
-          break;
-          
-        case 'file':
-          // 文件导入需要用户选择文件，这里先提示
-          MNUtil.showHUD("❌ 文件导入功能需要手动实现文件选择");
-          return false;
-          
-        default:
-          throw new Error("未知的导入来源");
-      }
-      
-      return await this.importSynonymGroups(jsonStr);
-    } catch (error) {
-      MNUtil.showHUD(`❌ 从 ${source} 导入失败：${error.message}`);
-      MNUtil.log(`从 ${source} 导入同义词配置失败: ${error.toString()}`);
-      return false;
-    }
-  }
-
-  /**
-   * 显示同义词导出选择对话框
-   */
-  static async showExportSynonymDialog() {
-    const options = [
-      "☁️ 同步到 iCloud",
-      "📋 复制到剪贴板", 
-      "📝 保存到当前笔记",
-      "📁 导出到文件"
-    ];
-    
-    const result = await MNUtil.userSelect(
-      "导出同义词配置",
-      "选择导出方式：",
-      options
-    );
-    
-    if (result === null || result === 0) return;
-    
-    const targets = ['icloud', 'clipboard', 'note', 'file'];
-    await this.exportSynonymConfigTo(targets[result - 1]);
-  }
-
-  /**
-   * 显示同义词导入选择对话框
-   */
-  static async showImportSynonymDialog() {
-    const options = [
-      "☁️ 从 iCloud 同步",
-      "📋 从剪贴板导入",
-      "📝 从当前笔记导入"
-      // 暂时不包含文件导入
-    ];
-    
-    const result = await MNUtil.userSelect(
-      "导入同义词配置",
-      "选择导入来源：",
-      options
-    );
-    
-    if (result === null || result === 0) return;
-    
-    const sources = ['icloud', 'clipboard', 'note'];
-    await this.importSynonymConfigFrom(sources[result - 1]);
-  }
-
-  /**
-   * 导入同义词组配置
-   * @param {string} jsonStr - JSON 字符串
-   * @returns {Promise<boolean>} 是否成功
-   */
-  static async importSynonymGroups(jsonStr) {
-    try {
-      const config = JSON.parse(jsonStr);
-      
-      // 验证数据格式
-      if (!config.version || !config.synonymGroups) {
-        throw new Error("无效的配置格式");
-      }
-      
-      // 询问导入方式
-      return new Promise((resolve) => {
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "导入配置",
-          `将导入 ${config.synonymGroups.length} 个同义词组\n选择导入方式：`,
-          0,
-          "取消",
-          ["替换现有配置", "合并配置（保留现有）"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(false); // 取消
-              return;
-            }
-            
-            this.initSearchConfig();
-            
-            // 处理兼容性：为导入的同义词组添加新字段的默认值
-            const processedGroups = config.synonymGroups.map(group => {
-              // 确保新字段有正确的默认值
-              const processedGroup = {
-                ...group,
-                // 如果没有 contextTriggers 字段，设为 undefined（全局模式）
-                contextTriggers: group.contextTriggers !== undefined ? group.contextTriggers : undefined,
-                // 如果没有 contextMode 字段，设为默认值 "any"
-                contextMode: group.contextMode || "any",
-                // 如果没有 caseSensitive 字段，设为默认值 false
-                caseSensitive: group.caseSensitive !== undefined ? group.caseSensitive : false,
-                // 如果没有 patternMode 字段，设为默认值 false
-                patternMode: group.patternMode !== undefined ? group.patternMode : false
-              };
-
-              // 验证 contextMode 的有效性
-              if (processedGroup.contextMode && !["any", "all"].includes(processedGroup.contextMode)) {
-                processedGroup.contextMode = "any";
-              }
-
-              // 验证 caseSensitive 的有效性
-              if (typeof processedGroup.caseSensitive !== 'boolean') {
-                processedGroup.caseSensitive = false;
-              }
-
-              // 验证 contextTriggers 的有效性
-              if (processedGroup.contextTriggers && !Array.isArray(processedGroup.contextTriggers)) {
-                processedGroup.contextTriggers = undefined;
-              }
-
-              return processedGroup;
-            });
-
-            if (buttonIndex === 1) {
-              // 替换模式
-              this.searchRootConfigs.synonymGroups = processedGroups;
-              if (config.searchRootConfigs) {
-                Object.assign(this.searchRootConfigs, config.searchRootConfigs);
-              }
-            } else if (buttonIndex === 2) {
-              // 合并模式
-              const existingIds = new Set(this.searchRootConfigs.synonymGroups.map(g => g.id));
-              let addedCount = 0;
-              
-              for (const group of processedGroups) {
-                if (!existingIds.has(group.id)) {
-                  // 生成新ID避免冲突
-                  group.id = "group_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-                  this.searchRootConfigs.synonymGroups.push(group);
-                  addedCount++;
-                }
-              }
-              
-              if (addedCount < processedGroups.length) {
-                MNUtil.showHUD(`✅ 已导入 ${addedCount}/${processedGroups.length} 个同义词组\n${processedGroups.length - addedCount} 个重复组已跳过`);
-              } else {
-                MNUtil.showHUD(`✅ 已导入 ${addedCount} 个同义词组`);
-              }
-              this.saveSearchConfig();
-              resolve(true);
-              return;
-            }
-            
-            this.saveSearchConfig();
-            MNUtil.showHUD(`✅ 已导入 ${config.synonymGroups.length} 个同义词组`);
-            resolve(true);
-          }
-        );
-      });
-    } catch (error) {
-      MNUtil.showHUD("❌ 导入失败：" + error.message);
-      MNUtil.log("导入同义词组失败: " + error.toString());
-      return false;
-    }
-  }
-
-  /**
-   * 从剪贴板导入同义词组配置
-   * @returns {Promise<boolean>} 是否成功
-   */
-  static async importSynonymGroupsFromClipboard() {
-    const clipboardText = MNUtil.clipboardText;
-    if (!clipboardText) {
-      MNUtil.showHUD("❌ 剪贴板为空");
-      return false;
-    }
-    
-    // 检查是否是 JSON 格式
-    try {
-      JSON.parse(clipboardText);
-    } catch (error) {
-      MNUtil.showHUD("❌ 剪贴板内容不是有效的 JSON 格式");
-      return false;
-    }
-    
-    return await this.importSynonymGroups(clipboardText);
-  }
 
   /**
    * 搜索笔记主函数（支持多根目录）
@@ -12887,11 +12411,7 @@ class KnowledgeBaseTemplate {
           case "moreFeatures":
             // 显示更多功能菜单
             const moreAction = await this.showMoreFeaturesMenu();
-            if (moreAction === "manageSynonyms") {
-              await this.manageSynonymGroups();
-            } else if (moreAction === "manageExclusions") {
-              await this.manageExclusionGroups();
-            } else if (moreAction === "manageRoots") {
+            if (moreAction === "manageRoots") {
               await this.manageSearchRootsUI();
             } else if (moreAction === "importExport") {
               await this.showImportExportMenu();
@@ -14443,1055 +13963,29 @@ class KnowledgeBaseTemplate {
     );
   }
 
-  /**
-   * 管理同义词组 - 主界面
-   */
-  static async manageSynonymGroups() {
-    try {
-      while (true) {
-        const groups = this.getSynonymGroups();
-        const options = [];
-        
-        // 将操作按钮移到最前面
-        options.push("➕ 添加新同义词组");
-        options.push("🔍 搜索同义词组");
-        options.push("──────────────");
-        
-        // 显示现有同义词组
-        for (const group of groups) {
-          // 添加数据验证
-          if (!group || !group.words) {
-            MNUtil.log("警告：发现异常同义词组数据，已跳过");
-            continue;
-          }
-          
-          const partialIcon = group.partialReplacement ? "🔄" : "";  // 局部替换标识
-          const patternIcon = group.patternMode ? "🎯" : "";  // 模式匹配标识
-          const caseIcon = group.caseSensitive ? "Aa" : "";  // 大小写敏感标识
-          const contextIcon = group.contextTriggers ? "📍" : "";  // 上下文触发标识
-          
-          // 防御性检查 - 处理 words 可能为空的情况
-          const words = group.words || [];
-          const wordsPreview = words.slice(0, 3).join(", ");
-          const moreText = words.length > 3 ? `... (共${words.length}个)` : "";
-          const icons = [partialIcon, patternIcon, caseIcon, contextIcon].filter(i => i).join("");
-          const iconText = icons ? ` ${icons}` : "";
-          options.push(`${wordsPreview}${moreText}${iconText}`);
-        }
-        
-        // 导入导出选项
-        options.push("──────────────");
-        options.push("📤 导出同义词配置");
-        options.push("📥 导入同义词配置");
-        
-        const result = await MNUtil.userSelect(
-          "同义词管理",
-          `共 ${groups.length} 个同义词组\n\n提示：点击同义词组可编辑`,
-          options
-        );
-        
-        if (result === null || result === 0) {
-          break; // 取消
-        }
-        
-        const selectedIndex = result - 1; // userSelect 返回的索引从1开始
-        
-        if (selectedIndex === 0) {
-          // 添加新组
-          await this.showAddSynonymDialog();
-        } else if (selectedIndex === 1) {
-          // 搜索同义词组
-          await this.searchSynonymGroups();
-        } else if (selectedIndex === 2) {
-          // 第一个分隔线，重新显示菜单
-          continue;
-        } else if (selectedIndex >= 3 && selectedIndex < 3 + groups.length) {
-          // 编辑现有组
-          const groupIndex = selectedIndex - 3;
-          await this.editSynonymGroup(groups[groupIndex]);
-          continue; // 重新显示菜单，避免双弹窗
-        } else if (selectedIndex === 3 + groups.length) {
-          // 第二个分隔线，重新显示菜单
-          continue;
-        } else if (selectedIndex === 3 + groups.length + 1) {
-          // 导出配置
-          await this.showExportSynonymDialog();
-        } else if (selectedIndex === 3 + groups.length + 2) {
-          // 导入配置
-          await this.showImportSynonymDialog();
-        }
-      }
-    } catch (error) {
-      MNUtil.showHUD("管理同义词组失败：" + error.message);
-      MNUtil.log("管理同义词组错误: " + error.toString());
-    }
-  }
 
-  /**
-   * 搜索同义词组 - 支持按名称和词汇内容搜索
-   */
-  static async searchSynonymGroups() {
-    try {
-      const groups = this.getSynonymGroups();
-      if (groups.length === 0) {
-        MNUtil.showHUD("❌ 暂无同义词组");
-        return;
-      }
-
-      // 显示搜索输入框
-      const keyword = await new Promise((resolve) => {
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "搜索同义词组",
-          "请输入搜索关键词（在所有词汇中搜索）：",
-          2, // 输入框样式
-          "取消",
-          ["搜索"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(null);
-              return;
-            }
-            
-            const text = alert.textFieldAtIndex(0).text.trim();
-            if (!text) {
-              MNUtil.showHUD("❌ 请输入搜索关键词");
-              resolve(null);
-              return;
-            }
-            
-            resolve(text);
-          }
-        );
-      });
-
-      if (!keyword) {
-        return; // 用户取消
-      }
-
-      // 执行搜索
-      const matchedGroups = [];
-      const lowerKeyword = keyword.toLowerCase();
-      
-      for (const group of groups) {
-        // 添加数据验证
-        if (!group || !group.words || group.words.length === 0) {
-          MNUtil.log("警告：发现异常同义词组数据，已跳过搜索");
-          continue;
-        }
-
-        // 搜索词汇内容 - 防御性检查
-        const words = group.words || [];
-        let hasMatchingWord = false;
-        for (const word of words) {
-          if (word && word.toLowerCase().includes(lowerKeyword)) {
-            hasMatchingWord = true;
-            break;
-          }
-        }
-        if (hasMatchingWord) {
-          matchedGroups.push(group);
-        }
-      }
-
-      // 显示搜索结果
-      if (matchedGroups.length === 0) {
-        MNUtil.showHUD(`❌ 未找到包含"${keyword}"的同义词组`);
-        return;
-      }
-
-      // 构建搜索结果选项
-      const searchOptions = [];
-      for (const group of matchedGroups) {
-        const partialIcon = group.partialReplacement ? "🔄" : "";
-        const patternIcon = group.patternMode ? "🎯" : "";
-        const caseIcon = group.caseSensitive ? "Aa" : "";
-        const contextIcon = group.contextTriggers ? "📍" : "";
-        // 防御性检查 - 处理 words 可能为空的情况
-        const words = group.words || [];
-        const wordsPreview = words.slice(0, 3).join(", ");
-        const moreText = words.length > 3 ? `... (共${words.length}个)` : "";
-        const icons = [partialIcon, patternIcon, caseIcon, contextIcon].filter(i => i).join("");
-        const iconText = icons ? ` ${icons}` : "";
-        searchOptions.push(`${wordsPreview}${moreText}${iconText}`);
-      }
-
-      // 循环显示搜索结果，支持连续编辑
-      while (true) {
-        const result = await MNUtil.userSelect(
-          `搜索结果 (${matchedGroups.length}个)`,
-          `关键词："${keyword}"\n\n点击同义词组可编辑`,
-          searchOptions
-        );
-
-        if (result === null || result === 0) {
-          break; // 用户取消，返回
-        }
-
-        // 编辑选中的同义词组
-        const selectedGroup = matchedGroups[result - 1];
-        await this.editSynonymGroup(selectedGroup);
-        
-        // 询问是否继续编辑其他搜索结果
-        if (matchedGroups.length > 1) {
-          const continueEdit = await MNUtil.confirm(
-            "继续编辑？",
-            "是否继续编辑其他搜索结果？",
-            ["返回主菜单", "继续编辑"]
-          );
-          
-          if (continueEdit !== 1) {
-            break; // 用户选择返回主菜单
-          }
-          
-          // 重新构建搜索结果选项（可能有变化）
-          searchOptions.length = 0; // 清空数组
-          for (const group of matchedGroups) {
-            const status = group.enabled ? "✅" : "⭕";
-            const partialIcon = group.partialReplacement ? "🔄" : "";
-            const words = group.words || [];
-            const wordsPreview = words.slice(0, 3).join(", ");
-            const moreText = words.length > 3 ? `... (共${words.length}个)` : "";
-            searchOptions.push(`${status} ${partialIcon} ${group.name}: ${wordsPreview}${moreText}`);
-          }
-        } else {
-          // 只有一个搜索结果，编辑完成后直接返回
-          break;
-        }
-      }
-      
-    } catch (error) {
-      MNUtil.showHUD("搜索同义词组失败：" + error.message);
-      MNUtil.log("搜索同义词组错误: " + error.toString());
-    }
-  }
-
-  /**
-   * 添加同义词组（多层对话框方式）
-   */
-  static async showAddSynonymDialog() {
-    let continueAdding = true;
-    let addedCount = 0;
-    const ACTION_CANCEL = '__MNKB_CANCEL__';
-    const ACTION_RETRY = '__MNKB_RETRY__';
-
-    while (continueAdding) {
-      // 第一步：直接输入同义词（移除了组名输入）
-      const wordsResult = await new Promise((resolve) => {
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "添加同义词组",
-          `请输入同义词，支持以下分隔方式：\n• 逗号：machine learning, deep learning\n• 分号：机器学习; 深度学习\n• 双空格：机器学习  深度学习\n• 单空格：机器 学习（仅当无其他分隔符时）`,
-          2,
-          "取消",
-          ["下一步"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(ACTION_CANCEL);
-              return;
-            }
-            
-            const wordsInput = alert.textFieldAtIndex(0).text;
-            if (!wordsInput) {
-              MNUtil.showHUD("❌ 请输入同义词");
-              resolve(ACTION_RETRY);
-              return;
-            }
-            
-            // 使用智能解析
-            const parsedWords = this.parseWords(wordsInput);
-            
-            if (parsedWords.length < 2) {
-              MNUtil.showHUD("❌ 至少需要2个同义词");
-              resolve(ACTION_RETRY);
-              return;
-            }
-            
-            resolve(parsedWords);
-          }
-        );
-      });
-      
-      if (wordsResult === ACTION_CANCEL) {
-        break;
-      }
-      
-      if (wordsResult === ACTION_RETRY || !wordsResult || wordsResult.length < 2) {
-        continue; // 返回重新输入
-      }
-      
-      const words = wordsResult;
-      
-      // 第二步：选择匹配模式
-      const modeSelection = await new Promise((resolve) => {
-        const hasPatternPlaceholder = words.some(word => word.includes('{{}}'));
-
-        let message = `词汇：${words.join(", ")}\n\n`;
-        if (hasPatternPlaceholder) {
-          message += `检测到模式占位符 {{}}，建议启用模式匹配：\n`;
-        }
-        message += `选择匹配模式：\n• 普通：只匹配完整的词\n• 局部替换：在长词中也会匹配\n• 模式匹配：支持 {{}} 占位符的动态匹配`;
-        
-        const buttons = ["下一步（普通）", "下一步（局部替换）", "下一步（模式匹配）"];
-        
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "选择匹配模式",
-          message,
-          0,
-          "取消",
-          buttons,
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(ACTION_CANCEL);
-              return;
-            }
-            
-            switch (buttonIndex) {
-              case 1: // 普通模式
-                resolve({ enablePartial: false, patternMode: false });
-                break;
-              case 2: // 局部替换
-                resolve({ enablePartial: true, patternMode: false });
-                break;
-              case 3: // 模式匹配
-                resolve({ enablePartial: false, patternMode: true });
-                break;
-            }
-          }
-        );
-      });
-      
-      if (modeSelection === ACTION_CANCEL) {
-        break;
-      }
-
-      const { enablePartial, patternMode } = modeSelection;
-
-      // 第三步：选择大小写敏感
-      const caseSensitiveSelection = await new Promise((resolve) => {
-        const modeText = patternMode ? "（模式匹配）" : (enablePartial ? "（局部替换）" : "（普通）");
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "大小写匹配",
-          `匹配模式：${modeText}\n词汇：${words.join(", ")}\n\n是否启用大小写敏感匹配？\n• 启用：Machine 和 machine 视为不同词汇\n• 不启用：Machine 和 machine 视为相同词汇`,
-          0,
-          "取消", 
-          ["下一步（不敏感）", "下一步（大小写敏感）"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(ACTION_CANCEL);
-              return;
-            }
-            
-            resolve(buttonIndex === 2); // 第二个按钮为启用大小写敏感
-          }
-        );
-      });
-
-      if (caseSensitiveSelection === ACTION_CANCEL) {
-        break;
-      }
-
-      const caseSensitive = caseSensitiveSelection;
-
-      // 第四步：设置上下文触发词（可选）
-      let contextTriggers = undefined;
-      let contextMode = "any";
-      
-      const setContextSelection = await new Promise((resolve) => {
-        const modeText = patternMode ? "（模式匹配）" : (enablePartial ? "（局部替换）" : "（普通）");
-        const caseText = caseSensitive ? "（大小写敏感）" : "";
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "上下文触发词",
-          `词汇：${words.join(", ")}${modeText}${caseText}\n\n是否设置上下文触发词？\n• 设置：仅当卡片标题包含特定词汇时才应用\n• 跳过：全局应用（对所有卡片生效，推荐）`,
-          0,
-          "取消",
-          ["直接添加（全局）", "设置触发词"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(ACTION_CANCEL);
-              return;
-            }
-            
-            resolve(buttonIndex === 2); // 第二个按钮为设置触发词
-          }
-        );
-      });
-
-      if (setContextSelection === ACTION_CANCEL) {
-        break;
-      }
-
-      const setContext = setContextSelection;
-
-      // 如果选择设置触发词，进行触发词配置
-      if (setContext) {
-        // 输入触发词
-        const triggerInputResult = await new Promise((resolve) => {
-          UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-            "设置触发词",
-            "请输入触发词，用逗号分隔：\n例如：内积空间, 赋范线性空间\n\n触发词说明：\n• 只有当卡片标题包含这些词汇时，才会应用该同义词组\n• 适合特定领域的专业术语",
-            2, // 输入框样式
-            "取消",
-            ["完成设置"],
-            (alert, buttonIndex) => {
-              if (buttonIndex === 0) {
-                resolve(ACTION_CANCEL);
-                return;
-              }
-              
-              const input = alert.textFieldAtIndex(0).text.trim();
-              resolve(input);
-            }
-          );
-        });
-
-        if (triggerInputResult === ACTION_CANCEL) {
-          break;
-        }
-
-        const triggerInput = triggerInputResult;
-
-        if (triggerInput) {
-          // 解析触发词
-          const parsedTriggers = triggerInput.split(",")
-            .map(t => t.trim())
-            .filter(t => t.length > 0);
-
-          if (parsedTriggers.length > 0) {
-            contextTriggers = parsedTriggers;
-
-            // 如果有多个触发词，选择匹配模式
-            if (parsedTriggers.length > 1) {
-              const mode = await new Promise((resolve) => {
-                UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-                  "选择触发模式",
-                  `已设置 ${parsedTriggers.length} 个触发词：\n${parsedTriggers.join(", ")}\n\n请选择匹配模式：`,
-                  0,
-                  "取消",
-                  ["任意匹配（推荐）", "全部匹配"],
-                  (alert, buttonIndex) => {
-                    if (buttonIndex === 0) {
-                      resolve(ACTION_CANCEL);
-                      return;
-                    }
-                    
-                    resolve(buttonIndex === 1 ? "any" : "all");
-                  }
-                );
-              });
-
-              if (mode === ACTION_CANCEL) {
-                break;
-              }
-              
-              contextMode = mode;
-            }
-          }
-        }
-      }
-      
-      // 添加同义词组（使用新的参数格式）
-      const options = {
-        partialReplacement: enablePartial,
-        caseSensitive: caseSensitive,
-        patternMode: patternMode
-      };
-      if (contextTriggers && contextTriggers.length > 0) {
-        options.contextTriggers = contextTriggers;
-        options.contextMode = contextMode;
-      }
-
-      const result = this.addSynonymGroup(words, options);
-      if (result) {
-        addedCount++;
-        let configText = "";
-        if (patternMode) configText += "模式匹配·";
-        else if (enablePartial) configText += "局部替换·";
-        if (caseSensitive) configText += "大小写敏感·";
-        if (contextTriggers && contextTriggers.length > 0) {
-          const modeText = contextMode === "all" ? "全部匹配" : "任意匹配";
-          configText += `触发词${contextTriggers.length}个(${modeText})`;
-        } else {
-          configText += "全局应用";
-        }
-        // 使用词汇预览代替组名
-        const wordsPreview = words.slice(0, 3).join(", ");
-        const moreText = words.length > 3 ? `...(共${words.length}个)` : "";
-        MNUtil.showHUD(`✅ 已添加：${wordsPreview}${moreText}\n配置：${configText}`);
-      }
-      
-      // 第四步：询问是否继续添加
-      continueAdding = await new Promise((resolve) => {
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "继续添加？",
-          `已成功添加 ${addedCount} 个同义词组\n\n是否继续添加？`,
-          0,
-          "完成",
-          ["继续添加"],
-          (alert, buttonIndex) => {
-            resolve(buttonIndex === 1);
-          }
-        );
-      });
-    }
-    
-    if (addedCount > 0) {
-      MNUtil.showHUD(`✅ 共添加 ${addedCount} 个同义词组`);
-    }
-  }
-
-  /**
-   * 编辑同义词组
-   */
-  static async editSynonymGroup(group) {
-    try {
-      const options = [
-        group.partialReplacement ? "🔄 关闭局部替换" : "🔄 开启局部替换",
-        group.patternMode ? "🔀 关闭模式匹配" : "🔀 开启模式匹配",
-        "🌍 设置触发词",
-        group.caseSensitive ? "🔠 关闭大小写敏感" : "🔠 开启大小写敏感",
-        "✏️ 编辑词汇",
-        "🗑 删除此组",
-        "📋 复制词汇列表",
-        "──────────────",
-        "🔍 测试匹配效果"
-      ];
-      
-      const wordsPreview = group.words.join(", ");
-      const partialStatus = group.partialReplacement ? "已开启" : "已关闭";
-      const patternStatus = group.patternMode ? "已开启" : "已关闭";
-      const caseSensitiveStatus = group.caseSensitive ? "大小写敏感" : "大小写不敏感";
-      let contextInfo = "全局";
-      if (group.contextTriggers && group.contextTriggers.length > 0) {
-        const mode = group.contextMode === "all" ? "全部" : "任意";
-        contextInfo = `触发词(${mode}): ${group.contextTriggers.join(", ")}`;
-      }
-      
-      const message = `词汇：${wordsPreview}\n局部替换：${partialStatus}\n模式匹配：${patternStatus}\n大小写：${caseSensitiveStatus}\n上下文：${contextInfo}`;
-      
-      const result = await MNUtil.userSelect("编辑同义词组", message, options);
-      
-      if (result === null || result === 0) {
-        return; // 取消
-      }
-      
-      switch (result) {
-        case 1: // 开启/关闭局部替换
-          group.partialReplacement = !group.partialReplacement;
-          this.saveSearchConfig();
-          MNUtil.showHUD(group.partialReplacement ? "🔄 已开启局部替换" : "已关闭局部替换");
-          break;
-          
-        case 2: // 开启/关闭模式匹配
-          group.patternMode = !group.patternMode;
-          this.saveSearchConfig();
-          MNUtil.showHUD(group.patternMode ? "🔀 已开启模式匹配" : "已关闭模式匹配");
-          break;
-          
-        case 3: // 设置触发词
-          await this.editContextTriggers(group);
-          break;
-          
-        case 4: // 大小写敏感
-          group.caseSensitive = !group.caseSensitive;
-          this.saveSearchConfig();
-          MNUtil.showHUD(group.caseSensitive ? "🔠 已开启大小写敏感" : "已关闭大小写敏感");
-          break;
-          
-        case 5: // 编辑词汇
-          await this.editSynonymWords(group);
-          break;
-          
-        case 6: // 删除
-          const wordsPreview = group.words.slice(0, 3).join(", ");
-          const confirmDelete = await this.confirmAction(
-            "确认删除",
-            `确定要删除这个同义词组吗？\n词汇：${wordsPreview}...\n此操作不可恢复。`
-          );
-          if (confirmDelete) {
-            this.deleteSynonymGroup(group.id);
-            MNUtil.showHUD("✅ 已删除");
-          }
-          break;
-          
-        case 7: // 复制词汇
-          MNUtil.copy(group.words.join(", "));
-          MNUtil.showHUD("📋 已复制到剪贴板");
-          break;
-          
-        case 8: // 分隔线
-          break;
-          
-        case 9: // 测试匹配效果
-          await this.testPartialReplacement(group);
-          break;
-      }
-    } catch (error) {
-      MNUtil.showHUD("编辑同义词组失败：" + error.message);
-    }
-  }
-
-  /**
-   * 编辑上下文触发词
-   * @param {Object} group - 同义词组对象
-   */
-  static async editContextTriggers(group) {
-    try {
-      // 显示当前配置信息
-      let currentInfo = "当前配置：";
-      if (group.contextTriggers && group.contextTriggers.length > 0) {
-        const mode = group.contextMode === "all" ? "全部匹配" : "任意匹配";
-        currentInfo += `\n触发词：${group.contextTriggers.join(", ")}\n匹配模式：${mode}`;
-      } else {
-        currentInfo += "\n全局应用（无触发词限制）";
-      }
-
-      // 第一步：选择操作类型
-      const actionOptions = [
-        "✏️ 修改触发词",
-        "🔄 切换匹配模式",
-        "🗑 清除触发词（改为全局）",
-        "ℹ️ 查看帮助"
-      ];
-
-      const action = await MNUtil.userSelect(
-        "设置上下文触发词",
-        currentInfo,
-        actionOptions
-      );
-
-      if (action === null || action === 0) return;
-
-      switch (action) {
-        case 1: // 修改触发词
-          await this.editTriggerWords(group);
-          break;
-
-        case 2: // 切换匹配模式
-          if (group.contextTriggers && group.contextTriggers.length > 0) {
-            group.contextMode = group.contextMode === "all" ? "any" : "all";
-            group.updatedAt = Date.now();
-            this.saveSearchConfig();
-            const newMode = group.contextMode === "all" ? "全部匹配" : "任意匹配";
-            MNUtil.showHUD(`🔄 匹配模式已改为：${newMode}`);
-          } else {
-            MNUtil.showHUD("⚠️ 请先设置触发词");
-          }
-          break;
-
-        case 3: // 清除触发词
-          const confirm = await MNUtil.confirm(
-            "确认清除触发词",
-            "清除后该同义词组将全局应用（对所有卡片生效）",
-            ["取消", "确认清除"]
-          );
-          if (confirm === 1) {
-            group.contextTriggers = undefined;
-            group.contextMode = "any";
-            group.updatedAt = Date.now();
-            this.saveSearchConfig();
-            MNUtil.showHUD("✅ 已清除触发词，改为全局应用");
-          }
-          break;
-
-        case 4: // 查看帮助
-          const helpText = `🔍 上下文触发词功能说明：
-
-📌 全局模式（默认）：
-   • 对所有卡片生效
-   • 适合通用同义词
-
-🎯 上下文模式：
-   • 仅当卡片标题包含触发词时生效
-   • 适合特定领域的专业术语
-
-🔄 匹配模式：
-   • 任意匹配：包含任一触发词即生效
-   • 全部匹配：必须包含所有触发词
-
-💡 示例：
-   触发词：["内积空间", "赋范空间"]
-   • 任意匹配：标题包含其中任一词即生效
-   • 全部匹配：标题必须同时包含两个词`;
-
-          await MNUtil.confirm("上下文触发词帮助", helpText, ["知道了"]);
-          // 显示帮助后返回主界面
-          await this.editContextTriggers(group);
-          break;
-      }
-    } catch (error) {
-      MNUtil.showHUD("编辑触发词失败：" + error.message);
-    }
-  }
-
-  /**
-   * 编辑具体的触发词内容
-   * @param {Object} group - 同义词组对象
-   */
-  static async editTriggerWords(group) {
-    try {
-      const currentTriggers = group.contextTriggers || [];
-      const currentText = currentTriggers.join(", ");
-
-      // 输入新的触发词
-      const newTriggers = await new Promise((resolve) => {
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "设置触发词",
-          `当前触发词：${currentText || "（无）"}\n\n请输入新的触发词，用逗号分隔：\n例如：内积空间, 赋范线性空间`,
-          2, // 输入框样式
-          "取消",
-          ["确定"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(null); // 用户取消
-            } else {
-              const input = alert.textFieldAtIndex(0).text.trim();
-              resolve(input);
-            }
-          }
-        );
-      });
-
-      if (newTriggers === null) return; // 用户取消
-
-      // 解析和验证输入
-      if (newTriggers === "") {
-        // 空输入，询问是否清除
-        const confirmClear = await MNUtil.confirm(
-          "确认清除",
-          "输入为空，是否清除所有触发词？\n清除后将改为全局应用。",
-          ["取消", "清除"]
-        );
-        if (confirmClear === 1) {
-          group.contextTriggers = undefined;
-          group.contextMode = "any";
-          group.updatedAt = Date.now();
-          this.saveSearchConfig();
-          MNUtil.showHUD("✅ 已清除触发词");
-        }
-        return;
-      }
-
-      // 解析触发词
-      const parsedTriggers = newTriggers.split(",")
-        .map(t => t.trim())
-        .filter(t => t.length > 0);
-
-      if (parsedTriggers.length === 0) {
-        MNUtil.showHUD("⚠️ 请输入有效的触发词");
-        return;
-      }
-
-      // 验证触发词长度
-      const invalidTriggers = parsedTriggers.filter(t => t.length > 50);
-      if (invalidTriggers.length > 0) {
-        MNUtil.showHUD("⚠️ 触发词长度不能超过50字符");
-        return;
-      }
-
-      // 保存新的触发词
-      group.contextTriggers = parsedTriggers;
-      if (!group.contextMode) {
-        group.contextMode = "any"; // 默认任意匹配
-      }
-      group.updatedAt = Date.now();
-      this.saveSearchConfig();
-
-      // 如果有多个触发词，询问匹配模式
-      if (parsedTriggers.length > 1) {
-        const modeOptions = [
-          "任意匹配（推荐）",
-          "全部匹配"
-        ];
-        const modeChoice = await MNUtil.userSelect(
-          "选择匹配模式",
-          `已设置 ${parsedTriggers.length} 个触发词：\n${parsedTriggers.join(", ")}\n\n请选择匹配模式：`,
-          modeOptions
-        );
-
-        if (modeChoice !== null && modeChoice > 0) {
-          group.contextMode = modeChoice === 1 ? "any" : "all";
-          group.updatedAt = Date.now();
-          this.saveSearchConfig();
-        }
-      }
-
-      const modeText = group.contextMode === "all" ? "全部匹配" : "任意匹配";
-      MNUtil.showHUD(`✅ 已设置 ${parsedTriggers.length} 个触发词（${modeText}）`);
-
-    } catch (error) {
-      MNUtil.showHUD("编辑触发词失败：" + error.message);
-    }
-  }
-
-  /**
-   * 编辑同义词 - 调用多选界面
-   */
-  static async editSynonymWords(group) {
-    // 调用新的多选编辑界面
-    await this.editSynonymWordsWithMultiSelect(group);
-  }
-
-  /**
-   * 使用多选界面编辑同义词
-   * @param {Object} group - 同义词组对象
-   * @returns {Promise<boolean>} 返回是否成功保存
-   */
-  static async editSynonymWordsWithMultiSelect(group) {
-    return new Promise((resolve) => {
-      const selectedWords = new Set(group.words); // 默认全选现有词汇
-      let newWordsInput = "";
-      
-      // 递归显示多选对话框
-      const showMultiSelectDialog = () => {
-      // 构建显示选项
-      let displayOptions = group.words.map(word => {
-        let prefix = selectedWords.has(word) ? "✅ " : "";
-        return prefix + word;
-      });
-      
-      // 添加控制选项
-      let allSelected = selectedWords.size === group.words.length;
-      let selectAllText = allSelected ? "⬜ 取消全选" : "☑️ 全选所有词汇";
-      displayOptions.unshift(selectAllText);
-      displayOptions.unshift("🔄 反选");
-      displayOptions.unshift("➕ 添加新词汇");
-      displayOptions.push("──────────────");
-      displayOptions.push("✅ 确认保存");
-      
-      const selectedArray = Array.from(selectedWords);
-      const newWordsArray = newWordsInput ? this.parseWords(newWordsInput) : [];
-      const totalWords = [...selectedArray, ...newWordsArray];
-      
-      const message = `已选中 ${selectedWords.size}/${group.words.length} 个现有词汇\n` +
-                     (newWordsInput ? `新增：${newWordsArray.join(", ")}\n` : "") +
-                     `总计：${totalWords.length} 个词汇`;
-      
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        `编辑词汇 - ${group.name}`,
-        message,
-        0,
-        "取消",
-        displayOptions,
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            // 用户取消
-            resolve(false);
-            return;
-          }
-          
-          if (buttonIndex === 1) {
-            // 添加新词汇
-            this.showAddNewWordsDialog().then((input) => {
-              if (input) {
-                newWordsInput = input;
-              }
-              showMultiSelectDialog();
-            });
-            
-          } else if (buttonIndex === 2) {
-            // 反选
-            const newSelectedWords = new Set();
-            group.words.forEach(word => {
-              if (!selectedWords.has(word)) {
-                newSelectedWords.add(word);
-              }
-            });
-            selectedWords.clear();
-            newSelectedWords.forEach(word => selectedWords.add(word));
-            showMultiSelectDialog();
-            
-          } else if (buttonIndex === 3) {
-            // 全选/取消全选
-            if (allSelected) {
-              selectedWords.clear();
-            } else {
-              group.words.forEach(word => selectedWords.add(word));
-            }
-            showMultiSelectDialog();
-            
-          } else if (buttonIndex === displayOptions.length) {
-            // 确认保存
-            const selectedArray = Array.from(selectedWords);
-            const newWordsArray = newWordsInput ? this.parseWords(newWordsInput) : [];
-            const finalWords = [...selectedArray, ...newWordsArray];
-            
-            if (finalWords.length >= 2) {
-              group.words = finalWords;
-              group.updatedAt = Date.now();
-              this.saveSearchConfig();
-              MNUtil.showHUD(`✅ 已更新词汇（${finalWords.length}个词）`);
-              resolve(true);
-            } else {
-              MNUtil.showHUD("❌ 至少需要2个同义词");
-              showMultiSelectDialog();
-            }
-            
-          } else if (buttonIndex === displayOptions.length - 1) {
-            // 分隔线，重新显示
-            showMultiSelectDialog();
-            
-          } else {
-            // 用户选择了某个词汇，切换选中状态
-            const wordIndex = buttonIndex - 4; // 减去前面的控制选项
-            const word = group.words[wordIndex];
-            
-            if (selectedWords.has(word)) {
-              selectedWords.delete(word);
-            } else {
-              selectedWords.add(word);
-            }
-            
-            showMultiSelectDialog();
-          }
-        }
-      );
-      };
-      
-      showMultiSelectDialog();
-    });
-  }
-
-  /**
-   * 显示添加新词汇的输入对话框
-   * @returns {Promise<string|null>} 返回输入的文本或 null
-   */
-  static async showAddNewWordsDialog() {
-    return new Promise((resolve) => {
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        "添加新词汇",
-        "输入新词汇，支持以下分隔方式：\n• 逗号：machine learning, deep learning\n• 分号：机器学习; 深度学习\n• 双空格：机器学习  深度学习\n• 单空格：机器 学习（仅当无其他分隔符时）",
-        2,
-        "取消",
-        ["确定"],
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            resolve(null);
-            return;
-          }
-          
-          const input = alert.textFieldAtIndex(0).text;
-          if (input && input.trim()) {
-            resolve(input);
-          } else {
-            resolve(null);
-          }
-        }
-      );
-    });
-  }
-
-  /**
-   * 测试局部替换功能
-   */
-  static async testPartialReplacement(group) {
-    return new Promise((resolve) => {
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        "测试局部替换",
-        `组"${group.name}"包含：${group.words.join(", ")}\n\n请输入测试文本：`,
-        2,
-        "返回",
-        ["测试"],
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            resolve(false);
-            return;
-          }
-          
-          const testText = alert.textFieldAtIndex(0).text;
-          if (!testText) {
-            MNUtil.showHUD("请输入测试文本");
-            resolve(false);
-            return;
-          }
-          
-          // 生成变体
-          const variants = this.generatePartialReplacements(testText, group);
-          
-          if (variants.length > 0) {
-            const resultText = `原文：${testText}\n\n生成的变体（${variants.length}个）：\n${variants.map((v, i) => `${i+1}. ${v}`).join('\n')}`;
-            
-            // 显示结果
-            UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-              "替换结果",
-              resultText,
-              0,
-              "确定",
-              ["复制所有变体"],
-              (alert2, buttonIndex2) => {
-                if (buttonIndex2 === 1) {
-                  MNUtil.copy(variants.join("\n"));
-                  MNUtil.showHUD("📋 已复制到剪贴板");
-                }
-                resolve(true);
-              }
-            );
-          } else {
-            MNUtil.showHUD("未找到可替换的内容");
-            resolve(false);
-          }
-        }
-      );
-    });
-  }
-
-  /**
-   * 重命名同义词组
-   */
-  static async renameSynonymGroup(group) {
-    return new Promise((resolve) => {
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        "重命名",
-        `当前名称：${group.name}\n\n请输入新名称：`,
-        2,
-        "取消",
-        ["确定"],
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            resolve(false);
-            return;
-          }
-          
-          const newName = alert.textFieldAtIndex(0).text.trim();
-          if (newName && newName !== group.name) {
-            group.name = newName;
-            group.updatedAt = Date.now();
-            this.saveSearchConfig();
-            MNUtil.showHUD("✅ 已重命名");
-            resolve(true);
-          }
-        }
-      );
-      // 注意：MarginNote 的 JSB 框架不支持 setTimeout
-      // 无法预填充输入框，用户需要手动输入新值
-    });
-  }
 
   /**
    * 显示更多功能菜单
    */
   static async showMoreFeaturesMenu() {
     const options = [
-      "🔄 管理同义词组",
-      "🚫 管理排除词组",
       "📁 管理根目录",
       "📤📥 导入导出配置"
     ];
-    
+
     const result = await MNUtil.userSelect(
       "更多搜索功能",
       "选择要管理的功能：",
       options
     );
-    
+
     if (result === null || result === 0) return null;
-    
+
     switch (result) {
       case 1:
-        return "manageSynonyms";
-      case 2:
-        return "manageExclusions";
-      case 3:
         return "manageRoots";
-      case 4:
+      case 2:
         return "importExport";
     }
     return null;
@@ -15503,42 +13997,23 @@ class KnowledgeBaseTemplate {
   static async showImportExportMenu() {
     const options = [
       "📤 导出完整配置",
-      "📥 导入完整配置",
-      "──────────────",
-      "🔄 导出同义词组",
-      "🔄 导入同义词组",
-      "🚫 导出排除词组",
-      "🚫 导入排除词组"
+      "📥 导入完整配置"
     ];
-    
+
     const result = await MNUtil.userSelect(
       "导入导出配置",
       "选择操作：",
       options
     );
-    
+
     if (result === null || result === 0) return;
-    
+
     switch (result) {
       case 1: // 导出完整配置
         await this.exportFullSearchConfig();
         break;
       case 2: // 导入完整配置
         await this.importFullSearchConfig();
-        break;
-      case 3: // 分隔线
-        break;
-      case 4: // 导出同义词
-        await this.showExportSynonymDialog();
-        break;
-      case 5: // 导入同义词
-        await this.showImportSynonymDialog();
-        break;
-      case 6: // 导出排除词
-        await this.showExportExclusionDialog();
-        break;
-      case 7: // 导入排除词
-        await this.showImportExclusionDialog();
         break;
     }
   }
@@ -15662,7 +14137,6 @@ class KnowledgeBaseTemplate {
         // 替换
         Object.assign(this.searchRootConfigs, config.searchConfig);
         this.searchRootConfigs.synonymGroups = config.synonymGroups || [];
-        this.searchRootConfigs.exclusionGroups = config.exclusionGroups || [];
       } else {
         // 合并
         // 合并根目录
@@ -15704,18 +14178,6 @@ class KnowledgeBaseTemplate {
             }
           }
         }
-        // 合并排除词组
-        if (config.exclusionGroups && config.exclusionGroups.length > 0) {
-          if (!this.searchRootConfigs.exclusionGroups) {
-            this.searchRootConfigs.exclusionGroups = [];
-          }
-          const existingIds = new Set(this.searchRootConfigs.exclusionGroups.map(g => g.id));
-          for (const group of config.exclusionGroups) {
-            if (!existingIds.has(group.id)) {
-              this.searchRootConfigs.exclusionGroups.push(group);
-            }
-          }
-        }
       }
       
       // 验证导入的群组
@@ -15749,516 +14211,6 @@ class KnowledgeBaseTemplate {
     }
   }
 
-  /**
-   * 管理排除词组 - 主界面
-   */
-  static async manageExclusionGroups() {
-    try {
-      while (true) {
-        const groups = this.getExclusionGroups();
-        const options = [];
-        
-        // 显示现有排除词组
-        for (const group of groups) {
-          const triggersPreview = group.triggerWords.slice(0, 2).join(", ");
-          const excludesPreview = group.excludeWords.slice(0, 2).join(", ");
-          const moreTriggers = group.triggerWords.length > 2 ? "..." : "";
-          const moreExcludes = group.excludeWords.length > 2 ? "..." : "";
-          options.push(`[${triggersPreview}${moreTriggers}] → 排除: ${excludesPreview}${moreExcludes}`);
-        }
-        
-        // 添加操作选项
-        options.push("➕ 添加新排除词组");
-        options.push("──────────────");
-        options.push("📤 导出排除词配置");
-        options.push("📥 导入排除词配置");
-        
-        const result = await MNUtil.userSelect(
-          "排除词管理",
-          `共 ${groups.length} 个排除词组\n\n提示：搜索时将自动过滤包含排除词的结果`,
-          options
-        );
-        
-        if (result === null || result === 0) {
-          break; // 取消
-        }
-        
-        const selectedIndex = result - 1;
-        
-        if (selectedIndex < groups.length) {
-          // 编辑现有组
-          await this.editExclusionGroup(groups[selectedIndex]);
-          continue; // 重新显示菜单，避免双弹窗
-        } else if (selectedIndex === groups.length) {
-          // 添加新组
-          await this.showAddExclusionGroupDialog();
-        } else if (selectedIndex === groups.length + 1) {
-          // 分隔线
-          continue;
-        } else if (selectedIndex === groups.length + 2) {
-          // 导出配置
-          await this.showExportExclusionDialog();
-        } else if (selectedIndex === groups.length + 3) {
-          // 导入配置
-          await this.showImportExclusionDialog();
-        }
-      }
-    } catch (error) {
-      MNUtil.showHUD("管理排除词组失败：" + error.message);
-      MNUtil.log("管理排除词组错误: " + error.toString());
-    }
-  }
-
-  /**
-   * 添加排除词组对话框
-   */
-  static async showAddExclusionGroupDialog() {
-    return new Promise((resolve) => {
-      // 第一步：输入触发词
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        "添加排除词组",
-        "请输入触发词（搜索这些词时将激活排除规则）：\n支持逗号、分号或空格分隔",
-        2,
-        "取消",
-        ["下一步"],
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            resolve(false);
-            return;
-          }
-          
-          const triggerInput = alert.textFieldAtIndex(0).text;
-          if (!triggerInput) {
-            MNUtil.showHUD("❌ 请输入触发词");
-            resolve(false);
-            return;
-          }
-          
-          const triggerWords = this.parseWords(triggerInput);
-          if (triggerWords.length === 0) {
-            MNUtil.showHUD("❌ 至少需要一个触发词");
-            resolve(false);
-            return;
-          }
-          
-          // 第二步：输入排除词
-          UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-            "设置排除词",
-            `触发词：${triggerWords.join(", ")}\n\n请输入排除词（包含这些词的结果将被过滤）：`,
-            2,
-            "取消",
-            ["确定"],
-            (alert2, buttonIndex2) => {
-              if (buttonIndex2 === 0) {
-                resolve(false);
-                return;
-              }
-              
-              const excludeInput = alert2.textFieldAtIndex(0).text;
-              if (!excludeInput) {
-                MNUtil.showHUD("❌ 请输入排除词");
-                resolve(false);
-                return;
-              }
-              
-              const excludeWords = this.parseWords(excludeInput);
-              if (excludeWords.length === 0) {
-                MNUtil.showHUD("❌ 至少需要一个排除词");
-                resolve(false);
-                return;
-              }
-              
-              // 添加组（使用精简结构，不需要groupName）
-              this.addExclusionGroup(triggerWords, excludeWords);
-              MNUtil.showHUD(`✅ 已添加排除词组`);
-              resolve(true);
-            }
-          );
-        }
-      );
-    });
-  }
-
-  /**
-   * 编辑排除词组
-   */
-  static async editExclusionGroup(group) {
-    try {
-      const options = [
-        "✏️ 编辑触发词",
-        "✏️ 编辑排除词",
-        "🗑 删除此组",
-        "📋 复制配置"
-      ];
-      
-      const triggerPreview = group.triggerWords.slice(0, 3).join(", ") + (group.triggerWords.length > 3 ? "..." : "");
-      const result = await MNUtil.userSelect(
-        "编辑排除词组",
-        `触发词：${group.triggerWords.join(", ")}\n排除词：${group.excludeWords.join(", ")}`,
-        options
-      );
-      
-      if (result === null || result === 0) return;
-      
-      switch (result) {
-        case 1: // 编辑触发词
-          await this.editExclusionTriggerWords(group);
-          break;
-        case 2: // 编辑排除词
-          await this.editExclusionExcludeWords(group);
-          break;
-        case 3: // 删除
-          const confirmed = await this.confirmAction("确认删除", `确定删除此排除词组吗？\n触发词：${triggerPreview}`);
-          if (confirmed) {
-            this.deleteExclusionGroup(group.id);
-            MNUtil.showHUD("🗑 已删除");
-          }
-          break;
-        case 4: // 复制配置
-          const config = {
-            triggerWords: group.triggerWords,
-            excludeWords: group.excludeWords
-          };
-          MNUtil.copy(JSON.stringify(config, null, 2));
-          MNUtil.showHUD("📋 已复制到剪贴板");
-          break;
-      }
-    } catch (error) {
-      MNUtil.showHUD("编辑排除词组失败：" + error.message);
-    }
-  }
-
-  /**
-   * 编辑触发词 - 调用多选界面
-   */
-  static async editExclusionTriggerWords(group) {
-    await this.editExclusionWordsWithMultiSelect(group, 'trigger');
-  }
-
-  /**
-   * 编辑排除词 - 调用多选界面
-   */
-  static async editExclusionExcludeWords(group) {
-    await this.editExclusionWordsWithMultiSelect(group, 'exclude');
-  }
-
-  /**
-   * 使用多选界面编辑排除词组的词汇
-   * @param {Object} group - 排除词组对象
-   * @param {string} type - 'trigger' 或 'exclude'
-   */
-  static async editExclusionWordsWithMultiSelect(group, type) {
-    const isTrigger = type === 'trigger';
-    const currentWords = isTrigger ? group.triggerWords : group.excludeWords;
-    const selectedWords = new Set(currentWords); // 默认全选现有词汇
-    let newWordsInput = "";
-    
-    // 递归显示多选对话框
-    const showMultiSelectDialog = () => {
-      // 构建显示选项
-      let displayOptions = currentWords.map(word => {
-        let prefix = selectedWords.has(word) ? "✅ " : "";
-        return prefix + word;
-      });
-      
-      // 添加控制选项
-      let allSelected = selectedWords.size === currentWords.length;
-      let selectAllText = allSelected ? "⬜ 取消全选" : "☑️ 全选所有词汇";
-      displayOptions.unshift(selectAllText);
-      displayOptions.unshift("🔄 反选");
-      displayOptions.unshift("➕ 添加新词汇");
-      displayOptions.push("──────────────");
-      displayOptions.push("✅ 确认保存");
-      
-      const selectedArray = Array.from(selectedWords);
-      const newWordsArray = newWordsInput ? this.parseWords(newWordsInput) : [];
-      const totalWords = [...selectedArray, ...newWordsArray];
-      
-      const title = isTrigger ? `编辑触发词 - ${group.name}` : `编辑排除词 - ${group.name}`;
-      const message = `已选中 ${selectedWords.size}/${currentWords.length} 个现有词汇\n` +
-                     (newWordsInput ? `新增：${newWordsArray.join(", ")}\n` : "") +
-                     `总计：${totalWords.length} 个词汇`;
-      
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        title,
-        message,
-        0,
-        "取消",
-        displayOptions,
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            // 用户取消
-            return;
-          }
-          
-          if (buttonIndex === 1) {
-            // 添加新词汇
-            const dialogTitle = isTrigger ? "添加新触发词" : "添加新排除词";
-            this.showAddNewWordsDialogForExclusion(dialogTitle, (input) => {
-              if (input) {
-                newWordsInput = input;
-              }
-              showMultiSelectDialog();
-            });
-            
-          } else if (buttonIndex === 2) {
-            // 反选
-            const newSelectedWords = new Set();
-            currentWords.forEach(word => {
-              if (!selectedWords.has(word)) {
-                newSelectedWords.add(word);
-              }
-            });
-            selectedWords.clear();
-            newSelectedWords.forEach(word => selectedWords.add(word));
-            showMultiSelectDialog();
-            
-          } else if (buttonIndex === 3) {
-            // 全选/取消全选
-            if (allSelected) {
-              selectedWords.clear();
-            } else {
-              currentWords.forEach(word => selectedWords.add(word));
-            }
-            showMultiSelectDialog();
-            
-          } else if (buttonIndex === displayOptions.length) {
-            // 确认保存
-            const selectedArray = Array.from(selectedWords);
-            const newWordsArray = newWordsInput ? this.parseWords(newWordsInput) : [];
-            const finalWords = [...selectedArray, ...newWordsArray];
-            
-            if (finalWords.length > 0) {
-              const updateField = isTrigger ? { triggerWords: finalWords } : { excludeWords: finalWords };
-              this.updateExclusionGroup(group.id, updateField);
-              const wordType = isTrigger ? "触发词" : "排除词";
-              MNUtil.showHUD(`✅ 已更新${wordType}（${finalWords.length}个）`);
-            } else {
-              const wordType = isTrigger ? "触发词" : "排除词";
-              MNUtil.showHUD(`❌ 至少需要一个${wordType}`);
-              showMultiSelectDialog();
-            }
-            
-          } else if (buttonIndex === displayOptions.length - 1) {
-            // 分隔线，重新显示
-            showMultiSelectDialog();
-            
-          } else {
-            // 用户选择了某个词汇，切换选中状态
-            const wordIndex = buttonIndex - 4; // 减去前面的控制选项
-            const word = currentWords[wordIndex];
-            
-            if (selectedWords.has(word)) {
-              selectedWords.delete(word);
-            } else {
-              selectedWords.add(word);
-            }
-            
-            showMultiSelectDialog();
-          }
-        }
-      );
-    };
-    
-    showMultiSelectDialog();
-  }
-
-  /**
-   * 显示添加新词汇的输入对话框（排除词组用）
-   */
-  static async showAddNewWordsDialogForExclusion(title, callback) {
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      title,
-      "输入新词汇，支持以下分隔方式：\n• 逗号：word1, word2\n• 分号：词汇1; 词汇2\n• 双空格：词汇1  词汇2\n• 单空格：词1 词2（仅当无其他分隔符时）",
-      2,
-      "取消",
-      ["确定"],
-      (alert, buttonIndex) => {
-        if (buttonIndex === 0) {
-          callback(null);
-          return;
-        }
-        
-        const input = alert.textFieldAtIndex(0).text;
-        if (input && input.trim()) {
-          callback(input);
-        } else {
-          callback(null);
-        }
-      }
-    );
-  }
-
-  /**
-   * 重命名排除词组
-   */
-  static async renameExclusionGroup(group) {
-    return new Promise((resolve) => {
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        "重命名",
-        `当前名称：${group.name}\n\n请输入新名称：`,
-        2,
-        "取消",
-        ["确定"],
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            resolve(false);
-            return;
-          }
-          
-          const newName = alert.textFieldAtIndex(0).text.trim();
-          if (newName && newName !== group.name) {
-            this.updateExclusionGroup(group.id, { name: newName });
-            MNUtil.showHUD("✅ 已重命名");
-            resolve(true);
-          }
-        }
-      );
-    });
-  }
-
-  /**
-   * 导出排除词组配置
-   */
-  static async showExportExclusionDialog() {
-    const options = [
-      "☁️ 同步到 iCloud",
-      "📋 复制到剪贴板",
-      "📝 保存到当前笔记"
-    ];
-    
-    const result = await MNUtil.userSelect(
-      "导出排除词配置",
-      "选择导出方式：",
-      options
-    );
-    
-    if (result === null || result === 0) return;
-    
-    try {
-      const config = {
-        version: "1.0",
-        type: "exclusionGroups",
-        exportDate: new Date().toISOString(),
-        exclusionGroups: this.getExclusionGroups()
-      };
-      const jsonStr = JSON.stringify(config, null, 2);
-      
-      switch (result) {
-        case 1: // iCloud
-          // MNUtil.setByiCloud("KnowledgeBaseTemplate_ExclusionGroups_Config", jsonStr);
-          MNUtil.showHUD("☁️ 已同步到 iCloud");
-          break;
-        case 2: // 剪贴板
-          MNUtil.copy(jsonStr);
-          MNUtil.showHUD("📋 已复制到剪贴板");
-          break;
-        case 3: // 当前笔记
-          const focusNote = MNNote.getFocusNote();
-          if (focusNote) {
-            const formattedJson = this.formatJsonAsCodeBlock(jsonStr);
-            focusNote.appendTextComment(formattedJson);
-            MNUtil.showHUD("📝  已保存到当前笔记");
-          } else {
-            MNUtil.showHUD("❌ 未选中笔记");
-          }
-          break;
-      }
-    } catch (error) {
-      MNUtil.showHUD("❌ 导出失败：" + error.message);
-    }
-  }
-
-  /**
-   * 导入排除词组配置
-   */
-  static async showImportExclusionDialog() {
-    const options = [
-      "☁️ 从 iCloud 同步",
-      "📋 从剪贴板导入",
-      "📝 从当前笔记导入"
-    ];
-    
-    const result = await MNUtil.userSelect(
-      "导入排除词配置",
-      "选择导入来源：",
-      options
-    );
-    
-    if (result === null || result === 0) return;
-    
-    try {
-      let jsonStr = null;
-      
-      switch (result) {
-        case 1: // iCloud
-          jsonStr = MNUtil.getByiCloud("KnowledgeBaseTemplate_ExclusionGroups_Config", null);
-          if (!jsonStr) {
-            MNUtil.showHUD("❌ iCloud 中未找到排除词配置");
-            return;
-          }
-          break;
-        case 2: // 剪贴板
-          jsonStr = MNUtil.clipboardText;
-          break;
-        case 3: // 当前笔记
-          const focusNote = MNNote.getFocusNote();
-          if (!focusNote) {
-            MNUtil.showHUD("❌ 未选中笔记");
-            return;
-          }
-          // 查找包含排除词配置的评论
-          for (const comment of focusNote.comments) {
-            if (comment.type === "textComment" && comment.text.includes('"exclusionGroups"')) {
-              jsonStr = this.extractJsonFromCodeBlock(comment.text);
-              break;
-            }
-          }
-          if (!jsonStr) {
-            MNUtil.showHUD("❌ 当前笔记中未找到排除词配置");
-            return;
-          }
-          break;
-      }
-      
-      const config = JSON.parse(jsonStr);
-      if (!config.exclusionGroups) {
-        throw new Error("无效的配置格式");
-      }
-      
-      // 选择导入方式
-      const importMode = await MNUtil.userSelect(
-        "导入方式",
-        `将导入 ${config.exclusionGroups.length} 个排除词组`,
-        ["替换现有配置", "合并配置"]
-      );
-      
-      if (importMode === null || importMode === 0) return;
-      
-      this.initSearchConfig();
-      
-      if (importMode === 1) {
-        // 替换
-        this.searchRootConfigs.exclusionGroups = config.exclusionGroups;
-      } else {
-        // 合并
-        if (!this.searchRootConfigs.exclusionGroups) {
-          this.searchRootConfigs.exclusionGroups = [];
-        }
-        const existingIds = new Set(this.searchRootConfigs.exclusionGroups.map(g => g.id));
-        for (const group of config.exclusionGroups) {
-          if (!existingIds.has(group.id)) {
-            this.searchRootConfigs.exclusionGroups.push(group);
-          }
-        }
-      }
-      
-      this.saveSearchConfig();
-      MNUtil.showHUD(`✅ 已导入 ${config.exclusionGroups.length} 个排除词组`);
-    } catch (error) {
-      MNUtil.showHUD("❌ 导入失败：" + error.message);
-    }
-  }
 
   /**
    * 确认操作对话框
@@ -16986,6 +14938,20 @@ class KnowledgeBaseTemplate {
  */
 class KnowledgeBaseIndexer {
   /**
+   * 清理文本中的高亮标记
+   * MarginNote 内部使用 __HL_数字_数字__ 格式标记文本样式
+   * 这些标记在构建索引时需要清理，避免显示乱码
+   *
+   * @param {string} text - 要清理的文本
+   * @returns {string} 清理后的文本
+   */
+  static cleanHighlightMarkers(text) {
+    if (!text) return "";
+    // 移除 MarginNote 内部的高亮标记：__HL_数字_数字__
+    return text.replace(/__HL_\d+_\d+__/g, "");
+  }
+
+  /**
    * 构建搜索索引（异步分片版本）
    * @param {Array<string>|MNNote} rootNotes - 根卡片
    * @param {Array<string>} targetTypes - 目标卡片类型数组，如 ["定义", "命题", "归类"]
@@ -17187,7 +15153,7 @@ class KnowledgeBaseIndexer {
     let entry = {
       id: note.noteId,
       type: undefined,
-      title: note.title || "",
+      title: this.cleanHighlightMarkers(note.title || ""),
       parentId: note.parentNoteId || null
     };
 
@@ -17385,28 +15351,26 @@ class KnowledgeBaseIndexer {
     const applicableGroups = [];
     // 使用传入的排除词组或按需获取
     const groups = exclusionGroups || KnowledgeBaseTemplate.getExclusionGroups();
-    
+
     for (const group of groups) {
-      if (!group.enabled) continue;
-      
       // 检查文本是否包含该组的任何排除词
       let containsExcludeWord = false;
       let matchedExcludeWords = [];
-      
+
       for (const excludeWord of group.excludeWords) {
         if (searchText.includes(excludeWord.toLowerCase())) {
           containsExcludeWord = true;
           matchedExcludeWords.push(excludeWord);
         }
       }
-      
+
       if (containsExcludeWord) {
         // 检查触发词是否独立存在（排除词被替换后）
         let tempText = searchText;
         for (const excludeWord of matchedExcludeWords) {
           tempText = tempText.replace(new RegExp(excludeWord.toLowerCase(), 'gi'), '###EXCLUDED###');
         }
-        
+
         // 记录哪些触发词会被这个组影响
         const affectedTriggers = [];
         for (const trigger of group.triggerWords) {
@@ -17415,18 +15379,17 @@ class KnowledgeBaseIndexer {
             affectedTriggers.push(trigger);
           }
         }
-        
+
         if (affectedTriggers.length > 0) {
           applicableGroups.push({
-            groupId: group.id,
-            groupName: group.name,
+            triggerWords: group.triggerWords,
             excludeWords: matchedExcludeWords,
             affectedTriggers: affectedTriggers
           });
         }
       }
     }
-    
+
     return applicableGroups;
   }
   
@@ -19000,63 +16963,9 @@ class SynonymManager {
   
   // 获取所有同义词组（合并默认和用户自定义）
   static getSynonymGroups() {
-    // 如果已缓存，直接返回
-    if (this._cachedGroups) {
-      return this._cachedGroups;
-    }
-    
-    KnowledgeBaseTemplate.initSearchConfig();
-    const userGroups = KnowledgeBaseTemplate.searchRootConfigs.synonymGroups || [];
-    // 合并默认组和用户组，用户组优先（可以覆盖默认组）
-    const allGroups = [...this.synonymGroups];
-    for (const userGroup of userGroups) {
-      const existingIndex = allGroups.findIndex(g => g.id === userGroup.id);
-      if (existingIndex >= 0) {
-        allGroups[existingIndex] = userGroup;
-      } else {
-        allGroups.push(userGroup);
-      }
-    }
-    
-    // 缓存结果
-    this._cachedGroups = allGroups;
-    return allGroups;
+    return this.synonymGroups;
   }
-  
-  // 清除缓存（在配置更新时调用）
-  static clearCache() {
-    this._cachedGroups = null;
-    this._synonymIndex = null;  // 同时清除同义词索引缓存
-  }
-  
-  // 添加新的同义词组（使用精简结构）
-  static addSynonymGroup(words, options = {}) {
-    KnowledgeBaseTemplate.initSearchConfig();
-    const group = {
-      id: "group_" + Date.now(),
-      words: words
-    };
-    
-    // 只在需要时添加可选字段
-    if (options.partialReplacement) group.partialReplacement = true;
-    if (options.patternMode) group.patternMode = true;
-    if (options.caseSensitive) group.caseSensitive = true;
-    if (options.contextTriggers && options.contextTriggers.length > 0) {
-      group.contextTriggers = options.contextTriggers;
-      if (options.contextMode) group.contextMode = options.contextMode;
-    }
-    
-    if (!KnowledgeBaseTemplate.searchRootConfigs.synonymGroups) {
-      KnowledgeBaseTemplate.searchRootConfigs.synonymGroups = [];
-    }
-    
-    KnowledgeBaseTemplate.searchRootConfigs.synonymGroups.push(group);
-    KnowledgeBaseTemplate.saveSearchConfig();
-    // 清除缓存
-    this.clearCache();
-    return group;
-  }
-  
+
   /**
    * 构建同义词索引（优化查找性能）
    * @private
@@ -19099,88 +17008,37 @@ class SynonymManager {
 
 // 排除词管理器
 class ExclusionManager {
-  // 缓存的排除词组（避免重复合并）
-  static _cachedGroups = null;
-  
   // 默认排除词组数据（从word.md导入，精简结构）
   static exclusionGroups = [
     {
-      "id": "excl_1754967865808",
       "triggerWords": ["𝔻", "开单位圆盘", "单位圆盘"],
       "excludeWords": ["闭单位圆盘"]
     },
     {
-      "id": "excl_1754977557787",
       "triggerWords": ["包含", "包含了"],
       "excludeWords": ["包含于", "包含在"]
     },
     {
-      "id": "excl_1755836804381",
       "triggerWords": ["开右半平面", "ℂ₊"],
       "excludeWords": ["右半平面"]
     },
     {
-      "id": "excl_1756996808802",
       "triggerWords": ["正交集", "正交子集"],
       "excludeWords": ["规范正交集", "标准正交集"]
     },
     {
-      "id": "excl_1757052106482",
       "triggerWords": ["正交"],
       "excludeWords": ["正交集", "正交补", "正交投影", "正交分解"]
+    },
+    {
+      "triggerWords": ["ℝ"],
+      "excludeWords": ["ℝ²", "ℝ³", "ℝⁿ", "ℝᵐ", "R²", "R³", "Rⁿ", "Rᵐ"]
     }
   ];
-  
-  // 获取所有排除词组（合并默认和用户自定义）
+
+  // 获取所有排除词组
   static getExclusionGroups() {
-    // 如果已缓存，直接返回
-    if (this._cachedGroups) {
-      return this._cachedGroups;
-    }
-    
-    KnowledgeBaseTemplate.initSearchConfig();
-    const userGroups = KnowledgeBaseTemplate.searchRootConfigs.exclusionGroups || [];
-    // 合并默认组和用户组，用户组优先（可以覆盖默认组）
-    const allGroups = [...this.exclusionGroups];
-    for (const userGroup of userGroups) {
-      const existingIndex = allGroups.findIndex(g => g.id === userGroup.id);
-      if (existingIndex >= 0) {
-        allGroups[existingIndex] = userGroup;
-      } else {
-        allGroups.push(userGroup);
-      }
-    }
-    
-    // 缓存结果
-    this._cachedGroups = allGroups;
-    return allGroups;
-  }
-  
-  // 清除缓存（在配置更新时调用）
-  static clearCache() {
-    this._cachedGroups = null;
-  }
-  
-  // 添加新的排除词组（使用精简结构）
-  static addExclusionGroup(triggerWords, excludeWords) {
-    KnowledgeBaseTemplate.initSearchConfig();
-    const group = {
-      id: "excl_" + Date.now(),
-      triggerWords: triggerWords,
-      excludeWords: excludeWords
-    };
-    
-    if (!KnowledgeBaseTemplate.searchRootConfigs.exclusionGroups) {
-      KnowledgeBaseTemplate.searchRootConfigs.exclusionGroups = [];
-    }
-    
-    KnowledgeBaseTemplate.searchRootConfigs.exclusionGroups.push(group);
-    KnowledgeBaseTemplate.saveSearchConfig();
-    
-    // 清除缓存
-    this.clearCache();
-    
-    return group;
+    return this.exclusionGroups;
   }
 }
 
@@ -19502,7 +17360,7 @@ class IntermediateKnowledgeIndexer {
     // 构建索引条目
     const entry = {
       id: note.noteId,
-      title: note.title || "",
+      title: KnowledgeBaseIndexer.cleanHighlightMarkers(note.title || ""),
       parentId: note.parentNoteId || null,
       searchText: this.buildSearchText(note)
     };
@@ -19575,9 +17433,9 @@ class IntermediateKnowledgeIndexer {
       const noteType = KnowledgeBaseTemplate.getNoteType(note);
       const typeInfo = noteType ? `${noteType} ` : "";
 
-      // 添加标题
+      // 添加标题（清理高亮标记）
       if (note.title) {
-        textParts.push(note.title);
+        textParts.push(KnowledgeBaseIndexer.cleanHighlightMarkers(note.title));
       }
 
       // 处理评论
@@ -19595,7 +17453,7 @@ class IntermediateKnowledgeIndexer {
 
           if (commentType === "textComment") {
             if (comment.text && comment.text.trim()) {
-              textParts.push(comment.text.trim());
+              textParts.push(KnowledgeBaseIndexer.cleanHighlightMarkers(comment.text.trim()));
             }
           } else if (commentType === "markdownComment") {
             if (comment.text && comment.text.trim()) {
@@ -19604,13 +17462,13 @@ class IntermediateKnowledgeIndexer {
                 /\[([^\]]+)\]\(marginnote4app:\/\/[^)]+\)/g,
                 '$1'
               );
-              textParts.push(textWithoutLinks.trim());
+              textParts.push(KnowledgeBaseIndexer.cleanHighlightMarkers(textWithoutLinks.trim()));
             }
           } else if (commentType === "HtmlComment") {
             // 只提取关键词字段
             const match = comment.text && comment.text.match(/^关键词[:\uff1a]\s*(.*)$/);
             if (match && match[1].trim()) {
-              textParts.push(match[1].trim());
+              textParts.push(KnowledgeBaseIndexer.cleanHighlightMarkers(match[1].trim()));
             }
           }
         }
@@ -19936,15 +17794,18 @@ class KnowledgeBaseNetwork {
 - x2, y3, z4 → x², y³, z⁴（使用 Unicode 上标字符）
 - xn, an → xⁿ, aⁿ
 - 完整的 Unicode 上标字符集：⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱ
+- 积分或者求和的上限不需要 ^, 比如 Σₙ₌₁∞ 就行，不要写成  Σₙ₌₁^∞
 
 ### 希腊字母识别
 - α alpha, β beta, γ gamma, δ delta, ε epsilon
 - ζ zeta, η eta, θ theta, ι iota, κ kappa
 - λ lambda, μ mu, ν nu, ξ xi, ο omicron
 - π pi, ρ rho, σ sigma, τ tau, υ upsilon
-- φ phi, χ chi, ψ psi, ω omega
+- ϕ phi, χ chi, ψ psi, ω omega
 - Γ Gamma, Δ Delta, Θ Theta, Λ Lambda, Ξ Xi
 - Π Pi, Σ Sigma, Φ Phi, Ψ Psi, Ω Omega
+
+尤其是 ϕ，要注意优先使用 ϕ 而不是 φ
 
 ### 数学运算符
 - × 乘号（不是字母 x）, · 点乘, ÷ 除号
@@ -20066,6 +17927,16 @@ class KnowledgeBaseNetwork {
 
 **定理名称格式**（用分号分隔中文、英文）：
     示例：如果……, 则范数一致有界; 一致有界原理; uniformly bounded principle
+
+**人名处理规则**：
+- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
 
 **常用术语对照**：
 - Theorem → 定理 | Lemma → 引理 | Corollary → 推论 | Proposition → 命题
@@ -20198,6 +18069,16 @@ LaTeX 会自动处理公式内的间距：
 - 公式符号保持原样，仅翻译描述性文字
 - 去掉例题编号、定理编号等标记
 - 去掉末尾标点
+
+**人名处理规则**：
+- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
 
 **示例**：
 - Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...
@@ -20385,6 +18266,16 @@ LaTeX 会自动处理公式内的间距：
 - ❌ 去掉开头标记（如 "Example 2"、"Theorem 1.2"）
 - ❌ 去掉末尾标点
 
+**人名处理规则**：
+- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+
 **常用术语对照**：
 - Theorem → 定理 | Lemma → 引理 | Corollary → 推论 | Proposition → 命题
 - Definition → 定义 | Proof → 证明 | Example → 例子 | Exercise → 练习
@@ -20539,6 +18430,16 @@ LaTeX 会自动处理公式内的间距：
 - 去掉例题编号、定理编号等标记
 - 去掉末尾标点
 
+**人名处理规则**：
+- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+
 **示例**：
 - Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...
 - Example 2.3: Let f be ... → 设 $f$ 为 ...
@@ -20659,6 +18560,209 @@ LaTeX 会自动处理公式内的间距：
 4. 保持术语的标准性和专业性
 `
 
+  static OCRSummarizePrompt = `
+# 数学文本 OCR - 翻译并总结
+
+## 核心任务
+从图片中提取文本，进行专业翻译并总结精炼，适用于研究进展、学术论述等内容。
+
+**关键要求**：
+- 已是中文的内容保持原样并总结
+- 英文内容翻译成中文并总结
+- 疑问句转换为陈述句
+- 去除冗余说明和补充信息
+- 人名保持原文不翻译
+- 禁止使用 LaTeX 包裹符号（$...$），优先 Unicode
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式要求
+
+**重要**：直接输出内容，不要添加任何格式标记或前缀！
+
+### 情况 1：英文/其他语言内容
+输出格式："<总结后的中文>: <原文 Unicode 形式>"
+
+**正确示例**：
+- 输入：Why two names? When φ is an inner function then this family of measures, along with an associated family of unitary operators (more about this later in the notes), was first studied by Clark. General self-maps φ were later studied by Aleksandrov.
+- ✅ 输出：有两个名称的原因：当 φ 是内函数时，这个测度族以及相关的酉算子族首先由 Clark 研究，而一般的自映射 φ 后来由 Aleksandrov 研究: Why two names? When φ is an inner function then this family of measures, along with an associated family of unitary operators, was first studied by Clark. General self-maps φ were later studied by Aleksandrov.
+
+**错误示例**（禁止）：
+- ❌ [总结]: 有两个名称的原因：...
+- ❌ 总结：有两个名称的原因：...
+
+### 情况 2：已是中文内容
+输出格式："<总结后的内容>"（保持中文）
+
+**正确示例**：
+- 输入：为什么有两个名称？当 φ 是内函数时，这个测度族以及相关的酉算子族（本笔记后面会详细讨论）首先由 Clark 研究。一般的自映射 φ 后来由 Aleksandrov 研究。
+- ✅ 输出：有两个名称的原因：当 φ 是内函数时，这个测度族以及相关的酉算子族首先由 Clark 研究，而一般的自映射 φ 后来由 Aleksandrov 研究
+
+## 总结规则
+
+### 1. 疑问句转陈述句
+将疑问句式改写为陈述句式，使表达更简洁流畅。
+
+**转换模式**：
+- "为什么...？" → "...的原因是..."
+- "什么是...？" → "...是指..."
+- "如何...？" → "...的方法是..."
+- "是否...？" → 判断后明确陈述
+
+**示例**：
+- ❌ 为什么 Clark measure 有两个名称？因为...
+- ✅ Clark measure 有两个名称的原因是：...
+
+- ❌ 什么是 Aleksandrov measure？它是...
+- ✅ Aleksandrov measure 是指...
+
+### 2. 去除冗余信息
+删除补充说明、注释、引用等非核心信息。
+
+**需要删除的内容**：
+- 括号内的补充说明：（本笔记后面会详细讨论）、（见第3章）
+- 引用标注：[1]、[Smith 2020]
+- 冗余修饰：显然、容易看出、众所周知
+- 过渡性话语：首先、然后、最后（除非对理解逻辑至关重要）
+
+**示例**：
+- ❌ 这个测度族（本笔记后面会详细讨论）首先由 Clark 研究
+- ✅ 这个测度族首先由 Clark 研究
+
+### 3. 逻辑整合
+使用连接词整合信息，使表达更连贯。
+
+**常用连接词**：
+- 因果关系：由于、因此、所以
+- 并列关系：同时、而、并且
+- 转折关系：但是、然而、不过
+- 递进关系：进而、进一步、甚至
+
+**示例**：
+- ❌ 首先由 Clark 研究。后来由 Aleksandrov 研究。
+- ✅ 首先由 Clark 研究，而后来由 Aleksandrov 研究
+
+- ❌ φ 是内函数。测度族由 Clark 研究。
+- ✅ 当 φ 是内函数时，测度族由 Clark 研究
+
+### 4. 人名处理规则
+**核心原则**：人名始终保持原文，不翻译
+
+- ✅ 人名保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+
+## Unicode 符号使用
+
+**优先使用 Unicode**：
+- 上标：x², x³, xⁿ
+- 下标：x₁, x₂, xₙ
+- 希腊字母：α, β, γ, δ, ε, φ, θ, λ, μ, π, σ, ω
+- 运算符：±, ×, ÷, ≠, ≤, ≥, ≈
+- 微积分：∫, ∑, ∏, ∂, ∇, ∞, lim
+
+${this.OCRCorrectionRules}
+
+## 最终检查清单
+1. 疑问句是否已转换为陈述句
+2. 冗余信息是否已删除
+3. 人名是否保持原文
+4. 逻辑连接是否流畅
+5. Unicode 符号是否正确使用
+`
+
+  static OCRSummarizeNoTransPrompt = `
+# 数学文本 OCR - 总结（仅中文）
+
+## 核心任务
+从图片中提取文本并进行总结精炼，所有内容输出为中文。
+
+**关键要求**：
+- 所有内容翻译成中文（已是中文的保持原样）
+- 疑问句转换为陈述句
+- 去除冗余说明和补充信息
+- 人名保持原文不翻译
+- 禁止使用 LaTeX 包裹符号（$...$），优先 Unicode
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式要求
+
+**重要**：直接输出总结后的中文内容，不要添加任何格式标记或前缀！
+
+**统一输出格式**："<总结后的中文内容>"
+
+**正确示例**：
+- 输入：Why two names? When φ is an inner function...
+- ✅ 输出：有两个名称的原因：当 φ 是内函数时，这个测度族首先由 Clark 研究，而一般自映射后来由 Aleksandrov 研究
+
+**错误示例**（禁止）：
+- ❌ [总结]: 有两个名称的原因：...
+- ❌ 中文: 有两个名称的原因：...
+
+## 总结规则
+
+### 1. 疑问句转陈述句
+将疑问句式改写为陈述句式，使表达更简洁流畅。
+
+**转换模式**：
+- "为什么...？" → "...的原因是..."
+- "什么是...？" → "...是指..."
+- "如何...？" → "...的方法是..."
+- "是否...？" → 判断后明确陈述
+
+### 2. 去除冗余信息
+删除补充说明、注释、引用等非核心信息。
+
+**需要删除的内容**：
+- 括号内的补充说明：（本笔记后面会详细讨论）、（见第3章）
+- 引用标注：[1]、[Smith 2020]
+- 冗余修饰：显然、容易看出、众所周知
+- 过渡性话语：首先、然后、最后（除非对理解逻辑至关重要）
+
+### 3. 逻辑整合
+使用连接词整合信息，使表达更连贯。
+
+**常用连接词**：
+- 因果关系：由于、因此、所以
+- 并列关系：同时、而、并且
+- 转折关系：但是、然而、不过
+- 递进关系：进而、进一步、甚至
+
+### 4. 人名处理规则
+**核心原则**：人名始终保持原文，不翻译
+
+- ✅ 人名保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+
+## Unicode 符号使用
+
+**优先使用 Unicode**：
+- 上标：x², x³, xⁿ
+- 下标：x₁, x₂, xₙ
+- 希腊字母：α, β, γ, δ, ε, φ, θ, λ, μ, π, σ, ω
+- 运算符：±, ×, ÷, ≠, ≤, ≥, ≈
+- 微积分：∫, ∑, ∏, ∂, ∇, ∞, lim
+
+${this.OCRCorrectionRules}
+
+## 最终检查清单
+1. 疑问句是否已转换为陈述句
+2. 冗余信息是否已删除
+3. 人名是否保持原文
+4. 逻辑连接是否流畅
+5. Unicode 符号是否正确使用
+`
+
   static async OCRToTitle(note, mode = 1, needTranslation = undefined) {
     let imageData = ocrUtils.getImageFromNote(note)
     if (!imageData) {
@@ -20686,9 +18790,12 @@ LaTeX 会自动处理公式内的间距：
         break
       case 3:
         // 检查是否是定义类卡片（通过 colorIndex 判断）
-        if (note.colorIndex === this.types.定义.colorIndex) {
+        if (note.colorIndex === KnowledgeBaseTemplate.types["定义"].colorIndex) {
           // 定义类卡片使用概念提取提示词
           prompt = shouldTranslate ? this.OCRExtractConceptPrompt : this.OCRExtractConceptNoTransPrompt
+        } else if (note.colorIndex === KnowledgeBaseTemplate.types["研究进展"].colorIndex) {
+          // 研究进展类卡片使用总结提示词
+          prompt = shouldTranslate ? this.OCRSummarizePrompt : this.OCRSummarizeNoTransPrompt
         } else {
           // 非定义类卡片使用直出提示词
           prompt = shouldTranslate ? this.OCRDirectlyPrompt : this.OCRDirectlyNoTransPrompt
@@ -20710,8 +18817,17 @@ LaTeX 会自动处理公式内的间距：
         ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode2 || KnowledgeBaseConfig.config.excerptOCRModel;
         break;
       case 3:
-        // 模式3：概念提取 - 使用专用模型，未设置时回退到通用模型
-        ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode3 || KnowledgeBaseConfig.config.excerptOCRModel;
+        // 模式3：概念提取/总结 - 使用专用模型，未设置时回退到通用模型
+        // 检查是否是定义类卡片或研究进展类卡片（通过 colorIndex 判断）
+        if (note.colorIndex === KnowledgeBaseTemplate.types["定义"].colorIndex) {
+          // 定义类卡片
+          ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode3 || KnowledgeBaseConfig.config.excerptOCRModel;
+        } else if (note.colorIndex === KnowledgeBaseTemplate.types["研究进展"].colorIndex) {
+          // 研究进展类卡片使用模式3的模型（或可以单独配置）
+          ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode3 || KnowledgeBaseConfig.config.excerptOCRModel;
+        } else {
+          ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode1 || KnowledgeBaseConfig.config.excerptOCRModel;
+        }
         break;
       default:
         // 默认使用通用模型

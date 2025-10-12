@@ -655,7 +655,9 @@ knowledgebaseWebController.prototype.loadSearchData = async function() {
         ...metadata
       },
       // 传递排除词组配置到前端
-      exclusionGroups: ExclusionManager.getExclusionGroups()
+      exclusionGroups: ExclusionManager.getExclusionGroups(),
+      // 传递同义词组配置到前端
+      synonymGroups: SynonymManager.getSynonymGroups()
     };
 
     MNUtil.log(`数据准备完成：共 ${allCards.length} 张卡片`);
@@ -1058,7 +1060,7 @@ knowledgebaseWebController.prototype.copyNoteURL = async function(noteId) {
     }
 
     MNUtil.copy(note.noteURL)
-    MNUtil.showHUD("已复制卡片 URL")
+    MNUtil.showHUD("已复制卡片 URL", 0.5)
   } catch (error) {
     MNUtil.showHUD("复制失败: " + error)
     KnowledgeBaseUtils.addErrorLog(error, "copyNoteURL")

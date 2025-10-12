@@ -977,7 +977,7 @@ function registerAllMenuTemplates() {
     action: "searchAndAddClassification",
     onLongPress: {
       action: "menu",
-      menuWidth: 400,
+      menuWidth: 420,
       menuItems: [
         {
           action: "AddTemplateOnLastestParentDefinitionAndAddAsChild",
@@ -987,25 +987,65 @@ function registerAllMenuTemplates() {
           action: "OCRToTitle",
           menuTitle: "OCR 摘录为标题",
         },
+        "🔍 OCR 工具",
         {
-          action: "",
-          menuTitle: "",
+          action: "menu",
+          menuTitle: "➡️ 📝 模式1：直接 OCR (Unicode)",
+          menuWidth: 300,
+          menuItems: [
+            {
+              action: "ocrMode1WithTranslation",
+              menuTitle: "🌐 翻译版（中英对照）",
+            },
+            {
+              action: "ocrMode1NoTranslation",
+              menuTitle: "📄 原文版（仅中文）",
+            },
+          ],
         },
         {
-          action: "",
-          menuTitle: "",
+          action: "menu",
+          menuTitle: "➡️ 📄 模式2：Markdown OCR (LaTeX)",
+          menuWidth: 300,
+          menuItems: [
+            {
+              action: "ocrMode2WithTranslation",
+              menuTitle: "🌐 翻译版（中英对照）",
+            },
+            {
+              action: "ocrMode2NoTranslation",
+              menuTitle: "📄 原文版（仅中文）",
+            },
+          ],
         },
         {
-          action: "",
-          menuTitle: "",
-        },
-        {
-          action: "",
-          menuTitle: "",
-        },
-        {
-          action: "",
-          menuTitle: "",
+          action: "menu",
+          menuTitle: "➡️ 🧠 模式3：智能 OCR（根据卡片类型）",
+          menuWidth: 360,
+          menuItems: [
+            {
+              action: "ocrMode3WithTranslation",
+              menuTitle: "🌐 翻译版（中英对照）",
+            },
+            {
+              action: "ocrMode3NoTranslation",
+              menuTitle: "📄 原文版（仅中文）",
+            },
+            "---",
+            "ℹ️ 智能识别说明",
+            {
+              action: "",
+              menuTitle: "    • 定义类 → 概念提取",
+            },
+            {
+              action: "",
+              menuTitle: "    • 研究进展 → 翻译总结",
+            },
+            {
+              action: "",
+              menuTitle: "    • 其他 → 直接 OCR",
+            },
+          ],
         },
       ]
     }

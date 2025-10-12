@@ -2342,14 +2342,55 @@
         dom.clearPresetsBtn?.addEventListener('click', handleClearPresets);
         dom.clearNegativesBtn?.addEventListener('click', handleClearNegatives);
 
-        // Sidebar 按钮事件（已移除 focusCardInFloatMindMapBtn 和 copyMarkdownLinkBtn 的监听器）
-        dom.mergeFocusNoteToTargetNoteExcerptPartBtn?.addEventListener('click', () => handleSidebarAction('mergeFocusNoteToTargetNoteExcerptPart'));
-        dom.clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn?.addEventListener('click', () => handleSidebarAction('clearTitleAndMergeFocusNoteToTargetNoteExcerptPart'));
-        dom.bidirectionalLinkFromeFocusNoteToTargetNoteBtn?.addEventListener('click', () => handleSidebarAction('bidirectionalLinkFromeFocusNoteToTargetNote'));
-        dom.moveFocusNoteToTargetNoteAsChildBtn?.addEventListener('click', () => handleSidebarAction('moveFocusNoteToTargetNoteAsChild'));
-        dom.moveFocusNoteToTargetNoteAsChildAndLocateBtn?.addEventListener('click', () => handleSidebarAction('moveFocusNoteToTargetNoteAsChildAndLocate'));
-        dom.addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn?.addEventListener('click', () => handleSidebarAction('addTemplateToTargetNoteAndMoveFocusNoteAsChild'));
-        dom.addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn?.addEventListener('click', () => handleSidebarAction('addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocate'));
+        // Sidebar 按钮事件（双击触发，防止误触）
+        const sidebarButtons = [
+          { btn: dom.mergeFocusNoteToTargetNoteExcerptPartBtn, action: 'mergeFocusNoteToTargetNoteExcerptPart' },
+          { btn: dom.clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn, action: 'clearTitleAndMergeFocusNoteToTargetNoteExcerptPart' },
+          { btn: dom.bidirectionalLinkFromeFocusNoteToTargetNoteBtn, action: 'bidirectionalLinkFromeFocusNoteToTargetNote' },
+          { btn: dom.moveFocusNoteToTargetNoteAsChildBtn, action: 'moveFocusNoteToTargetNoteAsChild' },
+          { btn: dom.moveFocusNoteToTargetNoteAsChildAndLocateBtn, action: 'moveFocusNoteToTargetNoteAsChildAndLocate' },
+          { btn: dom.addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn, action: 'addTemplateToTargetNoteAndMoveFocusNoteAsChild' },
+          { btn: dom.addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn, action: 'addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocate' }
+        ];
+
+        // 使用 WeakMap 存储每个按钮的点击状态
+        const buttonClickStates = new WeakMap();
+
+        sidebarButtons.forEach(({ btn, action }) => {
+          if (!btn) return;
+
+          // 初始化按钮状态
+          buttonClickStates.set(btn, { timer: null, clickCount: 0 });
+
+          // 自定义双击检测逻辑
+          btn.addEventListener('click', () => {
+            if (btn.disabled) return;
+
+            const state = buttonClickStates.get(btn);
+            state.clickCount++;
+
+            // 清除之前的计时器
+            if (state.timer) {
+              clearTimeout(state.timer);
+            }
+
+            if (state.clickCount === 1) {
+              // 第一次点击：显示提示，等待第二次点击
+              showToast('👆 再次点击以执行操作', 1000);
+
+              // 设置 300ms 超时，如果没有第二次点击则重置
+              state.timer = setTimeout(() => {
+                state.clickCount = 0;
+                state.timer = null;
+              }, 300);
+            } else if (state.clickCount === 2) {
+              // 第二次点击：执行操作
+              state.clickCount = 0;
+              state.timer = null;
+              handleSidebarAction(action);
+            }
+          });
+        });
 
         // 刷新按钮事件
         dom.refreshBtn?.addEventListener('click', () => {
@@ -2891,18 +2932,63 @@
         };
       }
 
+      /**
+       * 识别并标准化数学区间符号
+       * 支持格式：[a, b]、(a, b)、[a, b)、(a, b]
+       * @param {string} text - 待处理的文本
+       * @returns {Object} { normalized: 标准化后的文本, intervals: 提取的区间数组 }
+       */
+      function normalizeIntervals(text) {
+        if (!text) return { normalized: text, intervals: [] };
+
+        const intervals = [];
+        const placeholders = new Map();
+        let counter = 0;
+
+        // 匹配数学区间：[\(\[].*?[\)\]]
+        // 支持 [...]、(...)、[...)、(...] 四种格式
+        const intervalRegex = /[\[\(][^\[\]\(\)]*?[\]\)]/g;
+
+        const normalized = text.replace(intervalRegex, (match) => {
+          // 标准化区间内部：移除逗号和分号周围的空格
+          const standardized = match.replace(/\s*([,;])\s*/g, '$1');
+
+          // 如果标准化后与原始不同，记录下来
+          if (standardized !== match) {
+            const placeholder = `__INTERVAL_${counter}__`;
+            placeholders.set(placeholder, standardized);
+            intervals.push({ original: match, normalized: standardized });
+            counter++;
+            return placeholder;
+          }
+
+          return match;
+        });
+
+        // 还原占位符
+        let result = normalized;
+        placeholders.forEach((value, key) => {
+          result = result.replace(key, value);
+        });
+
+        return { normalized: result, intervals };
+      }
+
       function deriveTokens(rawInput, includePresets) {
         const tokens = [];
 
         // 智能空格分隔：检测是否有双空格
         if (rawInput) {
+          // 🎯 新增：先对数学区间进行标准化处理
+          const { normalized } = normalizeIntervals(rawInput);
+
           let parts;
-          if (/\s{2,}/.test(rawInput)) {
+          if (/\s{2,}/.test(normalized)) {
             // 有双空格：按双空格分割，保留单空格作为短语的一部分
-            parts = rawInput.split(/\s{2,}/);
+            parts = normalized.split(/\s{2,}/);
           } else {
             // 无双空格：按单空格分割
-            parts = rawInput.split(/\s+/);
+            parts = normalized.split(/\s+/);
           }
 
           parts.forEach((part) => {
@@ -3123,51 +3209,107 @@
         let score = baseScore;
         const matchedTokens = new Set();
 
-        const title = (card.title || '').toLowerCase();
-        const type = (card.type || '').toLowerCase();
-        const subtype = (card.classificationSubtype || '').toLowerCase();
-        const searchText = (card.searchText || '').toLowerCase();
-        const keywords = (card.keywords || '').toLowerCase();
-        const prefix = (card.prefix || '').toLowerCase();
-        const snippet = (card.snippet || '').toLowerCase();
+        // 🎯 辅助函数：标准化字段文本（包括区间标准化）
+        const normalizeFieldText = (text) => {
+          if (!text) return '';
+          const lower = text.toLowerCase();
+          const { normalized } = normalizeIntervals(lower);
+          return normalized;
+        };
+
+        // 定义所有可搜索字段及其基础权重
+        const fields = {
+          title: { text: normalizeFieldText(card.title), baseWeight: 60 },
+          searchText: { text: normalizeFieldText(card.searchText), baseWeight: 25 },
+          keywords: { text: normalizeFieldText(card.keywords), baseWeight: 20 },
+          prefix: { text: normalizeFieldText(card.prefix), baseWeight: 18 },
+          subtype: { text: normalizeFieldText(card.classificationSubtype), baseWeight: 14 },
+          type: { text: normalizeFieldText(card.type), baseWeight: 12 },
+          snippet: { text: normalizeFieldText(card.snippet), baseWeight: 8 }
+        };
+
+        // 统计每个token的出现次数（用于衰减计算）
+        const tokenOccurrences = new Map();
 
         tokensLower.forEach((token) => {
           if (!token) return;
           let hit = false;
 
-          if (title.includes(token)) {
-            score += 60;
+          // 遍历所有字段进行匹配
+          Object.entries(fields).forEach(([fieldName, fieldData]) => {
+            const { text: fieldText, baseWeight } = fieldData;
+
+            if (!fieldText || !fieldText.includes(token)) return;
+
+            // ========== 🎯 改进1: 计算匹配密度 ==========
+            const matchedLength = token.length;
+            const totalLength = fieldText.length;
+            const density = totalLength > 0 ? matchedLength / totalLength : 0;
+
+            // 密度倍增器：根据匹配占比调整权重
+            // 密度 < 10%: 0.8倍（惩罚稀疏匹配）
+            // 密度 10-30%: 1.0倍（正常）
+            // 密度 30-50%: 1.0-1.5倍（线性增长）
+            // 密度 > 50%: 1.5-2.5倍（高度相关）
+            let densityMultiplier;
+            if (density < 0.1) {
+              densityMultiplier = 0.8;
+            } else if (density < 0.3) {
+              densityMultiplier = 1.0;
+            } else if (density < 0.5) {
+              densityMultiplier = 1.0 + (density - 0.3) * 2.5; // 0.3→1.0, 0.5→1.5
+            } else {
+              densityMultiplier = 1.5 + density; // 0.5→2.0, 1.0→2.5
+            }
+
+            // ========== 🎯 改进2: 字段长度归一化 ==========
+            // 短字段中的匹配更有价值，长字段适当减权
+            let lengthBonus;
+            if (totalLength < 20) {
+              lengthBonus = 1.3; // 短字段加权30%
+            } else if (totalLength > 100) {
+              lengthBonus = 0.85; // 长字段减权15%
+            } else {
+              lengthBonus = 1.0;
+            }
+
+            // ========== 🎯 改进3: 重复token衰减 ==========
+            // 防止通过堆砌关键词获得高分
+            const occurrenceCount = (tokenOccurrences.get(token) || 0) + 1;
+            tokenOccurrences.set(token, occurrenceCount);
+
+            let decayFactor;
+            if (occurrenceCount === 1) {
+              decayFactor = 1.0;   // 第1次出现：100%
+            } else if (occurrenceCount === 2) {
+              decayFactor = 0.6;   // 第2次出现：60%
+            } else if (occurrenceCount === 3) {
+              decayFactor = 0.4;   // 第3次出现：40%
+            } else {
+              decayFactor = 0.2;   // 第4+次出现：20%
+            }
+
+            // ========== 计算最终权重 ==========
+            const finalWeight = baseWeight * densityMultiplier * lengthBonus * decayFactor;
+            score += finalWeight;
             hit = true;
-          }
-          if (searchText.includes(token)) {
-            score += 25;
-            hit = true;
-          }
-          if (keywords.includes(token)) {
-            score += 20;
-            hit = true;
-          }
-          if (prefix.includes(token)) {
-            score += 18;
-            hit = true;
-          }
-          if (type.includes(token)) {
-            score += 12;
-            hit = true;
-          }
-          if (subtype && subtype.includes(token)) {
-            score += 14;
-            hit = true;
-          }
-          if (snippet.includes(token)) {
-            score += 8;
-            hit = true;
-          }
+          });
 
           if (hit) matchedTokens.add(token);
         });
 
-        return { score, matchCount: matchedTokens.size, matchedTokens };
+        // ========== 🎯 改进4: 覆盖率奖励 ==========
+        // 匹配了所有搜索词的卡片额外加分
+        const coverageRatio = matchedTokens.size / tokensLower.length;
+        const coverageBonus = coverageRatio * 30; // 最高30分
+        score += coverageBonus;
+
+        return {
+          score,
+          matchCount: matchedTokens.size,
+          matchedTokens,
+          coverageRatio // 用于调试（不影响现有功能）
+        };
       }
 
       function extractSnippet(text, tokensLower) {
@@ -3255,7 +3397,7 @@
           // 图标4: 复制 URL
           const copyURLIcon = document.createElement('div');
           copyURLIcon.className = 'card-action-icon text-icon';
-          copyURLIcon.textContent = '复制<br>URL';
+          copyURLIcon.innerHTML = '复制<br>URL';
           copyURLIcon.title = '复制卡片 URL';
           copyURLIcon.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -3394,7 +3536,7 @@
         // 图标4: 复制 URL
         const copyURLIcon = document.createElement('div');
         copyURLIcon.className = 'card-action-icon text-icon';
-        copyURLIcon.textContent = '复制<br>URL';
+        copyURLIcon.innerHTML = '复制<br>URL';
         copyURLIcon.title = '复制卡片 URL';
         copyURLIcon.addEventListener('click', (e) => {
           e.stopPropagation();
