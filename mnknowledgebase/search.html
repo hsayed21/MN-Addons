@@ -887,8 +887,6 @@
     .card-action-icon.text-icon {
       font-size: 10px;
       line-height: 1.2;
-      white-space: pre-line;
-      word-break: break-all;
       padding: 2px;
       text-align: center;
       font-weight: 500;
@@ -3243,7 +3241,7 @@
           // 图标3: 复制行内链接
           const copyMarkdownLinkIcon = document.createElement('div');
           copyMarkdownLinkIcon.className = 'card-action-icon text-icon';
-          copyMarkdownLinkIcon.textContent = '行\n内\n链\n接';
+          copyMarkdownLinkIcon.innerHTML = '行内<br>链接';
           copyMarkdownLinkIcon.title = '复制行内链接';
           copyMarkdownLinkIcon.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -3257,7 +3255,7 @@
           // 图标4: 复制 URL
           const copyURLIcon = document.createElement('div');
           copyURLIcon.className = 'card-action-icon text-icon';
-          copyURLIcon.textContent = 'URL';
+          copyURLIcon.textContent = '复制<br>URL';
           copyURLIcon.title = '复制卡片 URL';
           copyURLIcon.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -3382,7 +3380,7 @@
         // 图标3: 复制行内链接
         const copyMarkdownLinkIcon = document.createElement('div');
         copyMarkdownLinkIcon.className = 'card-action-icon text-icon';
-        copyMarkdownLinkIcon.textContent = '行内\n链接';
+        copyMarkdownLinkIcon.innerHTML = '行内<br>链接';
         copyMarkdownLinkIcon.title = '复制行内链接';
         copyMarkdownLinkIcon.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -3396,7 +3394,7 @@
         // 图标4: 复制 URL
         const copyURLIcon = document.createElement('div');
         copyURLIcon.className = 'card-action-icon text-icon';
-        copyURLIcon.textContent = 'URL';
+        copyURLIcon.textContent = '复制<br>URL';
         copyURLIcon.title = '复制卡片 URL';
         copyURLIcon.addEventListener('click', (e) => {
           e.stopPropagation();
