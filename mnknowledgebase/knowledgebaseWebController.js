@@ -376,6 +376,11 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
       case "copyMarkdownLink":  // 调用 copyMarkdownLinkWithQuickPhrases 复制卡片行内链接
         await this.copyMarkdownLink(targetNoteId)
         break;
+
+      case "copyNoteURL":  // 复制卡片 URL
+        await this.copyNoteURL(targetNoteId)
+        break;
+
       case 'mergeFocusNoteToTargetNoteExcerptPart':
         MNUtil.undoGrouping(()=>{
           if (!focusNote) {
@@ -1022,7 +1027,7 @@ knowledgebaseWebController.prototype.copyMarkdownLink = async function(noteId) {
       MNUtil.showHUD("卡片ID为空")
       return
     }
-    
+
     let note = MNNote.new(noteId)
     if (!note) {
       MNUtil.showHUD("未找到卡片")
@@ -1032,6 +1037,31 @@ knowledgebaseWebController.prototype.copyMarkdownLink = async function(noteId) {
     KnowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note)
   } catch (error) {
     KnowledgeBaseUtils.addErrorLog()
+  }
+}
+
+/**
+ * 复制卡片 URL
+ * @param {string} noteId - 卡片 ID
+ */
+knowledgebaseWebController.prototype.copyNoteURL = async function(noteId) {
+  try {
+    if (!noteId) {
+      MNUtil.showHUD("卡片ID为空")
+      return
+    }
+
+    let note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    MNUtil.copy(note.noteURL)
+    MNUtil.showHUD("已复制卡片 URL")
+  } catch (error) {
+    MNUtil.showHUD("复制失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "copyNoteURL")
   }
 }
 

@@ -854,12 +854,14 @@
       border-left-width: 10px;
     }
 
-    /* 卡片操作图标容器 */
+    /* 卡片操作图标容器 - 2x2 网格布局 */
     .card-actions {
       position: absolute;
       top: 8px;
       right: 8px;
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(2, 32px);
+      grid-template-rows: repeat(2, 32px);
       gap: 6px;
       z-index: 10;
     }
@@ -879,6 +881,17 @@
       opacity: 1;
       transform: scale(1);
       transition: all 0.2s ease;
+    }
+
+    /* 文字图标样式 */
+    .card-action-icon.text-icon {
+      font-size: 10px;
+      line-height: 1.2;
+      white-space: pre-line;
+      word-break: break-all;
+      padding: 2px;
+      text-align: center;
+      font-weight: 500;
     }
 
     .card-action-icon:hover {
@@ -2303,6 +2316,20 @@
         applyFilterPanelState(false, { skipSave: true });
       }
 
+      // 处理搜索框聚焦事件的综合函数
+      function handleSearchInputFocus() {
+        // 1. 展开筛选面板（保持原有功能）
+        expandFiltersForSearchInput();
+
+        // 2. 在窄模式下自动关闭 sidebar
+        if (isCompactLayout()) {
+          const isSidebarOpen = dom.sidebar?.classList.contains('show');
+          if (isSidebarOpen) {
+            closeSidebar();
+          }
+        }
+      }
+
       // 选中卡片后自动收起筛选面板
       function collapseFiltersAfterCardSelection() {
         if (isFilterPanelCollapsed) return;
@@ -2312,7 +2339,7 @@
 
       function attachEventListeners() {
         dom.searchInput.addEventListener('input', debouncedInputHandler, { passive: true });
-        dom.searchInput.addEventListener('focus', expandFiltersForSearchInput);
+        dom.searchInput.addEventListener('focus', handleSearchInputFocus);
         dom.clearBtn.addEventListener('click', handleClearFilters);
         dom.clearPresetsBtn?.addEventListener('click', handleClearPresets);
         dom.clearNegativesBtn?.addEventListener('click', handleClearNegatives);
@@ -3213,12 +3240,12 @@
             }
           });
 
-          // 图标3: 复制 Markdown 链接
-          const copyLinkIcon = document.createElement('div');
-          copyLinkIcon.className = 'card-action-icon';
-          copyLinkIcon.textContent = '🔗';
-          copyLinkIcon.title = '复制 Markdown 链接';
-          copyLinkIcon.addEventListener('click', (e) => {
+          // 图标3: 复制行内链接
+          const copyMarkdownLinkIcon = document.createElement('div');
+          copyMarkdownLinkIcon.className = 'card-action-icon text-icon';
+          copyMarkdownLinkIcon.textContent = '行\n内\n链\n接';
+          copyMarkdownLinkIcon.title = '复制行内链接';
+          copyMarkdownLinkIcon.addEventListener('click', (e) => {
             e.stopPropagation();
             if (!postBridge('copyMarkdownLink', { id: card.id })) {
               showToast('功能开发中：复制行内链接');
@@ -3227,10 +3254,25 @@
             }
           });
 
-          // 将图标添加到容器
+          // 图标4: 复制 URL
+          const copyURLIcon = document.createElement('div');
+          copyURLIcon.className = 'card-action-icon text-icon';
+          copyURLIcon.textContent = 'URL';
+          copyURLIcon.title = '复制卡片 URL';
+          copyURLIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!postBridge('copyNoteURL', { id: card.id })) {
+              showToast('功能开发中：复制 URL');
+            } else {
+              showToast('已复制 URL');
+            }
+          });
+
+          // 将图标添加到容器（2x2布局：左上、右上、左下、右下）
           actionsContainer.appendChild(mindMapIcon);
           actionsContainer.appendChild(floatMapIcon);
-          actionsContainer.appendChild(copyLinkIcon);
+          actionsContainer.appendChild(copyMarkdownLinkIcon);
+          actionsContainer.appendChild(copyURLIcon);
 
           const title = document.createElement('div');
           title.className = 'card-title';
@@ -3337,12 +3379,12 @@
           }
         });
 
-        // 图标3: 复制 Markdown 链接
-        const copyLinkIcon = document.createElement('div');
-        copyLinkIcon.className = 'card-action-icon';
-        copyLinkIcon.textContent = '🔗';
-        copyLinkIcon.title = '复制 Markdown 链接';
-        copyLinkIcon.addEventListener('click', (e) => {
+        // 图标3: 复制行内链接
+        const copyMarkdownLinkIcon = document.createElement('div');
+        copyMarkdownLinkIcon.className = 'card-action-icon text-icon';
+        copyMarkdownLinkIcon.textContent = '行内\n链接';
+        copyMarkdownLinkIcon.title = '复制行内链接';
+        copyMarkdownLinkIcon.addEventListener('click', (e) => {
           e.stopPropagation();
           if (!postBridge('copyMarkdownLink', { id: card.id })) {
             showToast('功能开发中：复制行内链接');
@@ -3351,10 +3393,25 @@
           }
         });
 
-        // 将图标添加到容器
+        // 图标4: 复制 URL
+        const copyURLIcon = document.createElement('div');
+        copyURLIcon.className = 'card-action-icon text-icon';
+        copyURLIcon.textContent = 'URL';
+        copyURLIcon.title = '复制卡片 URL';
+        copyURLIcon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!postBridge('copyNoteURL', { id: card.id })) {
+            showToast('功能开发中：复制 URL');
+          } else {
+            showToast('已复制 URL');
+          }
+        });
+
+        // 将图标添加到容器（2x2布局：左上、右上、左下、右下）
         actionsContainer.appendChild(mindMapIcon);
         actionsContainer.appendChild(floatMapIcon);
-        actionsContainer.appendChild(copyLinkIcon);
+        actionsContainer.appendChild(copyMarkdownLinkIcon);
+        actionsContainer.appendChild(copyURLIcon);
 
         const title = document.createElement('div');
         title.className = 'card-title';
