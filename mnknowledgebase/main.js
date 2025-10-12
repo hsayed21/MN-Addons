@@ -177,7 +177,7 @@ JSB.newAddon = function(mainPath){
         }
 
         if (self.excerptOCRMode > 0) {
-          let OCRResult = await KnowledgeBaseNetwork.OCRToTitle(note, self.excerptOCRMode)
+          let OCRResult = await KnowledgeBaseNetwork.OCRToTitle(note, self.excerptOCRMode, self.preExcerptMode)
           if (OCRResult) {
             IntermediateKnowledgeIndexer.addToIncrementalIndex(note)
           }
@@ -241,7 +241,10 @@ JSB.newAddon = function(mainPath){
           self.tableItem('🔍   搜索模式设置', 'configureSearchMode:'),
           self.tableItem('🔤   同义词管理', 'manageSynonyms:'),
           self.tableItem('-------------------------------',''),
-          self.tableItem('⚙️   摘录 OCR 模型设置', 'excerptOCRModelSetting:', button),
+          self.tableItem('⚙️   通用 OCR 模型', 'excerptOCRModelSetting:', button),
+          self.tableItem('    ⚙️ 模式1 模型', 'excerptOCRModelSettingForMode1:', button),
+          self.tableItem('    ⚙️ 模式2 模型', 'excerptOCRModelSettingForMode2:', button),
+          self.tableItem('    ⚙️ 模式3 模型', 'excerptOCRModelSettingForMode3:', button),
           self.tableItem('🤖   摘录 OCR 模式', 'excerptOCRModeSetting:', button),
           self.tableItem('🤖   预摘录模式', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
         ];
@@ -320,6 +323,96 @@ JSB.newAddon = function(mainPath){
         MNUtil.showHUD(`摘录 OCR 模式已设置为: ${modeNames[mode]}`, 1)
       } catch (error) {
         KnowledgeBaseUtils.addErrorLog(error, "setExcerptOCRMode")
+      }
+    },
+
+    excerptOCRModelSettingForMode1: function(button) {
+      try {
+        self.checkPopover()
+        let commandTable = []
+        for (let source of KnowledgeBaseConfig.excerptOCRSources) {
+          const currentModel = KnowledgeBaseConfig.config.excerptOCRModelForMode1 || KnowledgeBaseConfig.config.excerptOCRModel
+          commandTable.push(self.tableItem(source, 'setExcerptOCRModelForMode1:', source, currentModel === source))
+        }
+        self.popoverController = MNUtil.getPopoverAndPresent(
+          button,
+          commandTable,
+          250,
+          0
+        )
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "excerptOCRModelSettingForMode1")
+      }
+    },
+
+    setExcerptOCRModelForMode1: function(source) {
+      try {
+        self.checkPopover()
+        MNUtil.showHUD("模式1（直接OCR）模型已设置为 " + source, 1)
+        KnowledgeBaseConfig.config.excerptOCRModelForMode1 = source
+        KnowledgeBaseConfig.save()
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "setExcerptOCRModelForMode1")
+      }
+    },
+
+    excerptOCRModelSettingForMode2: function(button) {
+      try {
+        self.checkPopover()
+        let commandTable = []
+        for (let source of KnowledgeBaseConfig.excerptOCRSources) {
+          const currentModel = KnowledgeBaseConfig.config.excerptOCRModelForMode2 || KnowledgeBaseConfig.config.excerptOCRModel
+          commandTable.push(self.tableItem(source, 'setExcerptOCRModelForMode2:', source, currentModel === source))
+        }
+        self.popoverController = MNUtil.getPopoverAndPresent(
+          button,
+          commandTable,
+          250,
+          0
+        )
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "excerptOCRModelSettingForMode2")
+      }
+    },
+
+    setExcerptOCRModelForMode2: function(source) {
+      try {
+        self.checkPopover()
+        MNUtil.showHUD("模式2（Markdown格式）模型已设置为 " + source, 1)
+        KnowledgeBaseConfig.config.excerptOCRModelForMode2 = source
+        KnowledgeBaseConfig.save()
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "setExcerptOCRModelForMode2")
+      }
+    },
+
+    excerptOCRModelSettingForMode3: function(button) {
+      try {
+        self.checkPopover()
+        let commandTable = []
+        for (let source of KnowledgeBaseConfig.excerptOCRSources) {
+          const currentModel = KnowledgeBaseConfig.config.excerptOCRModelForMode3 || KnowledgeBaseConfig.config.excerptOCRModel
+          commandTable.push(self.tableItem(source, 'setExcerptOCRModelForMode3:', source, currentModel === source))
+        }
+        self.popoverController = MNUtil.getPopoverAndPresent(
+          button,
+          commandTable,
+          250,
+          0
+        )
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "excerptOCRModelSettingForMode3")
+      }
+    },
+
+    setExcerptOCRModelForMode3: function(source) {
+      try {
+        self.checkPopover()
+        MNUtil.showHUD("模式3（概念提取）模型已设置为 " + source, 1)
+        KnowledgeBaseConfig.config.excerptOCRModelForMode3 = source
+        KnowledgeBaseConfig.save()
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "setExcerptOCRModelForMode3")
       }
     },
 

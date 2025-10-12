@@ -19920,7 +19920,69 @@ class KnowledgeBaseUtils {
 }
 
 class KnowledgeBaseNetwork {
-  static OCRDirectlyPrompt = `
+  /**
+   * OCR 常见识别错误纠正规则
+   * 用于提高数学符号、下标、上标等的识别准确性
+   */
+  static OCRCorrectionRules = `
+## 常见 OCR 识别错误纠正规则
+
+### 下标问题
+- X1, Y2, Z3 等 → X₁, Y₂, Z₃（使用 Unicode 下标字符）
+- a_i, x_n, y_k → aᵢ, xₙ, yₖ
+- 完整的 Unicode 下标字符集：₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₒₓₔₕₖₗₘₙₚₛₜ
+
+### 上标问题
+- x2, y3, z4 → x², y³, z⁴（使用 Unicode 上标字符）
+- xn, an → xⁿ, aⁿ
+- 完整的 Unicode 上标字符集：⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱ
+
+### 希腊字母识别
+- α alpha, β beta, γ gamma, δ delta, ε epsilon
+- ζ zeta, η eta, θ theta, ι iota, κ kappa
+- λ lambda, μ mu, ν nu, ξ xi, ο omicron
+- π pi, ρ rho, σ sigma, τ tau, υ upsilon
+- φ phi, χ chi, ψ psi, ω omega
+- Γ Gamma, Δ Delta, Θ Theta, Λ Lambda, Ξ Xi
+- Π Pi, Σ Sigma, Φ Phi, Ψ Psi, Ω Omega
+
+### 数学运算符
+- × 乘号（不是字母 x）, · 点乘, ÷ 除号
+- ≤ 小于等于, ≥ 大于等于, ≠ 不等于, ≈ 约等于
+- ∈ 属于, ∉ 不属于, ⊂ 真包含, ⊆ 包含, ∪ 并, ∩ 交
+- ∀ 任意, ∃ 存在, ∄ 不存在
+- ∫ 积分, ∮ 环路积分, ∂ 偏微分, ∇ 梯度
+- ∑ 求和, ∏ 求积, √ 根号, ∞ 无穷
+
+### 箭头和关系符号
+- → 右箭头, ← 左箭头, ↔ 双向箭头
+- ⇒ 推出, ⇐ 推自, ⇔ 等价
+- ↦ 映射到
+
+### 集合符号
+- ℕ 自然数集, ℤ 整数集, ℚ 有理数集
+- ℝ 实数集, ℂ 复数集
+
+### 括号和分隔符
+- () 圆括号, [] 方括号, {} 花括号
+- ⟨⟩ 尖括号（用于内积）, ⌈⌉ 上取整, ⌊⌋ 下取整
+- | | 绝对值/范数, ‖ ‖ 范数
+
+### 常见误识别模式
+- "1" 可能被识别为字母 "l" 或 "I"
+- "0" 可能被识别为字母 "O" 或 "o"
+- "×"（乘号）可能被识别为字母 "x"
+- "∈"（属于）可能被识别为 "E" 或 "є"
+- 注意区分：0O（数字零/字母O）, 1lI（数字一/小写l/大写I）
+
+### 空格处理
+- 数学表达式中的运算符两侧通常有空格：a + b, x = 1
+- 函数名和括号之间无空格：f(x), sin(θ)
+- 下标、上标与基础字符无空格：x₁, y²
+`
+
+  static get OCRDirectlyPrompt() {
+    return `
 # 数学文本 OCR 提示词
 
 ## 核心任务
@@ -19931,21 +19993,32 @@ class KnowledgeBaseNetwork {
 - 禁止使用 LaTeX 包裹符号（$...$），优先 Unicode
 - 无需添加 "我看到..." 等描述性前缀
 
-## 输出格式
+## 输出格式要求
 
-### 格式 1：英文/其他语言 → 翻译
-    [中文专业翻译]: [原文 Unicode 格式]
+**重要**：直接输出内容，不要添加任何格式标记或前缀！
 
-**示例**：
+### 情况 1：英文/其他语言内容
+输出格式："<中文翻译>: <原文 Unicode 形式>"
+
+**正确示例**：
 - 输入：Let f be a continuous function on [a,b]
-- 输出：设 f 是 [a,b] 上的连续函数: Let f be a continuous function on [a,b]
+- ✅ 输出：设 f 是 [a,b] 上的连续函数: Let f be a continuous function on [a,b]
 
-### 格式 2：中文 → 保持原样
-    [原文]
+**错误示例**（禁止）：
+- ❌ [中文专业翻译]: 设 f 是 [a,b] 上的连续函数: Let f be a continuous function on [a,b]
+- ❌ 翻译：设 f 是 [a,b] 上的连续函数
+- ❌ 中文翻译: 设 f 是 [a,b] 上的连续函数
 
-**示例**：
+### 情况 2：已是中文内容
+输出格式："<原文>"（保持原样）
+
+**正确示例**：
 - 输入：设 f 是连续函数
-- 输出：设 f 是连续函数
+- ✅ 输出：设 f 是连续函数
+
+**错误示例**（禁止）：
+- ❌ [原文]: 设 f 是连续函数
+- ❌ 中文: 设 f 是连续函数
 
 ## 处理规则
 
@@ -20014,7 +20087,17 @@ class KnowledgeBaseNetwork {
 - 上划线 (¯)：ā b̄ c̄ x̄ ȳ / ᾱ β̄ γ̄ / Ā B̄ C̄
 - 波浪 (~)：ã b̃ c̃ x̃ ỹ / α̃ β̃ γ̃ / Ã B̃ C̃
 - 点 (·)：ȧ ḃ ċ ẋ ẏ / α̇ β̇ γ̇ / Ȧ Ḃ Ċ
+
+${this.OCRCorrectionRules}
+
+## 最终检查清单
+1. 所有下标、上标是否使用了正确的 Unicode 字符
+2. 数学符号是否准确（特别注意乘号、属于符号等）
+3. 希腊字母是否正确识别
+4. 数字和字母是否混淆（0/O, 1/l/I 等）
+5. 空格是否符合数学排版规范
 `
+  }
 
 
   static OCRToMarkdownPrompt = `
@@ -20225,7 +20308,358 @@ LaTeX 会自动处理公式内的间距：
 5. 保持术语的标准性和专业性
 `
 
-  static async OCRToTitle(note, mode = 1) {
+  static get OCRDirectlyNoTransPrompt() {
+    return `
+# 数学文本 OCR 提示词（仅中文版本）
+
+## 核心任务
+从图片中提取文本，优先使用 Unicode 字符输出，直接输出中文内容。
+
+**关键要求**：
+- 已是中文的内容保持原样
+- 英文/其他语言内容翻译成中文
+- 禁止使用 LaTeX 包裹符号（$...$），优先 Unicode
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式要求
+
+**重要**：直接输出中文内容，不要添加任何格式标记或前缀！
+
+### 统一输出格式
+输出格式："<中文内容>"
+
+**正确示例**：
+- 输入：Let f be a continuous function on [a,b]
+- ✅ 输出：设 f 是 [a,b] 上的连续函数
+
+- 输入：设 f 是连续函数
+- ✅ 输出：设 f 是连续函数
+
+**错误示例**（禁止）：
+- ❌ 中文翻译: 设 f 是 [a,b] 上的连续函数
+- ❌ [中文]: 设 f 是连续函数
+- ❌ 翻译结果: 设 f 是 [a,b] 上的连续函数
+- ❌ 内容: 设 f 是连续函数
+
+## 处理规则
+
+### 1. 数学符号（优先级递减）
+**✅ 优先使用 Unicode**：
+- 上标：x², x³, xⁿ
+- 根式：√2, ∛8
+- 运算符：±, ×, ÷, ≠, ≤, ≥, ≈
+- 希腊字母：α, β, γ, δ, ε, θ, λ, μ, π, σ, ω
+- 微积分：∫, ∑, ∏, ∂, ∇, ∞, lim
+
+**⚠️ LaTeX 仅作后备**（仅当 Unicode 不可用时，用 $ 包裹）：
+- 复杂分数、矩阵、高级算子
+
+### 2. 文本格式
+- **上标**：¹²³⁴⁵⁶⁷⁸⁹⁰ / ᵃᵇᶜᵈᵉ
+- **下标**：₀₁₂₃₄₅₆₇₈₉ / ₐₑₕᵢⱼₖ
+- **粗体/斜体**：仅当图片中明确标示时使用 **粗体** 和 *斜体*
+
+### 3. 空格处理
+
+**规则 A：数学公式内紧凑，移除多余空格**
+---
+❌ 错误：|a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|)
+✅ 正确：|a+b|/(1+|a+b|)≤|a|/(1+|a|)
+---
+
+**规则 B：文本间保留必要空格**
+---
+❌ 错误：定理1.1(强大数定律)
+✅ 正确：定理 1.1 (强大数定律)
+
+❌ 错误：设a,b∈R,则有
+✅ 正确：设 a, b∈R, 则有
+---
+
+### 4. 翻译规则
+
+**核心原则**：
+- ✅ 使用标准数学教材术语（如高等教育出版社数学词汇）
+- ✅ 公式保持原样，仅翻译描述性文字
+- ✅ 根据数学分支（分析/代数/几何等）选择恰当术语
+- ❌ 去掉开头标记（如 "Example 2"、"Theorem 1.2"）
+- ❌ 去掉末尾标点
+
+**常用术语对照**：
+- Theorem → 定理 | Lemma → 引理 | Corollary → 推论 | Proposition → 命题
+- Definition → 定义 | Proof → 证明 | Example → 例子 | Exercise → 练习
+- Limit → 极限 | Convergence → 收敛 | Derivative → 导数 | Integral → 积分
+- Continuous → 连续 | Differentiable → 可微 | Measurable → 可测
+
+## Unicode 快速参考
+
+**常用符号**：
+- 分数：½ ⅓ ⅔ ¼ ¾ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
+- 运算符：± × ÷ ≈ ≠ ≤ ≥ ∝ ∴ ∵ ∈ ∉ ⊂ ⊃ ∪ ∩ ∧ ∨
+- 希腊字母：α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω
+- 微积分：∫ ∬ ∭ ∮ ∂ ∇ ∞ ∑ ∏ lim
+- 几何：° ∠ ⊥ ∥ △ ◯ □ ◇
+
+**组合字符**（用 Unicode 组合符）：
+- 带帽 (^)：â b̂ ĉ x̂ ŷ / α̂ β̂ γ̂ / Â B̂ Ĉ
+- 上划线 (¯)：ā b̄ c̄ x̄ ȳ / ᾱ β̄ γ̄ / Ā B̄ C̄
+- 波浪 (~)：ã b̃ c̃ x̃ ỹ / α̃ β̃ γ̃ / Ã B̃ C̃
+- 点 (·)：ȧ ḃ ċ ẋ ẏ / α̇ β̇ γ̇ / Ȧ Ḃ Ċ
+
+${this.OCRCorrectionRules}
+
+## 最终检查清单
+1. 所有下标、上标是否使用了正确的 Unicode 字符
+2. 数学符号是否准确（特别注意乘号、属于符号等）
+3. 希腊字母是否正确识别
+4. 数字和字母是否混淆（0/O, 1/l/I 等）
+5. 空格是否符合数学排版规范
+`
+  }
+
+  static OCRToMarkdownNoTransPrompt = `
+# 数学文本 OCR - Markdown LaTeX 格式（仅中文版本）
+
+## 核心任务
+从图片中提取数学内容，并以 Markdown + LaTeX 格式输出，所有文本翻译为中文。
+
+**关键要求**：
+- 所有数学公式使用 LaTeX 语法，并用 $ 或 $$ 包裹
+- 行内公式使用 $...$
+- 独立公式使用 $$...$$（单独成行）
+- 所有文本翻译为中文（英文术语翻译成标准中文）
+- 已是中文的保持原样
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式要求
+
+**重要**：直接输出 Markdown 内容，不要添加任何格式标记、代码块包裹或前缀！
+
+**正确示例**：
+- 输入：f(x) = x²+2x+1
+- ✅ 输出：$f(x) = x^2+2x+1$
+
+- 输入：Let f be a continuous function on [a,b]
+- ✅ 输出：设 $f$ 是 $[a,b]$ 上的连续函数
+
+- 输入：设 f 是 [a,b] 上的连续函数
+- ✅ 输出：设 $f$ 是 $[a,b]$ 上的连续函数
+
+**错误示例**（禁止）：
+- ❌ \`\`\`markdown
+      $f(x) = x^2+2x+1$
+      \`\`\`
+- ❌ 输出: $f(x) = x^2+2x+1$
+- ❌ 结果: 设 $f$ 是 $[a,b]$ 上的连续函数
+- ❌ Markdown 格式: ...
+
+## 输出格式详解
+
+### 格式 1：纯公式
+对于纯数学公式的图片，直接输出 LaTeX：
+$$公式内容$$
+
+**示例**：
+- 输入：f(x) = x²+2x+1
+- ✅ 输出：$f(x) = x^2+2x+1$
+
+### 格式 2：混合内容
+对于包含文字描述的内容，混合使用文本和公式：
+
+**示例**：
+- 输入：设 f 是 [a,b] 上的连续函数
+- ✅ 输出：设 $f$ 是 $[a,b]$ 上的连续函数
+
+- 输入：The function f: R→R is continuous
+- ✅ 输出：函数 $f: \\mathbb{R} \\to \\mathbb{R}$ 是连续的
+
+## LaTeX 语法规则
+
+### 1. 基本符号
+- 上标：x^2, x^{n+1}
+- 下标：x_1, x_{i,j}
+- 分数：\\frac{a}{b}
+- 根式：\\sqrt{2}, \\sqrt[3]{8}
+- 希腊字母：\\alpha, \\beta, \\gamma, \\delta, \\epsilon, \\theta, \\lambda, \\pi, \\sigma
+
+### 2. 运算符
+- \\pm (±), \\times (×), \\div (÷), \\cdot (·)
+- \\leq (≤), \\geq (≥), \\neq (≠), \\approx (≈)
+- \\in (∈), \\notin (∉), \\subset (⊂), \\subseteq (⊆)
+- \\cup (∪), \\cap (∩), \\emptyset (∅)
+
+### 3. 微积分
+- 极限：\\lim_{x \\to a}, \\lim_{n \\to \\infty}
+- 求和：\\sum_{i=1}^{n}, \\sum_{k=0}^{\\infty}
+- 积分：\\int_{a}^{b}, \\iint, \\iiint, \\oint
+- 偏导：\\frac{\\partial f}{\\partial x}, \\nabla
+- 导数：f'(x), f''(x), \\dot{x}, \\ddot{x}
+
+### 4. 括号
+- 小括号：(x), 自动调整：\\left( ... \\right)
+- 中括号：[a,b], 自动调整：\\left[ ... \\right]
+- 大括号：\\{ ... \\}, 自动调整：\\left\\{ ... \\right\\}
+- 范数：\\| x \\|, 绝对值：\\| a \\|
+
+### 5. 常用数学集合
+- 自然数：\\mathbb{N}
+- 整数：\\mathbb{Z}
+- 有理数：\\mathbb{Q}
+- 实数：\\mathbb{R}
+- 复数：\\mathbb{C}
+
+### 6. 函数和映射
+- 映射：f: A \\to B
+- 复合：f \\circ g
+- 反函数：f^{-1}
+
+### 7. 逻辑符号
+- 任意：\\forall
+- 存在：\\exists
+- 蕴含：\\Rightarrow, \\Leftarrow, \\Leftrightarrow
+- 非：\\neg
+- 且：\\wedge (∧)
+- 或：\\vee (∨)
+
+## 空格处理规则
+
+**规则 A：LaTeX 内不需要手动空格**
+LaTeX 会自动处理公式内的间距：
+- ✅ $f(x)=x^2+2x+1$（无空格）
+- ❌ $f(x) = x^2 + 2x + 1$（不必要的空格）
+
+**规则 B：文本部分保留必要空格**
+- ✅ 设 $f$ 是连续函数（中文词间有空格）
+- ✅ 设 $f$ 为连续函数（中文词间有空格）
+
+## 翻译规则
+- 已是中文的保持原样
+- 英文数学术语翻译为标准中文（参考高教出版社数学词典）
+- 公式符号保持原样，仅翻译描述性文字
+- 去掉例题编号、定理编号等标记
+- 去掉末尾标点
+
+**示例**：
+- Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...
+- Example 2.3: Let f be ... → 设 $f$ 为 ...
+- Definition: A function f is continuous if ... → 若 ..., 则函数 $f$ 是连续的
+`
+
+  static OCRExtractConceptNoTransPrompt = `
+# 数学概念/定理提取（仅中文版本）
+
+## 核心任务
+从图片中的数学定义或定理中提取关键概念名称，仅输出中文名称。
+
+**关键要求**：
+- 识别定义、定理、命题等数学陈述
+- 提取核心概念的中文名称
+- 输出格式：概念1; 概念2; 概念3; ...
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式要求
+
+**重要**：直接输出概念名称列表，不要添加任何格式标记或前缀！
+
+标准格式（分号分隔，仅中文）：
+概念中文名1; 概念中文名2; ...
+
+**正确示例**：
+- 输入：我们称函数 f 是连续的，如果...
+- ✅ 输出：连续函数
+
+- 输入：称算子 T 为线性算子或线性映射，如果...
+- ✅ 输出：线性算子; 线性映射
+
+- 输入：Strong Law of Large Numbers: If ...
+- ✅ 输出：强大数定律
+
+**错误示例**（禁止）：
+- ❌ 概念名称: 连续函数
+- ❌ 提取结果: 线性算子; 线性映射
+- ❌ [中文概念]: 强大数定律
+- ❌ 识别出的概念: 连续函数
+
+## 识别模式
+
+### 模式 1：定义句式
+常见的定义句式模板：
+- "我们称 [概念] 为 [名称], 如果..."
+- "定义 [名称] 为满足...的 [概念]"
+- "若 [条件], 则称 [概念] 为 [名称]"
+- "[概念] 是满足...的 [对象], 记为 [符号]"
+
+**示例**：
+- "我们称实数列 {xₙ} 是 Cauchy 列, 如果..." → Cauchy 列
+- "若函数 f 在点 a 的某邻域内可微, 则称 f 在 a 处可微" → 可微函数
+
+### 模式 2：定理/命题句式
+定理通常有专有名称：
+- "[定理名称]: 若 [条件], 则 [结论]"
+- "定理 ([定理名]): ..."
+- "[结论], 这就是 [定理名]"
+
+**示例**：
+- "强大数定律: 若随机变量序列..." → 强大数定律
+- "一致有界原理: 若算子族..." → 一致有界原理
+- "闭图像定理 (Closed Graph Theorem): ..." → 闭图像定理
+
+### 模式 3：等价定义
+多个等价名称：
+- "[名称1] 或称 [名称2], 是指..."
+- "[名称1] (也叫 [名称2]), 定义为..."
+
+**示例**：
+- "Borel 集或称 Borel 可测集, 是指..." → Borel 集; Borel 可测集
+- "线性算子 (也叫线性映射), 定义为..." → 线性算子; 线性映射
+
+## 提取规则
+
+### 1. 概念识别
+- ✅ 提取核心数学概念（函数、空间、算子、定理等）
+- ✅ 包含所有等价的中文名称
+- ✅ 英文术语翻译成标准中文
+- ❌ 不提取例子编号（如 "例 2.1"）
+- ❌ 不提取章节标号（如 "定理 3.5"）
+
+### 2. 翻译规则
+- 若图片已有中文，优先使用原文中的中文
+- 若仅有英文，翻译成标准中文术语
+- 使用标准数学词典术语（高教出版社）
+
+### 3. 多概念处理
+- 按照重要性排序（核心概念在前）
+- 同一概念的不同中文名称放在一起
+- 使用分号分隔不同名称
+
+**示例**：
+- "连续函数; 连续映射"
+- "Hilbert 空间; 完备内积空间"
+
+## 常用数学术语翻译
+
+### 基本概念
+- function → 函数 | mapping → 映射 | operator → 算子
+- set → 集合 | space → 空间 | field → 域
+- sequence → 序列 | series → 级数 | limit → 极限
+
+### 性质
+- continuous → 连续 | differentiable → 可微 | integrable → 可积
+- convergent → 收敛 | bounded → 有界 | compact → 紧
+- linear → 线性 | monotone → 单调 | convex → 凸
+
+### 理论
+- theorem → 定理 | lemma → 引理 | corollary → 推论
+- proposition → 命题 | principle → 原理 | law → 法则
+
+## 注意事项
+1. 仅输出中文概念名称，不输出定义内容
+2. 去掉所有标点符号（除分号外）
+3. 若有多个等价中文名称，全部列出
+4. 保持术语的标准性和专业性
+`
+
+  static async OCRToTitle(note, mode = 1, needTranslation = undefined) {
     let imageData = ocrUtils.getImageFromNote(note)
     if (!imageData) {
       MNUtil.showHUD("No image found")
@@ -20233,23 +20667,58 @@ LaTeX 会自动处理公式内的间距：
     }
     let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
 
-    // 根据模式选择 prompt
+    // 确定是否需要翻译
+    // 1. 如果 needTranslation 参数已指定，使用该值
+    // 2. 默认为 false（不翻译）
+    // 注意：needTranslation 应由调用方（如 main.js）根据 self.preExcerptMode 传入
+    let shouldTranslate = needTranslation !== undefined
+      ? needTranslation
+      : false;
+
+    // 根据模式和是否翻译选择对应的 prompt
     let prompt
     switch (mode) {
       case 1:
-        prompt = this.OCRDirectlyPrompt
+        prompt = shouldTranslate ? this.OCRDirectlyPrompt : this.OCRDirectlyNoTransPrompt
         break
       case 2:
-        prompt = this.OCRToMarkdownPrompt
+        prompt = shouldTranslate ? this.OCRToMarkdownPrompt : this.OCRToMarkdownNoTransPrompt
         break
       case 3:
-        prompt = this.OCRExtractConceptPrompt
+        // 检查是否是定义类卡片（通过 colorIndex 判断）
+        if (note.colorIndex === this.types.定义.colorIndex) {
+          // 定义类卡片使用概念提取提示词
+          prompt = shouldTranslate ? this.OCRExtractConceptPrompt : this.OCRExtractConceptNoTransPrompt
+        } else {
+          // 非定义类卡片使用直出提示词
+          prompt = shouldTranslate ? this.OCRDirectlyPrompt : this.OCRDirectlyNoTransPrompt
+        }
         break
       default:
-        prompt = this.OCRDirectlyPrompt
+        prompt = shouldTranslate ? this.OCRDirectlyPrompt : this.OCRDirectlyNoTransPrompt
     }
 
-    let result = await this.OCR(compressedImageData, KnowledgeBaseConfig.config.excerptOCRModel, prompt)
+    // 根据模式选择对应的 OCR 模型
+    let ocrModel;
+    switch (mode) {
+      case 1:
+        // 模式1：直接OCR - 使用专用模型，未设置时回退到通用模型
+        ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode1 || KnowledgeBaseConfig.config.excerptOCRModel;
+        break;
+      case 2:
+        // 模式2：Markdown格式 - 使用专用模型（默认 Doc2X），未设置时回退到通用模型
+        ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode2 || KnowledgeBaseConfig.config.excerptOCRModel;
+        break;
+      case 3:
+        // 模式3：概念提取 - 使用专用模型，未设置时回退到通用模型
+        ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode3 || KnowledgeBaseConfig.config.excerptOCRModel;
+        break;
+      default:
+        // 默认使用通用模型
+        ocrModel = KnowledgeBaseConfig.config.excerptOCRModel;
+    }
+
+    let result = await this.OCR(compressedImageData, ocrModel, prompt)
     if (result) {
       MNUtil.undoGrouping(()=>{
         note.title = result.trim()
@@ -20465,10 +20934,15 @@ class KnowledgeBaseConfig {
   static DEFAULT_EXCERPT_OCR_MODEL = "doubao-seed-1-6";
   static get defaultConfig() {
     return {
-      excerptOCRModel: this.DEFAULT_EXCERPT_OCR_MODEL, // 摘录 OCR 模型
+      excerptOCRModel: this.DEFAULT_EXCERPT_OCR_MODEL, // 摘录 OCR 模型（通用默认）
       // 计算默认模型的索引，使用常量而不是再次访问 getter
       excerptOCRModelIndex: this.excerptOCRSources.indexOf(this.DEFAULT_EXCERPT_OCR_MODEL),
-      excerptOCRMode: 0 // 摘录 OCR 模式：0=关闭, 1=直接OCR, 2=Markdown格式, 3=概念提取
+      excerptOCRMode: 0, // 摘录 OCR 模式：0=关闭, 1=直接OCR, 2=Markdown格式, 3=概念提取
+
+      // 每个模式的专用模型（向后兼容，未设置时回退到 excerptOCRModel）
+      excerptOCRModelForMode1: "doubao-seed-1-6",        // 模式1：直接OCR
+      excerptOCRModelForMode2: "Doc2X",                  // 模式2：Markdown格式（Doc2X专为数学公式优化）
+      excerptOCRModelForMode3: "doubao-seed-1-6",        // 模式3：概念提取
     }
   }
   
