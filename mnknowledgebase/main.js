@@ -1404,6 +1404,18 @@ JSB.newAddon = function(mainPath){
       if (!KnowledgeBaseUtils.webViewController.view.hidden) {
         MNUtil.studyView.bringSubviewToFront(KnowledgeBaseUtils.webViewController.view)
         MNUtil.showHUD("知识库搜索")
+
+        // 清空输入框并聚焦
+        await MNUtil.delay(0.2)
+        let clearScript = `
+          const input = document.getElementById('searchInput');
+          if (input) {
+            input.value = '';
+            input.focus();
+          }
+        `
+        await KnowledgeBaseUtils.webViewController.runJavaScript(clearScript)
+
         await KnowledgeBaseUtils.webViewController.refreshAllData()
         return
       }
@@ -1419,6 +1431,17 @@ JSB.newAddon = function(mainPath){
         null,
         { x: 50, y: 50, width: 800, height: 800 }
       )
+
+      // 首次打开后聚焦输入框
+      await MNUtil.delay(0.5)
+      let focusScript = `
+        const input = document.getElementById('searchInput');
+        if (input) {
+          input.focus();
+        }
+      `
+      await KnowledgeBaseUtils.webViewController.runJavaScript(focusScript)
+
     } catch (error) {
       MNUtil.showHUD("打开可视化搜索失败")
       KnowledgeBaseUtils.addErrorLog(error, "openSearchWebView")

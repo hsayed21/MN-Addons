@@ -3889,7 +3889,100 @@ class KnowledgeBaseTemplate {
   }
 
   /**
-   * 解析卡片标题，拆成几个部分，返回一个对象
+   * 解析卡片标题，提取结构化信息
+   *
+   * 该方法根据不同的卡片类型（归类 vs 其他类型），使用不同的正则表达式解析标题格式，
+   * 并提取出类型、前缀内容、主内容和标题链接词数组等结构化信息。
+   *
+   * @param {MNNote} note - 要解析的卡片对象
+   *
+   * @returns {Object} 解析后的标题结构对象，包含以下可能的属性：
+   * @returns {string} [returns.type] - 卡片类型（从标题前缀【】中提取）
+   * @returns {string} [returns.prefixContent] - 前缀内容（【类型>>前缀内容】中的前缀部分）
+   * @returns {string} [returns.content] - 主要内容（标题的核心内容部分）
+   * @returns {string[]} [returns.titleLinkWordsArr] - 标题链接词数组（以 "; " 分割的词组）
+   *
+   * @description
+   * ### 支持的标题格式：
+   *
+   * #### 1. 归类卡片格式
+   * - **格式1**: `"xxx"："yyy"相关 zzz`
+   *   - `content`: "yyy"
+   *   - `type`: "zzz"
+   * - **格式2**: `"xxx"相关 yyy`
+   *   - `content`: "xxx"
+   *   - `type`: "yyy"
+   *
+   * #### 2. 其他类型卡片格式
+   * - **格式1**: `【类型 >> 前缀内容】主内容; 链接词1; 链接词2`
+   *   - `type`: "类型"
+   *   - `prefixContent`: "前缀内容"
+   *   - `content`: "主内容; 链接词1; 链接词2"
+   *   - `titleLinkWordsArr`: ["主内容", "链接词1", "链接词2"]
+   *
+   * - **格式2**: `【类型：前缀内容】主内容; 链接词1; 链接词2`（使用中文冒号）
+   *   - 解析规则同上
+   *
+   * - **格式3**: `【类型】主内容; 链接词1; 链接词2`（无前缀内容）
+   *   - `type`: "类型"
+   *   - `prefixContent`: ""
+   *   - `content`: "主内容; 链接词1; 链接词2"（会去除开头的 "; " 如果存在）
+   *   - `titleLinkWordsArr`: ["主内容", "链接词1", "链接词2"]
+   *
+   * - **格式4**: 纯文本（无任何标记）
+   *   - `content`: "原始标题内容"
+   *   - `titleLinkWordsArr`: 按 "; " 分割的词组数组
+   *
+   * @example
+   * // 归类卡片
+   * let note1 = { title: '"定义"："拓扑空间"相关 归类' };
+   * let result1 = parseNoteTitle(note1);
+   * // => { content: "拓扑空间", type: "归类" }
+   *
+   * @example
+   * // 带前缀的标准格式
+   * let note2 = { title: '【命题>>紧性】紧空间的连续像是紧的; 紧性; 连续映射' };
+   * let result2 = parseNoteTitle(note2);
+   * // => {
+   * //   type: "命题",
+   * //   prefixContent: "紧性",
+   * //   content: "紧空间的连续像是紧的; 紧性; 连续映射",
+   * //   titleLinkWordsArr: ["紧空间的连续像是紧的", "紧性", "连续映射"]
+   * // }
+   *
+   * @example
+   * // 无前缀格式
+   * let note3 = { title: '【定义】度量空间; 距离函数' };
+   * let result3 = parseNoteTitle(note3);
+   * // => {
+   * //   type: "定义",
+   * //   prefixContent: "",
+   * //   content: "度量空间; 距离函数",
+   * //   titleLinkWordsArr: ["度量空间", "距离函数"]
+   * // }
+   *
+   * @example
+   * // 纯文本格式
+   * let note4 = { title: '这是一个普通标题; 关键词1; 关键词2' };
+   * let result4 = parseNoteTitle(note4);
+   * // => {
+   * //   content: "这是一个普通标题; 关键词1; 关键词2",
+   * //   titleLinkWordsArr: ["这是一个普通标题", "关键词1", "关键词2"]
+   * // }
+   *
+   * @example
+   * // 防御性检查
+   * let result5 = parseNoteTitle(null);
+   * // => {}
+   *
+   * @note
+   * - 解析前会自动清理标题中的高亮标记（通过 `KnowledgeBaseIndexer.cleanHighlightMarkers`）
+   * - 标题链接词通过 `; ` 分割，空词会被过滤掉
+   * - 对于归类卡片，只解析 `content` 和 `type`，不解析 `titleLinkWordsArr`
+   * - 如果传入的 note 为空或 null，返回空对象 `{}`
+   *
+   * @see {@link KnowledgeBaseIndexer.cleanHighlightMarkers} 清理高亮标记的方法
+   * @see {@link getNoteType} 获取卡片类型的方法
    */
   static parseNoteTitle(note) {
     // 防御性检查
