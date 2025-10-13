@@ -943,7 +943,7 @@ function registerAllMenuTemplates() {
 
 
   global.registerMenuTemplate("menu_pin", {
-    action: "pinToFocusTop", 
+    action: "pinToFocusTop",
     onLongPress: {
       // 长按：显示菜单
       action: "menu",
@@ -960,6 +960,22 @@ function registerAllMenuTemplates() {
         {
           action: "pinToMidwayBottom",
           menuTitle: "⬇️ 添加到中间知识底部",
+        },
+        {
+          action: "pinToToOrganizeTop",
+          menuTitle: "⬆️ 添加到待整理顶部",
+        },
+        {
+          action: "pinToToOrganizeBottom",
+          menuTitle: "⬇️ 添加到待整理底部",
+        },
+        {
+          action: "pinToDailyTaskTop",
+          menuTitle: "⬆️ 添加到日拱一卒顶部",
+        },
+        {
+          action: "pinToDailyTaskBottom",
+          menuTitle: "⬇️ 添加到日拱一卒底部",
         },
         {
           action: "temporarilyPinFocusNoteWithTitle",

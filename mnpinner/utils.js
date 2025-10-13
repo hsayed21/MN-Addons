@@ -153,7 +153,9 @@ class pinnerConfig {
   static get defaultSections() {
     return {
       focus: [],
-      midway: []
+      midway: [],
+      toOrganize: [],  // 新增：待整理
+      dailyTask: []    // 新增：日拱一卒
     }
   }
   
@@ -212,6 +214,23 @@ class pinnerConfig {
       } else {
         // 已有新格式数据，直接使用
         this.sections = sections
+
+        // 合并新增的分区（向后兼容）
+        let defaultSecs = this.defaultSections
+        let hasNewSection = false
+        for (let key in defaultSecs) {
+          if (!this.sections[key]) {
+            this.sections[key] = defaultSecs[key]
+            hasNewSection = true
+            pinnerUtils.log(`Added new section: ${key}`, "pinnerConfig:init")
+          }
+        }
+
+        // 如果有新增分区，保存一次
+        if (hasNewSection) {
+          this.save()
+          pinnerUtils.log("Saved new sections to storage", "pinnerConfig:init")
+        }
       }
 
       // 加载图片资源
@@ -480,45 +499,6 @@ class pinnerConfig {
   // ========== Pin 操作方法 ==========
 
   /**
-   * 添加 Pin
-   * @param {string} noteId - 笔记ID
-   * @param {string} title - 标题
-   * @param {string} section - 分区名称 ("focus" 或 "midway")
-   */
-  static addPin(noteId, title, section = "midway") {
-    try {
-      if (!this.sections[section]) {
-        pinnerUtils.addErrorLog("Invalid section: " + section, "pinnerConfig:addPin")
-        return false
-      }
-
-      let pins = this.sections[section]
-
-      // 检查是否已存在
-      if (pins.find(p => p.noteId === noteId)) {
-        MNUtil.showHUD("卡片已存在")
-        return false
-      }
-
-      // 添加新的 pin
-      pins.push({
-        noteId: noteId,
-        title: title || "未命名卡片"
-      })
-
-      // 保存
-      this.save()
-
-      pinnerUtils.log(`Added pin to ${section}: ${title}`, "pinnerConfig:addPin")
-      return true
-
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinnerConfig:addPin")
-      return false
-    }
-  }
-
-  /**
    * 在指定位置添加卡片
    * @param {string} noteId - 卡片ID
    * @param {string} title - 卡片标题
@@ -542,9 +522,28 @@ class pinnerConfig {
       }
 
       // 创建新的 pin 对象
-      let newPin = {
-        noteId: noteId,
-        title: title || "未命名卡片"
+      let newPin
+      let note = MNNote.new(noteId)
+      if (!note) { return }
+      let parsedTitle = KnowledgeBaseTemplate.parseNoteTitle(note)
+      switch (KnowledgeBaseTemplate.getNoteType(note)) {
+        case "定义": 
+        case "命题": 
+        case "例子":
+        case "反例":
+        case "问题":
+          newPin = {
+            noteId: noteId,
+            title: parsedTitle.type + ": " + KnowledgeBaseTemplate.getFirstTitleLinkWord(note) || "未命名卡片"
+          }
+          break;
+        default:
+          // 添加新的 pin
+          newPin = {
+            noteId: noteId,
+            title: title || "未命名卡片"
+          }
+          break;
       }
 
       // 根据 position 参数插入到指定位置
@@ -840,7 +839,9 @@ class pinnerConfig {
   static getSectionDisplayName(section) {
     const displayNames = {
       'focus': 'Focus',
-      'midway': '中间知识'
+      'midway': '中间知识',
+      'toOrganize': '待整理',
+      'dailyTask': '日拱一卒'
     }
     return displayNames[section] || section
   }

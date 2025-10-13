@@ -5536,6 +5536,50 @@ function registerAllCustomActions() {
     });
   })
 
+  global.registerCustomAction("pinToToOrganizeTop", async function(context) {
+    const { focusNote } = context;
+    if (!focusNote) {
+      MNUtil.showHUD("请先选中一个卡片");
+      return;
+    }
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=pin&id=${encodeURIComponent(focusNote.noteId)}&section=toOrganize&position=top`
+    });
+  })
+
+  global.registerCustomAction("pinToToOrganizeBottom", async function(context) {
+    const { focusNote } = context;
+    if (!focusNote) {
+      MNUtil.showHUD("请先选中一个卡片");
+      return;
+    }
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=pin&id=${encodeURIComponent(focusNote.noteId)}&section=toOrganize&position=bottom`
+    });
+  })
+
+  global.registerCustomAction("pinToDailyTaskTop", async function(context) {
+    const { focusNote } = context;
+    if (!focusNote) {
+      MNUtil.showHUD("请先选中一个卡片");
+      return;
+    }
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=pin&id=${encodeURIComponent(focusNote.noteId)}&section=dailyTask&position=top`
+    });
+  })
+
+  global.registerCustomAction("pinToDailyTaskBottom", async function(context) {
+    const { focusNote } = context;
+    if (!focusNote) {
+      MNUtil.showHUD("请先选中一个卡片");
+      return;
+    }
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=pin&id=${encodeURIComponent(focusNote.noteId)}&section=dailyTask&position=bottom`
+    });
+  })
+
   global.registerCustomAction("focusLastChildNote", async function(context) {
     const { focusNote } = context;
       if (focusNote) {
