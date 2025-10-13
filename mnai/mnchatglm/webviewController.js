@@ -896,7 +896,7 @@ try {
       return
     }
     chatAIConfig.config.allowEdit = !chatAIConfig.getConfig("allowEdit")
-    MNButton.setTitle(self.allowEditButton, "Allow Edit: "+(chatAIConfig.getConfig("allowEdit")?"✅":"❌"))
+    MNButton.setTitle(self.allowEditButton, "Allow Edit Response: "+(chatAIConfig.getConfig("allowEdit")?"✅":"❌"))
     chatAIConfig.save("MNChatglm_config")
   },
   toggleNarrowMode: async function (params) {
@@ -1143,21 +1143,30 @@ try {
     if (self.contextInput.hidden) {
       self.checkPopover()
       if (self.titleInput.editable) {
-        var commandTable = [
-          self.tableItem("▶️   Test", 'promptAction:', "testSystem"),
-          self.tableItem("🗑️   Clear", 'promptAction:', "clearSystem"),
-          self.tableItem("📋   Copy", 'promptAction:', "copySystem"),
-          self.tableItem("📋   Paste", 'promptAction:', "pasteSystem"),
-        ]
-        self.popover(button, commandTable,120,0)
+        let menu = new Menu(button,self)
+        menu.rowHeight = 35
+        menu.preferredPosition = 0
+        menu.addMenuItem("▶️   Test", 'promptAction:', "testSystem")
+        menu.addMenuItem("🚀   Optimize", 'promptAction:', "optimizeSystem")
+        menu.addMenuItem("🔄   Restore", 'promptAction:', "restoreSystem")
+        menu.addMenuItem("🔄   UseDefault", 'promptAction:', "useDefaultSystem")
+        menu.addMenuItem("🗑️   Clear", 'promptAction:', "clearSystem")
+        menu.addMenuItem("📋   Copy", 'promptAction:', "copySystem")
+        menu.addMenuItem("📋   Paste", 'promptAction:', "pasteSystem")
+        menu.show()
         return
       }else{
-        var commandTable = [
-          self.tableItem("🗑️   Clear", 'promptAction:', "clearSystem"),
-          self.tableItem("📋   Copy", 'promptAction:', "copySystem"),
-          self.tableItem("📋   Paste", 'promptAction:', "pasteSystem"),
-        ]
-        self.popover(button, commandTable,120,0)
+        //dynamic下的note
+        let menu = new Menu(button,self)
+        menu.rowHeight = 35
+        menu.preferredPosition = 0
+        menu.addMenuItem("🚀   Optimize", 'promptAction:', "optimizeDynamicNote")
+        menu.addMenuItem("🔄   Restore", 'promptAction:', "restoreDynamicNote")
+        menu.addMenuItem("🔄   UseDefault", 'promptAction:', "useDefaultSystem")
+        menu.addMenuItem("🗑️   Clear", 'promptAction:', "clearSystem")
+        menu.addMenuItem("📋   Copy", 'promptAction:', "copySystem")
+        menu.addMenuItem("📋   Paste", 'promptAction:', "pasteSystem")
+        menu.show()
         return
       }
     }
@@ -1170,21 +1179,28 @@ try {
     if (self.systemInput.hidden) {
       self.checkPopover()
       if (self.titleInput.editable) {
-        var commandTable = [
-          self.tableItem("▶️   Test", 'promptAction:', "testUser"),
-          self.tableItem("🗑️   Clear", 'promptAction:', "clearUser"),
-          self.tableItem("📋   Copy", 'promptAction:', "copyUser"),
-          self.tableItem("📋   Paste", 'promptAction:', "pasteUser")
-        ]
-        self.popover(button, commandTable,120,0)
+        let menu = new Menu(button,self)
+        menu.rowHeight = 35
+        menu.preferredPosition = 0
+        menu.addMenuItem("▶️   Test", 'promptAction:', "testUser")
+        menu.addMenuItem("🗑️   Clear", 'promptAction:', "clearUser")
+        menu.addMenuItem("📋   Copy", 'promptAction:', "copyUser")
+        menu.addMenuItem("📋   Paste", 'promptAction:', "pasteUser")
+        menu.show()
         return
+        
       }else{
-        var commandTable = [
-          self.tableItem("🗑️   Clear", 'promptAction:', "clearUser"),
-          self.tableItem("📋   Copy", 'promptAction:', "copyUser"),
-          self.tableItem("📋   Paste", 'promptAction:', "pasteUser")
-        ]
-        self.popover(button, commandTable,120,0)
+        //dynamic下的text
+        let menu = new Menu(button,self)
+        menu.rowHeight = 35
+        menu.preferredPosition = 0
+        menu.addMenuItem("🚀   Optimize", 'promptAction:', "optimizeDynamicText")
+        menu.addMenuItem("🔄   Restore", 'promptAction:', "restoreDynamicText")
+        menu.addMenuItem("🔄   UseDefault", 'promptAction:', "useDefaultDynamicText")
+        menu.addMenuItem("🗑️   Clear", 'promptAction:', "clearUser")
+        menu.addMenuItem("📋   Copy", 'promptAction:', "copyUser")
+        menu.addMenuItem("📋   Paste", 'promptAction:', "pasteUser")
+        menu.show()
         return
       }
     }
@@ -1304,7 +1320,6 @@ try {
   },
   organizeKnowledge: async function (params) {
     try {
-
     let self = getChatglmController()
     if (self.connection) {
       // self.showHUD("On output")
@@ -1338,19 +1353,20 @@ try {
   * update the content of current knowledge
   * remove the redundant content and rewrite the knowledge in the clearest way 
 # Constrain
-  * output the updated knowledge in code block
+  * output the updated knowledge in xml tag
   * the updated knowledge should be in the same language as the current knowledge
   * the updated knowledge should be in the same format as the example
 # Example
-\`\`\`knowledge
+<knowledge>
   content of updated knowledge
-\`\`\`
-# Current Knowledge
-${self.knowledgeInput.text}
+</knowledge>
 `),
-chatAIUtils.genUserMessage(`Please update the current knowledge`)
+chatAIUtils.genUserMessage(`Please update the current knowledge below:
+${self.knowledgeInput.text}
+`)
 ]
       self.baseAsk(question,config)
+      self.mode = "organizeKnowledge"
       self.knowledgeInput.editable = false
       self.knowledgeInput.text = "🤖 Organizing..."
       self.knowledgeInput.backgroundColor = MNUtil.hexColorAlpha("#e06c75",0.2)
@@ -1473,13 +1489,21 @@ chatAIUtils.genUserMessage(`Please update the current knowledge`)
     // }
     switch (params) {
       case "New":
-        let userInput = await MNUtil.input("🤖 MN ChatAI", "New prompt Name\n\n请输入新的prompt名称",["Cancel","Confirm"],{default:"new prompt"})
+        let userInput = await MNUtil.input("🤖 MN ChatAI", "New prompt Name\n\n请输入新的prompt名称",["Cancel / 取消","No system / 无系统提示词","Default system / 默认系统提示词"],{default:"new prompt"})
         if (userInput.button === 0) {
           MNUtil.showHUD("Cancel")
           return
         }
-        config = {title:userInput.input,context:"input your prompt",system:""}
-        self.importNewPrompt(config, unusedKey)
+        if (userInput.button === 1) {
+          config = {title:userInput.input,context:"input your prompt",system:""}
+          self.importNewPrompt(config, unusedKey)
+          return;
+        }
+        if (userInput.button === 2) {
+          config = {title:userInput.input,context:"input your prompt",system:chatAIConfig.defaultSystem}
+          self.importNewPrompt(config, unusedKey)
+          return;
+        }
         return;
       case "Example":
         if (typeof browserUtils !== "undefined") {
@@ -1884,6 +1908,7 @@ chatAIUtils.genUserMessage(`Please update the current knowledge`)
     try {
       let self = getChatglmController()
       self.checkPopover()
+      Menu.dismissCurrentMenu()
       let promptNames = chatAIConfig.getConfig("promptNames")
       let currentPrompt = chatAIConfig.currentPrompt
       let prompt = chatAIConfig.prompts[currentPrompt]
@@ -2008,6 +2033,32 @@ ${config}
               self.showHUD("❌ Empty system message")
             }
           }
+          break;
+        case "optimizeSystem":
+          self.optimizeSystem()
+          break;
+        case "optimizeDynamicNote":
+          self.optimizeSystem("optimizeDynamicNote")
+          break;
+        case "optimizeDynamicText":
+          self.optimizeSystem("optimizeDynamicText")
+          break;
+        case "restoreDynamicNote":
+          self.restoreSystem("optimizeDynamicNote")
+          break;
+        case "restoreDynamicText":
+          self.restoreSystem("optimizeDynamicText")
+          break;
+        case "restoreSystem":
+          self.restoreSystem()
+          break;
+        case "useDefaultSystem":
+          self.systemInput.text = chatAIConfig.defaultSystem
+          self.showHUD("Use default system message")
+          break;
+        case "useDefaultDynamicText":
+          self.contextInput.text = chatAIConfig.defaultSystem
+          self.showHUD("Use default system message")
           break;
         case "clearSystem":
           self.systemInput.text = ""
@@ -2667,134 +2718,32 @@ ${config}
     try {
     self.onreceive = true
     self.currentData.appendData(data)
-    // self.size.push(self.textString)
-    // let beginTime = Date.now()
-    let textString = chatAIUtils.dataToString(data)
-    // let endTime = Date.now()
-    // MNUtil.log(`dataToString: ${endTime-beginTime}ms`)
-    // beginTime = Date.now()
-    // let tem = MNUtil.data2string(data)
-    // endTime = Date.now()
-    // MNUtil.log(`data2string: ${endTime-beginTime}ms`)
-    // if (self.statusCode >= 400) {
-    //   let contentToShow = "❗["+MNUtil.getStatusCodeDescription(""+self.statusCode)+"]"
-    //   if (MNUtil.isValidJSON(textString)) {
-    //     let res = JSON.parse(textString)
-    //     let message = undefined
-    //     res.info = self.config
-    //     res.statusCode = self.statusCode
-    //     res.message = contentToShow
-    //     self.errorMessage = res
-    //     if ("error" in res && "message" in res.error) {
-    //       contentToShow = contentToShow+" "+res.error.message
-    //       if (res.error.message.startsWith("Model do not support image input")) {
-    //         message = "该模型不支持图片输入/视觉模式"
-    //         self.retried = true//没必要重试的情况
-    //       }
-    //       if (res.error.message.startsWith("token quota is not enough")) {
-    //         if (self.isSubscription()) {
-    //           message = "令牌额度不足，请检查订阅"
-    //         }else{
-    //           message = "令牌额度不足"
-    //         }
-    //         self.retried = true//没必要重试的情况
-    //       }
-    //       if (res.error.message.startsWith("该令牌额度已用尽")) {
-    //         if (self.isSubscription()) {
-    //           message = "该令牌额度已用尽，请检查订阅"
-    //         }else{
-    //           message = "该令牌额度已用尽"
-    //         }
-    //         self.retried = true//没必要重试的情况
-    //       }
-    //     }else if ("message" in res) {
-    //       contentToShow = contentToShow+" "+res.message
-    //     }
-    //     MNUtil.showHUD(contentToShow)
-    //     await MNUtil.delay(0.1)
-    //     self.showErrorMessage(self.errorMessage,message)
-    //   }else{
-    //     MNUtil.showHUD(contentToShow)
-    //     await MNUtil.delay(0.1)
-    //     self.showErrorMessage(self.errorMessage)
-    //   }
-    //   self.response = JSON.stringify(self.errorMessage,undefined,2)
-    //   self.errorLogged = true
-    //   MNUtil.log({
-    //     level:"error",
-    //     source:"MN ChatAI",
-    //     message:contentToShow,
-    //     detail:self.errorMessage
-    //   })
-    //   // self.runJavaScript(`openEdit();`)
-    //   connection.cancel()
-    //   delete self.connection
-    //   if (!self.retried && self.isSubscription()) {
-    //     //仅订阅下需要重试,没重试过才需要重试
-    //     let allURLs = subscriptionUtils.URLs
-    //     let filtered = allURLs.filter(url=>url !== self.config.url)
-    //     let newURL = chatAIUtils.getRandomElement(filtered)
-    //     self.config.url = newURL+"/v1/chat/completions"
-    //     MNUtil.log({message:"Retry with new URL",source:"MN ChatAI",detail:self.config.url})
-    //     self.reAsk()
-    //     self.retried = true
-    //   }
-    //   return
-    // }else{
-    //   if (MNUtil.isValidJSON(textString)) {
-    //     let res = JSON.parse(textString)
-    //     if ("base_resp" in res && "status_code" in res.base_resp) {
-    //       MNUtil.copy(res)
-    //       self.errorMessage = res
-    //       await MNUtil.delay(0.1)
-    //       self.showErrorMessage(self.errorMessage)
-    //       // self.setWebviewContentDev({response:`\`\`\` json\n${JSON.stringify(self.errorMessage,undefined,2)}\n\`\`\``})
-    //       // self.runJavaScript(`openEdit();`)
-    //       connection.cancel()
-    //       delete self.connection
-    //       return
-    //     }
-    //   }
-    // }
-    // self.hasDone = /^data:\s?\[DONE\]/.test(textString)
-    // if (!self.hasDone) {
-    //   self.textString = textString
-    // }else{
-    //   if (/^data\:\s{"base_resp"\:{"status_code"\:\d\d+/.test(textString)) {
-    //     chatAIUtils.addErrorLog(textString, "connectionDidReceiveData")
-    //     return
-    //   }
-    // }
-    // self.originalText = MNUtil.data2string(self.currentData)
-    // let beginTime = Date.now()
     self.originalText = chatAIUtils.dataToString(self.currentData)
 
-    // let endTime = Date.now()
-    // MNUtil.log(`dataToString: ${endTime-beginTime}ms`)
-    // beginTime = Date.now()
-    // let tem = MNUtil.data2string(self.currentData)
-    // endTime = Date.now()
-    // MNUtil.log(`data2string: ${endTime-beginTime}ms`)
-
-
-    // if (self.onResponse) {
-      if (self.hasDone) {
-        if (!self.onFinish && self.connection && (self.connection === connection)) {
-          self.onFinish = true
-    self.showHUD("✅ Done")
-    self.organizeKnowledgeButton.setTitleForState("Organize",0)
-    self.knowledgeInput.editable = true
-    self.connection.cancel()
-    self.knowledgeInput.backgroundColor = MNUtil.hexColorAlpha("#b3bbc0",0.8)
-    self.knowledgeInput.textColor = UIColor.blackColor()
-    delete self.connection
-          // self.beginTime = Date.now()
-          // self.prepareFinish()
+    if (self.hasDone) {
+      if (!self.onFinish && self.connection && (self.connection === connection)) {
+        self.onFinish = true
+        self.showHUD("✅ Done")
+        if (self.mode === "organizeKnowledge") {
+          self.organizeKnowledgeButton.setTitleForState("Organize",0)
+          self.knowledgeInput.editable = true
+          self.knowledgeInput.backgroundColor = MNUtil.hexColorAlpha("#b3bbc0",0.8)
+          self.knowledgeInput.textColor = UIColor.blackColor()
         }
+        if (self.mode === "optimizeSystem" || self.mode === "optimizeDynamicNote") {
+          self.systemInput.editable = true
+          self.systemInput.backgroundColor = MNUtil.hexColorAlpha("#b3bbc0",0.8)
+          self.systemInput.textColor = UIColor.blackColor()
+        }
+        if (self.mode === "optimizeDynamicText") {
+          self.contextInput.editable = true
+          self.contextInput.backgroundColor = MNUtil.hexColorAlpha("#b3bbc0",0.8)
+          self.contextInput.textColor = UIColor.blackColor()
+        }
+        self.connection.cancel()
+        delete self.connection
       }
-      // MNUtil.showHUD("reject")
-      // return
-    // }
+    }
     self.getResponse()
     } catch (error) {
       if (error.toString() !== "Error: Malformed UTF-8 data") {
@@ -2806,13 +2755,25 @@ ${config}
     let self = getChatglmController()
     if (!self.onFinish && self.connection && (self.connection === connection)) {
       self.onFinish = true
-    self.showHUD("✅ Done")
-    self.organizeKnowledgeButton.setTitleForState("Organize",0)
-    self.knowledgeInput.backgroundColor = MNUtil.hexColorAlpha("#b3bbc0",0.8)
-    self.knowledgeInput.textColor = UIColor.blackColor()
-    self.knowledgeInput.editable = true
-    self.connection.cancel()
-    delete self.connection
+      self.showHUD("✅ Done")
+      if (self.mode === "organizeKnowledge") {
+        self.organizeKnowledgeButton.setTitleForState("Organize",0)
+        self.knowledgeInput.editable = true
+        self.knowledgeInput.backgroundColor = MNUtil.hexColorAlpha("#b3bbc0",0.8)
+        self.knowledgeInput.textColor = UIColor.blackColor()
+      }
+      if (self.mode === "optimizeSystem" || self.mode === "optimizeDynamicNote") {
+        self.systemInput.editable = true
+        self.systemInput.backgroundColor = MNUtil.hexColorAlpha("#b3bbc0",0.8)
+        self.systemInput.textColor = UIColor.blackColor()
+      }
+      if (self.mode === "optimizeDynamicText") {
+        self.contextInput.editable = true
+        self.contextInput.backgroundColor = MNUtil.hexColorAlpha("#b3bbc0",0.8)
+        self.contextInput.textColor = UIColor.blackColor()
+      }
+      self.connection.cancel()
+      delete self.connection
       // self.prepareFinish()
       // MNUtil.showHUD("finish")
       // MNUtil.copy(self.textString)
@@ -4249,7 +4210,7 @@ try {
         default:
           break;
       }
-      MNButton.setTitle(this.allowEditButton, "Allow Edit: "+(chatAIConfig.getConfig("allowEdit")?"✅":"❌"))
+      MNButton.setTitle(this.allowEditButton, "Allow Edit Response: "+(chatAIConfig.getConfig("allowEdit")?"✅":"❌"))
       MNButton.setTitle(this.orderButton, chatAIConfig.getOrderText())
       break;
     case "modelView":
@@ -4941,13 +4902,34 @@ chatglmController.prototype.setResponseText = async function (funcResponse = "",
     }
     // MNUtil.log({message:"setResponseText",response:option.response})
     if (option.response) {
-      let tem = option.response.split("```knowledge")
-      if (tem.length > 1) {
-        option.response = tem[1].split("```")[0]
+      if (this.mode === "organizeKnowledge") {
+        let tem = option.response.split("<knowledge>")
+        if (tem.length > 1) {
+          option.response = tem[1].split("</knowledge>")[0]
+        }
         this.knowledgeInput.text = option.response.trim()
         let size = this.knowledgeInput.sizeThatFits({width:this.knowledgeInput.frame.width,height:1000})
         if (size.height > this.knowledgeInput.frame.height) {
           this.knowledgeInput.setContentOffsetAnimated({x:0,y:size.height-this.knowledgeInput.frame.height},false)
+        }
+      }
+      if (this.mode === "optimizeSystem" || this.mode === "optimizeDynamicNote" || this.mode === "optimizeDynamicText") {
+        let tem = option.response.split("<systemPrompt>")
+        if (tem.length > 1) {
+          option.response = tem[1].split("</systemPrompt>")[0]
+        }
+        if (this.mode === "optimizeDynamicText") {
+          this.contextInput.text = option.response.trim()
+          let size = this.contextInput.sizeThatFits({width:this.contextInput.frame.width,height:1000})
+          if (size.height > this.contextInput.frame.height) {
+            this.contextInput.setContentOffsetAnimated({x:0,y:size.height-this.contextInput.frame.height},false)
+          }
+        }else{
+          this.systemInput.text = option.response.trim()
+          let size = this.systemInput.sizeThatFits({width:this.systemInput.frame.width,height:1000})
+          if (size.height > this.systemInput.frame.height) {
+            this.systemInput.setContentOffsetAnimated({x:0,y:size.height-this.systemInput.frame.height},false)
+          }
         }
       }
     }
@@ -5000,6 +4982,99 @@ chatglmController.prototype.getResponseForChatGPT = function (checkToolCalls = t
 chatglmController.prototype.sendStreamRequest = function (request) {
   this.currentTime = Date.now()
   this.connection = NSURLConnection.connectionWithRequestDelegate(request,this)
+}
+/**
+ * @this {chatglmController}
+ */
+chatglmController.prototype.optimizeSystem = async function (mode = "optimizeSystem") {
+ try {
+    if (this.connection) {
+      // this.showHUD("On output")
+      let confirm = await MNUtil.confirm("🤖 MN ChatAI","AI is already organizing knowledge, do you want to cancel it?\n\n AI 正在整理知识库，是否取消？")
+      if (confirm) {
+        this.connection.cancel()
+        delete this.connection
+        MNUtil.showHUD("Cancel organize")
+        return
+      }
+      return
+    }
+    let confirm = await MNUtil.confirm("🤖 MN ChatAI","Optimize system using glm-4.5-flash? \n\n 是否使用glm-4.5-flash优化系统提示词？")
+    if (confirm) {
+      let config = {
+        source: "Subscription",
+        model: "glm-4.5-flash-nothinking",
+        key: "sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44",
+        url: subscriptionConfig.URL+"/v1/chat/completions"
+      }
+      let currentPromptKey = chatAIConfig.currentPrompt
+      let prompt = chatAIConfig.prompts[currentPromptKey]
+      this.preSystem = prompt.system
+      this.showHUD("🤖 Optimizing...")
+      let question = [chatAIUtils.genSystemMessage(`
+# Role: System Prompt Optimization Expert
+
+## 1. Core Mission
+You are an expert specializing in optimizing system prompts for the MarginNote application. You have a deep understanding that MarginNote users typically use AI for learning, research, and knowledge management. Therefore, your optimization goal is to make prompts better serve these academic and analytical tasks.
+Your sole mission is to analyze a user-provided system prompt intended for the MarginNote environment and rewrite it into a clearer, more structured, and effective version, designed to guide a Large Language Model (LLM) to achieve its best performance in learning-focused scenarios.
+
+## 2. Critical Rules
+You must adhere to the following rules without exception:
+- **Language Consistency:** The optimized prompt's language must be identical to the original prompt's language. If the input is Chinese, the output must be Chinese.
+- **Template Variable Preservation:** You must NOT modify, add, delete, or alter any template variables enclosed in double curly braces (e.g., \`{{context}}\`, \`{{userInput}}\`). They must be preserved exactly as they appear in the original prompt. This is a critical technical requirement.
+- **Strict Output Format:** Your entire response must be ONLY the optimized system prompt, enclosed within a xml tag designated with <systemPrompt>. Do not include any greetings, explanations, or introductory text. Your response must start with <systemPrompt> and end with </systemPrompt>.
+
+## 3. Optimization Principles
+When rewriting the prompt, apply these principles:
+- **Clarity and Precision:** Replace ambiguous or vague language with direct, specific, and unmistakable instructions.
+- **Structure and Readability:** Use markdown formatting (e.g., headings \`##\`, bold \`**\`, numbered lists, bullet points) to create a clear, logical structure that is easy for the LLM to parse. Common sections include \`Role\`, \`Rules\`, \`Constraints\`, \`Workflow/Steps\`, \`Output Format\`.
+- **Persona Definition:** If not already clear, establish a strong, explicit persona or role for the AI (e.g., "You are an expert financial analyst," "Act as a creative storyteller").
+- **Explicit Instructions:** Convert implicit assumptions into explicit, step-by-step commands or a clear workflow.
+- **Goal Orientation:** Ensure the primary objective of the prompt is stated clearly and early on.
+- **Constraint Definition:** Clearly define boundaries, limitations, and negative constraints (i.e., what the AI should *not* do).
+
+## 4. Workflow
+1. Receive the user's original system prompt.
+2. Analyze it based on the Optimization Principles.
+3. Rewrite and restructure the prompt, meticulously following all Critical Rules.
+4. Output the final, optimized prompt directly in the specified code block format.`),
+chatAIUtils.genUserMessage(`Please optimize the system prompt below:
+${this.systemInput.text}
+`)
+]
+      this.baseAsk(question,config)
+      this.mode = mode
+      if (mode === "optimizeDynamicText") {
+        this.contextInput.editable = false
+        this.contextInput.text = "🤖 Optimizing..."
+        this.contextInput.backgroundColor = MNUtil.hexColorAlpha("#e06c75",0.2)
+        this.contextInput.textColor = MNUtil.hexColorAlpha("#b91c29",1.0)
+      }else{
+        this.systemInput.editable = false
+        this.systemInput.text = "🤖 Optimizing..."
+        this.systemInput.backgroundColor = MNUtil.hexColorAlpha("#e06c75",0.2)
+        this.systemInput.textColor = MNUtil.hexColorAlpha("#b91c29",1.0)
+      }
+    }
+      
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "optimizeSystem")
+    }
+}
+/** @this {chatglmController} */
+chatglmController.prototype.restoreSystem = async function (mode = "optimizeSystem") {
+  if (mode === "optimizeSystem"){
+    let currentPrompt = chatAIConfig.currentPrompt
+    let prompt = chatAIConfig.prompts[currentPrompt]
+    this.systemInput.text = prompt.system
+  }
+  if (mode === "optimizeDynamicNote") {
+    this.systemInput.text = chatAIConfig.dynamicPrompt.note
+  }
+  if (mode === "optimizeDynamicText") {
+    this.contextInput.text = chatAIConfig.dynamicPrompt.text
+  }
+  this.showHUD("Restore system message")
 }
 /** @type {UITextView} */
 chatglmController.prototype.contextInput

@@ -54,6 +54,10 @@ editNote工具支持传入指定noteId，可以实现同时编辑多个卡片
 修复一些场景下dynamic误判场景为text而非note的情况
 修复一个粘贴apikey的报错
 
+支持AI优化系统提示词
+支持设置默认系统提示词
+增加变量hasFocusNote，用于判断当前是否有选中卡片
+
 
 killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app"
 

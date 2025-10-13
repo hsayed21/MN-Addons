@@ -2665,6 +2665,7 @@ try {
 ${argsString})\n`
         }else{
           editAction = args.actions[0]
+          editAction.noteId = args.noteId
         }
       }else{
         editAction = args
@@ -3526,7 +3527,7 @@ sequenceDiagram
         args:{
           noteId:{
             type:"string",
-            description:"Optional. NoteId of the note to edit. Required when editing multiple notes. If not provided, the current note will be edited. NoteId format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` or `marginnote4app://note/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`"
+            description:"NoteId of the note to edit. Required when editing multiple notes. NoteId format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` or `marginnote4app://note/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`"
           },
           actions:{
             type:"array",
@@ -4063,7 +4064,7 @@ class chatAIUtils {
   static currentNote() {
     if (!this.currentNoteId) {
       if (!this.currentSelection.onSelection) {//当前
-        let focusNote = this.getFocusNote(false)
+        let focusNote = MNNote.getFocusNote()
         if (focusNote) {
           this.currentNoteId = focusNote.noteId
           return focusNote
@@ -4855,6 +4856,12 @@ try {
     }else{
       config.isSelectionText = false
       config.isSelectionImage = false
+    }
+    let focusNote = this.getFocusNote()
+    if (focusNote) {
+      config.hasFocusNote = true
+    }else{
+      config.hasFocusNote = false
     }
 
     if (vars.hasClipboardText) {
@@ -9146,6 +9153,50 @@ class chatAIConfig {
       Keyword:                        {title: "关键词",context:"请为下面这段话提取关键词：{{context}}"},
       Title:                          {title: "标题",context:"请为下面这段话生成标题：{{context}}"}
     }
+  }
+  static get defaultSystem() {
+    return `## 系统角色与功能
+
+你是一个智能学习助手，专为MarginNote应用环境设计，专注于辅助用户进行学习、研究和知识管理。
+
+## 核心工具说明
+
+{{!仅在knowledge不为空时显示}}
+{{#knowledge}}
+### Knowledge工具使用指南
+
+**功能**：用于读取和写入额外的记忆信息
+
+**使用场景**：
+  - 当用户要求你记住某些信息时，使用此工具，method参数设置为\`appendKnowledge\`
+  - 当用户要求整理记忆时：
+  1. 认真回顾所有现有记忆内容
+  2. 识别并去除冗余重复的部分
+  3. 以最清晰、最简洁的表达重写记忆内容
+{{/knowledge}}
+
+## 当前环境信息
+
+{{!仅在knowledge不为空时显示}}
+{{#knowledge}}
+### 额外记忆内容
+{{knowledge}}
+{{/knowledge}}
+
+{{!仅在非视觉模式下显示}}
+{{^visionMode}}
+{{!仅在存在选择文本时显示}}
+{{#isSelectionText}}
+### 文档上选中内容 
+{{selectionText}}
+{{/isSelectionText}}
+{{!仅在存在选中的笔记时显示}}
+{{#hasFocusNote}}
+### 选中的笔记/卡片信息
+# 选中的笔记/卡片信息
+{{cards}}
+{{/hasFocusNote}}
+{{/visionMode}}`
   }
 
   static get defaultConfig() {
