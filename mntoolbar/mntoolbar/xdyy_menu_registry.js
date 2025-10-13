@@ -47,7 +47,7 @@ function registerAllMenuTemplates() {
       menuItems: [
         "✂️ 拆分评论",
         {
-          action: "splitCommentsByNotes",
+          action: "splitComments",
           menuTitle: "    拆分卡片评论为独立卡片",
         },
         "🔗 链接处理",
@@ -503,13 +503,13 @@ function registerAllMenuTemplates() {
               menuTitle: "基于 Markdown 拆卡",
             },
             {
-              action: "splitCommentsByNotes",
+              action: "splitComments",
               menuTitle: "拆分卡片评论为独立卡片",
             },
           ]
         },
         {
-          action: "splitCommentsByNotes",
+          action: "splitComments",
           menuTitle: "    ✂️ 拆分卡片评论为独立卡片",
         },
         {
@@ -705,7 +705,7 @@ function registerAllMenuTemplates() {
         "⚙️ 处理卡片",
         {
           action: "upwardMergeWithStyledComments",
-          menuTitle: "    将子卡片作为证明要点合并",
+          menuTitle: "    将子卡片作为证明要点合并 ⇒ 移动到证明区",
         },
         "🪄 生成卡片",
         {
@@ -789,13 +789,13 @@ function registerAllMenuTemplates() {
         //   action: "manageProofTemplates",
         //   menuTitle: "    管理证明模板",
         // },
-        // {
-        //   action: "splitCommentsByNotes",
-        //   menuTitle: "拆分评论为独立卡片",
-        // },
+        {
+          action: "extractProofContentAndSplitComments",
+          menuTitle: "提取证明字段内容并拆分评论为独立卡片",
+        },
         {
           action: "upwardMergeWithStyledComments",
-          menuTitle: "将子卡片作为证明要点合并",
+          menuTitle: "将子卡片作为证明要点合并 ⇒ 移动到证明区",
         },
         "🔍 OCR",
         {
@@ -847,7 +847,7 @@ function registerAllMenuTemplates() {
 
   // 搜索功能菜单
   global.registerMenuTemplate("menu_search", {
-    action: "searchNotes", // 单击：搜索笔记
+    action: "searchNotesInWebview", // 单击：搜索笔记
     onLongPress: {
       // 长按：显示菜单
       action: "menu",
@@ -943,23 +943,39 @@ function registerAllMenuTemplates() {
 
 
   global.registerMenuTemplate("menu_pin", {
-    action: "pinToMidwayTop",  // 单击：添加到中间知识顶部
+    action: "pinToFocusTop",
     onLongPress: {
       // 长按：显示菜单
       action: "menu",
       menuWidth: 300,
       menuItems: [
         {
-          action: "pinToFocusTop",
-          menuTitle: "⬆️ 添加到 Focus 顶部",
-        },
-        {
           action: "pinToFocusBottom",
           menuTitle: "⬇️ 添加到 Focus 底部",
         },
         {
+          action: "pinToMidwayTop",
+          menuTitle: "⬆️ 添加到中间知识顶部",
+        },
+        {
           action: "pinToMidwayBottom",
           menuTitle: "⬇️ 添加到中间知识底部",
+        },
+        {
+          action: "pinToToOrganizeTop",
+          menuTitle: "⬆️ 添加到待整理顶部",
+        },
+        {
+          action: "pinToToOrganizeBottom",
+          menuTitle: "⬇️ 添加到待整理底部",
+        },
+        {
+          action: "pinToDailyTaskTop",
+          menuTitle: "⬆️ 添加到日拱一卒顶部",
+        },
+        {
+          action: "pinToDailyTaskBottom",
+          menuTitle: "⬇️ 添加到日拱一卒底部",
         },
         {
           action: "temporarilyPinFocusNoteWithTitle",
@@ -974,38 +990,78 @@ function registerAllMenuTemplates() {
   });
 
   global.registerMenuTemplate("menu_classification", {
-    action: "searchAndAddClassification",
+    action: "searchNotesInWebview",
     onLongPress: {
       action: "menu",
-      menuWidth: 300,
+      menuWidth: 420,
       menuItems: [
         {
-          action: "",
-          menuTitle: "",
+          action: "AddTemplateOnLastestParentDefinitionAndAddAsChild",
+          menuTitle: "最近的上级定义卡片增加模板 & 移动 focusNote 成为子卡片",
         },
         {
-          action: "",
-          menuTitle: "",
+          action: "OCRToTitle",
+          menuTitle: "OCR 摘录为标题",
+        },
+        "🔍 OCR 工具",
+        {
+          action: "menu",
+          menuTitle: "➡️ 📝 模式1：直接 OCR (Unicode)",
+          menuWidth: 300,
+          menuItems: [
+            {
+              action: "ocrMode1WithTranslation",
+              menuTitle: "🌐 翻译版（中英对照）",
+            },
+            {
+              action: "ocrMode1NoTranslation",
+              menuTitle: "📄 原文版（仅中文）",
+            },
+          ],
         },
         {
-          action: "",
-          menuTitle: "",
+          action: "menu",
+          menuTitle: "➡️ 📄 模式2：Markdown OCR (LaTeX)",
+          menuWidth: 300,
+          menuItems: [
+            {
+              action: "ocrMode2WithTranslation",
+              menuTitle: "🌐 翻译版（中英对照）",
+            },
+            {
+              action: "ocrMode2NoTranslation",
+              menuTitle: "📄 原文版（仅中文）",
+            },
+          ],
         },
         {
-          action: "",
-          menuTitle: "",
-        },
-        {
-          action: "",
-          menuTitle: "",
-        },
-        {
-          action: "",
-          menuTitle: "",
-        },
-        {
-          action: "",
-          menuTitle: "",
+          action: "menu",
+          menuTitle: "➡️ 🧠 模式3：智能 OCR（根据卡片类型）",
+          menuWidth: 360,
+          menuItems: [
+            {
+              action: "ocrMode3WithTranslation",
+              menuTitle: "🌐 翻译版（中英对照）",
+            },
+            {
+              action: "ocrMode3NoTranslation",
+              menuTitle: "📄 原文版（仅中文）",
+            },
+            "---",
+            "ℹ️ 智能识别说明",
+            {
+              action: "",
+              menuTitle: "    • 定义类 → 概念提取",
+            },
+            {
+              action: "",
+              menuTitle: "    • 研究进展 → 翻译总结",
+            },
+            {
+              action: "",
+              menuTitle: "    • 其他 → 直接 OCR",
+            },
+          ],
         },
       ]
     }

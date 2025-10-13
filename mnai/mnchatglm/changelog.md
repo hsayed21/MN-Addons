@@ -42,6 +42,23 @@ editNote工具支持传入指定noteId，可以实现同时编辑多个卡片
 优化报错
 改进了未选中文本下点击复制按钮的行为
 
+改进OrganizeNotes工具的行为
+改进CreatHTML工具的行为
+改进CreatNote工具，支持type参数，type为"fromSelection"时支持从文档中创建摘录
+改进火山引擎报错
+
+修复聊天模式打开缓慢的问题
+
+改进editNote工具
+改进MoveNotes工具，支持移动到新卡片下
+修复一些场景下dynamic误判场景为text而非note的情况
+修复一个粘贴apikey的报错
+
+支持AI优化系统提示词
+支持设置默认系统提示词
+增加变量hasFocusNote，用于判断当前是否有选中卡片
+
+
 killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app"
 
 pgrep -x "MarginNote 4" > /dev/null && (killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app") || open "/Applications/MarginNote 4.app"

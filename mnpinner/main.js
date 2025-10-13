@@ -304,24 +304,6 @@ JSB.newAddon = function(mainPath){
               }
               break;
 
-            case "temporarilyPin":  // 兼容旧版本
-              let tempNoteId = decodeURIComponent(config.params.id)
-              let tempNote = MNNote.new(tempNoteId)
-              let tempTitle
-              if (config.params.title) {
-                tempTitle = decodeURIComponent(config.params.title)
-              } else {
-                tempTitle = tempNote ? tempNote.title : "未命名卡片"
-              }
-              // 旧版本默认添加到中间知识
-              if (tempNote && pinnerConfig.addPin(tempNoteId, tempTitle, "midway")) {
-                if (pinnerUtils.pinnerController) {
-                  pinnerUtils.pinnerController.refreshView("midwayView")
-                }
-                MNUtil.showHUD("已添加到中间知识: " + tempTitle)
-              }
-              break;
-
             case "moveToTop":  // 移动卡片到顶部
               let moveTopId = decodeURIComponent(config.params.id)
               let moveTopSection = config.params.section

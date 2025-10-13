@@ -1,4 +1,4 @@
-class knowledgeBaseTemplate {
+class KnowledgeBaseTemplate {
   /**
    * 粗读根目录
    */
@@ -2263,6 +2263,8 @@ class knowledgeBaseTemplate {
     }
 
     note.title = Pangu.spacing(note.title)
+
+    KnowledgeBaseIndexer.addToIncrementalIndex(note)
   }
 
   /**
@@ -2418,14 +2420,14 @@ class knowledgeBaseTemplate {
             MNUtil.log({
               level: "info",
               message: `归类卡片标题已更新：${originalTitle} -> ${note.title}`,
-              source: "knowledgeBaseTemplate.batchChangeClassificationTitles"
+              source: "KnowledgeBaseTemplate.batchChangeClassificationTitles"
             });
           } else {
             skippedCount++;
             MNUtil.log({
               level: "info",
               message: `跳过标题（已是新格式或无法解析）：${originalTitle}`,
-              source: "knowledgeBaseTemplate.batchChangeClassificationTitles"
+              source: "KnowledgeBaseTemplate.batchChangeClassificationTitles"
             });
           }
         }
@@ -2447,7 +2449,7 @@ class knowledgeBaseTemplate {
       MNUtil.log({
         level: "info",
         message: `批量归类卡片标题处理完成 - 范围：${scope}，处理：${processedCount}，跳过：${skippedCount}`,
-        source: "knowledgeBaseTemplate.batchChangeClassificationTitles"
+        source: "KnowledgeBaseTemplate.batchChangeClassificationTitles"
       });
 
     } catch (error) {
@@ -2455,7 +2457,7 @@ class knowledgeBaseTemplate {
       MNUtil.log({
         level: "error",
         message: "批量处理归类卡片标题失败：" + error.message,
-        source: "knowledgeBaseTemplate.batchChangeClassificationTitles"
+        source: "KnowledgeBaseTemplate.batchChangeClassificationTitles"
       });
     }
   }
@@ -2567,7 +2569,7 @@ class knowledgeBaseTemplate {
             MNUtil.log({
               level: "info",
               message: `标题已更新：${originalTitle} -> ${note.title}`,
-              source: "knowledgeBaseTemplate.batchChangeTitles"
+              source: "KnowledgeBaseTemplate.batchChangeTitles"
             });
           } else {
             skippedCount++;
@@ -2591,7 +2593,7 @@ class knowledgeBaseTemplate {
       MNUtil.log({
         level: "info",
         message: `批量标题处理完成 - 范围：${scope}，处理：${processedCount}，跳过：${skippedCount}`,
-        source: "knowledgeBaseTemplate.batchChangeTitles"
+        source: "KnowledgeBaseTemplate.batchChangeTitles"
       });
 
     } catch (error) {
@@ -2599,7 +2601,7 @@ class knowledgeBaseTemplate {
       MNUtil.log({
         level: "error",
         message: "批量处理标题失败：" + error.message,
-        source: "knowledgeBaseTemplate.batchChangeTitles"
+        source: "KnowledgeBaseTemplate.batchChangeTitles"
       });
     }
   }
@@ -3272,7 +3274,7 @@ class knowledgeBaseTemplate {
       MNUtil.log({
         level: "error",
         message: "合并知识卡片失败: " + error.message,
-        source: "knowledgeBaseTemplate.renewKnowledgeNotes"
+        source: "KnowledgeBaseTemplate.renewKnowledgeNotes"
       });
     }
   }
@@ -3887,15 +3889,109 @@ class knowledgeBaseTemplate {
   }
 
   /**
-   * 解析卡片标题，拆成几个部分，返回一个对象
+   * 解析卡片标题，提取结构化信息
+   *
+   * 该方法根据不同的卡片类型（归类 vs 其他类型），使用不同的正则表达式解析标题格式，
+   * 并提取出类型、前缀内容、主内容和标题链接词数组等结构化信息。
+   *
+   * @param {MNNote} note - 要解析的卡片对象
+   *
+   * @returns {Object} 解析后的标题结构对象，包含以下可能的属性：
+   * @returns {string} [returns.type] - 卡片类型（从标题前缀【】中提取）
+   * @returns {string} [returns.prefixContent] - 前缀内容（【类型>>前缀内容】中的前缀部分）
+   * @returns {string} [returns.content] - 主要内容（标题的核心内容部分）
+   * @returns {string[]} [returns.titleLinkWordsArr] - 标题链接词数组（以 "; " 分割的词组）
+   *
+   * @description
+   * ### 支持的标题格式：
+   *
+   * #### 1. 归类卡片格式
+   * - **格式1**: `"xxx"："yyy"相关 zzz`
+   *   - `content`: "yyy"
+   *   - `type`: "zzz"
+   * - **格式2**: `"xxx"相关 yyy`
+   *   - `content`: "xxx"
+   *   - `type`: "yyy"
+   *
+   * #### 2. 其他类型卡片格式
+   * - **格式1**: `【类型 >> 前缀内容】主内容; 链接词1; 链接词2`
+   *   - `type`: "类型"
+   *   - `prefixContent`: "前缀内容"
+   *   - `content`: "主内容; 链接词1; 链接词2"
+   *   - `titleLinkWordsArr`: ["主内容", "链接词1", "链接词2"]
+   *
+   * - **格式2**: `【类型：前缀内容】主内容; 链接词1; 链接词2`（使用中文冒号）
+   *   - 解析规则同上
+   *
+   * - **格式3**: `【类型】主内容; 链接词1; 链接词2`（无前缀内容）
+   *   - `type`: "类型"
+   *   - `prefixContent`: ""
+   *   - `content`: "主内容; 链接词1; 链接词2"（会去除开头的 "; " 如果存在）
+   *   - `titleLinkWordsArr`: ["主内容", "链接词1", "链接词2"]
+   *
+   * - **格式4**: 纯文本（无任何标记）
+   *   - `content`: "原始标题内容"
+   *   - `titleLinkWordsArr`: 按 "; " 分割的词组数组
+   *
+   * @example
+   * // 归类卡片
+   * let note1 = { title: '"定义"："拓扑空间"相关 归类' };
+   * let result1 = parseNoteTitle(note1);
+   * // => { content: "拓扑空间", type: "归类" }
+   *
+   * @example
+   * // 带前缀的标准格式
+   * let note2 = { title: '【命题>>紧性】紧空间的连续像是紧的; 紧性; 连续映射' };
+   * let result2 = parseNoteTitle(note2);
+   * // => {
+   * //   type: "命题",
+   * //   prefixContent: "紧性",
+   * //   content: "紧空间的连续像是紧的; 紧性; 连续映射",
+   * //   titleLinkWordsArr: ["紧空间的连续像是紧的", "紧性", "连续映射"]
+   * // }
+   *
+   * @example
+   * // 无前缀格式
+   * let note3 = { title: '【定义】度量空间; 距离函数' };
+   * let result3 = parseNoteTitle(note3);
+   * // => {
+   * //   type: "定义",
+   * //   prefixContent: "",
+   * //   content: "度量空间; 距离函数",
+   * //   titleLinkWordsArr: ["度量空间", "距离函数"]
+   * // }
+   *
+   * @example
+   * // 纯文本格式
+   * let note4 = { title: '这是一个普通标题; 关键词1; 关键词2' };
+   * let result4 = parseNoteTitle(note4);
+   * // => {
+   * //   content: "这是一个普通标题; 关键词1; 关键词2",
+   * //   titleLinkWordsArr: ["这是一个普通标题", "关键词1", "关键词2"]
+   * // }
+   *
+   * @example
+   * // 防御性检查
+   * let result5 = parseNoteTitle(null);
+   * // => {}
+   *
+   * @note
+   * - 解析前会自动清理标题中的高亮标记（通过 `KnowledgeBaseIndexer.cleanHighlightMarkers`）
+   * - 标题链接词通过 `; ` 分割，空词会被过滤掉
+   * - 对于归类卡片，只解析 `content` 和 `type`，不解析 `titleLinkWordsArr`
+   * - 如果传入的 note 为空或 null，返回空对象 `{}`
+   *
+   * @see {@link KnowledgeBaseIndexer.cleanHighlightMarkers} 清理高亮标记的方法
+   * @see {@link getNoteType} 获取卡片类型的方法
    */
   static parseNoteTitle(note) {
     // 防御性检查
     if (!note) {
       return {};
     }
-    
-    let title = note.title || "";
+
+    // 清理标题中的高亮标记
+    let title = KnowledgeBaseIndexer.cleanHighlightMarkers(note.title || "");
     let titleParts = {}
     let match
     
@@ -4178,7 +4274,7 @@ class knowledgeBaseTemplate {
    * 
    * @example
    * // 弹窗让用户选择要保留的字段内容
-   * knowledgeBaseTemplate.retainFieldContentOnly(note);
+   * KnowledgeBaseTemplate.retainFieldContentOnly(note);
    */
   static retainFieldContentOnly(note, keepTitle = false) {
     let commentsObj = this.parseNoteComments(note);
@@ -4257,7 +4353,7 @@ class knowledgeBaseTemplate {
                 MNUtil.log({
                   level: "info",
                   message: `保留字段内容操作完成 - 字段：${selectedField}，保留：${retainIndices.length} 条，删除：${deletedCount} 条`,
-                  source: "knowledgeBaseTemplate.retainFieldContentOnly"
+                  source: "KnowledgeBaseTemplate.retainFieldContentOnly"
                 });
                 
               } catch (error) {
@@ -4265,7 +4361,7 @@ class knowledgeBaseTemplate {
                 MNUtil.log({
                   level: "error",
                   message: "保留字段内容失败：" + error.message,
-                  source: "knowledgeBaseTemplate.retainFieldContentOnly"
+                  source: "KnowledgeBaseTemplate.retainFieldContentOnly"
                 });
               }
             });
@@ -4285,11 +4381,11 @@ class knowledgeBaseTemplate {
    * 
    * @example
    * // 仅保留"证明"字段下的内容
-   * let success = knowledgeBaseTemplate.retainFieldContentByName(note, "证明");
+   * let success = KnowledgeBaseTemplate.retainFieldContentByName(note, "证明");
    * 
    * @example
    * // 仅保留"相关链接"字段下的内容
-   * knowledgeBaseTemplate.retainFieldContentByName(note, "相关链接");
+   * KnowledgeBaseTemplate.retainFieldContentByName(note, "相关链接");
    */
   static retainFieldContentByName(note, fieldName) {
     let commentsObj = this.parseNoteComments(note);
@@ -4342,7 +4438,7 @@ class knowledgeBaseTemplate {
         MNUtil.log({
           level: "info",
           message: `保留字段内容操作完成 - 字段：${fieldName}，保留：${retainIndices.length} 条，删除：${deletedCount} 条`,
-          source: "knowledgeBaseTemplate.retainFieldContentByName"
+          source: "KnowledgeBaseTemplate.retainFieldContentByName"
         });
         
       } catch (error) {
@@ -4350,7 +4446,7 @@ class knowledgeBaseTemplate {
         MNUtil.log({
           level: "error",
           message: "保留字段内容失败：" + error.message,
-          source: "knowledgeBaseTemplate.retainFieldContentByName"
+          source: "KnowledgeBaseTemplate.retainFieldContentByName"
         });
         return false;
       }
@@ -4765,7 +4861,7 @@ class knowledgeBaseTemplate {
 
   /**
    * 移除最后一个字段中的重复链接
-   * （从原位置迁移到 knowledgeBaseTemplate 类）
+   * （从原位置迁移到 KnowledgeBaseTemplate 类）
    * 
    * @param {MNNote} note - 笔记对象
    */
@@ -6233,7 +6329,7 @@ class knowledgeBaseTemplate {
                 // 如果用户没有输入，尝试获取链接笔记的标题
                 if (!refContent && linkedNote) {
                   // 尝试从链接的笔记获取标题
-                  const titleParts = knowledgeBaseTemplate.parseNoteTitle(linkedNote);
+                  const titleParts = KnowledgeBaseTemplate.parseNoteTitle(linkedNote);
                   refContent = titleParts.content || linkedNote.noteTitle || "链接";
                   // 去除可能的 "; " 前缀
                   if (refContent.startsWith("; ")) {
@@ -6281,47 +6377,20 @@ class knowledgeBaseTemplate {
    * 将选中的评论提取为新的子卡片
    */
   static performExtract(note, extractCommentIndexArr) {
-    let clonedNote = null;
-    
+    let extractResultNote
     // 第一步：创建子卡片
     MNUtil.undoGrouping(() => {
       try {
-        // 克隆原笔记
-        clonedNote = note.clone();
-        clonedNote.title = ""
-        
-        // 删除克隆卡片的所有子卡片
-        if (clonedNote.childNotes && clonedNote.childNotes.length > 0) {
-          // 从后往前删除，避免索引变化
-          for (let i = clonedNote.childNotes.length - 1; i >= 0; i--) {
-            clonedNote.childNotes[i].removeFromParent();
-          }
-        }
-        
-        // 将克隆的笔记添加为原笔记的子卡片
-        note.addChild(clonedNote);
-        
-        // 获取所有评论的索引，并排除要提取的评论
-        const allIndices = Array.from({length: clonedNote.comments.length}, (_, i) => i);
-        const indicesToDelete = allIndices.filter(i => !extractCommentIndexArr.includes(i));
-        
-        // 从大到小排序，避免删除时索引变化
-        indicesToDelete.sort((a, b) => b - a);
-        
-        // 删除未选中的评论
-        clonedNote.removeCommentsByIndexArr(indicesToDelete);
-        
-        // 处理链接关系继承
-        this.handleExtractedNoteLinks(note, clonedNote, extractCommentIndexArr);
+        extractResultNote = this.extractComments(note, extractCommentIndexArr)
         
         // 刷新显示
-        clonedNote.refresh();
+        extractResultNote.refresh();
         note.refresh();
         
         MNUtil.showHUD(`成功提取 ${extractCommentIndexArr.length} 项评论为新卡片`);
         
         // 在脑图中聚焦新创建的卡片
-        MNUtil.focusNoteInMindMapById(clonedNote.noteId, 0.5);
+        MNUtil.focusNoteInMindMapById(extractResultNote.noteId, 0.5);
         
       } catch (error) {
         MNUtil.showHUD("提取失败: " + error.message);
@@ -6331,7 +6400,7 @@ class knowledgeBaseTemplate {
     });
     
     // 第二步：询问是否删除原评论
-    if (clonedNote) {
+    if (extractResultNote) {
       // 延迟显示对话框，确保前面的操作完成
       MNUtil.delay(0.5).then(() => {
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
@@ -6361,16 +6430,65 @@ class knowledgeBaseTemplate {
               });
               
               // 询问是否制卡
-              this.showMakeNoteDialog(clonedNote);
+              this.showMakeNoteDialog(extractResultNote);
             } else {
               // 用户选择"保留原评论"
               // 询问是否制卡
-              this.showMakeNoteDialog(clonedNote);
+              this.showMakeNoteDialog(extractResultNote);
             }
           }
         );
       });
     }
+  }
+
+  static extractComments(note, extractCommentIndexArr) {
+    try {
+      let clonedNote = note.clone();
+      clonedNote.title = ""
+      
+      // 删除克隆卡片的所有子卡片
+      if (clonedNote.childNotes && clonedNote.childNotes.length > 0) {
+        // 从后往前删除，避免索引变化
+        for (let i = clonedNote.childNotes.length - 1; i >= 0; i--) {
+          clonedNote.childNotes[i].removeFromParent();
+        }
+      }
+      
+      // 将克隆的笔记添加为原笔记的子卡片
+      note.addChild(clonedNote);
+      
+      // 获取所有评论的索引，并排除要提取的评论
+      const allIndices = Array.from({length: clonedNote.comments.length}, (_, i) => i);
+      const indicesToDelete = allIndices.filter(i => !extractCommentIndexArr.includes(i));
+      
+      // 从大到小排序，避免删除时索引变化
+      indicesToDelete.sort((a, b) => b - a);
+      
+      // 删除未选中的评论
+      clonedNote.removeCommentsByIndexArr(indicesToDelete);
+      
+      // 处理链接关系继承
+      this.handleExtractedNoteLinks(note, clonedNote, extractCommentIndexArr);
+
+      return clonedNote;
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "extractComments");
+    }
+  }
+
+  static extractCommentsAndSeparate(note, extractCommentIndexArr) {
+    MNUtil.undoGrouping(()=>{
+      try {
+        let extractedNote = this.extractComments(note, extractCommentIndexArr);
+        this.cleanupExtractedContentLinks(note, extractCommentIndexArr);
+        note.removeCommentsByIndexArr(extractCommentIndexArr);
+        this.splitComments(extractedNote);
+      } catch (error) {
+        MNUtil.showHUD(error);
+        KnowledgeBaseUtils.addErrorLog(error, "extractCommentsAndSeparate");
+      }
+    })
   }
 
   /**
@@ -6391,8 +6509,8 @@ class knowledgeBaseTemplate {
             // 用户选择制卡
             MNUtil.undoGrouping(() => {
               try {
-                // 调用 knowledgeBaseTemplate.makeNote 进行制卡
-                knowledgeBaseTemplate.makeNote(extractedNote, false);
+                // 调用 KnowledgeBaseTemplate.makeNote 进行制卡
+                KnowledgeBaseTemplate.makeNote(extractedNote, false);
                 MNUtil.showHUD("制卡完成");
               } catch (error) {
                 MNUtil.showHUD("制卡失败: " + error.message);
@@ -6785,18 +6903,18 @@ class knowledgeBaseTemplate {
    * 
    * @example
    * // 将新内容移动到"证明"字段底部
-   * knowledgeBaseTemplate.autoMoveNewContentToField(note, "证明");
+   * KnowledgeBaseTemplate.autoMoveNewContentToField(note, "证明");
    * 
    * @example
    * // 将新内容移动到"相关思考"字段顶部，不显示空内容提示
-   * let movedIndices = knowledgeBaseTemplate.autoMoveNewContentToField(note, "相关思考", false, false);
+   * let movedIndices = KnowledgeBaseTemplate.autoMoveNewContentToField(note, "相关思考", false, false);
    * if (movedIndices.length > 0) {
    *   MNUtil.showHUD(`成功移动 ${movedIndices.length} 条内容`);
    * }
    * 
    * @example
    * // 将新内容移动到摘录区
-   * knowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录区");
+   * KnowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录区");
    */
   static autoMoveNewContentToField(note, field, toBottom = true, showEmptyHUD = true) {
     // 自动获取要移动的内容索引
@@ -6846,14 +6964,14 @@ class knowledgeBaseTemplate {
    * 
    * @example
    * // 自动根据卡片类型移动内容
-   * let result = knowledgeBaseTemplate.autoMoveNewContentByType(note);
+   * let result = KnowledgeBaseTemplate.autoMoveNewContentByType(note);
    * if (result.indices.length > 0) {
    *   MNUtil.showHUD(`已将 ${result.indices.length} 条内容移动到"${result.field}"字段`);
    * }
    * 
    * @example  
    * // 移动到字段顶部，不显示空内容提示
-   * knowledgeBaseTemplate.autoMoveNewContentByType(note, false, false);
+   * KnowledgeBaseTemplate.autoMoveNewContentByType(note, false, false);
    */
   static autoMoveNewContentByType(note, toBottom = true, showEmptyHUD = true) {
     // 根据卡片类型确定目标字段
@@ -6884,11 +7002,11 @@ class knowledgeBaseTemplate {
    * 
    * @example
    * // 移动指定索引的内容到摘录区
-   * knowledgeBaseTemplate.moveToExcerptArea(note, [1,2,3]);
+   * KnowledgeBaseTemplate.moveToExcerptArea(note, [1,2,3]);
    * 
    * @example
    * // 使用字符串格式
-   * knowledgeBaseTemplate.moveToExcerptArea(note, "1-3,5");
+   * KnowledgeBaseTemplate.moveToExcerptArea(note, "1-3,5");
    */
   static moveToExcerptArea(note, indexArr) {
     try {
@@ -6912,11 +7030,11 @@ class knowledgeBaseTemplate {
    * 
    * @example
    * // 移动到摘录区
-   * knowledgeBaseTemplate.moveCommentsArrToField(note, [1,2,3], "摘录区");
+   * KnowledgeBaseTemplate.moveCommentsArrToField(note, [1,2,3], "摘录区");
    * 
    * @example  
    * // 移动到"证明"字段顶部
-   * knowledgeBaseTemplate.moveCommentsArrToField(note, "1-3", "证明", false);
+   * KnowledgeBaseTemplate.moveCommentsArrToField(note, "1-3", "证明", false);
    */
   static moveCommentsArrToField(note, indexArr, field, toBottom = true) {
     let getHtmlCommentsTextArrForPopup = this.getHtmlCommentsTextArrForPopup(note);
@@ -7335,7 +7453,7 @@ class knowledgeBaseTemplate {
    * //     └── 知识点3
    * 
    * let rootNote = MNNote.getFocusNote();
-   * knowledgeBaseTemplate.removeAllClassificationNotes(rootNote);
+   * KnowledgeBaseTemplate.removeAllClassificationNotes(rootNote);
    * 
    * // 执行后结构变为：
    * // A (根卡片)
@@ -7370,7 +7488,7 @@ class knowledgeBaseTemplate {
       if (!note || !note.childNotes) return;
       
       for (const child of note.childNotes) {
-        if (knowledgeBaseTemplate.isClassificationNote(child)) {
+        if (KnowledgeBaseTemplate.isClassificationNote(child)) {
           // 如果是归类卡片，继续递归搜索
           findNonClassificationNotes(child, result);
         } else {
@@ -7383,7 +7501,7 @@ class knowledgeBaseTemplate {
     
     // 第一步：分析每个直接子卡片
     for (const childNote of childNotes) {
-      if (knowledgeBaseTemplate.isClassificationNote(childNote)) {
+      if (KnowledgeBaseTemplate.isClassificationNote(childNote)) {
         // 记录归类卡片以便后续删除
         classificationNotesToDelete.push(childNote);
         
@@ -7550,10 +7668,314 @@ class knowledgeBaseTemplate {
   }
 
 
-  static addTemplate(note, focusLastNote = true) {
-    let type
-    let contentInTitle
+  // static addTemplate(note, focusLastNote = true) {
+  //   let type
+  //   let contentInTitle
+  //   let titleParts = this.parseNoteTitle(note)
+  //   switch (this.getNoteType(note)) {
+  //     case "归类":
+  //       contentInTitle = titleParts.content
+  //       break;
+  //     default:
+  //       contentInTitle = titleParts.prefixContent + "｜" + titleParts.titleLinkWordsArr[0];
+  //       break;
+  //   }
+  //   MNUtil.copy(contentInTitle)
+  //   let lastClassificationNote
+  //   try {
+  //     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+  //       "增加模板",
+  //       // "请输入标题并选择类型\n注意向上下层添加模板时\n标题是「增量」输入",
+  //       "请输入标题并选择类型",
+  //       2,
+  //       "取消",
+  //       // ["向下层增加模板", "增加概念衍生层级","增加兄弟层级模板","向上层增加模板", "最顶层（淡绿色）", "专题"],
+  //       [
+  //         "连续向下「顺序」增加模板",  // 1
+  //         "连续向下「倒序」增加模板",  // 2
+  //         "增加兄弟层级模板",  // 3
+  //         "向上层增加模板",  // 4
+  //       ],
+  //       (alert, buttonIndex) => {
+  //         let userInputTitle = alert.textFieldAtIndex(0).text;
+  //         switch (buttonIndex) {
+  //           case 4:
+  //             try {
+  //               /* 向上增加模板 */
+                
+  //               // 获取当前卡片类型和父卡片
+  //               let noteType = this.parseNoteTitle(note).type
+  //               let parentNote = note.parentNote
+                
+  //               if (!noteType) {
+  //                 MNUtil.showHUD("无法识别当前卡片类型");
+  //                 return;
+  //               }
+                
+  //               // 智能识别类型（仅用于标题）
+  //               let intelligentType = this.getTypeFromInputText(userInputTitle);
+  //               let titleType = intelligentType || noteType;  // 标题中显示的类型
+  //               let templateNoteId = this.types["归类"].templateNoteId;  // 始终使用归类模板
+                
+  //               MNUtil.undoGrouping(() => {
+  //                 // 1. 创建新的归类卡片
+  //                 let newClassificationNote = MNNote.clone(templateNoteId);
+  //                 newClassificationNote.note.noteTitle = `“${userInputTitle}”相关${titleType}`;
+                  
+  //                 // 3. 建立层级关系：新卡片作为父卡片的子卡片
+  //                 parentNote.addChild(newClassificationNote.note);
+                  
+  //                 // 4. 移动选中卡片：从原位置移动到新卡片下
+  //                 newClassificationNote.addChild(note.note);
+                  
+  //                 // 5. 使用 this API 处理链接关系
+  //                 this.linkParentNote(newClassificationNote);
+  //                 this.linkParentNote(note);
+                  
+  //                 // 6. 聚焦到新创建的卡片
+  //                 if (focusLastNote) {
+  //                   newClassificationNote.focusInMindMap(0.5);
+  //                 }
+
+  //                 lastClassificationNote = newClassificationNote;
+  //               });
+                
+  //             } catch (error) {
+  //               MNUtil.showHUD(`向上增加模板失败: ${error.message || error}`);
+  //             }
+  //             break;
+  //           case 3:
+  //             // 增加兄弟层级模板
+  //             type = this.parseNoteTitle(note).type
+  //             if (type) {
+  //               // 智能识别类型（仅用于标题）
+  //               let intelligentType = this.getTypeFromInputText(userInputTitle);
+  //               let titleType = intelligentType || type;  // 标题中显示的类型
+                
+  //               // 分割输入，支持通过//创建多个兄弟卡片链
+  //               let titlePartsArray = userInputTitle.split("//")
+                
+  //               MNUtil.undoGrouping(()=>{
+  //                 let lastNote = null
+                  
+  //                 // 创建第一个兄弟卡片（始终使用归类模板）
+  //                 let firstNote = MNNote.clone(this.types["归类"].templateNoteId)
+  //                 firstNote.noteTitle = "“" + titlePartsArray[0] + "”相关" + titleType
+  //                 note.parentNote.addChild(firstNote.note)
+  //                 this.linkParentNote(firstNote)
+  //                 lastNote = firstNote
+                  
+  //                 // 如果有更多部分，创建子卡片链
+  //                 let previousTitle = titlePartsArray[0]  // 记录上一个标题
+  //                 for (let i = 1; i < titlePartsArray.length; i++) {
+  //                   let childNote = MNNote.clone(this.types["归类"].templateNoteId)
+  //                   // 累积标题：上一个标题 + 当前部分
+  //                   let accumulatedTitle = previousTitle + titlePartsArray[i]
+  //                   childNote.noteTitle = "“" + accumulatedTitle + "”相关" + titleType
+  //                   lastNote.addChild(childNote.note)
+  //                   this.linkParentNote(childNote)
+  //                   lastNote = childNote
+  //                   previousTitle = accumulatedTitle  // 更新上一个标题
+  //                 }
+                  
+  //                 // 聚焦最后创建的卡片
+  //                 if (focusLastNote && lastNote) {
+  //                   lastNote.focusInMindMap(0.5)
+  //                 }
+  //                 lastClassificationNote = lastNote
+  //               })
+  //             }
+  //             break
+  //           case 2: // 连续向下「倒序」增加模板
+  //             /**
+  //              * 通过//来分割标题，增加一连串的归类卡片
+  //              * 比如：赋范空间上的//有界//线性//算子
+  //              * 依次增加：赋范空间上的算子、赋范空间上的线性算子、赋范空间上的有界线性算子
+  //              */
+  //             try {
+  //               let titlePartsArray = userInputTitle.split("//")
+  //               let titlesArray = []
+  //               if (titlePartsArray.length > 1) {
+  //                 // 生成倒序组合
+  //                 // 把 item1+itemn, item1+itemn-1+itemn, item1+itemn-2+itemn-1+itemn, ... , item1+item2+item3+...+itemn 依次加入数组
+  //                 // 比如 "赋范空间上的//有界//线性//算子" 得到的 titlePartsArray 是
+  //                 // ["赋范空间上的", "有界", "线性", "算子"]
+  //                 // 则 titleArray = ["赋范空间上的算子", "赋范空间上的线性算子", "赋范空间上的有界线性算子"]
+  //                 const prefix = titlePartsArray[0];
+  //                 let changedTitlePart = titlePartsArray[titlePartsArray.length-1]
+  //                 for (let i = titlePartsArray.length-1 ; i >= 1 ; i--) {
+  //                   if  (i < titlePartsArray.length-1) {
+  //                     changedTitlePart = titlePartsArray[i] + changedTitlePart
+  //                   }
+  //                   titlesArray.push(prefix + changedTitlePart)
+  //                 }
+  //               }
+  //               let type
+  //               let lastNote = note
+  //               switch (this.getNoteType(note)) {
+  //                 case "归类":
+  //                   let defaultType = this.parseNoteTitle(note).type  // 默认类型
+  //                   MNUtil.undoGrouping(()=>{
+  //                     titlesArray.forEach(title => {
+  //                       // 对每个标题尝试智能识别
+  //                       let intelligentType = this.getTypeFromInputText(title);
+  //                       let finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
+  //                       let newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
+  //                       lastNote = newClassificationNote
+  //                     })
+  //                     if (focusLastNote) {
+  //                       lastNote.focusInMindMap(0.3)
+  //                     }
+  //                     lastClassificationNote =  lastNote
+  //                   })
+  //                   break;
+  //                 default:
+  //                   // 智能识别类型
+  //                   let intelligentType = this.getTypeFromInputText(userInputTitle);
+  //                   if (intelligentType) {
+  //                     type = intelligentType;
+  //                     // 直接执行创建逻辑，无需弹窗选择
+  //                     MNUtil.undoGrouping(() => {
+  //                       titlesArray.forEach(title => {
+  //                         let newClassificationNote = this.createClassificationNote(lastNote, title, type);
+  //                         lastNote = newClassificationNote;
+  //                       });
+  //                       if (focusLastNote) {
+  //                         lastNote.focusInMindMap(0.3);
+  //                       }
+  //                       lastClassificationNote = lastNote;
+  //                     });
+  //                   } else {
+  //                     // 原有的弹窗选择逻辑
+  //                     let typeArr = ["定义","命题","例子","反例","思想方法","问题"]
+  //                     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+  //                       "增加归类卡片",
+  //                       "选择类型",
+  //                       0,
+  //                       "取消",
+  //                       typeArr,
+  //                       (alert, buttonIndex) => {
+  //                         if (buttonIndex == 0) { return }
+  //                         type = typeArr[buttonIndex-1]
+  //                         MNUtil.undoGrouping(()=>{
+  //                           titlesArray.forEach(title => {
+  //                           let newClassificationNote = this.createClassificationNote(lastNote, title, type)
+  //                             lastNote = newClassificationNote
+  //                           })
+  //                           if (focusLastNote) {
+  //                             lastNote.focusInMindMap(0.3)
+  //                           }
+  //                           lastClassificationNote = lastNote
+  //                         })
+  //                       })
+  //                   }
+  //                   break;
+  //               }
+  //             } catch (error) {
+  //               MNUtil.showHUD(`连续向下倒序增加模板失败: ${error.message || error}`);
+  //             }
+  //             break;
+  //           case 1: // 连续向下「顺序」增加模板
+  //             /**
+  //              * 通过//来分割标题，增加一连串的归类卡片（顺序，与case2倒序不同）
+  //              * 比如：赋范空间上的有界线性算子//的判定//：充分条件
+  //              * -> 赋范空间上的有界线性算子、赋范空间上的有界线性算子的判定、赋范空间上的有界线性算子的判定：充分条件
+  //              */
+  //             try {
+  //               let titlePartsArray = userInputTitle.split("//")
+  //               let titlesArray = []
+  //               titlesArray.push(titlePartsArray[0]) // 添加第一个部分
+  //               if (titlePartsArray.length > 1) {
+  //                 // 生成顺序组合
+  //                 for (let i = 1; i < titlePartsArray.length; i++) {
+  //                   titlesArray.push(titlesArray[i-1] + titlePartsArray[i])
+  //                 }
+  //               }
+  //               let type
+  //               let lastNote = note
+  //               switch (this.getNoteType(note)) {
+  //                 case "归类":
+  //                   let defaultType = this.parseNoteTitle(note).type  // 默认类型
+  //                   MNUtil.undoGrouping(()=>{
+  //                     titlesArray.forEach(title => {
+  //                       // 对每个标题尝试智能识别
+  //                       let intelligentType = this.getTypeFromInputText(title);
+  //                       let finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
+  //                       let newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
+  //                       lastNote = newClassificationNote
+  //                     })
+  //                     if (focusLastNote) {
+  //                       lastNote.focusInMindMap(0.3)
+  //                     }
+  //                     lastClassificationNote = lastNote
+  //                   })
+  //                   break;
+  //                 default:
+  //                   // 智能识别类型
+  //                   let intelligentType = this.getTypeFromInputText(userInputTitle);
+  //                   if (intelligentType) {
+  //                     type = intelligentType;
+  //                     // 直接执行创建逻辑，无需弹窗选择
+  //                     MNUtil.undoGrouping(() => {
+  //                       titlesArray.forEach(title => {
+  //                         let newClassificationNote = this.createClassificationNote(lastNote, title, type);
+  //                         lastNote = newClassificationNote;
+  //                       });
+  //                       if (focusLastNote) {
+  //                         lastNote.focusInMindMap(0.3);
+  //                       }
+  //                       lastClassificationNote = lastNote;
+  //                     });
+  //                   } else {
+  //                     // 原有的弹窗选择逻辑
+  //                     let typeArr = ["定义","命题","例子","反例","思想方法","问题"]
+  //                     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+  //                       "增加归类卡片",
+  //                       "选择类型",
+  //                       0,
+  //                       "取消",
+  //                       typeArr,
+  //                       (alert, buttonIndex) => {
+  //                         if (buttonIndex == 0) { return }
+  //                         type = typeArr[buttonIndex-1]
+  //                         MNUtil.undoGrouping(()=>{
+  //                           titlesArray.forEach(title => {
+  //                           let newClassificationNote = this.createClassificationNote(lastNote, title, type)
+  //                             lastNote = newClassificationNote
+  //                           })
+  //                           if (focusLastNote) {
+  //                             lastNote.focusInMindMap(0.3)
+  //                           }
+  //                           lastClassificationNote = lastNote
+  //                         })
+  //                       })
+  //                   }
+  //                   break;
+  //               }
+  //             } catch (error) {
+  //               MNUtil.showHUD(`连续向下顺序增加模板失败: ${error.message || error}`);
+  //             }
+  //             break;
+  //         }
+  //       }
+  //     )
+
+  //     return lastClassificationNote
+  //   } catch (error) {
+  //     MNUtil.showHUD(error);
+  //   }
+  // }
+
+  static async addTemplate(note, focusLastNote = true) {
+    let type, noteType, intelligentType, titleType, finalType
+    let defaultType = this.parseNoteTitle(note).type  // 默认类型
+    let parentNote, lastNote
+    let templateNoteId
+    let lastClassificationNote, newClassificationNote
     let titleParts = this.parseNoteTitle(note)
+    let typeArr = ["定义", "命题", "例子", "反例", "思想方法", "问题"]
+    let titlesArray = []
+    let contentInTitle
     switch (this.getNoteType(note)) {
       case "归类":
         contentInTitle = titleParts.content
@@ -7563,287 +7985,272 @@ class knowledgeBaseTemplate {
         break;
     }
     MNUtil.copy(contentInTitle)
-    let lastClassificationNote
     try {
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+      let userInputRes = await MNUtil.userInput(
         "增加模板",
-        // "请输入标题并选择类型\n注意向上下层添加模板时\n标题是「增量」输入",
         "请输入标题并选择类型",
-        2,
-        "取消",
-        // ["向下层增加模板", "增加概念衍生层级","增加兄弟层级模板","向上层增加模板", "最顶层（淡绿色）", "专题"],
         [
+          "取消",
           "连续向下「顺序」增加模板",  // 1
           "连续向下「倒序」增加模板",  // 2
           "增加兄弟层级模板",  // 3
           "向上层增加模板",  // 4
         ],
-        (alert, buttonIndex) => {
-          let userInputTitle = alert.textFieldAtIndex(0).text;
-          switch (buttonIndex) {
-            case 4:
-              try {
-                /* 向上增加模板 */
-                
-                // 获取当前卡片类型和父卡片
-                let noteType = this.parseNoteTitle(note).type
-                let parentNote = note.parentNote
-                
-                if (!noteType) {
-                  MNUtil.showHUD("无法识别当前卡片类型");
-                  return;
-                }
-                
-                // 智能识别类型（仅用于标题）
-                let intelligentType = this.getTypeFromInputText(userInputTitle);
-                let titleType = intelligentType || noteType;  // 标题中显示的类型
-                let templateNoteId = this.types["归类"].templateNoteId;  // 始终使用归类模板
-                
-                MNUtil.undoGrouping(() => {
-                  // 1. 创建新的归类卡片
-                  let newClassificationNote = MNNote.clone(templateNoteId);
-                  newClassificationNote.note.noteTitle = `“${userInputTitle}”相关${titleType}`;
-                  
-                  // 3. 建立层级关系：新卡片作为父卡片的子卡片
-                  parentNote.addChild(newClassificationNote.note);
-                  
-                  // 4. 移动选中卡片：从原位置移动到新卡片下
-                  newClassificationNote.addChild(note.note);
-                  
-                  // 5. 使用 this API 处理链接关系
-                  this.linkParentNote(newClassificationNote);
-                  this.linkParentNote(note);
-                  
-                  // 6. 聚焦到新创建的卡片
-                  if (focusLastNote) {
-                    newClassificationNote.focusInMindMap(0.5);
-                  }
+      )
+      let userInputTitle = userInputRes.input
+      // 分割输入，支持通过//创建多个兄弟卡片链
+      let titlePartsArray = userInputTitle.split("//")
+      let previousTitle = titlePartsArray[0]  // 记录上一个标题
+      let changedTitlePart = titlePartsArray[titlePartsArray.length-1]
+      switch (userInputRes.button) {
+        case 0:
+          MNUtil.showHUD("取消增加模板")
+          break;
+        case 4:
+          try {
+            /* 向上增加模板 */
+            
+            // 获取当前卡片类型和父卡片
+            noteType = this.parseNoteTitle(note).type
+            parentNote = note.parentNote
+            
+            if (!noteType) {
+              MNUtil.showHUD("无法识别当前卡片类型");
+              return;
+            }
+            
+            // 智能识别类型（仅用于标题）
+            intelligentType = this.getTypeFromInputText(userInputTitle);
+            titleType = intelligentType || noteType;  // 标题中显示的类型
+            templateNoteId = this.types["归类"].templateNoteId;  // 始终使用归类模板
+            
+            // 1. 创建新的归类卡片
+            newClassificationNote = MNNote.clone(templateNoteId);
+            newClassificationNote.note.noteTitle = `“${userInputTitle}”相关${titleType}`;
+            
+            // 3. 建立层级关系：新卡片作为父卡片的子卡片
+            parentNote.addChild(newClassificationNote.note);
+            
+            // 4. 移动选中卡片：从原位置移动到新卡片下
+            newClassificationNote.addChild(note.note);
+            
+            // 5. 使用 this API 处理链接关系
+            this.linkParentNote(newClassificationNote);
+            this.linkParentNote(note);
+            
+            // 6. 聚焦到新创建的卡片
+            if (focusLastNote) {
+              newClassificationNote.focusInMindMap(0.5);
+            }
 
-                  lastClassificationNote = newClassificationNote;
-                });
-                
-              } catch (error) {
-                MNUtil.showHUD(`向上增加模板失败: ${error.message || error}`);
+            lastClassificationNote = newClassificationNote;
+            
+          } catch (error) {
+            MNUtil.showHUD(`向上增加模板失败: ${error.message || error}`);
+          }
+          break;
+        case 3:
+          // 增加兄弟层级模板
+          type = this.parseNoteTitle(note).type
+          if (type) {
+            // 智能识别类型（仅用于标题）
+            intelligentType = this.getTypeFromInputText(userInputTitle);
+            titleType = intelligentType || type;  // 标题中显示的类型
+
+            MNUtil.undoGrouping(()=>{
+              let lastNote = null
+              
+              // 创建第一个兄弟卡片（始终使用归类模板）
+              let firstNote = MNNote.clone(this.types["归类"].templateNoteId)
+              firstNote.noteTitle = "“" + titlePartsArray[0] + "”相关" + titleType
+              note.parentNote.addChild(firstNote.note)
+              this.linkParentNote(firstNote)
+              lastNote = firstNote
+              
+              // 如果有更多部分，创建子卡片链
+              for (let i = 1; i < titlePartsArray.length; i++) {
+                let childNote = MNNote.clone(this.types["归类"].templateNoteId)
+                // 累积标题：上一个标题 + 当前部分
+                let accumulatedTitle = previousTitle + titlePartsArray[i]
+                childNote.noteTitle = "“" + accumulatedTitle + "”相关" + titleType
+                lastNote.addChild(childNote.note)
+                this.linkParentNote(childNote)
+                lastNote = childNote
+                previousTitle = accumulatedTitle  // 更新上一个标题
               }
-              break;
-            case 3:
-              // 增加兄弟层级模板
-              type = this.parseNoteTitle(note).type
-              if (type) {
-                // 智能识别类型（仅用于标题）
-                let intelligentType = this.getTypeFromInputText(userInputTitle);
-                let titleType = intelligentType || type;  // 标题中显示的类型
-                
-                // 分割输入，支持通过//创建多个兄弟卡片链
-                let titlePartsArray = userInputTitle.split("//")
-                
+              
+              // 聚焦最后创建的卡片
+              if (focusLastNote && lastNote) {
+                lastNote.focusInMindMap(0.5)
+              }
+              lastClassificationNote = lastNote
+            })
+          }
+          break
+        case 2: // 连续向下「倒序」增加模板
+          /**
+           * 通过//来分割标题，增加一连串的归类卡片
+           * 比如：赋范空间上的//有界//线性//算子
+           * 依次增加：赋范空间上的算子、赋范空间上的线性算子、赋范空间上的有界线性算子
+           */
+          try {
+            if (titlePartsArray.length > 1) {
+              // 生成倒序组合
+              // 把 item1+itemn, item1+itemn-1+itemn, item1+itemn-2+itemn-1+itemn, ... , item1+item2+item3+...+itemn 依次加入数组
+              // 比如 "赋范空间上的//有界//线性//算子" 得到的 titlePartsArray 是
+              // ["赋范空间上的", "有界", "线性", "算子"]
+              // 则 titleArray = ["赋范空间上的算子", "赋范空间上的线性算子", "赋范空间上的有界线性算子"]
+              
+              for (let i = titlePartsArray.length-1 ; i >= 1 ; i--) {
+                if  (i < titlePartsArray.length-1) {
+                  changedTitlePart = titlePartsArray[i] + changedTitlePart
+                }
+                titlesArray.push(previousTitle + changedTitlePart)
+              }
+            }
+            lastNote = note
+            switch (this.getNoteType(note)) {
+              case "归类":
                 MNUtil.undoGrouping(()=>{
-                  let lastNote = null
-                  
-                  // 创建第一个兄弟卡片（始终使用归类模板）
-                  let firstNote = MNNote.clone(this.types["归类"].templateNoteId)
-                  firstNote.noteTitle = "“" + titlePartsArray[0] + "”相关" + titleType
-                  note.parentNote.addChild(firstNote.note)
-                  this.linkParentNote(firstNote)
-                  lastNote = firstNote
-                  
-                  // 如果有更多部分，创建子卡片链
-                  let previousTitle = titlePartsArray[0]  // 记录上一个标题
-                  for (let i = 1; i < titlePartsArray.length; i++) {
-                    let childNote = MNNote.clone(this.types["归类"].templateNoteId)
-                    // 累积标题：上一个标题 + 当前部分
-                    let accumulatedTitle = previousTitle + titlePartsArray[i]
-                    childNote.noteTitle = "“" + accumulatedTitle + "”相关" + titleType
-                    lastNote.addChild(childNote.note)
-                    this.linkParentNote(childNote)
-                    lastNote = childNote
-                    previousTitle = accumulatedTitle  // 更新上一个标题
+                  titlesArray.forEach(title => {
+                    // 对每个标题尝试智能识别
+                    intelligentType = this.getTypeFromInputText(title);
+                    finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
+                    newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
+                    lastNote = newClassificationNote
+                  })
+                  if (focusLastNote) {
+                    lastNote.focusInMindMap(0.3)
                   }
-                  
-                  // 聚焦最后创建的卡片
-                  if (focusLastNote && lastNote) {
-                    lastNote.focusInMindMap(0.5)
+                  lastClassificationNote =  lastNote
+                })
+                break;
+              default:
+                // 智能识别类型
+                intelligentType = this.getTypeFromInputText(userInputTitle);
+                if (intelligentType) {
+                  type = intelligentType;
+                  // 直接执行创建逻辑，无需弹窗选择
+                  MNUtil.undoGrouping(() => {
+                    titlesArray.forEach(title => {
+                      newClassificationNote = this.createClassificationNote(lastNote, title, type);
+                      lastNote = newClassificationNote;
+                    });
+                    if (focusLastNote) {
+                      lastNote.focusInMindMap(0.3);
+                    }
+                    lastClassificationNote = lastNote;
+                  });
+                } else {
+                  userInputRes = await MNUtil.userSelect(
+                    "增加归类卡片",
+                    "选择类型",
+                    typeArr
+                  )
+                  if (userInputRes === 0) { return; }
+                  type = typeArr[userInputRes - 1]
+                  titlesArray.forEach(title => {
+                    newClassificationNote = this.createClassificationNote(lastNote, title, type)
+                    lastNote = newClassificationNote
+                  })
+                  if (focusLastNote) {
+                    lastNote.focusInMindMap(0.3)
                   }
                   lastClassificationNote = lastNote
-                })
-              }
-              break
-            case 2: // 连续向下「倒序」增加模板
-              /**
-               * 通过//来分割标题，增加一连串的归类卡片
-               * 比如：赋范空间上的//有界//线性//算子
-               * 依次增加：赋范空间上的算子、赋范空间上的线性算子、赋范空间上的有界线性算子
-               */
-              try {
-                let titlePartsArray = userInputTitle.split("//")
-                let titlesArray = []
-                if (titlePartsArray.length > 1) {
-                  // 生成倒序组合
-                  // 把 item1+itemn, item1+itemn-1+itemn, item1+itemn-2+itemn-1+itemn, ... , item1+item2+item3+...+itemn 依次加入数组
-                  // 比如 "赋范空间上的//有界//线性//算子" 得到的 titlePartsArray 是
-                  // ["赋范空间上的", "有界", "线性", "算子"]
-                  // 则 titleArray = ["赋范空间上的算子", "赋范空间上的线性算子", "赋范空间上的有界线性算子"]
-                  const prefix = titlePartsArray[0];
-                  let changedTitlePart = titlePartsArray[titlePartsArray.length-1]
-                  for (let i = titlePartsArray.length-1 ; i >= 1 ; i--) {
-                    if  (i < titlePartsArray.length-1) {
-                      changedTitlePart = titlePartsArray[i] + changedTitlePart
-                    }
-                    titlesArray.push(prefix + changedTitlePart)
-                  }
                 }
-                let type
-                let lastNote = note
-                switch (this.getNoteType(note)) {
-                  case "归类":
-                    let defaultType = this.parseNoteTitle(note).type  // 默认类型
-                    MNUtil.undoGrouping(()=>{
-                      titlesArray.forEach(title => {
-                        // 对每个标题尝试智能识别
-                        let intelligentType = this.getTypeFromInputText(title);
-                        let finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
-                        let newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
-                        lastNote = newClassificationNote
-                      })
-                      if (focusLastNote) {
-                        lastNote.focusInMindMap(0.3)
-                      }
-                      lastClassificationNote =  lastNote
-                    })
-                    break;
-                  default:
-                    // 智能识别类型
-                    let intelligentType = this.getTypeFromInputText(userInputTitle);
-                    if (intelligentType) {
-                      type = intelligentType;
-                      // 直接执行创建逻辑，无需弹窗选择
-                      MNUtil.undoGrouping(() => {
-                        titlesArray.forEach(title => {
-                          let newClassificationNote = this.createClassificationNote(lastNote, title, type);
-                          lastNote = newClassificationNote;
-                        });
-                        if (focusLastNote) {
-                          lastNote.focusInMindMap(0.3);
-                        }
-                        lastClassificationNote = lastNote;
-                      });
-                    } else {
-                      // 原有的弹窗选择逻辑
-                      let typeArr = ["定义","命题","例子","反例","思想方法","问题"]
-                      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-                        "增加归类卡片",
-                        "选择类型",
-                        0,
-                        "取消",
-                        typeArr,
-                        (alert, buttonIndex) => {
-                          if (buttonIndex == 0) { return }
-                          type = typeArr[buttonIndex-1]
-                          MNUtil.undoGrouping(()=>{
-                            titlesArray.forEach(title => {
-                            let newClassificationNote = this.createClassificationNote(lastNote, title, type)
-                              lastNote = newClassificationNote
-                            })
-                            if (focusLastNote) {
-                              lastNote.focusInMindMap(0.3)
-                            }
-                            lastClassificationNote = lastNote
-                          })
-                        })
-                    }
-                    break;
-                }
-              } catch (error) {
-                MNUtil.showHUD(`连续向下倒序增加模板失败: ${error.message || error}`);
-              }
-              break;
-            case 1: // 连续向下「顺序」增加模板
-              /**
-               * 通过//来分割标题，增加一连串的归类卡片（顺序，与case2倒序不同）
-               * 比如：赋范空间上的有界线性算子//的判定//：充分条件
-               * -> 赋范空间上的有界线性算子、赋范空间上的有界线性算子的判定、赋范空间上的有界线性算子的判定：充分条件
-               */
-              try {
-                let titlePartsArray = userInputTitle.split("//")
-                let titlesArray = []
-                titlesArray.push(titlePartsArray[0]) // 添加第一个部分
-                if (titlePartsArray.length > 1) {
-                  // 生成顺序组合
-                  for (let i = 1; i < titlePartsArray.length; i++) {
-                    titlesArray.push(titlesArray[i-1] + titlePartsArray[i])
-                  }
-                }
-                let type
-                let lastNote = note
-                switch (this.getNoteType(note)) {
-                  case "归类":
-                    let defaultType = this.parseNoteTitle(note).type  // 默认类型
-                    MNUtil.undoGrouping(()=>{
-                      titlesArray.forEach(title => {
-                        // 对每个标题尝试智能识别
-                        let intelligentType = this.getTypeFromInputText(title);
-                        let finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
-                        let newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
-                        lastNote = newClassificationNote
-                      })
-                      if (focusLastNote) {
-                        lastNote.focusInMindMap(0.3)
-                      }
-                      lastClassificationNote = lastNote
-                    })
-                    break;
-                  default:
-                    // 智能识别类型
-                    let intelligentType = this.getTypeFromInputText(userInputTitle);
-                    if (intelligentType) {
-                      type = intelligentType;
-                      // 直接执行创建逻辑，无需弹窗选择
-                      MNUtil.undoGrouping(() => {
-                        titlesArray.forEach(title => {
-                          let newClassificationNote = this.createClassificationNote(lastNote, title, type);
-                          lastNote = newClassificationNote;
-                        });
-                        if (focusLastNote) {
-                          lastNote.focusInMindMap(0.3);
-                        }
-                        lastClassificationNote = lastNote;
-                      });
-                    } else {
-                      // 原有的弹窗选择逻辑
-                      let typeArr = ["定义","命题","例子","反例","思想方法","问题"]
-                      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-                        "增加归类卡片",
-                        "选择类型",
-                        0,
-                        "取消",
-                        typeArr,
-                        (alert, buttonIndex) => {
-                          if (buttonIndex == 0) { return }
-                          type = typeArr[buttonIndex-1]
-                          MNUtil.undoGrouping(()=>{
-                            titlesArray.forEach(title => {
-                            let newClassificationNote = this.createClassificationNote(lastNote, title, type)
-                              lastNote = newClassificationNote
-                            })
-                            if (focusLastNote) {
-                              lastNote.focusInMindMap(0.3)
-                            }
-                            lastClassificationNote = lastNote
-                          })
-                        })
-                    }
-                    break;
-                }
-              } catch (error) {
-                MNUtil.showHUD(`连续向下顺序增加模板失败: ${error.message || error}`);
-              }
-              break;
+                break;
+            }
+          } catch (error) {
+            MNUtil.showHUD(`连续向下倒序增加模板失败: ${error.message || error}`);
           }
-        }
-      )
+          break;
+        case 1: // 连续向下「顺序」增加模板
+          /**
+           * 通过//来分割标题，增加一连串的归类卡片（顺序，与case2倒序不同）
+           * 比如：赋范空间上的有界线性算子//的判定//：充分条件
+           * -> 赋范空间上的有界线性算子、赋范空间上的有界线性算子的判定、赋范空间上的有界线性算子的判定：充分条件
+           */
+          try {
+            titlesArray.push(titlePartsArray[0]) // 添加第一个部分
+            if (titlePartsArray.length > 1) {
+              // 生成顺序组合
+              for (let i = 1; i < titlePartsArray.length; i++) {
+                titlesArray.push(titlesArray[i-1] + titlePartsArray[i])
+              }
+            }
+            lastNote = note
+            switch (this.getNoteType(note)) {
+              case "归类":
+                titlesArray.forEach(title => {
+                  // 对每个标题尝试智能识别
+                  intelligentType = this.getTypeFromInputText(title);
+                  finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
+                  newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
+                  lastNote = newClassificationNote
+                })
+                if (focusLastNote) {
+                  lastNote.focusInMindMap(0.3)
+                }
+                lastClassificationNote = lastNote
+                break;
+              default:
+                // 智能识别类型
+                intelligentType = this.getTypeFromInputText(userInputTitle);
+                if (intelligentType) {
+                  type = intelligentType;
+                  titlesArray.forEach(title => {
+                    newClassificationNote = this.createClassificationNote(lastNote, title, type);
+                    lastNote = newClassificationNote;
+                  });
+                  if (focusLastNote) {
+                    lastNote.focusInMindMap(0.3);
+                  }
+                  lastClassificationNote = lastNote;
+                } else {
+                  // 原有的弹窗选择逻辑
+                  userInputRes = await MNUtil.userSelect(
+                    "增加归类卡片",
+                    "选择类型",
+                    typeArr
+                  )
+                  // KnowledgeBaseUtils.log(typeArr, "addTemplate:typeArr")
+                  // KnowledgeBaseUtils.log(userInputRes, "addTemplate:button")
+                  if (userInputRes === 0) { return; }
+                  type = typeArr[userInputRes - 1]
+                  // KnowledgeBaseUtils.log(type, "addTemplate:type")
+                  titlesArray.forEach(title => {
+                    newClassificationNote = this.createClassificationNote(lastNote, title, type)
+                    lastNote = newClassificationNote
+                  })
+                  if (focusLastNote) {
+                    lastNote.focusInMindMap(0.3)
+                  }
+                  lastClassificationNote = lastNote
+                }
+                break;
+            }
+          } catch (error) {
+            MNUtil.showHUD(`连续向下顺序增加模板失败: ${error.message || error}`);
+          }
+          break;
+      }
 
-      return lastClassificationNote
+
+      // 在 undoGrouping 完成后将 lastClassificationNote 返回给调用者
+      MNUtil.undoGrouping(() => {
+        try {
+          KnowledgeBaseUtils.log(
+            "lastClassificationNote:" + (lastClassificationNote ? lastClassificationNote.title : ""),
+            "addTemplate:lastClassificationNote",
+          );
+        } catch (e) {
+          KnowledgeBaseUtils.log(e, "addTemplate:logError");
+        }
+      });
+      // 明确返回创建的分类卡片（如果有），以便外部 await 可以接收到
+      return lastClassificationNote;
     } catch (error) {
+      KnowledgeBaseUtils.log(error, "addTemplate")
       MNUtil.showHUD(error);
     }
   }
@@ -7874,8 +8281,9 @@ class knowledgeBaseTemplate {
    */
   static loadLinkPhrasesConfig() {
     try {
-      const configKey = "knowledgeBaseTemplate_LinkPhrases";
+      const configKey = "KnowledgeBaseTemplate_LinkPhrases";
       const defaultPhrases = [
+        "因此",
         "作为特例"
       ];
       
@@ -7899,7 +8307,7 @@ class knowledgeBaseTemplate {
       return defaultPhrases;
     } catch (error) {
       MNUtil.log("Error loading link phrases config: " + error.toString());
-      return ["作为特例", "因此", "参见", "根据"];
+      return ["作为特例", "因此"];
     }
   }
 
@@ -7910,7 +8318,7 @@ class knowledgeBaseTemplate {
    */
   static saveLinkPhrasesConfig(phrases) {
     try {
-      const configKey = "knowledgeBaseTemplate_LinkPhrases";
+      const configKey = "KnowledgeBaseTemplate_LinkPhrases";
       // 过滤空字符串并去重
       const cleanPhrases = [...new Set(phrases.filter(p => p && p.trim()))];
       NSUserDefaults.standardUserDefaults().setObjectForKey(
@@ -9655,14 +10063,14 @@ class knowledgeBaseTemplate {
   static loadSearchConfig() {
     try {
       // 先尝试从本地加载
-      const localConfig = NSUserDefaults.standardUserDefaults().objectForKey("knowledgeBaseTemplate_SearchConfig");
+      const localConfig = NSUserDefaults.standardUserDefaults().objectForKey("KnowledgeBaseTemplate_SearchConfig");
       let config = localConfig ? JSON.parse(localConfig) : null;
       
       // 如果开启了 iCloud 同步，尝试从 iCloud 加载
       if (typeof toolbarConfig !== 'undefined' && toolbarConfig.iCloudSync) {
         const cloudStore = NSUbiquitousKeyValueStore.defaultStore();
         if (cloudStore) {
-          const cloudConfig = cloudStore.objectForKey("knowledgeBaseTemplate_SearchConfig");
+          const cloudConfig = cloudStore.objectForKey("KnowledgeBaseTemplate_SearchConfig");
           if (cloudConfig) {
             const cloudData = JSON.parse(cloudConfig);
             // 比较时间戳，使用较新的配置
@@ -9691,8 +10099,6 @@ class knowledgeBaseTemplate {
           onlyClassification: false,  // 默认不启用只搜索归类卡片
           skipEmptyTitle: false,  // 默认不跳过空白标题卡片
           enableRegexSearch: false,  // 默认不启用正则表达式搜索
-          synonymGroups: [],  // 同义词组
-          exclusionGroups: [],  // 排除词组
           lastModified: Date.now()
         };
       }
@@ -9709,14 +10115,6 @@ class knowledgeBaseTemplate {
       }
       if (config && config.onlyClassification === undefined) {
         config.onlyClassification = false;  // 默认不启用只搜索归类卡片
-      }
-      // 添加同义词组字段
-      if (config && !config.synonymGroups) {
-        config.synonymGroups = [];
-      }
-      // 添加排除词组字段
-      if (config && !config.exclusionGroups) {
-        config.exclusionGroups = [];
       }
       // 添加跳过空白标题字段
       if (config && config.skipEmptyTitle === undefined) {
@@ -9768,8 +10166,6 @@ class knowledgeBaseTemplate {
         onlyClassification: false,  // 默认不启用只搜索归类卡片
         skipEmptyTitle: false,  // 默认不跳过空白标题卡片
         enableRegexSearch: false,  // 默认不启用正则表达式搜索
-        synonymGroups: [],  // 同义词组
-        exclusionGroups: [],  // 排除词组
         lastModified: Date.now()
       };
     }
@@ -9788,13 +10184,13 @@ class knowledgeBaseTemplate {
       const configStr = JSON.stringify(this.searchRootConfigs);
       
       // 保存到本地
-      NSUserDefaults.standardUserDefaults().setObjectForKey(configStr, "knowledgeBaseTemplate_SearchConfig");
+      NSUserDefaults.standardUserDefaults().setObjectForKey(configStr, "KnowledgeBaseTemplate_SearchConfig");
       
       // 如果开启了 iCloud 同步，保存到 iCloud
       if (typeof toolbarConfig !== 'undefined' && toolbarConfig.iCloudSync) {
         const cloudStore = NSUbiquitousKeyValueStore.defaultStore();
         if (cloudStore) {
-          cloudStore.setObjectForKey(configStr, "knowledgeBaseTemplate_SearchConfig");
+          cloudStore.setObjectForKey(configStr, "KnowledgeBaseTemplate_SearchConfig");
           cloudStore.synchronize();
         }
       }
@@ -10091,10 +10487,9 @@ class knowledgeBaseTemplate {
           ignorePrefix: this.searchRootConfigs.ignorePrefix,
           searchInKeywords: this.searchRootConfigs.searchInKeywords,
           skipEmptyTitle: this.searchRootConfigs.skipEmptyTitle
-        },
-        synonymGroups: this.searchRootConfigs.synonymGroups || []
+        }
       };
-      
+
       const jsonStr = JSON.stringify(config, null, 2);
       MNUtil.copy(jsonStr);
       
@@ -10115,7 +10510,7 @@ class knowledgeBaseTemplate {
     return {
       version: "3.0",  // 升级版本号以支持新功能
       exportDate: new Date().toISOString(),
-      exportFrom: "knowledgeBaseTemplate",
+      exportFrom: "KnowledgeBaseTemplate",
       searchConfig: {
         roots: this.searchRootConfigs.roots,
         rootsOrder: this.searchRootConfigs.rootsOrder,
@@ -10131,9 +10526,7 @@ class knowledgeBaseTemplate {
         ignorePrefix: this.searchRootConfigs.ignorePrefix,
         searchInKeywords: this.searchRootConfigs.searchInKeywords,
         skipEmptyTitle: this.searchRootConfigs.skipEmptyTitle
-      },
-      synonymGroups: this.searchRootConfigs.synonymGroups || [],
-      exclusionGroups: this.searchRootConfigs.exclusionGroups || []  // 新增：排除词组配置
+      }
     };
   }
 
@@ -10150,7 +10543,7 @@ class knowledgeBaseTemplate {
       switch (type) {
         case "iCloud":
           // 使用 iCloud 同步
-          const iCloudKey = "knowledgeBaseTemplate_SearchConfig";
+          const iCloudKey = "KnowledgeBaseTemplate_SearchConfig";
           // MNUtil.setByiCloud(iCloudKey, jsonStr);
           MNUtil.showHUD("✅ 已导出到 iCloud");
           return true;
@@ -10168,7 +10561,7 @@ class knowledgeBaseTemplate {
           }
           
           MNUtil.undoGrouping(() => {
-            focusNote.noteTitle = "knowledgeBaseTemplate_搜索配置";
+            focusNote.noteTitle = "KnowledgeBaseTemplate_搜索配置";
             focusNote.excerptText = "```json\n" + jsonStr + "\n```";
             focusNote.excerptTextMarkdown = true;
           });
@@ -10178,7 +10571,7 @@ class knowledgeBaseTemplate {
         case "file":
           // 导出到文件
           const dateStr = new Date().toISOString().replace(/:/g, '-').split('.')[0];
-          const fileName = `knowledgeBaseTemplate_SearchConfig_${dateStr}.json`;
+          const fileName = `KnowledgeBaseTemplate_SearchConfig_${dateStr}.json`;
           const documentsPath = NSSearchPathForDirectoriesInDomains(9, 1, true).firstObject; // NSDocumentDirectory
           
           if (documentsPath) {
@@ -10226,7 +10619,7 @@ class knowledgeBaseTemplate {
       switch (type) {
         case "iCloud":
           // 从 iCloud 导入
-          const iCloudKey = "knowledgeBaseTemplate_SearchConfig";
+          const iCloudKey = "KnowledgeBaseTemplate_SearchConfig";
           jsonStr = MNUtil.getByiCloud(iCloudKey);
           if (!jsonStr) {
             MNUtil.showHUD("❌ iCloud 中没有配置");
@@ -10290,12 +10683,11 @@ class knowledgeBaseTemplate {
         return false;
       }
       
-      // 处理新版本格式（包含 searchConfig 和 synonymGroups）
-      let searchConfig, synonymGroups;
+      // 处理新版本格式（包含 searchConfig）
+      let searchConfig;
       if (config.searchConfig) {
         // 新格式
         searchConfig = config.searchConfig;
-        synonymGroups = config.synonymGroups;
       } else if (config.roots) {
         // 旧格式
         searchConfig = {
@@ -10304,7 +10696,6 @@ class knowledgeBaseTemplate {
           lastUsedRoot: config.lastUsedRoot,
           ...config.settings
         };
-        synonymGroups = config.synonymGroups;
       } else {
         MNUtil.showHUD("❌ 配置格式无效");
         return false;
@@ -10354,16 +10745,6 @@ class knowledgeBaseTemplate {
               if (searchConfig.skipEmptyTitle !== undefined) {
                 this.searchRootConfigs.skipEmptyTitle = searchConfig.skipEmptyTitle;
               }
-              
-              // 替换同义词组
-              if (synonymGroups) {
-                this.searchRootConfigs.synonymGroups = synonymGroups;
-              }
-              
-              // 新增：替换排除词组
-              if (config.exclusionGroups) {
-                this.searchRootConfigs.exclusionGroups = config.exclusionGroups;
-              }
             } else if (buttonIndex === 2) {
               // 合并模式
               // 合并根目录
@@ -10398,34 +10779,6 @@ class knowledgeBaseTemplate {
                     if (!this.searchRootConfigs.rootGroups[groupName]) {
                       this.searchRootConfigs.rootGroups[groupName] = searchConfig.rootGroups[groupName];
                     }
-                  }
-                }
-              }
-              
-              // 合并同义词组
-              if (synonymGroups && synonymGroups.length > 0) {
-                if (!this.searchRootConfigs.synonymGroups) {
-                  this.searchRootConfigs.synonymGroups = [];
-                }
-                // 避免重复
-                const existingIds = new Set(this.searchRootConfigs.synonymGroups.map(g => g.id));
-                for (const group of synonymGroups) {
-                  if (!existingIds.has(group.id)) {
-                    this.searchRootConfigs.synonymGroups.push(group);
-                  }
-                }
-              }
-              
-              // 新增：合并排除词组
-              if (config.exclusionGroups && config.exclusionGroups.length > 0) {
-                if (!this.searchRootConfigs.exclusionGroups) {
-                  this.searchRootConfigs.exclusionGroups = [];
-                }
-                // 避免重复
-                const existingIds = new Set(this.searchRootConfigs.exclusionGroups.map(g => g.id));
-                for (const group of config.exclusionGroups) {
-                  if (!existingIds.has(group.id)) {
-                    this.searchRootConfigs.exclusionGroups.push(group);
                   }
                 }
               }
@@ -10558,17 +10911,9 @@ class knowledgeBaseTemplate {
   }
 
   /**
-   * 管理同义词组界面
-   * 提供同义词组的管理功能（保留原方法名兼容）
-   */
-  static async manageSynonymGroupsUI() {
-    return this.manageSynonymGroups();
-  }
-
-  /**
    * 综合搜索配置管理界面（已废弃）
    * 此方法已被拆分为独立的配置功能，不再使用
-   * @deprecated 使用 showSearchSettingsDialog、manageSearchRootsUI、manageSynonymGroups 等独立方法
+   * @deprecated 使用 showSearchSettingsDialog、manageSearchRootsUI 等独立方法
    */
   /*
   static async manageSearchConfig() {
@@ -10960,57 +11305,6 @@ class knowledgeBaseTemplate {
     
     // 优先级4：单空格分割
     return input.split(/\s+/).map(w => w.trim()).filter(w => w);
-  }
-
-  /**
-   * 添加同义词组（精简结构）
-   * @param {Array<string>} words - 词汇数组
-   * @param {Object} options - 可选配置
-   * @param {boolean} options.partialReplacement - 是否启用局部替换
-   * @param {Array<string>} options.contextTriggers - 上下文触发词数组
-   * @param {string} options.contextMode - 上下文匹配模式："any"或"all"
-   * @param {boolean} options.caseSensitive - 是否大小写敏感
-   * @param {boolean} options.patternMode - 是否启用模式匹配
-   */
-  static addSynonymGroup(words, options = {}) {
-    // 调用SynonymManager的精简方法
-    return SynonymManager.addSynonymGroup(words, options);
-  }
-
-  /**
-   * 更新同义词组
-   * @param {string} id - 组ID
-   * @param {Object} updates - 更新内容
-   */
-  static updateSynonymGroup(id, updates) {
-    this.initSearchConfig();
-    const groups = this.searchRootConfigs.synonymGroups || [];
-    const group = groups.find(g => g.id === id);
-    
-    if (group) {
-      Object.assign(group, updates);
-      group.updatedAt = Date.now();
-      this.saveSearchConfig();
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * 删除同义词组
-   * @param {string} id - 组ID
-   */
-  static deleteSynonymGroup(id) {
-    this.initSearchConfig();
-    const groups = this.searchRootConfigs.synonymGroups || [];
-    const index = groups.findIndex(g => g.id === id);
-    
-    if (index !== -1) {
-      groups.splice(index, 1);
-      this.saveSearchConfig();
-      return true;
-    }
-    return false;
   }
 
   /**
@@ -11413,52 +11707,6 @@ class knowledgeBaseTemplate {
   }
 
   /**
-   * 添加排除词组（精简结构）
-   * @param {Array<string>} triggerWords - 触发词数组
-   * @param {Array<string>} excludeWords - 排除词数组
-   */
-  static addExclusionGroup(triggerWords, excludeWords) {
-    // 使用ExclusionManager的精简方法
-    return ExclusionManager.addExclusionGroup(triggerWords, excludeWords);
-  }
-
-  /**
-   * 更新排除词组
-   * @param {string} id - 组ID
-   * @param {Object} updates - 更新内容
-   */
-  static updateExclusionGroup(id, updates) {
-    this.initSearchConfig();
-    const groups = this.searchRootConfigs.exclusionGroups || [];
-    const group = groups.find(g => g.id === id);
-    
-    if (group) {
-      Object.assign(group, updates);
-      group.updatedAt = Date.now();
-      this.saveSearchConfig();
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * 删除排除词组
-   * @param {string} id - 组ID
-   */
-  static deleteExclusionGroup(id) {
-    this.initSearchConfig();
-    const groups = this.searchRootConfigs.exclusionGroups || [];
-    const index = groups.findIndex(g => g.id === id);
-    
-    if (index !== -1) {
-      groups.splice(index, 1);
-      this.saveSearchConfig();
-      return true;
-    }
-    return false;
-  }
-
-  /**
    * 根据关键词获取激活的排除词列表和详细信息
    * @param {Array<string>} keywords - 关键词数组
    * @returns {Object} 包含排除词列表和详细信息的对象
@@ -11468,38 +11716,35 @@ class knowledgeBaseTemplate {
     const activeTriggers = new Set();
     const activeGroups = [];
     const groups = this.getExclusionGroups();
-    
+
     for (const keyword of keywords) {
       for (const group of groups) {
-        if (!group.enabled) continue;
-        
         // 检查是否匹配触发词（不区分大小写）
-        const matchedTrigger = group.triggerWords.find(trigger => 
+        const matchedTrigger = group.triggerWords.find(trigger =>
           trigger.toLowerCase() === keyword.toLowerCase()
         );
-        
+
         if (matchedTrigger) {
           // 记录激活的触发词
           activeTriggers.add(matchedTrigger);
-          
+
           // 添加所有排除词
           group.excludeWords.forEach(word => exclusions.add(word));
-          
-          // 记录激活的组（避免重复）
-          if (!activeGroups.find(g => g.id === group.id)) {
+
+          // 使用触发词第一个作为标识，避免重复
+          const groupKey = group.triggerWords[0];
+          if (!activeGroups.find(g => g.triggerWords[0] === groupKey)) {
             activeGroups.push({
-              id: group.id,
-              name: group.name,
               triggerWords: group.triggerWords,
               excludeWords: group.excludeWords
             });
           }
-          
-          MNUtil.log(`触发排除词组 "${group.name}": ${keyword} → 排除 [${group.excludeWords.join(", ")}]`);
+
+          MNUtil.log(`触发排除词组 [${group.triggerWords.join(", ")}]: ${keyword} → 排除 [${group.excludeWords.join(", ")}]`);
         }
       }
     }
-    
+
     return {
       excludeWords: Array.from(exclusions),
       triggerWords: Array.from(activeTriggers),
@@ -11602,320 +11847,6 @@ class knowledgeBaseTemplate {
     return null;
   }
 
-  /**
-   * 同义词配置导出到指定目标
-   * @param {string} target - 导出目标: 'icloud', 'clipboard', 'note', 'file'
-   * @returns {Promise<boolean>} 导出是否成功
-   */
-  static async exportSynonymConfigTo(target) {
-    try {
-      this.initSearchConfig();
-      const config = {
-        version: "1.0",
-        type: "synonymGroups",
-        exportDate: new Date().toISOString(),
-        synonymGroups: this.getSynonymGroups()
-      };
-      
-      const jsonStr = JSON.stringify(config, null, 2);
-      
-      switch (target) {
-        case 'icloud':
-          // MNUtil.setByiCloud("knowledgeBaseTemplate_SynonymGroups_Config", jsonStr);
-          MNUtil.showHUD("✅ 已同步到 iCloud");
-          return true;
-          
-        case 'clipboard':
-          MNUtil.copy(jsonStr);
-          MNUtil.showHUD("✅ 已复制到剪贴板");
-          return true;
-          
-        case 'note':
-          const focusNote = MNNote.getFocusNote();
-          if (!focusNote) {
-            MNUtil.showHUD("❌ 请先选中一个笔记");
-            return false;
-          }
-          
-          // 格式化为 Markdown 代码块
-          const formattedJson = this.formatJsonAsCodeBlock(jsonStr);
-          
-          // 查找已有的同义词配置评论
-          const existingConfig = this.findSynonymConfigComment(focusNote);
-          
-          if (existingConfig) {
-            // 替换已有配置
-            focusNote.MNComments[existingConfig.index].text = formattedJson;
-            MNUtil.showHUD("✅ 已更新当前笔记中的配置");
-          } else {
-            // 添加新配置
-            focusNote.appendTextComment(formattedJson);
-            MNUtil.showHUD("✅ 已保存到当前笔记");
-          }
-          return true;
-          
-        case 'file':
-          const fileName = `synonym_groups_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
-          const documentsPath = NSFileManager.defaultManager().documentsPath;
-          if (documentsPath) {
-            const filePath = documentsPath + "/" + fileName;
-            NSString.stringWithString(jsonStr).writeToFileAtomicallyEncodingError(
-              filePath, true, 4, null // NSUTF8StringEncoding = 4
-            );
-            MNUtil.showHUD(`✅ 已导出到文件\n📁 ${fileName}`);
-            return true;
-          } else {
-            throw new Error("无法访问文档目录");
-          }
-          
-        default:
-          throw new Error("未知的导出目标");
-      }
-    } catch (error) {
-      MNUtil.showHUD(`❌ 导出到 ${target} 失败：${error.message}`);
-      MNUtil.log(`导出同义词配置到 ${target} 失败: ${error.toString()}`);
-      return false;
-    }
-  }
-
-  /**
-   * 从指定来源导入同义词配置
-   * @param {string} source - 导入来源: 'icloud', 'clipboard', 'note', 'file'
-   * @returns {Promise<boolean>} 导入是否成功
-   */
-  static async importSynonymConfigFrom(source) {
-    try {
-      let jsonStr = null;
-      
-      switch (source) {
-        case 'icloud':
-          jsonStr = MNUtil.getByiCloud("knowledgeBaseTemplate_SynonymGroups_Config", null);
-          if (!jsonStr) {
-            MNUtil.showHUD("❌ iCloud 中未找到同义词配置");
-            return false;
-          }
-          break;
-          
-        case 'clipboard':
-          jsonStr = MNUtil.clipboardText;
-          if (!jsonStr) {
-            MNUtil.showHUD("❌ 剪贴板为空");
-            return false;
-          }
-          break;
-          
-        case 'note':
-          const focusNote = MNNote.getFocusNote();
-          if (!focusNote) {
-            MNUtil.showHUD("❌ 请先选中包含配置的笔记");
-            return false;
-          }
-          
-          // 使用辅助方法查找同义词配置评论
-          const configComment = this.findSynonymConfigComment(focusNote);
-          if (!configComment) {
-            MNUtil.showHUD("❌ 当前笔记中未找到同义词配置");
-            return false;
-          }
-          
-          // 从评论中提取 JSON（支持代码块格式和纯文本格式）
-          jsonStr = this.extractJsonFromCodeBlock(configComment.comment.text);
-          if (!jsonStr) {
-            MNUtil.showHUD("❌ 无法解析笔记中的配置格式");
-            return false;
-          }
-          break;
-          
-        case 'file':
-          // 文件导入需要用户选择文件，这里先提示
-          MNUtil.showHUD("❌ 文件导入功能需要手动实现文件选择");
-          return false;
-          
-        default:
-          throw new Error("未知的导入来源");
-      }
-      
-      return await this.importSynonymGroups(jsonStr);
-    } catch (error) {
-      MNUtil.showHUD(`❌ 从 ${source} 导入失败：${error.message}`);
-      MNUtil.log(`从 ${source} 导入同义词配置失败: ${error.toString()}`);
-      return false;
-    }
-  }
-
-  /**
-   * 显示同义词导出选择对话框
-   */
-  static async showExportSynonymDialog() {
-    const options = [
-      "☁️ 同步到 iCloud",
-      "📋 复制到剪贴板", 
-      "📝 保存到当前笔记",
-      "📁 导出到文件"
-    ];
-    
-    const result = await MNUtil.userSelect(
-      "导出同义词配置",
-      "选择导出方式：",
-      options
-    );
-    
-    if (result === null || result === 0) return;
-    
-    const targets = ['icloud', 'clipboard', 'note', 'file'];
-    await this.exportSynonymConfigTo(targets[result - 1]);
-  }
-
-  /**
-   * 显示同义词导入选择对话框
-   */
-  static async showImportSynonymDialog() {
-    const options = [
-      "☁️ 从 iCloud 同步",
-      "📋 从剪贴板导入",
-      "📝 从当前笔记导入"
-      // 暂时不包含文件导入
-    ];
-    
-    const result = await MNUtil.userSelect(
-      "导入同义词配置",
-      "选择导入来源：",
-      options
-    );
-    
-    if (result === null || result === 0) return;
-    
-    const sources = ['icloud', 'clipboard', 'note'];
-    await this.importSynonymConfigFrom(sources[result - 1]);
-  }
-
-  /**
-   * 导入同义词组配置
-   * @param {string} jsonStr - JSON 字符串
-   * @returns {Promise<boolean>} 是否成功
-   */
-  static async importSynonymGroups(jsonStr) {
-    try {
-      const config = JSON.parse(jsonStr);
-      
-      // 验证数据格式
-      if (!config.version || !config.synonymGroups) {
-        throw new Error("无效的配置格式");
-      }
-      
-      // 询问导入方式
-      return new Promise((resolve) => {
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "导入配置",
-          `将导入 ${config.synonymGroups.length} 个同义词组\n选择导入方式：`,
-          0,
-          "取消",
-          ["替换现有配置", "合并配置（保留现有）"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(false); // 取消
-              return;
-            }
-            
-            this.initSearchConfig();
-            
-            // 处理兼容性：为导入的同义词组添加新字段的默认值
-            const processedGroups = config.synonymGroups.map(group => {
-              // 确保新字段有正确的默认值
-              const processedGroup = {
-                ...group,
-                // 如果没有 contextTriggers 字段，设为 undefined（全局模式）
-                contextTriggers: group.contextTriggers !== undefined ? group.contextTriggers : undefined,
-                // 如果没有 contextMode 字段，设为默认值 "any"
-                contextMode: group.contextMode || "any",
-                // 如果没有 caseSensitive 字段，设为默认值 false
-                caseSensitive: group.caseSensitive !== undefined ? group.caseSensitive : false,
-                // 如果没有 patternMode 字段，设为默认值 false
-                patternMode: group.patternMode !== undefined ? group.patternMode : false
-              };
-
-              // 验证 contextMode 的有效性
-              if (processedGroup.contextMode && !["any", "all"].includes(processedGroup.contextMode)) {
-                processedGroup.contextMode = "any";
-              }
-
-              // 验证 caseSensitive 的有效性
-              if (typeof processedGroup.caseSensitive !== 'boolean') {
-                processedGroup.caseSensitive = false;
-              }
-
-              // 验证 contextTriggers 的有效性
-              if (processedGroup.contextTriggers && !Array.isArray(processedGroup.contextTriggers)) {
-                processedGroup.contextTriggers = undefined;
-              }
-
-              return processedGroup;
-            });
-
-            if (buttonIndex === 1) {
-              // 替换模式
-              this.searchRootConfigs.synonymGroups = processedGroups;
-              if (config.searchRootConfigs) {
-                Object.assign(this.searchRootConfigs, config.searchRootConfigs);
-              }
-            } else if (buttonIndex === 2) {
-              // 合并模式
-              const existingIds = new Set(this.searchRootConfigs.synonymGroups.map(g => g.id));
-              let addedCount = 0;
-              
-              for (const group of processedGroups) {
-                if (!existingIds.has(group.id)) {
-                  // 生成新ID避免冲突
-                  group.id = "group_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-                  this.searchRootConfigs.synonymGroups.push(group);
-                  addedCount++;
-                }
-              }
-              
-              if (addedCount < processedGroups.length) {
-                MNUtil.showHUD(`✅ 已导入 ${addedCount}/${processedGroups.length} 个同义词组\n${processedGroups.length - addedCount} 个重复组已跳过`);
-              } else {
-                MNUtil.showHUD(`✅ 已导入 ${addedCount} 个同义词组`);
-              }
-              this.saveSearchConfig();
-              resolve(true);
-              return;
-            }
-            
-            this.saveSearchConfig();
-            MNUtil.showHUD(`✅ 已导入 ${config.synonymGroups.length} 个同义词组`);
-            resolve(true);
-          }
-        );
-      });
-    } catch (error) {
-      MNUtil.showHUD("❌ 导入失败：" + error.message);
-      MNUtil.log("导入同义词组失败: " + error.toString());
-      return false;
-    }
-  }
-
-  /**
-   * 从剪贴板导入同义词组配置
-   * @returns {Promise<boolean>} 是否成功
-   */
-  static async importSynonymGroupsFromClipboard() {
-    const clipboardText = MNUtil.clipboardText;
-    if (!clipboardText) {
-      MNUtil.showHUD("❌ 剪贴板为空");
-      return false;
-    }
-    
-    // 检查是否是 JSON 格式
-    try {
-      JSON.parse(clipboardText);
-    } catch (error) {
-      MNUtil.showHUD("❌ 剪贴板内容不是有效的 JSON 格式");
-      return false;
-    }
-    
-    return await this.importSynonymGroups(clipboardText);
-  }
 
   /**
    * 搜索笔记主函数（支持多根目录）
@@ -12573,11 +12504,7 @@ class knowledgeBaseTemplate {
           case "moreFeatures":
             // 显示更多功能菜单
             const moreAction = await this.showMoreFeaturesMenu();
-            if (moreAction === "manageSynonyms") {
-              await this.manageSynonymGroups();
-            } else if (moreAction === "manageExclusions") {
-              await this.manageExclusionGroups();
-            } else if (moreAction === "manageRoots") {
+            if (moreAction === "manageRoots") {
               await this.manageSearchRootsUI();
             } else if (moreAction === "importExport") {
               await this.showImportExportMenu();
@@ -14093,7 +14020,7 @@ class knowledgeBaseTemplate {
    * 获取搜索配置
    */
   static getSearchConfig() {
-    const configKey = "knowledgeBaseTemplate_SearchModeConfig";
+    const configKey = "KnowledgeBaseTemplate_SearchModeConfig";
     const savedConfig = NSUserDefaults.standardUserDefaults().objectForKey(configKey);
     
     if (savedConfig) {
@@ -14117,7 +14044,7 @@ class knowledgeBaseTemplate {
    * 保存搜索配置
    */
   static saveSearchConfig(config) {
-    const configKey = "knowledgeBaseTemplate_SearchModeConfig";
+    const configKey = "KnowledgeBaseTemplate_SearchModeConfig";
     const configToSave = {
       ...config,
       lastUpdated: Date.now()
@@ -14129,1055 +14056,29 @@ class knowledgeBaseTemplate {
     );
   }
 
-  /**
-   * 管理同义词组 - 主界面
-   */
-  static async manageSynonymGroups() {
-    try {
-      while (true) {
-        const groups = this.getSynonymGroups();
-        const options = [];
-        
-        // 将操作按钮移到最前面
-        options.push("➕ 添加新同义词组");
-        options.push("🔍 搜索同义词组");
-        options.push("──────────────");
-        
-        // 显示现有同义词组
-        for (const group of groups) {
-          // 添加数据验证
-          if (!group || !group.words) {
-            MNUtil.log("警告：发现异常同义词组数据，已跳过");
-            continue;
-          }
-          
-          const partialIcon = group.partialReplacement ? "🔄" : "";  // 局部替换标识
-          const patternIcon = group.patternMode ? "🎯" : "";  // 模式匹配标识
-          const caseIcon = group.caseSensitive ? "Aa" : "";  // 大小写敏感标识
-          const contextIcon = group.contextTriggers ? "📍" : "";  // 上下文触发标识
-          
-          // 防御性检查 - 处理 words 可能为空的情况
-          const words = group.words || [];
-          const wordsPreview = words.slice(0, 3).join(", ");
-          const moreText = words.length > 3 ? `... (共${words.length}个)` : "";
-          const icons = [partialIcon, patternIcon, caseIcon, contextIcon].filter(i => i).join("");
-          const iconText = icons ? ` ${icons}` : "";
-          options.push(`${wordsPreview}${moreText}${iconText}`);
-        }
-        
-        // 导入导出选项
-        options.push("──────────────");
-        options.push("📤 导出同义词配置");
-        options.push("📥 导入同义词配置");
-        
-        const result = await MNUtil.userSelect(
-          "同义词管理",
-          `共 ${groups.length} 个同义词组\n\n提示：点击同义词组可编辑`,
-          options
-        );
-        
-        if (result === null || result === 0) {
-          break; // 取消
-        }
-        
-        const selectedIndex = result - 1; // userSelect 返回的索引从1开始
-        
-        if (selectedIndex === 0) {
-          // 添加新组
-          await this.showAddSynonymDialog();
-        } else if (selectedIndex === 1) {
-          // 搜索同义词组
-          await this.searchSynonymGroups();
-        } else if (selectedIndex === 2) {
-          // 第一个分隔线，重新显示菜单
-          continue;
-        } else if (selectedIndex >= 3 && selectedIndex < 3 + groups.length) {
-          // 编辑现有组
-          const groupIndex = selectedIndex - 3;
-          await this.editSynonymGroup(groups[groupIndex]);
-          continue; // 重新显示菜单，避免双弹窗
-        } else if (selectedIndex === 3 + groups.length) {
-          // 第二个分隔线，重新显示菜单
-          continue;
-        } else if (selectedIndex === 3 + groups.length + 1) {
-          // 导出配置
-          await this.showExportSynonymDialog();
-        } else if (selectedIndex === 3 + groups.length + 2) {
-          // 导入配置
-          await this.showImportSynonymDialog();
-        }
-      }
-    } catch (error) {
-      MNUtil.showHUD("管理同义词组失败：" + error.message);
-      MNUtil.log("管理同义词组错误: " + error.toString());
-    }
-  }
 
-  /**
-   * 搜索同义词组 - 支持按名称和词汇内容搜索
-   */
-  static async searchSynonymGroups() {
-    try {
-      const groups = this.getSynonymGroups();
-      if (groups.length === 0) {
-        MNUtil.showHUD("❌ 暂无同义词组");
-        return;
-      }
-
-      // 显示搜索输入框
-      const keyword = await new Promise((resolve) => {
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "搜索同义词组",
-          "请输入搜索关键词（在所有词汇中搜索）：",
-          2, // 输入框样式
-          "取消",
-          ["搜索"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(null);
-              return;
-            }
-            
-            const text = alert.textFieldAtIndex(0).text.trim();
-            if (!text) {
-              MNUtil.showHUD("❌ 请输入搜索关键词");
-              resolve(null);
-              return;
-            }
-            
-            resolve(text);
-          }
-        );
-      });
-
-      if (!keyword) {
-        return; // 用户取消
-      }
-
-      // 执行搜索
-      const matchedGroups = [];
-      const lowerKeyword = keyword.toLowerCase();
-      
-      for (const group of groups) {
-        // 添加数据验证
-        if (!group || !group.words || group.words.length === 0) {
-          MNUtil.log("警告：发现异常同义词组数据，已跳过搜索");
-          continue;
-        }
-
-        // 搜索词汇内容 - 防御性检查
-        const words = group.words || [];
-        let hasMatchingWord = false;
-        for (const word of words) {
-          if (word && word.toLowerCase().includes(lowerKeyword)) {
-            hasMatchingWord = true;
-            break;
-          }
-        }
-        if (hasMatchingWord) {
-          matchedGroups.push(group);
-        }
-      }
-
-      // 显示搜索结果
-      if (matchedGroups.length === 0) {
-        MNUtil.showHUD(`❌ 未找到包含"${keyword}"的同义词组`);
-        return;
-      }
-
-      // 构建搜索结果选项
-      const searchOptions = [];
-      for (const group of matchedGroups) {
-        const partialIcon = group.partialReplacement ? "🔄" : "";
-        const patternIcon = group.patternMode ? "🎯" : "";
-        const caseIcon = group.caseSensitive ? "Aa" : "";
-        const contextIcon = group.contextTriggers ? "📍" : "";
-        // 防御性检查 - 处理 words 可能为空的情况
-        const words = group.words || [];
-        const wordsPreview = words.slice(0, 3).join(", ");
-        const moreText = words.length > 3 ? `... (共${words.length}个)` : "";
-        const icons = [partialIcon, patternIcon, caseIcon, contextIcon].filter(i => i).join("");
-        const iconText = icons ? ` ${icons}` : "";
-        searchOptions.push(`${wordsPreview}${moreText}${iconText}`);
-      }
-
-      // 循环显示搜索结果，支持连续编辑
-      while (true) {
-        const result = await MNUtil.userSelect(
-          `搜索结果 (${matchedGroups.length}个)`,
-          `关键词："${keyword}"\n\n点击同义词组可编辑`,
-          searchOptions
-        );
-
-        if (result === null || result === 0) {
-          break; // 用户取消，返回
-        }
-
-        // 编辑选中的同义词组
-        const selectedGroup = matchedGroups[result - 1];
-        await this.editSynonymGroup(selectedGroup);
-        
-        // 询问是否继续编辑其他搜索结果
-        if (matchedGroups.length > 1) {
-          const continueEdit = await MNUtil.confirm(
-            "继续编辑？",
-            "是否继续编辑其他搜索结果？",
-            ["返回主菜单", "继续编辑"]
-          );
-          
-          if (continueEdit !== 1) {
-            break; // 用户选择返回主菜单
-          }
-          
-          // 重新构建搜索结果选项（可能有变化）
-          searchOptions.length = 0; // 清空数组
-          for (const group of matchedGroups) {
-            const status = group.enabled ? "✅" : "⭕";
-            const partialIcon = group.partialReplacement ? "🔄" : "";
-            const words = group.words || [];
-            const wordsPreview = words.slice(0, 3).join(", ");
-            const moreText = words.length > 3 ? `... (共${words.length}个)` : "";
-            searchOptions.push(`${status} ${partialIcon} ${group.name}: ${wordsPreview}${moreText}`);
-          }
-        } else {
-          // 只有一个搜索结果，编辑完成后直接返回
-          break;
-        }
-      }
-      
-    } catch (error) {
-      MNUtil.showHUD("搜索同义词组失败：" + error.message);
-      MNUtil.log("搜索同义词组错误: " + error.toString());
-    }
-  }
-
-  /**
-   * 添加同义词组（多层对话框方式）
-   */
-  static async showAddSynonymDialog() {
-    let continueAdding = true;
-    let addedCount = 0;
-    const ACTION_CANCEL = '__MNKB_CANCEL__';
-    const ACTION_RETRY = '__MNKB_RETRY__';
-
-    while (continueAdding) {
-      // 第一步：直接输入同义词（移除了组名输入）
-      const wordsResult = await new Promise((resolve) => {
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "添加同义词组",
-          `请输入同义词，支持以下分隔方式：\n• 逗号：machine learning, deep learning\n• 分号：机器学习; 深度学习\n• 双空格：机器学习  深度学习\n• 单空格：机器 学习（仅当无其他分隔符时）`,
-          2,
-          "取消",
-          ["下一步"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(ACTION_CANCEL);
-              return;
-            }
-            
-            const wordsInput = alert.textFieldAtIndex(0).text;
-            if (!wordsInput) {
-              MNUtil.showHUD("❌ 请输入同义词");
-              resolve(ACTION_RETRY);
-              return;
-            }
-            
-            // 使用智能解析
-            const parsedWords = this.parseWords(wordsInput);
-            
-            if (parsedWords.length < 2) {
-              MNUtil.showHUD("❌ 至少需要2个同义词");
-              resolve(ACTION_RETRY);
-              return;
-            }
-            
-            resolve(parsedWords);
-          }
-        );
-      });
-      
-      if (wordsResult === ACTION_CANCEL) {
-        break;
-      }
-      
-      if (wordsResult === ACTION_RETRY || !wordsResult || wordsResult.length < 2) {
-        continue; // 返回重新输入
-      }
-      
-      const words = wordsResult;
-      
-      // 第二步：选择匹配模式
-      const modeSelection = await new Promise((resolve) => {
-        const hasPatternPlaceholder = words.some(word => word.includes('{{}}'));
-
-        let message = `词汇：${words.join(", ")}\n\n`;
-        if (hasPatternPlaceholder) {
-          message += `检测到模式占位符 {{}}，建议启用模式匹配：\n`;
-        }
-        message += `选择匹配模式：\n• 普通：只匹配完整的词\n• 局部替换：在长词中也会匹配\n• 模式匹配：支持 {{}} 占位符的动态匹配`;
-        
-        const buttons = ["下一步（普通）", "下一步（局部替换）", "下一步（模式匹配）"];
-        
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "选择匹配模式",
-          message,
-          0,
-          "取消",
-          buttons,
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(ACTION_CANCEL);
-              return;
-            }
-            
-            switch (buttonIndex) {
-              case 1: // 普通模式
-                resolve({ enablePartial: false, patternMode: false });
-                break;
-              case 2: // 局部替换
-                resolve({ enablePartial: true, patternMode: false });
-                break;
-              case 3: // 模式匹配
-                resolve({ enablePartial: false, patternMode: true });
-                break;
-            }
-          }
-        );
-      });
-      
-      if (modeSelection === ACTION_CANCEL) {
-        break;
-      }
-
-      const { enablePartial, patternMode } = modeSelection;
-
-      // 第三步：选择大小写敏感
-      const caseSensitiveSelection = await new Promise((resolve) => {
-        const modeText = patternMode ? "（模式匹配）" : (enablePartial ? "（局部替换）" : "（普通）");
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "大小写匹配",
-          `匹配模式：${modeText}\n词汇：${words.join(", ")}\n\n是否启用大小写敏感匹配？\n• 启用：Machine 和 machine 视为不同词汇\n• 不启用：Machine 和 machine 视为相同词汇`,
-          0,
-          "取消", 
-          ["下一步（不敏感）", "下一步（大小写敏感）"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(ACTION_CANCEL);
-              return;
-            }
-            
-            resolve(buttonIndex === 2); // 第二个按钮为启用大小写敏感
-          }
-        );
-      });
-
-      if (caseSensitiveSelection === ACTION_CANCEL) {
-        break;
-      }
-
-      const caseSensitive = caseSensitiveSelection;
-
-      // 第四步：设置上下文触发词（可选）
-      let contextTriggers = undefined;
-      let contextMode = "any";
-      
-      const setContextSelection = await new Promise((resolve) => {
-        const modeText = patternMode ? "（模式匹配）" : (enablePartial ? "（局部替换）" : "（普通）");
-        const caseText = caseSensitive ? "（大小写敏感）" : "";
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "上下文触发词",
-          `词汇：${words.join(", ")}${modeText}${caseText}\n\n是否设置上下文触发词？\n• 设置：仅当卡片标题包含特定词汇时才应用\n• 跳过：全局应用（对所有卡片生效，推荐）`,
-          0,
-          "取消",
-          ["直接添加（全局）", "设置触发词"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(ACTION_CANCEL);
-              return;
-            }
-            
-            resolve(buttonIndex === 2); // 第二个按钮为设置触发词
-          }
-        );
-      });
-
-      if (setContextSelection === ACTION_CANCEL) {
-        break;
-      }
-
-      const setContext = setContextSelection;
-
-      // 如果选择设置触发词，进行触发词配置
-      if (setContext) {
-        // 输入触发词
-        const triggerInputResult = await new Promise((resolve) => {
-          UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-            "设置触发词",
-            "请输入触发词，用逗号分隔：\n例如：内积空间, 赋范线性空间\n\n触发词说明：\n• 只有当卡片标题包含这些词汇时，才会应用该同义词组\n• 适合特定领域的专业术语",
-            2, // 输入框样式
-            "取消",
-            ["完成设置"],
-            (alert, buttonIndex) => {
-              if (buttonIndex === 0) {
-                resolve(ACTION_CANCEL);
-                return;
-              }
-              
-              const input = alert.textFieldAtIndex(0).text.trim();
-              resolve(input);
-            }
-          );
-        });
-
-        if (triggerInputResult === ACTION_CANCEL) {
-          break;
-        }
-
-        const triggerInput = triggerInputResult;
-
-        if (triggerInput) {
-          // 解析触发词
-          const parsedTriggers = triggerInput.split(",")
-            .map(t => t.trim())
-            .filter(t => t.length > 0);
-
-          if (parsedTriggers.length > 0) {
-            contextTriggers = parsedTriggers;
-
-            // 如果有多个触发词，选择匹配模式
-            if (parsedTriggers.length > 1) {
-              const mode = await new Promise((resolve) => {
-                UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-                  "选择触发模式",
-                  `已设置 ${parsedTriggers.length} 个触发词：\n${parsedTriggers.join(", ")}\n\n请选择匹配模式：`,
-                  0,
-                  "取消",
-                  ["任意匹配（推荐）", "全部匹配"],
-                  (alert, buttonIndex) => {
-                    if (buttonIndex === 0) {
-                      resolve(ACTION_CANCEL);
-                      return;
-                    }
-                    
-                    resolve(buttonIndex === 1 ? "any" : "all");
-                  }
-                );
-              });
-
-              if (mode === ACTION_CANCEL) {
-                break;
-              }
-              
-              contextMode = mode;
-            }
-          }
-        }
-      }
-      
-      // 添加同义词组（使用新的参数格式）
-      const options = {
-        partialReplacement: enablePartial,
-        caseSensitive: caseSensitive,
-        patternMode: patternMode
-      };
-      if (contextTriggers && contextTriggers.length > 0) {
-        options.contextTriggers = contextTriggers;
-        options.contextMode = contextMode;
-      }
-
-      const result = this.addSynonymGroup(words, options);
-      if (result) {
-        addedCount++;
-        let configText = "";
-        if (patternMode) configText += "模式匹配·";
-        else if (enablePartial) configText += "局部替换·";
-        if (caseSensitive) configText += "大小写敏感·";
-        if (contextTriggers && contextTriggers.length > 0) {
-          const modeText = contextMode === "all" ? "全部匹配" : "任意匹配";
-          configText += `触发词${contextTriggers.length}个(${modeText})`;
-        } else {
-          configText += "全局应用";
-        }
-        // 使用词汇预览代替组名
-        const wordsPreview = words.slice(0, 3).join(", ");
-        const moreText = words.length > 3 ? `...(共${words.length}个)` : "";
-        MNUtil.showHUD(`✅ 已添加：${wordsPreview}${moreText}\n配置：${configText}`);
-      }
-      
-      // 第四步：询问是否继续添加
-      continueAdding = await new Promise((resolve) => {
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "继续添加？",
-          `已成功添加 ${addedCount} 个同义词组\n\n是否继续添加？`,
-          0,
-          "完成",
-          ["继续添加"],
-          (alert, buttonIndex) => {
-            resolve(buttonIndex === 1);
-          }
-        );
-      });
-    }
-    
-    if (addedCount > 0) {
-      MNUtil.showHUD(`✅ 共添加 ${addedCount} 个同义词组`);
-    }
-  }
-
-  /**
-   * 编辑同义词组
-   */
-  static async editSynonymGroup(group) {
-    try {
-      const options = [
-        group.partialReplacement ? "🔄 关闭局部替换" : "🔄 开启局部替换",
-        group.patternMode ? "🔀 关闭模式匹配" : "🔀 开启模式匹配",
-        "🌍 设置触发词",
-        group.caseSensitive ? "🔠 关闭大小写敏感" : "🔠 开启大小写敏感",
-        "✏️ 编辑词汇",
-        "🗑 删除此组",
-        "📋 复制词汇列表",
-        "──────────────",
-        "🔍 测试匹配效果"
-      ];
-      
-      const wordsPreview = group.words.join(", ");
-      const partialStatus = group.partialReplacement ? "已开启" : "已关闭";
-      const patternStatus = group.patternMode ? "已开启" : "已关闭";
-      const caseSensitiveStatus = group.caseSensitive ? "大小写敏感" : "大小写不敏感";
-      let contextInfo = "全局";
-      if (group.contextTriggers && group.contextTriggers.length > 0) {
-        const mode = group.contextMode === "all" ? "全部" : "任意";
-        contextInfo = `触发词(${mode}): ${group.contextTriggers.join(", ")}`;
-      }
-      
-      const message = `词汇：${wordsPreview}\n局部替换：${partialStatus}\n模式匹配：${patternStatus}\n大小写：${caseSensitiveStatus}\n上下文：${contextInfo}`;
-      
-      const result = await MNUtil.userSelect("编辑同义词组", message, options);
-      
-      if (result === null || result === 0) {
-        return; // 取消
-      }
-      
-      switch (result) {
-        case 1: // 开启/关闭局部替换
-          group.partialReplacement = !group.partialReplacement;
-          this.saveSearchConfig();
-          MNUtil.showHUD(group.partialReplacement ? "🔄 已开启局部替换" : "已关闭局部替换");
-          break;
-          
-        case 2: // 开启/关闭模式匹配
-          group.patternMode = !group.patternMode;
-          this.saveSearchConfig();
-          MNUtil.showHUD(group.patternMode ? "🔀 已开启模式匹配" : "已关闭模式匹配");
-          break;
-          
-        case 3: // 设置触发词
-          await this.editContextTriggers(group);
-          break;
-          
-        case 4: // 大小写敏感
-          group.caseSensitive = !group.caseSensitive;
-          this.saveSearchConfig();
-          MNUtil.showHUD(group.caseSensitive ? "🔠 已开启大小写敏感" : "已关闭大小写敏感");
-          break;
-          
-        case 5: // 编辑词汇
-          await this.editSynonymWords(group);
-          break;
-          
-        case 6: // 删除
-          const wordsPreview = group.words.slice(0, 3).join(", ");
-          const confirmDelete = await this.confirmAction(
-            "确认删除",
-            `确定要删除这个同义词组吗？\n词汇：${wordsPreview}...\n此操作不可恢复。`
-          );
-          if (confirmDelete) {
-            this.deleteSynonymGroup(group.id);
-            MNUtil.showHUD("✅ 已删除");
-          }
-          break;
-          
-        case 7: // 复制词汇
-          MNUtil.copy(group.words.join(", "));
-          MNUtil.showHUD("📋 已复制到剪贴板");
-          break;
-          
-        case 8: // 分隔线
-          break;
-          
-        case 9: // 测试匹配效果
-          await this.testPartialReplacement(group);
-          break;
-      }
-    } catch (error) {
-      MNUtil.showHUD("编辑同义词组失败：" + error.message);
-    }
-  }
-
-  /**
-   * 编辑上下文触发词
-   * @param {Object} group - 同义词组对象
-   */
-  static async editContextTriggers(group) {
-    try {
-      // 显示当前配置信息
-      let currentInfo = "当前配置：";
-      if (group.contextTriggers && group.contextTriggers.length > 0) {
-        const mode = group.contextMode === "all" ? "全部匹配" : "任意匹配";
-        currentInfo += `\n触发词：${group.contextTriggers.join(", ")}\n匹配模式：${mode}`;
-      } else {
-        currentInfo += "\n全局应用（无触发词限制）";
-      }
-
-      // 第一步：选择操作类型
-      const actionOptions = [
-        "✏️ 修改触发词",
-        "🔄 切换匹配模式",
-        "🗑 清除触发词（改为全局）",
-        "ℹ️ 查看帮助"
-      ];
-
-      const action = await MNUtil.userSelect(
-        "设置上下文触发词",
-        currentInfo,
-        actionOptions
-      );
-
-      if (action === null || action === 0) return;
-
-      switch (action) {
-        case 1: // 修改触发词
-          await this.editTriggerWords(group);
-          break;
-
-        case 2: // 切换匹配模式
-          if (group.contextTriggers && group.contextTriggers.length > 0) {
-            group.contextMode = group.contextMode === "all" ? "any" : "all";
-            group.updatedAt = Date.now();
-            this.saveSearchConfig();
-            const newMode = group.contextMode === "all" ? "全部匹配" : "任意匹配";
-            MNUtil.showHUD(`🔄 匹配模式已改为：${newMode}`);
-          } else {
-            MNUtil.showHUD("⚠️ 请先设置触发词");
-          }
-          break;
-
-        case 3: // 清除触发词
-          const confirm = await MNUtil.confirm(
-            "确认清除触发词",
-            "清除后该同义词组将全局应用（对所有卡片生效）",
-            ["取消", "确认清除"]
-          );
-          if (confirm === 1) {
-            group.contextTriggers = undefined;
-            group.contextMode = "any";
-            group.updatedAt = Date.now();
-            this.saveSearchConfig();
-            MNUtil.showHUD("✅ 已清除触发词，改为全局应用");
-          }
-          break;
-
-        case 4: // 查看帮助
-          const helpText = `🔍 上下文触发词功能说明：
-
-📌 全局模式（默认）：
-   • 对所有卡片生效
-   • 适合通用同义词
-
-🎯 上下文模式：
-   • 仅当卡片标题包含触发词时生效
-   • 适合特定领域的专业术语
-
-🔄 匹配模式：
-   • 任意匹配：包含任一触发词即生效
-   • 全部匹配：必须包含所有触发词
-
-💡 示例：
-   触发词：["内积空间", "赋范空间"]
-   • 任意匹配：标题包含其中任一词即生效
-   • 全部匹配：标题必须同时包含两个词`;
-
-          await MNUtil.confirm("上下文触发词帮助", helpText, ["知道了"]);
-          // 显示帮助后返回主界面
-          await this.editContextTriggers(group);
-          break;
-      }
-    } catch (error) {
-      MNUtil.showHUD("编辑触发词失败：" + error.message);
-    }
-  }
-
-  /**
-   * 编辑具体的触发词内容
-   * @param {Object} group - 同义词组对象
-   */
-  static async editTriggerWords(group) {
-    try {
-      const currentTriggers = group.contextTriggers || [];
-      const currentText = currentTriggers.join(", ");
-
-      // 输入新的触发词
-      const newTriggers = await new Promise((resolve) => {
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "设置触发词",
-          `当前触发词：${currentText || "（无）"}\n\n请输入新的触发词，用逗号分隔：\n例如：内积空间, 赋范线性空间`,
-          2, // 输入框样式
-          "取消",
-          ["确定"],
-          (alert, buttonIndex) => {
-            if (buttonIndex === 0) {
-              resolve(null); // 用户取消
-            } else {
-              const input = alert.textFieldAtIndex(0).text.trim();
-              resolve(input);
-            }
-          }
-        );
-      });
-
-      if (newTriggers === null) return; // 用户取消
-
-      // 解析和验证输入
-      if (newTriggers === "") {
-        // 空输入，询问是否清除
-        const confirmClear = await MNUtil.confirm(
-          "确认清除",
-          "输入为空，是否清除所有触发词？\n清除后将改为全局应用。",
-          ["取消", "清除"]
-        );
-        if (confirmClear === 1) {
-          group.contextTriggers = undefined;
-          group.contextMode = "any";
-          group.updatedAt = Date.now();
-          this.saveSearchConfig();
-          MNUtil.showHUD("✅ 已清除触发词");
-        }
-        return;
-      }
-
-      // 解析触发词
-      const parsedTriggers = newTriggers.split(",")
-        .map(t => t.trim())
-        .filter(t => t.length > 0);
-
-      if (parsedTriggers.length === 0) {
-        MNUtil.showHUD("⚠️ 请输入有效的触发词");
-        return;
-      }
-
-      // 验证触发词长度
-      const invalidTriggers = parsedTriggers.filter(t => t.length > 50);
-      if (invalidTriggers.length > 0) {
-        MNUtil.showHUD("⚠️ 触发词长度不能超过50字符");
-        return;
-      }
-
-      // 保存新的触发词
-      group.contextTriggers = parsedTriggers;
-      if (!group.contextMode) {
-        group.contextMode = "any"; // 默认任意匹配
-      }
-      group.updatedAt = Date.now();
-      this.saveSearchConfig();
-
-      // 如果有多个触发词，询问匹配模式
-      if (parsedTriggers.length > 1) {
-        const modeOptions = [
-          "任意匹配（推荐）",
-          "全部匹配"
-        ];
-        const modeChoice = await MNUtil.userSelect(
-          "选择匹配模式",
-          `已设置 ${parsedTriggers.length} 个触发词：\n${parsedTriggers.join(", ")}\n\n请选择匹配模式：`,
-          modeOptions
-        );
-
-        if (modeChoice !== null && modeChoice > 0) {
-          group.contextMode = modeChoice === 1 ? "any" : "all";
-          group.updatedAt = Date.now();
-          this.saveSearchConfig();
-        }
-      }
-
-      const modeText = group.contextMode === "all" ? "全部匹配" : "任意匹配";
-      MNUtil.showHUD(`✅ 已设置 ${parsedTriggers.length} 个触发词（${modeText}）`);
-
-    } catch (error) {
-      MNUtil.showHUD("编辑触发词失败：" + error.message);
-    }
-  }
-
-  /**
-   * 编辑同义词 - 调用多选界面
-   */
-  static async editSynonymWords(group) {
-    // 调用新的多选编辑界面
-    await this.editSynonymWordsWithMultiSelect(group);
-  }
-
-  /**
-   * 使用多选界面编辑同义词
-   * @param {Object} group - 同义词组对象
-   * @returns {Promise<boolean>} 返回是否成功保存
-   */
-  static async editSynonymWordsWithMultiSelect(group) {
-    return new Promise((resolve) => {
-      const selectedWords = new Set(group.words); // 默认全选现有词汇
-      let newWordsInput = "";
-      
-      // 递归显示多选对话框
-      const showMultiSelectDialog = () => {
-      // 构建显示选项
-      let displayOptions = group.words.map(word => {
-        let prefix = selectedWords.has(word) ? "✅ " : "";
-        return prefix + word;
-      });
-      
-      // 添加控制选项
-      let allSelected = selectedWords.size === group.words.length;
-      let selectAllText = allSelected ? "⬜ 取消全选" : "☑️ 全选所有词汇";
-      displayOptions.unshift(selectAllText);
-      displayOptions.unshift("🔄 反选");
-      displayOptions.unshift("➕ 添加新词汇");
-      displayOptions.push("──────────────");
-      displayOptions.push("✅ 确认保存");
-      
-      const selectedArray = Array.from(selectedWords);
-      const newWordsArray = newWordsInput ? this.parseWords(newWordsInput) : [];
-      const totalWords = [...selectedArray, ...newWordsArray];
-      
-      const message = `已选中 ${selectedWords.size}/${group.words.length} 个现有词汇\n` +
-                     (newWordsInput ? `新增：${newWordsArray.join(", ")}\n` : "") +
-                     `总计：${totalWords.length} 个词汇`;
-      
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        `编辑词汇 - ${group.name}`,
-        message,
-        0,
-        "取消",
-        displayOptions,
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            // 用户取消
-            resolve(false);
-            return;
-          }
-          
-          if (buttonIndex === 1) {
-            // 添加新词汇
-            this.showAddNewWordsDialog().then((input) => {
-              if (input) {
-                newWordsInput = input;
-              }
-              showMultiSelectDialog();
-            });
-            
-          } else if (buttonIndex === 2) {
-            // 反选
-            const newSelectedWords = new Set();
-            group.words.forEach(word => {
-              if (!selectedWords.has(word)) {
-                newSelectedWords.add(word);
-              }
-            });
-            selectedWords.clear();
-            newSelectedWords.forEach(word => selectedWords.add(word));
-            showMultiSelectDialog();
-            
-          } else if (buttonIndex === 3) {
-            // 全选/取消全选
-            if (allSelected) {
-              selectedWords.clear();
-            } else {
-              group.words.forEach(word => selectedWords.add(word));
-            }
-            showMultiSelectDialog();
-            
-          } else if (buttonIndex === displayOptions.length) {
-            // 确认保存
-            const selectedArray = Array.from(selectedWords);
-            const newWordsArray = newWordsInput ? this.parseWords(newWordsInput) : [];
-            const finalWords = [...selectedArray, ...newWordsArray];
-            
-            if (finalWords.length >= 2) {
-              group.words = finalWords;
-              group.updatedAt = Date.now();
-              this.saveSearchConfig();
-              MNUtil.showHUD(`✅ 已更新词汇（${finalWords.length}个词）`);
-              resolve(true);
-            } else {
-              MNUtil.showHUD("❌ 至少需要2个同义词");
-              showMultiSelectDialog();
-            }
-            
-          } else if (buttonIndex === displayOptions.length - 1) {
-            // 分隔线，重新显示
-            showMultiSelectDialog();
-            
-          } else {
-            // 用户选择了某个词汇，切换选中状态
-            const wordIndex = buttonIndex - 4; // 减去前面的控制选项
-            const word = group.words[wordIndex];
-            
-            if (selectedWords.has(word)) {
-              selectedWords.delete(word);
-            } else {
-              selectedWords.add(word);
-            }
-            
-            showMultiSelectDialog();
-          }
-        }
-      );
-      };
-      
-      showMultiSelectDialog();
-    });
-  }
-
-  /**
-   * 显示添加新词汇的输入对话框
-   * @returns {Promise<string|null>} 返回输入的文本或 null
-   */
-  static async showAddNewWordsDialog() {
-    return new Promise((resolve) => {
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        "添加新词汇",
-        "输入新词汇，支持以下分隔方式：\n• 逗号：machine learning, deep learning\n• 分号：机器学习; 深度学习\n• 双空格：机器学习  深度学习\n• 单空格：机器 学习（仅当无其他分隔符时）",
-        2,
-        "取消",
-        ["确定"],
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            resolve(null);
-            return;
-          }
-          
-          const input = alert.textFieldAtIndex(0).text;
-          if (input && input.trim()) {
-            resolve(input);
-          } else {
-            resolve(null);
-          }
-        }
-      );
-    });
-  }
-
-  /**
-   * 测试局部替换功能
-   */
-  static async testPartialReplacement(group) {
-    return new Promise((resolve) => {
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        "测试局部替换",
-        `组"${group.name}"包含：${group.words.join(", ")}\n\n请输入测试文本：`,
-        2,
-        "返回",
-        ["测试"],
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            resolve(false);
-            return;
-          }
-          
-          const testText = alert.textFieldAtIndex(0).text;
-          if (!testText) {
-            MNUtil.showHUD("请输入测试文本");
-            resolve(false);
-            return;
-          }
-          
-          // 生成变体
-          const variants = this.generatePartialReplacements(testText, group);
-          
-          if (variants.length > 0) {
-            const resultText = `原文：${testText}\n\n生成的变体（${variants.length}个）：\n${variants.map((v, i) => `${i+1}. ${v}`).join('\n')}`;
-            
-            // 显示结果
-            UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-              "替换结果",
-              resultText,
-              0,
-              "确定",
-              ["复制所有变体"],
-              (alert2, buttonIndex2) => {
-                if (buttonIndex2 === 1) {
-                  MNUtil.copy(variants.join("\n"));
-                  MNUtil.showHUD("📋 已复制到剪贴板");
-                }
-                resolve(true);
-              }
-            );
-          } else {
-            MNUtil.showHUD("未找到可替换的内容");
-            resolve(false);
-          }
-        }
-      );
-    });
-  }
-
-  /**
-   * 重命名同义词组
-   */
-  static async renameSynonymGroup(group) {
-    return new Promise((resolve) => {
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        "重命名",
-        `当前名称：${group.name}\n\n请输入新名称：`,
-        2,
-        "取消",
-        ["确定"],
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            resolve(false);
-            return;
-          }
-          
-          const newName = alert.textFieldAtIndex(0).text.trim();
-          if (newName && newName !== group.name) {
-            group.name = newName;
-            group.updatedAt = Date.now();
-            this.saveSearchConfig();
-            MNUtil.showHUD("✅ 已重命名");
-            resolve(true);
-          }
-        }
-      );
-      // 注意：MarginNote 的 JSB 框架不支持 setTimeout
-      // 无法预填充输入框，用户需要手动输入新值
-    });
-  }
 
   /**
    * 显示更多功能菜单
    */
   static async showMoreFeaturesMenu() {
     const options = [
-      "🔄 管理同义词组",
-      "🚫 管理排除词组",
       "📁 管理根目录",
       "📤📥 导入导出配置"
     ];
-    
+
     const result = await MNUtil.userSelect(
       "更多搜索功能",
       "选择要管理的功能：",
       options
     );
-    
+
     if (result === null || result === 0) return null;
-    
+
     switch (result) {
       case 1:
-        return "manageSynonyms";
-      case 2:
-        return "manageExclusions";
-      case 3:
         return "manageRoots";
-      case 4:
+      case 2:
         return "importExport";
     }
     return null;
@@ -15189,42 +14090,23 @@ class knowledgeBaseTemplate {
   static async showImportExportMenu() {
     const options = [
       "📤 导出完整配置",
-      "📥 导入完整配置",
-      "──────────────",
-      "🔄 导出同义词组",
-      "🔄 导入同义词组",
-      "🚫 导出排除词组",
-      "🚫 导入排除词组"
+      "📥 导入完整配置"
     ];
-    
+
     const result = await MNUtil.userSelect(
       "导入导出配置",
       "选择操作：",
       options
     );
-    
+
     if (result === null || result === 0) return;
-    
+
     switch (result) {
       case 1: // 导出完整配置
         await this.exportFullSearchConfig();
         break;
       case 2: // 导入完整配置
         await this.importFullSearchConfig();
-        break;
-      case 3: // 分隔线
-        break;
-      case 4: // 导出同义词
-        await this.showExportSynonymDialog();
-        break;
-      case 5: // 导入同义词
-        await this.showImportSynonymDialog();
-        break;
-      case 6: // 导出排除词
-        await this.showExportExclusionDialog();
-        break;
-      case 7: // 导入排除词
-        await this.showImportExclusionDialog();
         break;
     }
   }
@@ -15251,7 +14133,7 @@ class knowledgeBaseTemplate {
       
       switch (target) {
         case 1: // iCloud
-          // MNUtil.setByiCloud("knowledgeBaseTemplate_FullSearchConfig", jsonStr);
+          // MNUtil.setByiCloud("KnowledgeBaseTemplate_FullSearchConfig", jsonStr);
           MNUtil.showHUD("☁️ 已同步到 iCloud");
           break;
         case 2: // 剪贴板
@@ -15291,7 +14173,7 @@ class knowledgeBaseTemplate {
       
       switch (source) {
         case 1: // iCloud
-          jsonStr = MNUtil.getByiCloud("knowledgeBaseTemplate_FullSearchConfig", null);
+          jsonStr = MNUtil.getByiCloud("KnowledgeBaseTemplate_FullSearchConfig", null);
           if (!jsonStr) {
             MNUtil.showHUD("❌ iCloud 中未找到配置");
             return;
@@ -15348,7 +14230,6 @@ class knowledgeBaseTemplate {
         // 替换
         Object.assign(this.searchRootConfigs, config.searchConfig);
         this.searchRootConfigs.synonymGroups = config.synonymGroups || [];
-        this.searchRootConfigs.exclusionGroups = config.exclusionGroups || [];
       } else {
         // 合并
         // 合并根目录
@@ -15390,18 +14271,6 @@ class knowledgeBaseTemplate {
             }
           }
         }
-        // 合并排除词组
-        if (config.exclusionGroups && config.exclusionGroups.length > 0) {
-          if (!this.searchRootConfigs.exclusionGroups) {
-            this.searchRootConfigs.exclusionGroups = [];
-          }
-          const existingIds = new Set(this.searchRootConfigs.exclusionGroups.map(g => g.id));
-          for (const group of config.exclusionGroups) {
-            if (!existingIds.has(group.id)) {
-              this.searchRootConfigs.exclusionGroups.push(group);
-            }
-          }
-        }
       }
       
       // 验证导入的群组
@@ -15435,516 +14304,6 @@ class knowledgeBaseTemplate {
     }
   }
 
-  /**
-   * 管理排除词组 - 主界面
-   */
-  static async manageExclusionGroups() {
-    try {
-      while (true) {
-        const groups = this.getExclusionGroups();
-        const options = [];
-        
-        // 显示现有排除词组
-        for (const group of groups) {
-          const triggersPreview = group.triggerWords.slice(0, 2).join(", ");
-          const excludesPreview = group.excludeWords.slice(0, 2).join(", ");
-          const moreTriggers = group.triggerWords.length > 2 ? "..." : "";
-          const moreExcludes = group.excludeWords.length > 2 ? "..." : "";
-          options.push(`[${triggersPreview}${moreTriggers}] → 排除: ${excludesPreview}${moreExcludes}`);
-        }
-        
-        // 添加操作选项
-        options.push("➕ 添加新排除词组");
-        options.push("──────────────");
-        options.push("📤 导出排除词配置");
-        options.push("📥 导入排除词配置");
-        
-        const result = await MNUtil.userSelect(
-          "排除词管理",
-          `共 ${groups.length} 个排除词组\n\n提示：搜索时将自动过滤包含排除词的结果`,
-          options
-        );
-        
-        if (result === null || result === 0) {
-          break; // 取消
-        }
-        
-        const selectedIndex = result - 1;
-        
-        if (selectedIndex < groups.length) {
-          // 编辑现有组
-          await this.editExclusionGroup(groups[selectedIndex]);
-          continue; // 重新显示菜单，避免双弹窗
-        } else if (selectedIndex === groups.length) {
-          // 添加新组
-          await this.showAddExclusionGroupDialog();
-        } else if (selectedIndex === groups.length + 1) {
-          // 分隔线
-          continue;
-        } else if (selectedIndex === groups.length + 2) {
-          // 导出配置
-          await this.showExportExclusionDialog();
-        } else if (selectedIndex === groups.length + 3) {
-          // 导入配置
-          await this.showImportExclusionDialog();
-        }
-      }
-    } catch (error) {
-      MNUtil.showHUD("管理排除词组失败：" + error.message);
-      MNUtil.log("管理排除词组错误: " + error.toString());
-    }
-  }
-
-  /**
-   * 添加排除词组对话框
-   */
-  static async showAddExclusionGroupDialog() {
-    return new Promise((resolve) => {
-      // 第一步：输入触发词
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        "添加排除词组",
-        "请输入触发词（搜索这些词时将激活排除规则）：\n支持逗号、分号或空格分隔",
-        2,
-        "取消",
-        ["下一步"],
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            resolve(false);
-            return;
-          }
-          
-          const triggerInput = alert.textFieldAtIndex(0).text;
-          if (!triggerInput) {
-            MNUtil.showHUD("❌ 请输入触发词");
-            resolve(false);
-            return;
-          }
-          
-          const triggerWords = this.parseWords(triggerInput);
-          if (triggerWords.length === 0) {
-            MNUtil.showHUD("❌ 至少需要一个触发词");
-            resolve(false);
-            return;
-          }
-          
-          // 第二步：输入排除词
-          UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-            "设置排除词",
-            `触发词：${triggerWords.join(", ")}\n\n请输入排除词（包含这些词的结果将被过滤）：`,
-            2,
-            "取消",
-            ["确定"],
-            (alert2, buttonIndex2) => {
-              if (buttonIndex2 === 0) {
-                resolve(false);
-                return;
-              }
-              
-              const excludeInput = alert2.textFieldAtIndex(0).text;
-              if (!excludeInput) {
-                MNUtil.showHUD("❌ 请输入排除词");
-                resolve(false);
-                return;
-              }
-              
-              const excludeWords = this.parseWords(excludeInput);
-              if (excludeWords.length === 0) {
-                MNUtil.showHUD("❌ 至少需要一个排除词");
-                resolve(false);
-                return;
-              }
-              
-              // 添加组（使用精简结构，不需要groupName）
-              this.addExclusionGroup(triggerWords, excludeWords);
-              MNUtil.showHUD(`✅ 已添加排除词组`);
-              resolve(true);
-            }
-          );
-        }
-      );
-    });
-  }
-
-  /**
-   * 编辑排除词组
-   */
-  static async editExclusionGroup(group) {
-    try {
-      const options = [
-        "✏️ 编辑触发词",
-        "✏️ 编辑排除词",
-        "🗑 删除此组",
-        "📋 复制配置"
-      ];
-      
-      const triggerPreview = group.triggerWords.slice(0, 3).join(", ") + (group.triggerWords.length > 3 ? "..." : "");
-      const result = await MNUtil.userSelect(
-        "编辑排除词组",
-        `触发词：${group.triggerWords.join(", ")}\n排除词：${group.excludeWords.join(", ")}`,
-        options
-      );
-      
-      if (result === null || result === 0) return;
-      
-      switch (result) {
-        case 1: // 编辑触发词
-          await this.editExclusionTriggerWords(group);
-          break;
-        case 2: // 编辑排除词
-          await this.editExclusionExcludeWords(group);
-          break;
-        case 3: // 删除
-          const confirmed = await this.confirmAction("确认删除", `确定删除此排除词组吗？\n触发词：${triggerPreview}`);
-          if (confirmed) {
-            this.deleteExclusionGroup(group.id);
-            MNUtil.showHUD("🗑 已删除");
-          }
-          break;
-        case 4: // 复制配置
-          const config = {
-            triggerWords: group.triggerWords,
-            excludeWords: group.excludeWords
-          };
-          MNUtil.copy(JSON.stringify(config, null, 2));
-          MNUtil.showHUD("📋 已复制到剪贴板");
-          break;
-      }
-    } catch (error) {
-      MNUtil.showHUD("编辑排除词组失败：" + error.message);
-    }
-  }
-
-  /**
-   * 编辑触发词 - 调用多选界面
-   */
-  static async editExclusionTriggerWords(group) {
-    await this.editExclusionWordsWithMultiSelect(group, 'trigger');
-  }
-
-  /**
-   * 编辑排除词 - 调用多选界面
-   */
-  static async editExclusionExcludeWords(group) {
-    await this.editExclusionWordsWithMultiSelect(group, 'exclude');
-  }
-
-  /**
-   * 使用多选界面编辑排除词组的词汇
-   * @param {Object} group - 排除词组对象
-   * @param {string} type - 'trigger' 或 'exclude'
-   */
-  static async editExclusionWordsWithMultiSelect(group, type) {
-    const isTrigger = type === 'trigger';
-    const currentWords = isTrigger ? group.triggerWords : group.excludeWords;
-    const selectedWords = new Set(currentWords); // 默认全选现有词汇
-    let newWordsInput = "";
-    
-    // 递归显示多选对话框
-    const showMultiSelectDialog = () => {
-      // 构建显示选项
-      let displayOptions = currentWords.map(word => {
-        let prefix = selectedWords.has(word) ? "✅ " : "";
-        return prefix + word;
-      });
-      
-      // 添加控制选项
-      let allSelected = selectedWords.size === currentWords.length;
-      let selectAllText = allSelected ? "⬜ 取消全选" : "☑️ 全选所有词汇";
-      displayOptions.unshift(selectAllText);
-      displayOptions.unshift("🔄 反选");
-      displayOptions.unshift("➕ 添加新词汇");
-      displayOptions.push("──────────────");
-      displayOptions.push("✅ 确认保存");
-      
-      const selectedArray = Array.from(selectedWords);
-      const newWordsArray = newWordsInput ? this.parseWords(newWordsInput) : [];
-      const totalWords = [...selectedArray, ...newWordsArray];
-      
-      const title = isTrigger ? `编辑触发词 - ${group.name}` : `编辑排除词 - ${group.name}`;
-      const message = `已选中 ${selectedWords.size}/${currentWords.length} 个现有词汇\n` +
-                     (newWordsInput ? `新增：${newWordsArray.join(", ")}\n` : "") +
-                     `总计：${totalWords.length} 个词汇`;
-      
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        title,
-        message,
-        0,
-        "取消",
-        displayOptions,
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            // 用户取消
-            return;
-          }
-          
-          if (buttonIndex === 1) {
-            // 添加新词汇
-            const dialogTitle = isTrigger ? "添加新触发词" : "添加新排除词";
-            this.showAddNewWordsDialogForExclusion(dialogTitle, (input) => {
-              if (input) {
-                newWordsInput = input;
-              }
-              showMultiSelectDialog();
-            });
-            
-          } else if (buttonIndex === 2) {
-            // 反选
-            const newSelectedWords = new Set();
-            currentWords.forEach(word => {
-              if (!selectedWords.has(word)) {
-                newSelectedWords.add(word);
-              }
-            });
-            selectedWords.clear();
-            newSelectedWords.forEach(word => selectedWords.add(word));
-            showMultiSelectDialog();
-            
-          } else if (buttonIndex === 3) {
-            // 全选/取消全选
-            if (allSelected) {
-              selectedWords.clear();
-            } else {
-              currentWords.forEach(word => selectedWords.add(word));
-            }
-            showMultiSelectDialog();
-            
-          } else if (buttonIndex === displayOptions.length) {
-            // 确认保存
-            const selectedArray = Array.from(selectedWords);
-            const newWordsArray = newWordsInput ? this.parseWords(newWordsInput) : [];
-            const finalWords = [...selectedArray, ...newWordsArray];
-            
-            if (finalWords.length > 0) {
-              const updateField = isTrigger ? { triggerWords: finalWords } : { excludeWords: finalWords };
-              this.updateExclusionGroup(group.id, updateField);
-              const wordType = isTrigger ? "触发词" : "排除词";
-              MNUtil.showHUD(`✅ 已更新${wordType}（${finalWords.length}个）`);
-            } else {
-              const wordType = isTrigger ? "触发词" : "排除词";
-              MNUtil.showHUD(`❌ 至少需要一个${wordType}`);
-              showMultiSelectDialog();
-            }
-            
-          } else if (buttonIndex === displayOptions.length - 1) {
-            // 分隔线，重新显示
-            showMultiSelectDialog();
-            
-          } else {
-            // 用户选择了某个词汇，切换选中状态
-            const wordIndex = buttonIndex - 4; // 减去前面的控制选项
-            const word = currentWords[wordIndex];
-            
-            if (selectedWords.has(word)) {
-              selectedWords.delete(word);
-            } else {
-              selectedWords.add(word);
-            }
-            
-            showMultiSelectDialog();
-          }
-        }
-      );
-    };
-    
-    showMultiSelectDialog();
-  }
-
-  /**
-   * 显示添加新词汇的输入对话框（排除词组用）
-   */
-  static async showAddNewWordsDialogForExclusion(title, callback) {
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      title,
-      "输入新词汇，支持以下分隔方式：\n• 逗号：word1, word2\n• 分号：词汇1; 词汇2\n• 双空格：词汇1  词汇2\n• 单空格：词1 词2（仅当无其他分隔符时）",
-      2,
-      "取消",
-      ["确定"],
-      (alert, buttonIndex) => {
-        if (buttonIndex === 0) {
-          callback(null);
-          return;
-        }
-        
-        const input = alert.textFieldAtIndex(0).text;
-        if (input && input.trim()) {
-          callback(input);
-        } else {
-          callback(null);
-        }
-      }
-    );
-  }
-
-  /**
-   * 重命名排除词组
-   */
-  static async renameExclusionGroup(group) {
-    return new Promise((resolve) => {
-      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        "重命名",
-        `当前名称：${group.name}\n\n请输入新名称：`,
-        2,
-        "取消",
-        ["确定"],
-        (alert, buttonIndex) => {
-          if (buttonIndex === 0) {
-            resolve(false);
-            return;
-          }
-          
-          const newName = alert.textFieldAtIndex(0).text.trim();
-          if (newName && newName !== group.name) {
-            this.updateExclusionGroup(group.id, { name: newName });
-            MNUtil.showHUD("✅ 已重命名");
-            resolve(true);
-          }
-        }
-      );
-    });
-  }
-
-  /**
-   * 导出排除词组配置
-   */
-  static async showExportExclusionDialog() {
-    const options = [
-      "☁️ 同步到 iCloud",
-      "📋 复制到剪贴板",
-      "📝 保存到当前笔记"
-    ];
-    
-    const result = await MNUtil.userSelect(
-      "导出排除词配置",
-      "选择导出方式：",
-      options
-    );
-    
-    if (result === null || result === 0) return;
-    
-    try {
-      const config = {
-        version: "1.0",
-        type: "exclusionGroups",
-        exportDate: new Date().toISOString(),
-        exclusionGroups: this.getExclusionGroups()
-      };
-      const jsonStr = JSON.stringify(config, null, 2);
-      
-      switch (result) {
-        case 1: // iCloud
-          // MNUtil.setByiCloud("knowledgeBaseTemplate_ExclusionGroups_Config", jsonStr);
-          MNUtil.showHUD("☁️ 已同步到 iCloud");
-          break;
-        case 2: // 剪贴板
-          MNUtil.copy(jsonStr);
-          MNUtil.showHUD("📋 已复制到剪贴板");
-          break;
-        case 3: // 当前笔记
-          const focusNote = MNNote.getFocusNote();
-          if (focusNote) {
-            const formattedJson = this.formatJsonAsCodeBlock(jsonStr);
-            focusNote.appendTextComment(formattedJson);
-            MNUtil.showHUD("📝  已保存到当前笔记");
-          } else {
-            MNUtil.showHUD("❌ 未选中笔记");
-          }
-          break;
-      }
-    } catch (error) {
-      MNUtil.showHUD("❌ 导出失败：" + error.message);
-    }
-  }
-
-  /**
-   * 导入排除词组配置
-   */
-  static async showImportExclusionDialog() {
-    const options = [
-      "☁️ 从 iCloud 同步",
-      "📋 从剪贴板导入",
-      "📝 从当前笔记导入"
-    ];
-    
-    const result = await MNUtil.userSelect(
-      "导入排除词配置",
-      "选择导入来源：",
-      options
-    );
-    
-    if (result === null || result === 0) return;
-    
-    try {
-      let jsonStr = null;
-      
-      switch (result) {
-        case 1: // iCloud
-          jsonStr = MNUtil.getByiCloud("knowledgeBaseTemplate_ExclusionGroups_Config", null);
-          if (!jsonStr) {
-            MNUtil.showHUD("❌ iCloud 中未找到排除词配置");
-            return;
-          }
-          break;
-        case 2: // 剪贴板
-          jsonStr = MNUtil.clipboardText;
-          break;
-        case 3: // 当前笔记
-          const focusNote = MNNote.getFocusNote();
-          if (!focusNote) {
-            MNUtil.showHUD("❌ 未选中笔记");
-            return;
-          }
-          // 查找包含排除词配置的评论
-          for (const comment of focusNote.comments) {
-            if (comment.type === "textComment" && comment.text.includes('"exclusionGroups"')) {
-              jsonStr = this.extractJsonFromCodeBlock(comment.text);
-              break;
-            }
-          }
-          if (!jsonStr) {
-            MNUtil.showHUD("❌ 当前笔记中未找到排除词配置");
-            return;
-          }
-          break;
-      }
-      
-      const config = JSON.parse(jsonStr);
-      if (!config.exclusionGroups) {
-        throw new Error("无效的配置格式");
-      }
-      
-      // 选择导入方式
-      const importMode = await MNUtil.userSelect(
-        "导入方式",
-        `将导入 ${config.exclusionGroups.length} 个排除词组`,
-        ["替换现有配置", "合并配置"]
-      );
-      
-      if (importMode === null || importMode === 0) return;
-      
-      this.initSearchConfig();
-      
-      if (importMode === 1) {
-        // 替换
-        this.searchRootConfigs.exclusionGroups = config.exclusionGroups;
-      } else {
-        // 合并
-        if (!this.searchRootConfigs.exclusionGroups) {
-          this.searchRootConfigs.exclusionGroups = [];
-        }
-        const existingIds = new Set(this.searchRootConfigs.exclusionGroups.map(g => g.id));
-        for (const group of config.exclusionGroups) {
-          if (!existingIds.has(group.id)) {
-            this.searchRootConfigs.exclusionGroups.push(group);
-          }
-        }
-      }
-      
-      this.saveSearchConfig();
-      MNUtil.showHUD(`✅ 已导入 ${config.exclusionGroups.length} 个排除词组`);
-    } catch (error) {
-      MNUtil.showHUD("❌ 导入失败：" + error.message);
-    }
-  }
 
   /**
    * 确认操作对话框
@@ -16099,7 +14458,7 @@ class knowledgeBaseTemplate {
   static loadProofTemplates() {
     try {
       // 先尝试从本地加载
-      const localConfig = NSUserDefaults.standardUserDefaults().objectForKey("knowledgeBaseTemplate_ProofTemplates");
+      const localConfig = NSUserDefaults.standardUserDefaults().objectForKey("KnowledgeBaseTemplate_ProofTemplates");
       let config = localConfig ? JSON.parse(localConfig) : null;
       
       // 如果没有本地配置，从 iCloud 加载
@@ -16107,11 +14466,11 @@ class knowledgeBaseTemplate {
         try {
           const cloudStore = NSUbiquitousKeyValueStore.defaultStore();
           if (cloudStore) {
-            const cloudConfig = cloudStore.objectForKey("knowledgeBaseTemplate_ProofTemplates");
+            const cloudConfig = cloudStore.objectForKey("KnowledgeBaseTemplate_ProofTemplates");
             if (cloudConfig) {
               config = JSON.parse(cloudConfig);
               // 同步到本地
-              NSUserDefaults.standardUserDefaults().setObjectForKey(cloudConfig, "knowledgeBaseTemplate_ProofTemplates");
+              NSUserDefaults.standardUserDefaults().setObjectForKey(cloudConfig, "KnowledgeBaseTemplate_ProofTemplates");
             }
           }
         } catch (cloudError) {
@@ -16177,14 +14536,14 @@ class knowledgeBaseTemplate {
       const configStr = JSON.stringify(this.proofTemplates);
       
       // 保存到本地
-      NSUserDefaults.standardUserDefaults().setObjectForKey(configStr, "knowledgeBaseTemplate_ProofTemplates");
+      NSUserDefaults.standardUserDefaults().setObjectForKey(configStr, "KnowledgeBaseTemplate_ProofTemplates");
       
       // 如果开启了 iCloud 同步，保存到 iCloud
       try {
         if (typeof toolbarConfig !== 'undefined' && toolbarConfig.iCloudSync) {
           const cloudStore = NSUbiquitousKeyValueStore.defaultStore();
           if (cloudStore) {
-            cloudStore.setObjectForKey(configStr, "knowledgeBaseTemplate_ProofTemplates");
+            cloudStore.setObjectForKey(configStr, "KnowledgeBaseTemplate_ProofTemplates");
             cloudStore.synchronize();
           }
         }
@@ -16628,7 +14987,7 @@ class knowledgeBaseTemplate {
           )
         } catch (error) {
           MNUtil.showHUD(error);
-          MNLog.error(error, "knowledgeBaseTemplate: oldChildrenMakeNotes");
+          MNLog.error(error, "KnowledgeBaseTemplate: oldChildrenMakeNotes");
         }
       })
     }
@@ -16671,6 +15030,54 @@ class knowledgeBaseTemplate {
  * 知识库索引器 - 用于构建和管理搜索索引
  */
 class KnowledgeBaseIndexer {
+  /**
+   * 清理文本中的高亮标记
+   * MarginNote 内部使用 __HL_数字_数字__ 格式标记文本样式
+   * 这些标记在构建索引时需要清理，避免显示乱码
+   *
+   * @param {string} text - 要清理的文本
+   * @returns {string} 清理后的文本
+   */
+  static cleanHighlightMarkers(text) {
+    if (!text) return "";
+    // 移除 MarginNote 内部的高亮标记：__HL_数字_数字__
+    return text.replace(/__HL_\d+_\d+__/g, "");
+  }
+
+  /**
+   * 解码 HTML 实体为原始字符
+   * 确保存储的标题是原始文本格式，避免 HTML 实体被双重转义
+   *
+   * @param {string} text - 可能包含 HTML 实体的文本（如 &lt;、&gt;、&amp; 等）
+   * @returns {string} - 解码后的原始文本
+   *
+   * @example
+   * // 输入: "&lt;Tx, y&gt;=&lt;x, Sy&gt;"
+   * // 输出: "<Tx, y>=<x, Sy>"
+   */
+  static decodeHtmlEntities(text) {
+    if (!text) return "";
+
+    // HTML 实体映射表（常用实体）
+    const entities = {
+      '&lt;': '<',
+      '&gt;': '>',
+      '&amp;': '&',
+      '&quot;': '"',
+      '&apos;': "'",
+      '&nbsp;': ' ',
+      '&copy;': '©',
+      '&reg;': '®',
+      '&trade;': '™'
+    };
+
+    // 替换命名实体、十进制数字实体和十六进制数字实体
+    return text
+      .replace(/&[a-zA-Z]+;/g, (match) => entities[match] || match)
+      .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+      .replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+  }
+
   /**
    * 构建搜索索引（异步分片版本）
    * @param {Array<string>|MNNote} rootNotes - 根卡片
@@ -16729,7 +15136,7 @@ class KnowledgeBaseIndexer {
         
         // 先处理根节点本身
         if (!processedIds.has(rootNote.noteId)) {
-          const noteType = knowledgeBaseTemplate.getNoteType(rootNote);
+          const noteType = KnowledgeBaseTemplate.getNoteType(rootNote);
           if (noteType && targetTypes.includes(noteType)) {
             const entry = this.buildIndexEntry(rootNote);
             if (entry) {
@@ -16785,7 +15192,7 @@ class KnowledgeBaseIndexer {
             continue;
           }
           
-          const noteType = knowledgeBaseTemplate.getNoteType(mnNote);
+          const noteType = KnowledgeBaseTemplate.getNoteType(mnNote);
           if (!noteType || !targetTypes.includes(noteType)) {
             processedCount++;
             processedIds.add(noteId);
@@ -16839,9 +15246,12 @@ class KnowledgeBaseIndexer {
       
       // 保存主索引文件
       await this.saveIndexManifest(manifest);
-      
+
+      // 清空增量索引（全局索引已包含所有卡片）
+      this.clearIncrementalIndex();
+
       MNUtil.showHUD(`索引构建完成：共 ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
-      
+
     } catch (error) {
       // 清理临时文件
       if (manifest.metadata.tempFiles && manifest.metadata.tempFiles.length > 0) {
@@ -16865,26 +15275,31 @@ class KnowledgeBaseIndexer {
     if (!note || !note.noteId) {
       return null;
     }
-    
+
     // 初始化基本条目信息
     let entry = {
       id: note.noteId,
       type: undefined,
-      title: note.title || "",
+      title: this.decodeHtmlEntities(this.cleanHighlightMarkers(note.title || "")),
       parentId: note.parentNoteId || null
     };
-    
+
     try {
       // 获取卡片类型
-      const noteType = knowledgeBaseTemplate.getNoteType(note);
+      const noteType = KnowledgeBaseTemplate.getNoteType(note);
       entry.type = noteType;
-      
+
+      // ✅ 过滤掉 noteType 为 undefined 的卡片
+      if (!noteType) {
+        return null;
+      }
+
       // 解析标题
-      const parsedTitle = knowledgeBaseTemplate.parseNoteTitle(note) || {};
-      
+      const parsedTitle = KnowledgeBaseTemplate.parseNoteTitle(note) || {};
+
       // 获取关键词
-      const keywordsContent = knowledgeBaseTemplate.getKeywordsFromNote(note) || "";
-      
+      const keywordsContent = KnowledgeBaseTemplate.getKeywordsFromNote(note) || "";
+
       // 根据卡片类型设置不同字段
       if (noteType === "归类") {
         entry.classificationSubtype = parsedTitle.type || "";
@@ -16897,21 +15312,33 @@ class KnowledgeBaseIndexer {
           entry.titleLinkWords = parsedTitle.titleLinkWordsArr.join("; ");
         }
       }
-      
+
       // 添加关键词
       if (keywordsContent) {
         entry.keywords = keywordsContent;
       }
-      
+
       // 构建搜索文本
       entry.searchText = this.buildSearchText(parsedTitle, noteType, keywordsContent);
-      
+
+      // ✅ 过滤掉搜索文本为空或只有类型名的卡片
+      // 移除类型名后，如果没有实质性内容，则过滤掉
+      const searchTextWithoutType = entry.searchText.replace(new RegExp(`^${noteType}\\s*`, 'i'), '').trim();
+      if (!searchTextWithoutType) {
+        return null;
+      }
+
+      // 添加排除词组信息（用于搜索时过滤）
+      const applicableGroups = this.analyzeExclusionGroups(entry.searchText);
+      if (applicableGroups.length > 0) {
+        entry.excludedGroups = applicableGroups;
+      }
+
       return entry;
-      
+
     } catch (error) {
-      // 静默失败，返回基础条目
-      entry.searchText = (entry.title || "").toLowerCase();
-      return entry;
+      // 静默失败，返回 null（不索引出错的卡片）
+      return null;
     }
   }
   
@@ -16927,7 +15354,7 @@ class KnowledgeBaseIndexer {
     
     if (noteType === "归类") {
       // 归类卡片：使用content（引号内的内容）+ 类型
-      searchableContent = `${parsedTitle.content || ""} ${parsedTitle.type || ""} 归类`.trim();
+      searchableContent = `${parsedTitle.content || ""} ${parsedTitle.type || ""}`.trim();
     } else {
       // 其他卡片类型（定义、命题等）：包含前缀内容和标题链接词
       let contentParts = [];
@@ -17050,29 +15477,27 @@ class KnowledgeBaseIndexer {
   static analyzeExclusionGroups(searchText, exclusionGroups = null) {
     const applicableGroups = [];
     // 使用传入的排除词组或按需获取
-    const groups = exclusionGroups || knowledgeBaseTemplate.getExclusionGroups();
-    
+    const groups = exclusionGroups || KnowledgeBaseTemplate.getExclusionGroups();
+
     for (const group of groups) {
-      if (!group.enabled) continue;
-      
       // 检查文本是否包含该组的任何排除词
       let containsExcludeWord = false;
       let matchedExcludeWords = [];
-      
+
       for (const excludeWord of group.excludeWords) {
         if (searchText.includes(excludeWord.toLowerCase())) {
           containsExcludeWord = true;
           matchedExcludeWords.push(excludeWord);
         }
       }
-      
+
       if (containsExcludeWord) {
         // 检查触发词是否独立存在（排除词被替换后）
         let tempText = searchText;
         for (const excludeWord of matchedExcludeWords) {
           tempText = tempText.replace(new RegExp(excludeWord.toLowerCase(), 'gi'), '###EXCLUDED###');
         }
-        
+
         // 记录哪些触发词会被这个组影响
         const affectedTriggers = [];
         for (const trigger of group.triggerWords) {
@@ -17081,18 +15506,17 @@ class KnowledgeBaseIndexer {
             affectedTriggers.push(trigger);
           }
         }
-        
+
         if (affectedTriggers.length > 0) {
           applicableGroups.push({
-            groupId: group.id,
-            groupName: group.name,
+            triggerWords: group.triggerWords,
             excludeWords: matchedExcludeWords,
             affectedTriggers: affectedTriggers
           });
         }
       }
     }
-    
+
     return applicableGroups;
   }
   
@@ -17284,13 +15708,134 @@ class KnowledgeBaseIndexer {
       return null;
     }
   }
+
+  /**
+   * 加载增量索引
+   * @returns {Object|null} 增量索引对象，失败返回 null
+   */
+  static loadIncrementalIndex() {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/kb-incremental-index.json";
+      const data = MNUtil.readJSON(filepath);
+      return data || null;
+    } catch (error) {
+      // 文件不存在时返回 null，这是正常情况
+      return null;
+    }
+  }
+  
+  /**
+   * 保存增量索引
+   * @param {Object} data - 增量索引数据
+   * @returns {boolean} 保存成功返回 true
+   */
+  static saveIncrementalIndex(data) {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/kb-incremental-index.json";
+      MNUtil.writeJSON(filepath, data);
+      return true;
+    } catch (error) {
+      MNUtil.showHUD("保存增量索引失败: " + error.message);
+      MNLog.error(error, "KnowledgeBaseIndexer: saveIncrementalIndex");
+      return false;
+    }
+  }
+  
+  /**
+   * 添加单张卡片到增量索引
+   * 如果卡片已存在，会删除旧条目并添加新条目
+   * @param {MNNote} note - 要添加的卡片
+   * @returns {boolean} 添加成功返回 true
+   */
+  static addToIncrementalIndex(note) {
+    try {
+      // 1. 加载现有增量索引
+      let incrementalIndex = this.loadIncrementalIndex();
+      
+      // 2. 如果索引不存在，初始化新索引
+      if (!incrementalIndex) {
+        incrementalIndex = {
+          metadata: {
+            version: "incremental-1.0",
+            lastUpdated: new Date().toISOString(),
+            cardCount: 0
+          },
+          cards: []
+        };
+      }
+      
+      // 3. 检查卡片是否已存在，存在则删除旧条目
+      const noteId = note.noteId;
+      const existingIndex = incrementalIndex.cards.findIndex(card => card.id === noteId);
+      if (existingIndex !== -1) {
+        incrementalIndex.cards.splice(existingIndex, 1);
+        MNUtil.log(`增量索引：移除卡片 ${noteId} 的旧条目`);
+      }
+      
+      // 4. 构建新的索引条目
+      const entry = this.buildIndexEntry(note);
+      if (!entry) {
+        MNUtil.showHUD("无法为该卡片构建索引条目");
+        return false;
+      }
+      
+      // 5. 添加新条目
+      incrementalIndex.cards.push(entry);
+      
+      // 6. 更新元数据
+      incrementalIndex.metadata.lastUpdated = new Date().toISOString();
+      incrementalIndex.metadata.cardCount = incrementalIndex.cards.length;
+      
+      // 7. 保存增量索引
+      const saved = this.saveIncrementalIndex(incrementalIndex);
+      
+      if (saved) {
+        // MNUtil.showHUD(`已添加到增量索引 (共 ${incrementalIndex.metadata.cardCount} 张)`);
+        return true;
+      } else {
+        return false;
+      }
+      
+    } catch (error) {
+      MNUtil.showHUD("添加到增量索引失败: " + error.message);
+      MNLog.error(error, "KnowledgeBaseIndexer: addToIncrementalIndex");
+      return false;
+    }
+  }
+  
+  /**
+   * 清空增量索引
+   * @returns {boolean} 清空成功返回 true
+   */
+  static clearIncrementalIndex() {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/kb-incremental-index.json";
+      
+      // 初始化空的增量索引
+      const emptyIndex = {
+        metadata: {
+          version: "incremental-1.0",
+          lastUpdated: new Date().toISOString(),
+          cardCount: 0
+        },
+        cards: []
+      };
+      
+      MNUtil.writeJSON(filepath, emptyIndex);
+      MNUtil.log("增量索引已清空");
+      return true;
+    } catch (error) {
+      MNLog.error(error, "KnowledgeBaseIndexer: clearIncrementalIndex");
+      return false;
+    }
+  }
 }
 
 /**
  * 快速搜索器 - 基于索引的快速搜索
  */
 class KnowledgeBaseSearcher {
-  constructor(indexOrManifest) {
+  constructor(indexOrManifest, incrementalIndex = null) {
     // 判断是新版分片索引还是旧版单文件索引
     if (indexOrManifest && indexOrManifest.metadata) {
       if (indexOrManifest.metadata.version !== "1.0" && indexOrManifest.parts) {
@@ -17309,6 +15854,9 @@ class KnowledgeBaseSearcher {
       this.manifest = null;
       this.mode = 'unknown';
     }
+
+    // 保存增量索引
+    this.incrementalIndex = incrementalIndex;
   }
 
   static lastSearchTypes
@@ -17358,18 +15906,24 @@ class KnowledgeBaseSearcher {
    * 从文件加载索引并创建搜索器
    */
   static async loadFromFile(filename = "kb-search-index.json") {
+    // 加载增量索引
+    const incrementalIndex = KnowledgeBaseIndexer.loadIncrementalIndex();
+    if (incrementalIndex && incrementalIndex.metadata.cardCount > 0) {
+      MNUtil.log(`加载增量索引：${incrementalIndex.metadata.cardCount} 张卡片`);
+    }
+
     // 首先尝试加载新版分片索引
     const manifest = KnowledgeBaseIndexer.loadIndexManifest();
     if (manifest && manifest.metadata) {
       MNUtil.log("加载分片索引模式");
-      return new KnowledgeBaseSearcher(manifest);
+      return new KnowledgeBaseSearcher(manifest, incrementalIndex);
     }
 
     // 向后兼容：尝试加载旧版单文件索引
     const index = KnowledgeBaseIndexer.loadIndex(filename);
     if (index) {
       MNUtil.log("加载单文件索引模式（旧版）");
-      return new KnowledgeBaseSearcher(index);
+      return new KnowledgeBaseSearcher(index, incrementalIndex);
     }
 
     return null;
@@ -17379,11 +15933,17 @@ class KnowledgeBaseSearcher {
    * 从中间知识库索引加载搜索器
    */
   static async loadFromIntermediateKB() {
+    // 加载增量索引
+    const incrementalIndex = IntermediateKnowledgeIndexer.loadIncrementalIndex();
+    if (incrementalIndex && incrementalIndex.metadata.cardCount > 0) {
+      MNUtil.log(`加载中间知识库增量索引：${incrementalIndex.metadata.cardCount} 张卡片`);
+    }
+
     // 加载中间知识库的分片索引
     const manifest = IntermediateKnowledgeIndexer.loadIndexManifest();
     if (manifest && manifest.metadata) {
       MNUtil.log("加载中间知识库分片索引");
-      return new KnowledgeBaseSearcher(manifest);
+      return new KnowledgeBaseSearcher(manifest, incrementalIndex);
     }
 
     return null;
@@ -17424,12 +15984,12 @@ class KnowledgeBaseSearcher {
       return result; // OR 运算优先级最低，有 OR 就不处理 AND
     }
     
-    // 4. 处理 AND 运算 //（默认）
+    // 4. 处理 AND 运算（增强空格支持）
     const separators = ['//', 'v方根'];
     const hasSeparator = separators.some(sep => query.includes(sep));
 
     if (hasSeparator) {
-      // 构建正则表达式，转义特殊字符
+      // 使用显式分隔符（// 或 v方根）
       const regexPattern = separators.map(sep => 
         sep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       ).join('|');
@@ -17437,10 +15997,19 @@ class KnowledgeBaseSearcher {
       
       result.andGroups = query.split(regex).map(s => s.trim().toLowerCase()).filter(s => s);
     } else {
-      // 没有 // 时，整个查询作为一个 AND 组
-      const trimmed = query.trim().toLowerCase();
-      if (trimmed) {
-        result.andGroups = [trimmed];
+      // 智能空格分割逻辑
+      if (query.includes('  ')) {
+        // 有双空格或更多：用双空格及以上分割，单空格保留
+        result.andGroups = query.split(/\s{2,}/).map(s => s.trim().toLowerCase()).filter(s => s);
+      } else if (query.includes(' ')) {
+        // 只有单空格：用单空格分割
+        result.andGroups = query.split(' ').map(s => s.trim().toLowerCase()).filter(s => s);
+      } else {
+        // 没有空格：整个查询作为一个 AND 组
+        const trimmed = query.trim().toLowerCase();
+        if (trimmed) {
+          result.andGroups = [trimmed];
+        }
       }
     }
     
@@ -17533,7 +16102,7 @@ class KnowledgeBaseSearcher {
       const userKeywords = keyword.split(/\s+/).filter(k => k.length > 0);
       
       // 获取激活的排除词信息
-      const exclusionInfo = knowledgeBaseTemplate.getActiveExclusions(userKeywords);
+      const exclusionInfo = KnowledgeBaseTemplate.getActiveExclusions(userKeywords);
       const hasActiveExclusions = exclusionInfo.groups.length > 0;
       
       if (hasActiveExclusions) {
@@ -17591,12 +16160,35 @@ class KnowledgeBaseSearcher {
         MNUtil.showHUD("索引格式未知");
         return [];
       }
-      
+
+      // 搜索增量索引（如果存在）
+      if (this.incrementalIndex && this.incrementalIndex.cards && this.incrementalIndex.cards.length > 0) {
+        MNUtil.log(`搜索增量索引：${this.incrementalIndex.cards.length} 张卡片`);
+
+        const incrementalResults = this.searchInData(this.incrementalIndex.cards, parsedQuery, {
+          types,
+          classificationSubtypes,
+          limit: limit - results.length,
+          exclusionInfo,
+          hasActiveExclusions,
+          userKeywords
+        });
+
+        // 合并结果并去重（按 noteId）
+        const existingIds = new Set(results.map(r => r.id));
+        for (const result of incrementalResults) {
+          if (!existingIds.has(result.id)) {
+            results.push(result);
+            existingIds.add(result.id);
+          }
+        }
+      }
+
     } catch (error) {
       MNUtil.showHUD("搜索失败: " + error.message);
       MNLog.error(error, "KnowledgeBaseSearcher: search");
     }
-    
+
     return results.slice(0, limit);
   }
   
@@ -17929,7 +16521,7 @@ class KnowledgeBaseSearcher {
           break;
           
         case 1: // 复制 Markdown 链接
-          knowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
+          KnowledgeBaseTemplate.copyMarkdownLinkWithQuickPhrases(note);
           break;
         case 2:
           MNUtil.copy(note.noteURL);
@@ -18016,7 +16608,7 @@ class KnowledgeBaseSearcher {
               clipboardNote.mergeInto(note);
 
               // 自动移动到摘录区
-              knowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录");
+              KnowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录");
             });
 
             MNUtil.showHUD("✅ 已合并剪贴板卡片到摘录区");
@@ -18059,7 +16651,7 @@ class KnowledgeBaseSearcher {
       }
       
       // 步骤2：获取搜索模式配置
-      const searchModeConfig = knowledgeBaseTemplate.getSearchConfig();
+      const searchModeConfig = KnowledgeBaseTemplate.getSearchConfig();
       const modeNames = {
         exact: "精确",
         synonym: "同义词",
@@ -18329,6 +16921,75 @@ class SynonymManager {
    * 默认同义词组（精简结构）
    */
   static synonymGroups = [
+    // {
+    //   "words": ["", ""],
+    //   "partialReplacement": false,
+    // },
+    {
+      "words": ["是全空间", "等于全空间"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["自己", "自身"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["并", "并上", "并集"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["交", "交上", "交集"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["一列{{}}的并", "{{}}的可列并"],
+      "partialReplacement": false,
+      "patternMode": true
+    },
+    {
+      "words": ["稠{{}}集", "稠密{{}}集","{{}}稠集","{{}}稠密集"],
+      "partialReplacement": false,
+      "patternMode": true
+    },
+    {
+      "words": ["不相交", "交集为空", "互不相交", "交为空", "交集为零", "交集为空集"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["[ab]", "[a,b]", "[a, b]"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["[01]", "[0,1]", "[0, 1]"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["第二纲空间", "第二纲的空间"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["第一纲空间", "第一纲的空间"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["子开集", "开子集"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["子闭集", "闭子集"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["子开球", "开子球"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["子闭球", "闭子球"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["存在内点","包含内点","有内点", "内部非空"],
+    },
     {
       "words": ["无{{}}", "没有{{}}"],
       "partialReplacement": false,
@@ -18429,63 +17090,9 @@ class SynonymManager {
   
   // 获取所有同义词组（合并默认和用户自定义）
   static getSynonymGroups() {
-    // 如果已缓存，直接返回
-    if (this._cachedGroups) {
-      return this._cachedGroups;
-    }
-    
-    knowledgeBaseTemplate.initSearchConfig();
-    const userGroups = knowledgeBaseTemplate.searchRootConfigs.synonymGroups || [];
-    // 合并默认组和用户组，用户组优先（可以覆盖默认组）
-    const allGroups = [...this.synonymGroups];
-    for (const userGroup of userGroups) {
-      const existingIndex = allGroups.findIndex(g => g.id === userGroup.id);
-      if (existingIndex >= 0) {
-        allGroups[existingIndex] = userGroup;
-      } else {
-        allGroups.push(userGroup);
-      }
-    }
-    
-    // 缓存结果
-    this._cachedGroups = allGroups;
-    return allGroups;
+    return this.synonymGroups;
   }
-  
-  // 清除缓存（在配置更新时调用）
-  static clearCache() {
-    this._cachedGroups = null;
-    this._synonymIndex = null;  // 同时清除同义词索引缓存
-  }
-  
-  // 添加新的同义词组（使用精简结构）
-  static addSynonymGroup(words, options = {}) {
-    knowledgeBaseTemplate.initSearchConfig();
-    const group = {
-      id: "group_" + Date.now(),
-      words: words
-    };
-    
-    // 只在需要时添加可选字段
-    if (options.partialReplacement) group.partialReplacement = true;
-    if (options.patternMode) group.patternMode = true;
-    if (options.caseSensitive) group.caseSensitive = true;
-    if (options.contextTriggers && options.contextTriggers.length > 0) {
-      group.contextTriggers = options.contextTriggers;
-      if (options.contextMode) group.contextMode = options.contextMode;
-    }
-    
-    if (!knowledgeBaseTemplate.searchRootConfigs.synonymGroups) {
-      knowledgeBaseTemplate.searchRootConfigs.synonymGroups = [];
-    }
-    
-    knowledgeBaseTemplate.searchRootConfigs.synonymGroups.push(group);
-    knowledgeBaseTemplate.saveSearchConfig();
-    // 清除缓存
-    this.clearCache();
-    return group;
-  }
-  
+
   /**
    * 构建同义词索引（优化查找性能）
    * @private
@@ -18528,88 +17135,37 @@ class SynonymManager {
 
 // 排除词管理器
 class ExclusionManager {
-  // 缓存的排除词组（避免重复合并）
-  static _cachedGroups = null;
-  
   // 默认排除词组数据（从word.md导入，精简结构）
   static exclusionGroups = [
     {
-      "id": "excl_1754967865808",
       "triggerWords": ["𝔻", "开单位圆盘", "单位圆盘"],
       "excludeWords": ["闭单位圆盘"]
     },
     {
-      "id": "excl_1754977557787",
       "triggerWords": ["包含", "包含了"],
       "excludeWords": ["包含于", "包含在"]
     },
     {
-      "id": "excl_1755836804381",
       "triggerWords": ["开右半平面", "ℂ₊"],
       "excludeWords": ["右半平面"]
     },
     {
-      "id": "excl_1756996808802",
       "triggerWords": ["正交集", "正交子集"],
       "excludeWords": ["规范正交集", "标准正交集"]
     },
     {
-      "id": "excl_1757052106482",
       "triggerWords": ["正交"],
       "excludeWords": ["正交集", "正交补", "正交投影", "正交分解"]
+    },
+    {
+      "triggerWords": ["ℝ"],
+      "excludeWords": ["ℝ²", "ℝ³", "ℝⁿ", "ℝᵐ", "R²", "R³", "Rⁿ", "Rᵐ"]
     }
   ];
-  
-  // 获取所有排除词组（合并默认和用户自定义）
+
+  // 获取所有排除词组
   static getExclusionGroups() {
-    // 如果已缓存，直接返回
-    if (this._cachedGroups) {
-      return this._cachedGroups;
-    }
-    
-    knowledgeBaseTemplate.initSearchConfig();
-    const userGroups = knowledgeBaseTemplate.searchRootConfigs.exclusionGroups || [];
-    // 合并默认组和用户组，用户组优先（可以覆盖默认组）
-    const allGroups = [...this.exclusionGroups];
-    for (const userGroup of userGroups) {
-      const existingIndex = allGroups.findIndex(g => g.id === userGroup.id);
-      if (existingIndex >= 0) {
-        allGroups[existingIndex] = userGroup;
-      } else {
-        allGroups.push(userGroup);
-      }
-    }
-    
-    // 缓存结果
-    this._cachedGroups = allGroups;
-    return allGroups;
-  }
-  
-  // 清除缓存（在配置更新时调用）
-  static clearCache() {
-    this._cachedGroups = null;
-  }
-  
-  // 添加新的排除词组（使用精简结构）
-  static addExclusionGroup(triggerWords, excludeWords) {
-    knowledgeBaseTemplate.initSearchConfig();
-    const group = {
-      id: "excl_" + Date.now(),
-      triggerWords: triggerWords,
-      excludeWords: excludeWords
-    };
-    
-    if (!knowledgeBaseTemplate.searchRootConfigs.exclusionGroups) {
-      knowledgeBaseTemplate.searchRootConfigs.exclusionGroups = [];
-    }
-    
-    knowledgeBaseTemplate.searchRootConfigs.exclusionGroups.push(group);
-    knowledgeBaseTemplate.saveSearchConfig();
-    
-    // 清除缓存
-    this.clearCache();
-    
-    return group;
+    return this.exclusionGroups;
   }
 }
 
@@ -18765,6 +17321,9 @@ class IntermediateKnowledgeIndexer {
       // 保存主索引文件
       await this.saveIndexManifest(manifest);
 
+      // 清空增量索引（全局索引已包含所有卡片）
+      this.clearIncrementalIndex();
+
       MNUtil.showHUD(`中间知识库索引构建完成：共 ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
 
     } catch (error) {
@@ -18784,7 +17343,7 @@ class IntermediateKnowledgeIndexer {
    * 与知识库不同，这里不判断卡片类型，统一处理所有卡片
    */
   static buildIndexEntry(note) {
-    // knowledgeBaseTemplate.renewLinks(note);
+    // KnowledgeBaseTemplate.renewLinks(note);
 
     const SOURCE = "IntermediateKnowledgeIndexer.buildIndexEntry";
 
@@ -18923,31 +17482,34 @@ class IntermediateKnowledgeIndexer {
       return null;
     }
 
-    knowledgeBaseTemplate.renewLinks(note); // 处理失效链接
+    KnowledgeBaseTemplate.renewLinks(note); // 处理失效链接
 
     // 构建索引条目
     const entry = {
       id: note.noteId,
-      title: note.title || "",
+      title: this.decodeHtmlEntities(KnowledgeBaseIndexer.cleanHighlightMarkers(note.title || "")),
       parentId: note.parentNoteId || null,
       searchText: this.buildSearchText(note)
     };
 
-    // 尝试获取并记录卡片类型
-    try {
-      const noteType = knowledgeBaseTemplate.getNoteType(note);
-      if (noteType) {
-        entry.type = noteType;
-      }
-    } catch (e) {
-      // 忽略错误
-    }
+    // 判断是否已制卡
+    const isTemplated = KnowledgeBaseTemplate.ifTemplateMerged(note);
+    entry.isTemplated = isTemplated;
 
-    // 添加一个标记，表示是否已制卡
-    if (knowledgeBaseTemplate.ifTemplateMerged(note)) {
-      entry.isTemplated = true;
+    // 设置卡片类型
+    if (isTemplated) {
+      // 已制卡：获取实际类型（定义、命题等）
+      try {
+        const noteType = KnowledgeBaseTemplate.getNoteType(note);
+        if (noteType) {
+          entry.type = noteType;
+        }
+      } catch (e) {
+        // 忽略错误
+      }
     } else {
-      entry.isTemplated = false;
+      // 未制卡：统一标记为"中间知识"
+      entry.type = "中间知识";
     }
 
     return entry;
@@ -18987,6 +17549,40 @@ class IntermediateKnowledgeIndexer {
   }
 
   /**
+   * 解码 HTML 实体为原始字符
+   * 确保存储的标题是原始文本格式，避免 HTML 实体被双重转义
+   *
+   * @param {string} text - 可能包含 HTML 实体的文本（如 &lt;、&gt;、&amp; 等）
+   * @returns {string} - 解码后的原始文本
+   *
+   * @example
+   * // 输入: "&lt;Tx, y&gt;=&lt;x, Sy&gt;"
+   * // 输出: "<Tx, y>=<x, Sy>"
+   */
+  static decodeHtmlEntities(text) {
+    if (!text) return "";
+
+    // HTML 实体映射表（常用实体）
+    const entities = {
+      '&lt;': '<',
+      '&gt;': '>',
+      '&amp;': '&',
+      '&quot;': '"',
+      '&apos;': "'",
+      '&nbsp;': ' ',
+      '&copy;': '©',
+      '&reg;': '®',
+      '&trade;': '™'
+    };
+
+    // 替换命名实体、十进制数字实体和十六进制数字实体
+    return text
+      .replace(/&[a-zA-Z]+;/g, (match) => entities[match] || match)
+      .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+      .replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+  }
+
+  /**
    * 构建搜索文本
    * 提取标题和所有文本评论内容
    */
@@ -18995,12 +17591,12 @@ class IntermediateKnowledgeIndexer {
 
     try {
       // 获取卡片类型
-      const noteType = knowledgeBaseTemplate.getNoteType(note);
+      const noteType = KnowledgeBaseTemplate.getNoteType(note);
       const typeInfo = noteType ? `${noteType} ` : "";
 
-      // 添加标题
+      // 添加标题（清理高亮标记）
       if (note.title) {
-        textParts.push(note.title);
+        textParts.push(KnowledgeBaseIndexer.cleanHighlightMarkers(note.title));
       }
 
       // 处理评论
@@ -19018,7 +17614,7 @@ class IntermediateKnowledgeIndexer {
 
           if (commentType === "textComment") {
             if (comment.text && comment.text.trim()) {
-              textParts.push(comment.text.trim());
+              textParts.push(KnowledgeBaseIndexer.cleanHighlightMarkers(comment.text.trim()));
             }
           } else if (commentType === "markdownComment") {
             if (comment.text && comment.text.trim()) {
@@ -19027,13 +17623,13 @@ class IntermediateKnowledgeIndexer {
                 /\[([^\]]+)\]\(marginnote4app:\/\/[^)]+\)/g,
                 '$1'
               );
-              textParts.push(textWithoutLinks.trim());
+              textParts.push(KnowledgeBaseIndexer.cleanHighlightMarkers(textWithoutLinks.trim()));
             }
           } else if (commentType === "HtmlComment") {
             // 只提取关键词字段
             const match = comment.text && comment.text.match(/^关键词[:\uff1a]\s*(.*)$/);
             if (match && match[1].trim()) {
-              textParts.push(match[1].trim());
+              textParts.push(KnowledgeBaseIndexer.cleanHighlightMarkers(match[1].trim()));
             }
           }
         }
@@ -19167,13 +17763,156 @@ class IntermediateKnowledgeIndexer {
       return null;
     }
   }
+
+
+  /**
+   * 加载增量索引
+   * @returns {Object|null} 增量索引对象，失败返回 null
+   */
+  static loadIncrementalIndex() {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/intermediate-kb-incremental-index.json";
+      const data = MNUtil.readJSON(filepath);
+      return data || null;
+    } catch (error) {
+      // 文件不存在时返回 null，这是正常情况
+      return null;
+    }
+  }
+
+  /**
+   * 保存增量索引
+   * @param {Object} data - 增量索引数据
+   * @returns {boolean} 保存成功返回 true
+   */
+  static saveIncrementalIndex(data) {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/intermediate-kb-incremental-index.json";
+      MNUtil.writeJSON(filepath, data);
+      return true;
+    } catch (error) {
+      MNUtil.showHUD("保存中间知识库增量索引失败: " + error.message);
+      MNLog.error(error, "IntermediateKnowledgeIndexer: saveIncrementalIndex");
+      return false;
+    }
+  }
+
+  /**
+   * 添加单张卡片到增量索引
+   * 如果卡片已存在，会删除旧条目并添加新条目
+   * @param {MNNote} note - 要添加的卡片
+   * @returns {boolean} 添加成功返回 true
+   */
+  static addToIncrementalIndex(note) {
+    try {
+      // 1. 加载现有增量索引
+      let incrementalIndex = this.loadIncrementalIndex();
+
+      // 2. 如果索引不存在，初始化新索引
+      if (!incrementalIndex) {
+        incrementalIndex = {
+          metadata: {
+            version: "intermediate-incremental-1.0",
+            lastUpdated: new Date().toISOString(),
+            cardCount: 0
+          },
+          cards: []
+        };
+      }
+
+      // 3. 检查卡片是否已存在，存在则删除旧条目
+      const noteId = note.noteId;
+      const existingIndex = incrementalIndex.cards.findIndex(card => card.id === noteId);
+      if (existingIndex !== -1) {
+        incrementalIndex.cards.splice(existingIndex, 1);
+        MNUtil.log(`中间知识库增量索引：移除卡片 ${noteId} 的旧条目`);
+      }
+
+      // 4. 构建新的索引条目
+      const entry = this.buildIndexEntry(note);
+      if (!entry) {
+        MNUtil.showHUD("无法为该卡片构建索引条目");
+        return false;
+      }
+
+      // 5. 添加新条目
+      incrementalIndex.cards.push(entry);
+
+      // 6. 更新元数据
+      incrementalIndex.metadata.lastUpdated = new Date().toISOString();
+      incrementalIndex.metadata.cardCount = incrementalIndex.cards.length;
+
+      // 7. 保存增量索引
+      const saved = this.saveIncrementalIndex(incrementalIndex);
+
+      if (saved) {
+        MNUtil.showHUD(`已添加到中间知识库增量索引 (共 ${incrementalIndex.metadata.cardCount} 张)`, 0.5);
+        return true;
+      } else {
+        return false;
+      }
+
+    } catch (error) {
+      MNUtil.showHUD("添加到中间知识库增量索引失败: " + error.message);
+      MNLog.error(error, "IntermediateKnowledgeIndexer: addToIncrementalIndex");
+      return false;
+    }
+  }
+
+  /**
+   * 清空增量索引
+   * @returns {boolean} 清空成功返回 true
+   */
+  static clearIncrementalIndex() {
+    try {
+      const filepath = MNUtil.dbFolder + "/data/intermediate-kb-incremental-index.json";
+
+      // 初始化空的增量索引
+      const emptyIndex = {
+        metadata: {
+          version: "intermediate-incremental-1.0",
+          lastUpdated: new Date().toISOString(),
+          cardCount: 0
+        },
+        cards: []
+      };
+
+      MNUtil.writeJSON(filepath, emptyIndex);
+      MNUtil.log("中间知识库增量索引已清空");
+      return true;
+    } catch (error) {
+      MNLog.error(error, "IntermediateKnowledgeIndexer: clearIncrementalIndex");
+      return false;
+    }
+  }
 }
 
 
 class KnowledgeBaseUtils {
   static errorLog = []
-  static log(message, detail, level = "INFO"){
-    MNUtil.log({message:message, detail:detail, source:"MN KnowledgeBase", level:level})
+  static webViewController = null  // 存储控制器实例
+
+  /**
+   * 检查并创建 WebView 控制器（单例模式 - 参考 mnliterature）
+   *
+   * 这是延迟初始化策略，避免在 sceneWillConnect 中创建控制器导致崩溃
+   */
+  static checkWebViewController() {
+    // 单例模式：如果控制器不存在则创建
+    if (!this.webViewController) {
+      // 创建视图控制器实例
+      this.webViewController = knowledgebaseWebController.new()
+      // 初始状态设为隐藏，等待用户手动打开
+      this.webViewController.view.hidden = true
+    }
+    // 确保视图在正确的父视图中
+    if (!MNUtil.isDescendantOfStudyView(this.webViewController.view)) {
+      MNUtil.studyView.addSubview(this.webViewController.view)
+    }
+  }
+
+  static log(message, source, detail, level = "INFO"){
+    MNUtil.log({message:message, detail:detail, source:"MN KnowledgeBase:" + source , level:level})
   }
   static addErrorLog(error, source, info){
     MNUtil.showHUD("MN KnowledgeBase Error ("+source+"): "+error)
@@ -19197,4 +17936,3013 @@ class KnowledgeBaseUtils {
       })
     }
   }
+}
+
+class KnowledgeBaseNetwork {
+  /**
+   * OCR 常见识别错误纠正规则
+   * 用于提高数学符号、下标、上标等的识别准确性
+   */
+  static OCRCorrectionRules = `
+## 常见 OCR 识别错误纠正规则
+
+### 下标问题
+- X1, Y2, Z3 等 → X₁, Y₂, Z₃（使用 Unicode 下标字符）
+- a_i, x_n, y_k → aᵢ, xₙ, yₖ
+- 完整的 Unicode 下标字符集：₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₒₓₔₕₖₗₘₙₚₛₜ
+
+### 上标问题
+- x2, y3, z4 → x², y³, z⁴（使用 Unicode 上标字符）
+- xn, an → xⁿ, aⁿ
+- 完整的 Unicode 上标字符集：⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱ
+- 积分或者求和的上限不需要 ^, 比如 Σₙ₌₁∞ 就行，不要写成  Σₙ₌₁^∞
+
+### 希腊字母识别
+- α alpha, β beta, γ gamma, δ delta, ε epsilon
+- ζ zeta, η eta, θ theta, ι iota, κ kappa
+- λ lambda, μ mu, ν nu, ξ xi, ο omicron
+- π pi, ρ rho, σ sigma, τ tau, υ upsilon
+- ϕ phi, χ chi, ψ psi, ω omega
+- Γ Gamma, Δ Delta, Θ Theta, Λ Lambda, Ξ Xi
+- Π Pi, Σ Sigma, Φ Phi, Ψ Psi, Ω Omega
+
+尤其是 ϕ，要注意优先使用 ϕ 而不是 φ
+
+### 数学运算符
+- × 乘号（不是字母 x）, · 点乘, ÷ 除号
+- ≤ 小于等于, ≥ 大于等于, ≠ 不等于, ≈ 约等于
+- ∈ 属于, ∉ 不属于, ⊂ 真包含, ⊆ 包含, ∪ 并, ∩ 交
+- ∀ 任意, ∃ 存在, ∄ 不存在
+- ∫ 积分, ∮ 环路积分, ∂ 偏微分, ∇ 梯度
+- ∑ 求和, ∏ 求积, √ 根号, ∞ 无穷
+
+### 箭头和关系符号
+- → 右箭头, ← 左箭头, ↔ 双向箭头
+- ⇒ 推出, ⇐ 推自, ⇔ 等价
+- ↦ 映射到
+
+### 集合符号
+- ℕ 自然数集, ℤ 整数集, ℚ 有理数集
+- ℝ 实数集, ℂ 复数集
+
+### 括号和分隔符
+- () 圆括号, [] 方括号, {} 花括号
+- ⟨⟩ 尖括号（用于内积）, ⌈⌉ 上取整, ⌊⌋ 下取整
+- | | 绝对值/范数, ‖ ‖ 范数
+
+### 常见误识别模式
+- "1" 可能被识别为字母 "l" 或 "I"
+- "0" 可能被识别为字母 "O" 或 "o"
+- "×"（乘号）可能被识别为字母 "x"
+- "∈"（属于）可能被识别为 "E" 或 "є"
+- 注意区分：0O（数字零/字母O）, 1lI（数字一/小写l/大写I）
+
+### 空格处理
+- 数学表达式中的运算符两侧通常有空格：a + b, x = 1
+- 函数名和括号之间无空格：f(x), sin(θ)
+- 下标、上标与基础字符无空格：x₁, y²
+`
+
+  static get OCRDirectlyPrompt() {
+    return `
+# 数学文本 OCR 提示词
+
+## 核心任务
+从图片中提取文本，优先使用 Unicode 字符输出，并提供专业的中文数学翻译。
+
+**关键要求**：
+- 已是中文的内容保持原样，不翻译
+- 禁止使用 LaTeX 包裹符号（$...$），优先 Unicode
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式要求
+
+**重要**：直接输出内容，不要添加任何格式标记或前缀！
+
+### 情况 1：英文/其他语言内容
+输出格式："<中文翻译>: <原文 Unicode 形式>"
+
+**正确示例**：
+- 输入：Let f be a continuous function on [a,b]
+- ✅ 输出：设 f 是 [a,b] 上的连续函数: Let f be a continuous function on [a,b]
+
+**错误示例**（禁止）：
+- ❌ [中文专业翻译]: 设 f 是 [a,b] 上的连续函数: Let f be a continuous function on [a,b]
+- ❌ 翻译：设 f 是 [a,b] 上的连续函数
+- ❌ 中文翻译: 设 f 是 [a,b] 上的连续函数
+
+### 情况 2：已是中文内容
+输出格式："<原文>"（保持原样）
+
+**正确示例**：
+- 输入：设 f 是连续函数
+- ✅ 输出：设 f 是连续函数
+
+**错误示例**（禁止）：
+- ❌ [原文]: 设 f 是连续函数
+- ❌ 中文: 设 f 是连续函数
+
+## 处理规则
+
+### 1. 数学符号（优先级递减）
+**✅ 优先使用 Unicode**：
+- 上标：x², x³, xⁿ
+- 根式：√2, ∛8
+- 运算符：±, ×, ÷, ≠, ≤, ≥, ≈
+- 希腊字母：α, β, γ, δ, ε, θ, λ, μ, π, σ, ω
+- 微积分：∫, ∑, ∏, ∂, ∇, ∞, lim
+
+**⚠️ LaTeX 仅作后备**（仅当 Unicode 不可用时，用 $ 包裹）：
+- 复杂分数、矩阵、高级算子
+
+### 2. 文本格式
+- **上标**：¹²³⁴⁵⁶⁷⁸⁹⁰ / ᵃᵇᶜᵈᵉ
+- **下标**：₀₁₂₃₄₅₆₇₈₉ / ₐₑₕᵢⱼₖ
+- **粗体/斜体**：仅当图片中明确标示时使用 **粗体** 和 *斜体*
+
+### 3. 空格处理
+
+**规则 A：数学公式内紧凑，移除多余空格**
+---
+❌ 错误：|a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|)
+✅ 正确：|a+b|/(1+|a+b|)≤|a|/(1+|a|)
+---
+
+**规则 B：文本间保留必要空格**
+---
+❌ 错误：Theorem1.1(StrongLaw)
+✅ 正确：Theorem 1.1 (Strong Law)
+
+❌ 错误：设a,b∈R,则有
+✅ 正确：设 a, b∈R, 则有
+---
+
+### 4. 翻译规则
+
+**核心原则**：
+- ✅ 使用标准数学教材术语（如高等教育出版社数学词汇）
+- ✅ 公式保持原样，仅翻译描述性文字
+- ✅ 根据数学分支（分析/代数/几何等）选择恰当术语
+- ❌ 去掉开头标记（如 "例子 2"、"定理 1.2"）
+- ❌ 去掉末尾标点
+
+**定理名称格式**（用分号分隔中文、英文）：
+    示例：如果……, 则范数一致有界; 一致有界原理; uniformly bounded principle
+
+**人名处理规则**：
+- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+
+**常用术语对照**：
+- Theorem → 定理 | Lemma → 引理 | Corollary → 推论 | Proposition → 命题
+- Definition → 定义 | Proof → 证明 | Example → 例子 | Exercise → 练习
+- Limit → 极限 | Convergence → 收敛 | Derivative → 导数 | Integral → 积分
+- Continuous → 连续 | Differentiable → 可微 | Measurable → 可测
+
+## Unicode 快速参考
+
+**常用符号**：
+- 分数：½ ⅓ ⅔ ¼ ¾ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
+- 运算符：± × ÷ ≈ ≠ ≤ ≥ ∝ ∴ ∵ ∈ ∉ ⊂ ⊃ ∪ ∩ ∧ ∨
+- 希腊字母：α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω
+- 微积分：∫ ∬ ∭ ∮ ∂ ∇ ∞ ∑ ∏ lim
+- 几何：° ∠ ⊥ ∥ △ ◯ □ ◇
+
+**组合字符**（用 Unicode 组合符）：
+- 带帽 (^)：â b̂ ĉ x̂ ŷ / α̂ β̂ γ̂ / Â B̂ Ĉ
+- 上划线 (¯)：ā b̄ c̄ x̄ ȳ / ᾱ β̄ γ̄ / Ā B̄ C̄
+- 波浪 (~)：ã b̃ c̃ x̃ ỹ / α̃ β̃ γ̃ / Ã B̃ C̃
+- 点 (·)：ȧ ḃ ċ ẋ ẏ / α̇ β̇ γ̇ / Ȧ Ḃ Ċ
+
+${this.OCRCorrectionRules}
+
+## 最终检查清单
+1. 所有下标、上标是否使用了正确的 Unicode 字符
+2. 数学符号是否准确（特别注意乘号、属于符号等）
+3. 希腊字母是否正确识别
+4. 数字和字母是否混淆（0/O, 1/l/I 等）
+5. 空格是否符合数学排版规范
+`
+  }
+
+
+  static OCRToMarkdownPrompt = `
+# 数学文本 OCR - Markdown LaTeX 格式
+
+## 核心任务
+从图片中提取数学内容，并以 Markdown + LaTeX 格式输出，适用于数学笔记和文档。
+
+**关键要求**：
+- 所有数学公式使用 LaTeX 语法，并用 $ 或 $$ 包裹
+- 行内公式使用 $...$
+- 独立公式使用 $$...$$（单独成行）
+- 文本部分保持中文或原文
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式
+
+### 格式 1：纯公式
+对于纯数学公式的图片，直接输出 LaTeX：
+$$公式内容$$
+
+**示例**：
+- 输入：f(x) = x²+2x+1
+- 输出：$f(x) = x^2+2x+1$
+
+### 格式 2：混合内容
+对于包含文字描述的内容，混合使用文本和公式：
+
+**示例**：
+- 输入：设 f 是 [a,b] 上的连续函数
+- 输出：设 $f$ 是 $[a,b]$ 上的连续函数
+
+- 输入：The function f: R→R is continuous
+- 输出：函数 $f: \\mathbb{R} \\to \\mathbb{R}$ 是连续的
+
+## LaTeX 语法规则
+
+### 1. 基本符号
+- 上标：x^2, x^{n+1}
+- 下标：x_1, x_{i,j}
+- 分数：\\frac{a}{b}
+- 根式：\\sqrt{2}, \\sqrt[3]{8}
+- 希腊字母：\\alpha, \\beta, \\gamma, \\delta, \\epsilon, \\theta, \\lambda, \\pi, \\sigma
+
+### 2. 运算符
+- \\pm (±), \\times (×), \\div (÷), \\cdot (·)
+- \\leq (≤), \\geq (≥), \\neq (≠), \\approx (≈)
+- \\in (∈), \\notin (∉), \\subset (⊂), \\subseteq (⊆)
+- \\cup (∪), \\cap (∩), \\emptyset (∅)
+
+### 3. 微积分
+- 极限：\\lim_{x \\to a}, \\lim_{n \\to \\infty}
+- 求和：\\sum_{i=1}^{n}, \\sum_{k=0}^{\\infty}
+- 积分：\\int_{a}^{b}, \\iint, \\iiint, \\oint
+- 偏导：\\frac{\\partial f}{\\partial x}, \\nabla
+- 导数：f'(x), f''(x), \\dot{x}, \\ddot{x}
+
+### 4. 括号
+- 小括号：(x), 自动调整：\\left( ... \\right)
+- 中括号：[a,b], 自动调整：\\left[ ... \\right]
+- 大括号：\\{ ... \\}, 自动调整：\\left\\{ ... \\right\\}
+- 范数：\\| x \\|, 绝对值：\\| a \\|
+
+### 5. 常用数学集合
+- 自然数：\\mathbb{N}
+- 整数：\\mathbb{Z}
+- 有理数：\\mathbb{Q}
+- 实数：\\mathbb{R}
+- 复数：\\mathbb{C}
+
+### 6. 函数和映射
+- 映射：f: A \\to B
+- 复合：f \\circ g
+- 反函数：f^{-1}
+
+### 7. 逻辑符号
+- 任意：\\forall
+- 存在：\\exists
+- 蕴含：\\Rightarrow, \\Leftarrow, \\Leftrightarrow
+- 非：\\neg
+- 且：\\wedge (∧)
+- 或：\\vee (∨)
+
+## 空格处理规则
+
+**规则 A：LaTeX 内不需要手动空格**
+LaTeX 会自动处理公式内的间距：
+- ✅ $f(x)=x^2+2x+1$（无空格）
+- ❌ $f(x) = x^2 + 2x + 1$（不必要的空格）
+
+**规则 B：文本部分保留必要空格**
+- ✅ 设 $f$ 是连续函数（中文词间有空格）
+- ✅ Let $f$ be continuous（英文单词间有空格）
+
+## 翻译规则
+- 已是中文的保持原样
+- 英文数学术语翻译为标准中文（参考高教出版社数学词典）
+- 公式符号保持原样，仅翻译描述性文字
+- 去掉例题编号、定理编号等标记
+- 去掉末尾标点
+
+**人名处理规则**：
+- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+
+**示例**：
+- Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...
+- Example 2.3: Let f be ... → 设 $f$ 为 ...
+`
+
+  static OCRExtractConceptPrompt = `
+# 数学概念/定理提取
+
+## 核心任务
+从图片中的数学定义或定理中**仅提取被定义的新概念名称**，不提取前置条件中的已知概念。
+
+**关键要求**：
+- 识别定义、定理、命题等数学陈述
+- **只提取定义标志词（称、叫做、定义为等）之后的概念**
+- 忽略前置条件（设、假设、若、给定等）中的概念
+- 输出格式：中文1; 英文1; 中文2; 英文2; ...
+- 无需添加 "我看到..." 等描述性前缀
+
+## ⚠️ 重要原则：区分被定义概念与前置概念
+
+### 关键标志词定位法
+**第一步：找到定义标志词**
+- ✅ 定义标志词：**称**、**叫做**、**定义为**、**是**、**为**、**记作**
+- ❌ 前置标志词：**设**、**假设**、**若**、**给定**、**令**、**已知**
+
+**第二步：只提取标志词之后的内容**
+- 定义标志词**之前**的概念 → ❌ 不提取（这些是前置/背景概念）
+- 定义标志词**之后**的概念 → ✅ 提取（这才是被定义的新概念）
+
+### 正反对比示例
+
+**示例 1：一致连续（用户实际案例）**
+输入：定义 设 X 和 Y 是度量空间, f 是 X 到 Y 中的映射, 如果对于任一正数 ε, 存在正数 δ, 当 d(x,x') < δ 时, 有 d(f(x),f(x')) < ε, 就称 f 在 X 上是一致连续的.
+
+分析：
+- "设 X 和 Y 是度量空间" → ❌ 前置条件（"设"关键词）
+- "f 是 X 到 Y 中的映射" → ❌ 前置条件
+- "就称 f 在 X 上是一致连续的" → ✅ 定义标志词"称"之后的内容
+
+✅ 正确输出：一致连续; uniformly continuous
+❌ 错误输出：度量空间; metric space; 映射; mapping; 一致连续; uniformly continuous
+
+**示例 2：Cauchy 列**
+输入：设 X 是度量空间, 我们称 X 中的数列 {xₙ} 是 Cauchy 列, 如果对于任意 ε>0...
+
+分析：
+- "设 X 是度量空间" → ❌ 前置条件（"设"关键词）
+- "我们称 X 中的数列 {xₙ} 是 Cauchy 列" → ✅ 定义标志词"称"之后
+
+✅ 正确输出：Cauchy 列; Cauchy sequence
+❌ 错误输出：度量空间; metric space; Cauchy 列; Cauchy sequence
+
+**示例 3：紧算子**
+
+输入：假设 X 和 Y 是 Banach 空间, 若算子 T: X→Y 将有界集映为相对紧集, 则称 T 为紧算子.
+
+分析：
+- "假设 X 和 Y 是 Banach 空间" → ❌ 前置条件（"假设"关键词）
+- "则称 T 为紧算子" → ✅ 定义标志词"称"之后
+
+✅ 正确输出：紧算子; compact operator
+❌ 错误输出：Banach 空间; Banach space; 紧算子; compact operator
+
+## 输出格式
+
+标准格式（分号分隔，中英文交替）：
+概念中文名; 概念英文名; 别名中文; 别名英文; ...
+
+**单个概念示例**：
+- 输入：我们称函数 f 是连续的，如果...
+- 输出：连续函数; continuous function
+
+**多个概念示例**：
+- 输入：称算子 T 为线性算子或线性映射，如果...
+- 输出：线性算子; linear operator; 线性映射; linear mapping
+
+## 识别模式
+
+### 模式 1：定义句式（重点关注标志词）
+**核心策略**：定位定义标志词，只提取其后内容
+
+常见的定义句式模板：
+- "我们**称** [概念] 为 [名称], 如果..." → 提取 [名称]
+- "**定义** [名称] 为满足...的 [概念]" → 提取 [名称]
+- "若 [条件], 则**称** [概念] 为 [名称]" → 提取 [名称]
+- "就**称** [概念] **是** [名称]" → 提取 [名称]
+- "[概念] **叫做** [名称]" → 提取 [名称]
+
+**示例**：
+- "我们称实数列 {xₙ} 是 Cauchy 列, 如果..." → Cauchy 列; Cauchy sequence
+- "若函数 f 在点 a 的某邻域内可微, 则称 f 在 a 处可微" → 可微函数; differentiable function
+
+### 模式 2：定理/命题句式
+定理通常有专有名称：
+- "[定理名称]: 若 [条件], 则 [结论]"
+- "定理 ([定理名]): ..."
+- "[结论], 这就是 [定理名]"
+
+**示例**：
+- "强大数定律: 若随机变量序列..." → 强大数定律; strong law of large numbers
+- "一致有界原理: 若算子族..." → 一致有界原理; uniform boundedness principle
+- "闭图像定理 (Closed Graph Theorem): ..." → 闭图像定理; closed graph theorem
+
+### 模式 3：等价定义
+多个等价名称：
+- "[名称1] 或称 [名称2], 是指..."
+- "[名称1] (也叫 [名称2]), 定义为..."
+
+**示例**：
+- "Borel 集或称 Borel 可测集, 是指..." → Borel 集; Borel set; Borel 可测集; Borel measurable set
+
+## 提取规则
+
+### 0. 区分被定义概念与前置概念（最重要）
+- ✅ **只提取**定义标志词（称、叫做、定义为、是、为）**之后**的概念
+- ❌ **忽略**前置标志词（设、假设、若、给定、令）**之后**的概念
+- ✅ 理解句子结构，区分"条件"和"结论"
+- ❌ 不要简单地提取所有数学术语
+
+### 1. 概念识别
+- ✅ 提取被定义的核心数学概念（函数、空间、算子、定理等）
+- ✅ 包含所有等价名称和别名
+- ❌ 不提取例子编号（如 "例 2.1"）
+- ❌ 不提取章节标号（如 "定理 3.5"）
+- ❌ 不提取前置条件中的概念
+
+### 2. 中英文配对
+- 优先使用图片中已有的翻译
+- 若仅有中文，补充标准英文术语
+- 若仅有英文，补充标准中文翻译
+- 使用标准数学词典术语（高教出版社）
+
+### 3. 多概念处理
+- 按照重要性排序（核心概念在前）
+- 同一概念的不同名称放在一起
+- 使用分号分隔不同名称
+
+**示例**：
+- "连续函数; continuous function; 连续映射; continuous map"
+- "Hilbert 空间; Hilbert space; 完备内积空间; complete inner product space"
+
+## 常用数学术语对照
+
+### 基本概念
+- 函数 function | 映射 mapping | 算子 operator
+- 集合 set | 空间 space | 域 field
+- 序列 sequence | 级数 series | 极限 limit
+
+### 性质
+- 连续 continuous | 可微 differentiable | 可积 integrable
+- 收敛 convergent | 有界 bounded | 紧 compact
+- 线性 linear | 单调 monotone | 凸 convex
+
+### 理论
+- 定理 theorem | 引理 lemma | 推论 corollary
+- 命题 proposition | 原理 principle | 法则 law
+
+## 注意事项
+1. 仅输出概念名称，不输出定义内容
+2. 去掉所有标点符号（除分号外）
+3. 中文和英文名称必须一一对应
+4. 若有多个等价名称，全部列出
+5. 保持术语的标准性和专业性
+`
+
+  static get OCRDirectlyNoTransPrompt() {
+    return `
+# 数学文本 OCR 提示词（完整翻译版本）
+
+## ⚠️ 重要说明：本提示词的任务范围
+
+**本提示词的任务**：完整翻译 OCR 图片中的所有文本内容
+- ✅ 翻译所有文本（包括前置条件、定义、定理、证明等）
+- ✅ 保留完整的句子结构和逻辑关系
+- ✅ 输出完整的定义句（包括"设...""若..."等前置部分）
+
+
+## 核心任务
+从图片中提取文本，优先使用 Unicode 字符输出，完整翻译为中文。
+
+**关键要求**：
+- 已是中文的内容保持原样
+- 英文/其他语言内容翻译成中文
+- **保留完整句子**（包括前置条件"设"、"假设"、"若"等）
+- 禁止使用 LaTeX 包裹符号（$...$），优先 Unicode
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式要求
+
+**重要**：直接输出完整的中文内容，不要添加任何格式标记或前缀！也不需要首尾的标点符号！
+
+### 统一输出格式
+输出格式：<中文内容>
+
+**正确示例**：
+- 输入：Let f be a continuous function on [a,b]
+- ✅ 输出：设 f 是 [a,b] 上的连续函数
+
+- 输入：设 f 是连续函数
+- ✅ 输出：设 f 是连续函数
+
+**错误示例**（禁止）：
+- ❌ 中文翻译: 设 f 是 [a,b] 上的连续函数
+- ❌ [中文]: 设 f 是连续函数
+- ❌ 翻译结果: 设 f 是 [a,b] 上的连续函数
+- ❌ 内容: 设 f 是连续函数
+
+
+## 处理规则
+
+### 1. 数学符号（优先级递减）
+**✅ 优先使用 Unicode**：
+- 上标：x², x³, xⁿ
+- 根式：√2, ∛8
+- 运算符：±, ×, ÷, ≠, ≤, ≥, ≈
+- 希腊字母：α, β, γ, δ, ε, θ, λ, μ, π, σ, ω
+- 微积分：∫, ∑, ∏, ∂, ∇, ∞, lim
+
+**⚠️ LaTeX 仅作后备**（仅当 Unicode 不可用时，用 $ 包裹）：
+- 复杂分数、矩阵、高级算子
+
+### 2. 文本格式
+- **上标**：¹²³⁴⁵⁶⁷⁸⁹⁰ / ᵃᵇᶜᵈᵉ
+- **下标**：₀₁₂₃₄₅₆₇₈₉ / ₐₑₕᵢⱼₖ
+- **粗体/斜体**：仅当图片中明确标示时使用 **粗体** 和 *斜体*
+
+### 3. 空格处理
+
+**规则 A：数学公式内紧凑，移除多余空格**
+---
+❌ 错误：|a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|)
+✅ 正确：|a+b|/(1+|a+b|)≤|a|/(1+|a|)
+---
+
+**规则 B：文本间保留必要空格**
+---
+❌ 错误：定理1.1(强大数定律)
+✅ 正确：定理 1.1 (强大数定律)
+
+❌ 错误：设a,b∈R,则有
+✅ 正确：设 a, b∈R, 则有
+---
+
+### 4. 翻译规则
+
+**核心原则**：
+- ✅ 使用标准数学教材术语（如高等教育出版社数学词汇）
+- ✅ 公式保持原样，仅翻译描述性文字
+- ✅ 根据数学分支（分析/代数/几何等）选择恰当术语
+- ❌ 去掉开头标记（如 "Example 2"、"Theorem 1.2"）
+- ❌ 去掉末尾标点
+
+**人名处理规则**：
+- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+
+**常用术语对照**：
+- Theorem → 定理 | Lemma → 引理 | Corollary → 推论 | Proposition → 命题
+- Definition → 定义 | Proof → 证明 | Example → 例子 | Exercise → 练习
+- Limit → 极限 | Convergence → 收敛 | Derivative → 导数 | Integral → 积分
+- Continuous → 连续 | Differentiable → 可微 | Measurable → 可测
+
+## Unicode 快速参考
+
+**常用符号**：
+- 分数：½ ⅓ ⅔ ¼ ¾ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
+- 运算符：± × ÷ ≈ ≠ ≤ ≥ ∝ ∴ ∵ ∈ ∉ ⊂ ⊃ ∪ ∩ ∧ ∨
+- 希腊字母：α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω
+- 微积分：∫ ∬ ∭ ∮ ∂ ∇ ∞ ∑ ∏ lim
+- 几何：° ∠ ⊥ ∥ △ ◯ □ ◇
+
+**组合字符**（用 Unicode 组合符）：
+- 带帽 (^)：â b̂ ĉ x̂ ŷ / α̂ β̂ γ̂ / Â B̂ Ĉ
+- 上划线 (¯)：ā b̄ c̄ x̄ ȳ / ᾱ β̄ γ̄ / Ā B̄ C̄
+- 波浪 (~)：ã b̃ c̃ x̃ ỹ / α̃ β̃ γ̃ / Ã B̃ C̃
+- 点 (·)：ȧ ḃ ċ ẋ ẏ / α̇ β̇ γ̇ / Ȧ Ḃ Ċ
+
+${this.OCRCorrectionRules}
+
+## 最终检查清单
+1. 所有下标、上标是否使用了正确的 Unicode 字符
+2. 数学符号是否准确（特别注意乘号、属于符号等）
+3. 希腊字母是否正确识别
+4. 数字和字母是否混淆（0/O, 1/l/I 等）
+5. 空格是否符合数学排版规范
+`
+  }
+
+  static OCRToMarkdownNoTransPrompt = `
+# 数学文本 OCR - Markdown LaTeX 格式（仅中文版本）
+
+## 核心任务
+从图片中提取数学内容，并以 Markdown + LaTeX 格式输出，所有文本翻译为中文。
+
+**关键要求**：
+- 所有数学公式使用 LaTeX 语法，并用 $ 或 $$ 包裹
+- 行内公式使用 $...$
+- 独立公式使用 $$...$$（单独成行）
+- 所有文本翻译为中文（英文术语翻译成标准中文）
+- 已是中文的保持原样
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式要求
+
+**重要**：直接输出 Markdown 内容，不要添加任何格式标记、代码块包裹或前缀！
+
+**正确示例**：
+- 输入：f(x) = x²+2x+1
+- ✅ 输出：$f(x) = x^2+2x+1$
+
+- 输入：Let f be a continuous function on [a,b]
+- ✅ 输出：设 $f$ 是 $[a,b]$ 上的连续函数
+
+- 输入：设 f 是 [a,b] 上的连续函数
+- ✅ 输出：设 $f$ 是 $[a,b]$ 上的连续函数
+
+**错误示例**（禁止）：
+- ❌ \`\`\`markdown
+      $f(x) = x^2+2x+1$
+      \`\`\`
+- ❌ 输出: $f(x) = x^2+2x+1$
+- ❌ 结果: 设 $f$ 是 $[a,b]$ 上的连续函数
+- ❌ Markdown 格式: ...
+
+## 输出格式详解
+
+### 格式 1：纯公式
+对于纯数学公式的图片，直接输出 LaTeX：
+$$公式内容$$
+
+**示例**：
+- 输入：f(x) = x²+2x+1
+- ✅ 输出：$f(x) = x^2+2x+1$
+
+### 格式 2：混合内容
+对于包含文字描述的内容，混合使用文本和公式：
+
+**示例**：
+- 输入：设 f 是 [a,b] 上的连续函数
+- ✅ 输出：设 $f$ 是 $[a,b]$ 上的连续函数
+
+- 输入：The function f: R→R is continuous
+- ✅ 输出：函数 $f: \\mathbb{R} \\to \\mathbb{R}$ 是连续的
+
+## LaTeX 语法规则
+
+### 1. 基本符号
+- 上标：x^2, x^{n+1}
+- 下标：x_1, x_{i,j}
+- 分数：\\frac{a}{b}
+- 根式：\\sqrt{2}, \\sqrt[3]{8}
+- 希腊字母：\\alpha, \\beta, \\gamma, \\delta, \\epsilon, \\theta, \\lambda, \\pi, \\sigma
+
+### 2. 运算符
+- \\pm (±), \\times (×), \\div (÷), \\cdot (·)
+- \\leq (≤), \\geq (≥), \\neq (≠), \\approx (≈)
+- \\in (∈), \\notin (∉), \\subset (⊂), \\subseteq (⊆)
+- \\cup (∪), \\cap (∩), \\emptyset (∅)
+
+### 3. 微积分
+- 极限：\\lim_{x \\to a}, \\lim_{n \\to \\infty}
+- 求和：\\sum_{i=1}^{n}, \\sum_{k=0}^{\\infty}
+- 积分：\\int_{a}^{b}, \\iint, \\iiint, \\oint
+- 偏导：\\frac{\\partial f}{\\partial x}, \\nabla
+- 导数：f'(x), f''(x), \\dot{x}, \\ddot{x}
+
+### 4. 括号
+- 小括号：(x), 自动调整：\\left( ... \\right)
+- 中括号：[a,b], 自动调整：\\left[ ... \\right]
+- 大括号：\\{ ... \\}, 自动调整：\\left\\{ ... \\right\\}
+- 范数：\\| x \\|, 绝对值：\\| a \\|
+
+### 5. 常用数学集合
+- 自然数：\\mathbb{N}
+- 整数：\\mathbb{Z}
+- 有理数：\\mathbb{Q}
+- 实数：\\mathbb{R}
+- 复数：\\mathbb{C}
+
+### 6. 函数和映射
+- 映射：f: A \\to B
+- 复合：f \\circ g
+- 反函数：f^{-1}
+
+### 7. 逻辑符号
+- 任意：\\forall
+- 存在：\\exists
+- 蕴含：\\Rightarrow, \\Leftarrow, \\Leftrightarrow
+- 非：\\neg
+- 且：\\wedge (∧)
+- 或：\\vee (∨)
+
+## 空格处理规则
+
+**规则 A：LaTeX 内不需要手动空格**
+LaTeX 会自动处理公式内的间距：
+- ✅ $f(x)=x^2+2x+1$（无空格）
+- ❌ $f(x) = x^2 + 2x + 1$（不必要的空格）
+
+**规则 B：文本部分保留必要空格**
+- ✅ 设 $f$ 是连续函数（中文词间有空格）
+- ✅ 设 $f$ 为连续函数（中文词间有空格）
+
+## 翻译规则
+- 已是中文的保持原样
+- 英文数学术语翻译为标准中文（参考高教出版社数学词典）
+- 公式符号保持原样，仅翻译描述性文字
+- 去掉例题编号、定理编号等标记
+- 去掉末尾标点
+
+**人名处理规则**：
+- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+
+**示例**：
+- Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...
+- Example 2.3: Let f be ... → 设 $f$ 为 ...
+- Definition: A function f is continuous if ... → 若 ..., 则函数 $f$ 是连续的
+`
+
+  static OCRExtractConceptNoTransPrompt = `
+# 数学概念/定理提取（仅中文版本）
+
+## 核心任务
+从图片中的数学定义或定理中提取关键概念名称，仅输出中文名称。
+
+**关键要求**：
+- 识别定义、定理、命题等数学陈述
+- 提取核心概念的中文名称
+- 输出格式：概念1; 概念2; 概念3; ...
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式要求
+
+**重要**：直接输出概念名称列表，不要添加任何格式标记或前缀！
+
+标准格式（分号分隔，仅中文）：
+概念中文名1; 概念中文名2; ...
+
+**正确示例**：
+- 输入：我们称函数 f 是连续的，如果...
+- ✅ 输出：连续函数
+
+- 输入：称算子 T 为线性算子或线性映射，如果...
+- ✅ 输出：线性算子; 线性映射
+
+- 输入：Strong Law of Large Numbers: If ...
+- ✅ 输出：强大数定律
+
+**错误示例**（禁止）：
+- ❌ 概念名称: 连续函数
+- ❌ 提取结果: 线性算子; 线性映射
+- ❌ [中文概念]: 强大数定律
+- ❌ 识别出的概念: 连续函数
+
+## 识别模式
+
+### 模式 1：定义句式
+常见的定义句式模板：
+- "我们称 [概念] 为 [名称], 如果..."
+- "定义 [名称] 为满足...的 [概念]"
+- "若 [条件], 则称 [概念] 为 [名称]"
+- "[概念] 是满足...的 [对象], 记为 [符号]"
+
+**示例**：
+- "我们称实数列 {xₙ} 是 Cauchy 列, 如果..." → Cauchy 列
+- "若函数 f 在点 a 的某邻域内可微, 则称 f 在 a 处可微" → 可微函数
+
+### 模式 2：定理/命题句式
+定理通常有专有名称：
+- "[定理名称]: 若 [条件], 则 [结论]"
+- "定理 ([定理名]): ..."
+- "[结论], 这就是 [定理名]"
+
+**示例**：
+- "强大数定律: 若随机变量序列..." → 强大数定律
+- "一致有界原理: 若算子族..." → 一致有界原理
+- "闭图像定理 (Closed Graph Theorem): ..." → 闭图像定理
+
+### 模式 3：等价定义
+多个等价名称：
+- "[名称1] 或称 [名称2], 是指..."
+- "[名称1] (也叫 [名称2]), 定义为..."
+
+**示例**：
+- "Borel 集或称 Borel 可测集, 是指..." → Borel 集; Borel 可测集
+- "线性算子 (也叫线性映射), 定义为..." → 线性算子; 线性映射
+
+## 提取规则
+
+### 1. 概念识别
+- ✅ 提取核心数学概念（函数、空间、算子、定理等）
+- ✅ 包含所有等价的中文名称
+- ✅ 英文术语翻译成标准中文
+- ❌ 不提取例子编号（如 "例 2.1"）
+- ❌ 不提取章节标号（如 "定理 3.5"）
+
+### 2. 翻译规则
+- 若图片已有中文，优先使用原文中的中文
+- 若仅有英文，翻译成标准中文术语
+- 使用标准数学词典术语（高教出版社）
+
+### 3. 多概念处理
+- 按照重要性排序（核心概念在前）
+- 同一概念的不同中文名称放在一起
+- 使用分号分隔不同名称
+
+**示例**：
+- "连续函数; 连续映射"
+- "Hilbert 空间; 完备内积空间"
+
+## 常用数学术语翻译
+
+### 基本概念
+- function → 函数 | mapping → 映射 | operator → 算子
+- set → 集合 | space → 空间 | field → 域
+- sequence → 序列 | series → 级数 | limit → 极限
+
+### 性质
+- continuous → 连续 | differentiable → 可微 | integrable → 可积
+- convergent → 收敛 | bounded → 有界 | compact → 紧
+- linear → 线性 | monotone → 单调 | convex → 凸
+
+### 理论
+- theorem → 定理 | lemma → 引理 | corollary → 推论
+- proposition → 命题 | principle → 原理 | law → 法则
+
+## 注意事项
+1. 仅输出中文概念名称，不输出定义内容
+2. 去掉所有标点符号（除分号外）
+3. 若有多个等价中文名称，全部列出
+4. 保持术语的标准性和专业性
+`
+
+  static OCRSummarizePrompt = `
+# 数学文本 OCR - 翻译并总结
+
+## 核心任务
+从图片中提取文本，进行专业翻译并总结精炼，适用于研究进展、学术论述等内容。
+
+**关键要求**：
+- 已是中文的内容保持原样并总结
+- 英文内容翻译成中文并总结
+- 疑问句转换为陈述句
+- 去除冗余说明和补充信息
+- 人名保持原文不翻译
+- 禁止使用 LaTeX 包裹符号（$...$），优先 Unicode
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式要求
+
+**重要**：直接输出内容，不要添加任何格式标记或前缀！
+
+### 情况 1：英文/其他语言内容
+输出格式：<总结后的中文>: <原文 Unicode 形式>
+
+**正确示例**：
+- 输入：Why two names? When φ is an inner function then this family of measures, along with an associated family of unitary operators (more about this later in the notes), was first studied by Clark. General self-maps φ were later studied by Aleksandrov.
+- ✅ 输出：有两个名称的原因：当 φ 是内函数时，这个测度族以及相关的酉算子族首先由 Clark 研究，而一般的自映射 φ 后来由 Aleksandrov 研究: Why two names? When φ is an inner function then this family of measures, along with an associated family of unitary operators, was first studied by Clark. General self-maps φ were later studied by Aleksandrov.
+
+**错误示例**（禁止）：
+- ❌ [总结]: 有两个名称的原因：...
+- ❌ 总结：有两个名称的原因：...
+
+### 情况 2：已是中文内容
+输出格式："<总结后的内容>"（保持中文）
+
+**正确示例**：
+- 输入：为什么有两个名称？当 φ 是内函数时，这个测度族以及相关的酉算子族（本笔记后面会详细讨论）首先由 Clark 研究。一般的自映射 φ 后来由 Aleksandrov 研究。
+- ✅ 输出：有两个名称的原因：当 φ 是内函数时，这个测度族以及相关的酉算子族首先由 Clark 研究，而一般的自映射 φ 后来由 Aleksandrov 研究
+
+## 总结规则
+
+### 1. 疑问句转陈述句
+将疑问句式改写为陈述句式，使表达更简洁流畅。
+
+**转换模式**：
+- "为什么...？" → "...的原因是..."
+- "什么是...？" → "...是指..."
+- "如何...？" → "...的方法是..."
+- "是否...？" → 判断后明确陈述
+
+**示例**：
+- ❌ 为什么 Clark measure 有两个名称？因为...
+- ✅ Clark measure 有两个名称的原因是：...
+
+- ❌ 什么是 Aleksandrov measure？它是...
+- ✅ Aleksandrov measure 是指...
+
+### 2. 去除冗余信息
+删除补充说明、注释、引用等非核心信息。
+
+**需要删除的内容**：
+- 括号内的补充说明：（本笔记后面会详细讨论）、（见第3章）
+- 引用标注：[1]、[Smith 2020]
+- 冗余修饰：显然、容易看出、众所周知
+- 过渡性话语：首先、然后、最后（除非对理解逻辑至关重要）
+
+**示例**：
+- ❌ 这个测度族（本笔记后面会详细讨论）首先由 Clark 研究
+- ✅ 这个测度族首先由 Clark 研究
+
+### 3. 逻辑整合
+使用连接词整合信息，使表达更连贯。
+
+**常用连接词**：
+- 因果关系：由于、因此、所以
+- 并列关系：同时、而、并且
+- 转折关系：但是、然而、不过
+- 递进关系：进而、进一步、甚至
+
+**示例**：
+- ❌ 首先由 Clark 研究。后来由 Aleksandrov 研究。
+- ✅ 首先由 Clark 研究，而后来由 Aleksandrov 研究
+
+- ❌ φ 是内函数。测度族由 Clark 研究。
+- ✅ 当 φ 是内函数时，测度族由 Clark 研究
+
+### 4. 人名处理规则
+**核心原则**：人名始终保持原文，不翻译
+
+- ✅ 人名保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+
+## Unicode 符号使用
+
+**优先使用 Unicode**：
+- 上标：x², x³, xⁿ
+- 下标：x₁, x₂, xₙ
+- 希腊字母：α, β, γ, δ, ε, φ, θ, λ, μ, π, σ, ω
+- 运算符：±, ×, ÷, ≠, ≤, ≥, ≈
+- 微积分：∫, ∑, ∏, ∂, ∇, ∞, lim
+
+${this.OCRCorrectionRules}
+
+## 最终检查清单
+1. 疑问句是否已转换为陈述句
+2. 冗余信息是否已删除
+3. 人名是否保持原文
+4. 逻辑连接是否流畅
+5. Unicode 符号是否正确使用
+`
+
+  static OCRSummarizeNoTransPrompt = `
+# 数学文本 OCR - 总结（仅中文）
+
+## 核心任务
+从图片中提取文本并进行总结精炼，所有内容输出为中文。
+
+**关键要求**：
+- 所有内容翻译成中文（已是中文的保持原样）
+- 疑问句转换为陈述句
+- 去除冗余说明和补充信息
+- 人名保持原文不翻译
+- 禁止使用 LaTeX 包裹符号（$...$），优先 Unicode
+- 无需添加 "我看到..." 等描述性前缀
+
+## 输出格式要求
+
+**重要**：直接输出总结后的中文内容，不要添加任何格式标记或前缀！
+
+**统一输出格式**："<总结后的中文内容>"
+
+**正确示例**：
+- 输入：Why two names? When φ is an inner function...
+- ✅ 输出：有两个名称的原因：当 φ 是内函数时，这个测度族首先由 Clark 研究，而一般自映射后来由 Aleksandrov 研究
+
+**错误示例**（禁止）：
+- ❌ [总结]: 有两个名称的原因：...
+- ❌ 中文: 有两个名称的原因：...
+
+## 总结规则
+
+### 1. 疑问句转陈述句
+将疑问句式改写为陈述句式，使表达更简洁流畅。
+
+**转换模式**：
+- "为什么...？" → "...的原因是..."
+- "什么是...？" → "...是指..."
+- "如何...？" → "...的方法是..."
+- "是否...？" → 判断后明确陈述
+
+### 2. 去除冗余信息
+删除补充说明、注释、引用等非核心信息。
+
+**需要删除的内容**：
+- 括号内的补充说明：（本笔记后面会详细讨论）、（见第3章）
+- 引用标注：[1]、[Smith 2020]
+- 冗余修饰：显然、容易看出、众所周知
+- 过渡性话语：首先、然后、最后（除非对理解逻辑至关重要）
+
+### 3. 逻辑整合
+使用连接词整合信息，使表达更连贯。
+
+**常用连接词**：
+- 因果关系：由于、因此、所以
+- 并列关系：同时、而、并且
+- 转折关系：但是、然而、不过
+- 递进关系：进而、进一步、甚至
+
+### 4. 人名处理规则
+**核心原则**：人名始终保持原文，不翻译
+
+- ✅ 人名保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+
+## Unicode 符号使用
+
+**优先使用 Unicode**：
+- 上标：x², x³, xⁿ
+- 下标：x₁, x₂, xₙ
+- 希腊字母：α, β, γ, δ, ε, φ, θ, λ, μ, π, σ, ω
+- 运算符：±, ×, ÷, ≠, ≤, ≥, ≈
+- 微积分：∫, ∑, ∏, ∂, ∇, ∞, lim
+
+${this.OCRCorrectionRules}
+
+## 最终检查清单
+1. 疑问句是否已转换为陈述句
+2. 冗余信息是否已删除
+3. 人名是否保持原文
+4. 逻辑连接是否流畅
+5. Unicode 符号是否正确使用
+`
+
+  static async OCRToTitle(note, mode = 1, needTranslation = undefined) {
+    let imageData = ocrUtils.getImageFromNote(note)
+    if (!imageData) {
+      MNUtil.showHUD("No image found")
+      return
+    }
+    let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
+
+    // 确定是否需要翻译
+    // 1. 如果 needTranslation 参数已指定，使用该值
+    // 2. 默认为 false（不翻译）
+    // 注意：needTranslation 应由调用方（如 main.js）根据 self.preExcerptMode 传入
+    let shouldTranslate = needTranslation !== undefined
+      ? needTranslation
+      : false;
+
+    // 根据模式和是否翻译选择对应的 prompt
+    let prompt
+    switch (mode) {
+      case 1:
+        prompt = shouldTranslate ? this.OCRDirectlyPrompt : this.OCRDirectlyNoTransPrompt
+        break
+      case 2:
+        prompt = shouldTranslate ? this.OCRToMarkdownPrompt : this.OCRToMarkdownNoTransPrompt
+        break
+      case 3:
+        // 检查是否是定义类卡片（通过 colorIndex 判断）
+        if (note.colorIndex === KnowledgeBaseTemplate.types["定义"].colorIndex) {
+          // 定义类卡片使用概念提取提示词
+          prompt = shouldTranslate ? this.OCRExtractConceptPrompt : this.OCRExtractConceptNoTransPrompt
+        } else if (note.colorIndex === KnowledgeBaseTemplate.types["研究进展"].colorIndex) {
+          // 研究进展类卡片使用总结提示词
+          prompt = shouldTranslate ? this.OCRSummarizePrompt : this.OCRSummarizeNoTransPrompt
+        } else {
+          // 非定义类卡片使用直出提示词
+          prompt = shouldTranslate ? this.OCRDirectlyPrompt : this.OCRDirectlyNoTransPrompt
+        }
+        break
+      default:
+        prompt = shouldTranslate ? this.OCRDirectlyPrompt : this.OCRDirectlyNoTransPrompt
+    }
+
+    // 根据模式选择对应的 OCR 模型
+    let ocrModel;
+    switch (mode) {
+      case 1:
+        // 模式1：直接OCR - 使用专用模型，未设置时回退到通用模型
+        ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode1 || KnowledgeBaseConfig.config.excerptOCRModel;
+        break;
+      case 2:
+        // 模式2：Markdown格式 - 使用专用模型（默认 Doc2X），未设置时回退到通用模型
+        ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode2 || KnowledgeBaseConfig.config.excerptOCRModel;
+        break;
+      case 3:
+        // 模式3：概念提取/总结 - 使用专用模型，未设置时回退到通用模型
+        // 检查是否是定义类卡片或研究进展类卡片（通过 colorIndex 判断）
+        if (note.colorIndex === KnowledgeBaseTemplate.types["定义"].colorIndex) {
+          // 定义类卡片
+          ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode3 || KnowledgeBaseConfig.config.excerptOCRModel;
+        } else if (note.colorIndex === KnowledgeBaseTemplate.types["研究进展"].colorIndex) {
+          // 研究进展类卡片使用模式3的模型（或可以单独配置）
+          ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode3 || KnowledgeBaseConfig.config.excerptOCRModel;
+        } else {
+          ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode1 || KnowledgeBaseConfig.config.excerptOCRModel;
+        }
+        break;
+      default:
+        // 默认使用通用模型
+        ocrModel = KnowledgeBaseConfig.config.excerptOCRModel;
+    }
+
+    let result = await this.OCR(compressedImageData, ocrModel, prompt)
+    if (result) {
+      MNUtil.undoGrouping(()=>{
+        note.title = result.trim()
+        return true
+      })
+    } else {
+      return false
+    }
+  }
+  static async OCR(imageData, source = "doubao-seed-1-6-nothinking", prompt){
+    try {
+      let ocrSource = source
+      let config = JSON.parse(JSON.stringify(ocrConfig.config))
+      config.source = ocrSource
+      MNUtil.log(typeof imageData)
+      MNUtil.log("is imagedata: "+(imageData instanceof NSData))
+      let imageBase64 = (typeof imageData === "string") ? imageData : imageData.base64Encoding()
+      let strForMD5 = JSON.stringify(config)+imageBase64
+      let MD5 = MNUtil.MD5(strForMD5)
+      MNUtil.log("MD5: "+MD5)
+      let res = undefined;
+      switch (ocrSource) {
+        case "Doc2X":
+        case "doc2x":
+          res = await ocrNetwork.doc2xImgOCR(imageData)
+          if (res) {
+            ocrNetwork.OCRBuffer[MD5] = res
+            MNUtil.log({
+              source:"MN OCR",
+              message:"✅ OCR By Doc2X",
+              detail:res
+            })
+          }
+          break;
+        case "SimpleTex":
+        case "simpleTex":
+          res = await ocrNetwork.simpleTexOCR(imageData)
+          if (res) {
+            ocrNetwork.OCRBuffer[MD5] = res
+            MNUtil.log({
+              source:"MN OCR",
+              message:"✅ OCR By SimpleTex",
+              detail:res
+            })
+          }
+          break;
+        case "glm-4v-plus":
+        case "glm-4v-flash":
+        case "glm-4.1v-thinking-flashx":
+        case "glm-4.1v-thinking-flash":
+        case "glm-4.5v":
+        case "glm-4.5v-nothinking":
+        case "abab6.5s-chat":
+        case "claude-3-5-sonnet-20241022":
+        case "claude-3-5-haiku-20241022":
+        case "claude-3-7-sonnet":
+        case "claude-opus-4":
+        case "claude-sonnet-4":
+        case "claude-3-5-haiku":
+        case "gemini-2.0-flash-exp":
+        case "gemini-2.0-flash-lite":
+        case "gemini-2.5-flash-lite":
+        case "gemini-2.0-flash":
+        case "gemini-2.5-flash":
+        case "gemini-2.5-pro":
+        case "gemini-2.0-pro":
+        case "GPT-4o":
+        case "GPT-4o-mini":
+        case "GPT-4.1":
+        case "GPT-4.1-mini":
+        case "GPT-4.1-nano":
+        case "GPT-5":
+        case "GPT-5-mini":
+        case "GPT-5-nano":
+        case "doubao-seed-1-6":
+        case "doubao-seed-1-6-nothinking":
+        case "doubao-seed-1.6-flash":
+        case "doubao-seed-1.6-flash-nothinking":
+        case "Moonshot-v1":
+        case "MiniMax-Text-01":
+          let beginTime = Date.now()
+          res = await this.ChatGPTVision(imageBase64, ocrSource, prompt)
+          let endTime = Date.now()
+          let costTime = (endTime-beginTime)/1000
+          if (res) {
+            ocrNetwork.OCRBuffer[MD5] = res
+            MNUtil.log({
+              source:"MN OCR",
+              message:"✅ OCR By "+ocrSource+" ("+costTime.toFixed(2)+"s)",
+              detail:res
+            })
+          }
+          break;
+        default:
+          MNUtil.showHUD("Unsupported source: "+ocrSource)
+          return undefined
+      }
+      MNUtil.stopHUD()
+      res = ocrUtils.action(source, res)
+      return res
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "KnowledgeBaseNetwork.OCR")
+      return undefined
+    }
+  }
+
+  /**
+   * 允许直接传入base64图片,减少转换耗时
+   * @param {string|NSData} imageData
+   * @returns {Promise<Object>}
+   */
+  static async ChatGPTVision(imageData, source="GPT-4o",prompt = ocrConfig.getConfig("userPrompt")) {
+    try {
+      let key = subscriptionConfig.config.apikey
+      if (ocrConfig.modelSource(source).isFree) {
+        key = 'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44'
+      }
+      if (!key) {
+        MNUtil.showHUD("No ChatGPT API key")
+        return
+      }
+      MNUtil.waitHUD("OCR By "+source)
+      let url = subscriptionConfig.config.url + "/v1/chat/completions"
+      let imageUrl = "data:image/jpeg;base64,"
+      if (typeof imageData === "string") {
+        imageUrl = imageUrl+imageData
+      } else {
+        imageUrl = imageUrl+imageData.base64Encoding()
+      }
+      ocrNetwork.history = [
+        {
+          role:"system",
+          content:prompt
+        },
+        {
+          role: "user", 
+          content: [
+            {
+              "type": "image_url",
+              "image_url": {
+                "url" : imageUrl
+              }
+            }
+          ]
+        }
+      ]
+
+      let modelName = ocrConfig.modelSource(source).model
+      let request = ocrNetwork.initRequestForChatGPT(key, url, modelName, 0.1)
+      let res = await ocrNetwork.sendRequest(request,"ChatGPTVision",false)
+      let ocrResult
+      if (res.choices && res.choices.length) {
+        ocrResult = res.choices[0].message.content
+      } else {
+        return undefined
+      }
+      let convertedText = ocrResult
+        .replace(/\$\$\n?/g, '$$$\n')
+        .replace(/(\\\[\s*\n?)|(\s*\\\]\n?)/g, '$$$\n')
+        .replace(/(\\\(\s*)|(\s*\\\))/g, '$')
+        .replace(/```/g,'')
+        .replace(/<\|begin_of_box\|>/g,'')
+        .replace(/<\|end_of_box\|>/g,'')
+      return convertedText
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "ChatGPTVision")
+      return undefined
+    }
+  }
+}
+
+class KnowledgeBaseConfig {
+  static excerptOCRSources = [
+    "doubao-seed-1-6",
+    "doubao-seed-1-6-nothinking",
+    "doubao-seed-1.6-flash",
+    "doubao-seed-1.6-flash-nothinking",
+    "Doc2X",
+    "Doc2XPDF",
+    "SimpleTex",
+    "abab6.5s-chat",
+    "MiniMax-Text-01",
+    "Moonshot-v1",
+    "claude-3-5-sonnet-20241022",
+    "claude-opus-4",
+    "claude-sonnet-4",
+    "claude-3-7-sonnet",
+    "claude-3-5-haiku-20241022",
+    "claude-3-5-haiku",
+    "gemini-2.0-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash-exp",
+    "gemini-2.0-pro",
+    "gemini-2.5-pro",
+    "glm-4v-plus",
+    "glm-4v-flash",
+    "glm-4.1v-thinking-flashx",
+    "glm-4.1v-thinking-flash",
+    "glm-4.5v",
+    "glm-4.5v-nothinking",
+    "GPT-4o",
+    "GPT-4o-mini",
+    "GPT-4.1",
+    "GPT-4.1-mini",
+    "GPT-4.1-nano",
+    "GPT-5",
+    "GPT-5-mini",
+    "GPT-5-nano",
+  ];
+  // 默认摘录 OCR 模型常量，避免在多个位置重复字面量
+  static DEFAULT_EXCERPT_OCR_MODEL = "doubao-seed-1-6";
+  static get defaultConfig() {
+    return {
+      excerptOCRModel: this.DEFAULT_EXCERPT_OCR_MODEL, // 摘录 OCR 模型（通用默认）
+      // 计算默认模型的索引，使用常量而不是再次访问 getter
+      excerptOCRModelIndex: this.excerptOCRSources.indexOf(this.DEFAULT_EXCERPT_OCR_MODEL),
+      excerptOCRMode: 0, // 摘录 OCR 模式：0=关闭, 1=直接OCR, 2=Markdown格式, 3=概念提取
+
+      // 每个模式的专用模型（向后兼容，未设置时回退到 excerptOCRModel）
+      excerptOCRModelForMode1: "doubao-seed-1-6",        // 模式1：直接OCR
+      excerptOCRModelForMode2: "Doc2X",                  // 模式2：Markdown格式（Doc2X专为数学公式优化）
+      excerptOCRModelForMode3: "doubao-seed-1-6",        // 模式3：概念提取
+    }
+  }
+  
+  static getConfig(key){
+    if (!this.config) {
+      return false
+    }
+    if (this.config[key] !== undefined) {
+      return this.config[key]
+    }else{
+      return this.defaultConfig[key]
+    }
+  }
+
+  static init(mainPath) {
+    if (mainPath) {
+      this.mainPath = mainPath
+    }
+
+    this.config = this.getByDefault('MNKnowledgeBase_config', this.defaultConfig)
+  }
+
+  static getByDefault(key, defaultValue, backUpFile) { //记得在remove中增加备份文件的删除
+    let value = NSUserDefaults.standardUserDefaults().objectForKey(key)
+    if (value === undefined) {
+      if (backUpFile && MNUtil.isfileExists(backUpFile)) { //需要检查备份文件
+        let backupConfig = MNUtil.readJSON(backUpFile)
+        if (backupConfig && Object.keys(backupConfig).length > 0) {
+          MNUtil.log("backupConfig.readFromBackupFile")
+          return backupConfig
+        }
+      }
+      NSUserDefaults.standardUserDefaults().setObjectForKey(defaultValue, key)
+      return defaultValue
+    }
+    return value
+  }
+  static get(key) {
+    return NSUserDefaults.standardUserDefaults().objectForKey(key)
+  }
+  static save() {
+    NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, "MNKnowledgeBase_config")
+  }
+  static remove(key) {
+    NSUserDefaults.standardUserDefaults().removeObjectForKey(key)
+  }
+}
+
+class HtmlMarkdownUtils {
+  static icons = {
+    // step: '🚩',
+    // point: '▸',
+    // subpoint: '▪',
+    // subsubpoint: '•',
+    level1: '🚩',
+    level2: '▸',
+    level3: '▪',
+    level4: '•',
+    level5: '·',
+    key: '🔑',
+    alert: '⚠️',
+    danger: '❗❗❗',
+    remark: '📝',
+    goal: '🎯',
+    question: '❓',
+    idea: '💡',
+    method: '✨',
+    check: '🔍',
+    sketch: '✏️',
+  };
+  static prefix = {
+    danger: '',
+    alert: '',
+    key: '',
+    // step: '',
+    // point: '',
+    // subpoint: '',
+    // subsubpoint: '',
+    level1: '',
+    level2: '',
+    level3: '',
+    level4: '',
+    level5: '',
+    remark: '',
+    goal: '',
+    question: '',
+    idea: '思路：',
+    method: '方法：',
+    check: 'CHECK',
+    sketch: 'SKETCH',
+  };
+  static styles = {
+    // 格外注意
+    danger: 'font-weight:700;color:#6A0C0C;background:#FFC9C9;border-left:6px solid #A93226;font-size:1em;padding:8px 15px;display:inline-block;transform:skew(-3deg);box-shadow:2px 2px 5px rgba(0,0,0,0.1);',
+    // 注意
+    alert: 'background:#FFF;color:#FF8C5A;border:2px solid currentColor;border-radius:3px;padding:6px 12px;font-weight:600;box-shadow:0 1px 3px rgba(255,140,90,0.2);display:inline-block;',
+    // 关键
+    key: 'color: #B33F00;background: #FFF1E6;border-left: 6px solid #FF6B35;padding:16px 12px 1px;line-height:2;position:relative;top:6px;display:inline-block;font-family:monospace;margin-top:-2px;',
+    level1: "font-weight:600;color:#1E40AF;background:linear-gradient(15deg,#EFF6FF 30%,#DBEAFE);border:2px solid #3B82F6;border-radius:12px;padding:10px 18px;display:inline-block;box-shadow:2px 2px 0px #BFDBFE,4px 4px 8px rgba(59,130,246,0.12);position:relative;margin:4px 8px;",
+    level2: "font-weight:600;color:#4F79A3; background:linear-gradient(90deg,#F3E5F5 50%,#ede0f7);font-size:1.1em;padding:6px 12px;border-left:4px solid #7A9DB7;transform:skew(-1.5deg);box-shadow:1px 1px 3px rgba(0,0,0,0.05);margin-left:40px;position:relative;",
+    level3: "font-weight:500;color:#7A9DB7;background:#E8F0FE;padding:4px 10px;border-radius:12px;border:1px solid #B3D4FF;font-size:0.95em;margin-left:80px;position:relative;",
+    level4: "font-weight:400;color:#9DB7CA;background:#F8FBFF;padding:3px 8px;border-left:2px dashed #B3D4FF;font-size:0.9em;margin-left:120px;position:relative;",
+    level5: "font-weight:300;color:#B3D4FF;background:#FFFFFF;padding:2px 6px;border-radius:8px;border:1px dashed #B3D4FF;font-size:0.85em;margin-left:160px;position:relative;",
+    remark: 'background:#F5E6C9;color:#6d4c41;display:inline-block;border-left:5px solid #D4AF37;padding:2px 8px 3px 12px;border-radius:0 4px 4px 0;box-shadow:1px 1px 3px rgba(0,0,0,0.08);margin:0 2px;line-height:1.3;vertical-align:baseline;position:relative;',
+    // 目标
+    goal: 'font-weight:900;font-size:0.7em;color:#8B2635;background:linear-gradient(135deg,#F87171 0%,#FCA5A5 25%,#FECACA 60%,#FEF2F2 100%);padding:12px 24px;border-radius:50px;display:inline-block;position:relative;box-shadow:0 4px 8px rgba(248,113,113,0.25),inset 0 1px 0 rgba(255,255,255,0.5);text-shadow:0 1px 1px rgba(255,255,255,0.4);border:2px solid rgba(248,113,113,0.4);',
+    // 问题
+    question: 'font-weight:700;color:#3D1A67;background:linear-gradient(15deg,#F8F4FF 30%,#F1E8FF);border:3px double #8B5CF6;border-radius:16px 4px 16px 4px;padding:14px 22px;display:inline-block;box-shadow:4px 4px 0px #DDD6FE,8px 8px 12px rgba(99,102,241,0.12);position:relative;margin:4px 8px;',
+    // 思路
+    idea: 'font-weight:600;color:#4A4EB2;background:linear-gradient(15deg,#F0F4FF 30%,#E6EDFF);border:2px dashed #7B7FD1;border-radius:12px;padding:10px 18px;display:inline-block;box-shadow:0 0 0 2px rgba(123,127,209,0.2),inset 0 0 10px rgba(123,127,209,0.1);position:relative;margin:4px 8px;',
+    // 方法
+    method: 'display:block;font-weight:700;color:#1B4332;background:linear-gradient(135deg,#74C69D 0%,#95D5B2 25%,#C7F0DB 60%,#E8F5E8 100%);font-size:1.3em;padding:12px 20px 12px 24px;border-left:10px solid #2D6A4F;margin:0 0 12px 0;border-radius:0 6px 6px 0;box-shadow:0 4px 12px rgba(116,198,157,0.2),inset 0 1px 0 rgba(255,255,255,0.5);text-shadow:0 1px 1px rgba(255,255,255,0.4);position:relative;',
+    // 检查
+    check: 'font-weight:600;color:#34A853;background:#E6F7EE;border:2px solid #34A853;border-radius:4px;padding:4px 8px;display:inline-block;box-shadow:0 1px 2px rgba(52,168,83,0.2);margin:0 2px;line-height:1.3;vertical-align:baseline;position:relative;',
+    // 草稿/手绘
+    sketch: 'background:transparent;color:#5D4037;display:inline-block;border-bottom:2px dotted #FF9800;padding:0 4px 2px;margin:0 2px;line-height:1.2;vertical-align:baseline;position:relative;font-size:0.9em;font-style:italic;',
+    // 等价证明
+    // 蕴含关系
+  };
+  // 定义即使内容为空也要输出的类型白名单
+  static emptyContentWhitelist = ['check'];
+  
+  static createHtmlMarkdownText(text, type = 'none') {
+    // 对于白名单中的类型，特殊处理
+    if (this.emptyContentWhitelist.includes(type) && (!text || (typeof text === 'string' && text.trim() === ''))) {
+      // 对于白名单类型，即使内容为空也返回完整的 HTML
+      return `<span id="${type}" style="${this.styles[type]} ">${this.icons[type]} ${this.prefix[type]}</span>`;
+    }
+    
+    // 处理 undefined 或 null 的情况
+    if (!text) {
+      if (type === 'none') {
+        return '';
+      } else {
+        return '';
+      }
+    }
+    
+    let handledText = Pangu.spacing(text)
+    if (type === 'none') {
+      return text.trim();
+    } else {
+      // 如果内容为空且类型不在白名单中，返回空字符串
+      if (!handledText) {
+        return '';
+      }
+      // 防御性编程：确保 icons 和 prefix 不会返回 undefined
+      const icon = this.icons[type] || '';
+      const prefix = this.prefix[type] || '';
+      const style = this.styles[type] || '';
+      return `<span id="${type}" style="${style} ">${icon} ${prefix}${handledText}</span>`;
+    }
+  }
+
+  /**
+   * 正则匹配获取 span 标签的内容
+   */
+  static getSpanContent(comment) {
+    let text
+    switch (MNUtil.typeOf(comment)) {
+      case "string":
+        text = comment
+        break;
+      case "MNComment":
+        text = comment.text?comment.text:""
+        break;
+    }
+    const regex = /<span[^>]*>(.*?)<\/span>/;
+    const match = text.match(regex);
+    if (match && match[1]) {
+      return match[1].trim();
+    } else {
+      return text;
+    }
+  }
+
+  /**
+   * 正则匹配获取 span 标签的文本内容（不含 emoji 和前缀）
+   */
+  static getSpanTextContent(comment) {
+    let text
+    switch (MNUtil.typeOf(comment)) {
+      case "string":
+        text = comment
+        break;
+      case "MNComment":
+        text = comment.text?comment.text:""
+        break;
+    }
+    const regex = /<span[^>]*>(.*?)<\/span>/;
+    const match = text.match(regex);
+    if (match && match[1]) {
+      text = match[1].trim();
+      // 去掉图标
+      Object.values(this.icons).forEach(icon => {
+        text = text.replace(icon, '').trim();
+      });
+      // 去掉前缀文本
+      Object.values(this.prefix).forEach(prefix => {
+        if (prefix && text.startsWith(prefix)) {
+          text = text.substring(prefix.length).trim();
+        }
+      });
+      return text
+    } else {
+      return text;
+    }
+  }
+
+  /**
+   * 正则匹配获取 span 的 id（类型）
+   */
+  static getSpanType(comment) {
+    let span
+    switch (MNUtil.typeOf(comment)) {
+      case "string":
+        span = comment
+        break;
+      case "MNComment":
+        span = comment.text?comment.text:""
+        break;
+    }
+    const regex = /<span\s+id="([^"]*)"/;
+    const match = span.match(regex);
+    if (match && match[1]) {
+      return match[1].trim();
+    } else {
+      return span;
+    }
+  }
+
+  /**
+   * 获取 id（类型） 往下一级的类型
+   */
+  static getSpanNextLevelType(type) {
+    const levelMap = {
+      goal: 'level1',
+      // step: 'point',
+      // point: 'subpoint',
+      // subpoint: 'subsubpoint',
+      // subsubpoint: 'subsubpoint'
+      level1: 'level2',
+      level2: 'level3',
+      level3: 'level4',
+      level4: 'level5',
+      level5: 'level5',
+    };
+    return levelMap[type] || undefined;
+  }
+
+  /**
+   * 获取 id（类型） 往上一级的类型
+   */
+  static getSpanLastLevelType(type) {
+    const levelMap = {
+      // point: 'step',
+      // subpoint: 'point',
+      // subsubpoint: 'subpoint',
+      // step: 'goal',
+      goal: 'goal',
+      level1: 'goal',
+      level2: 'level1',
+      level3: 'level2',
+      level4: 'level3',
+      level5: 'level4',
+    };
+    return levelMap[type] || undefined;
+  }
+
+  /**
+   * 是否属于可升降级类型
+   * 
+   * 防止对 remark 等类型进行处理
+   */
+  static isLevelType(type) {
+    // const levelTypes = ['goal', 'step', 'point', 'subpoint', 'subsubpoint'];
+    const levelTypes = ['goal', 'level1', 'level2', 'level3', 'level4', 'level5',];
+    return levelTypes.includes(type);
+  }
+
+  /**
+   * 获取 note 的 HtmlMD 评论的 index 和类型
+   */
+  static getHtmlMDCommentIndexAndTypeObjArr(note) {
+    let comments = note.MNComments
+    let htmlMDCommentsObjArr = []
+    comments.forEach(
+      (comment, index) => {
+        if (HtmlMarkdownUtils.isHtmlMDComment(comment)) {
+          htmlMDCommentsObjArr.push(
+            {
+              index: index,
+              type: this.getSpanType(comment.text)
+            }
+          )
+        }
+      }
+    )
+    return htmlMDCommentsObjArr
+  }
+
+  /**
+   * 判定评论是否是 HtmlMD 评论
+   */
+  static isHtmlMDComment(comment) {
+    let text
+    switch (MNUtil.typeOf(comment)) {
+      case "string":
+        text = comment
+        break;
+      case "MNComment":
+        text = comment.text?comment.text:""
+        break;
+    }
+    if (text == undefined) {
+      return false
+    } else {
+      return !!text.startsWith("<span")
+    }
+  }
+
+  /**
+   * 将 HtmlMD 评论类型变成下一级
+   */
+  static changeHtmlMDCommentTypeToNextLevel(comment) {
+    if (MNUtil.typeOf(comment) === "MNComment") {
+      let content = this.getSpanTextContent(comment)
+      let type = this.getSpanType(comment)
+      if (HtmlMarkdownUtils.isHtmlMDComment(comment) && this.isLevelType(type)) {
+        let nextLevelType = this.getSpanNextLevelType(type)
+        comment.text = HtmlMarkdownUtils.createHtmlMarkdownText(content, nextLevelType)
+      }
+    }
+  }
+
+  /**
+   * 将 HtmlMD 评论类型变成上一级
+   */
+  static changeHtmlMDCommentTypeToLastLevel(comment) {
+    if (MNUtil.typeOf(comment) === "MNComment") {
+      let content = this.getSpanTextContent(comment)
+      let type = this.getSpanType(comment)
+      if (HtmlMarkdownUtils.isHtmlMDComment(comment) && this.isLevelType(type)) {
+        let lastLevelType = this.getSpanLastLevelType(type)
+        comment.text = HtmlMarkdownUtils.createHtmlMarkdownText(content, lastLevelType)
+      }
+    }
+  }
+
+
+  /**
+   * 获取评论中最后一个 HtmlMD 评论
+   */
+  static getLastHtmlMDComment(note) {
+    let comments = note.MNComments
+    let lastHtmlMDComment = undefined
+    if (comments.length === 2 && comments[0] == undefined && comments[1] == undefined) {
+      return false
+    }
+    comments.forEach(
+      comment => {
+        if (HtmlMarkdownUtils.isHtmlMDComment(comment)) {
+          lastHtmlMDComment = comment
+        }
+      }
+    )
+    return lastHtmlMDComment
+  }
+
+  /**
+   * 判断是否有 HtmlMD 评论
+   */
+  static hasHtmlMDComment(note) {
+    return !!this.getLastHtmlMDComment(note)
+  }
+
+  /**
+   * 增加同级评论
+   */
+  static addSameLevelHtmlMDComment(note, text, type) {
+    note.appendMarkdownComment(
+      HtmlMarkdownUtils.createHtmlMarkdownText(text, type),
+    )
+  }
+
+  /**
+   * 增加下一级评论
+   */
+  static addNextLevelHtmlMDComment(note, text, type) {
+    let nextLevelType = this.getSpanNextLevelType(type)
+    if (nextLevelType) {
+      note.appendMarkdownComment(
+        HtmlMarkdownUtils.createHtmlMarkdownText(text, nextLevelType)
+      )
+    } else {
+      note.appendMarkdownComment(
+        HtmlMarkdownUtils.createHtmlMarkdownText(text, type)
+      )
+    }
+  }
+
+  /**
+   * 批量调整所有 HtmlMarkdown 评论的层级
+   * 
+   * @param {MNNote} note - 要处理的卡片
+   * @param {string} direction - 调整方向："up" 表示层级上移（level2->level1），"down" 表示层级下移（level1->level2）
+   * @returns {number} 返回调整的评论数量
+   */
+  static adjustAllHtmlMDLevels(note, direction = "up") {
+    const comments = note.MNComments;
+    let adjustedCount = 0;
+    
+    if (!comments || comments.length === 0) {
+      MNUtil.showHUD("当前卡片没有评论");
+      return 0;
+    }
+    
+    // 遍历所有评论
+    comments.forEach((comment, index) => {
+      if (!comment || !comment.text) return;
+      
+      // 处理可能的 "- " 前缀
+      let hasLeadingDash = false;
+      let cleanText = comment.text;
+      if (cleanText.startsWith("- ")) {
+        hasLeadingDash = true;
+        cleanText = cleanText.substring(2);
+      }
+      
+      // 检查是否是 HtmlMarkdown 评论且是层级类型
+      if (this.isHtmlMDComment(cleanText)) {
+        const type = this.getSpanType(cleanText);
+        const content = this.getSpanTextContent(cleanText);
+        
+        if (this.isLevelType(type)) {
+          let newType;
+          
+          if (direction === "up") {
+            // 层级上移（数字变小）
+            newType = this.getSpanLastLevelType(type);
+          } else if (direction === "down") {
+            // 层级下移（数字变大）
+            newType = this.getSpanNextLevelType(type);
+          } else {
+            return;
+          }
+          
+          // 只有当类型真的改变时才更新
+          if (newType && newType !== type) {
+            const newHtmlText = this.createHtmlMarkdownText(content, newType);
+            comment.text = hasLeadingDash ? "- " + newHtmlText : newHtmlText;
+            adjustedCount++;
+          }
+        }
+      }
+    });
+    
+    if (adjustedCount > 0) {
+      MNUtil.showHUD(`已调整 ${adjustedCount} 个层级评论`);
+    } else {
+      MNUtil.showHUD("没有可调整的层级评论");
+    }
+    
+    return adjustedCount;
+  }
+
+  /**
+   * 根据指定的最高级别调整所有层级
+   * 
+   * @param {MNNote} note - 要处理的卡片
+   * @param {string} targetHighestLevel - 目标最高级别（如 "goal", "level1", "level2" 等）
+   * @returns {number} 返回调整的评论数量
+   */
+  static adjustHtmlMDLevelsByHighest(note, targetHighestLevel) {
+    const comments = note.MNComments;
+    if (!comments || comments.length === 0) {
+      MNUtil.showHUD("当前卡片没有评论");
+      return 0;
+    }
+    
+    // 定义层级顺序（从高到低）
+    const levelOrder = ['goal', 'level1', 'level2', 'level3', 'level4', 'level5'];
+    const targetIndex = levelOrder.indexOf(targetHighestLevel);
+    
+    if (targetIndex === -1) {
+      MNUtil.showHUD("无效的目标层级");
+      return 0;
+    }
+    
+    // 第一遍扫描：找出当前最高层级
+    let currentHighestLevel = null;
+    let currentHighestIndex = levelOrder.length;
+    
+    // 收集所有层级类型的评论信息
+    const levelComments = [];
+    
+    comments.forEach((comment, index) => {
+      if (!comment || !comment.text) return;
+      
+      let cleanText = comment.text;
+      let hasLeadingDash = false;
+      
+      if (cleanText.startsWith("- ")) {
+        hasLeadingDash = true;
+        cleanText = cleanText.substring(2);
+      }
+      
+      if (this.isHtmlMDComment(cleanText)) {
+        const type = this.getSpanType(cleanText);
+        
+        if (this.isLevelType(type)) {
+          const levelIndex = levelOrder.indexOf(type);
+          if (levelIndex !== -1) {
+            levelComments.push({
+              comment: comment,
+              index: index,
+              type: type,
+              levelIndex: levelIndex,
+              content: this.getSpanTextContent(cleanText),
+              hasLeadingDash: hasLeadingDash
+            });
+            
+            // 更新当前最高层级
+            if (levelIndex < currentHighestIndex) {
+              currentHighestIndex = levelIndex;
+              currentHighestLevel = type;
+            }
+          }
+        }
+      }
+    });
+    
+    if (levelComments.length === 0) {
+      MNUtil.showHUD("没有找到层级类型的评论");
+      return 0;
+    }
+    
+    // 计算偏移量
+    const offset = targetIndex - currentHighestIndex;
+    
+    if (offset === 0) {
+      MNUtil.showHUD(`最高层级已经是 ${targetHighestLevel}`);
+      return 0;
+    }
+    
+    // 第二遍：根据偏移量调整所有层级
+    let adjustedCount = 0;
+    
+    levelComments.forEach(item => {
+      const newLevelIndex = Math.max(0, Math.min(levelOrder.length - 1, item.levelIndex + offset));
+      const newType = levelOrder[newLevelIndex];
+      
+      if (newType !== item.type) {
+        const newHtmlText = this.createHtmlMarkdownText(item.content, newType);
+        item.comment.text = item.hasLeadingDash ? "- " + newHtmlText : newHtmlText;
+        adjustedCount++;
+      }
+    });
+    
+    if (adjustedCount > 0) {
+      const direction = offset > 0 ? "下移" : "上移";
+      MNUtil.showHUD(`已将最高层级调整为 ${targetHighestLevel}，共${direction} ${Math.abs(offset)} 级，调整了 ${adjustedCount} 个评论`);
+    }
+    
+    return adjustedCount;
+  }
+
+  /**
+   * 批量调整所有 HtmlMarkdown 评论的层级
+   * 
+   * @param {MNNote} note - 要处理的卡片
+   * @param {string} direction - 调整方向："up"（上移）或"down"（下移）
+   * @returns {number} 调整的评论数量
+   */
+  static adjustAllHtmlMDLevels(note, direction = "down") {
+    if (!note || !note.MNComments) return 0;
+    
+    let adjustedCount = 0;
+    let comments = note.MNComments;
+    
+    MNUtil.undoGrouping(() => {
+      comments.forEach((comment, index) => {
+        if (!comment || !comment.text) return;
+        
+        // 处理可能的前导 "- "
+        let text = comment.text;
+        let hasLeadingDash = false;
+        if (text.startsWith("- ")) {
+          hasLeadingDash = true;
+          text = text.substring(2);
+        }
+        
+        // 检查是否是 HtmlMarkdown 评论
+        if (!HtmlMarkdownUtils.isHtmlMDComment(text)) return;
+        
+        let type = HtmlMarkdownUtils.getSpanType(text);
+        let content = HtmlMarkdownUtils.getSpanTextContent(text);
+        
+        // 检查是否是层级类型
+        if (!HtmlMarkdownUtils.isLevelType(type)) return;
+        
+        // 根据方向获取新的层级类型
+        let newType;
+        if (direction === "up") {
+          newType = HtmlMarkdownUtils.getSpanLastLevelType(type);
+        } else {
+          newType = HtmlMarkdownUtils.getSpanNextLevelType(type);
+        }
+        
+        // 如果层级没有变化（已到边界），跳过
+        if (newType === type) return;
+        
+        // 创建新的 HtmlMarkdown 文本
+        let newHtmlText = HtmlMarkdownUtils.createHtmlMarkdownText(content, newType);
+        
+        // 保持前导破折号
+        if (hasLeadingDash) {
+          newHtmlText = "- " + newHtmlText;
+        }
+        
+        // 更新评论
+        comment.text = newHtmlText;
+        adjustedCount++;
+      });
+    });
+    
+    return adjustedCount;
+  }
+
+  /**
+   * 根据指定的最高级别调整所有层级
+   * 
+   * @param {MNNote} note - 要处理的卡片
+   * @param {string} targetHighestLevel - 目标最高级别（如 "goal", "level1", "level2" 等）
+   * @returns {Object} 返回调整结果 {adjustedCount: 数量, originalHighest: 原最高级, targetHighest: 目标最高级}
+   */
+  static adjustHtmlMDLevelsByHighest(note, targetHighestLevel) {
+    if (!note || !note.MNComments) {
+      return { adjustedCount: 0, originalHighest: null, targetHighest: targetHighestLevel };
+    }
+    
+    // 定义层级顺序映射（数字越小层级越高）
+    const levelOrder = {
+      'goal': 0,
+      'level1': 1,
+      'level2': 2,
+      'level3': 3,
+      'level4': 4,
+      'level5': 5
+    };
+    
+    // 验证目标层级是否有效
+    if (!(targetHighestLevel in levelOrder)) {
+      MNUtil.showHUD(`无效的目标层级: ${targetHighestLevel}`);
+      return { adjustedCount: 0, originalHighest: null, targetHighest: targetHighestLevel };
+    }
+    
+    // 收集所有层级类型的 HtmlMarkdown 评论
+    let levelComments = [];
+    let comments = note.MNComments;
+    
+    comments.forEach((comment, index) => {
+      if (!comment || !comment.text) return;
+      
+      // 处理前导 "- "
+      let text = comment.text;
+      let hasLeadingDash = false;
+      if (text.startsWith("- ")) {
+        hasLeadingDash = true;
+        text = text.substring(2);
+      }
+      
+      if (!HtmlMarkdownUtils.isHtmlMDComment(text)) return;
+      
+      let type = HtmlMarkdownUtils.getSpanType(text);
+      let content = HtmlMarkdownUtils.getSpanTextContent(text);
+      
+      if (!HtmlMarkdownUtils.isLevelType(type)) return;
+      
+      levelComments.push({
+        index: index,
+        comment: comment,
+        type: type,
+        content: content,
+        hasLeadingDash: hasLeadingDash,
+        order: levelOrder[type]
+      });
+    });
+    
+    if (levelComments.length === 0) {
+      MNUtil.showHUD("没有找到层级类型的 HtmlMarkdown 评论");
+      return { adjustedCount: 0, originalHighest: null, targetHighest: targetHighestLevel };
+    }
+    
+    // 找出当前最高层级（order 值最小的）
+    let currentHighestOrder = Math.min(...levelComments.map(item => item.order));
+    let currentHighestLevel = Object.keys(levelOrder).find(key => levelOrder[key] === currentHighestOrder);
+    
+    // 计算需要调整的偏移量
+    let targetOrder = levelOrder[targetHighestLevel];
+    let offset = targetOrder - currentHighestOrder;
+    
+    if (offset === 0) {
+      MNUtil.showHUD(`当前最高级已经是 ${targetHighestLevel}`);
+      return { adjustedCount: 0, originalHighest: currentHighestLevel, targetHighest: targetHighestLevel };
+    }
+    
+    // 批量调整所有层级
+    let adjustedCount = 0;
+    
+    MNUtil.undoGrouping(() => {
+      levelComments.forEach(item => {
+        let newOrder = item.order + offset;
+        
+        // 确保不超出边界
+        if (newOrder < 0) newOrder = 0;
+        if (newOrder > 5) newOrder = 5;
+        
+        // 找到对应的新层级类型
+        let newType = Object.keys(levelOrder).find(key => levelOrder[key] === newOrder);
+        
+        if (newType && newType !== item.type) {
+          // 创建新的 HtmlMarkdown 文本
+          let newHtmlText = HtmlMarkdownUtils.createHtmlMarkdownText(item.content, newType);
+          
+          // 保持前导破折号
+          if (item.hasLeadingDash) {
+            newHtmlText = "- " + newHtmlText;
+          }
+          
+          // 更新评论
+          item.comment.text = newHtmlText;
+          adjustedCount++;
+        }
+      });
+    });
+    
+    return {
+      adjustedCount: adjustedCount,
+      originalHighest: currentHighestLevel,
+      targetHighest: targetHighestLevel
+    };
+  }
+
+  /**
+   * 增加上一级评论
+   */
+  static addLastLevelHtmlMDComment(note, text, type) {
+    let lastLevelType = this.getSpanLastLevelType(type)
+    if (lastLevelType) {
+      note.appendMarkdownComment(
+        HtmlMarkdownUtils.createHtmlMarkdownText(text, lastLevelType)
+      )
+    } else {
+      note.appendMarkdownComment(
+        HtmlMarkdownUtils.createHtmlMarkdownText(text, type)
+      )
+    }
+  }
+
+  /**
+   * 自动根据最后一个 HtmlMD 评论的类型增加 Level 类型评论
+   */
+  static autoAddLevelHtmlMDComment(note, text, goalLevel = "same") {
+    let lastHtmlMDComment = this.getLastHtmlMDComment(note)
+    if (lastHtmlMDComment) {
+      let lastHtmlMDCommentType = this.getSpanType(lastHtmlMDComment.text)
+      switch (goalLevel) {
+        case "same":
+          this.addSameLevelHtmlMDComment(note, text, lastHtmlMDCommentType)
+          break;
+        case "next":
+          this.addNextLevelHtmlMDComment(note, text, lastHtmlMDCommentType)
+          break;
+        case "last":
+          this.addLastLevelHtmlMDComment(note, text, lastHtmlMDCommentType)
+          break
+        default: 
+          MNUtil.showHUD("No goalLevel: " + goalLevel)
+          break;
+      }
+    } else {
+      // 如果没有 HtmlMD 评论，就添加一个一级
+      note.appendMarkdownComment(
+        HtmlMarkdownUtils.createHtmlMarkdownText(text, 'goal')
+      )
+    }
+  }
+
+  // 解析开头的连字符数量
+  static parseLeadingDashes(str) {
+    let count = 0;
+    let index = 0;
+    const maxDashes = 5;
+    
+    while (count < maxDashes && index < str.trim().length) {
+      if (str[index] === '-') {
+        count++;
+        index++;
+        // 跳过后续空格
+        while (index < str.length && (str[index] === ' ' || str[index] === '\t')) {
+          index++;
+        }
+      } else {
+        break;
+      }
+    }
+    
+    return {
+      count: count > 0 ? Math.min(count, maxDashes) : 0,
+      remaining: str.slice(index).trim()
+    };
+  }
+
+  /**
+   * 检查笔记的后代中是否有任何子卡片包含标题
+   * @param {MNNote} rootFocusNote 要检查的根笔记
+   * @returns {boolean} 如果有任何后代包含标题返回 true，否则返回 false
+   */
+  static hasDescendantWithTitle(rootFocusNote) {
+      try {
+          const nodesData = rootFocusNote.descendantNodes;
+          if (!nodesData || !nodesData.descendant) {
+              return false;
+          }
+          
+          const allDescendants = nodesData.descendant;
+          const treeIndex = nodesData.treeIndex;
+          
+          // 过滤掉知识点卡片和归类卡片的分支
+          const excludedBranchRoots = new Set();
+          
+          if (rootFocusNote.childNotes && rootFocusNote.childNotes.length > 0) {
+              rootFocusNote.childNotes.forEach(childNote => {
+                  if (KnowledgeBaseTemplate.isClassificationNote(childNote) || KnowledgeBaseTemplate.isKnowledgeNote(childNote)) {
+                      excludedBranchRoots.add(childNote.noteId);
+                  }
+              });
+          }
+          
+          // 检查每个后代节点
+          for (let i = 0; i < allDescendants.length; i++) {
+              const node = allDescendants[i];
+              const nodeTreeIndex = treeIndex[i];
+              
+              // 跳过被排除的分支
+              if (nodeTreeIndex.length > 0 && excludedBranchRoots.size > 0) {
+                  const directChildIndex = nodeTreeIndex[0];
+                  const directChild = rootFocusNote.childNotes[directChildIndex];
+                  if (directChild && excludedBranchRoots.has(directChild.noteId)) {
+                      continue;
+                  }
+              }
+              
+              // 检查节点是否有标题
+              let hasTitle = false;
+              if (typeof node.title === 'string') {
+                  let titleContent = "";
+                  if (typeof node.title.toNoBracketPrefixContent === 'function') {
+                      titleContent = node.title.toNoBracketPrefixContent();
+                  } else if (HtmlMarkdownUtils.isHtmlMDComment(node.title)) {
+                      titleContent = HtmlMarkdownUtils.getSpanTextContent(node.title);
+                  } else {
+                      titleContent = node.title;
+                  }
+                  
+                  if (titleContent.trim()) {
+                      hasTitle = true;
+                  }
+              }
+              
+              if (hasTitle) {
+                  return true;
+              }
+          }
+          
+          return false;
+      } catch (error) {
+        MNLog.error(error, "检查后代标题时出错");
+        return false;
+      }
+  }
+
+  /**
+   * 执行向上合并操作，将被聚焦笔记的后代笔记合并到其自身。
+   * 子笔记的标题会作为带样式的、独立的评论添加到它们各自的直接父笔记中，
+   * 然后子笔记（清空标题后）的结构内容再合并到父笔记。
+   *
+   * @param {MNNote} rootFocusNote 要处理的主笔记，其后代笔记将被向上合并到此笔记中。
+   * @param {string} [firstLevelType] rootFocusNote 直接子笔记的 HtmlMarkdownUtils 类型 (例如：'goal', 'level1')。如果不提供，将跳过标题样式化步骤。
+   */
+  static upwardMergeWithStyledComments(rootFocusNote, firstLevelType) {
+      // 确保 MNUtil 和 HtmlMarkdownUtils 在当前作用域中可用
+      if (typeof MNUtil === 'undefined' || typeof HtmlMarkdownUtils === 'undefined') {
+          MNUtil.error("MNUtil 或 HtmlMarkdownUtils 未定义。");
+          if (typeof MNUtil !== 'undefined' && typeof MNUtil.showHUD === 'function') {
+              MNUtil.showHUD("错误：找不到必要的工具库。", 2);
+          }
+          return;
+      }
+
+      // 1. API 名称更正：使用属性访问 rootFocusNote.descendantNodes
+      let allDescendants, treeIndex;
+      try {
+          // 假设 descendantNodes 是一个直接返回所需对象的属性
+          const nodesData = rootFocusNote.descendantNodes;
+          if (!nodesData || typeof nodesData.descendant === 'undefined' || typeof nodesData.treeIndex === 'undefined') {
+              throw new Error("descendantNodes 属性未返回预期的 {descendant, treeIndex} 对象结构。");
+          }
+          allDescendants = nodesData.descendant;
+          treeIndex = nodesData.treeIndex;
+      } catch (e) {
+          MNUtil.error("无法获取后代笔记。请确保 rootFocusNote.descendantNodes 属性存在且能正确返回数据。", e);
+          MNUtil.showHUD("错误：无法获取后代笔记数据。", 2);
+          return;
+      }
+
+      if (!allDescendants || allDescendants.length === 0) {
+          MNUtil.showHUD("没有可合并的后代笔记。", 2);
+          return;
+      }
+
+      // 过滤掉知识点卡片和归类卡片的分支
+      // 首先找出所有需要排除的分支根节点（直接子节点）
+      const excludedBranchRoots = new Set();
+      
+      // 检查直接子节点
+      if (rootFocusNote.childNotes && rootFocusNote.childNotes.length > 0) {
+          rootFocusNote.childNotes.forEach(childNote => {
+              // 判断子卡片是否是归类卡片或知识点卡片（仅检查卡片自身，不向上查找）
+              if (KnowledgeBaseTemplate.isClassificationNote(childNote) || KnowledgeBaseTemplate.isKnowledgeNote(childNote)) {
+                  excludedBranchRoots.add(childNote.noteId);
+              }
+          });
+      }
+      
+      // 如果有需要排除的分支，过滤掉这些分支的所有节点
+      if (excludedBranchRoots.size > 0) {
+          const filteredDescendants = [];
+          const filteredTreeIndex = [];
+          
+          for (let i = 0; i < allDescendants.length; i++) {
+              const node = allDescendants[i];
+              const nodeTreeIndex = treeIndex[i];
+              
+              // treeIndex[0] 是直接子节点在 childNotes 中的索引
+              if (nodeTreeIndex.length > 0) {
+                  const directChildIndex = nodeTreeIndex[0];
+                  const directChild = rootFocusNote.childNotes[directChildIndex];
+                  
+                  // 如果这个节点不属于被排除的分支，则保留
+                  if (directChild && !excludedBranchRoots.has(directChild.noteId)) {
+                      filteredDescendants.push(node);
+                      filteredTreeIndex.push(nodeTreeIndex);
+                  }
+              }
+          }
+          
+          // 更新为过滤后的数组
+          allDescendants = filteredDescendants;
+          treeIndex = filteredTreeIndex;
+          
+          // 如果过滤后没有节点了，提示并返回
+          if (allDescendants.length === 0) {
+              MNUtil.showHUD("所有子卡片都是知识点或归类卡片，无法合并。", 2);
+              return;
+          }
+      }
+
+      const nodesWithInfo = allDescendants.map((node, i) => ({
+          node: node,
+          level: treeIndex[i].length // 相对于 rootFocusNote 子笔记的深度 (1 代表直接子笔记)
+      }));
+
+      let maxLevel = 0;
+      if (nodesWithInfo.length > 0) {
+          maxLevel = Math.max(...nodesWithInfo.map(item => item.level));
+      }
+
+      // (移除 aggregatedRawTextFromChildren Map，因为不再需要向上聚合标题文本)
+
+      /**
+       * 根据笔记在 treeIndex 中的层级（相对于 rootFocusNote 子笔记的深度）
+       * 和第一层子笔记的初始类型，来确定该笔记的 HtmlMarkdownUtils 类型。
+       * @param {number} level - 笔记的层级 (1 代表 rootFocusNote 的直接子笔记)
+       * @param {string} initialTypeForLevel1 - 第一层子笔记的初始类型
+       * @returns {string} - 计算得到的 HtmlMarkdownUtils 类型
+       */
+      function getNodeTypeForTreeIndexLevel(level, initialTypeForLevel1) {
+          // 仅在提供了 initialTypeForLevel1 时才执行
+          if (!initialTypeForLevel1) {
+              return null;
+          }
+          
+          // 检查是否是层级类型（goal, level1-5）
+          if (HtmlMarkdownUtils.isLevelType(initialTypeForLevel1)) {
+              // 原有逻辑：层级类型按原规则递减
+              let currentType = initialTypeForLevel1;
+              if (level === 1) {
+                  return currentType;
+              }
+              for (let i = 1; i < level; i++) {
+                  const nextType = HtmlMarkdownUtils.getSpanNextLevelType(currentType);
+                  if (!nextType || nextType === currentType) {
+                      return currentType;
+                  }
+                  currentType = nextType;
+              }
+              return currentType;
+          } else {
+              // 新逻辑：非层级类型（如 method, idea, question 等）
+              if (level === 1) {
+                  // 第一层使用指定的非层级类型
+                  return initialTypeForLevel1;
+              } else {
+                  // 从第二层开始，使用 level1 并按层级递减
+                  let currentType = 'level1';
+                  // 注意：level 是从 1 开始的，level=2 表示第二层
+                  for (let i = 2; i < level; i++) {
+                      const nextType = HtmlMarkdownUtils.getSpanNextLevelType(currentType);
+                      if (!nextType || nextType === currentType) {
+                          return currentType;
+                      }
+                      currentType = nextType;
+                  }
+                  return currentType;
+              }
+          }
+      }
+
+      // 从最深层级开始，逐层向上处理
+      for (let currentTreeIndexLevel = maxLevel; currentTreeIndexLevel >= 1; currentTreeIndexLevel--) {
+          const nodesAtThisLevel = nodesWithInfo.filter(item => item.level === currentTreeIndexLevel);
+
+          for (const item of nodesAtThisLevel) {
+              const currentNode = item.node;
+              const parentNode = currentNode.parentNote;
+
+              if (!parentNode) {
+                  MNUtil.error(`层级 ${currentTreeIndexLevel} 的笔记 ${currentNode.id || '(无ID)'} 没有父笔记。已跳过。`);
+                  continue;
+              }
+              if (parentNode.id !== rootFocusNote.id && !allDescendants.some(d => d.id === parentNode.id)) {
+                  MNUtil.warn(`笔记 ${currentNode.id} 的父笔记 ${parentNode.id} 不在 rootFocusNote 后代笔记的合并范围内。已跳过此笔记的合并。`);
+                  continue;
+              }
+
+              // 1. 仅在提供了 firstLevelType 时确定类型
+              let typeForCurrentNodeTitleInParentComment;
+              if (firstLevelType) {
+                  // 确定 currentNode 的标题在添加到 parentNode 的评论中时应采用的 'type'。
+                  // 这个 type 是基于 currentNode 相对于 rootFocusNote 的深度来决定的。
+                  typeForCurrentNodeTitleInParentComment = getNodeTypeForTreeIndexLevel(currentTreeIndexLevel, firstLevelType);
+              }
+
+              // 2. 准备来自 currentNode 标题的原始文本内容。
+              let rawTextFromTitle;
+              if (typeof currentNode.title === 'string') {
+                  if (typeof currentNode.title.toNoBracketPrefixContent === 'function') { // 您提到的特定方法
+                      rawTextFromTitle = currentNode.title.toNoBracketPrefixContent();
+                  } else if (HtmlMarkdownUtils.isHtmlMDComment(currentNode.title)) {
+                      rawTextFromTitle = HtmlMarkdownUtils.getSpanTextContent(currentNode.title);
+                  } else {
+                      rawTextFromTitle = currentNode.title;
+                  }
+              } else {
+                  rawTextFromTitle = "";
+              }
+              rawTextFromTitle = rawTextFromTitle.trim();
+
+              // 3. 如果提供了 firstLevelType，将标题转换为带样式的评论
+              if (firstLevelType) {
+                  // 将 currentNode 的 rawTextFromTitle (原始标题文本) 作为一个新的带样式的评论添加到 parentNode。
+                  // 评论的类型由 currentNode 自身的层级决定。
+                  if (rawTextFromTitle) { // 仅当标题有内容时才添加评论
+                      // HtmlMarkdownUtils.addSameLevelHtmlMDComment(parentNode, rawTextFromTitle, typeForCurrentNodeTitleInParentComment);
+                      // 或者，如果更倾向于直接使用 appendMarkdownComment:
+                      if (typeof parentNode.appendMarkdownComment === 'function') {
+                          parentNode.appendMarkdownComment(
+                              HtmlMarkdownUtils.createHtmlMarkdownText(rawTextFromTitle, typeForCurrentNodeTitleInParentComment)
+                          );
+                      } else {
+                          MNUtil.warn(`parentNode ${parentNode.id} 上未找到 appendMarkdownComment 方法。`);
+                      }
+                  }
+
+                  // 4. 清空 currentNode 的标题。
+                  if (typeof currentNode.setTitle === 'function') {
+                      currentNode.setTitle("");
+                  } else {
+                      currentNode.title = "";
+                  }
+              }
+
+              // 5. 执行 currentNode（现在已无标题，但包含其原有评论、子节点等）到 parentNode 的结构性合并。
+              if (typeof currentNode.mergeInto === 'function') {
+                  currentNode.mergeInto(parentNode);
+              } else {
+                  MNUtil.warn(`笔记 ${currentNode.id || '(无ID)'} 上未找到 mergeInto 方法。结构性合并已跳过。`);
+              }
+          }
+      }
+      
+      rootFocusNote.focusInMindMap(0.5);
+  }
+
+
+  /**
+   * 通过弹窗选择字段并将其内容转换为 HtmlMarkdown 评论
+   * @param {MNNote} note - 要操作的笔记
+   */
+  static convertFieldContentToHtmlMDByPopup(note) {
+    let htmlCommentsTextArr = KnowledgeBaseTemplate.parseNoteComments(note).htmlCommentsTextArr;
+    
+    if (htmlCommentsTextArr.length === 0) {
+      MNUtil.showHUD("当前笔记没有字段");
+      return;
+    }
+
+    // 在字段列表前添加特殊选项
+    htmlCommentsTextArr.unshift("📋 从所有评论中选择");
+
+    // 第一个弹窗：选择字段
+    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+      "选择要转换内容的字段",
+      "请选择一个字段，将其内容转换为 HtmlMarkdown 格式",
+      0,
+      "取消",
+      htmlCommentsTextArr,
+      (alert, buttonIndex) => {
+        if (buttonIndex === 0) return; // 用户取消
+        
+        if (buttonIndex === 1) {
+          // 用户选择了"从所有评论中选择"
+          let contents = this.getAllNonHtmlMDContents(note);
+          
+          if (contents.length === 0) {
+            MNUtil.showHUD("没有可转换的内容");
+            return;
+          }
+          
+          // 直接显示内容选择弹窗
+          this.showFieldContentSelectionPopup(note, contents, "所有评论");
+        } else {
+          // 原有逻辑：选择了特定字段
+          let selectedField = htmlCommentsTextArr[buttonIndex - 2]; // 因为添加了一个选项，索引要减2
+          let contents = this.getFieldNonHtmlMDContents(note, selectedField);
+          
+          if (contents.length === 0) {
+            MNUtil.showHUD("该字段下没有可转换的内容");
+            return;
+          }
+          
+          // 显示内容选择弹窗
+          this.showFieldContentSelectionPopup(note, contents, selectedField);
+        }
+      }
+    );
+  }
+
+  /**
+   * 获取指定字段下的非 HtmlMarkdown 内容
+   * @param {MNNote} note - 笔记对象
+   * @param {string} fieldName - 字段名称
+   * @returns {Array} 包含内容信息的数组
+   */
+  static getFieldNonHtmlMDContents(note, fieldName) {
+    let commentsObj = KnowledgeBaseTemplate.parseNoteComments(note);
+    let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
+    
+    // 找到对应字段
+    let fieldObj = htmlCommentsObjArr.find(obj => obj.text.includes(fieldName));
+    if (!fieldObj) return [];
+    
+    let contents = [];
+    let excludingIndices = fieldObj.excludingFieldBlockIndexArr;
+    
+    excludingIndices.forEach(index => {
+      let comment = note.MNComments[index];
+      
+      // 只处理文本评论和 Markdown 评论（非 HtmlMarkdown）
+      if (comment.type === "textComment" || 
+          (comment.type === "markdownComment" && !HtmlMarkdownUtils.isHtmlMDComment(comment.text))) {
+        
+        let text = comment.text || "";
+        let displayText = text;
+        let hasLeadingDash = false;
+        
+        // 检查是否有 "- " 前缀
+        if (text.startsWith("- ")) {
+          hasLeadingDash = true;
+          displayText = text; // 显示时保留 "- "
+        }
+        
+        contents.push({
+          index: index,
+          text: text,
+          displayText: displayText,
+          type: comment.type,
+          hasLeadingDash: hasLeadingDash
+        });
+      }
+    });
+    
+    return contents;
+  }
+
+  /**
+   * 获取所有评论中的非 HtmlMarkdown 内容
+   * @param {MNNote} note - 笔记对象
+   * @returns {Array} 包含所有可转换内容的数组
+   */
+  static getAllNonHtmlMDContents(note) {
+    let contents = [];
+    let comments = note.MNComments;
+    
+    comments.forEach((comment, index) => {
+      // 只处理文本评论和非 HtmlMarkdown 的 Markdown 评论
+      if (comment.type === "textComment" || 
+          (comment.type === "markdownComment" && !HtmlMarkdownUtils.isHtmlMDComment(comment.text))) {
+        
+        let text = comment.text || "";
+        let displayText = text;
+        let hasLeadingDash = false;
+        
+        // 检查是否有 "- " 前缀
+        if (text.startsWith("- ")) {
+          hasLeadingDash = true;
+          displayText = text; // 显示时保留 "- "
+        }
+        
+        // 添加字段信息以便用户识别
+        let fieldInfo = this.getCommentFieldInfo(note, index);
+        if (fieldInfo) {
+          displayText = `[${fieldInfo}] ${displayText}`;
+        }
+        
+        contents.push({
+          index: index,
+          text: text,
+          displayText: displayText,
+          type: comment.type,
+          hasLeadingDash: hasLeadingDash,
+          fieldName: fieldInfo
+        });
+      }
+    });
+    
+    return contents;
+  }
+
+  /**
+   * 获取评论所属的字段信息
+   * @param {MNNote} note - 笔记对象
+   * @param {number} commentIndex - 评论索引
+   * @returns {string|null} 字段名称，如果不属于任何字段则返回 null
+   */
+  static getCommentFieldInfo(note, commentIndex) {
+    let commentsObj = KnowledgeBaseTemplate.parseNoteComments(note);
+    let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
+    
+    // 遍历所有字段，找到包含该评论的字段
+    for (let fieldObj of htmlCommentsObjArr) {
+      if (fieldObj.excludingFieldBlockIndexArr.includes(commentIndex)) {
+        return fieldObj.text;
+      }
+    }
+    
+    return null; // 不属于任何字段
+  }
+
+  /**
+   * 显示内容选择弹窗
+   * @param {MNNote} note - 笔记对象
+   * @param {Array} contents - 可转换的内容数组
+   * @param {string} fieldName - 字段名称
+   */
+  static showFieldContentSelectionPopup(note, contents, fieldName) {
+    // 准备显示选项
+    let options = contents.map((content, idx) => {
+      return `${idx + 1}. ${content.displayText.substring(0, 50)}${content.displayText.length > 50 ? '...' : ''}`;
+    });
+    
+    // 添加多选和全部转换选项
+    options.unshift("✅ 多选内容");
+    options.unshift("转换全部内容");
+    
+    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+      "选择要转换的内容",
+      `字段"${fieldName}"下共有 ${contents.length} 条可转换内容`,
+      0,
+      "取消",
+      options,
+      (alert, buttonIndex) => {
+        if (buttonIndex === 0) return; // 用户取消
+        
+        let selectedContents = [];
+        
+        if (buttonIndex === 1) {
+          // 选择了"转换全部内容"
+          selectedContents = contents;
+          // 显示类型选择弹窗
+          this.showTypeSelectionPopup(note, selectedContents);
+        } else if (buttonIndex === 2) {
+          // 选择了"多选内容"
+          let selectedIndices = new Set();
+          this.showFieldContentMultiSelectDialog(note, contents, fieldName, selectedIndices);
+        } else {
+          // 选择了单个内容
+          selectedContents = [contents[buttonIndex - 3]]; // 因为增加了两个选项，所以索引要减3
+          // 显示类型选择弹窗
+          this.showTypeSelectionPopup(note, selectedContents);
+        }
+      }
+    );
+  }
+
+  /**
+   * 显示内容多选对话框
+   * @param {MNNote} note - 笔记对象
+   * @param {Array} contents - 所有可转换的内容
+   * @param {string} fieldName - 字段名称
+   * @param {Set} selectedIndices - 已选中的索引集合
+   */
+  static showFieldContentMultiSelectDialog(note, contents, fieldName, selectedIndices) {
+    // 构建显示选项
+    let displayOptions = contents.map((content, idx) => {
+      let prefix = selectedIndices.has(content.index) ? "✅ " : "";
+      let displayText = content.displayText.substring(0, 50) + (content.displayText.length > 50 ? '...' : '');
+      return prefix + `${idx + 1}. ${displayText}`;
+    });
+    
+    // 添加全选/取消全选选项
+    let allSelected = selectedIndices.size === contents.length;
+    let selectAllText = allSelected ? "⬜ 取消全选" : "☑️ 全选所有内容";
+    displayOptions.unshift(selectAllText);
+    
+    // 添加分隔线和操作选项
+    displayOptions.push("──────────────");
+    displayOptions.push("➡️ 转换选中内容");
+    
+    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+      `多选内容 - ${fieldName}`,
+      `已选中 ${selectedIndices.size}/${contents.length} 项`,
+      0,
+      "取消",
+      displayOptions,
+      (alert, buttonIndex) => {
+        if (buttonIndex === 0) return; // 用户取消
+        
+        if (buttonIndex === 1) {
+          // 用户选择了全选/取消全选
+          if (allSelected) {
+            // 取消全选
+            selectedIndices.clear();
+          } else {
+            // 全选
+            contents.forEach((content) => {
+              selectedIndices.add(content.index);
+            });
+          }
+          
+          // 递归显示更新后的对话框
+          this.showFieldContentMultiSelectDialog(note, contents, fieldName, selectedIndices);
+          
+        } else if (buttonIndex === displayOptions.length) {
+          // 用户选择了"转换选中内容"
+          if (selectedIndices.size === 0) {
+            MNUtil.showHUD("没有选中任何内容");
+            this.showFieldContentMultiSelectDialog(note, contents, fieldName, selectedIndices);
+            return;
+          }
+          
+          // 获取选中的内容
+          let selectedContents = [];
+          contents.forEach(content => {
+            if (selectedIndices.has(content.index)) {
+              selectedContents.push(content);
+            }
+          });
+          
+          // 显示类型选择弹窗
+          this.showTypeSelectionPopup(note, selectedContents);
+          
+        } else if (buttonIndex === displayOptions.length - 1) {
+          // 用户选择了分隔线，忽略并重新显示
+          this.showFieldContentMultiSelectDialog(note, contents, fieldName, selectedIndices);
+          
+        } else {
+          // 用户选择了某个内容，切换选中状态
+          let selectedContent = contents[buttonIndex - 2]; // 因为加了全选选项，所以索引要减2
+          
+          if (selectedIndices.has(selectedContent.index)) {
+            selectedIndices.delete(selectedContent.index);
+          } else {
+            selectedIndices.add(selectedContent.index);
+          }
+          
+          // 递归显示更新后的对话框
+          this.showFieldContentMultiSelectDialog(note, contents, fieldName, selectedIndices);
+        }
+      }
+    );
+  }
+
+  /**
+   * 显示类型选择弹窗
+   * @param {MNNote} note - 笔记对象
+   * @param {Array} contents - 要转换的内容数组
+   */
+  static showTypeSelectionPopup(note, contents) {
+    // 定义可选的类型
+    let typeOptions = [
+      "goal - 🎯 目标",
+      "level1 - 🚩 一级",
+      "level2 - ▸ 二级",
+      "level3 - ▪ 三级",
+      "level4 - • 四级",
+      "level5 - · 五级",
+      "key - 🔑 关键",
+      "alert - ⚠️ 警告",
+      "danger - ❗❗❗ 危险",
+      "remark - 📝 备注",
+      "question - ❓ 问题",
+      "idea - 💡 想法",
+      "method - ✨ 方法"
+    ];
+    
+    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+      "选择转换类型",
+      "请选择要转换成的 HtmlMarkdown 类型",
+      0,
+      "取消",
+      typeOptions,
+      (alert, buttonIndex) => {
+        if (buttonIndex === 0) return; // 用户取消
+        
+        // 提取类型名
+        let selectedType = typeOptions[buttonIndex - 1].split(" - ")[0];
+        
+        // 执行转换
+        this.convertContentsToHtmlMD(note, contents, selectedType);
+      }
+    );
+  }
+
+  /**
+   * 执行内容转换
+   * @param {MNNote} note - 笔记对象
+   * @param {Array} contents - 要转换的内容数组
+   * @param {string} type - 目标类型
+   */
+  static convertContentsToHtmlMD(note, contents, type) {
+    MNUtil.undoGrouping(() => {
+      // 按索引从大到小排序，避免删除时索引变化
+      let sortedContents = contents.sort((a, b) => b.index - a.index);
+      
+      sortedContents.forEach(content => {
+        let textToConvert = content.text;
+        
+        // 如果有 "- " 前缀，去掉它
+        if (content.hasLeadingDash) {
+          textToConvert = textToConvert.substring(2).trim();
+        }
+        
+        // 创建 HtmlMarkdown 文本
+        let htmlMdText = HtmlMarkdownUtils.createHtmlMarkdownText(textToConvert, type);
+        
+        // 获取原评论
+        let comment = note.MNComments[content.index];
+        
+        // 替换原评论的文本
+        if (comment) {
+          comment.text = htmlMdText;
+        }
+      });
+      
+      // 刷新笔记显示
+      note.refresh();
+    });
+    
+    MNUtil.showHUD(`成功转换 ${contents.length} 条内容`);
+  }
+
+  /**
+   * 智能添加空格
+   * 在中文和英文/数字之间添加空格
+   * @param {string} text - 要处理的文本
+   * @returns {string} 处理后的文本
+   */
+
+  /**
+   * 创建等价证明文本
+   * @param {string} propositionA - 命题 A
+   * @param {string} propositionB - 命题 B
+   * @returns {Object} 包含两个方向证明的对象
+   */
+  static createEquivalenceProof(propositionA, propositionB) {
+    // 处理空格
+    const spacedA = this.smartSpacing(propositionA);
+    const spacedB = this.smartSpacing(propositionB);
+    
+    // 生成两个方向的证明（纯文本格式）
+    const proofAtoB = `若 ${spacedA} 成立，则 ${spacedB} 成立`;
+    const proofBtoA = `若 ${spacedB} 成立，则 ${spacedA} 成立`;
+    const equivalence = `${spacedA} ⇔ ${spacedB}`;
+    
+    return {
+      proofAtoB,
+      proofBtoA,
+      equivalence,
+      fullProof: [equivalence, proofAtoB, proofBtoA]
+    };
+  }
+
+  /**
+   * 通过弹窗输入创建等价证明（使用模板选择）
+   * @param {MNNote} note - 目标笔记
+   */
+  
+  /**
+   * 通用的证明添加入口
+   * @param {MNNote} note - 目标笔记
+   */
+
+  // ==================== 证明模板管理系统 ====================
+  
+  /**
+   * 初始化证明模板配置
+   */
+
+  /**
+   * 从存储加载证明模板配置
+   */
+
+  /**
+   * 获取默认证明模板配置
+   */
+
+  /**
+   * 保存证明模板配置
+   */
+
+  /**
+   * 获取所有证明模板
+   */
+  
+  /**
+   * 获取所有启用的证明模板
+   */
+  
+  /**
+   * 收集证明输入数据
+   * @param {Object} template - 选中的模板
+   * @returns {Object|null} 输入数据对象或null（如果取消）
+   */
+  
+  /**
+   * 显示输入对话框
+   * @param {string} title - 对话框标题
+   * @param {string} message - 对话框消息
+   * @param {string} confirmText - 确认按钮文本
+   * @returns {Promise<string|null>} 输入文本或null（如果取消）
+   */
+  
+  /**
+   * 使用模板生成证明内容
+   * @param {Object} template - 证明模板
+   * @param {Object} inputs - 输入数据
+   * @returns {Object} 生成的证明内容
+   */
+  static generateProofFromTemplate(template, inputs) {
+    const result = {
+      mainContent: null,
+      forwardProof: null,
+      reverseProof: null
+    };
+    
+    // 替换占位符
+    const replacePlaceholders = (text) => {
+      if (!text) return "";
+      const valueA = inputs.A || "";
+      const valueB = inputs.B || "";
+      return text.replace(/\{A\}/g, this.smartSpacing(valueA))
+                 .replace(/\{B\}/g, this.smartSpacing(valueB));
+    };
+    
+    // 生成主要内容（根据模板类型）- 纯文本格式
+    if (template.type === "equivalence") {
+      const spacedA = this.smartSpacing(inputs.A || "");
+      const spacedB = this.smartSpacing(inputs.B || "");
+      if (spacedA && spacedB) {
+        result.mainContent = `${spacedA} ⇔ ${spacedB}`;
+      }
+    } else if (template.type === "implication") {
+      const spacedA = this.smartSpacing(inputs.A || "");
+      const spacedB = this.smartSpacing(inputs.B || "");
+      if (spacedA && spacedB) {
+        result.mainContent = `${spacedA} ⇒ ${spacedB}`;
+      }
+    }
+    
+    // 生成正向证明（纯文本格式）
+    if (template.forwardTemplate) {
+      const forwardText = replacePlaceholders(template.forwardTemplate);
+      result.forwardProof = forwardText;
+    }
+    
+    // 生成反向证明（纯文本格式）
+    if (template.reverseTemplate) {
+      const reverseText = replacePlaceholders(template.reverseTemplate);
+      result.reverseProof = reverseText;
+    }
+    
+    return result;
+  }
+  
+  /**
+   * 将证明内容添加到笔记
+   * @param {MNNote} note - 目标笔记
+   * @param {Object} template - 使用的模板
+   * @param {Object} proof - 生成的证明内容
+   */
+
+  /**
+   * 添加证明模板
+   */
+
+  /**
+   * 更新证明模板
+   */
+
+  /**
+   * 删除证明模板
+   */
+
+  /**
+   * 证明模板管理 - 主界面
+   */
+
+  /**
+   * 编辑证明模板对话框
+   */
+
+  /**
+   * 添加证明模板对话框
+   */
+
+  /**
+   * 显示文本输入对话框
+   */
+
+  /**
+   * 导出证明模板配置
+   */
+
+  /**
+   * 导入证明模板配置
+   */
 }

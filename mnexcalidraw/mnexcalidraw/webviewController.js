@@ -244,9 +244,12 @@ viewWillLayoutSubviews: function() {
         {title:'🌘 Left 1/3',object:self,selector:'splitScreen:',param:'left13',checked:self.customMode==="left13"},
         {title:'🌓 Right',object:self,selector:'splitScreen:',param:'right',checked:self.customMode==="right"},
         {title:'🌒 Right 1/3',object:self,selector:'splitScreen:',param:'right13',checked:self.customMode==="right13"},
-        {title:'🎬 From Selection',object:self,selector:'loadFromSelection:',param:'right13'},
-        {title:'🎬 From Clipboard',object:self,selector:'loadFromClipboard:',param:'right13'},
-        {title:'🎬 From FocusNote',object:self,selector:'loadFromFocusNote:',param:'right13'},
+        {title:'➕ Add Image From Selection',object:self,selector:'loadFromSelection:',param:'overlay'},
+        {title:'➕ Add Image From Clipboard',object:self,selector:'loadFromClipboard:',param:'overlay'},
+        {title:'➕ Add Image From FocusNote',object:self,selector:'loadFromFocusNote:',param:'overlay'},
+        {title:'🎬 New CanvasFrom Selection',object:self,selector:'loadFromSelection:',param:'replace'},
+        {title:'🎬 New Canvas From Clipboard',object:self,selector:'loadFromClipboard:',param:'replace'},
+        {title:'🎬 New Canvas From FocusNote',object:self,selector:'loadFromFocusNote:',param:'replace'},
       ];
     self.view.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,250,1)
   },
@@ -408,14 +411,19 @@ viewWillLayoutSubviews: function() {
     excalidrawConfig.save("MNBrowser_toolbar"+excalidrawConfig.toolbar)
   },
 
-  loadFromSelection: async function (button) {
+  loadFromSelection: async function (method = "overlay") {
+    let self = getExcalidrawController()
     if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
     let imageData = MNUtil.getDocImage()
     if (!imageData) {
       MNUtil.showHUD("No image found!")
       return
     }
-    self.addImage(imageData)
+    if (method === "overlay") {
+      self.addImage(imageData,true)
+    } else {
+      self.setImage(imageData,true)
+    }
     // let imageSize = UIImage.imageWithData(imageData).size
     // let imageUUID = NSUUID.UUID().UUIDString()
     // let elementUUID = NSUUID.UUID().UUIDString()
@@ -426,21 +434,31 @@ viewWillLayoutSubviews: function() {
     // `)
     // self.runJavaScript(`Excalidraw.scrollToContent()`)
   },
-  loadFromClipboard: async function (button) {
+  loadFromClipboard: async function (method = "overlay") {
     if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
     let image = UIPasteboard.generalPasteboard().image
-    let imageData = image.pngData()
-    let imageSize = image.size
-    let imageUUID = NSUUID.UUID().UUIDString()
-    let elementUUID = NSUUID.UUID().UUIDString()
-    // MNUtil.copy(imageData.base64Encoding())
-    self.runJavaScript(`
-    Excalidraw.addImage(\`${imageUUID}\`,\`data:image/png;base64,${imageData.base64Encoding()}\`)
-    Excalidraw.updateScene(\`${elementUUID}\`,\`${imageUUID}\`,${imageSize.width*0.5},${imageSize.height*0.5})
-    `)
-    self.runJavaScript(`Excalidraw.scrollToContent()`)
+    let imageData = image.jpegData(1.0)
+
+    // let imageSize = image.size
+    // let imageUUID = NSUUID.UUID().UUIDString()
+    // let elementUUID = NSUUID.UUID().UUIDString()
+    // // MNUtil.copy(imageData.base64Encoding())
+    if (method === "overlay") {
+      self.addImage(imageData,true)
+      // self.runJavaScript(`
+      // Excalidraw.addImage(\`${imageUUID}\`,\`data:image/jpeg;base64,${imageData.base64Encoding()}\`)
+      // Excalidraw.updateScene(\`${elementUUID}\`,\`${imageUUID}\`,${imageSize.width*0.5},${imageSize.height*0.5})
+      // `)
+    } else {
+      self.setImage(imageData,true)
+      // self.runJavaScript(`
+      // Excalidraw.addImage(\`${imageUUID}\`,\`data:image/jpeg;base64,${imageData.base64Encoding()}\`)
+      // Excalidraw.setScene(\`${elementUUID}\`,\`${imageUUID}\`,${imageSize.width*0.5},${imageSize.height*0.5})
+      // `)
+    }
+    // self.runJavaScript(`Excalidraw.scrollToContent()`)
   },
-  loadFromFocusNote: async function (button) {
+  loadFromFocusNote: async function (method = "overlay") {
     if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
     let focusNote = MNNote.getFocusNote()
     if (!focusNote) {
@@ -452,7 +470,11 @@ viewWillLayoutSubviews: function() {
       MNUtil.showHUD("No image found!")
       return
     }
-    self.addImage(imageData)
+    if (method === "overlay") {
+      self.addImage(imageData,true)
+    } else {
+      self.setImage(imageData,true)
+    }
     // let imageSize = UIImage.imageWithData(imageData).size
     // let imageUUID = NSUUID.UUID().UUIDString()
     // let elementUUID = NSUUID.UUID().UUIDString()
@@ -1351,14 +1373,30 @@ excalidrawController.prototype.exportToImage = async function (params) {
     return undefined
 }
 
-/** @this {excalidrawController} */
+/** 
+ * @param {NSData|UIImage} imageData
+ * @param {boolean} scrollToContent
+ * @this {excalidrawController} 
+*/
 excalidrawController.prototype.addImage = async function (imageData,scrollToContent) {
+  try {
+
+  // excalidrawUtils.log("addImage")
   if (!imageData) {
     return
   }
-    let imageSize = UIImage.imageWithData(imageData).size
+    let type = MNUtil.typeOf(imageData)
+
+    let imageSize = {}
+    let imageBase64 = ""
+    if (type === "UIImage") {
+      imageSize = imageData.size
+      imageBase64 = imageData.jpegData(1.0).base64Encoding()
+    }else{
+      imageSize = UIImage.imageWithData(imageData).size
+      imageBase64 = imageData.base64Encoding()
+    }
     let elementUUID = NSUUID.UUID().UUIDString()
-    let imageBase64 = imageData.base64Encoding()
     let imageUUID = MNUtil.MD5(imageBase64)
     if (this.imageMD5s.includes(imageUUID)) {
       return
@@ -1366,13 +1404,101 @@ excalidrawController.prototype.addImage = async function (imageData,scrollToCont
     this.imageMD5s.push(imageUUID)
     // MNUtil.copy(imageData.base64Encoding())
     this.runJavaScript(`
-    Excalidraw.addImage(\`${imageUUID}\`,\`data:image/png;base64,${imageBase64}\`)
+    Excalidraw.addImage(\`${imageUUID}\`,\`data:image/jpeg;base64,${imageBase64}\`)
     Excalidraw.updateScene(\`${elementUUID}\`,\`${imageUUID}\`,${imageSize.width*0.5},${imageSize.height*0.5})
     `)
     if (scrollToContent) {
       this.runJavaScript(`Excalidraw.scrollToContent()`)
     }
+    
+  } catch (error) {
+    excalidrawUtils.addErrorLog(error, "addImage")
+  }
+}
+/** 
+ * @param {NSData|UIImage} imageData
+ * @param {boolean} scrollToContent
+ * @this {excalidrawController} 
+*/
+excalidrawController.prototype.setImage = async function (imageData,scrollToContent) {
+try {
+
+  // excalidrawUtils.log("setImage")
+  if (!imageData) {
+    return
+  }
+    let type = MNUtil.typeOf(imageData)
+    let imageSize = {}
+    let imageBase64 = ""
+    if (type === "UIImage") {
+      imageSize = imageData.size
+      imageBase64 = imageData.jpegData(1.0).base64Encoding()
+    }else{
+      imageSize = UIImage.imageWithData(imageData).size
+      imageBase64 = imageData.base64Encoding()
+    }
+    let elementUUID = NSUUID.UUID().UUIDString()
+    let imageUUID = MNUtil.MD5(imageBase64)
+    if (!this.imageMD5s.includes(imageUUID)) {
+      this.imageMD5s.push(imageUUID)
+    }
+    // MNUtil.copy(imageData.base64Encoding())
+    this.runJavaScript(`
+    Excalidraw.addImage(\`${imageUUID}\`,\`data:image/jpeg;base64,${imageBase64}\`)
+    Excalidraw.setScene(\`${elementUUID}\`,\`${imageUUID}\`,${imageSize.width*0.5},${imageSize.height*0.5})
+    `)
+    if (scrollToContent) {
+      this.runJavaScript(`Excalidraw.scrollToContent()`)
+    }
+  
+} catch (error) {
+  excalidrawUtils.addErrorLog(error, "setImage")
+}
 }
 excalidrawController.prototype.scrollToContent = function () {
   this.runJavaScript(`Excalidraw.scrollToContent()`)
+}
+excalidrawController.prototype.loadImageToExcalidraw = function (imageSource,method) {
+  let imageData= undefined
+  switch (imageSource) {
+    case "selection":
+      imageData = MNUtil.getDocImage()
+      if (!imageData) {
+        MNUtil.showHUD("No image found!")
+        return
+      }
+      break;
+    case "clipboard":
+      imageData = UIPasteboard.generalPasteboard().image
+      if (!imageData) {
+        MNUtil.showHUD("No image found!")
+        return
+      }
+      break;
+    case "focusNote":
+      let focusNote = MNNote.getFocusNote()
+      if (!focusNote) {
+        MNUtil.showHUD("No focus note!")
+        return
+      }
+      let imageDatas = excalidrawUtils.getImagesFromNote(focusNote)
+      if (!imageDatas) {
+        MNUtil.showHUD("No image found!")
+        return
+      }
+      if (imageDatas.length) {
+        imageData = imageDatas[0]
+      }else{
+        MNUtil.showHUD("No image found!")
+        return
+      }
+      break;
+    default:
+      break;
+  }
+  if (method === "overlay") {
+    this.addImage(imageData,true)
+  } else {
+    this.setImage(imageData,true)
+  }
 }

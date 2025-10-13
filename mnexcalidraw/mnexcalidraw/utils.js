@@ -1,5 +1,7 @@
 // 定义一个类
 class excalidrawUtils {
+  static errorLog = []
+  static MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/(png|jpeg)\/.*?)(\))/g;
   static init(mainPath){
     this.mainPath = mainPath
     this.screenImage = MNUtil.getImage(mainPath + `/screen.png`)
@@ -16,6 +18,31 @@ class excalidrawUtils {
     this.zoomImage = MNUtil.getImage(mainPath + `/zoom.png`)
     this.logo = MNUtil.getImage(mainPath + `/logo.png`)
     this.robotImage = MNUtil.getImage(mainPath + `/robot.png`,1.8)
+  }
+  static addErrorLog(error,source,info){
+    MNUtil.showHUD("MN Excalidraw Error ("+source+"): "+error)
+    let log = {
+      error:error.toString(),
+      source:source,
+      time:(new Date(Date.now())).toString(),
+      mnaddon:"MN Excalidraw"
+    }
+    if (info) {
+      log.info = info
+    }
+    this.errorLog.push(log)
+    MNUtil.copy(this.errorLog)
+    if (typeof MNUtil.log !== 'undefined') {
+      MNUtil.log({
+        source:"MN Excalidraw",
+        level:"error",
+        message:source,
+        detail:log,
+      })
+    }
+  }
+  static log(message,detail){
+    MNUtil.log({message:message,detail:detail,source:"MN Excalidraw"})
   }
   static showHUD(message,duration=2) {
     let app = Application.sharedInstance()
@@ -144,6 +171,125 @@ class excalidrawUtils {
       }
     }
     return undefined
+  }
+  static hasMNImages(markdown) {
+    try {
+      if (!markdown) {
+        return false
+      }
+      if (!markdown.trim()) {
+        return false
+      }
+      // 匹配 base64 图片链接的正则表达式，支持png和jpeg
+      // let res = markdown.match(this.MNImagePattern)
+      // let link = markdown.match(MNImagePattern)
+      // console.log(link);
+      
+      // MNUtil.copyJSON({"a":link,"b":markdown})
+      return markdown.match(this.MNImagePattern)?true:false
+    } catch (error) {
+      this.addErrorLog(error, "hasMNImages")
+      return false
+    }
+  }
+  /**
+   * 只返回第一个图片
+   * @param {string} markdown 
+   * @returns {NSData}
+   */
+  static getMNImageFromMarkdown(markdown) {
+    try {
+      let res = markdown.match(this.MNImagePattern)
+      if (!res || !res.length) {
+        return undefined
+      }
+      let link = res[0]
+      let hash = undefined
+      // this.log("getMNImageFromMarkdown", link)
+      if (link.includes("markdownimg/jpeg/")) {
+        hash = link.split("markdownimg/jpeg/")[1].slice(0,-1)
+      }else if (link.includes("markdownimg/png/")) {
+        hash = link.split("markdownimg/png/")[1].slice(0,-1)
+      }
+      if (!hash) {
+        return undefined
+      }
+      let imageData = MNUtil.getMediaByHash(hash)
+      return imageData
+    } catch (error) {
+      this.addErrorLog(error, "getMNImageFromMarkdown")
+      return undefined
+    }
+  }
+  /**
+   * Retrieves the image data from the current document controller or other document controllers if the document map split mode is enabled.
+   * 
+   * This method checks for image data in the current document controller's selection. If no image is found, it checks the focused note within the current document controller.
+   * If the document map split mode is enabled, it iterates through all document controllers to find the image data. If a pop-up selection info is available, it also checks the associated document controller.
+   * @param {MbBookNote|MNNote} note 
+   * @param {boolean} [checkTextFirst = false] - Whether to check the text first.
+   * @returns {NSData[]|undefined} The image data if found, otherwise undefined.
+   */
+  static getImagesFromNote(note,checkTextFirst = false) {
+    let imageDatas = []
+    if (note.excerptPic) {
+      let isBlankNote = MNUtil.isBlankNote(note)
+      if (isBlankNote) {//实际为文字留白
+        let text = note.excerptText
+        if (note.excerptTextMarkdown) {
+          if (this.hasMNImages(text.trim())) {
+            imageDatas.push(this.getMNImageFromMarkdown(text))
+          }
+        }
+      }else{
+        if (checkTextFirst && note.textFirst) {
+          //检查发现图片已经转为文本，因此略过
+        }else{
+          imageDatas.push(MNUtil.getMediaByHash(note.excerptPic.paint))
+        }
+      }
+    }else{
+      let text = note.excerptText
+      if (note.excerptTextMarkdown) {
+        if (this.hasMNImages(text.trim())) {
+          imageDatas.push(this.getMNImageFromMarkdown(text))
+        }else{
+          // MNUtil.log("No images found in excerptTextMarkdown")
+        }
+      }
+    }
+    if (note.comments.length) {
+      for (let i = 0; i < note.comments.length; i++) {
+        const comment = note.comments[i];
+        switch (comment.type) {
+          case "PaintNote":
+            if (comment.paint) {
+              imageDatas.push(MNUtil.getMediaByHash(comment.paint))
+            }
+            break;
+          case "LinkNote":
+            if (comment.q_hpic && comment.q_hpic.paint) {
+              imageDatas.push(MNUtil.getMediaByHash(comment.q_hpic.paint))
+            };
+            break;
+          case "TextNote":
+            if (comment.markdown) {
+              if (this.hasMNImages(comment.text)) {
+                imageDatas.push(this.getMNImageFromMarkdown(comment.text))
+              }
+            }
+            break;
+          default:
+            break;
+        }
+        // if (comment.type === 'PaintNote' && comment.paint) {
+        //   imageDatas.push(MNUtil.getMediaByHash(comment.paint))
+        // }else if (comment.type === "LinkNote" && comment.q_hpic && comment.q_hpic.paint) {
+        //   imageDatas.push(MNUtil.getMediaByHash(comment.q_hpic.paint))
+        // }
+      }
+    }
+    return imageDatas
   }
 }
 class excalidrawConfig{

@@ -113,38 +113,38 @@ JSB.newAddon = function (mainPath) {
         self.dateNow = Date.now();
         self.rect = '{{0, 0}, {10, 10}}';
         self.arrow = 1;
-        MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
-        MNUtil.addObserver(self, 'onPopupMenuOnSelection:', 'PopupMenuOnSelection')
-        MNUtil.addObserver(self, 'onClosePopupMenuOnSelection:', 'ClosePopupMenuOnSelection')
-        MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
+        // MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
+        // MNUtil.addObserver(self, 'onPopupMenuOnSelection:', 'PopupMenuOnSelection')
+        // MNUtil.addObserver(self, 'onClosePopupMenuOnSelection:', 'ClosePopupMenuOnSelection')
+        // MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
         MNUtil.addObserver(self, 'onToggleDynamic:', 'toggleDynamic')
-        MNUtil.addObserver(self, 'onClosePopupMenuOnNote:', 'ClosePopupMenuOnNote')
-        MNUtil.addObserver(self, 'onRefreshView:', 'refreshView')
-        MNUtil.addObserver(self, 'onToggleMindmapTask:', 'toggleMindmapTask')
-        MNUtil.addObserver(self, 'onRefreshTaskButton:', 'refreshTaskButton')
+        // MNUtil.addObserver(self, 'onClosePopupMenuOnNote:', 'ClosePopupMenuOnNote')
+        // MNUtil.addObserver(self, 'onRefreshView:', 'refreshView')
+        // MNUtil.addObserver(self, 'onToggleMindmapTask:', 'toggleMindmapTask')
+        // MNUtil.addObserver(self, 'onRefreshTaskButton:', 'refreshTaskButton')
         MNUtil.addObserver(self, 'onOpenTaskSetting:', 'openTaskSetting')
-        MNUtil.addObserver(self, 'onNewIconImage:', 'newIconImage')
-        MNUtil.addObserver(self, 'onTextDidBeginEditing:', 'UITextViewTextDidBeginEditingNotification')
-        MNUtil.addObserver(self, 'onTextDidEndEditing:', 'UITextViewTextDidEndEditingNotification')
-        MNUtil.addObserver(self, 'onCloudConfigChange:', 'NSUbiquitousKeyValueStoreDidChangeExternallyNotificationUI')
+        // MNUtil.addObserver(self, 'onNewIconImage:', 'newIconImage')
+        // MNUtil.addObserver(self, 'onTextDidBeginEditing:', 'UITextViewTextDidBeginEditingNotification')
+        // MNUtil.addObserver(self, 'onTextDidEndEditing:', 'UITextViewTextDidEndEditingNotification')
+        // MNUtil.addObserver(self, 'onCloudConfigChange:', 'NSUbiquitousKeyValueStoreDidChangeExternallyNotificationUI')
         // 添加笔记更新监听器（用于同步看板数据）
-        MNUtil.addObserver(self, 'onNoteDidUpdate:', 'NoteDidUpdate')
+        // MNUtil.addObserver(self, 'onNoteDidUpdate:', 'NoteDidUpdate')
       },
 
       sceneDidDisconnect: function () { // Window disconnect 在插件页面关闭插件（不是删除）
         if (typeof MNUtil === 'undefined') return
         // MNUtil.removeObserver(self, 'ProcessNewExcerpt')
-        MNUtil.removeObserver(self,'PopupMenuOnNote')
+        // MNUtil.removeObserver(self,'PopupMenuOnNote')
         MNUtil.removeObserver(self,'toggleDynamic')
-        MNUtil.removeObserver(self,'ClosePopupMenuOnNote')
-        // MNUtil.removeObserver(self,'removeMNTask')
-        MNUtil.removeObserver(self,'UITextViewTextDidBeginEditingNotification')
-        MNUtil.removeObserver(self,'UITextViewTextDidEndEditingNotification')
-        MNUtil.removeObserver(self,'refreshTaskButton')
+        // MNUtil.removeObserver(self,'ClosePopupMenuOnNote')
+        // // MNUtil.removeObserver(self,'removeMNTask')
+        // MNUtil.removeObserver(self,'UITextViewTextDidBeginEditingNotification')
+        // MNUtil.removeObserver(self,'UITextViewTextDidEndEditingNotification')
+        // MNUtil.removeObserver(self,'refreshTaskButton')
         MNUtil.removeObserver(self,'openTaskSetting')
-        MNUtil.removeObserver(self,'NSUbiquitousKeyValueStoreDidChangeExternallyNotificationUI')
-        MNUtil.removeObserver(self,'ClosePopupMenuOnSelection')
-        MNUtil.removeObserver(self,'NoteDidUpdate')
+        // MNUtil.removeObserver(self,'NSUbiquitousKeyValueStoreDidChangeExternallyNotificationUI')
+        // MNUtil.removeObserver(self,'ClosePopupMenuOnSelection')
+        // MNUtil.removeObserver(self,'NoteDidUpdate')
         // MNUtil.delay(2).then(()=>{
         //   MNUtil.copy("object")
         //   self.addonController.view.frame = {x:undefined}
@@ -642,7 +642,7 @@ JSB.newAddon = function (mainPath) {
             image: 'logo.png',
             object: self,
             selector: 'toggleAddon:',
-            checked: taskConfig.tagTriggerEnabled
+            checked: false
           };
       },
       onNewIconImage: function (sender) {
@@ -1053,10 +1053,10 @@ try {
             self.tableItem('🛠️   Direction   '+(taskConfig.vertical()?'↕️':'↔️'), selector,"fixed"),
             self.tableItem('🌟   Dynamic   ', "toggleDynamic",undefined,taskConfig.dynamic),
             self.tableItem('🌟   Direction   '+(taskConfig.vertical()?'↕️':'↔️'), selector,"dynamic"),
-            self.tableItem('🗂️   卡片预处理模式  ',"togglePreprocess:", undefined, taskConfig.windowState.preprocess),
-            self.tableItem(triggerIcon + '   标签触发器', 'toggleTrigger:'),
-            self.tableItem('📄   Document', 'openDocument:'),
-            self.tableItem('🔄   Manual Sync','manualSync:')
+            // self.tableItem('🗂️   卡片预处理模式  ',"togglePreprocess:", undefined, taskConfig.windowState.preprocess),
+            // self.tableItem(triggerIcon + '   标签触发器', 'toggleTrigger:'),
+            // self.tableItem('📄   Document', 'openDocument:'),
+            // self.tableItem('🔄   Manual Sync','manualSync:')
         ];
         if (self.addonBar.frame.x < 100) {
           self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,200,4)

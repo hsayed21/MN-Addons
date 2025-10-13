@@ -1,3 +1,4 @@
+
 class chatAITool{
   /** @type {String} **/
   name
@@ -57,6 +58,12 @@ class chatAITool{
       chatAIUtils.addErrorLog(error, "chatAITool constructor",{name:name,config:config})
     }
   }
+  /**
+   * 
+   * @param {object|string} content 
+   * @param {string} funcId 
+   * @returns {{role:"tool",content:string,tool_call_id:string}}
+   */
   static genToolMessage(content,funcId){
     if (typeof content === 'object') {
       if (content.success) {
@@ -110,18 +117,21 @@ class chatAITool{
       if (!args) {
         res.onError = true
         res.errorMessage = this.genErrorInMissingArguments(args2check[0],funcId)
+        chatAIUtils.log("Missing arguments"+args2check[0],args,"error")
         return res
       }
       for (let arg of args2check) {//必选的参数
         if (!(arg in args)) {//如果必选参数不在AI实际提供的参数中,则报错
           res.onError = true
           res.errorMessage = this.genErrorInMissingArguments(arg,funcId)
+          chatAIUtils.log("Missing arguments"+arg,args,"error")
           return res
         }
         // chatAIUtils.addErrorLog(JSON.stringify(args), funcId, "Missing arguments: "+arg)
         if (typeof args[arg] === 'string' && !(args[arg].trim())) {
           res.onError = true
           res.errorMessage = this.genErrorInEmptyArguments(arg,funcId)
+          chatAIUtils.log("Empty arguments"+arg,args,"error")
           return res
         }
       }
@@ -179,10 +189,16 @@ class chatAITool{
   if (this.needNote && !note) { return this.genErrorInNoNote(func.id)}
   let checkRes = this.checkArgs(args,func.id)
   if (checkRes.onError) { return checkRes.errorMessage}
+  // if (note) {
+  //   MNUtil.log("currentNoteBookId:"+MNUtil.currentNotebookId)
+  //   MNUtil.log("noteNoteBookId:"+note.notebookId)
+  // }
   if (this.needNote || note) {
     note = note.realGroupNoteForTopicId()
-    // MNUtil.log("123"+note.noteId)
+    // MNUtil.log("currentNoteBookId:"+MNUtil.currentNotebookId)
+    // MNUtil.log("noteNoteBookId:"+note.notebookId)
   }
+
   let response = {}
   // MNUtil.log({message:"execute",detail:funcName})
   switch (funcName) {
@@ -221,6 +237,9 @@ class chatAITool{
       break;
     case "createNote":
       response = await this.createNote(func, args, note)
+      break;
+    case "moveNotes":
+      response = await this.moveNotes(func,args)
       break;
     default:
       break;
@@ -400,20 +419,6 @@ class chatAITool{
         response.toolMessages = chatAITool.genToolMessage(message,func.id)
       }
       break;
-    case "moveNotes":
-      fromNotes = args.fromNoteIds.map((noteId)=>{
-        return MNNote.new(noteId)
-      })
-      toNote = MNNote.new(args.toNoteId)
-      MNUtil.undoGrouping(()=>{
-        fromNotes.forEach((n)=>{
-          toNote.addAsChildNote(n)
-        })
-      })
-      message.response = fromNotes.length+" notes are moved as children of "+args.toNoteId
-      message.success = true
-      response.toolMessages = chatAITool.genToolMessage(message,func.id)
-      break;
     case "linkNotes":
       fromNote = MNNote.new(args.fromNoteId)
       toNote = MNNote.new(args.toNoteId)
@@ -575,6 +580,9 @@ class chatAITool{
 }
 }
   createMindmap (func,args,note) {
+  // if (!note) {
+  //   MNUtil.log("note is not found")
+  // }
     let response = {}
     let message = {success:true}
       let ast
@@ -598,6 +606,11 @@ class chatAITool{
         // MNUtil.log("parentNoteId")
         note = MNNote.new(args.parentNoteId)
       }
+      // if (!note && chatAIUtils.currentSelection.onSelection) {
+      //   // MNUtil.log("currentChildMap")
+      //   note = MNNote.fromSelection().realGroupNoteForTopicId()
+      //   MNUtil.excuteCommand("SendToMap")
+      // }
       if (!note) {
         // MNUtil.log("currentChildMap")
         note = MNUtil.currentChildMap
@@ -694,10 +707,18 @@ class chatAITool{
     let fixedArgs = this.fixHtmlArgs(args)
     let fullHtml = this.getFullHTML(fixedArgs)
     if (fullHtml) {
-      MNUtil.postNotification("snipasteHtml", {html:fullHtml,force:true})
-      response.result = MNUtil.mergeWhitespace(fullHtml)
-      response.success = true
-      message.response = "HTML file is created, with a preview window"
+      if (typeof snipasteUtils === "undefined") {
+        MNUtil.confirm("🤖 MNChatAI", "❌ Creating HTML file failed\nPlease install the [MN Snipaste] addon to preview the HTML document\n\n❌ 创建HTML文件失败\n请安装[MN Snipaste]插件以预览HTML文档")
+        message.response = "Creating HTML file failed, because the addon [MN Snipaste] is not installed"
+        message.success = false
+        response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        return response
+      }else{
+        MNUtil.postNotification("snipasteHtml", {html:fullHtml,force:true})
+        response.result = MNUtil.mergeWhitespace(fullHtml)
+        response.success = true
+        message.response = "HTML file is created, with a preview window"
+      }
     }else{
       message.response = "Creating HTML file failed"
     }
@@ -1016,6 +1037,9 @@ class chatAITool{
       return await this.generateImageUsingCogview(func,args,"cogview-3-flash")
     }
     MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML(`Generating image using ${model}...`)})
+    if (model.startsWith("gemini-2.5-flash-image")) {
+      model = "gemini-2.5-flash-image-vip"
+    }
     let response = {}
     let message = {success:true}
     try {
@@ -1235,6 +1259,33 @@ class chatAITool{
       return response
     }
   }
+  getRootNote(args) {
+    let childMap = MNNote.currentChildMap
+    if (childMap) {
+      if (args.rootNoteId) {
+        let rootNote = MNNote.new(args.rootNoteId)
+        if (rootNote) {
+          return {
+            rootNote:rootNote,
+            isChildMap:rootNote.noteId === childMap.noteId
+          }
+        }else{
+          return {
+            rootNote:childMap,
+            isChildMap:true
+          }
+        }
+      }
+    }
+    let focusNote = chatAIUtils.getFocusNote()
+    if (focusNote) {
+      return {
+        rootNote:focusNote,
+        isChildMap:false
+      }
+    }
+    return undefined
+  }
   async organizeNotes(func,args) {
     let response = {}
     let message = {success:true}
@@ -1248,14 +1299,17 @@ class chatAITool{
       function addChildrenDev(parentNote,tree,isRoot = false) {
         let mainNode
         let noteId = ("noteId" in tree) ? tree.noteId : ("id" in tree) ? tree.id : undefined
+        let isNewNote = false
         if (noteId) {
           if (chatAIUtils.noteExists(noteId)) {
             mainNode = MNNote.new(noteId)
           }else{
             mainNode = MNNote.new({content:""})
+            isNewNote = true
           }
         }else{
           mainNode = MNNote.new({content:""})
+          isNewNote = true
         }
         if ("title" in tree) {
           mainNode.noteTitle = tree.title
@@ -1266,7 +1320,10 @@ class chatAITool{
         relatedNotes.push(mainNode)
         if (!isRoot && parentNote && (parentNote.noteId !== mainNode.parentNote?.noteId)) {
           parentNote.addChild(mainNode)
+        }else if (isRoot && isNewNote) {
+          parentNote.addChild(mainNode)
         }
+        //如果parentNote不存在，则会添加到主脑图中
         if ("children" in tree && tree.children.length) {
           tree.children.map((child)=>{
             if (typeof child === "string") {
@@ -1279,6 +1336,9 @@ class chatAITool{
       }
       MNUtil.showHUD("Reorganizing notes...")
       let newTrees = args.asts
+      let res = this.getRootNote(args)
+      let rootNote = res.rootNote
+      let isChildMap = res.isChildMap
   
       MNUtil.undoGrouping(()=>{
           newTrees.map(tree=>{
@@ -1298,8 +1358,11 @@ class chatAITool{
               default:
                 break;
             }
-            addChildrenDev(MNNote.currentChildMap,parsedTree,true)
+            addChildrenDev(rootNote,parsedTree,true)
           })
+          if (!isChildMap && rootNote) {
+            rootNote.focusInFloatMindMap(1)
+          }
       })
       // MNUtil.delay(0.5).then(()=>{
       //   MNUtil.excuteCommand("EditArrangeNotes")
@@ -1317,7 +1380,85 @@ class chatAITool{
       response.toolMessages = chatAITool.genToolMessage(message,func.id)
     return response
   }
+  getNoteConfig(args){
+      let title = args.title
+      let config = {markdown:true}
+      if (title) {
+        config.title = title.trim()
+      }
+      let content = args.content
+      // MNUtil.log({message:"addChildNoteBefore",detail:content})
+      if (content) {
+        content = chatAITool.formatMarkdown(content)
+        config.content = content
+      }
+      if ("html" in args) {
+        config.html = args.html
+      }
+      let tags = args.tags
+      if (tags) {
+        config.tags = tags
+      }
+      let color = args.color
+      if (color) {
+        config.color = color
+      }
+      return config
+  }
+  async createNoteFromSelection(func,args){
+  try {
+
+    let response = {}
+    let message = {success:true}
+    let noteId = ""
+    MNUtil.undoGrouping(()=>{
+      let note = MNNote.fromSelection()
+      noteId = note.noteId
+      if ("title" in args) {
+        note.noteTitle = args.title
+      }
+      if ("content" in args) {
+        note.excerptText = args.content
+        note.excerptTextMarkdown = true
+      }
+      if ("html" in args) {
+        note.appendHtmlComment(args.html, args.html, {width:1000,height:500}, "")
+      }
+      if ("tags" in args) {
+        note.appendTextComment(args.tags.map(k => '#'+k.replace(/\s+/g, "_")).join(" "))
+      }
+      if ("color" in args) {
+        note.colorIndex = MNUtil.getColorIndex(args.color)
+      }
+      if ("parentNoteId" in args && args.parentNoteId) {
+        let parent = MNNote.new(args.parentNoteId)
+        if (parent) {
+          note = parent.addAsChildNote(note)
+        }
+      }
+    })
+    // await MNUtil.delay(0.5)
+    response.result = noteId
+    message.response = "Note is created from selection, with noteId: "+noteId
+    message.success = true
+    response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    return response
+    
+  } catch (error) {
+    let response = {}
+    let message = {success:false}
+    chatAIUtils.addErrorLog(error, "createNoteFromSelection")
+    message.response = "Failed in create note from selection: "+error.message
+    response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    return response
+  }
+  }
   async createNote(func,args,parentNote = undefined){
+    let type = args.type ?? "childNote"
+    if (type == "fromSelection") {
+      let response = await this.createNoteFromSelection(func,args)
+      return response
+    }
     let response = {}
     let message = {success:true}
     let title = args.title
@@ -1397,14 +1538,140 @@ class chatAITool{
   }
   /**
    * 
-   * @param {Object} func 
-   * @param {Object} args 
+   * @param {array<Object>} editConfigs
    * @param {MNNote} note 
-   * @returns {Object}
+   * @param {boolean} refresh 
    */
-  async editNote(func,args,note) {
+  applyEditByConfig(editConfigs,note,refresh = true){
+    if (editConfigs.length > 0) {
+      const editFunc = (editConfig)=>{
+        if ("deleteNote" in editConfig && editConfig.deleteNote) {
+          note.delete()
+          //没有必要做其他编辑
+          return true
+        }
+        if ("color" in editConfig) {
+          note.color = editConfig.color
+        }
+        if ("excerptText" in editConfig) {
+          note.excerptText = editConfig.excerptText
+        }
+        if ("excerptTextMarkdown" in editConfig) {
+          note.excerptTextMarkdown = editConfig.excerptTextMarkdown
+        }
+        if ("title" in editConfig) {
+          note.title = editConfig.title
+        }
+        if ("tags" in editConfig) {
+          note.appendTags(editConfig.tags)
+        }
+        if ("markdownComment" in editConfig) {
+          if ("markdownCommentIndex" in editConfig) {
+            note.appendMarkdownComment(editConfig.markdownComment, editConfig.markdownCommentIndex)
+          }else{
+            note.appendMarkdownComment(editConfig.markdownComment)
+          }
+        }
+        if ("tagsToRemove" in editConfig) {
+          note.removeTags(editConfig.tagsToRemove)
+        }
+      }
+      if (refresh) {
+        MNUtil.undoGrouping(()=>{
+          editConfigs.forEach(editConfig=>{
+            editFunc(editConfig)
+          })
+        })
+      }else{
+        chatAIUtils.undoGroupingNotRefresh(()=>{
+          editConfigs.forEach(editConfig=>{
+            editFunc(editConfig)
+          })
+        })
+      }
+    }
+    return true
+
+  }
+  async moveNotes (func,args) {
+  try {
+
     let response = {}
     let message = {success:true}
+    let toNote = null
+    let toNewNote = false
+    let fromNotes = args.fromNoteIds.map((noteId)=>{
+      return MNNote.new(noteId)
+    })
+    if ("toNewNote" in args && args.toNewNote) {
+      toNewNote = true
+      //放在undoGrouping中创建
+    }else if ("toNoteId" in args && args.toNoteId) {
+      toNote = MNNote.new(args.toNoteId)
+    }else{
+      // use the parent note of the first note
+      toNote = fromNotes[0].parentNote
+    }
+    let isParentNoChange = false
+    if (toNote) {
+      isParentNoChange = fromNotes.every((n)=>{
+        return n.parentNoteId === toNote.noteId
+      })
+    }
+
+      MNUtil.undoGrouping(()=>{
+        if (toNewNote) {
+          let newNoteConfig = args.toNewNote
+          if ("parentNoteId" in newNoteConfig && newNoteConfig.parentNoteId && chatAIUtils.noteExists(newNoteConfig.parentNoteId)) {
+            let parentNote = MNNote.new(newNoteConfig.parentNoteId)
+            toNote = parentNote.createChildNote(newNoteConfig,false)
+          }else if (MNNote.currentChildMap) {
+            //在当前子脑图中创建
+            toNote = MNNote.currentChildMap.createChildNote(newNoteConfig)
+          }else{
+            toNote = MNNote.new(newNoteConfig)
+          }
+        }
+        fromNotes.forEach((n)=>{
+          toNote.addAsChildNote(n)
+        })
+      })
+      await MNUtil.delay(0.5)
+      if (isParentNoChange) {
+        message.response = "Order of the child notes:\n["+args.fromNoteIds.join(", ")+"]"
+      }else{
+        if (toNewNote) {
+          message.response = fromNotes.length+" notes are moved as children of new note ["+toNote.noteId+"]"
+        }else{
+          message.response = fromNotes.length+" notes are moved as children of note ["+toNote.noteId+"]"
+        }
+      }
+      toNote.focusInMindMap(0.5)
+      message.success = true
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      // chatAIUtils.log("moveNotes", response)
+      return response
+    
+  } catch (error) {
+    let response = {}
+    let message = {success:false}
+    chatAIUtils.addErrorLog(error, "moveNotes")
+    message.response = "Failed in move notes: "+error.message
+    response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    return response
+  }
+  }
+
+  /**
+   * 只返回message
+   * 不直接编辑卡片，而是返回一个editConfig，用于后续统一编辑
+   * @param {Object} args 
+   * @param {MNNote} note 
+   * @returns {Promise<{success:boolean,response:string,result:any,editConfig:Object}>}
+   */
+  async _editNote(args,note) {
+    let message = {success:true}
+    let editConfig = {}
     /**
      * @type {Array<MNNote>} 
      */
@@ -1415,157 +1682,188 @@ class chatAITool{
       let targetContent = ""
       switch (args.action) {
         case "setColor":
-          MNUtil.undoGrouping(()=>{
-            note.color = args.color
-          })
-          message.response = `Color has been changed to "${args.color}"`
+          editConfig.color = args.color
+          // MNUtil.undoGrouping(()=>{
+          //   note.color = args.color
+          // })
+          message.response = `Color of note [${note.noteId}] has been changed to "${args.color}"`
           break;
         case "replaceContent":
           // chatAIUtils.log("before", {excerptText:note.excerptText,originalContent:args.originalContent,content:args.content})
           let targetString = chatAIUtils.safeReplaceAll(note.excerptText,args.originalContent,args.content)
           // chatAIUtils.log("after", {targetString:targetString})
-          MNUtil.undoGrouping(()=>{
-            note.excerptText = targetString
-            if ("markdown" in args) {
-              note.excerptTextMarkdown = args.markdown
-            }
-          })
-          message.response = `Content has been updated as "${targetString}"`
+          editConfig.excerptText = targetString
+          if ("markdown" in args) {
+            editConfig.excerptTextMarkdown = args.markdown
+          }
+          // MNUtil.undoGrouping(()=>{
+          //   note.excerptText = targetString
+          //   if ("markdown" in args) {
+          //     note.excerptTextMarkdown = args.markdown
+          //   }
+          // })
+          message.response = `Content of note [${note.noteId}] has been updated as "${targetString}"`
           break;
         case "setTitle":
         case "setTitleWithOptions":
-          targetTitle = args.content ?? ""
+          targetTitle = args.content ?? args.title ?? ""
           if ("titleOptions" in args) {
             let choices = ["Cancel"].concat(args.titleOptions,"Confirm")
             let selectRes = await MNUtil.input("🤖: 请选择要设置的标题","",choices)
             // MNUtil.copy(selectRes)
             if (selectRes.button === 0) {
-              response.result = {question:args,confirmed:false}
-              message.response = "Title has not been changed, user does not make the choice"
+              message.result = {question:args,confirmed:false}
+              message.response = `Title of note [${note.noteId}] has not been changed, user does not make the choice`
               targetTitle = ""
               // MNUtil.copy(message)
             }else if(selectRes.button === choices.length-1){
-              response.result = {question:args,confirmed:true,userInput:selectRes.input}
-              message.response = `Title has been changed to "${selectRes.input}"`
+              message.result = {question:args,confirmed:true,userInput:selectRes.input}
+              message.response = `Title of note [${note.noteId}] has been changed to "${selectRes.input}"`
               targetTitle = selectRes.input
             }else{
-              response.result = {question:args,confirmed:true,choice:choices[selectRes.button]}
-              message.response = `Title has been changed to "${choices[selectRes.button]}"`
+              message.result = {question:args,confirmed:true,choice:choices[selectRes.button]}
+              message.response = `Title of note [${note.noteId}] has been changed to "${choices[selectRes.button]}"`
               targetTitle = choices[selectRes.button]
             }
             // MNUtil.copy(targetTitle)
           }
           if (targetTitle) {
-            MNUtil.undoGrouping(()=>{
-              note.title = targetTitle
-            })
+            editConfig.title = targetTitle
+            // MNUtil.undoGrouping(()=>{
+            //   note.title = targetTitle
+            // })
+            message.response = `Title of note [${note.noteId}] has been changed to "${targetTitle}"`
             message.success = true
           }else{
             message.success = false
           }
           break;
         case "appendTitle":
-          targetTitle = note.title+";"+args.content
-          MNUtil.undoGrouping(()=>{
-            note.title = targetTitle
-          })
-          message.response = `Title has been changed as "${targetTitle}"`
+          targetTitle = note.title+";"+(args.content ?? args.title ?? "")
+          editConfig.title = targetTitle
+          // MNUtil.undoGrouping(()=>{
+          //   note.title = targetTitle
+          // })
+          message.response = `Title of note [${note.noteId}] has been changed as "${targetTitle}"`
           message.success = true
           break;
         case "prependTitle":
-          targetTitle = args.content+";"+note.title
-          MNUtil.undoGrouping(()=>{
-            note.title = targetTitle
-          })
-          message.response = `Title has been changed as "${targetTitle}"`
+          targetTitle = (args.content ?? args.title ?? "")+";"+note.title
+          editConfig.title = targetTitle
+          // MNUtil.undoGrouping(()=>{
+          //   note.title = targetTitle
+          // })
+          message.response = `Title of note [${note.noteId}] has been changed as "${targetTitle}"`
           message.success = true
           break;
         case "clearTitle":
-          MNUtil.undoGrouping(()=>{
-            note.title = ""
-          })
-          message.response = "Title has been cleared"
+          editConfig.title = ""
+          // MNUtil.undoGrouping(()=>{
+          //   note.title = ""
+          // })
+          message.response = `Title of note [${note.noteId}] has been cleared`
           message.success = true
           break;
         case "setContent":
-          MNUtil.undoGrouping(()=>{
-            let content = chatAITool.formatMarkdown(args.content)
-            note.excerptText = content
-            if ("markdown" in args) {
-              note.excerptTextMarkdown = args.markdown
-            }
-          })
-          message.response = `Note/card content has been changed as: "${args.content}"`
+          editConfig.excerptText = chatAITool.formatMarkdown(args.content)
+          if ("markdown" in args) {
+            editConfig.excerptTextMarkdown = args.markdown
+          }
+          // MNUtil.undoGrouping(()=>{
+          //   let content = chatAITool.formatMarkdown(args.content)
+          //   note.excerptText = content
+          //   if ("markdown" in args) {
+          //     note.excerptTextMarkdown = args.markdown
+          //   }
+          // })
+          message.response = `Note/card content of note [${note.noteId}] has been changed as: "${args.content}"`
           message.success = true
           break;
         case "appendContent":
           targetContent = note.excerptText+"\n"+args.content
-          MNUtil.undoGrouping(()=>{
-            note.excerptText = chatAITool.formatMarkdown(targetContent)
-            if ("markdown" in args) {
-              note.excerptTextMarkdown = args.markdown
-            }
-          })
-          message.response = `Note/card content has been changed as: "${targetContent}"`
+          editConfig.excerptText = chatAITool.formatMarkdown(targetContent)
+          if ("markdown" in args) {
+            editConfig.excerptTextMarkdown = args.markdown
+          }
+          // MNUtil.undoGrouping(()=>{
+          //   note.excerptText = chatAITool.formatMarkdown(targetContent)
+          //   if ("markdown" in args) {
+          //     note.excerptTextMarkdown = args.markdown
+          //   }
+          // })
+          message.response = `Note/card content of note [${note.noteId}] has been changed as: "${targetContent}"`
           message.success = true
           break;
         case "prependContent":
           targetContent = args.content.trim()+"\n"+note.excerptText
-          MNUtil.undoGrouping(()=>{
-            note.excerptText = chatAITool.formatMarkdown(targetContent)
-            if ("markdown" in args) {
-              note.excerptTextMarkdown = args.markdown
-            }
-          })
-          message.response = `Note/card content has been changed as: "${targetContent}"`
+          editConfig.excerptText = chatAITool.formatMarkdown(targetContent)
+          if ("markdown" in args) {
+            editConfig.excerptTextMarkdown = args.markdown
+          }
+          // MNUtil.undoGrouping(()=>{
+          //   note.excerptText = chatAITool.formatMarkdown(targetContent)
+          //   if ("markdown" in args) {
+          //     note.excerptTextMarkdown = args.markdown
+          //   }
+          // })
+          message.response = `Note/card content of note [${note.noteId}] has been changed as: "${targetContent}"`
           message.success = true
           break;
         case "clearContent":
-          MNUtil.undoGrouping(()=>{
-            note.excerptText = ""
-          })
-          message.response = "Note/card content has been cleared"
+          editConfig.excerptText = ""
+          // MNUtil.undoGrouping(()=>{
+          //   note.excerptText = ""
+          // })
+          message.response = `Note/card content of note [${note.noteId}] has been cleared`
           message.success = true
           break;
         case "addComment":
-          MNUtil.undoGrouping(()=>{
-            note.appendMarkdownComment(chatAITool.formatMarkdown(args.content))
-          })
-          message.response = `Add comment with content: "${args.content}"`
+          editConfig.markdownComment = chatAITool.formatMarkdown(args.content)
+          // MNUtil.undoGrouping(()=>{
+          //   note.appendMarkdownComment(chatAITool.formatMarkdown(args.content))
+          // })
+          message.response = `Add comment to note [${note.noteId}] with content: "${args.content}"`
           message.success = true
           break;
         case "appendComment":
-          MNUtil.undoGrouping(()=>{
-            note.appendMarkdownComment(chatAITool.formatMarkdown(args.content))
-          })
-          message.response = `Append comment with content: "${args.content}"`
+          editConfig.markdownComment = chatAITool.formatMarkdown(args.content)
+
+          // MNUtil.undoGrouping(()=>{
+          //   note.appendMarkdownComment(chatAITool.formatMarkdown(args.content))
+          // })
+          message.response = `Append comment to note [${note.noteId}] with content: "${args.content}"`
           message.success = true
           break;
         case "prependComment":
-          MNUtil.undoGrouping(()=>{
-            note.appendMarkdownComment(chatAITool.formatMarkdown(args.content),0)
-          })
-          message.response = `Prepend comment with content: "${args.content}"`
+          editConfig.markdownComment = chatAITool.formatMarkdown(args.content)
+          editConfig.markdownCommentIndex = 0
+          // MNUtil.undoGrouping(()=>{
+          //   note.appendMarkdownComment(chatAITool.formatMarkdown(args.content),0)
+          // })
+          message.response = `Prepend comment to note [${note.noteId}] with content: "${args.content}"`
           message.success = true
           break;
         case "addTags":
-          MNUtil.undoGrouping(()=>{
-            note.appendTags(args.tags)
-          })
-          message.response = `Add tags: "${args.tags}"`
+          editConfig.tags = args.tags
+          // MNUtil.undoGrouping(()=>{
+          //   note.appendTags(args.tags)
+          // })
+          message.response = `Add tags to note [${note.noteId}]: "${args.tags}"`
           message.success = true
           break;
         case "removeTags":
           if ("tags" in args) {
-            MNUtil.undoGrouping(()=>{
-              note.removeTags(args.tags)
-            })
-            message.response = `Remove tags: "${args.tags}"`
+            editConfig.tagsToRemove = args.tags
+            // MNUtil.undoGrouping(()=>{
+            //   note.removeTags(args.tags)
+            // })
+            message.response = `Remove tags from note [${note.noteId}]: "${args.tags}"`
           }else{
-            MNUtil.undoGrouping(()=>{
-              note.removeTags(note.tags)
-            })
-            message.response = `Remove all tags: "${note.tags}"`
+            editConfig.tagsToRemove = note.tags
+            // MNUtil.undoGrouping(()=>{
+            //   note.removeTags(note.tags)
+            // })
+            message.response = `Remove all tags from note [${note.noteId}]: "${note.tags}"`
           }
           message.success = true
           break;
@@ -1573,30 +1871,273 @@ class chatAITool{
           if ("needConfirm" in args && args.needConfirm) {
             let confirmRes = await MNUtil.confirm("🤖: 请确认是否删除当前笔记","",["Cancel","Confirm"])
             if (confirmRes === 0) {
-              message.response = "Note is not deleted, user does not confirm"
+              message.response = `Note [${note.noteId}] is not deleted, user does not confirm`
               message.success = false
             }else{
-              MNUtil.undoGrouping(()=>{
-                note.delete()
-              })
-              message.response = "This note is deleted"
+              editConfig.deleteNote = true
+              // MNUtil.undoGrouping(()=>{
+              //   note.delete()
+              // })
+              message.response = `Note [${note.noteId}] is deleted`
               message.success = true
             }
           }else{
-            MNUtil.undoGrouping(()=>{
-              note.delete()
-            })
-            message.response = "This note is deleted"
+            editConfig.deleteNote = true
+            // MNUtil.undoGrouping(()=>{
+            //   note.delete()
+            // })
+            message.response = `Note [${note.noteId}] is deleted`
             message.success = true
           }
           break;
         default:
-          message.response = `Unspported action: "${args.action}"`
+          message.response = `Unspported action: "${args.action}" for note [${note.noteId}]`
           message.success = false
           break;
       }
+      // this.applyEditByConfig(editConfig,note,refresh)
+      message.editConfig = editConfig
+      // chatAIUtils.log("_editNote.message",message)
+      return message
+  }
+  /**
+   * 
+   * @param {Object} func 
+   * @param {Object} args 
+   * @param {MNNote} note 
+   * @returns {Object}
+   */
+  async editNote(func,args,note) {
+    let response = {}
+    if ("noteId" in args) {
+      note = MNNote.new(args.noteId)
+      if(!note){
+        let focusNoteIds = MNNote.getFocusNotes().map(n=>n.noteId)
+        let matchNote = focusNoteIds.find(id=>id.includes(args.noteId))
+        if(matchNote){
+          note = MNNote.new(matchNote)
+        }
+      }
+    }
+    if (args.action) {//兼容原方法
+      let message = await this._editNote(args,note)
+      this.applyEditByConfig([message.editConfig], note)
+      response.result = message.result
       response.toolMessages = chatAITool.genToolMessage(message, func.id)
-    return response
+      // chatAIUtils.log("editNote.response",response)
+      return response
+    }
+    if (args.actions) {
+      let messages = []
+      for (const action of args.actions) {
+        let message = await this._editNote(action,note)
+        messages.push(message)
+      }
+      this.applyEditByConfig(messages.map(m=>m.editConfig), note)
+      // MNUtil.refreshAfterDBChanged()
+      // chatAIUtils.log("editNote.messages",messages)
+      response.result = messages
+      let finalMessage = {success:true}
+      finalMessage.response = messages.map((m,index)=>m.response).join("\n")
+      // chatAIUtils.log("editNote.finalMessage",finalMessage)
+      // chatAIUtils.log("editNote.finalMessage.response",finalMessage.response)
+      response.toolMessages = chatAITool.genToolMessage(finalMessage, func.id)
+      // chatAIUtils.log("editNote.response",response)
+      return response
+    }
+
+    // /**
+    //  * @type {Array<MNNote>} 
+    //  */
+    // if (args.noteId && chatAIUtils.noteExists(args.noteId)) {
+    //   note = MNNote.new(args.noteId)
+    // }
+    //   let targetTitle = ""
+    //   let targetContent = ""
+    //   switch (args.action) {
+    //     case "setColor":
+    //       MNUtil.undoGrouping(()=>{
+    //         note.color = args.color
+    //       })
+    //       message.response = `Color of note [${note.noteId}] has been changed to "${args.color}"`
+    //       break;
+    //     case "replaceContent":
+    //       // chatAIUtils.log("before", {excerptText:note.excerptText,originalContent:args.originalContent,content:args.content})
+    //       let targetString = chatAIUtils.safeReplaceAll(note.excerptText,args.originalContent,args.content)
+    //       // chatAIUtils.log("after", {targetString:targetString})
+    //       MNUtil.undoGrouping(()=>{
+    //         note.excerptText = targetString
+    //         if ("markdown" in args) {
+    //           note.excerptTextMarkdown = args.markdown
+    //         }
+    //       })
+    //       message.response = `Content of note [${note.noteId}] has been updated as "${targetString}"`
+    //       break;
+    //     case "setTitle":
+    //     case "setTitleWithOptions":
+    //       targetTitle = args.content ?? args.title ?? ""
+    //       if ("titleOptions" in args) {
+    //         let choices = ["Cancel"].concat(args.titleOptions,"Confirm")
+    //         let selectRes = await MNUtil.input("🤖: 请选择要设置的标题","",choices)
+    //         // MNUtil.copy(selectRes)
+    //         if (selectRes.button === 0) {
+    //           response.result = {question:args,confirmed:false}
+    //           message.response = `Title of note [${note.noteId}] has not been changed, user does not make the choice`
+    //           targetTitle = ""
+    //           // MNUtil.copy(message)
+    //         }else if(selectRes.button === choices.length-1){
+    //           response.result = {question:args,confirmed:true,userInput:selectRes.input}
+    //           message.response = `Title of note [${note.noteId}] has been changed to "${selectRes.input}"`
+    //           targetTitle = selectRes.input
+    //         }else{
+    //           response.result = {question:args,confirmed:true,choice:choices[selectRes.button]}
+    //           message.response = `Title of note [${note.noteId}] has been changed to "${choices[selectRes.button]}"`
+    //           targetTitle = choices[selectRes.button]
+    //         }
+    //         // MNUtil.copy(targetTitle)
+    //       }
+    //       if (targetTitle) {
+    //         MNUtil.undoGrouping(()=>{
+    //           note.title = targetTitle
+    //         })
+    //         message.success = true
+    //       }else{
+    //         message.success = false
+    //       }
+    //       break;
+    //     case "appendTitle":
+    //       targetTitle = note.title+";"+(args.content ?? args.title ?? "")
+    //       MNUtil.undoGrouping(()=>{
+    //         note.title = targetTitle
+    //       })
+    //       message.response = `Title of note [${note.noteId}] has been changed as "${targetTitle}"`
+    //       message.success = true
+    //       break;
+    //     case "prependTitle":
+    //       targetTitle = (args.content ?? args.title ?? "")+";"+note.title
+    //       MNUtil.undoGrouping(()=>{
+    //         note.title = targetTitle
+    //       })
+    //       message.response = `Title of note [${note.noteId}] has been changed as "${targetTitle}"`
+    //       message.success = true
+    //       break;
+    //     case "clearTitle":
+    //       MNUtil.undoGrouping(()=>{
+    //         note.title = ""
+    //       })
+    //       message.response = `Title of note [${note.noteId}] has been cleared`
+    //       message.success = true
+    //       break;
+    //     case "setContent":
+    //       MNUtil.undoGrouping(()=>{
+    //         let content = chatAITool.formatMarkdown(args.content)
+    //         note.excerptText = content
+    //         if ("markdown" in args) {
+    //           note.excerptTextMarkdown = args.markdown
+    //         }
+    //       })
+    //       message.response = `Note/card content of note [${note.noteId}] has been changed as: "${args.content}"`
+    //       message.success = true
+    //       break;
+    //     case "appendContent":
+    //       targetContent = note.excerptText+"\n"+args.content
+    //       MNUtil.undoGrouping(()=>{
+    //         note.excerptText = chatAITool.formatMarkdown(targetContent)
+    //         if ("markdown" in args) {
+    //           note.excerptTextMarkdown = args.markdown
+    //         }
+    //       })
+    //       message.response = `Note/card content of note [${note.noteId}] has been changed as: "${targetContent}"`
+    //       message.success = true
+    //       break;
+    //     case "prependContent":
+    //       targetContent = args.content.trim()+"\n"+note.excerptText
+    //       MNUtil.undoGrouping(()=>{
+    //         note.excerptText = chatAITool.formatMarkdown(targetContent)
+    //         if ("markdown" in args) {
+    //           note.excerptTextMarkdown = args.markdown
+    //         }
+    //       })
+    //       message.response = `Note/card content of note [${note.noteId}] has been changed as: "${targetContent}"`
+    //       message.success = true
+    //       break;
+    //     case "clearContent":
+    //       MNUtil.undoGrouping(()=>{
+    //         note.excerptText = ""
+    //       })
+    //       message.response = `Note/card content of note [${note.noteId}] has been cleared`
+    //       message.success = true
+    //       break;
+    //     case "addComment":
+    //       MNUtil.undoGrouping(()=>{
+    //         note.appendMarkdownComment(chatAITool.formatMarkdown(args.content))
+    //       })
+    //       message.response = `Add comment to note [${note.noteId}] with content: "${args.content}"`
+    //       message.success = true
+    //       break;
+    //     case "appendComment":
+    //       MNUtil.undoGrouping(()=>{
+    //         note.appendMarkdownComment(chatAITool.formatMarkdown(args.content))
+    //       })
+    //       message.response = `Append comment to note [${note.noteId}] with content: "${args.content}"`
+    //       message.success = true
+    //       break;
+    //     case "prependComment":
+    //       MNUtil.undoGrouping(()=>{
+    //         note.appendMarkdownComment(chatAITool.formatMarkdown(args.content),0)
+    //       })
+    //       message.response = `Prepend comment to note [${note.noteId}] with content: "${args.content}"`
+    //       message.success = true
+    //       break;
+    //     case "addTags":
+    //       MNUtil.undoGrouping(()=>{
+    //         note.appendTags(args.tags)
+    //       })
+    //       message.response = `Add tags to note [${note.noteId}]: "${args.tags}"`
+    //       message.success = true
+    //       break;
+    //     case "removeTags":
+    //       if ("tags" in args) {
+    //         MNUtil.undoGrouping(()=>{
+    //           note.removeTags(args.tags)
+    //         })
+    //         message.response = `Remove tags from note [${note.noteId}]: "${args.tags}"`
+    //       }else{
+    //         MNUtil.undoGrouping(()=>{
+    //           note.removeTags(note.tags)
+    //         })
+    //         message.response = `Remove all tags from note [${note.noteId}]: "${note.tags}"`
+    //       }
+    //       message.success = true
+    //       break;
+    //     case "deleteNote":
+    //       if ("needConfirm" in args && args.needConfirm) {
+    //         let confirmRes = await MNUtil.confirm("🤖: 请确认是否删除当前笔记","",["Cancel","Confirm"])
+    //         if (confirmRes === 0) {
+    //           message.response = `Note [${note.noteId}] is not deleted, user does not confirm`
+    //           message.success = false
+    //         }else{
+    //           MNUtil.undoGrouping(()=>{
+    //             note.delete()
+    //           })
+    //           message.response = `Note [${note.noteId}] is deleted`
+    //           message.success = true
+    //         }
+    //       }else{
+    //         MNUtil.undoGrouping(()=>{
+    //           note.delete()
+    //         })
+    //         message.response = `Note [${note.noteId}] is deleted`
+    //         message.success = true
+    //       }
+    //       break;
+    //     default:
+    //       message.response = `Unspported action: "${args.action}" for note [${note.noteId}]`
+    //       message.success = false
+    //       break;
+    //   }
+    //   response.toolMessages = chatAITool.genToolMessage(message, func.id)
+    // return response
   }
   /**
  * 
@@ -1622,6 +2163,7 @@ try {
   if (!note) {
     if (chatAIUtils.currentSelection.onSelection) {
       childNote = MNNote.fromSelection().realGroupNoteForTopicId()
+      MNUtil.excuteCommand("SendToMap")
       childNote.title = config.title
       childNote.excerptText = config.content
       childNote.colorIndex = config.color
@@ -1842,9 +2384,92 @@ static getLoadingHTML(content = "loading"){
 </body>
 </html>`
 }
+renderEditNote(args,moreIndent = false){
+  let indent = moreIndent ? "      " : "  "
+    switch (args.action) {
+          case "setColor":
+            if (args.color) {
+              return `\n${indent}color: ${args.color}\n`
+            }
+            return ""
+          case "replaceContent":
+            if ("markdown" in args) {
+              return `\n${indent}From: ${args.originalContent??""}
+${indent}To: ${args.content??""}
+${indent}Markdown: ${args.markdown}\n`
+}
+              return `\n${indent}From: ${args.originalContent??""}
+${indent}To: ${args.content??""}\n`
+          case "setTitle":
+            if (args.content) {
+              return `\n${indent}Title: ${args.content ?? args.title ?? ""}\n`
+            }
+            return ""
+          case "setTitleWithOptions":
+            if (args.titleOptions) {
+              let optionsString = args.titleOptions.map((option,index)=>`  ${index+1}. ${option}`).join("\n")
+              return `\n${optionsString}\n`
+            }
+            return ""
+          case "appendTitle":
+            if (args.content) {
+              return `\n${indent}Title: ${args.content ?? args.title ?? ""}\n`
+            }
+            return ""
+          case "prependTitle":
+            if (args.content) {
+              return `\n${indent}Title: ${args.content ?? args.title ?? ""}\n`
+            }
+            return ""
+          case "clearTitle":
+            return ""
+          case "setContent":
+            if (args.content) {
+              return `\n${indent}Content: ${args.content}\n`
+            }
+            return ""
+          case "appendContent":
+            if (args.content) {
+              return `\n${indent}Content: ${args.content}\n`
+            }
+            return ""
+          case "prependContent":
+            if (args.content) {
+              return `\n${indent}Content: ${args.content}\n`
+            }
+            return ""
 
+          case "clearContent":
+            return ""
+          case "appendComment":
+            if (args.content) {
+              return `\n${indent}Content: ${args.content}\n`
+            }
+            return ""
+          case "prependComment":
+            if (args.content) {
+              return `\n${indent}Content: ${args.content}\n`
+            }
+            return ""
+          case "addTags":
+            if (args.tags) {
+              return `\n${indent}Tags: ${args.tags.join("\n")}\n`
+            }
+            return ""
+          case "removeTags":
+            if (args.tags) {
+              return `\n${indent}Tags: ${args.tags.join("\n")}\n`
+            }
+            return ""
+          case "deleteNote":
+            return ""
+          default:
+            return ""
+        }
+}
 codifyToolCall (args,force = false) {
 try {
+  let noteIdString = ""
   let funcName = this.name
   // MNUtil.copy(funcName)
   switch (funcName) {
@@ -1869,7 +2494,11 @@ try {
       }
       let fullHtml = this.getFullHTML(fixedArgs)
       if (fullHtml) {
-        MNUtil.postNotification("snipasteHtml", {html:fullHtml,force:force})
+        if (htmlConfig.css) {
+          MNUtil.postNotification("snipasteHtml", {html:fullHtml,force:force})
+        }else{
+          MNUtil.postNotification("snipasteHtml", {html:fullHtml,force:force,needScrollToBottom:true})
+        }
       }else{
         MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML()})
       }
@@ -2027,118 +2656,61 @@ try {
         return `🔨 ${funcName}(${this.preContent})\n`
       }
     case "editNote":
-      if (args.action) {
-        let noteIdString = args.noteId ? `\n  noteId: ${args.noteId}` : ""
-        switch (args.action) {
+      let editAction = {}
+      if (args.actions) {
+        if (Object.keys(args.actions).length > 1) {
+          noteIdString = args.noteId ? `\n   📝 id: ${args.noteId}` : ""
+          let argsString = args.actions.map((action,index)=>`   ${chatAIUtils.emojiIndices[index]} ${action.action}:`+this.renderEditNote(action,true)).join("")
+          return `🔨 editNote.multipleEdits(${noteIdString}
+${argsString})\n`
+        }else{
+          editAction = args.actions[0]
+          editAction.noteId = args.noteId
+        }
+      }else{
+        editAction = args
+      }
+      if (editAction && editAction.action) {
+        noteIdString = editAction.noteId ? `\n  noteId: ${editAction.noteId}` : ""
+        let argsString = this.renderEditNote(editAction)
+        switch (editAction.action) {
           case "setColor":
-            if (args.color) {
-              return `🔨 editNote.setColor(${noteIdString}
-  color: ${args.color}
-)`
-            }
-            return `🔨 editNote.setColor(${noteIdString}\n)`
+            return `🔨 editNote.setColor(${noteIdString}${argsString})\n`
           case "replaceContent":
-            if ("markdown" in args) {
-              return `🔨 editNote.replace(${noteIdString}
-  From: ${args.originalContent??""}
-  To: ${args.content??""}
-  Markdown: ${args.markdown}
-)`
-}
-              return `🔨 editNote.replace(${noteIdString}
-  From: ${args.originalContent??""}
-  To: ${args.content??""}
-)`
+            return `🔨 editNote.replace(${noteIdString}${argsString})\n`
           case "setTitle":
-            if (args.content) {
-              return `🔨 editNote.setTitle(${noteIdString}
-  Title: ${args.content}
-)`
-            }
-            return `🔨 editNote.setTitle(${noteIdString}\n)`
+            return `🔨 editNote.setTitle(${noteIdString}${argsString})\n`
           case "setTitleWithOptions":
-            if (args.titleOptions) {
-              let optionsString = args.titleOptions.map((option,index)=>`  ${index+1}. ${option}`).join("\n")
-              return `🔨 editNote.setTitleWithOptions(${noteIdString}
-${optionsString}
-)`
-            }
-            return `🔨 editNote.setTitleWithOptions(${noteIdString}\n)`
+            return `🔨 editNote.setTitleWithOptions(${noteIdString}${argsString})\n`
           case "appendTitle":
-            if (args.content) {
-              return `🔨 editNote.appendTitle(${noteIdString}
-  Title: ${args.content}
-)`
-            }
-            return `🔨 editNote.appendTitle(${noteIdString}\n)`
+            return `🔨 editNote.appendTitle(${noteIdString}${argsString})\n`
           case "prependTitle":
-            if (args.content) {
-              return `🔨 editNote.prependTitle(${noteIdString}
-  Title: ${args.content}
-)`
-            }
-            return `🔨 editNote.prependTitle(${noteIdString}\n)`
+            return `🔨 editNote.prependTitle(${noteIdString}${argsString})\n`
           case "clearTitle":
-            return `🔨 editNote.clearTitle(${noteIdString}\n)`
+            return `🔨 editNote.clearTitle(${noteIdString}${argsString})\n`
           case "setContent":
-            if (args.content) {
-              return `🔨 editNote.setContent(${noteIdString}
-  Content: ${args.content}
-)`
-            }
-            return `🔨 editNote.setContent(${noteIdString}\n)`
+            return `🔨 editNote.setContent(${noteIdString}${argsString})\n`
           case "appendContent":
-            if (args.content) {
-              return `🔨 editNote.appendContent(${noteIdString}
-  Content: ${args.content}
-)`
-            }
-            return `🔨 editNote.appendContent(${noteIdString}\n)`
+            return `🔨 editNote.appendContent(${noteIdString}${argsString})\n`
           case "prependContent":
-            if (args.content) {
-              return `🔨 editNote.prependContent(${noteIdString}
-  Content: ${args.content}
-)`
-            }
-            return `🔨 editNote.prependContent(${noteIdString}\n)`
-
+            return `🔨 editNote.prependContent(${noteIdString}${argsString})\n`
           case "clearContent":
-            return `🔨 editNote.clearContent(${noteIdString}\n)`
+            return `🔨 editNote.clearContent(${noteIdString})\n`
           case "appendComment":
-            if (args.content) {
-              return `🔨 editNote.appendComment(${noteIdString}
-  Content: ${args.content}
-)`
-            }
-            return `🔨 editNote.appendComment(${noteIdString}\n)`
+            return `🔨 editNote.appendComment(${noteIdString}${argsString})\n`
           case "prependComment":
-            if (args.content) {
-              return `🔨 editNote.prependComment(${noteIdString}
-  Content: ${args.content}
-)`
-            }
-            return `🔨 editNote.prependComment(${noteIdString}\n)`
+            return `🔨 editNote.prependComment(${noteIdString}${argsString})\n`
           case "addTags":
-            if (args.tags) {
-              return `🔨 editNote.addTags(${noteIdString}
-  Tags: ${args.tags.join("\n")}
-)`
-            }
-            return `🔨 editNote.addTags(${noteIdString}\n)`
+            return `🔨 editNote.addTags(${noteIdString}${argsString})\n`
           case "removeTags":
-            if (args.tags) {
-              return `🔨 editNote.removeTags(${noteIdString}
-  Tags: ${args.tags.join("\n")}
-)`
-            }
-            return `🔨 editNote.removeTags(${noteIdString}\n)`
+            return `🔨 editNote.removeTags(${noteIdString}${argsString})\n`
           case "deleteNote":
-            return `🔨 editNote.deleteNote(${noteIdString}\n)`
+            return `🔨 editNote.deleteNote(${noteIdString})\n`
           default:
-            if (args.action) {
-              return `🔨 editNote.${args.action}(${noteIdString}\n)`
+            if (editAction.action) {
+              return `🔨 editNote.${editAction.action}(${noteIdString}\n)\n`
             }
-            return `🔨 ${funcName}(${JSON.stringify(args,undefined,2)})\n`
+            return `🔨 ${funcName}(${JSON.stringify(editAction,undefined,2)})\n`
         }
       }
       return `🔨 ${funcName}()\n`
@@ -2151,39 +2723,43 @@ ${optionsString}
             if (args.content) {
               return `🔨 knowledge.append(
   ${args.content}
-)`
+)\n`
             }
-            return `🔨 knowledge.append()`
+            return `🔨 knowledge.append()\n`
           case "overwriteKnowledge":
             if (args.content) {
               return `🔨 knowledge.overwrite(
   ${args.content}
-)`
+)\n`
             }
-            return `🔨 knowledge.overwrite()`
+            return `🔨 knowledge.overwrite()\n`
           case "clearKnowledge":
-            return `🔨 knowledge.clear()`
+            return `🔨 knowledge.clear()\n`
           default:
             break;
         }
       }
       return `🔨 ${funcName}()\n`
     case "createNote":
-      let noteIdString = args.parentNoteId ? `\n  parent: ${args.parentNoteId}` : ""
+      let type = args.type ?? "childNote"
+      let func = type == "childNote" ? "createChildNote" : "createNote.fromSelection"
+      noteIdString = args.parentNoteId ? `\n  parent: ${args.parentNoteId}` : ""
       let titleString = args.title ? `\n  title: ${args.title}` : ""
       let tagsString = args.tags ? `\n  tags: ${args.tags.join(", ")}` : ""
       let colorString = args.color ? `\n  color: ${args.color}` : ""
       if (args.content) {
         let contentString = args.content ? `\n  content: ${args.content}` : ""
-        return `🔨 ${funcName}(${noteIdString}${titleString}${tagsString}${colorString}${contentString}
-)`
+        return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString}${contentString}
+)\n`
       }
       if (args.html) {
         let htmlString = args.html ? `\n  html: ${args.html}` : ""
-        return `🔨 ${funcName}(${noteIdString}${titleString}${tagsString}${colorString}${htmlString}
-)`
+        return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString}${htmlString}
+)\n`
       }
-      return `🔨 ${funcName}(${noteIdString}${titleString}${tagsString}${colorString})\n`
+      return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString})\n`
+
+
     case "UnkonwFunc":
       MNUtil.showHUD("Unknown function: "+funcName)
       return `🔨 ${funcName}()\n`
@@ -2349,6 +2925,106 @@ getFullMermaindHTML(content) {
 </body>
 </html>`
 }
+
+/**
+ * 自动补全不完整的HTML字符串，关闭所有未闭合的标签。
+ * @param {string} htmlString - 可能不完整的HTML字符串。
+ * @returns {string} - 经过补全的、格式正确的HTML字符串。
+ */
+autoCompleteHtml(htmlString) {
+  if (typeof htmlString !== 'string') {
+    console.error("Input must be a string.");
+    return "";
+  }
+
+  // 1. 定义一个栈来追踪开放的标签
+  const stack = [];
+
+  // 2. 定义HTML5中的自闭合标签（void elements），这些标签不需要闭合
+  const selfClosingTags = new Set([
+    'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 
+    'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'
+  ]);
+
+  // 3. 使用正则表达式匹配所有的HTML标签（包括开标签和闭标签）
+  // 正则表达式解释:
+  // <                    - 匹配左尖括号
+  // (\/?)                - 捕获组1: 匹配一个可选的斜杠 (用于判断是开标签还是闭标签)
+  // ([a-zA-Z0-9]+)       - 捕获组2: 匹配标签名 (如 div, p, span)
+  // (?: [^>'"\s]*         - 非捕获组: 匹配属性部分, 允许各种字符
+  //      (?:
+  //        "[^"]*"       - 匹配双引号属性值
+  //        |'[^']*'      - 或单引号属性值
+  //        |[^>'"\s]+    - 或没有引号的属性值
+  //      )
+  //    )*
+  // )*                     - ...以上属性部分可以重复多次
+  // \s*(\/?)              - 捕获组3: 匹配一个可选的斜杠 (用于自闭合标签的结尾, 如 <br />)
+  // >                    - 匹配右尖括号
+  const tagRegex = /<(\/?)([a-zA-Z0-9]+)([^>]*?)>/g;
+
+  let match;
+  while ((match = tagRegex.exec(htmlString)) !== null) {
+    const isClosingTag = match[1] === '/';
+    const tagName = match[2].toLowerCase();
+    
+    // 如果是自闭合标签，则直接跳过，不进行入栈出栈操作
+    if (selfClosingTags.has(tagName)) {
+      continue;
+    }
+    
+    if (isClosingTag) {
+      // 遇到闭标签，如果栈顶元素匹配，则出栈
+      if (stack.length > 0 && stack[stack.length - 1] === tagName) {
+        stack.pop();
+      }
+    } else {
+      // 遇到开标签，入栈
+      stack.push(tagName);
+    }
+  }
+
+  // 4. 遍历结束后，栈中剩下的就是未闭合的标签
+  //    从栈顶开始依次弹出，生成闭合标签字符串
+  let closingTags = '';
+  while (stack.length > 0) {
+    const tagToClose = stack.pop();
+    closingTags += `</${tagToClose}>`;
+  }
+
+  // 5. 将生成的闭合标签追加到原始字符串末尾
+  return htmlString + closingTags;
+}
+_getFullHTML(args){
+let cssString = ""
+// let scrollScript = `<script>
+//   window.scrollTo(0, document.body.scrollHeight);
+// </script>`
+let scrollScript = ``
+if (args.css) {
+  cssString = `<style>
+  ${args.css}
+</style>`
+  scrollScript = ""
+}
+let fullHtml = `<!DOCTYPE html>
+<style>body{padding: 0 !important;}main{padding-left: 0 !important;\npadding-right: 0 !important;\npadding-bottom: 0 !important;}</style>
+<html lang="zh-cmn-Hans" style="height: 0px;">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
+    <script src=https://cdn.tailwindcss.com/3.4.16></script>
+    <link href=https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css rel=stylesheet>
+    ${cssString}
+</head>
+<body>
+${this.autoCompleteHtml(args.html)}
+</body>
+${scrollScript}
+</html>`
+return fullHtml
+}
+
 getFullHTML(args){
     if (args.html) {
       if (args.css) {
@@ -2356,41 +3032,15 @@ getFullHTML(args){
           let fullHtml = args.html.replace(" html>",` html>\n<style>\nbody{padding: 0 !important;}\nmain{padding-left: 0 !important;\npadding-right: 0 !important;\npadding-bottom: 0 !important;}\n${args.css}\n</style>`)
           return fullHtml
         }else{
-          let fullHtml = `<!DOCTYPE html>
-<style>body{padding: 0 !important;}main{padding-left: 0 !important;\npadding-right: 0 !important;\npadding-bottom: 0 !important;}</style>
-<html lang="zh-cmn-Hans" style="height: 0px;">
-<head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
-    <script src=https://cdn.tailwindcss.com/3.4.16></script>
-    <link href=https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css rel=stylesheet>
-    <style>
-      ${args.css}
-    </style>
-</head>
-<body>
-${args.html}
-</body>
-</html>`
+          let fullHtml = this._getFullHTML(args)
           return fullHtml
         }
       }else{
         if (args.html.startsWith(`<!DOCTYPE html>`) || args.html.startsWith(`<!doctype html>`)) {
-          return args.html.replace(" html>",` html>\n<style>\nbody{padding: 0 !important;}\nmain{padding-left: 0 !important;\npadding-right: 0 !important;\npadding-bottom: 0 !important;}\n</style>`)
+          let fullHtml =  args.html.replace(" html>",` html>\n<style>\nbody{padding: 0 !important;}\nmain{padding-left: 0 !important;\npadding-right: 0 !important;\npadding-bottom: 0 !important;}\n</style>`).replace("</body>","</body><script>window.scrollTo(0, document.body.scrollHeight);</script>")
+          return fullHtml
         }else{
-          let fullHtml = `<!DOCTYPE html>
-<style>body{padding: 0 !important;}main{padding-left: 0 !important;\npadding-right: 0 !important;\npadding-bottom: 0 !important;}</style>
-<html lang="zh-cmn-Hans" style="height: 0px;">
-<head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
-    <script src=https://cdn.tailwindcss.com/3.4.16></script>
-    <link href=https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css rel=stylesheet>
-</head>
-<body>
-${args.html}
-</body>
-</html>`
+          let fullHtml = this._getFullHTML(args)
           return fullHtml
         }
       }
@@ -2537,8 +3187,13 @@ ${args.html}
       "createNote":{
         needNote:false,
         toolTitle: "➕   Create Note",
-        description:"Creates a new note (a 'child note') hierarchically under a specified parent note. If no parent note is specified, it defaults to the currently active note. Use this tool only when user ask to create a note.",
+        description:"Creates a new note (as 'child note') hierarchically under a specified parent note or creates a new note (as 'excerpt') from the current selection on document. Use this tool only when user ask to create a note.",
         args:{
+          type:{
+            type:"string",
+            enum:["childNote","fromSelection"],
+            description:"The type of the new note, default is `childNote`. For `childNote`, if no parent note is specified, it defaults to the currently active note. For `fromSelection`, the new note will be created from the current selection on document."
+          },
           title:{
             type:"string",
             description:"The title or heading for the new child note. Optional."
@@ -2694,15 +3349,42 @@ sequenceDiagram
         args:{
           html:{
             type:"string",
-            description:"HTML string representing the .html file, using Tailwind CSS and FontAwesome Icon."
+            description:"HTML string representing the content of <body> tag."
           },
           css:{
             type:"string",
-            description:"additional CSS string representing the .css file"
+            description:"additional CSS string representing the content of <style> tag"
           }
         },
         required:[],
-        description:"this tool is used to create a html file and preview it, using Tailwind CSS and FontAwesome Icon."
+        description:`this tool is used to create a html file and preview it, using Tailwind CSS and FontAwesome Icon. The default template is shown below, provide the arguments {{html}} and {{css}} to fill the html document.
+#### Default Template ####
+<!DOCTYPE html>
+<style>
+  body {
+    padding: 0 !important;
+  }
+  main {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+  }
+</style>
+<html lang="zh-cmn-Hans" style="height: 0px;">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
+    <title>HTML Template with Tailwind CSS and FontAwesome Icon</title>
+    <script src=https://cdn.tailwindcss.com/3.4.16></script>
+    <link href=https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css rel=stylesheet>
+    <style>
+      {{css}}
+    </style>
+</head>
+<body>
+{{html}}
+</body>
+</html>`
       },
       "mergeNotes":{
         needNote:false,
@@ -2734,15 +3416,37 @@ sequenceDiagram
               type:"string",
               description:"noteId of child note. NoteId format: `marginnote4app://note/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`"
             },
-            description:"noteIds of child notes"
+            description:"noteIds of child notes, order of these array will be the order of the child notes."
           },
           toNoteId:{
             type:"string",
             description:"noteId of parent note. NoteId format: `marginnote4app://note/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`"
+          },
+          toNewNote:{
+            type:"object",
+            properties:{
+              title:{
+                type:"string",
+                description:"Optional, title of the new note to be created."
+              },
+              content:{
+                type:"string",
+                description:"Optional, content of the new note to be created."
+              },
+              color:{
+                type:"string",
+                description:"Optional, color of the new note to be created."
+              },
+              parentNoteId:{
+                type:"string",
+                description:"Optional, the parent note of the new note."
+              }
+            },
+            description:"If provided, the notes will be moved to and as children of this new note."
           }
         },
-        required:["fromNoteIds","toNoteId"],
-        description:"this tool is used to move notes (fromNoteIds) as children of another note (toNoteId)"
+        required:["fromNoteIds"],
+        description:"this tool is used to move notes (fromNoteIds) as children of another note (toNoteId). If all notes belong to the same parent note, this tool can also be used to change the order of the child notes."
       },
       "linkNotes":{
         needNote:false,
@@ -2776,6 +3480,10 @@ sequenceDiagram
             },
             description:"Multiple Abstract Syntax Trees represent multiple mindmaps."
           },
+          rootNoteId:{
+            type:"string",
+            description:"optional, noteId of the root note, default is current note"
+          }
         },
         required:["asts"],
         description:"this tool is used to re-organize notes, using noteId and Abstract Syntax Tree to create new trees of mindmap"
@@ -2817,20 +3525,25 @@ sequenceDiagram
         needNote:true,
         toolTitle: "📝   Edit Note",
         args:{
-          action:{
-            type:"string",
-            enum:["setTitle","setTitleWithOptions","appendTitle","prependTitle","clearTitle","setColor","setContent","appendContent","prependContent","clearContent","replaceContent","appendComment","prependComment","addTags","removeTags","deleteNote"],
-            description:`actions to edit note.
-Use the \`replaceContent\` action to change the style of specific words.
-For example, set parameter \`originalContent\` to "reveals" and parameter \`content\` to "<span style="background-color: red;">reveals</span>" to change the color of the word "reveals" to red.`
-          },
           noteId:{
             type:"string",
-            description:"Optional. NoteId of the note to edit. If not provided, the current note will be edited. NoteId format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` or `marginnote4app://note/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`"
+            description:"NoteId of the note to edit. Required when editing multiple notes. NoteId format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` or `marginnote4app://note/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`"
           },
-          content:{
-            type:"string",
-            description:`content for specific action. 
+          actions:{
+            type:"array",
+            items:{
+              type:"object",
+              properties:{
+                action:{
+                  type:"string",
+                  enum:["setTitle","setTitleWithOptions","appendTitle","prependTitle","clearTitle","setColor","setContent","appendContent","prependContent","clearContent","replaceContent","appendComment","prependComment","addTags","removeTags","deleteNote"],
+                  description:`actions to edit note.
+Use the \`replaceContent\` action to change the style of specific words.
+For example, set parameter \`originalContent\` to "reveals" and parameter \`content\` to "<span style="background-color: red;">reveals</span>" to change the color of the word "reveals" to red.`
+                },
+                content:{
+                  type:"string",
+                  description:`content for specific action. 
 Required when use action \`setTitle\`, \`appendTitle\`, \`prependTitle\`, \`setContent\`, \`appendContent\`,\`prependContent\`, \`replaceContent\`, \`appendComment\`, \`prependComment\`, \`addTags\`, \`removeTags\`.
 For actions \`setContent\`, \`appendContent\`, \`replaceContent\` and \`addComment\`, the content uses markdown format, which supports HTML tags like "span", "p", "div", "font", "u", "small", "big", "mark", "sup", "sub", "center" and etc.
 IMPORTANT: 
@@ -2838,42 +3551,48 @@ IMPORTANT:
 * The bold style is supported by using "**".
 * Dolded text will be hidden in recall mode (also called 回忆模式 in Chinese) to enable active recall practice through blank-filling.
 `
-          },
-          markdown:{
-            type:"boolean",
-            description:"optional, default is false, if true, the content will be treated as markdown format. Set to true if you're using markdown format or html tags."
-          },
-          originalContent:{
-            type:"string",
-            description:"original content of the note, required when use action `replaceContent`"
-          },
-          color:{
-            type:"string",
-            description:"color for this note, required when use action `setColor`.",
-            enum:["White","Yellow","Green","Blue","Red","Orange","Purple","LightYellow","LightGreen","LightBlue","LightRed","DarkGreen","DarkBlue","DeepRed","LightGray","DarkGray"]
-          },
-          titleOptions:{
-            type:"array",
-            items: {
-              type:"string",
-              description:"title option for note"
+                },
+                markdown:{
+                  type:"boolean",
+                  description:"optional, default is false, if true, the content will be treated as markdown format. Set to true if you're using markdown format or html tags."
+                },
+                originalContent:{
+                  type:"string",
+                  description:"original content of the note, required when use action `replaceContent`"
+                },
+                color:{
+                  type:"string",
+                  description:"color for this note, required when use action `setColor`.",
+                  enum:["White","Yellow","Green","Blue","Red","Orange","Purple","LightYellow","LightGreen","LightBlue","LightRed","DarkGreen","DarkBlue","DeepRed","LightGray","DarkGray"]
+                },
+                titleOptions:{
+                  type:"array",
+                  items: {
+                    type:"string",
+                    description:"title option for note"
+                  },
+                  description:"additional titles for for user to select,required when use action \"setTitleWithOptions\""
+                },
+                tags:{
+                  type:"array",
+                  items: {
+                    type:"string",
+                    description:"tag for child note"
+                  },
+                  description:"tag for child note, required when use these actions: \"addTags\", \"removeTags\""
+                },
+                needConfirm:{
+                  type:"boolean",
+                  description:"optional, default is true, do not ask user to confirm action but use this argument, only valid for actions `deleteNote`"
+                }
+              },
+              required:["action"],
+              description:"action to edit note"
             },
-            description:"additional titles for for user to select,required when use action \"setTitleWithOptions\""
+            description:"actions to edit note"
           },
-          tags:{
-            type:"array",
-            items: {
-              type:"string",
-              description:"tag for child note"
-            },
-            description:"tag for child note, required when use these actions: \"addTags\", \"removeTags\""
-          },
-          needConfirm:{
-            type:"boolean",
-            description:"optional, default is true, do not ask user to confirm action but use this argument, only valid for actions `deleteNote`"
-          }
         },
-        required:["action"],
+        required:["actions"],
         description:"this tool is used to edit note. Use this tool only when user ask to edit note."
       },
       "generateImage":{
@@ -3031,6 +3750,7 @@ IMPORTANT:
   }
   static async executeTool(funcName,func,noteId){
     let tool = this.getToolByName(funcName)
+    // MNUtil.log("executeTool",{funcName:funcName,noteId:noteId})
     // MNUtil.copy(func)
     return await tool.execute(func,noteId)
   }
@@ -3204,6 +3924,7 @@ class chatAIUtils {
     this.name = name;
   }
   static errorLog = []
+  static emojiIndices = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"]
   static cache = {}
   static cacheInfo = {number:0,times:0,enabled:true}
   static MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/(png|jpeg)\/.*?)(\))/g;
@@ -3342,6 +4063,13 @@ class chatAIUtils {
   } 
   static currentNote() {
     if (!this.currentNoteId) {
+      if (!this.currentSelection.onSelection) {//当前
+        let focusNote = MNNote.getFocusNote()
+        if (focusNote) {
+          this.currentNoteId = focusNote.noteId
+          return focusNote
+        }
+      }
       return undefined
     }
     if (!this.noteExists(this.currentNoteId)) {
@@ -3934,6 +4662,7 @@ try {
 }
   static getFocusNote(allowSelection = true) {
   try {
+    // MNUtil.log("getFocusNote",{allowSelection:allowSelection})
 
     //MNNote的方法可能无法兼顾到保存的对照视图,多加一个判断
     let focusNote = MNNote.getFocusNote()
@@ -3944,6 +4673,7 @@ try {
         return this.currentNote()
       }
       if (allowSelection && this.currentSelection.onSelection) {
+        // MNUtil.log("create from selection")
         return MNNote.fromSelection().realGroupNoteForTopicId()
       }
       return undefined
@@ -4127,6 +4857,12 @@ try {
       config.isSelectionText = false
       config.isSelectionImage = false
     }
+    let focusNote = this.getFocusNote()
+    if (focusNote) {
+      config.hasFocusNote = true
+    }else{
+      config.hasFocusNote = false
+    }
 
     if (vars.hasClipboardText) {
       config.clipboardText = MNUtil.clipboardText
@@ -4207,6 +4943,11 @@ try {
     return docConfig
   }
   static _currentSelection = {}
+  /**
+   * 返回选中的内容，如果没有选中，则onSelection属性为false
+   * 如果有选中内容，则同时包括text和image，并通过isText属性表明当时是选中的文字还是图片
+   * @returns {{onSelection: boolean, image: null|undefined|NSData, text: null|undefined|string, isText: null|undefined|boolean,docMd5:string|undefined,pageIndex:number|undefined}} The current selection details.
+   */
   static get currentSelection() {
     if (this.selectionRefreshTime) {
       if (Date.now() - this.selectionRefreshTime > 100) {//超过100ms，重新获取选区信息
@@ -5362,7 +6103,7 @@ static async getInfoForDynamic() {
     if (config.source === "Built-in" || freeOCR) {
       let usage = chatAIConfig.getUsage()
       if (usage.usage >= usage.limit) {
-        MNUtil.confirm("Access limited", "You have reached the usage limit for today. Please subscribe to continue or use other AI providers.\n\n 当天免费额度已用完，请订阅或使用其他AI提供商。")
+        MNUtil.confirm("🤖 MN ChatAI", "Access limited\n访问受限\n\nYou have reached the usage limit for today. Please subscribe to continue or use other AI providers.\n\n 当天免费额度已用完，请订阅或使用其他AI提供商。")
         return false
       }else{
         usage.usage = usage.usage+1
@@ -8365,6 +9106,24 @@ static isVisionModel(model) {
       return undefined
     }
   }
+  /**
+   * Groups the specified function within an undo operation for the given notebook.
+   * 
+   * This method wraps the provided function within an undo operation for the specified notebook.
+   * It ensures that the function's changes can be undone as a single group. After the function is executed,
+   * it refreshes the application to reflect the changes.
+   * 
+   * @param {Function} f - The function to be executed within the undo group.
+   * @param {string} [notebookId=this.currentNotebookId] - The ID of the notebook for which the undo group is created.
+   */
+  static undoGroupingNotRefresh(f,notebookId = MNUtil.currentNotebookId){
+    UndoManager.sharedInstance().undoGrouping(
+      String(Date.now()),
+      notebookId,
+      f
+    )
+  }
+  
 }
 
 class chatAIConfig {
@@ -8394,6 +9153,50 @@ class chatAIConfig {
       Keyword:                        {title: "关键词",context:"请为下面这段话提取关键词：{{context}}"},
       Title:                          {title: "标题",context:"请为下面这段话生成标题：{{context}}"}
     }
+  }
+  static get defaultSystem() {
+    return `## 系统角色与功能
+
+你是一个智能学习助手，专为MarginNote应用环境设计，专注于辅助用户进行学习、研究和知识管理。
+
+## 核心工具说明
+
+{{!仅在knowledge不为空时显示}}
+{{#knowledge}}
+### Knowledge工具使用指南
+
+**功能**：用于读取和写入额外的记忆信息
+
+**使用场景**：
+  - 当用户要求你记住某些信息时，使用此工具，method参数设置为\`appendKnowledge\`
+  - 当用户要求整理记忆时：
+  1. 认真回顾所有现有记忆内容
+  2. 识别并去除冗余重复的部分
+  3. 以最清晰、最简洁的表达重写记忆内容
+{{/knowledge}}
+
+## 当前环境信息
+
+{{!仅在knowledge不为空时显示}}
+{{#knowledge}}
+### 额外记忆内容
+{{knowledge}}
+{{/knowledge}}
+
+{{!仅在非视觉模式下显示}}
+{{^visionMode}}
+{{!仅在存在选择文本时显示}}
+{{#isSelectionText}}
+### 文档上选中内容 
+{{selectionText}}
+{{/isSelectionText}}
+{{!仅在存在选中的笔记时显示}}
+{{#hasFocusNote}}
+### 选中的笔记/卡片信息
+# 选中的笔记/卡片信息
+{{cards}}
+{{/hasFocusNote}}
+{{/visionMode}}`
   }
 
   static get defaultConfig() {
@@ -8683,6 +9486,7 @@ class chatAIConfig {
     "qwen3-thinking",
     "qwen/qwen3-next-80b-a3b-thinking",
     "qwen/qwen3-next-80b-a3b-instruct",
+    "qwen3-max",
     "qwen3-next",
     "qwen3-next-thinking",
     "Qwen/Qwen3-235B-A22B-Instruct-2507",
@@ -10625,7 +11429,6 @@ static modelsWithoutVisionPatterns = [
     if (keyName) {
       this.config[keyName] = apikey
     }
-
     switch (source) {
       case "Gemini":
         if (url) {
@@ -10643,7 +11446,7 @@ static modelsWithoutVisionPatterns = [
         }
         break
       default:
-        chatAIUtils.addErrorLog("Unspported source: "+source, "saveApiKey")
+        // chatAIUtils.addErrorLog("Unspported source: "+source, "saveApiKey")
         return
     }
     NSUserDefaults.standardUserDefaults().setObjectForKey(this.config,"MNChatglm_config")

@@ -187,10 +187,9 @@ JSB.newAddon = function (mainPath) {
         if (self.window!==MNUtil.currentWindow) {
           return
         }
+        let userInfo = sender.userInfo
         let html = sender.userInfo.html
-        let force = sender.userInfo.force
-        // MNUtil.copy(html)
-        self.addonController.snipasteHtml(html,force)
+        self.addonController.snipasteHtml(html,userInfo)
       },
       OnReceivedSnipasteMermaid: function (sender) {
         if (typeof MNUtil === 'undefined') return

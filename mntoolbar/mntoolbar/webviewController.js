@@ -1420,16 +1420,15 @@ toolbarController.prototype.replaceButtonTo = async function (button,target) {
  * @this {toolbarController}
  */
 toolbarController.prototype.popupReplace = async function (button) {
+  try {
 
   let hasReplace = toolbarConfig.hasPopup()
   if (!hasReplace) {
     return
   }
   await MNUtil.delay(0.01)//需要延迟一下才能拿到当前的popupMenu
-  try {
   // MNUtil.showHUD("message")
   let menu = PopupMenu.currentMenu()
-  // MNUtil.log("Menuheight:"+menu.frame.height)
   if (!menu) {
     return
   }
@@ -1613,7 +1612,6 @@ toolbarController.prototype.popupReplaceAgain = async function (button) {
   try {
   // MNUtil.showHUD("message")
   let menu = PopupMenu.currentMenu()
-  // MNUtil.log("Menuheight:"+menu.frame.height)
   if (!menu) {
     return
   }

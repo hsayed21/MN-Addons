@@ -404,7 +404,7 @@ class toolbarUtils {
         menuItems = ["target"]
         break;
       case "setColor":
-        menuItems = ["color","fillPattern","followAutoStyle","usingCommand","asTitleForNewNote","wordThreshold"]
+        menuItems = ["color","fillPattern","followAutoStyle","usingCommand","asTitleForNewNote","sendToMindmapForNewNote","wordThreshold"]
         break;
       case "userSelect":
         menuItems = ["title","subTitle","selectItems"]
@@ -431,7 +431,7 @@ class toolbarUtils {
         menuItems = ["mainMindMap","noteURL"]
         break;
       case "noteHighlight":
-        menuItems = ["color","fillPattern","asTitle","title","ocr","tags","tag","parentNote","mainMindMap","textFirst","focusAfterDelay","focusInFloatWindowForAllDocMode","markdown","continueExcerpt","wordThreshold"]
+        menuItems = ["color","fillPattern","asTitle","title","ocr","tags","tag","parentNote","mainMindMap","textFirst","focusAfterDelay","focusInFloatWindowForAllDocMode","sendToMindmap","markdown","continueExcerpt","wordThreshold"]
         break;
       case "snipaste":
         menuItems = ["target","page","audioAction","audioAutoPlay"]
@@ -489,10 +489,12 @@ class toolbarUtils {
       case "forceToFocus":
       case "textFirst":
       case "focusInFloatWindowForAllDocMode":
+      case "sendToMindmap":
       case "mainMindMap":
       case "ocr":
       case "asTitle":
       case "asTitleForNewNote":
+      case "sendToMindmapForNewNote":
       case "usingCommand":
       case "audioAutoPlay":
         config[item] = true
@@ -4652,7 +4654,8 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
         })
       })
     }else if(des.noteURL){
-      let parentNote = MNNote.new(des.noteURL)
+      let realURL = await this.render(des.noteURL)
+      let parentNote = MNNote.new(realURL)
       let notebookId = parentNote.notebookId
       if (parentNote) {
         MNUtil.undoGrouping(()=>{
@@ -4761,6 +4764,7 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
         if ("asTitleForNewNote" in des && des.asTitleForNewNote) {
           asTitle = true
         }
+
         // MNUtil.log(focusNote.notebook.title)
         if (focusNote.notebookId !== MNUtil.currentNotebookId) {
           if (focusNote.realGroupNoteIdForTopicId(MNUtil.currentNotebookId)) {
@@ -4768,7 +4772,12 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
             // focusNote.focusInMindMap()
           }
         }
-
+        if ("sendToMindmapForNewNote" in des && des.sendToMindmapForNewNote) {
+          MNUtil.excuteCommand("SendToMap")
+          if (MNUtil.docMapSplitMode !== 2) {
+            focusNote.focusInMindMap(0.5)
+          }
+        }
         focusNotes = [focusNote]
         // focusNotes = [MNNote.new(selection.docController.highlightFromSelection())]
       }else{
@@ -4814,6 +4823,12 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
         if (focusNote.realGroupNoteIdForTopicId(MNUtil.currentNotebookId)) {
           focusNote = focusNote.realGroupNoteForTopicId(MNUtil.currentNotebookId)
           // focusNote.focusInMindMap()
+        }
+      }
+      if ("sendToMindmapForNewNote" in des && des.sendToMindmapForNewNote) {
+        MNUtil.excuteCommand("SendToMap")
+        if (MNUtil.docMapSplitMode !== 2) {
+          focusNote.focusInMindMap(0.5)
         }
       }
 
@@ -6050,6 +6065,13 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
       case "noteHighlight":
         let newNote = await this.noteHighlight(des)
         if (newNote && newNote.notebookId === MNUtil.currentNotebookId) {
+          if ("sendToMindmap" in des && des.sendToMindmap) {
+            MNUtil.excuteCommand("SendToMap")
+            if (MNUtil.docMapSplitMode !== 2) {
+              newNote.focusInMindMap(0.5)
+            }
+          }
+          await MNUtil.delay(0.1)
           if ("continueExcerpt" in des && des.continueExcerpt) {
             //如果是继续摘录，则不需要focus
             MNUtil.excuteCommand("ContinueExcerpt")
@@ -7476,9 +7498,10 @@ class toolbarConfig {
     // MNUtil.log("setButtonImage",action)
     let size = image.size
     if (size.width * size.height > 250000) {
-      MNUtil.confirm("MN Toolbar","Image size is too large\n\n图片尺寸过大")
+      MNUtil.confirm("MN Toolbar","Image size is too large, please use a smaller image (max 500x500).\n\n图片尺寸过大，请使用更小的图片（最大500x500）。")
       return
     }
+    MNUtil.showHUD("✅ Set button image success")
 
     let md5 = MNUtil.MD5(image.pngData().base64Encoding())
     // let imagePath = this.mainPath+"/"+this.getAction(action).image+".png"

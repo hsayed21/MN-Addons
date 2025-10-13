@@ -56,6 +56,48 @@ function App() {
     };
     excalidrawAPI.updateScene(sceneData);
   };
+  function setScene(elementId,imageId,width,height){
+    const sceneData = {
+      elements: [
+    {
+      "id": elementId,
+      "type": "image",
+      "x": 0,
+      "y": 0,
+      "width": width,
+      "height": height,
+      "angle": 0,
+      "strokeColor": "transparent",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 413988931,
+      "version": 4,
+      "versionNonce": 1498294829,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1717580472726,
+      "link": null,
+      "locked": false,
+      "status": "pending",
+      "fileId": imageId,
+      "scale": [
+        1,
+        1
+      ]
+    }
+  ],
+      appState: {
+      },
+    };
+    excalidrawAPI.updateScene(sceneData);
+  };
   function scrollToContent() {
     let opt = {
       fitToContent:true,
@@ -126,7 +168,7 @@ function App() {
 
   React.useEffect(function() {
     // 更新全局 Excalidraw 中的 onClickButton 当 excalidrawAPI 改变时
-    Excalidraw = { getCanvas: getCanvas,resetScene:resetScene,updateScene:updateScene,addImage:addImage,scrollToContent:scrollToContent,calculateSize:calculateSize };
+    Excalidraw = { getCanvas: getCanvas,resetScene:resetScene,updateScene:updateScene,setScene:setScene,addImage:addImage,scrollToContent:scrollToContent,calculateSize:calculateSize };
   }, [excalidrawAPI]);
 
   return React.createElement(

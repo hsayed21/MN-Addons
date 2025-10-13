@@ -714,7 +714,7 @@ static initRequestForChatGPT (apikey,url,model,temperature,funcIndices=[]) {
  * @param {string|NSData} imageData
  * @returns {Promise<Object>}
  */
- static async ChatGPTVision(imageData,source="GPT-4o",prompt = ocrConfig.getConfig("userPrompt")) {
+static async ChatGPTVision(imageData,source="GPT-4o",prompt = ocrConfig.getConfig("userPrompt")) {
   try {
   let key = subscriptionConfig.config.apikey
   if (ocrConfig.modelSource(source).isFree) {

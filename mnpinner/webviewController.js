@@ -68,14 +68,14 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
   
   scrollViewDidScroll: function(scrollview) {
-    // 只在非 minimode 时处理滚动刷新，避免频繁刷新导致手写消失
-    if (!self.miniMode && scrollview.id && self.currentSection) {
-      let expectedId = self.currentSection + "CardScrollView"
-      if (scrollview.id === expectedId) {
-        // MNUtil.showHUD("分区视图滚动: " + self.currentSection)
-        self.refreshSectionCards(self.currentSection)
-      }
-    }
+    // // 只在非 minimode 时处理滚动刷新，避免频繁刷新导致手写消失
+    // if (!self.miniMode && scrollview.id && self.currentSection) {
+    //   let expectedId = self.currentSection + "CardScrollView"
+    //   if (scrollview.id === expectedId) {
+    //     // MNUtil.showHUD("分区视图滚动: " + self.currentSection)
+    //     self.refreshSectionCards(self.currentSection)
+    //   }
+    // }
   },
   
   /**
@@ -261,10 +261,10 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         MNUtil.log("检测到自定义协议，action: " + config.host)
         
         switch (config.host) {
-          case "updateTitle":
-            MNUtil.log("准备更新标题，参数: " + JSON.stringify(config.params))
-            self.updateCardTitle(config.params.id, config.params.title)
-            break;
+          // case "updateTitle":
+          //   MNUtil.log("准备更新标题，参数: " + JSON.stringify(config.params))
+          //   self.updateCardTitle(config.params.id, config.params.title)
+          //   break;
           default:
             MNUtil.showHUD("未知的方法: " + config.action)
         }
@@ -333,6 +333,14 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
   midwayTabTapped: function(button) {
     self.switchView("midwayView")
+  },
+
+  toOrganizeTabTapped: function(button) {
+    self.switchView("toOrganizeView")
+  },
+
+  dailyTaskTabTapped: function(button) {
+    self.switchView("dailyTaskView")
   },
 
   // === 分区视图的事件处理方法 ===
@@ -869,6 +877,8 @@ pinnerController.prototype.settingViewLayout = function () {
     this.settingView.frame = MNUtil.genFrame(-5, 55, width, height-65)
     this.focusView.frame = MNUtil.genFrame(0, 0,width, height-65)
     this.midwayView.frame = MNUtil.genFrame(0, 0,width, height-65)
+    this.toOrganizeView.frame = MNUtil.genFrame(0, 0,width, height-65)
+    this.dailyTaskView.frame = MNUtil.genFrame(0, 0,width, height-65)
 
     let settingFrame = this.settingView.bounds
     settingFrame.x = 0
@@ -886,6 +896,14 @@ pinnerController.prototype.settingViewLayout = function () {
     if (this.midwayTabButton) {
       this.midwayTabButton.frame = {x: tabX, y: 2, width: this.midwayTabButton.width, height: 26}
       tabX += this.midwayTabButton.width + 5
+    }
+    if (this.toOrganizeTabButton) {
+      this.toOrganizeTabButton.frame = {x: tabX, y: 2, width: this.toOrganizeTabButton.width, height: 26}
+      tabX += this.toOrganizeTabButton.width + 5
+    }
+    if (this.dailyTaskTabButton) {
+      this.dailyTaskTabButton.frame = {x: tabX, y: 2, width: this.dailyTaskTabButton.width, height: 26}
+      tabX += this.dailyTaskTabButton.width + 5
     }
 
     this.tabView.contentSize = {width: tabX + 10, height: 30}
@@ -906,6 +924,12 @@ pinnerController.prototype.settingViewLayout = function () {
     if (!this.midwayView.hidden) {
       this.layoutSectionView("midway")
     }
+    if (!this.toOrganizeView.hidden) {
+      this.layoutSectionView("toOrganize")
+    }
+    if (!this.dailyTaskView.hidden) {
+      this.layoutSectionView("dailyTask")
+    }
   } catch (error) {
     pinnerUtils.addErrorLog(error, "settingViewLayout")
   }
@@ -917,6 +941,12 @@ pinnerController.prototype.refreshLayout = function () {
   }
   if (!this.midwayView.hidden) {
     this.layoutSectionView("midway")
+  }
+  if (!this.toOrganizeView.hidden) {
+    this.layoutSectionView("toOrganize")
+  }
+  if (!this.dailyTaskView.hidden) {
+    this.layoutSectionView("dailyTask")
   }
 }
 pinnerController.prototype.createSettingView = function () {
@@ -951,12 +981,36 @@ pinnerController.prototype.createSettingView = function () {
     size = this.midwayTabButton.sizeThatFits({width:120,height:100})
     this.midwayTabButton.width = size.width+15
 
+    this.createButton("toOrganizeTabButton","toOrganizeTabTapped:","tabView")
+    this.toOrganizeTabButton.layer.cornerRadius = radius;
+    this.toOrganizeTabButton.isSelected = false
+    MNButton.setConfig(this.toOrganizeTabButton,
+      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"待整理",font:17,bold:true}
+    )
+    size = this.toOrganizeTabButton.sizeThatFits({width:120,height:100})
+    this.toOrganizeTabButton.width = size.width+15
+
+    this.createButton("dailyTaskTabButton","dailyTaskTabTapped:","tabView")
+    this.dailyTaskTabButton.layer.cornerRadius = radius;
+    this.dailyTaskTabButton.isSelected = false
+    MNButton.setConfig(this.dailyTaskTabButton,
+      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"日拱一卒",font:17,bold:true}
+    )
+    size = this.dailyTaskTabButton.sizeThatFits({width:120,height:100})
+    this.dailyTaskTabButton.width = size.width+15
+
     // === 创建各个分页===
     this.createView("focusView","settingView","#9bb2d6",0)
     this.focusView.hidden = false  // 默认显示第一个视图
 
     this.createView("midwayView","settingView","#9bb2d6",0)
     this.midwayView.hidden = true  // 隐藏其他视图
+
+    this.createView("toOrganizeView","settingView","#9bb2d6",0)
+    this.toOrganizeView.hidden = true  // 隐藏其他视图
+
+    this.createView("dailyTaskView","settingView","#9bb2d6",0)
+    this.dailyTaskView.hidden = true  // 隐藏其他视图
 
     // === 为每个分区创建子视图 ===
     this.createSectionViews()
@@ -1024,11 +1078,13 @@ pinnerController.prototype.createScrollview = function (superview="view", color=
   return scrollview
 }
 pinnerController.prototype.switchView = function (targetView) {
-  let allViews = ["focusView", "midwayView"]
-  let allButtons = ["focusTabButton","midwayTabButton"]
+  let allViews = ["focusView", "midwayView", "toOrganizeView", "dailyTaskView"]
+  let allButtons = ["focusTabButton","midwayTabButton","toOrganizeTabButton","dailyTaskTabButton"]
   let sectionMap = {
     "focusView": "focus",
-    "midwayView": "midway"
+    "midwayView": "midway",
+    "toOrganizeView": "toOrganize",
+    "dailyTaskView": "dailyTask"
   }
 
   allViews.forEach((k, index) => {
@@ -1040,6 +1096,8 @@ pinnerController.prototype.switchView = function (targetView) {
 
   // 更新当前分区
   this.currentSection = sectionMap[targetView]
+  // 先布局再刷新,确保子视图 frame 正确
+  this.layoutSectionView(this.currentSection)
   this.refreshView(targetView)
 }
 
@@ -1054,6 +1112,14 @@ pinnerController.prototype.refreshView = function (targetView) {
         MNUtil.log("refresh midwayView")
         this.refreshSectionCards("midway")
         break;
+      case "toOrganizeView":
+        MNUtil.log("refresh toOrganizeView")
+        this.refreshSectionCards("toOrganize")
+        break;
+      case "dailyTaskView":
+        MNUtil.log("refresh dailyTaskView")
+        this.refreshSectionCards("dailyTask")
+        break;
       default:
         break;
     }
@@ -1066,7 +1132,7 @@ pinnerController.prototype.refreshView = function (targetView) {
  */
 pinnerController.prototype.createSectionViews = function() {
   // 为每个分区创建相同的结构
-  ["focus", "midway"].forEach(section => {
+  ["focus", "midway", "toOrganize", "dailyTask"].forEach(section => {
     let viewName = section + "View"
 
     // 创建顶部按钮的滚动容器

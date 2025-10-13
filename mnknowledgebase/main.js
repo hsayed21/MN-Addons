@@ -10,6 +10,7 @@
  */
 JSB.newAddon = function(mainPath){
   JSB.require('utils');
+  JSB.require('knowledgebaseWebController');
   // 使用 JSB.defineClass 定义一个继承自 JSExtension 的插件类
   // 格式：'类名 : 父类名'
   var MNKnowledgeBaseClass = JSB.defineClass('MNKnowledgeBase : JSExtension', 
@@ -30,17 +31,26 @@ JSB.newAddon = function(mainPath){
      * 注意：此时可能还没有笔记本或文档打开
      */
     sceneWillConnect: function() {
-      MNUtil.undoGrouping(()=>{
-        try {
-          self.toggled = false
-          self.newExcerptWithOCRToTitle = false  // 新摘录 OCR 到标题
-          self.preExcerptMode = false  // 预摘录模式
-          // MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
-          MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
-        } catch (error) {
-          MNUtil.showHUD(error);
+      try {
+        KnowledgeBaseConfig.init(mainPath)
+
+        // 保存插件实例引用，供 knowledgebaseWebController 调用
+        if (typeof MNKnowledgeBaseInstance === 'undefined') {
+          global.MNKnowledgeBaseInstance = self
         }
-      })
+
+        // 注册插件通信观察者
+        MNUtil.addObserver(self, 'onAddonBroadcast:', 'AddonBroadcast')
+        // MNUtil.addObserver(self, 'onOpenKnowledgeBaseSearch:', 'openKnowledgeBaseSearch')
+
+        self.toggled = false
+        self.excerptOCRMode = KnowledgeBaseConfig.config.excerptOCRMode || 0  // 摘录 OCR 模式：0=关闭, 1=直接OCR, 2=Markdown格式, 3=概念提取
+        self.preExcerptMode = false  // 预摘录模式
+        // MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
+        MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "sceneWillConnect")
+      }
     },
     
     /**
@@ -54,7 +64,9 @@ JSB.newAddon = function(mainPath){
     sceneDidDisconnect: function() {
       MNUtil.undoGrouping(()=>{
         try {
+          MNUtil.removeObserver(self, 'AddonBroadcast')
           MNUtil.removeObserver(self, 'ProcessNewExcerpt')
+          // MNUtil.removeObserver(self, 'openKnowledgeBaseSearch')
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -96,9 +108,7 @@ JSB.newAddon = function(mainPath){
      * @param {String} notebookid 笔记本的唯一标识符
      */
     notebookWillOpen: function(notebookid) {
-      // JSB.log 用于调试输出，类似于 console.log
-      // %@ 是 Objective-C 风格的字符串占位符
-      JSB.log('MNLOG Open Notebook: %@',notebookid);
+      // 笔记本打开时的处理（控制器已在 queryAddonCommandStatus 中延迟初始化）
     },
     
     /**
@@ -168,81 +178,10 @@ JSB.newAddon = function(mainPath){
           }
         }
 
-        if (self.newExcerptWithOCRToTitle) {
-          let imageData = ocrUtils.getImageFromNote(note)
-          if (!imageData) {
-            MNUtil.showHUD("No image found")
-            return
-          }
-          let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
-          let prompt = `
-# OCR Prompt - Direct Unicode Output
-
-## Role
-Image Text Extraction Specialist with Unicode Priority
-
-## Goal
-Extract and output all text from the given image using direct Unicode characters whenever possible. Preserve the original formatting and layout structure.
-For any formulas, do not use LaTeX form, i.e. enclose them with dollar signs "$...$" or "\(...\)".
-
-## Output Rules
-
-### 1. Mathematical Symbols & Formulas
-- **Primary**: Use direct Unicode characters when available
-  - Examples: x², x³, √2, ∫, ∑, π, α, β, γ, ≤, ≥, ≠, ±, ×, ÷, ∞, ∂, ∆, ∇
-- **Fallback**: Only use LaTeX notation (enclosed in $ signs) when no Unicode equivalent exists
-  - Examples: Complex fractions, matrices, advanced operators
-
-### 2. Text Formatting
-- Use Unicode formatting characters when possible:
-  - Superscript: ¹²³⁴⁵⁶⁷⁸⁹⁰ ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖᵒʳˢᵗᵘᵛʷˣʸᶻ
-  - Subscript: ₀₁₂₃₄₅₆₇₈₉ ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ
-  - Bold/Italic: Use **bold** and *italic* markdown only if clearly indicated
-
-## About spaces
-### Handle the spaces and line breaks in the image, avoid unnecessary spaces and line breaks.
-Example: 
-- Results before handling ❌: |a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|) + |b| / (1 + |b|)
-- Results after handling ✅: |a+b|/(1+|a+b|)≤|a|/(1+|a|)+|b|/(1+|b|)
-### Based on above rule, still keep the necessary spaces in the text, such as between words and after punctuations.
-Example 1:
-- Results before handling ❌: Theorem1.1(StrongLawofLargeNumbers).
-- Results after handling ✅: Theorem 1.1 (Strong Law of Large Numbers).
-
-Example 2:
-- Results before handling ❌: 设a,b∈R,则有|a+b|/(1+|a+b|)≤|a|/(1+|a|)+|b|/(1+|b|).
-- Results after handling ✅: 设 a, b∈R, 则有 |a+b|/(1+|a+b|)≤|a|/(1+|a|)+|b|/(1+|b|).
-
-## Constraints
-- Output ONLY the text content visible in the image
-- No explanatory text, descriptions, or commentary
-- No "I see..." or "The image contains..." prefixes
-- Prioritize readability in non-Markdown environments
-- When uncertain between Unicode and LaTeX, choose Unicode
-
-## Priority Order
-1. Direct Unicode characters
-2. Simple markdown formatting (only for structure)
-3. LaTeX notation (only when absolutely necessary)
-
----
-
-## Unicode Reference (Common Math Symbols)
-- Fractions: ½ ⅓ ⅔ ¼ ¾ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
-- Operators: ± × ÷ ≈ ≠ ≤ ≥ ∝ ∝ ∴ ∵ ∈ ∉ ⊂ ⊃ ∪ ∩ ∧ ∨
-- Greek: α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π Ρ Σ Τ Υ Φ Χ Ψ Ω
-- Calculus: ∫ ∬ ∭ ∮ ∂ ∇ ∞ ∑ ∏ lim
-- Geometry: ° ∠ ⊥ ∥ △ ◯ □ ◇
-`
-          let result = await ocrNetwork.OCR(compressedImageData,"doubao-seed-1-6-nothinking", true, prompt)
-          MNUtil.delay(1).then(()=>{
-            MNUtil.stopHUD()
-          })
-          if (result) {
-            MNUtil.undoGrouping(()=>{
-              note.title = result.trim()
-            })
-            MNUtil.postNotification("OCRFinished", {action:"toTitle", noteId:note.noteId, result:result})
+        if (self.excerptOCRMode > 0) {
+          let OCRResult = await KnowledgeBaseNetwork.OCRToTitle(note, self.excerptOCRMode, self.preExcerptMode)
+          if (OCRResult) {
+            IntermediateKnowledgeIndexer.addToIncrementalIndex(note)
           }
         }
       } catch (error) {
@@ -251,19 +190,32 @@ Example 2:
     },
 
     queryAddonCommandStatus: function() {
-      return MNUtil.studyMode !== 3
-        ? {
-            image: "logo.png",
-            object: self,
-            selector: "toggleAddon:",
-            checked: self.toggled
-          }
-        : null
+      // 延迟初始化控制器（参考 mnliterature）
+      KnowledgeBaseUtils.checkWebViewController()
+
+      if (MNUtil.studyMode < 3) {
+        return {
+          image: "logo.png",
+          object: self,
+          selector: "toggleAddon:",
+          checked: self.toggled
+        }
+      } else {
+        // 复习模式下隐藏控制器
+        if (KnowledgeBaseUtils.webViewController) {
+          KnowledgeBaseUtils.webViewController.view.hidden = true
+        }
+        return null
+      }
     },
 
     // 点击插件图标执行的方法。
     toggleAddon: async function(button) {
       try {
+        if (!self.addonBar) {
+          self.addonBar = button.superview.superview
+          KnowledgeBaseUtils.addonBar = self.addonBar
+        }
         self.toggled = !self.toggled
         MNUtil.refreshAddonCommands()
 
@@ -277,30 +229,25 @@ Example 2:
           self.tableItem('🔎   搜索中间知识库', 'searchInIntermediateKB:'),
           self.tableItem('-------------------------------',''),
           // === 通用搜索（支持自定义类型）===
-          self.tableItem('🔍   全部搜索(脑图定位)', 'searchInKB:', true),
-          
-          // === 快捷搜索 - 脑图定位 ===
-          self.tableItem('    📚  知识卡片', 'searchWithPreset:', {preset: 'knowledge', mode: 'mindmap'}),
-          self.tableItem('    📘  仅定义', 'searchWithPreset:', {preset: 'definitions', mode: 'mindmap'}),
-          self.tableItem('    📁  仅归类', 'searchWithPreset:', {preset: 'classifications', mode: 'mindmap'}),
-          self.tableItem('    📒  定义与归类', 'searchWithPreset:', {preset: 'definitionsAndClassifications', mode: 'mindmap'}),
+          self.tableItem('🌐   可视化搜索', 'openSearchWebView:'),
+          self.tableItem('🔍   全部搜索', 'searchInKB:'),
 
-          // // === 快捷搜索 - 浮窗定位 ===
-          // self.tableItem('🔍   全部搜索(浮窗定位)', 'searchInKB:', false),
-          // self.tableItem('    📚  知识卡片(浮窗)', 'searchWithPreset:', {preset: 'knowledge', mode: 'float'}),
-          // self.tableItem('    📘  仅定义(浮窗)', 'searchWithPreset:', {preset: 'definitions', mode: 'float'}),
-          // self.tableItem('    📁  仅归类(浮窗)', 'searchWithPreset:', {preset: 'classifications', mode: 'float'}),
-          // self.tableItem('    📒  定义与归类(浮窗)', 'searchWithPreset:', {preset: 'definitionsAndClassifications', mode: 'float'}),
+          // === 快捷搜索 ===
+          self.tableItem('    📚  知识卡片', 'searchWithPreset:', 'knowledge'),
+          self.tableItem('    📘  仅定义', 'searchWithPreset:', 'definitions'),
+          self.tableItem('    📁  仅归类', 'searchWithPreset:', 'classifications'),
+          self.tableItem('    📒  定义与归类', 'searchWithPreset:', 'definitionsAndClassifications'),
           self.tableItem('-------------------------------',''),
           // === 配置管理 ===
           self.tableItem('📜   搜索历史', 'showSearchHistory:'),
           self.tableItem('🔍   搜索模式设置', 'configureSearchMode:'),
-          // self.tableItem('🔤   同义词管理', 'manageSynonyms:'),
-          // self.tableItem('🚫   排除词管理', 'manageExclusions:'),
-          // self.tableItem('📤   分享索引文件', 'shareIndexFile:'),
           self.tableItem('-------------------------------',''),
-          self.tableItem("⚙️   摘录自动 OCR 到标题", 'newExcerptWithOCRToTitleToggled:', undefined, self.newExcerptWithOCRToTitle),
-          self.tableItem('⚙️   预摘录模式', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
+          self.tableItem('⚙️   通用 OCR 模型', 'excerptOCRModelSetting:', button),
+          self.tableItem('    ⚙️ 模式1 模型', 'excerptOCRModelSettingForMode1:', button),
+          self.tableItem('    ⚙️ 模式2 模型', 'excerptOCRModelSettingForMode2:', button),
+          self.tableItem('    ⚙️ 模式3 模型', 'excerptOCRModelSettingForMode3:', button),
+          self.tableItem('🤖   摘录 OCR 模式', 'excerptOCRModeSetting:', button),
+          self.tableItem('🤖   预摘录模式', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
         ];
 
         // 显示菜单
@@ -319,31 +266,161 @@ Example 2:
       }
     },
 
-    newExcerptWithOCRToTitleToggled: function() {
-      self.checkPopover()
-      self.newExcerptWithOCRToTitle = !self.newExcerptWithOCRToTitle
-      MNUtil.showHUD(self.newExcerptWithOCRToTitle ? "已开启摘录自动 OCR 到标题" : "已关闭摘录自动 OCR 到标题", 1)
+    excerptOCRModelSetting: function(button) {
+      try {
+        self.checkPopover()
+        let commandTable = []
+        for (let source of KnowledgeBaseConfig.excerptOCRSources) {
+          commandTable.push(self.tableItem(source, 'setExcerptOCRModel:', source, KnowledgeBaseConfig.config.excerptOCRModelIndex === KnowledgeBaseConfig.excerptOCRSources.indexOf(source)))
+        }
+        self.popoverController = MNUtil.getPopoverAndPresent(
+          button,        // 触发按钮
+          commandTable,  // 菜单项
+          250,          // 宽度（增加到250以适应更长的菜单项）
+          0             // 箭头方向（0=自动）
+        );
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "excerptOCRModelSetting")
+      }
+    },
+
+    setExcerptOCRModel: function(source) {
+      try {
+        self.checkPopover()
+        MNUtil.showHUD("已设置摘录 OCR 模型为 " + source, 1)
+        KnowledgeBaseConfig.config.excerptOCRModel = source
+        KnowledgeBaseConfig.config.excerptOCRModelIndex = KnowledgeBaseConfig.excerptOCRSources.indexOf(source)
+        KnowledgeBaseConfig.save()
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "setExcerptOCRModel")
+      }
+    },
+
+    excerptOCRModeSetting: function(button) {
+      try {
+        self.checkPopover()
+        const modeNames = ['❌ 关闭', '📝 直接OCR', '🔤 Markdown格式', '🎯 概念提取']
+        let commandTable = modeNames.map((name, index) =>
+          self.tableItem(name, 'setExcerptOCRMode:', index, self.excerptOCRMode === index)
+        )
+        self.popoverController = MNUtil.getPopoverAndPresent(
+          button,
+          commandTable,
+          250,
+          0
+        )
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "excerptOCRModeSetting")
+      }
+    },
+
+    setExcerptOCRMode: function(mode) {
+      try {
+        self.checkPopover()
+        self.excerptOCRMode = mode
+        KnowledgeBaseConfig.config.excerptOCRMode = mode
+        KnowledgeBaseConfig.save()
+        const modeNames = ['关闭', '直接OCR', 'Markdown格式', '概念提取']
+        MNUtil.showHUD(`摘录 OCR 模式已设置为: ${modeNames[mode]}`, 1)
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "setExcerptOCRMode")
+      }
+    },
+
+    excerptOCRModelSettingForMode1: function(button) {
+      try {
+        self.checkPopover()
+        let commandTable = []
+        for (let source of KnowledgeBaseConfig.excerptOCRSources) {
+          const currentModel = KnowledgeBaseConfig.config.excerptOCRModelForMode1 || KnowledgeBaseConfig.config.excerptOCRModel
+          commandTable.push(self.tableItem(source, 'setExcerptOCRModelForMode1:', source, currentModel === source))
+        }
+        self.popoverController = MNUtil.getPopoverAndPresent(
+          button,
+          commandTable,
+          250,
+          0
+        )
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "excerptOCRModelSettingForMode1")
+      }
+    },
+
+    setExcerptOCRModelForMode1: function(source) {
+      try {
+        self.checkPopover()
+        MNUtil.showHUD("模式1（直接OCR）模型已设置为 " + source, 1)
+        KnowledgeBaseConfig.config.excerptOCRModelForMode1 = source
+        KnowledgeBaseConfig.save()
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "setExcerptOCRModelForMode1")
+      }
+    },
+
+    excerptOCRModelSettingForMode2: function(button) {
+      try {
+        self.checkPopover()
+        let commandTable = []
+        for (let source of KnowledgeBaseConfig.excerptOCRSources) {
+          const currentModel = KnowledgeBaseConfig.config.excerptOCRModelForMode2 || KnowledgeBaseConfig.config.excerptOCRModel
+          commandTable.push(self.tableItem(source, 'setExcerptOCRModelForMode2:', source, currentModel === source))
+        }
+        self.popoverController = MNUtil.getPopoverAndPresent(
+          button,
+          commandTable,
+          250,
+          0
+        )
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "excerptOCRModelSettingForMode2")
+      }
+    },
+
+    setExcerptOCRModelForMode2: function(source) {
+      try {
+        self.checkPopover()
+        MNUtil.showHUD("模式2（Markdown格式）模型已设置为 " + source, 1)
+        KnowledgeBaseConfig.config.excerptOCRModelForMode2 = source
+        KnowledgeBaseConfig.save()
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "setExcerptOCRModelForMode2")
+      }
+    },
+
+    excerptOCRModelSettingForMode3: function(button) {
+      try {
+        self.checkPopover()
+        let commandTable = []
+        for (let source of KnowledgeBaseConfig.excerptOCRSources) {
+          const currentModel = KnowledgeBaseConfig.config.excerptOCRModelForMode3 || KnowledgeBaseConfig.config.excerptOCRModel
+          commandTable.push(self.tableItem(source, 'setExcerptOCRModelForMode3:', source, currentModel === source))
+        }
+        self.popoverController = MNUtil.getPopoverAndPresent(
+          button,
+          commandTable,
+          250,
+          0
+        )
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "excerptOCRModelSettingForMode3")
+      }
+    },
+
+    setExcerptOCRModelForMode3: function(source) {
+      try {
+        self.checkPopover()
+        MNUtil.showHUD("模式3（概念提取）模型已设置为 " + source, 1)
+        KnowledgeBaseConfig.config.excerptOCRModelForMode3 = source
+        KnowledgeBaseConfig.save()
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "setExcerptOCRModelForMode3")
+      }
     },
 
     preExcerptModeToggled: function() {
       self.checkPopover()
       self.preExcerptMode = !self.preExcerptMode
       MNUtil.showHUD(self.preExcerptMode ? "已开启预摘录模式" : "已关闭预摘录模式", 1)
-    },
-    openSetting: function() {
-      MNUtil.showHUD("打开设置界面")
-      // 关闭菜单
-      if (self.popoverController) {
-        self.popoverController.dismissPopoverAnimated(true);
-      }
-    },
-
-    openKnowledgeBaseLibrary: function() {
-      MNUtil.showHUD("打开文献数据库")
-      // 关闭菜单
-      if (self.popoverController) {
-        self.popoverController.dismissPopoverAnimated(true);
-      }
     },
     
     /**
@@ -356,7 +433,14 @@ Example 2:
           self.popoverController.dismissPopoverAnimated(true);
         }
         
-        let rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
+        let focusNote = MNNote.getFocusNote()
+        let rootNote
+        if (focusNote) {
+          rootNote = focusNote
+        } else {
+          rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
+        }
+        
         if (!rootNote) {
           MNUtil.showHUD("知识库不存在！");
           return;
@@ -384,7 +468,10 @@ Example 2:
       }
     },
     
-    searchInKB: async function(focusInMindMap = true) {
+    /**
+     * 搜索知识库（通用搜索，支持自定义类型）
+     */
+    searchInKB: async function() {
       try {
         self.checkPopover()
 
@@ -395,8 +482,8 @@ Example 2:
           return;
         }
 
-        // 注意：showSearchDialog 内部也需要支持异步搜索
-        KnowledgeBaseSearcher.showSearchDialog(searcher, {}, focusInMindMap);
+        // 显示搜索对话框（允许类型选择）
+        KnowledgeBaseSearcher.showSearchDialog(searcher, {});
 
       } catch (error) {
         MNUtil.showHUD("快速搜索失败: " + error.message);
@@ -405,6 +492,16 @@ Example 2:
     },
 
     /**
+     * 打开可视化搜索 WebView
+     *
+     * 注意：数据加载由 show() 方法自动处理，无需手动加载
+     */
+    openSearchWebView: async function() {
+      self.openSearchWebView()
+    },
+
+    /**
+>>>>>>> Stashed changes
      * 更新中间知识库索引
      */
     updateIntermediateKnowledgeIndex: async function() {
@@ -652,12 +749,11 @@ Example 2:
             isFromHistory: true
           };
 
-          // 显示历史搜索结果（不再使用保存的 mode，由用户在点击卡片时选择）
+          // 显示历史搜索结果（用户在点击卡片时通过菜单选择操作）
           KnowledgeBaseSearcher.showSearchResults(
             selectedHistory.results,
             searcher,
-            searchOptions,
-            true  // focusMode 参数在历史记录模式下不再使用
+            searchOptions
           );
         }
         
@@ -685,27 +781,9 @@ Example 2:
         }
         
         // 调用搜索模式配置界面
-        await knowledgeBaseTemplate.configureSearchMode();
+        await KnowledgeBaseTemplate.configureSearchMode();
       } catch (error) {
         MNUtil.showHUD("配置搜索模式失败: " + error.message);
-      }
-    },
-
-    /**
-     * 管理同义词
-     */
-    manageSynonyms: async function() {
-      try {
-        // 关闭菜单
-        if (self.popoverController) {
-          self.popoverController.dismissPopoverAnimated(true);
-        }
-        
-        // 调用同义词管理界面
-        await knowledgeBaseTemplate.manageSynonymGroups();
-      } catch (error) {
-        MNUtil.showHUD("管理同义词失败: " + error.message);
-        MNLog.error(error, "MNKnowledgeBase: manageSynonyms");
       }
     },
 
@@ -720,7 +798,7 @@ Example 2:
         }
         
         // 调用排除词管理界面
-        await knowledgeBaseTemplate.manageExclusionGroups();
+        await KnowledgeBaseTemplate.manageExclusionGroups();
       } catch (error) {
         MNUtil.showHUD("管理排除词失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: manageExclusions");
@@ -729,40 +807,35 @@ Example 2:
 
     /**
      * 使用预设类型进行快捷搜索
-     * @param {Object} config - 配置对象 {preset: string, mode: string}
+     * @param {String} preset - 预设类型键名（如 'knowledge', 'definitions' 等）
      */
-    searchWithPreset: async function(config) {
+    searchWithPreset: async function(preset) {
       try {
         self.checkPopover();
-        
-        const { preset, mode } = config;
-        
+
         // 异步加载搜索器
         const searcher = await KnowledgeBaseSearcher.loadFromFile();
         if (!searcher) {
           MNUtil.showHUD("索引未找到，请先更新搜索索引");
           return;
         }
-        
+
         // 获取预设类型
         const types = SearchConfig.getTypesByPreset(preset);
         if (!types) {
           MNUtil.showHUD("无效的搜索预设");
           return;
         }
-        
-        // 根据 mode 确定定位方式
-        const focusMode = mode === 'mindmap' ? true : false;
-        
+
         // 显示搜索对话框，跳过类型选择
         const searchConfig = {
           enableTypeSelection: false,  // 禁用类型选择
           defaultTypes: types,         // 使用预设类型
           presetKey: preset            // 传递预设键用于显示
         };
-        
-        KnowledgeBaseSearcher.showSearchDialog(searcher, searchConfig, focusMode);
-        
+
+        KnowledgeBaseSearcher.showSearchDialog(searcher, searchConfig);
+
       } catch (error) {
         MNUtil.showHUD("快捷搜索失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: searchWithPreset");
@@ -775,25 +848,24 @@ Example 2:
     searchForMarkdown: async function() {
       try {
         self.checkPopover();
-        
+
         // 异步加载搜索器
         const searcher = await KnowledgeBaseSearcher.loadFromFile();
         if (!searcher) {
           MNUtil.showHUD("索引未找到，请先更新搜索索引");
           return;
         }
-        
+
         // 获取知识卡片类型
         const types = SearchConfig.getTypesByPreset('knowledge');
-        
+
         // 显示搜索对话框，使用知识卡片类型
-        // 传递 true 作为 focusMode，表示正常的搜索（将在选中后显示操作菜单）
         KnowledgeBaseSearcher.showSearchDialog(searcher, {
           enableTypeSelection: false,  // 禁用类型选择
           defaultTypes: types,         // 使用知识卡片类型
           presetKey: 'knowledge'       // 使用知识卡片预设
-        }, true);
-        
+        });
+
       } catch (error) {
         MNUtil.showHUD("搜索失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: searchForMarkdown");
@@ -811,6 +883,43 @@ Example 2:
     //     }
     //   })
     // }
+        /**
+     * 处理来自其他插件的通信消息
+     * @param {Object} sender - 消息发送者信息,包含 userInfo.message
+     *
+     * 消息协议格式:
+     * marginnote4app://addon/mnknowledgebase?action=ACTION
+     *
+     * 支持的 actions:
+     * - openSearchWebView: 打开可视化搜索界面
+     *
+     * 使用示例:
+     * marginnote4app://addon/mnknowledgebase?action=openSearchWebView
+     */
+    onAddonBroadcast: async function (sender) {
+      try {
+        // 只在当前窗口响应
+        if (self.window !== MNUtil.currentWindow) return;
+
+        let message = "marginnote4app://addon/" + sender.userInfo.message
+        let config = MNUtil.parseURL(message)
+        let addon = config.pathComponents[0]
+
+        if (addon === "mnknowledgebase") {
+          let action = config.params.action
+          switch (action) {
+            case "openSearchWebView":
+              await self.openSearchWebView()
+              break;
+            default:
+              MNUtil.showHUD('不支持的操作: ' + action)
+              break;
+          }
+        }
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "onAddonBroadcast")
+      }
+    },
   }, 
   
   /*=== 类成员（Class members）===
@@ -872,6 +981,10 @@ Example 2:
     },
   });
 
+  MNKnowledgeBaseClass.prototype.init = function(){
+    KnowledgeBaseConfig.init(mainPath)
+  }
+
   MNKnowledgeBaseClass.prototype.checkPopover = function(){
     // 关闭菜单
     if (this.popoverController) {
@@ -894,7 +1007,7 @@ Example 2:
    */
   MNKnowledgeBaseClass.prototype.showIntermediateSearchDialog = async function(searchData) {
     try {
-      const searchModeConfig = knowledgeBaseTemplate.getSearchConfig();
+      const searchModeConfig = KnowledgeBaseTemplate.getSearchConfig();
 
       const userInput = await MNUtil.userInput(
         `搜索中间知识库 (共 ${searchData.length} 张卡片)`,
@@ -1062,7 +1175,7 @@ Example 2:
         "确定要清空所有搜索历史吗？此操作不可恢复。",
         ["取消", "确认清空"]
       );
-      
+
       if (confirm === 1) {
         this.searchHistory = [];
         MNUtil.showHUD("搜索历史已清空");
@@ -1072,7 +1185,270 @@ Example 2:
       MNLog.error(error, "MNKnowledgeBase: clearSearchHistory");
     }
   }
-  
+
+  /**
+   * 加载搜索数据到 WebView（合并主知识库和中间知识库）
+   */
+  MNKnowledgeBaseClass.prototype.loadSearchDataToWebView = async function() {
+    try {
+      let allCards = [];
+      let metadata = {};
+
+      // ========== 第1部分：加载主知识库 ==========
+      MNUtil.log("=== 开始加载主知识库 ===");
+
+      // 1.1 尝试加载分片索引（新版模式）
+      let manifestPath = MNUtil.dbFolder + "/data/kb-search-index-manifest.json"
+      let manifest = MNUtil.readJSON(manifestPath);
+
+      if (manifest && manifest.parts) {
+        // 分片模式：加载所有分片
+        MNUtil.log("加载主知识库分片索引数据");
+
+        for (const partInfo of manifest.parts) {
+          let partPath = MNUtil.dbFolder + "/data/" + partInfo.filename;
+          let partData = MNUtil.readJSON(partPath);
+
+          if (partData && partData.data) {
+            allCards = allCards.concat(partData.data);
+          }
+        }
+
+        metadata = manifest.metadata || {};
+
+      } else {
+        // 旧版模式：尝试加载单文件
+        MNUtil.log("尝试加载旧版主知识库单文件索引");
+        let indexPath = MNUtil.dbFolder + "/data/kb-search-index.json"
+        let indexData = MNUtil.readJSON(indexPath);
+
+        if (!indexData || !indexData.cards) {
+          MNUtil.showHUD("索引未找到，请先更新搜索索引")
+          return
+        }
+
+        allCards = indexData.cards;
+        metadata = indexData.metadata || {};
+      }
+
+      MNUtil.log(`主知识库加载完成：${allCards.length} 张卡片`);
+
+      // 1.2 加载主知识库增量索引（如果存在）
+      let incrementalPath = MNUtil.dbFolder + "/data/kb-incremental-index.json";
+      if (MNUtil.isfileExists(incrementalPath)) {
+        let incrementalData = MNUtil.readJSON(incrementalPath);
+        if (incrementalData && incrementalData.cards) {
+          MNUtil.log(`加载主知识库增量索引：${incrementalData.cards.length} 张卡片`);
+
+          // 合并并去重（基于 noteId）
+          const existingIds = new Set(allCards.map(card => card.id));
+          for (const card of incrementalData.cards) {
+            if (!existingIds.has(card.id)) {
+              allCards.push(card);
+            }
+          }
+        }
+      }
+
+      // ========== 第2部分：加载中间知识库 ==========
+      MNUtil.log("=== 开始加载中间知识库 ===");
+
+      let intermediateCards = [];
+
+      // 2.1 尝试加载中间知识库的分片索引
+      let intermediateManifestPath = MNUtil.dbFolder + "/data/intermediate-kb-index-manifest.json"
+      let intermediateManifest = MNUtil.readJSON(intermediateManifestPath);
+
+      if (intermediateManifest && intermediateManifest.parts) {
+        // 分片模式：加载所有分片
+        MNUtil.log("加载中间知识库分片索引数据");
+
+        for (const partInfo of intermediateManifest.parts) {
+          let partPath = MNUtil.dbFolder + "/data/" + partInfo.filename;
+          let partData = MNUtil.readJSON(partPath);
+
+          if (partData && partData.data) {
+            intermediateCards = intermediateCards.concat(partData.data);
+          }
+        }
+
+      } else {
+        // 旧版模式：尝试加载单文件
+        MNUtil.log("尝试加载旧版中间知识库单文件索引");
+        let intermediateIndexPath = MNUtil.dbFolder + "/data/intermediate-kb-index.json"
+        let intermediateIndexData = MNUtil.readJSON(intermediateIndexPath);
+
+        if (intermediateIndexData && intermediateIndexData.cards) {
+          intermediateCards = intermediateIndexData.cards;
+        } else {
+          MNUtil.log("中间知识库索引未找到（跳过）");
+        }
+      }
+
+      // 2.2 加载中间知识库的增量索引（如果存在）
+      let intermediateIncrementalPath = MNUtil.dbFolder + "/data/intermediate-kb-incremental-index.json";
+      if (MNUtil.isfileExists(intermediateIncrementalPath)) {
+        let intermediateIncrementalData = MNUtil.readJSON(intermediateIncrementalPath);
+        if (intermediateIncrementalData && intermediateIncrementalData.cards) {
+          MNUtil.log(`加载中间知识库增量索引：${intermediateIncrementalData.cards.length} 张卡片`);
+
+          // 合并并去重（基于 noteId）
+          const existingIntermediateIds = new Set(intermediateCards.map(card => card.id));
+          for (const card of intermediateIncrementalData.cards) {
+            if (!existingIntermediateIds.has(card.id)) {
+              intermediateCards.push(card);
+            }
+          }
+        }
+      }
+
+      if (intermediateCards.length > 0) {
+        MNUtil.log(`中间知识库加载完成：${intermediateCards.length} 张卡片`);
+
+        // ========== 第3部分：合并两个知识库 ==========
+        // 使用 Set 去重，以主知识库的卡片为准
+        const mainCardIds = new Set(allCards.map(card => card.id));
+        let addedCount = 0;
+
+        for (const card of intermediateCards) {
+          if (!mainCardIds.has(card.id)) {
+            allCards.push(card);
+            addedCount++;
+          }
+        }
+
+        MNUtil.log(`合并完成：主知识库 ${allCards.length - addedCount} 张，中间知识库新增 ${addedCount} 张`);
+      } else {
+        MNUtil.log("中间知识库为空，仅使用主知识库数据");
+      }
+
+      // ========== 第4部分：构建完整的索引数据并发送到前端 ==========
+      const fullIndexData = {
+        cards: allCards,
+        metadata: {
+          totalCards: allCards.length,
+          updateTime: metadata.updateTime || Date.now(),
+          ...metadata
+        }
+      };
+
+      MNUtil.log(`=== 数据准备完成：共 ${allCards.length} 张卡片 ===`);
+
+      // 等待 WebView 加载完成
+      await MNUtil.delay(0.5)
+
+      // 调用 Bridge 方法加载数据（只调用一次，传递合并后的数据）
+      let script = `window.Bridge.loadSearchIndex(${JSON.stringify(fullIndexData)})`
+      let input = await KnowledgeBaseUtils.webViewController.runJavaScript(script)
+
+      if (input) {
+        MNUtil.showHUD(`加载成功：${allCards.length} 张卡片`)
+      }
+
+    } catch (error) {
+      MNUtil.showHUD("加载索引失败：" + error.message)
+      KnowledgeBaseUtils.addErrorLog(error, "loadSearchDataToWebView")
+    }
+  }
+
+  /**
+   * 响应其他插件的打开请求（插件通信）
+   */
+  MNKnowledgeBaseClass.prototype.onOpenKnowledgeBaseSearch = function(sender) {
+    if (typeof MNUtil === 'undefined') return
+    if (self.window !== self.appInstance.focusWindow) return
+
+    try {
+      let userInfo = sender.userInfo || {}
+
+      // 确保控制器已初始化（使用新的延迟初始化方法）
+      KnowledgeBaseUtils.checkWebViewController()
+
+      // 如果已显示，直接返回前台
+      if (!KnowledgeBaseUtils.webViewController.view.hidden) {
+        MNUtil.studyView.bringSubviewToFront(KnowledgeBaseUtils.webViewController.view)
+        return
+      }
+
+      // 显示窗口（支持自定义位置）
+      let beginFrame = userInfo.beginFrame
+      let endFrame = userInfo.endFrame
+      KnowledgeBaseUtils.webViewController.show(beginFrame, endFrame)
+
+      // 加载数据
+      this.loadSearchDataToWebView()
+
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "onOpenKnowledgeBaseSearch")
+    }
+  }
+
+  // ============================================
+  // Prototype 方法 - 用于插件通信
+  // ============================================
+
+  /**
+   * 打开可视化搜索 WebView (Prototype 版本)
+   *
+   * 此方法为插件通信专用,通过 self.openSearchWebView() 调用
+   * 功能与实例方法 openSearchWebView 保持一致
+   */
+  MNKnowledgeBaseClass.prototype.openSearchWebView = async function() {
+    try {
+      this.checkPopover()
+
+      // 确保控制器已初始化
+      KnowledgeBaseUtils.checkWebViewController()
+
+      // 如果已显示,直接返回前台
+      if (!KnowledgeBaseUtils.webViewController.view.hidden) {
+        MNUtil.studyView.bringSubviewToFront(KnowledgeBaseUtils.webViewController.view)
+        MNUtil.showHUD("知识库搜索")
+
+        // 清空输入框并聚焦
+        await MNUtil.delay(0.2)
+        let clearScript = `
+          const input = document.getElementById('searchInput');
+          if (input) {
+            input.value = '';
+            input.focus();
+          }
+        `
+        await KnowledgeBaseUtils.webViewController.runJavaScript(clearScript)
+
+        await KnowledgeBaseUtils.webViewController.refreshAllData()
+        return
+      }
+
+      // 加载 HTML
+      if (!KnowledgeBaseUtils.webViewController.webViewLoaded) {
+        MNUtil.showHUD("正在加载搜索界面,请稍候...")
+        KnowledgeBaseUtils.webViewController.loadHTMLFile()
+      }
+
+      // 显示窗口
+      await KnowledgeBaseUtils.webViewController.show(
+        null,
+        { x: 50, y: 50, width: 800, height: 800 }
+      )
+
+      // 首次打开后聚焦输入框
+      await MNUtil.delay(0.5)
+      let focusScript = `
+        const input = document.getElementById('searchInput');
+        if (input) {
+          input.focus();
+        }
+      `
+      await KnowledgeBaseUtils.webViewController.runJavaScript(focusScript)
+
+    } catch (error) {
+      MNUtil.showHUD("打开可视化搜索失败")
+      KnowledgeBaseUtils.addErrorLog(error, "openSearchWebView")
+    }
+  }
+
+
   // 返回定义的插件类，MarginNote 会自动实例化这个类
   return MNKnowledgeBaseClass;
 };
