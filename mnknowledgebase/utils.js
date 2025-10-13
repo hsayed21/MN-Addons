@@ -18204,10 +18204,10 @@ LaTeX 会自动处理公式内的间距：
 
 ## 输出格式要求
 
-**重要**：直接输出中文内容，不要添加任何格式标记或前缀！
+**重要**：直接输出中文内容，不要添加任何格式标记或前缀！也不需要首尾的标点符号！
 
 ### 统一输出格式
-输出格式："<中文内容>"
+输出格式：<中文内容>
 
 **正确示例**：
 - 输入：Let f be a continuous function on [a,b]
@@ -18221,6 +18221,7 @@ LaTeX 会自动处理公式内的间距：
 - ❌ [中文]: 设 f 是连续函数
 - ❌ 翻译结果: 设 f 是 [a,b] 上的连续函数
 - ❌ 内容: 设 f 是连续函数
+
 
 ## 处理规则
 
@@ -18580,7 +18581,7 @@ LaTeX 会自动处理公式内的间距：
 **重要**：直接输出内容，不要添加任何格式标记或前缀！
 
 ### 情况 1：英文/其他语言内容
-输出格式："<总结后的中文>: <原文 Unicode 形式>"
+输出格式：<总结后的中文>: <原文 Unicode 形式>
 
 **正确示例**：
 - 输入：Why two names? When φ is an inner function then this family of measures, along with an associated family of unitary operators (more about this later in the notes), was first studied by Clark. General self-maps φ were later studied by Aleksandrov.
