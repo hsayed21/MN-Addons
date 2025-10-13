@@ -14954,22 +14954,35 @@ class KnowledgeBaseIndexer {
   /**
    * 解码 HTML 实体为原始字符
    * 确保存储的标题是原始文本格式，避免 HTML 实体被双重转义
-   * 
+   *
    * @param {string} text - 可能包含 HTML 实体的文本（如 &lt;、&gt;、&amp; 等）
    * @returns {string} - 解码后的原始文本
-   * 
+   *
    * @example
    * // 输入: "&lt;Tx, y&gt;=&lt;x, Sy&gt;"
    * // 输出: "<Tx, y>=<x, Sy>"
    */
   static decodeHtmlEntities(text) {
     if (!text) return "";
-    
-    // 使用 DOM API 解码 HTML 实体
-    // 注意：这个方法在 WebView 环境中是安全的
-    const textarea = document.createElement('textarea');
-    textarea.innerHTML = text;
-    return textarea.value;
+
+    // HTML 实体映射表（常用实体）
+    const entities = {
+      '&lt;': '<',
+      '&gt;': '>',
+      '&amp;': '&',
+      '&quot;': '"',
+      '&apos;': "'",
+      '&nbsp;': ' ',
+      '&copy;': '©',
+      '&reg;': '®',
+      '&trade;': '™'
+    };
+
+    // 替换命名实体、十进制数字实体和十六进制数字实体
+    return text
+      .replace(/&[a-zA-Z]+;/g, (match) => entities[match] || match)
+      .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+      .replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
   }
 
   /**
@@ -17445,22 +17458,35 @@ class IntermediateKnowledgeIndexer {
   /**
    * 解码 HTML 实体为原始字符
    * 确保存储的标题是原始文本格式，避免 HTML 实体被双重转义
-   * 
+   *
    * @param {string} text - 可能包含 HTML 实体的文本（如 &lt;、&gt;、&amp; 等）
    * @returns {string} - 解码后的原始文本
-   * 
+   *
    * @example
    * // 输入: "&lt;Tx, y&gt;=&lt;x, Sy&gt;"
    * // 输出: "<Tx, y>=<x, Sy>"
    */
   static decodeHtmlEntities(text) {
     if (!text) return "";
-    
-    // 使用 DOM API 解码 HTML 实体
-    // 注意：这个方法在 WebView 环境中是安全的
-    const textarea = document.createElement('textarea');
-    textarea.innerHTML = text;
-    return textarea.value;
+
+    // HTML 实体映射表（常用实体）
+    const entities = {
+      '&lt;': '<',
+      '&gt;': '>',
+      '&amp;': '&',
+      '&quot;': '"',
+      '&apos;': "'",
+      '&nbsp;': ' ',
+      '&copy;': '©',
+      '&reg;': '®',
+      '&trade;': '™'
+    };
+
+    // 替换命名实体、十进制数字实体和十六进制数字实体
+    return text
+      .replace(/&[a-zA-Z]+;/g, (match) => entities[match] || match)
+      .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+      .replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
   }
 
   /**
