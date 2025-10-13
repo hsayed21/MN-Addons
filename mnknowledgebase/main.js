@@ -40,6 +40,7 @@ JSB.newAddon = function(mainPath){
         }
 
         // 注册插件通信观察者
+        MNUtil.addObserver(self, 'onAddonBroadcast:', 'AddonBroadcast')
         // MNUtil.addObserver(self, 'onOpenKnowledgeBaseSearch:', 'openKnowledgeBaseSearch')
 
         self.toggled = false
@@ -63,6 +64,7 @@ JSB.newAddon = function(mainPath){
     sceneDidDisconnect: function() {
       MNUtil.undoGrouping(()=>{
         try {
+          MNUtil.removeObserver(self, 'AddonBroadcast')
           MNUtil.removeObserver(self, 'ProcessNewExcerpt')
           // MNUtil.removeObserver(self, 'openKnowledgeBaseSearch')
         } catch (error) {
@@ -495,36 +497,7 @@ JSB.newAddon = function(mainPath){
      * 注意：数据加载由 show() 方法自动处理，无需手动加载
      */
     openSearchWebView: async function() {
-      try {
-        self.checkPopover()
-
-        // 确保控制器已初始化（使用新的延迟初始化方法）
-        KnowledgeBaseUtils.checkWebViewController()
-
-        // 如果已显示，直接返回前台（会自动刷新数据）
-        if (!KnowledgeBaseUtils.webViewController.view.hidden) {
-          MNUtil.studyView.bringSubviewToFront(KnowledgeBaseUtils.webViewController.view)
-          MNUtil.showHUD("知识库搜索")
-          // 即使已显示，也刷新一次数据
-          await KnowledgeBaseUtils.webViewController.refreshAllData()
-          return
-        }
-
-        if (!KnowledgeBaseUtils.webViewController.webViewLoaded) {
-          MNUtil.showHUD("正在加载搜索界面，请稍候...")
-          KnowledgeBaseUtils.webViewController.loadHTMLFile()
-        }
-
-        // 显示窗口（show 方法会自动刷新所有数据）
-        await KnowledgeBaseUtils.webViewController.show(
-          null,  // 无起始位置动画
-          { x: 50, y: 50, width: 800, height: 800 }  // 目标位置和大小
-        )
-
-      } catch (error) {
-        MNUtil.showHUD("打开可视化搜索失败")
-        KnowledgeBaseUtils.addErrorLog(error, "openSearchWebView")
-      }
+      self.openSearchWebView()
     },
 
     /**
@@ -910,6 +883,43 @@ JSB.newAddon = function(mainPath){
     //     }
     //   })
     // }
+        /**
+     * 处理来自其他插件的通信消息
+     * @param {Object} sender - 消息发送者信息,包含 userInfo.message
+     *
+     * 消息协议格式:
+     * marginnote4app://addon/mnknowledgebase?action=ACTION
+     *
+     * 支持的 actions:
+     * - openSearchWebView: 打开可视化搜索界面
+     *
+     * 使用示例:
+     * marginnote4app://addon/mnknowledgebase?action=openSearchWebView
+     */
+    onAddonBroadcast: async function (sender) {
+      try {
+        // 只在当前窗口响应
+        if (self.window !== MNUtil.currentWindow) return;
+
+        let message = "marginnote4app://addon/" + sender.userInfo.message
+        let config = MNUtil.parseURL(message)
+        let addon = config.pathComponents[0]
+
+        if (addon === "mnknowledgebase") {
+          let action = config.params.action
+          switch (action) {
+            case "openSearchWebView":
+              await self.openSearchWebView()
+              break;
+            default:
+              MNUtil.showHUD('不支持的操作: ' + action)
+              break;
+          }
+        }
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "onAddonBroadcast")
+      }
+    },
   }, 
   
   /*=== 类成员（Class members）===
@@ -1372,6 +1382,49 @@ JSB.newAddon = function(mainPath){
       KnowledgeBaseUtils.addErrorLog(error, "onOpenKnowledgeBaseSearch")
     }
   }
+
+  // ============================================
+  // Prototype 方法 - 用于插件通信
+  // ============================================
+
+  /**
+   * 打开可视化搜索 WebView (Prototype 版本)
+   *
+   * 此方法为插件通信专用,通过 self.openSearchWebView() 调用
+   * 功能与实例方法 openSearchWebView 保持一致
+   */
+  MNKnowledgeBaseClass.prototype.openSearchWebView = async function() {
+    try {
+      this.checkPopover()
+
+      // 确保控制器已初始化
+      KnowledgeBaseUtils.checkWebViewController()
+
+      // 如果已显示,直接返回前台
+      if (!KnowledgeBaseUtils.webViewController.view.hidden) {
+        MNUtil.studyView.bringSubviewToFront(KnowledgeBaseUtils.webViewController.view)
+        MNUtil.showHUD("知识库搜索")
+        await KnowledgeBaseUtils.webViewController.refreshAllData()
+        return
+      }
+
+      // 加载 HTML
+      if (!KnowledgeBaseUtils.webViewController.webViewLoaded) {
+        MNUtil.showHUD("正在加载搜索界面,请稍候...")
+        KnowledgeBaseUtils.webViewController.loadHTMLFile()
+      }
+
+      // 显示窗口
+      await KnowledgeBaseUtils.webViewController.show(
+        null,
+        { x: 50, y: 50, width: 800, height: 800 }
+      )
+    } catch (error) {
+      MNUtil.showHUD("打开可视化搜索失败")
+      KnowledgeBaseUtils.addErrorLog(error, "openSearchWebView")
+    }
+  }
+
 
   // 返回定义的插件类，MarginNote 会自动实例化这个类
   return MNKnowledgeBaseClass;

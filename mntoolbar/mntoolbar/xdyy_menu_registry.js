@@ -847,7 +847,7 @@ function registerAllMenuTemplates() {
 
   // 搜索功能菜单
   global.registerMenuTemplate("menu_search", {
-    action: "searchNotes", // 单击：搜索笔记
+    action: "searchNotesInWebview", // 单击：搜索笔记
     onLongPress: {
       // 长按：显示菜单
       action: "menu",
@@ -974,7 +974,7 @@ function registerAllMenuTemplates() {
   });
 
   global.registerMenuTemplate("menu_classification", {
-    action: "searchAndAddClassification",
+    action: "searchNotesInWebview",
     onLongPress: {
       action: "menu",
       menuWidth: 420,
