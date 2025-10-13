@@ -1,3 +1,4 @@
+
 let i18n = {
         'alignCenter': '居中',
         'alignLeft': '居左',
@@ -99,6 +100,7 @@ let option = {
     }
 let buttonCodeBlockCache = {}
 let buttonPreContent = ""
+
 
 function clearCache() {
   buttonPreContent = ""
@@ -1001,6 +1003,7 @@ folderListEle.ondragend = chatListEle.ondragend = (ev) => {
   })
   dragType = dragIdx = dragLi = void 0;
 }
+
 const chatDragStartEv = function (ev) {
   ev.stopPropagation();
   dragLi = this;
@@ -1913,6 +1916,7 @@ const initHotKey = () => {
     }
   }
 };
+
 initHotKey();
 document.addEventListener("keydown", ctrlHotKeyEv);
 document.addEventListener("keydown", ctrlAltHotKeyEv);
@@ -2262,8 +2266,11 @@ const initSetting = () => {
     if (searchChatEle.value.length) toSearchChats();
   }
 };
+let loadMask = document.getElementById("loadMask")
 initSetting();
-document.getElementById("loadMask").style.display = "none";
+
+loadMask.style.display = "none";
+
 const closeEvent = (ev) => {
   if (settingEle.contains(ev.target)) return;
   if (!dialogEle.contains(ev.target)) {

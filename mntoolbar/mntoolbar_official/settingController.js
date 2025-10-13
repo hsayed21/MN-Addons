@@ -829,7 +829,8 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
           return
         }
 
-        MNUtil.postNotification("openInBrowser", {url:"https://feliks.rth1.xyz",beginFrame:beginFrame,endFrame:endFrame})
+        // MNUtil.postNotification("openInBrowser", {url:"https://feliks.rth1.xyz",beginFrame:beginFrame,endFrame:endFrame})
+        MNUtil.postNotification("openInBrowser", {url:"https://zhangyu1818.github.io/appicon-forge",beginFrame:beginFrame,endFrame:endFrame})
         break;
       case 4:
         if (typeof browserUtils === 'undefined') {

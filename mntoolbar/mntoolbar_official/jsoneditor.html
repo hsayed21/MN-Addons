@@ -628,6 +628,7 @@ function getSchemaByActionName(actionName) {
       properties.followAutoStyle = booleanType()
       properties.usingCommand = booleanType()
       properties.asTitleForNewNote = booleanType()
+      properties.sendToMindmapForNewNote = booleanType()
       properties.wordThreshold = numberEnum([5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100])
       break;
     case "userSelect":
@@ -694,6 +695,7 @@ function getSchemaByActionName(actionName) {
       properties.textFirst = booleanType()
       properties.focusAfterDelay = numberType()
       properties.focusInFloatWindowForAllDocMode = booleanType()
+      properties.sendToMindmap = booleanType()
       properties.markdown = booleanType()
       properties.continueExcerpt = booleanType()
       properties.wordThreshold = numberEnum([5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100])

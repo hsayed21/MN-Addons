@@ -205,7 +205,7 @@ viewWillLayoutSubviews: function() {
   webViewDidFinishLoad: async function(webView) {
   try {
 
-    let currentURL = webView.request.URL().absoluteString()
+    // let currentURL = webView.request.URL().absoluteString()
     // MNUtil.showHUD("webViewDidFinishLoad")
     // MNUtil.log(self.mode)
     if (self.mode === "pdf") {
@@ -240,28 +240,54 @@ viewWillLayoutSubviews: function() {
     // if (!self.htmlMode) {
     //   return
     // }
-    webView.evaluateJavaScript(`
-      document.getElementsByClassName("body")[0].offsetHeight
-    `,ret=>{
-      if (ret !== NSNull.new()) {
+    // let scrollHeight = self.webview.scrollView.contentSize.height
+    // self.webview.scrollView.setContentOffsetAnimated({x:0,y:scrollHeight-self.webview.frame.height},false)
+    // await MNUtil.delay(0.05)
+    let res = await self.runJavaScript(`
+      document.body.scrollHeight;
+    `)
+    if (res) {
+        let offsetHeight = parseFloat(res)
         let viewFrame = self.view.frame
         let windowHeight = MNUtil.studyView.bounds.height
-        if (viewFrame.y+parseFloat(ret)+40 >= windowHeight) {
+        if (viewFrame.y+offsetHeight+40 >= windowHeight) {
           viewFrame.height = windowHeight-viewFrame.y
         }else{
-          viewFrame.height = parseFloat(ret)+40
+          viewFrame.height = offsetHeight+40
         }
         if (viewFrame.height < 200) {
           viewFrame.height = 200
         }
         self.view.frame = viewFrame
         self.currentFrame = viewFrame
-
         if (self.view.hidden) {
           self.show()
         }
-      }
-    })
+    }
+    self.onRendering = false
+
+    // webView.evaluateJavaScript(`
+    //   document.getElementsByClassName("body")[0].offsetHeight
+    // `,ret=>{
+    //   if (ret !== NSNull.new()) {
+    //     let viewFrame = self.view.frame
+    //     let windowHeight = MNUtil.studyView.bounds.height
+    //     if (viewFrame.y+parseFloat(ret)+40 >= windowHeight) {
+    //       viewFrame.height = windowHeight-viewFrame.y
+    //     }else{
+    //       viewFrame.height = parseFloat(ret)+40
+    //     }
+    //     if (viewFrame.height < 200) {
+    //       viewFrame.height = 200
+    //     }
+    //     self.view.frame = viewFrame
+    //     self.currentFrame = viewFrame
+
+    //     if (self.view.hidden) {
+    //       self.show()
+    //     }
+    //   }
+    // })
     
   } catch (error) {
     snipasteUtils.addErrorLog(error, "webViewDidFinishLoad")
@@ -273,7 +299,9 @@ viewWillLayoutSubviews: function() {
     let currentURL = webView.request.URL().absoluteString()
     let requestURL = request.URL().absoluteString()
     let config = MNUtil.parseURL(requestURL)
+    let action = ""
       // MNUtil.copy(config)
+    // MNUtil.log({message:"webViewShouldStartLoadWithRequestNavigationType",detail:config})
     switch (config.scheme) {
       case "about":
         if (self.mode === "pdf" && requestURL.startsWith("about://#page")) {
@@ -291,8 +319,11 @@ viewWillLayoutSubviews: function() {
               MNUtil.showHUD(message)
             }
             return false
+          case "endRendering":
+            self.onRendering = false
+            return false
           case "mermaid":
-            let action = config.params.action
+            action = config.params.action
             if (action === "endRendering") {
               self.onRendering = false
               // MNUtil.showHUD("endRendering")
@@ -409,6 +440,7 @@ viewWillLayoutSubviews: function() {
     menu.addMenuItem("📄  PDF (Last Page)", "snipasteFromPDF:","Last")
     menu.addMenuItem('🫧  Opacity', 'changeOpacity:', button)
     menu.addMenuItem('📤  Export to Image', 'exportToImage:')
+    // menu.addMenuItem('📤  Demo Page', 'openDemoPage:')
     switch (self.mode) {
       case "mermaid":
         menu.addMenuItem('🌐  Mermaid ➡️ ChildNote', 'mermaid2ChildNote:')
@@ -440,6 +472,14 @@ viewWillLayoutSubviews: function() {
     menu.addMenuItem('🎬  Screenshot ➡️ ChildNote', 'screenshot2ChildNote:', self.view.frame.width>1000?self.view.frame.width:1000)
     // menu.addMenuItem('Audio setting', 'openAudioSetting:',button)
     menu.show()
+  },
+  openDemoPage: function (button) {
+    Menu.dismissCurrentMenu()
+    let self = getSnipasteController()
+    MNConnection.loadFile(self.webview, self.mainPath + "/test.html", self.mainPath+"/")
+    // if (self.view.hidden) {
+    //   self.show()
+    // }
   },
   openAudioSetting: function (button) {
     Menu.dismissCurrentMenu()
@@ -568,40 +608,6 @@ try {
     }
     MNUtil.waitHUD("Screenshot using html2canvas...")
     self.runJavaScript(`
-           // 动态加载脚本的函数
-        function loadHtml2CanvasScript( callback) {
-            let url = 'https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js'
-            const script = document.createElement('script');
-            script.type = 'text/javascript';
-            script.src = url;
-
-            // 监听脚本加载完成事件 (现代浏览器)
-            script.onload = () => {
-                console.log(url + ' 加载成功');
-                if (callback) {
-                    callback();
-                }
-            };
-
-            // 兼容旧版 IE
-            script.onreadystatechange = () => {
-                if (script.readyState === 'loaded' || script.readyState === 'complete') {
-                    script.onreadystatechange = null; // 避免重复执行
-                    console.log(url + ' 加载成功 (IE)');
-                    if (callback) {
-                        callback();
-                    }
-                }
-            };
-
-            // 监听脚本加载失败事件
-            script.onerror = () => {
-                  window.location.href = 'snipaste://showhud?message='+encodeURIComponent('加载失败'+url)
-                console.error(url + ' 加载失败');
-            };
-
-            document.head.appendChild(script); // 或者 document.body.appendChild(script);
-        }
 /**
  * 计算页面的最大缩放比例。
  * @returns {number} - 计算出的最大安全scale值.
@@ -623,50 +629,66 @@ function calculateMaxScale() {
     // 返回一个稍微向下取整的值以增加保险系数，比如保留两位小数
     return Math.floor(maxScale * 100) / 100;
 }
+async function loadHtml2CanvasScriptAsync(url = 'https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js') {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = url;
+
+    // 现代浏览器加载成功事件
+    script.onload = () => {
+      resolve(true); // 加载完成，触发 resolve
+    };
+
+    // 兼容旧版 IE 加载成功事件
+    script.onreadystatechange = () => {
+      if (script.readyState === 'loaded' || script.readyState === 'complete') {
+        script.onreadystatechange = null; // 清除事件，避免重复执行
+        resolve(true); // IE 下加载完成，触发 resolve
+      }
+    };
+
+    // 加载失败事件
+    script.onerror = () => {
+      resolve(false);
+    };
+    // 将脚本添加到页面中开始加载
+    document.head.appendChild(script);
+  });
+}
         // 截图函数
-        function captureScreenshot() {
+async function captureScreenshot() {
             // 检查 html2canvas 是否已加载
-            if (typeof html2canvas === 'undefined') {
-                window.location.href = 'snipaste://showhud?message=库尚未加载完成，请稍后再试'
-                return;
-            }
+  if (typeof html2canvas === 'undefined') {
+    let res = await loadHtml2CanvasScriptAsync()
+    if (!res) {
+      res = await loadHtml2CanvasScriptAsync('https://alist.feliks.top/d/cdn/js/html2canvas.js')
+    }
+    if (!res) {
+      window.location.href = 'snipaste://showhud?message=库尚未加载完成，请稍后再试'
+      return;
+    }
+  }
 
-            console.log('开始截图...');
-            const maxScale = calculateMaxScale();
-            console.log('最大缩放比例:', maxScale);
+      console.log('开始截图...');
+      const maxScale = calculateMaxScale();
+      console.log('最大缩放比例:', maxScale);
 
-            // 使用 html2canvas 截取整个 body
-            // 你可以根据需要调整截图的配置参数
-            html2canvas(document.body, {
-                scale: maxScale,
-                allowTaint: true, // 允许跨域图片，但可能会污染 canvas
-                useCORS: true,    // 尝试使用 CORS 加载图片，避免污染
-                scrollY: -window.scrollY, // 确保从页面顶部开始截图
-                windowWidth: document.documentElement.scrollWidth, // 使用完整的文档宽度
-                windowHeight: document.documentElement.scrollHeight // 使用完整的文档高度
-            }).then(canvas => {
-                console.log('截图完成！');
-                // 将 canvas 转换为图片
-                const image = canvas.toDataURL('image/png'); // 也可以是 'image/jpeg'
-                window.location.href = 'snipaste://copyimage?image='+image
-            }).catch(error => {
-                console.error('截图失败:', error);
-            });
-        }
+      // 使用 html2canvas 截取整个 body
+      // 你可以根据需要调整截图的配置参数
+      let canvas = await html2canvas(document.body, {
+          scale: maxScale,
+          allowTaint: true, // 允许跨域图片，但可能会污染 canvas
+          useCORS: true,    // 尝试使用 CORS 加载图片，避免污染
+          scrollY: -window.scrollY, // 确保从页面顶部开始截图
+          windowWidth: document.documentElement.scrollWidth, // 使用完整的文档宽度
+          windowHeight: document.documentElement.scrollHeight // 使用完整的文档高度
+      })
+      const image = canvas.toDataURL('image/png'); // 也可以是 'image/jpeg'
+      window.location.href = 'snipaste://copyimage?image='+image
+    }
 
-
-        // 检查 html2canvas 是否已定义，如果未定义则加载
-        if (typeof html2canvas === 'undefined') {
-            console.log('html2canvas 未加载，正在动态加载...');
-            loadHtml2CanvasScript( () => {
-                // 加载完成后执行截图
-                captureScreenshot();
-            });
-        } else {
-            console.log('html2canvas 已加载，直接执行截图。');
-            // 如果已加载，则直接执行截图
-            captureScreenshot();
-        }
+  captureScreenshot()
     `)
 
     // let imageData = await snipasteUtils.screenshot(self.webview,width)
@@ -760,83 +782,86 @@ getFullDocumentSize()
       return
     }
     self.runJavaScript(`
-           // 动态加载脚本的函数
-        function loadHtml2CanvasScript( callback) {
-            let url = 'https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js'
-            const script = document.createElement('script');
-            script.type = 'text/javascript';
-            script.src = url;
+/**
+ * 计算页面的最大缩放比例。
+ * @returns {number} - 计算出的最大安全scale值.
+ */
+function calculateMaxScale() {
+    // 1. 定义一个在所有主流浏览器中都相对安全的最大画布面积常量。
+    // 16,777,216 是 4096 * 4096，这是iOS Safari的一个常见限制，非常安全。
+    const SAFE_MAX_CANVAS_AREA = 16777216;
 
-            // 监听脚本加载完成事件 (现代浏览器)
-            script.onload = () => {
-                console.log(url + ' 加载成功');
-                if (callback) {
-                    callback();
-                }
-            };
+    const originalWidth = document.documentElement.scrollWidth;
+    const originalHeight = document.documentElement.scrollHeight;
+    const originalArea = originalWidth * originalHeight;
 
-            // 兼容旧版 IE
-            script.onreadystatechange = () => {
-                if (script.readyState === 'loaded' || script.readyState === 'complete') {
-                    script.onreadystatechange = null; // 避免重复执行
-                    console.log(url + ' 加载成功 (IE)');
-                    if (callback) {
-                        callback();
-                    }
-                }
-            };
+    // 3. 计算最大缩放比例
+    // scale^2 * originalArea <= SAFE_MAX_CANVAS_AREA
+    // scale <= sqrt(SAFE_MAX_CANVAS_AREA / originalArea)
+    const maxScale = Math.sqrt(SAFE_MAX_CANVAS_AREA / originalArea);
 
-            // 监听脚本加载失败事件
-            script.onerror = () => {
-                  window.location.href = 'snipaste://showhud?message='+encodeURIComponent('加载失败'+url)
-                console.error(url + ' 加载失败');
-            };
+    // 返回一个稍微向下取整的值以增加保险系数，比如保留两位小数
+    return Math.floor(maxScale * 100) / 100;
+}
+async function loadHtml2CanvasScriptAsync(url = 'https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js') {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = url;
 
-            document.head.appendChild(script); // 或者 document.body.appendChild(script);
-        }
+    // 现代浏览器加载成功事件
+    script.onload = () => {
+      resolve(true); // 加载完成，触发 resolve
+    };
 
+    // 兼容旧版 IE 加载成功事件
+    script.onreadystatechange = () => {
+      if (script.readyState === 'loaded' || script.readyState === 'complete') {
+        script.onreadystatechange = null; // 清除事件，避免重复执行
+        resolve(true); // IE 下加载完成，触发 resolve
+      }
+    };
+
+    // 加载失败事件
+    script.onerror = () => {
+      resolve(false);
+    };
+    // 将脚本添加到页面中开始加载
+    document.head.appendChild(script);
+  });
+}
         // 截图函数
-        function captureScreenshot() {
+async function captureScreenshot() {
             // 检查 html2canvas 是否已加载
-            if (typeof html2canvas === 'undefined') {
-                window.location.href = 'snipaste://showhud?message=库尚未加载完成，请稍后再试'
-                return;
-            }
+  if (typeof html2canvas === 'undefined') {
+    let res = await loadHtml2CanvasScriptAsync()
+    if (!res) {
+      res = await loadHtml2CanvasScriptAsync('https://alist.feliks.top/d/cdn/js/html2canvas.js')
+    }
+    if (!res) {
+      window.location.href = 'snipaste://showhud?message=库尚未加载完成，请稍后再试'
+      return;
+    }
+  }
 
-            console.log('开始截图...');
+      console.log('开始截图...');
+      const maxScale = calculateMaxScale();
+      console.log('最大缩放比例:', maxScale);
 
-            // 使用 html2canvas 截取整个 body
-            // 你可以根据需要调整截图的配置参数
-            html2canvas(document.body, {
-                scale: 3,
-                allowTaint: true, // 允许跨域图片，但可能会污染 canvas
-                useCORS: true,    // 尝试使用 CORS 加载图片，避免污染
-                scrollY: -window.scrollY, // 确保从页面顶部开始截图
-                windowWidth: document.documentElement.scrollWidth, // 使用完整的文档宽度
-                windowHeight: document.documentElement.scrollHeight // 使用完整的文档高度
-            }).then(canvas => {
-                console.log('截图完成！');
-                // 将 canvas 转换为图片
-                const image = canvas.toDataURL('image/png'); // 也可以是 'image/jpeg'
-                window.location.href = 'snipaste://copyimage2childnote?image='+image
-            }).catch(error => {
-                console.error('截图失败:', error);
-            });
-        }
-
-
-        // 检查 html2canvas 是否已定义，如果未定义则加载
-        if (typeof html2canvas === 'undefined') {
-            console.log('html2canvas 未加载，正在动态加载...');
-            loadHtml2CanvasScript( () => {
-                // 加载完成后执行截图
-                captureScreenshot();
-            });
-        } else {
-            console.log('html2canvas 已加载，直接执行截图。');
-            // 如果已加载，则直接执行截图
-            captureScreenshot();
-        }
+      // 使用 html2canvas 截取整个 body
+      // 你可以根据需要调整截图的配置参数
+      let canvas = await html2canvas(document.body, {
+          scale: maxScale,
+          allowTaint: true, // 允许跨域图片，但可能会污染 canvas
+          useCORS: true,    // 尝试使用 CORS 加载图片，避免污染
+          scrollY: -window.scrollY, // 确保从页面顶部开始截图
+          windowWidth: document.documentElement.scrollWidth, // 使用完整的文档宽度
+          windowHeight: document.documentElement.scrollHeight // 使用完整的文档高度
+      })
+      const image = canvas.toDataURL('image/png'); // 也可以是 'image/jpeg'
+      window.location.href = 'snipaste://copyimage2childnote?image='+image
+  }
+  captureScreenshot()
     `)
     // let imageData = await snipasteUtils.screenshot(self.webview,width)
     // MNUtil.copyImage(imageData)
@@ -875,9 +900,6 @@ getFullDocumentSize()
         self.runJavaScript(snipasteUtils.getSubFuncScript()+`
 async function exportToPDF() {
     // 检查 html2canvas 是否已定义，如果未定义则加载
-  if (typeof html2canvas === 'undefined') {
-      console.log('html2canvas 未加载，正在动态加载...');
-      loadHtml2CanvasScript( async () => {
           // 加载完成后执行截图
           let image = await screenshotToPNGBase64();
           if (typeof jsPDF === 'undefined') {
@@ -889,21 +911,6 @@ async function exportToPDF() {
             const pdfBase64 = await convertPngBase64ToPdfBase64(image);
             postMessageToAddon("snipaste","downloadpdf",undefined,{"pdfBase64":pdfBase64})
           }
-      });
-  } else {
-      console.log('html2canvas 已加载，直接执行截图。');
-      // 如果已加载，则直接执行截图
-      let image = await screenshotToPNGBase64()
-      if (typeof jsPDF === 'undefined') {
-        loadJSPDFScript( async () => {
-          const pdfBase64 = await convertPngBase64ToPdfBase64(image,true);
-          postMessageToAddon("snipaste","downloadpdf",undefined,{"pdfBase64":pdfBase64})
-        });
-      }else{
-        const pdfBase64 = await convertPngBase64ToPdfBase64(image,true);
-        postMessageToAddon("snipaste","downloadpdf",undefined,{"pdfBase64":pdfBase64})
-      }
-  }
 }
 exportToPDF()
         `)
@@ -1372,7 +1379,6 @@ exportToPDF()
     // `)
     self.toPage(self.pageNo)
     self.pageIndexButton.setTitleForState(self.pageIndex+1,0)
-    // self.snipastePDF(self.docMd5,self.pageIndex)
   },
   prevPageButtonTapped: function() {
     let prevPageIndex = self.pageIndex - 1
@@ -1398,7 +1404,6 @@ exportToPDF()
     // `)
     self.toPage(self.pageNo)
     self.pageIndexButton.setTitleForState(self.pageIndex+1,0)
-    // self.snipastePDF(self.docMd5,self.pageIndex)
   },
   nextPageButtonTapped: function() {
     let nextPageIndex = self.pageIndex + 1
@@ -1425,7 +1430,6 @@ exportToPDF()
     // `)
     self.toPage(self.pageNo)
     self.pageIndexButton.setTitleForState(self.pageIndex+1,0)
-    // self.snipastePDF(self.docMd5,self.pageIndex)
   },
   lastPageButtonTapped: function() {
   try {
@@ -1453,7 +1457,6 @@ exportToPDF()
     self.toPage(self.pageNo)
 
     self.pageIndexButton.setTitleForState(self.pageIndex+1,0)
-    // self.snipastePDF(self.docMd5,self.pageIndex)
     
   } catch (error) {
    snipasteUtils.addErrorLog(error, "lastPageButtonTapped")
@@ -1656,7 +1659,7 @@ snipasteController.prototype.setFrame = function(x,y,width,height){
  * @param {string} html 
  * @this {snipasteController}
  */
-snipasteController.prototype.snipasteHtml = async function (html,force = false) {
+snipasteController.prototype.snipasteHtml = async function (html,option = {}) {
 try {
 
   // MNUtil.showHUD("snipasteHtml")
@@ -1666,36 +1669,57 @@ try {
   this.onSnipaste = true
   this.currentHTMLString = html
   this.mode = "html"
+  let force = option.force
   if (this.onRendering && !force) {
+    // MNUtil.showHUD("onRendering")
     return
   }
+  // MNUtil.log({message:"snipasteHtml",detail:html})
   this.onRendering = true
   // MNUtil.copy(html)
   this.webview.loadHTMLStringBaseURL(html)
   if (this.view.hidden) {
     this.show()
   }
-    let htmlSizeString = await this.runJavaScript(`
-    document.body.scrollHeight
-    `)
-    if (!htmlSizeString) {
+    // let scrollHeight = this.webview.scrollView.contentSize.height
+    // this.webview.scrollView.setContentOffsetAnimated({x:0,y:scrollHeight-this.webview.frame.height},false)
+    // let htmlSizeString = await this.runJavaScript(`
+    // document.body.scrollHeight
+    // `)
+    // if (!htmlSizeString) {
+    //   this.onRendering = false
+    //   return
+    // }
+    // let htmlSize = parseFloat(htmlSizeString)
+    // if (htmlSize < 100) {
+    //   htmlSize = 100
+    // }
+    // let viewFrame = this.view.frame
+    // let windowHeight = MNUtil.studyHeight
+    // if (viewFrame.y+htmlSize+40 >= windowHeight) {
+    //   viewFrame.height = windowHeight-viewFrame.y
+    // }else{
+    //   viewFrame.height = htmlSize+40
+    // }
+    // this.view.frame = viewFrame
+    // this.currentFrame = viewFrame
+    if (!option.needScrollToBottom) {
       this.onRendering = false
-      return
     }
-    let htmlSize = parseFloat(htmlSizeString)
-    if (htmlSize < 100) {
-      htmlSize = 100
-    }
-    let viewFrame = this.view.frame
-    let windowHeight = MNUtil.studyHeight
-    if (viewFrame.y+htmlSize+40 >= windowHeight) {
-      viewFrame.height = windowHeight-viewFrame.y
-    }else{
-      viewFrame.height = htmlSize+40
-    }
-    this.view.frame = viewFrame
-    this.currentFrame = viewFrame
-    this.onRendering = false
+//     this.needScrollToBottom = true
+//     MNUtil.log("scrollToBottom")
+//     await this.runJavaScript(`
+// function scrollToBottom() {
+//   // 获取文档的总高度
+//   const scrollHeight = document.documentElement.scrollHeight;
+//   // 滚动到文档底部
+//   window.scrollTo(0, scrollHeight);
+// }
+// // 调用函数
+// scrollToBottom();
+//       `)
+//     }
+    // this.onRendering = false
   // this.runJavaScript(`
   //   document.body.scrollIntoView(false);
   // `)
@@ -1730,7 +1754,6 @@ try {
     this.onRendering = true
   }
   if (this.onRendering && !force) {
-    // MNUtil.showHUD("onRendering")
     // MNUtil.log("reject:onRendering"+force)
     return
   }
@@ -1791,170 +1814,6 @@ try {
 } catch (error) {
   snipasteUtils.addErrorLog(error, "snipasteMermaid")
 }
-}
-
-/**
- * @this {snipasteController}
- * @param {string} path 
- */
-snipasteController.prototype.snipastePDF = async function (md5,pageNo = 0,docController = undefined) {
-try {
-        if (pageNo > 20000) {
-          MNUtil.showHUD("Unspported pageNo: "+pageNo)
-          return
-        }
-        let document = MNUtil.getDocById(md5)
-        let path = document.fullPathFileName
-        this.pageCount = document.pageCount
-        // MNUtil.copy("object"+this.pageCount)
-        this.mode = "pdf"
-        this.pageNo = pageNo
-        this.docMd5 = md5
-        
-        let pdfData = MNUtil.getFile(path)
-        // let pdfData = NSData.dataWithContentsOfURL(NSURL.fileURLWithPath(path))
-        let size = pdfData.length()/1024/1024
-        this.pdfSize = size
-        if (size > 50) {
-          MNUtil.waitHUD("Open PDF with "+size+"MB")
-          await MNUtil.delay(0.01)
-        }
-        this.webview.loadHTMLStringBaseURL(`
-<!DOCTYPE html>
-<html>
-<head>
-    <title>优化版PDF预览</title>
-    <link rel="stylesheet" href="https://vip.123pan.cn/1836303614/dl/cdn/notyf.css">
-    <script src="https://vip.123pan.cn/1836303614/dl/cdn/notyf.js" defer></script>
-    <style>
-        .page-container { 
-          margin: 0px auto;
-        }
-    </style>
-</head>
-<body>
-    <script src="https://vip.123pan.cn/1836303614/dl/cdn/pdf.js" type="module"></script>
-    <script type="module">
-      const workerSrc = 'https://vip.123pan.cn/1836303614/dl/cdn/pdf.worker.js';
-      pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
-      let parsePDF
-      const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-      const notyf = new Notyf({position: {x: 'center', y: 'top'}, duration: 1000,ripple:false});
-/**
- * 根据安全的最大画布面积计算PDF页面的最大缩放比例。
- * @param {PDFPageProxy} page - PDF.js的页面对象.
- * @returns {number} - 计算出的最大安全scale值.
- */
-function calculateMaxScale(page) {
-    // 1. 定义一个在所有主流浏览器中都相对安全的最大画布面积常量。
-    // 16,777,216 是 4096 * 4096，这是iOS Safari的一个常见限制，非常安全。
-    const SAFE_MAX_CANVAS_AREA = 16777216;
-
-    // 2. 获取页面在 scale: 1 时的原始尺寸
-    const viewport = page.getViewport({ scale: 1.0 });
-    const originalWidth = viewport.width;
-    const originalHeight = viewport.height;
-    const originalArea = originalWidth * originalHeight;
-
-    // 3. 计算最大缩放比例
-    // scale^2 * originalArea <= SAFE_MAX_CANVAS_AREA
-    // scale <= sqrt(SAFE_MAX_CANVAS_AREA / originalArea)
-    const maxScale = Math.sqrt(SAFE_MAX_CANVAS_AREA / originalArea);
-
-    // 返回一个稍微向下取整的值以增加保险系数，比如保留两位小数
-    return Math.floor(maxScale * 100) / 100;
-}
-      const renderPageDev = async (pageNum) => {
-
-        const numPages = parsePDF.numPages;
-        if (pageNum > numPages) {
-          notyf.error("Already at the last page")
-          return
-        }else{
-          notyf.success("Render page "+pageNum)
-          await delay(10)
-        }
-        const page = await parsePDF.getPage(pageNum);
-        const maxScale = calculateMaxScale(page);
-        let baseScale = 4; // 基础缩放级别
-        const pixelRatio = window.devicePixelRatio || 1;
-        if (baseScale * pixelRatio > maxScale) {
-          baseScale = maxScale / pixelRatio;
-        }
-        const viewport = page.getViewport({ 
-            scale: baseScale * pixelRatio 
-        });
-
-        const canvas = document.createElement('canvas');
-        // const div = document.createElement('div');
-        // div.className = 'page-container';
-        // div.appendChild(canvas);
-        // document.body.appendChild(div);
-
-        // 设置canvas物理像素
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-                    
-        // 设置CSS显示尺寸
-        canvas.style.width = (viewport.width / pixelRatio)+"px";
-        canvas.style.height = (viewport.height / pixelRatio)+"px";
-
-        // 配置渲染上下文
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = false;
-        ctx.mozImageSmoothingEnabled = false;
-
-          // 高质量渲染参数
-          const renderContext = {
-              canvasContext: ctx,
-              viewport: viewport,
-              enableWebGL: true,
-          };
-          await page.render(renderContext).promise;
-          const pngDataURL = canvas.toDataURL('image/png');
-          const preImg = document.querySelector('img')
-
-          const img = document.createElement('img');
-          img.src = pngDataURL;
-          img.style.width = '100%';
-          document.body.appendChild(img);
-          await delay(10)
-          if (preImg) {
-            preImg.remove()
-          }
-          // document.body.innerHTML = \`<img class="body" width="100%" src="\${pngDataURL}"/>\`
-      };
-      window.renderPageDev = renderPageDev;
-  const base64PDF = "${pdfData.base64Encoding()}"; // 完整的Base64字符串
-  const rawData = atob(base64PDF); // 解码Base64
-  const buffer = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; i++) {
-    buffer[i] = rawData.charCodeAt(i);
-  }
-      parsePDF = await pdfjsLib.getDocument(buffer).promise;
-      await renderPageDev(${pageNo});
-    </script>
-</body>
-</html>
-`)
-  this.pageIndexButton.setTitleForState(this.pageIndex+1,0)
-  if (this.view.hidden) {
-    this.show()
-  }
-  if (docController) {
-    this.docController = docController
-  }else{
-    if (this.docController && (this.docController.docMd5 !== this.docMd5)) {
-      this.docController = undefined
-    }
-  }
-  this.view.setNeedsLayout()
-  MNUtil.stopHUD()
-} catch (error) {
-  snipasteUtils.addErrorLog(error, "snipastePDF", "snipastePDF")
-}
-    // MNUtil.copy(this.moveButton.frame)
-
 }
 
 /**
@@ -2196,37 +2055,14 @@ function copyText(text) {
 }
 
 function exportToPNG() {
-    // 检查 html2canvas 是否已定义，如果未定义则加载
-  if (typeof html2canvas === 'undefined') {
-      console.log('html2canvas 未加载，正在动态加载...');
-      loadHtml2CanvasScript( () => {
-          // 加载完成后执行截图
-          captureScreenshot();
-      });
-  } else {
-      console.log('html2canvas 已加载，直接执行截图。');
-      // 如果已加载，则直接执行截图
-      captureScreenshot();
-  }
+  captureScreenshot();
 }
 
 async function exportToPDF() {
     // 检查 html2canvas 是否已定义，如果未定义则加载
-  if (typeof html2canvas === 'undefined') {
-      console.log('html2canvas 未加载，正在动态加载...');
-      loadHtml2CanvasScript( async () => {
-          // 加载完成后执行截图
-          let image = await screenshotToPNGBase64();
-          const pdfBase64 = await convertPngBase64ToPdfBase64(image,true);
-          postMessageToAddon("snipaste","downloadpdf",undefined,{"pdfBase64":pdfBase64})
-      });
-  } else {
-      console.log('html2canvas 已加载，直接执行截图。');
-      // 如果已加载，则直接执行截图
-      let image = await screenshotToPNGBase64()
-      const pdfBase64 = await convertPngBase64ToPdfBase64(image,true);
-      postMessageToAddon("snipaste","downloadpdf",undefined,{"pdfBase64":pdfBase64})
-  }
+    let image = await screenshotToPNGBase64();
+    const pdfBase64 = await convertPngBase64ToPdfBase64(image,true);
+    postMessageToAddon("snipaste","downloadpdf",undefined,{"pdfBase64":pdfBase64})
 }
 
       // 监听 DOMContentLoaded 事件
@@ -2252,7 +2088,6 @@ async function exportToPDF() {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   </body>
   </html>`
-  // MNUtil.copy(html)
   this.onSnipaste = true
   this.currentHTMLString = html
   let data = NSData.dataWithStringEncoding(html,4)
@@ -2680,14 +2515,14 @@ if (this.view.hidden) {
 
 /** @this {snipasteController} */
 snipasteController.prototype.runJavaScript = async function(script) {
-  MNUtil.log(script);
+  // MNUtil.log(script);
   return new Promise((resolve, reject) => {
     try {
       this.webview.evaluateJavaScript(script,(result) => {
         if (MNUtil.isNSNull(result)) {
           resolve(undefined)
         }else{
-          MNUtil.log("Finish:"+result);
+          // MNUtil.log("Finish:"+result);
           
           resolve(result)
         }

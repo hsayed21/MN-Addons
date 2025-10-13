@@ -181,6 +181,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ],
   },
       mode: window.mode,
+      cdn:"https://vip.123pan.cn/1836303614/dl/cdn/vditor",
       after:()=>{
         // editor.focus();
         editor.setValue(``)

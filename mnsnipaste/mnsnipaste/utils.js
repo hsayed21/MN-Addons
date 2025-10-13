@@ -329,7 +329,6 @@ class snipasteUtils{
 
     }
     return false
-  
   }
   static getNoteCSS(focusNote,hasAudio = false){
     let noteColor = this.getNoteColor(focusNote.colorIndex)
@@ -400,20 +399,20 @@ class snipasteUtils{
         padding-left: 10px;
         padding-bottom: 5px;
         cursor: grab;
-        -webkit-text-fill-color: ${textColor};
+        color: ${textColor};
       }
       .excerpt {
         white-space: pre-line;
         padding-left: 5px;;
         padding-right: 5px;
         cursor: grab;
-        -webkit-text-fill-color: ${textColor};
+        color: ${textColor};
       }
       .comment {
         padding-left: 10px;
         padding-right: 10px;
         cursor: grab;
-        -webkit-text-fill-color: ${textColor};
+        color: ${textColor};
       }
       .MathJax{
         color: ${textColor} !important;
@@ -693,75 +692,33 @@ async function convertPngBase64ToPdfBase64(imageBase64, fitContent = false) {
         };
     });
 }
- 
-           // 动态加载html2canvas脚本的函数
-        function loadHtml2CanvasScript( callback) {
-            let url = 'https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js'
-            const script = document.createElement('script');
-            script.type = 'text/javascript';
-            script.src = url;
+async function loadHtml2CanvasScriptAsync(url = 'https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js') {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = url;
 
-            // 监听脚本加载完成事件 (现代浏览器)
-            script.onload = () => {
-                console.log(url + ' 加载成功');
-                if (callback) {
-                    callback();
-                }
-            };
+    // 现代浏览器加载成功事件
+    script.onload = () => {
+      resolve(true); // 加载完成，触发 resolve
+    };
 
-            // 兼容旧版 IE
-            script.onreadystatechange = () => {
-                if (script.readyState === 'loaded' || script.readyState === 'complete') {
-                    script.onreadystatechange = null; // 避免重复执行
-                    console.log(url + ' 加载成功 (IE)');
-                    if (callback) {
-                        callback();
-                    }
-                }
-            };
+    // 兼容旧版 IE 加载成功事件
+    script.onreadystatechange = () => {
+      if (script.readyState === 'loaded' || script.readyState === 'complete') {
+        script.onreadystatechange = null; // 清除事件，避免重复执行
+        resolve(true); // IE 下加载完成，触发 resolve
+      }
+    };
 
-            // 监听脚本加载失败事件
-            script.onerror = () => {
-                  window.location.href = 'snipaste://showhud?message='+encodeURIComponent('加载失败'+url)
-                console.error(url + ' 加载失败');
-            };
-
-            document.head.appendChild(script); // 或者 document.body.appendChild(script);
-        }
-           // 动态加载jspdf脚本的函数
-        function loadJSPDFScript( callback) {
-            let url = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
-            const script = document.createElement('script');
-            script.type = 'text/javascript';
-            script.src = url;
-
-            // 监听脚本加载完成事件 (现代浏览器)
-            script.onload = () => {
-                console.log(url + ' 加载成功');
-                if (callback) {
-                    callback();
-                }
-            };
-
-            // 兼容旧版 IE
-            script.onreadystatechange = () => {
-                if (script.readyState === 'loaded' || script.readyState === 'complete') {
-                    script.onreadystatechange = null; // 避免重复执行
-                    console.log(url + ' 加载成功 (IE)');
-                    if (callback) {
-                        callback();
-                    }
-                }
-            };
-
-            // 监听脚本加载失败事件
-            script.onerror = () => {
-                window.location.href = 'snipaste://showhud?message='+encodeURIComponent('加载失败'+url)
-                console.error(url + ' 加载失败');
-            };
-
-            document.head.appendChild(script); // 或者 document.body.appendChild(script);
-        }
+    // 加载失败事件
+    script.onerror = () => {
+      resolve(false);
+    };
+    // 将脚本添加到页面中开始加载
+    document.head.appendChild(script);
+  });
+}
 /**
  * 计算页面的最大缩放比例。
  * @returns {number} - 计算出的最大安全scale值.
@@ -784,12 +741,18 @@ function calculateMaxScale() {
     return Math.floor(maxScale * 100) / 100;
 }
         // 截图函数
-        async function screenshotToPNGBase64(scale = 4) {
-            // 检查 html2canvas 是否已加载
-            if (typeof html2canvas === 'undefined') {
-                window.location.href = 'snipaste://showhud?message=库尚未加载完成，请稍后再试'
-                return;
-            }
+async function screenshotToPNGBase64(scale = 4) {
+// 检查 html2canvas 是否已加载
+  if (typeof html2canvas === 'undefined') {
+    let res = await loadHtml2CanvasScriptAsync()
+    if (!res) {
+      res = await loadHtml2CanvasScriptAsync('https://alist.feliks.top/d/cdn/js/html2canvas.js')
+    }
+    if (!res) {
+      window.location.href = 'snipaste://showhud?message=库尚未加载完成，请稍后再试'
+      return;
+    }
+  }
 
             console.log('开始截图...');
             const maxScale = calculateMaxScale();

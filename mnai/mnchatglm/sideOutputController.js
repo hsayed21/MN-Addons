@@ -161,12 +161,14 @@ try {
   moreButtonTapped:async function (button) {
     let self = getSideOutputController()
     try {
-    var commandTable = [
-      MNUtil.tableItem('📤  Export history', self, 'exportHistory:'),
-      MNUtil.tableItem('📥  Import history', self, 'importHistory:'),
-      MNUtil.tableItem('🔄  Reload history', self, 'reloadHistory:')
-    ];
-    self.popover(button, commandTable,150,4)
+    let menu = new Menu(button,self)
+    menu.rowHeight = 35
+    menu.preferredPosition = 2
+    menu.addMenuItem('📤  Export history', 'exportHistory:')
+    menu.addMenuItem('📥  Import history', 'importHistory:')
+    menu.addMenuItem('🔄  Reload history', 'reloadHistory:')
+    // menu.addMenuItem('🔄  Reload webview', 'reloadWebview:')
+    menu.show()
       
     } catch (error) {
       
@@ -210,6 +212,19 @@ try {
     }else{
       MNUtil.showHUD("Invalid history file!")
     }
+  },
+  reloadWebview: async function (params) {
+  try {
+
+    let self = getSideOutputController()
+    self.checkPopover()
+    self.chatWebview.loadFileURLAllowingReadAccessToURL(
+      NSURL.fileURLWithPath(chatAIConfig.mainPath + `/sideOutput.html`),
+      NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
+    );
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "reloadWebview")
+  }
   },
   bigbang:async function () {
     let self = getSideOutputController()
@@ -1047,6 +1062,7 @@ try {
     let self = getSideOutputController()
     let requestURL = request.URL().absoluteString()
     let config = MNUtil.parseURL(requestURL)
+    // MNUtil.log("config", config)
     if (config.scheme === "editoraction") {
       switch (config.host) {
         case "setHeight":
@@ -2611,37 +2627,6 @@ sideOutputController.prototype.createTextviewResponse  = function () {
   this.textviewResponse.scrollEnabled = false
   this.textviewResponse.text = `Loading...`
 }
-/** 
- * @this {sideOutputController}
- */
-sideOutputController.prototype.createWebviewHtmlDev = function (superview) {
-  try {
-  let webview = new UIWebView(this.view.bounds);
-  webview.backgroundColor = UIColor.whiteColor();
-  webview.scalesPageToFit = false;
-  webview.autoresizingMask = (1 << 1 | 1 << 4);
-  webview.delegate = this;
-  // webview.setValueForKey("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15","User-Agent")
-  webview.scrollView.delegate = this;
-  webview.layer.cornerRadius = 12;
-  webview.layer.masksToBounds = true;
-  webview.layer.borderColor = MNUtil.hexColorAlpha("#93bcff",0.4);
-  webview.layer.borderWidth = 3
-  webview.layer.opacity = 0.9
-  webview.loadFileURLAllowingReadAccessToURL(
-    NSURL.fileURLWithPath(chatAIConfig.mainPath + `/veditor_${this.theme}.html`),
-    NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
-  );
-  if (superview) {
-    this[superview].addSubview(webview)
-  }else{
-    this.view.addSubview(webview)
-  }
-  return webview
-    } catch (error) {
-      chatAIUtils.addErrorLog(error, "createWebviewHtmlDev")
-  }
-}
 
 /** 
  * @this {sideOutputController}
@@ -2660,6 +2645,12 @@ sideOutputController.prototype.createChatWebview = function (superview) {
   webview.layer.opacity = 1.0
   webview.scrollEnabled = false
   webview.scrollView.scrollEnabled = false
+  if (MNUtil.isMacOS()) {
+    webview.customUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15'
+  }else{
+    webview.customUserAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
+  }
+    // webview.customUserAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
   webview.loadFileURLAllowingReadAccessToURL(
     NSURL.fileURLWithPath(chatAIConfig.mainPath + `/sideOutput.html`),
     NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
@@ -2669,9 +2660,10 @@ sideOutputController.prototype.createChatWebview = function (superview) {
   }else{
     this.view.addSubview(webview)
   }
+  // this.setWebMode(MNUtil.isMacOS())
   return webview
     } catch (error) {
-      chatAIUtils.addErrorLog(error, "createWebviewHtmlDev")
+      chatAIUtils.addErrorLog(error, "createChatWebview")
   }
 }
 
@@ -2865,7 +2857,7 @@ try {
     }
     this.refreshTokenByKey()
     // MNUtil.copy(`importAllData(\`${encodeURIComponent(JSON.stringify(data))}\`)`)
-    this.chatRunJavaScript(`importAllData(\`${encodeURIComponent(JSON.stringify(data))}\`)`)
+    this.chatRunJavaScript(`importAllData(\`${encodeURIComponent(JSON.stringify(data))}\`);checkMobileDragDrop();`)
   }
 } catch (error) {
   chatAIUtils.addErrorLog(error, "importData") 

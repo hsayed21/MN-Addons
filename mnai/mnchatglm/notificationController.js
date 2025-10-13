@@ -830,30 +830,39 @@ try {
         self.errorMessage = res
         if ("error" in res && "message" in res.error) {
           contentToShow = contentToShow+" "+res.error.message
-          if (res.error.message.startsWith("Insufficient Balance")) {
-            message = "DeepSeek 额度不足，请充值"
-            self.retried = true//没必要重试的情况
-          }
-          if (res.error.message.startsWith("Model do not support image input")) {
-            message = "该模型不支持图片输入/视觉模式"
-            self.retried = true//没必要重试的情况
-          }
-          if (res.error.message.startsWith("token quota is not enough")) {
-            if (self.isSubscription()) {
-              message = "令牌额度不足，请检查订阅"
-            }else{
-              message = "令牌额度不足"
-            }
-            self.retried = true//没必要重试的情况
-          }
-          if (res.error.message.startsWith("该令牌额度已用尽")) {
-            if (self.isSubscription()) {
-              message = "该令牌额度已用尽，请检查订阅"
-            }else{
-              message = "该令牌额度已用尽"
-            }
-            self.retried = true//没必要重试的情况
-          }
+          message = self.parseErrorMessage(res.error.message)
+          // if (res.error.message.startsWith("Insufficient Balance")) {
+          //   message = "DeepSeek 额度不足，请充值"
+          //   self.retried = true//没必要重试的情况
+          // }
+          // if (res.error.message.includes("your account has an overdue balance")) {
+          //   message = "火山引擎 余额不足，请充值"
+          //   self.retried = true//没必要重试的情况
+          // }
+          // if (res.error.message.endsWith("The tool call is not supported")) {
+          //   message = "该模型不支持工具调用"
+          //   self.retried = true//没必要重试的情况
+          // }
+          // if (res.error.message.startsWith("Model do not support image input")) {
+          //   message = "该模型不支持图片输入/视觉模式"
+          //   self.retried = true//没必要重试的情况
+          // }
+          // if (res.error.message.startsWith("token quota is not enough")) {
+          //   if (self.isSubscription()) {
+          //     message = "令牌额度不足，请检查订阅"
+          //   }else{
+          //     message = "令牌额度不足"
+          //   }
+          //   self.retried = true//没必要重试的情况
+          // }
+          // if (res.error.message.startsWith("该令牌额度已用尽")) {
+          //   if (self.isSubscription()) {
+          //     message = "该令牌额度已用尽，请检查订阅"
+          //   }else{
+          //     message = "该令牌额度已用尽"
+          //   }
+          //   self.retried = true//没必要重试的情况
+          // }
         }else if ("message" in res) {
           contentToShow = contentToShow+" "+res.message
         }
@@ -3410,7 +3419,7 @@ try {
       menu.addMenuItem("停止输出",selector,"stopOutput")
       menu.addMenuItem("切换窗口位置",selector,"switchLocation")
       menu.width = 250
-      menu.preferredPosition = 0
+      menu.preferredPosition = this.notifyLoc ? 0 : 4
       menu.show()
       return
     }
@@ -3687,6 +3696,48 @@ notificationController.prototype.updateHeight = async function () {
   if (this.scrollToBottom) {
     this.scrollBottom()
   }
+}
+notificationController.prototype.parseErrorMessage = function (errorMessage) {
+  let message = ""
+          if (errorMessage.startsWith("Insufficient Balance")) {
+            message = "DeepSeek 额度不足，请充值"
+            this.retried = true//没必要重试的情况
+            return message
+          }
+          if (errorMessage.includes("your account has an overdue balance")) {
+            message = "火山引擎 余额不足，请充值"
+            this.retried = true//没必要重试的情况
+            return message
+          }
+          if (errorMessage.endsWith("The tool call is not supported")) {
+            message = "该模型不支持工具调用"
+            this.retried = true//没必要重试的情况
+            return message
+          }
+          if (errorMessage.startsWith("Model do not support image input")) {
+            message = "该模型不支持图片输入/视觉模式"
+            this.retried = true//没必要重试的情况
+            return message
+          }
+          if (errorMessage.startsWith("token quota is not enough")) {
+            if (this.isSubscription()) {
+              message = "令牌额度不足，请检查订阅"
+            }else{
+              message = "令牌额度不足"
+            }
+            this.retried = true//没必要重试的情况
+            return message
+          }
+          if (errorMessage.startsWith("该令牌额度已用尽")) {
+            if (this.isSubscription()) {
+              message = "该令牌额度已用尽，请检查订阅"
+            }else{
+              message = "该令牌额度已用尽"
+            }
+            this.retried = true//没必要重试的情况
+            return message
+          }
+          return message
 }
 /**
  * @type {UIView}

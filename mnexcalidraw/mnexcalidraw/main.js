@@ -25,6 +25,7 @@ JSB.newAddon = function (mainPath) {
         self.arrow = 1;
         self.isFirst = true;
         self.linkDetected = false
+        self.addObserver( 'receivedLoadImageToExcalidraw:', 'loadImageToExcalidraw');
         // self.first = true;
         // } catch (error) {
         // Application.sharedInstance().showHUD(error,self.window,2)
@@ -171,6 +172,23 @@ JSB.newAddon = function (mainPath) {
           checked: self.watchMode
         };
       },
+      receivedLoadImageToExcalidraw: function (notification) {
+        if (typeof MNUtil === 'undefined') {
+          return
+        }
+        // Application.sharedInstance().showHUD("check:",self.appInstance.focusWindow,2)
+        if (self.window!==self.appInstance.focusWindow) {
+          return
+        }
+        let userInfo = notification.userInfo
+        let imageSource = userInfo.imageSource
+        let method = userInfo.method
+        if (self.addonController.view.hidden) {
+          self.addonController.show()
+        }
+        self.addonController.loadImageToExcalidraw(imageSource,method)
+      },
+
       toggleAddon: async function (sender) {
         if (typeof MNUtil === 'undefined') {
           return
@@ -388,6 +406,16 @@ JSB.newAddon = function (mainPath) {
   } catch (error) {
     chatAIUtils.addErrorLog(error, "init")
   }
+  }
+  /**
+   * 
+   * @param {string} selector 
+   * @param {string} name 
+   * @this {MNExcalidrawClass}
+   * @returns 
+   */
+  MNExcalidrawClass.prototype.addObserver = function (selector,name) {
+    NSNotificationCenter.defaultCenter().addObserverSelectorName(this, selector, name);
   }
   return MNExcalidrawClass;
 };

@@ -1585,6 +1585,7 @@ chatAIUtils.genUserMessage(`Please update the current knowledge`)
       chatAIUtils.addErrorLog(error, "keyOption")
     }
   },
+  
   pasteApiKey:function (params) {
     Menu.dismissCurrentMenu()
     let apikey = UIPasteboard.generalPasteboard().string.trim()

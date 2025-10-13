@@ -208,6 +208,9 @@ JSB.newAddon = function (mainPath) {
         let yOffset = 0
         await MNUtil.delay(0.01)
         let menu = PopupMenu.currentMenu()
+        if (!menu) {
+          return
+        }
         let menuFrame = menu.frame
         switch (menu.arrowDirection) {
           case 0:
