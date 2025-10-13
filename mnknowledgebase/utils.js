@@ -14952,6 +14952,27 @@ class KnowledgeBaseIndexer {
   }
 
   /**
+   * 解码 HTML 实体为原始字符
+   * 确保存储的标题是原始文本格式，避免 HTML 实体被双重转义
+   * 
+   * @param {string} text - 可能包含 HTML 实体的文本（如 &lt;、&gt;、&amp; 等）
+   * @returns {string} - 解码后的原始文本
+   * 
+   * @example
+   * // 输入: "&lt;Tx, y&gt;=&lt;x, Sy&gt;"
+   * // 输出: "<Tx, y>=<x, Sy>"
+   */
+  static decodeHtmlEntities(text) {
+    if (!text) return "";
+    
+    // 使用 DOM API 解码 HTML 实体
+    // 注意：这个方法在 WebView 环境中是安全的
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+  }
+
+  /**
    * 构建搜索索引（异步分片版本）
    * @param {Array<string>|MNNote} rootNotes - 根卡片
    * @param {Array<string>} targetTypes - 目标卡片类型数组，如 ["定义", "命题", "归类"]
@@ -15153,7 +15174,7 @@ class KnowledgeBaseIndexer {
     let entry = {
       id: note.noteId,
       type: undefined,
-      title: this.cleanHighlightMarkers(note.title || ""),
+      title: this.decodeHtmlEntities(this.cleanHighlightMarkers(note.title || "")),
       parentId: note.parentNoteId || null
     };
 
@@ -17360,7 +17381,7 @@ class IntermediateKnowledgeIndexer {
     // 构建索引条目
     const entry = {
       id: note.noteId,
-      title: KnowledgeBaseIndexer.cleanHighlightMarkers(note.title || ""),
+      title: this.decodeHtmlEntities(KnowledgeBaseIndexer.cleanHighlightMarkers(note.title || "")),
       parentId: note.parentNoteId || null,
       searchText: this.buildSearchText(note)
     };
@@ -17419,6 +17440,27 @@ class IntermediateKnowledgeIndexer {
     } catch (e) {
       return false;
     }
+  }
+
+  /**
+   * 解码 HTML 实体为原始字符
+   * 确保存储的标题是原始文本格式，避免 HTML 实体被双重转义
+   * 
+   * @param {string} text - 可能包含 HTML 实体的文本（如 &lt;、&gt;、&amp; 等）
+   * @returns {string} - 解码后的原始文本
+   * 
+   * @example
+   * // 输入: "&lt;Tx, y&gt;=&lt;x, Sy&gt;"
+   * // 输出: "<Tx, y>=<x, Sy>"
+   */
+  static decodeHtmlEntities(text) {
+    if (!text) return "";
+    
+    // 使用 DOM API 解码 HTML 实体
+    // 注意：这个方法在 WebView 环境中是安全的
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
   }
 
   /**
@@ -18089,13 +18131,59 @@ LaTeX 会自动处理公式内的间距：
 # 数学概念/定理提取
 
 ## 核心任务
-从图片中的数学定义或定理中提取关键概念名称，并输出为标准格式。
+从图片中的数学定义或定理中**仅提取被定义的新概念名称**，不提取前置条件中的已知概念。
 
 **关键要求**：
 - 识别定义、定理、命题等数学陈述
-- 提取核心概念名称（中文和英文）
+- **只提取定义标志词（称、叫做、定义为等）之后的概念**
+- 忽略前置条件（设、假设、若、给定等）中的概念
 - 输出格式：中文1; 英文1; 中文2; 英文2; ...
 - 无需添加 "我看到..." 等描述性前缀
+
+## ⚠️ 重要原则：区分被定义概念与前置概念
+
+### 关键标志词定位法
+**第一步：找到定义标志词**
+- ✅ 定义标志词：**称**、**叫做**、**定义为**、**是**、**为**、**记作**
+- ❌ 前置标志词：**设**、**假设**、**若**、**给定**、**令**、**已知**
+
+**第二步：只提取标志词之后的内容**
+- 定义标志词**之前**的概念 → ❌ 不提取（这些是前置/背景概念）
+- 定义标志词**之后**的概念 → ✅ 提取（这才是被定义的新概念）
+
+### 正反对比示例
+
+**示例 1：一致连续（用户实际案例）**
+输入：定义 设 X 和 Y 是度量空间, f 是 X 到 Y 中的映射, 如果对于任一正数 ε, 存在正数 δ, 当 d(x,x') < δ 时, 有 d(f(x),f(x')) < ε, 就称 f 在 X 上是一致连续的.
+
+分析：
+- "设 X 和 Y 是度量空间" → ❌ 前置条件（"设"关键词）
+- "f 是 X 到 Y 中的映射" → ❌ 前置条件
+- "就称 f 在 X 上是一致连续的" → ✅ 定义标志词"称"之后的内容
+
+✅ 正确输出：一致连续; uniformly continuous
+❌ 错误输出：度量空间; metric space; 映射; mapping; 一致连续; uniformly continuous
+
+**示例 2：Cauchy 列**
+输入：设 X 是度量空间, 我们称 X 中的数列 {xₙ} 是 Cauchy 列, 如果对于任意 ε>0...
+
+分析：
+- "设 X 是度量空间" → ❌ 前置条件（"设"关键词）
+- "我们称 X 中的数列 {xₙ} 是 Cauchy 列" → ✅ 定义标志词"称"之后
+
+✅ 正确输出：Cauchy 列; Cauchy sequence
+❌ 错误输出：度量空间; metric space; Cauchy 列; Cauchy sequence
+
+**示例 3：紧算子**
+
+输入：假设 X 和 Y 是 Banach 空间, 若算子 T: X→Y 将有界集映为相对紧集, 则称 T 为紧算子.
+
+分析：
+- "假设 X 和 Y 是 Banach 空间" → ❌ 前置条件（"假设"关键词）
+- "则称 T 为紧算子" → ✅ 定义标志词"称"之后
+
+✅ 正确输出：紧算子; compact operator
+❌ 错误输出：Banach 空间; Banach space; 紧算子; compact operator
 
 ## 输出格式
 
@@ -18112,12 +18200,15 @@ LaTeX 会自动处理公式内的间距：
 
 ## 识别模式
 
-### 模式 1：定义句式
+### 模式 1：定义句式（重点关注标志词）
+**核心策略**：定位定义标志词，只提取其后内容
+
 常见的定义句式模板：
-- "我们称 [概念] 为 [名称], 如果..."
-- "定义 [名称] 为满足...的 [概念]"
-- "若 [条件], 则称 [概念] 为 [名称]"
-- "[概念] 是满足...的 [对象], 记为 [符号]"
+- "我们**称** [概念] 为 [名称], 如果..." → 提取 [名称]
+- "**定义** [名称] 为满足...的 [概念]" → 提取 [名称]
+- "若 [条件], 则**称** [概念] 为 [名称]" → 提取 [名称]
+- "就**称** [概念] **是** [名称]" → 提取 [名称]
+- "[概念] **叫做** [名称]" → 提取 [名称]
 
 **示例**：
 - "我们称实数列 {xₙ} 是 Cauchy 列, 如果..." → Cauchy 列; Cauchy sequence
@@ -18144,11 +18235,18 @@ LaTeX 会自动处理公式内的间距：
 
 ## 提取规则
 
+### 0. 区分被定义概念与前置概念（最重要）
+- ✅ **只提取**定义标志词（称、叫做、定义为、是、为）**之后**的概念
+- ❌ **忽略**前置标志词（设、假设、若、给定、令）**之后**的概念
+- ✅ 理解句子结构，区分"条件"和"结论"
+- ❌ 不要简单地提取所有数学术语
+
 ### 1. 概念识别
-- ✅ 提取核心数学概念（函数、空间、算子、定理等）
+- ✅ 提取被定义的核心数学概念（函数、空间、算子、定理等）
 - ✅ 包含所有等价名称和别名
 - ❌ 不提取例子编号（如 "例 2.1"）
 - ❌ 不提取章节标号（如 "定理 3.5"）
+- ❌ 不提取前置条件中的概念
 
 ### 2. 中英文配对
 - 优先使用图片中已有的翻译
@@ -18191,20 +18289,29 @@ LaTeX 会自动处理公式内的间距：
 
   static get OCRDirectlyNoTransPrompt() {
     return `
-# 数学文本 OCR 提示词（仅中文版本）
+# 数学文本 OCR 提示词（完整翻译版本）
+
+## ⚠️ 重要说明：本提示词的任务范围
+
+**本提示词的任务**：完整翻译 OCR 图片中的所有文本内容
+- ✅ 翻译所有文本（包括前置条件、定义、定理、证明等）
+- ✅ 保留完整的句子结构和逻辑关系
+- ✅ 输出完整的定义句（包括"设...""若..."等前置部分）
+
 
 ## 核心任务
-从图片中提取文本，优先使用 Unicode 字符输出，直接输出中文内容。
+从图片中提取文本，优先使用 Unicode 字符输出，完整翻译为中文。
 
 **关键要求**：
 - 已是中文的内容保持原样
 - 英文/其他语言内容翻译成中文
+- **保留完整句子**（包括前置条件"设"、"假设"、"若"等）
 - 禁止使用 LaTeX 包裹符号（$...$），优先 Unicode
 - 无需添加 "我看到..." 等描述性前缀
 
 ## 输出格式要求
 
-**重要**：直接输出中文内容，不要添加任何格式标记或前缀！也不需要首尾的标点符号！
+**重要**：直接输出完整的中文内容，不要添加任何格式标记或前缀！也不需要首尾的标点符号！
 
 ### 统一输出格式
 输出格式：<中文内容>

@@ -120,10 +120,17 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
     MNUtil.log("webView URL: " + webView.request.URL())
 
     // 标记 WebView 已加载完成
-    // 注意：不再在这里自动加载数据，改为在 show() 方法中主动刷新
-    // 这样可以避免重复加载，并确保每次显示时都是最新数据
     self.webViewLoaded = true
     MNUtil.log("webViewLoaded 设置为 true")
+    
+    // 🆕 新增：如果窗口已经显示，立即刷新数据
+    // 这解决了首次打开时数据不刷新的问题
+    if (!self.view.hidden) {
+      MNUtil.log("窗口已显示，立即刷新数据")
+      MNUtil.delay(0.1).then(() => {
+        self.refreshAllData()
+      })
+    }
   },
 
   webViewDidFailLoadWithError: function(webView, error) {
