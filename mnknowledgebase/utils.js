@@ -2188,13 +2188,13 @@ class KnowledgeBaseTemplate {
    * []强制修改前缀
    * []如果有补充内容，则不修改前缀，防止条件内容被清除
    */
-  static changeTitle(note, forced = false) {
+  static changeTitle(note, forced = false, inputType = null) {
     /**
      * 不在制卡时修改卡片标题的类型
      * 
      * 归类：因为取消了以前的“xx”：“yy” 里的 xx，只用链接来考虑所属，所以不需要涉及改变标题
      */
-    let noteType = this.getNoteType(note)
+    let noteType = inputType?inputType:this.getNoteType(note)
     
     let excludingTypes = ["思路", "作者", "研究进展", "论文", "书作", "文献"];
     if (!excludingTypes.includes(noteType)) {
@@ -2214,6 +2214,7 @@ class KnowledgeBaseTemplate {
             let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
             // 生成新的前缀内容（不包含【】）
             let newPrefixContent = this.createChildNoteTitlePrefixContent(classificationNote);
+            
             
             // 解析当前笔记的标题
             let noteTitleParts = this.parseNoteTitle(note);
@@ -2245,12 +2246,13 @@ class KnowledgeBaseTemplate {
             let finalPrefix;
             if (shouldUpdatePrefix) {
               // 使用新前缀
-              finalPrefix = this.createTitlePrefix(classificationNoteTitleParts.type, newPrefixContent);
+              finalPrefix = this.createTitlePrefix(inputType?inputType:classificationNoteTitleParts.type, newPrefixContent);
             } else {
               // 保留现有前缀
-              finalPrefix = this.createTitlePrefix(noteTitleParts.type || classificationNoteTitleParts.type, noteTitleParts.prefixContent);
+              finalPrefix = this.createTitlePrefix(inputType?inputType:noteTitleParts.type || classificationNoteTitleParts.type, noteTitleParts.prefixContent);
             }
             
+
             // 定义类 noteTitleParts.content 前要加 `; `
             if (noteType === "定义") {
               note.title = finalPrefix + '; ' + noteTitleParts.content;
@@ -3565,8 +3567,12 @@ class KnowledgeBaseTemplate {
   /**
    * 修改卡片颜色
    */
-  static changeNoteColor(note) {
-    note.colorIndex = this.types[this.getNoteType(note)].colorIndex;
+  static changeNoteColor(note, inputType = null) {
+    if (inputType && this.types[inputType]) {
+      note.colorIndex = this.types[inputType].colorIndex;
+    } else {
+      note.colorIndex = this.types[this.getNoteType(note)].colorIndex;
+    }
   }
 
   /**
@@ -4374,67 +4380,78 @@ class KnowledgeBaseTemplate {
   /**
    * 仅保留指定字段下的内容（不通过弹窗）
    * 删除其他所有内容（包括字段本身）
-   * 
+   *
    * @param {MNNote} note - 要操作的笔记对象
-   * @param {string} fieldName - 要保留内容的字段名称
+   * @param {string} fieldName - 要保留内容的字段名称，支持"摘录区"/"摘录"保留摘录区内容
    * @returns {boolean} 操作是否成功
-   * 
+   *
    * @example
    * // 仅保留"证明"字段下的内容
    * let success = KnowledgeBaseTemplate.retainFieldContentByName(note, "证明");
-   * 
+   *
    * @example
    * // 仅保留"相关链接"字段下的内容
    * KnowledgeBaseTemplate.retainFieldContentByName(note, "相关链接");
+   *
+   * @example
+   * // 仅保留摘录区的内容（第一个字段之前的 mergedImageComment）
+   * KnowledgeBaseTemplate.retainFieldContentByName(note, "摘录区");
+   * KnowledgeBaseTemplate.retainFieldContentByName(note, "摘录");
    */
   static retainFieldContentByName(note, fieldName) {
-    let commentsObj = this.parseNoteComments(note);
-    let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
-    
-    // 查找指定名称的字段
-    let targetFieldObj = null;
-    for (let fieldObj of htmlCommentsObjArr) {
-      if (fieldObj.text.includes(fieldName)) {
-        targetFieldObj = fieldObj;
-        break;
+    let retainIndices = [];
+
+    // 特殊处理：摘录区
+    if (fieldName === "摘录区" || fieldName === "摘录") {
+      retainIndices = this.getExcerptBlockIndexArr(note);
+
+      if (retainIndices.length === 0) {
+        MNUtil.showHUD(`摘录区没有内容`);
+        return false;
       }
-    }
-    
-    if (!targetFieldObj) {
-      MNUtil.showHUD(`未找到字段"${fieldName}"`);
-      return false;
-    }
-    
-    // 获取要保留的内容索引（不包括字段本身）
-    let retainIndices = targetFieldObj.excludingFieldBlockIndexArr;
-    
-    if (retainIndices.length === 0) {
-      MNUtil.showHUD(`字段"${fieldName}"下没有内容`);
-      return false;
+
+      // 摘录区处理逻辑与字段处理相同，跳到后面统一处理
+    } else {
+      // 常规字段处理
+      let commentsObj = this.parseNoteComments(note);
+      let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
+
+      // 查找指定名称的字段
+      let targetFieldObj = null;
+      for (let fieldObj of htmlCommentsObjArr) {
+        if (fieldObj.text.includes(fieldName)) {
+          targetFieldObj = fieldObj;
+          break;
+        }
+      }
+
+      if (!targetFieldObj) {
+        MNUtil.showHUD(`未找到字段"${fieldName}"`);
+        return false;
+      }
+
+      // 获取要保留的内容索引（不包括字段本身）
+      retainIndices = targetFieldObj.excludingFieldBlockIndexArr;
+
+      if (retainIndices.length === 0) {
+        MNUtil.showHUD(`字段"${fieldName}"下没有内容`);
+        return false;
+      }
     }
     
     MNUtil.undoGrouping(() => {
       try {
-        // 获取所有评论的索引
-        let allIndices = Array.from({length: note.comments.length}, (_, i) => i);
-        
-        // 计算要删除的索引（所有索引减去要保留的索引）
-        let deleteIndices = allIndices.filter(index => !retainIndices.includes(index));
-        
-        // 从后向前删除（避免索引变化问题）
-        deleteIndices.sort((a, b) => b - a);
-        
-        let deletedCount = 0;
-        deleteIndices.forEach(index => {
-          note.removeCommentByIndex(index);
-          deletedCount++;
-        });
-        
+        // 计算要删除的内容数量
+        let inverseIndices = this.getInverseCommentsIndexArr(note, retainIndices);
+        let deletedCount = inverseIndices.length;
+
+        note.removeCommentsByIndexArr(inverseIndices);
+
         // 刷新卡片显示
         note.refresh();
-        
-        MNUtil.showHUD(`已删除 ${deletedCount} 条内容，保留了"${fieldName}"字段下的 ${retainIndices.length} 条内容`);
-        
+
+        MNUtil.showHUD(`已删除 ${deletedCount} 条内容，保留了"${fieldName}"的 ${retainIndices.length} 条内容`, 0.5);
+
         MNUtil.log({
           level: "info",
           message: `保留字段内容操作完成 - 字段：${fieldName}，保留：${retainIndices.length} 条，删除：${deletedCount} 条`,
@@ -4453,6 +4470,20 @@ class KnowledgeBaseTemplate {
     });
     
     return true;
+  }
+
+  /**
+   * 获取 note 的 indexArr 的反选 indexArr
+   */
+  static getInverseCommentsIndexArr(note, indexArr) {
+    try {
+      // 获取所有评论的索引
+      let allIndices = Array.from({length: note.comments.length}, (_, i) => i);
+
+      return allIndices.filter(index => !indexArr.includes(index));
+    } catch (error) {
+      MNUtil.showHUD("获取反选索引失败：" + error.toString());
+    }
   }
 
   /**
@@ -6944,9 +6975,17 @@ class KnowledgeBaseTemplate {
       MNUtil.showHUD(`未找到字段"${field}"，请检查字段名称`);
       return [];
     }
+
+    // 在移动之前先提取 markdown 链接
+    let marginNoteLinks = this.extractMarginNoteLinksFromComments(note, indexArr);
     
     // 执行移动操作
     this.moveCommentsArrToField(note, indexArr, field, toBottom);
+
+    // 处理之前提取的 MarginNote 链接
+    if (marginNoteLinks.length > 0) {
+      this.processExtractedMarginNoteLinks(note, marginNoteLinks);
+    }
     
     return indexArr;
   }
@@ -15024,6 +15063,43 @@ class KnowledgeBaseTemplate {
       )
     }
   }
+
+  /**
+   * 把归类卡片转为定义卡片
+   */
+  static convertClassificationNoteToDefinitionNote(note) {
+    try {
+      if (!this.getNoteType(note) === "归类") {
+        MNUtil.showHUD("❌ 只能转换归类卡片");
+        return;
+      }
+      let parsedTitle = this.parseNoteTitle(note)
+      note.title = parsedTitle.content
+    
+      /**
+       * 替换“包含”字段为"相关链接"
+       */
+
+      let includingHtmlCommentIndex = note.getIncludingHtmlCommentIndex("包含")
+
+      note.removeCommentByIndex(includingHtmlCommentIndex)
+
+      this.cloneAndMergeById(note, "marginnote4app://note/557824A5-AD9F-4D5E-8254-3DA8C6F9D2B8")
+
+      note.moveComment(note.comments.length - 1, includingHtmlCommentIndex)
+
+      // 最后再删，防止影响前面
+      let deleteCommentIndexArr = this.getHtmlCommentIncludingFieldBlockIndexArr(note, "所属")
+      note.removeCommentsByIndexArr(deleteCommentIndexArr)
+
+      this.changeTitle(note, false, "定义") // 修改卡片标题
+      this.changeNoteColor(note, "定义") // 修改卡片颜色
+      this.linkParentNote(note) // 链接广义的父卡片（可能是链接归类卡片）
+      this.refreshNotes(note) // 刷新卡片
+    } catch (error) {
+      MNLog.error(error, "KnowledgeBaseTemplate: convertClassificationNoteToDefinitionNote");
+    }
+  }
 }
 
 /**
@@ -16926,6 +17002,10 @@ class SynonymManager {
     //   "partialReplacement": false,
     // },
     {
+      "words": ["像空间", "值域"],
+      "partialReplacement": false,
+    },
+    {
       "words": ["是全空间", "等于全空间"],
       "partialReplacement": false,
     },
@@ -18003,6 +18083,119 @@ class KnowledgeBaseNetwork {
 - 下标、上标与基础字符无空格：x₁, y²
 `
 
+  /**
+   * OCR 序号统一转换规则
+   * 将各种序号格式统一转换为带圈数字
+   */
+  static OCRNumberingRules = `
+## 序号统一转换规则
+
+**核心原则**：将所有序号格式统一转换为带圈数字，保持输出格式一致性。
+
+### 转换规则
+
+#### 1. 阿拉伯数字序号
+- \`1.\` \`2.\` \`3.\` → ① ② ③
+- \`(1)\` \`(2)\` \`(3)\` → ① ② ③
+- \`1)\` \`2)\` \`3)\` → ① ② ③
+
+#### 2. 罗马数字序号（小写）
+- \`(i)\` \`(ii)\` \`(iii)\` → ① ② ③
+- \`(iv)\` \`(v)\` \`(vi)\` → ④ ⑤ ⑥
+- \`(vii)\` \`(viii)\` \`(ix)\` \`(x)\` → ⑦ ⑧ ⑨ ⑩
+- \`i.\` \`ii.\` \`iii.\` → ① ② ③
+
+#### 3. 罗马数字序号（大写）
+- \`(I)\` \`(II)\` \`(III)\` → ① ② ③
+- \`(IV)\` \`(V)\` \`(VI)\` → ④ ⑤ ⑥
+- \`I.\` \`II.\` \`III.\` → ① ② ③
+
+#### 4. 字母序号（小写）
+- \`(a)\` \`(b)\` \`(c)\` → ① ② ③
+- \`a)\` \`b)\` \`c)\` → ① ② ③
+- \`a.\` \`b.\` \`c.\` → ① ② ③
+
+#### 5. 字母序号（大写）
+- \`(A)\` \`(B)\` \`(C)\` → ① ② ③
+- \`A)\` \`B)\` \`C)\` → ① ② ③
+- \`A.\` \`B.\` \`C.\` → ① ② ③
+
+### 带圈数字字符集
+- 1-20：① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ ⑪ ⑫ ⑬ ⑭ ⑮ ⑯ ⑰ ⑱ ⑲ ⑳
+- 21-50：㉑ ㉒ ㉓ ㉔ ㉕ ㉖ ㉗ ㉘ ㉙ ㉚ ㉛ ㉜ ㉝ ㉞ ㉟ ㊱ ㊲ ㊳ ㊴ ㊵ ㊶ ㊷ ㊸ ㊹ ㊺ ㊻ ㊼ ㊽ ㊾ ㊿
+
+### 处理示例
+
+**示例 1：证明步骤**
+- 输入：1. 首先证明充分性 2. 然后证明必要性
+- ✅ 输出：① 首先证明充分性 ② 然后证明必要性
+
+**示例 2：定理条件**
+- 输入：(i) f 是连续的 (ii) f 是可微的
+- ✅ 输出：① f 是连续的 ② f 是可微的
+
+**示例 3：分类讨论**
+- 输入：(a) 当 x>0 时 (b) 当 x<0 时
+- ✅ 输出：① 当 x>0 时 ② 当 x<0 时
+
+### 注意事项
+- 保持序号的顺序对应关系
+- 如果原文使用不同层级的序号（如 1. (a) (i)），统一转换为带圈数字
+- 序号后的内容保持不变
+- 如果序号超过 50，继续使用阿拉伯数字格式（如 51. 52.）
+`
+
+  /**
+   * OCR 结果后处理正则替换规则
+   * 用于修正 AI OCR 的常见错误输出
+   */
+  static OCRPostProcessingRules = [
+    {
+      pattern: /\^∞/g,
+      replacement: '∞',
+      description: '移除积分/求和上限中不必要的 ^'
+    },
+    {
+      pattern: /\s*φ|Φ\s*/g,
+      replacement: 'ϕ',
+      description: '统一 phi 字符为直立形式 (U+03D5)'
+    },
+    {
+      pattern: /∑/g,
+      replacement: 'Σ',
+      description: '求和符号用小的'
+    },
+    {
+      pattern: /\s*(⊂|∪|∩|⊆|⊇|∈|∉|⊄|⊅)\s*/g,
+      replacement: '$1',
+      description: '去掉集合运算符两边的空格'
+    },
+    {
+      pattern: /\s*(≤|≥|≠|≈|≡|∝|∼|≃|≅|≈)\s*/g,
+      replacement: '$1',
+      description: '去掉比较运算符两边的空格'
+    }
+    // 用户可以在这里继续添加新规则
+  ]
+
+  /**
+   * 对 OCR 结果进行后处理
+   * @param {string} ocrResult - OCR 原始结果
+   * @returns {string} 处理后的结果
+   */
+  static postProcessOCRResult(ocrResult) {
+    if (!ocrResult) return ocrResult
+
+    let result = ocrResult
+
+    // 依次应用所有替换规则
+    this.OCRPostProcessingRules.forEach(rule => {
+      result = result.replace(rule.pattern, rule.replacement)
+    })
+
+    return result
+  }
+
   static get OCRDirectlyPrompt() {
     return `
 # 数学文本 OCR 提示词
@@ -18121,6 +18314,8 @@ class KnowledgeBaseNetwork {
 - 点 (·)：ȧ ḃ ċ ẋ ẏ / α̇ β̇ γ̇ / Ȧ Ḃ Ċ
 
 ${this.OCRCorrectionRules}
+
+${this.OCRNumberingRules}
 
 ## 最终检查清单
 1. 所有下标、上标是否使用了正确的 Unicode 字符
@@ -18244,6 +18439,8 @@ LaTeX 会自动处理公式内的间距：
 **示例**：
 - Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...
 - Example 2.3: Let f be ... → 设 $f$ 为 ...
+
+${this.OCRNumberingRules}
 `
 
   static OCRExtractConceptPrompt = `
@@ -18404,6 +18601,8 @@ LaTeX 会自动处理公式内的间距：
 3. 中文和英文名称必须一一对应
 4. 若有多个等价名称，全部列出
 5. 保持术语的标准性和专业性
+
+${this.OCRNumberingRules}
 `
 
   static get OCRDirectlyNoTransPrompt() {
@@ -18525,6 +18724,8 @@ LaTeX 会自动处理公式内的间距：
 - 点 (·)：ȧ ḃ ċ ẋ ẏ / α̇ β̇ γ̇ / Ȧ Ḃ Ċ
 
 ${this.OCRCorrectionRules}
+
+${this.OCRNumberingRules}
 
 ## 最终检查清单
 1. 所有下标、上标是否使用了正确的 Unicode 字符
@@ -18671,6 +18872,8 @@ LaTeX 会自动处理公式内的间距：
 - Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...
 - Example 2.3: Let f be ... → 设 $f$ 为 ...
 - Definition: A function f is continuous if ... → 若 ..., 则函数 $f$ 是连续的
+
+${this.OCRNumberingRules}
 `
 
   static OCRExtractConceptNoTransPrompt = `
@@ -18785,6 +18988,8 @@ LaTeX 会自动处理公式内的间距：
 2. 去掉所有标点符号（除分号外）
 3. 若有多个等价中文名称，全部列出
 4. 保持术语的标准性和专业性
+
+${this.OCRNumberingRules}
 `
 
   static OCRSummarizePrompt = `
@@ -18894,6 +19099,8 @@ LaTeX 会自动处理公式内的间距：
 
 ${this.OCRCorrectionRules}
 
+${this.OCRNumberingRules}
+
 ## 最终检查清单
 1. 疑问句是否已转换为陈述句
 2. 冗余信息是否已删除
@@ -18982,6 +19189,8 @@ ${this.OCRCorrectionRules}
 
 ${this.OCRCorrectionRules}
 
+${this.OCRNumberingRules}
+
 ## 最终检查清单
 1. 疑问句是否已转换为陈述句
 2. 冗余信息是否已删除
@@ -19062,6 +19271,8 @@ ${this.OCRCorrectionRules}
     }
 
     let result = await this.OCR(compressedImageData, ocrModel, prompt)
+    // 应用 OCR 后处理规则
+    result = this.postProcessOCRResult(result)
     if (result) {
       MNUtil.undoGrouping(()=>{
         note.title = result.trim()
@@ -19218,6 +19429,7 @@ ${this.OCRCorrectionRules}
       } else {
         return undefined
       }
+
       let convertedText = ocrResult
         .replace(/\$\$\n?/g, '$$$\n')
         .replace(/(\\\[\s*\n?)|(\s*\\\]\n?)/g, '$$$\n')

@@ -1535,6 +1535,8 @@
                 { value: '开集' },
                 { value: '闭集' },
                 { value: '紧集' },
+                { value: '列紧集' },
+                { value: '相对列紧集' },
                 { value: '内部' },
                 { value: '闭包' },
                 { value: '邻域' },
@@ -1549,7 +1551,7 @@
               value: '赋范线性空间',
               children: [
                 {
-                  value: '之间的算子',
+                  value: '之间的',
                   children: [
                     { value: '线性算子' },
                     { value: '有界线性算子' },
@@ -1574,7 +1576,7 @@
               value: 'Banach 空间',
               children: [
                 {
-                  value: '之间的算子',
+                  value: '之间的',
                   children: [
                     { value: '线性算子' },
                     { value: '有界线性算子' },
@@ -1609,7 +1611,7 @@
                   ]
                 },
                 {
-                  value: '之间的算子',
+                  value: '之间的',
                   children: [
                     { value: '线性算子'},
                     { value: '有界线性算子'},
@@ -1633,7 +1635,7 @@
                   ]
                 },
                 {
-                  value: '之间的算子',
+                  value: '之间的',
                   children: [
                     { value: '线性算子'},
                     { value: '有界线性算子'},
@@ -3062,15 +3064,12 @@
           prepared.score = typeof card.score === 'number' ? card.score : evaluation.score;
           if (!card.type) prepared.isRaw = true;
 
-          if (!prepared.titleHtml) {
-            prepared.titleHtml = highlightTextWithTokens(prepared.title || '', highlightTokens);
-          }
+          // 始终重新生成高亮，避免使用可能包含占位符的旧数据
+          prepared.titleHtml = highlightTextWithTokens(prepared.title || '', highlightTokens);
 
-          if (!prepared.snippetHtml) {
-            const sourceText = prepared.snippet || prepared.searchText || prepared.title || '';
-            const snippet = extractSnippet(sourceText, tokensLower);
-            prepared.snippetHtml = highlightTextWithTokens(snippet, highlightTokens);
-          }
+          const sourceText = prepared.snippet || prepared.searchText || prepared.title || '';
+          const snippet = extractSnippet(sourceText, tokensLower);
+          prepared.snippetHtml = highlightTextWithTokens(snippet, highlightTokens);
 
           results.push(prepared);
         });
@@ -4004,6 +4003,10 @@
 
       function highlightTextWithTokens(text, tokens) {
         if (!text) return '';
+
+        // 清理可能存在的旧占位符（防御性措施）
+        text = text.replace(/__HL_\d+_\d+__/g, '');
+
         if (!tokens || tokens.length === 0) {
           if (/<[^>]+>/.test(text)) return text;
           return escapeHtml(text);

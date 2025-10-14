@@ -501,7 +501,6 @@ JSB.newAddon = function(mainPath){
     },
 
     /**
->>>>>>> Stashed changes
      * 更新中间知识库索引
      */
     updateIntermediateKnowledgeIndex: async function() {
