@@ -2590,6 +2590,23 @@ static getValidJSON(jsonString,debug = false) {
     )
     this.app.refreshAfterDBChanged(notebookId)
   }
+  /**
+   * Groups the specified function within an undo operation for the given notebook.
+   * 
+   * This method wraps the provided function within an undo operation for the specified notebook.
+   * It ensures that the function's changes can be undone as a single group. After the function is executed,
+   * it refreshes the application to reflect the changes.
+   * 
+   * @param {Function} f - The function to be executed within the undo group.
+   * @param {string} [notebookId=this.currentNotebookId] - The ID of the notebook for which the undo group is created.
+   */
+  static undoGroupingNotRefresh(f,notebookId = this.currentNotebookId){
+    UndoManager.sharedInstance().undoGrouping(
+      String(Date.now()),
+      notebookId,
+      f
+    )
+  }
   static getNoteColorHex(colorIndex){
     let theme = MNUtil.app.currentTheme
     let colorConfig = {
@@ -3257,6 +3274,18 @@ try {
    * @param {"AddToReview"|"AddToTOC"|"BackupDB"|"BindSplit"|"BookTOC"|"BookPageList"|"BookMarkList"|"BookSketchList"|"BookCardList"|"BookSearch"|"BookPageFlip"|"BookPageScroll"|"BookPageNumber"|"BookMarkAdd"|"BookMarkRemove"|"ClearTemp"|"ClearFormat1"|"ClearFormat2"|"CommonCopy"|"CollapseExtend"|"ContinueExcerpt"|"DBVaults"|"DraftList"|"EditAddTitle"|"EditAddText"|"EditAppendComment"|"EditArrangeNotes"|"EditUndo"|"EditRedo"|"EditCut"|"EditCopy"|"EditCopyLink"|"EditDeleteNote"|"EditDocLayers"|"EditPaste"|"EditPDFPages"|"EditMarkdown"|"EditTextBox"|"EditTextMode"|"EditImageBox"|"EditGroupNotes"|"EditLinkNotes"|"EditMultiSel"|"EditMergeNotes"|"EditOcclusion"|"EditOutlineIncLevel"|"EditOutlineDecLevel"|"EditReference"|"EditSelAll"|"EditTagNote"|"EditUnmergeNote"|"EditColorNoteIndex0"|"EditColorNoteIndex1"|"EditColorNoteIndex2"|"EditColorNoteIndex3"|"EditColorNoteIndex4"|"EditColorNoteIndex5"|"EditColorNoteIndex6"|"EditColorNoteIndex7"|"EditColorNoteIndex8"|"EditColorNoteIndex9"|"EditColorNoteIndex10"|"EditColorNoteIndex11"|"EditColorNoteIndex12"|"EditColorNoteIndex13"|"EditColorNoteIndex14"|"EditColorNoteIndex15"|"ExcerptToolSettings"|"ExcerptToolSelect"|"ExcerptToolCustom0"|"ExcerptToolCustom1"|"ExcerptToolCustom2"|"ExcerptToolCustom3"|"ExcerptToolSketch"|"EmphasisCloze"|"ExportPKG"|"ExportVault"|"ExportMapPDF"|"ExportDocPDF"|"ExportOmni"|"ExportWord"|"ExportMind"|"ExportAnki"|"ExtendSplit"|"ExtendMargin"|"ExtendPopup"|"ExpandExtend"|"FocusNote"|"FocusParent"|"FoldHighlight"|"FullTextSearch"|"FlashcardsPlay"|"FlashcardsStop"|"FlashcardFlip"|"FlashcardLocal"|"FlashcardAgain"|"FlashcardHard"|"FlashcardGood"|"FlashcardEasy"|"FlashcardStarred"|"FlashcardSpeech"|"GlobalBranchStyle"|"GoBack"|"GoForward"|"GoiCloud"|"GoManual"|"GoNewFeatures"|"GoSettings"|"GoUserGuide"|"HideSketch"|"HighlightShortcut1"|"HighlightShortcut2"|"HighlightShortcut3"|"HighlightShortcut4"|"InAppPurchase"|"InsertBlank"|"ManageDocs"|"MergeTo"|"MindmapSnippetMode"|"NotebookOutline"|"NotebookOutlineEdit"|"NewSiblingNote"|"NewChildNote"|"NewParentNote"|"OpenTrash"|"OpenExtensions"|"PdfCrop"|"RemoveFromMap"|"SendToMap"|"ShareLicenses"|"SharePackage"|"SplitBook"|"SyncMindMapToBook"|"SyncBookToMindMap"|"SyncWindowPos"|"SyncDeletion"|"SetAsEmphasis"|"SetCloneCopyMode"|"SetCommentHighlight"|"SetRefCopyMode"|"SetTitleHighlight"|"SourceHighlight"|"SnippetMode"|"SelBranchStyle0"|"SelBranchStyle1"|"SelBranchStyle2"|"SelBranchStyle3"|"SelBranchStyle4"|"SelBranchStyle60"|"SelBranchStyle61"|"SelBranchStyle64"|"SelBranchStyle7"|"SelBranchStyle100"|"SelectBranch"|"ShowSketch"|"TabNextFile"|"TabPrevFile"|"TextToTitle"|"Translate"|"ToggleAddFile"|"ToggleBookLeft"|"ToggleBookBottom"|"ToggleCards"|"ToggleDocument"|"ToggleExpand"|"ToggleFullDoc"|"ToggleSplit"|"ToggleSidebar"|"ToggleTabsBar"|"ToggleTextLink"|"ToggleMindMap"|"ToggleMoreSettings"|"ToggleReview"|"ToggleResearch"|"UIStatusURL"|"ViewCollapseRows"|"ViewCollapseAll"|"ViewDocCardGroup"|"ViewExpandAll"|"ViewExpandLevel0"|"ViewExpandLevel1"|"ViewExpandLevel2"|"ViewExpandLevel3"|"ViewExpandLevel4"|"ViewExpandLevel5"|"ViewExpandLevel6"|"ViewExpandLevel7"|"ViewExpandRows"|"ViewMapCardGroup"|"ZoomToFit"} command 
    */
   static excuteCommand(command){
+    let urlPre = "marginnote4app://command/"
+    if (command) {
+      let url = urlPre+command
+      this.openURL(url)
+      return
+    }
+  }
+  /**
+   * 
+   * @param {"AddToReview"|"AddToTOC"|"BackupDB"|"BindSplit"|"BookTOC"|"BookPageList"|"BookMarkList"|"BookSketchList"|"BookCardList"|"BookSearch"|"BookPageFlip"|"BookPageScroll"|"BookPageNumber"|"BookMarkAdd"|"BookMarkRemove"|"ClearTemp"|"ClearFormat1"|"ClearFormat2"|"CommonCopy"|"CollapseExtend"|"ContinueExcerpt"|"DBVaults"|"DraftList"|"EditAddTitle"|"EditAddText"|"EditAppendComment"|"EditArrangeNotes"|"EditUndo"|"EditRedo"|"EditCut"|"EditCopy"|"EditCopyLink"|"EditDeleteNote"|"EditDocLayers"|"EditPaste"|"EditPDFPages"|"EditMarkdown"|"EditTextBox"|"EditTextMode"|"EditImageBox"|"EditGroupNotes"|"EditLinkNotes"|"EditMultiSel"|"EditMergeNotes"|"EditOcclusion"|"EditOutlineIncLevel"|"EditOutlineDecLevel"|"EditReference"|"EditSelAll"|"EditTagNote"|"EditUnmergeNote"|"EditColorNoteIndex0"|"EditColorNoteIndex1"|"EditColorNoteIndex2"|"EditColorNoteIndex3"|"EditColorNoteIndex4"|"EditColorNoteIndex5"|"EditColorNoteIndex6"|"EditColorNoteIndex7"|"EditColorNoteIndex8"|"EditColorNoteIndex9"|"EditColorNoteIndex10"|"EditColorNoteIndex11"|"EditColorNoteIndex12"|"EditColorNoteIndex13"|"EditColorNoteIndex14"|"EditColorNoteIndex15"|"ExcerptToolSettings"|"ExcerptToolSelect"|"ExcerptToolCustom0"|"ExcerptToolCustom1"|"ExcerptToolCustom2"|"ExcerptToolCustom3"|"ExcerptToolSketch"|"EmphasisCloze"|"ExportPKG"|"ExportVault"|"ExportMapPDF"|"ExportDocPDF"|"ExportOmni"|"ExportWord"|"ExportMind"|"ExportAnki"|"ExtendSplit"|"ExtendMargin"|"ExtendPopup"|"ExpandExtend"|"FocusNote"|"FocusParent"|"FoldHighlight"|"FullTextSearch"|"FlashcardsPlay"|"FlashcardsStop"|"FlashcardFlip"|"FlashcardLocal"|"FlashcardAgain"|"FlashcardHard"|"FlashcardGood"|"FlashcardEasy"|"FlashcardStarred"|"FlashcardSpeech"|"GlobalBranchStyle"|"GoBack"|"GoForward"|"GoiCloud"|"GoManual"|"GoNewFeatures"|"GoSettings"|"GoUserGuide"|"HideSketch"|"HighlightShortcut1"|"HighlightShortcut2"|"HighlightShortcut3"|"HighlightShortcut4"|"InAppPurchase"|"InsertBlank"|"ManageDocs"|"MergeTo"|"MindmapSnippetMode"|"NotebookOutline"|"NotebookOutlineEdit"|"NewSiblingNote"|"NewChildNote"|"NewParentNote"|"OpenTrash"|"OpenExtensions"|"PdfCrop"|"RemoveFromMap"|"SendToMap"|"ShareLicenses"|"SharePackage"|"SplitBook"|"SyncMindMapToBook"|"SyncBookToMindMap"|"SyncWindowPos"|"SyncDeletion"|"SetAsEmphasis"|"SetCloneCopyMode"|"SetCommentHighlight"|"SetRefCopyMode"|"SetTitleHighlight"|"SourceHighlight"|"SnippetMode"|"SelBranchStyle0"|"SelBranchStyle1"|"SelBranchStyle2"|"SelBranchStyle3"|"SelBranchStyle4"|"SelBranchStyle60"|"SelBranchStyle61"|"SelBranchStyle64"|"SelBranchStyle7"|"SelBranchStyle100"|"SelectBranch"|"ShowSketch"|"TabNextFile"|"TabPrevFile"|"TextToTitle"|"Translate"|"ToggleAddFile"|"ToggleBookLeft"|"ToggleBookBottom"|"ToggleCards"|"ToggleDocument"|"ToggleExpand"|"ToggleFullDoc"|"ToggleSplit"|"ToggleSidebar"|"ToggleTabsBar"|"ToggleTextLink"|"ToggleMindMap"|"ToggleMoreSettings"|"ToggleReview"|"ToggleResearch"|"UIStatusURL"|"ViewCollapseRows"|"ViewCollapseAll"|"ViewDocCardGroup"|"ViewExpandAll"|"ViewExpandLevel0"|"ViewExpandLevel1"|"ViewExpandLevel2"|"ViewExpandLevel3"|"ViewExpandLevel4"|"ViewExpandLevel5"|"ViewExpandLevel6"|"ViewExpandLevel7"|"ViewExpandRows"|"ViewMapCardGroup"|"ZoomToFit"} command 
+   */
+  static executeCommand(command){
     let urlPre = "marginnote4app://command/"
     if (command) {
       let url = urlPre+command
@@ -4700,13 +4729,16 @@ class MNConnection{
    */
   static initRequest(url,options) {
     const request = this.requestWithURL(url)
-    request.setHTTPMethod(options.method ?? "GET")
+    let method = options.method ?? "GET"
+    request.setHTTPMethod(method)
     request.setTimeoutInterval(options.timeout ?? 10)
     const headers = {
       "User-Agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15",
-      "Content-Type": "application/json",
       Accept: "application/json"
+    }
+    if (method !== "GET") {
+      headers["Content-Type"] = "application/json"
     }
     // let newHearders = {
     //   ...headers,

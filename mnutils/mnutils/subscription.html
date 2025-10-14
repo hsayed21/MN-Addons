@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API驱动的界面 (优化版)</title>
+    <style>
+        /* CSS 样式与上一版相同，保持不变 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        :root {
+            --bg-color: #f4f7fa; --card-bg-color: #ffffff; --primary-color: #2563eb; --primary-hover-color: #1d4ed8; --secondary-color: #475569; --text-color: #1e293b; --border-color: #e2e8f0; --danger-color: #dc2626; --success-color: #16a34a; --font-family: 'Inter', -apple-system, sans-serif; --border-radius: 12px; --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        body {
+            display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; margin: 0; padding: 2rem 1rem; background-color: var(--bg-color); font-family: var(--font-family); color: var(--text-color); box-sizing: border-box;
+        }
+        .main-container {
+            width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 20px; position: relative;
+        }
+        .loading-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255, 255, 255, 0.7); border-radius: var(--border-radius); z-index: 10; display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s;
+        }
+        .loading-overlay .spinner {
+            width: 40px; height: 40px; border: 4px solid var(--border-color); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .is-loading .loading-overlay { opacity: 1; visibility: visible; }
+        .is-loading > .card { pointer-events: none; }
+        .card { background-color: var(--card-bg-color); border-radius: var(--border-radius); padding: 24px; box-shadow: var(--card-shadow); border: 1px solid var(--border-color); }
+        .card-header { margin-bottom: 20px; }
+        .card-title { font-size: 1.25rem; font-weight: 600; margin: 0; }
+        .card-subtitle { font-size: 0.875rem; color: var(--secondary-color); margin-top: 4px; }
+        .status-tags { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px; font-size: 0.875rem; font-weight: 500; }
+        .tag.success { background-color: #f0fdf4; color: var(--success-color); }
+        .tag.info { background-color: #f0f9ff; color: #0284c7; }
+        .input-group { position: relative; margin-bottom: 16px; }
+        .input-group input { width: 100%; height: 48px; padding: 0 100px 0 16px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 1rem; background-color: #f8fafc; box-sizing: border-box; transition: border-color 0.2s, box-shadow 0.2s; }
+        .input-group input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2); }
+        .input-actions { position: absolute; top: 0; right: 6px; height: 100%; display: flex; align-items: center; gap: 6px; }
+        .action-btn { background: none; border: none; cursor: pointer; padding: 6px; color: var(--secondary-color); display: flex; align-items: center; justify-content: center; transition: color 0.2s; border-radius: 6px; }
+        .action-btn:hover { color: var(--text-color); background-color: #f1f5f9;}
+        .action-btn svg { width: 20px; height: 20px; }
+        .btn { display: flex; justify-content: center; align-items: center; width: 100%; padding: 12px 16px; font-size: 1rem; font-weight: 500; border-radius: 8px; border: 1px solid transparent; cursor: pointer; transition: all 0.2s; margin-bottom: 12px; }
+        .btn:last-child { margin-bottom: 0; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover-color); }
+        .btn-secondary { background-color: var(--card-bg-color); color: var(--text-color); border-color: var(--border-color); }
+        .btn-secondary:hover:not(:disabled) { background-color: var(--bg-color); }
+        .btn .badge { margin-left: auto; background-color: rgba(0, 0, 0, 0.1); padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: #333; color: white; padding: 10px 20px; border-radius: 8px; z-index: 100; opacity: 0; transition: opacity 0.3s; }
+    </style>
+</head>
+<body>
+
+    <div class="main-container" id="appContainer">
+        <!-- 动态内容将由JS渲染到这里 -->
+        <div class="loading-overlay">
+            <div class="spinner"></div>
+        </div>
+    </div>
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // 1. 统一的数据源 (State API) - 保持不变
+        const appState = {
+            isLoading: false,
+            apiKey: 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxx' + Math.random().toString(36).substring(2, 15),
+            isApiKeyVisible: false,
+            status: { activated: true, subscribed: true, remaining: 8 },
+            usage: { count: 0 },
+            settings: { autoSubscription: false }
+        };
+
+        // 2. 模拟后端 API - 保持不变
+        const mockApi = { /* ... (与之前完全相同) ... */ };
+        mockApi.fetchUsage = () => new Promise(resolve => setTimeout(() => resolve({ count: Math.floor(Math.random() * 10) }), 1200));
+        mockApi.buyApiKey = () => new Promise(resolve => setTimeout(() => resolve({ success: true, message: "New API Key purchased!" }), 1500));
+
+        // 3. 渲染函数 (Render Function) - 更新
+        function render(state) {
+            const container = document.getElementById('appContainer');
+            container.classList.toggle('is-loading', state.isLoading);
+
+            // 动态决定“显示/隐藏”按钮的文本、样式和动作
+            const apiKeyButtonText = state.isApiKeyVisible ? 'Hide APIKey' : 'Show APIKey';
+            const apiKeyButtonAction = state.isApiKeyVisible ? 'hideKey' : 'showAndCopyKey';
+            const apiKeyButtonClass = state.isApiKeyVisible ? 'btn-secondary' : 'btn-primary';
+
+            const appHTML = `
+                <div class="card">
+                    <div class="status-tags">
+                        ${state.status.activated ? `<span class="tag success">✅ Activated</span>` : ''}
+                        ${state.status.subscribed ? `<span class="tag success">✅ Subscribed</span>` : ''}
+                        <span class="tag info">🚀 Remaining: ${state.status.remaining} days</span>
+                    </div>
+                    
+                    <label for="apikey-input" class="card-subtitle" style="display:block; margin-bottom: 8px;">Your APIKey</label>
+                    <div class="input-group">
+                        <input type="${state.isApiKeyVisible ? 'text' : 'password'}" id="apikey-input" value="${state.apiKey}" readonly>
+                        <div class="input-actions">
+                            <button class="action-btn" title="Paste from clipboard" aria-label="Paste from clipboard" data-action="pasteKey">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <button class="btn ${apiKeyButtonClass}" data-action="${apiKeyButtonAction}">${apiKeyButtonText}</button>
+                </div>
+
+                <div class="card">
+                     <div class="card-header">
+                        <h2 class="card-title">Usage & Subscription</h2>
+                        <p class="card-subtitle">Manage your usage and subscription settings.</p>
+                    </div>
+                    <button class="btn btn-primary" data-action="refreshUsage" ${state.isLoading ? 'disabled' : ''}>Refresh Usage <span class="badge">${state.usage.count}</span></button>
+                    <!-- ... 其他按钮保持不变 ... -->
+                    <button class="btn btn-secondary" data-action="viewUsageDetail" ${state.isLoading ? 'disabled' : ''}>Usage Detail</button>
+                    <button class="btn btn-secondary" data-action="toggleAutoSub" ${state.isLoading ? 'disabled' : ''}>Auto subscription: ${state.settings.autoSubscription ? '✅' : '❌'}</button>
+                </div>
+
+                <div class="card">
+                    <button class="btn btn-secondary" data-action="buyApiKey" ${state.isLoading ? 'disabled' : ''}>Buy APIKey</button>
+                    <button class="btn btn-secondary" data-action="showHelp" ${state.isLoading ? 'disabled' : ''}>Have questions?</button>
+                </div>
+            `;
+            
+            const contentNodes = Array.from(container.children).filter(node => !node.classList.contains('loading-overlay'));
+            contentNodes.forEach(node => node.remove());
+            container.insertAdjacentHTML('beforeend', appHTML);
+        }
+
+        // 4. 统一的事件处理器 (Unified Event Handler) - 更新
+        async function handleAction(event) {
+            const targetButton = event.target.closest('[data-action]');
+            if (!targetButton) return;
+
+            const action = targetButton.dataset.action;
+            console.log(`Action triggered: ${action}`);
+
+            switch (action) {
+                // 新增：显示并复制
+                case 'showAndCopyKey':
+                    appState.isApiKeyVisible = true;
+                    try {
+                        await navigator.clipboard.writeText(appState.apiKey);
+                        showToast('API Key shown and copied!');
+                    } catch (err) {
+                        showToast('Failed to copy, but key is visible.', 'error');
+                    }
+                    break;
+                
+                // 新增：隐藏
+                case 'hideKey':
+                    appState.isApiKeyVisible = false;
+                    break;
+                
+                // 新增：从剪贴板粘贴
+                case 'pasteKey':
+                    appState.isLoading = true;
+                    render(appState); // 显示加载状态
+                    try {
+                        // navigator.clipboard.readText() 会触发浏览器权限请求
+                        const pastedText = await navigator.clipboard.readText();
+                        if (pastedText && pastedText.trim() !== '') {
+                           appState.apiKey = pastedText.trim();
+                           appState.isApiKeyVisible = false; // 粘贴后自动隐藏
+                           showToast('API Key pasted successfully!');
+                        } else {
+                           showToast('Clipboard is empty.', 'error');
+                        }
+                    } catch (err) {
+                        console.error('Paste error:', err);
+                        showToast('Failed to paste. Check permissions.', 'error');
+                    }
+                    appState.isLoading = false;
+                    break;
+
+                case 'refreshUsage':
+                    appState.isLoading = true;
+                    render(appState);
+                    const data = await mockApi.fetchUsage();
+                    appState.usage.count = data.count;
+                    appState.isLoading = false;
+                    showToast('Usage updated!');
+                    break;
+                
+                // ... 其他 case 保持不变 ...
+                case 'viewUsageDetail': alert("Navigating to Usage Detail page..."); break;
+                case 'toggleAutoSub': appState.settings.autoSubscription = !appState.settings.autoSubscription; break;
+                case 'buyApiKey':
+                    appState.isLoading = true; render(appState);
+                    const response = await mockApi.buyApiKey();
+                    if(response.success) {
+                        showToast(response.message);
+                        appState.apiKey = 'sk-newkeyxxxxxxxx'+Math.random().toString(36).substring(2,10);
+                        appState.isApiKeyVisible = false;
+                    }
+                    appState.isLoading = false;
+                    break;
+                case 'showHelp': alert("Navigating to help/FAQ page..."); break;
+            }
+
+            render(appState);
+        }
+        
+        // Toast 轻提示工具函数 - 保持不变
+        function showToast(message) { /* ... (与之前完全相同) ... */ }
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.backgroundColor = type === 'error' ? '#dc2626' : '#333';
+            toast.style.opacity = 1;
+            setTimeout(() => { toast.style.opacity = 0; }, 3000);
+        }
+
+        // 5. 初始化 - 保持不变
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('appContainer');
+            container.addEventListener('click', handleAction);
+            render(appState);
+        });
+    </script>
+</body>
+</html>

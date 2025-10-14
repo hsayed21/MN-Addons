@@ -71,6 +71,12 @@ class MNNote{
         if ("html" in config ) {
           note.appendHtmlComment(config.html, config.html, {width:1000,height:500}, "")
         }
+        if ("parentNoteId" in config && config.parentNoteId) {
+          let parentNote = MNNote.new(config.parentNoteId)
+          if (parentNote) {
+            this.note = parentNote.addAsChildNote(this.note)
+          }
+        }
         break;
       default:
         break;
@@ -898,8 +904,10 @@ class MNNote{
   realGroupNoteForTopicId(nodebookid = MNUtil.currentNotebookId){
     let noteId = this.note.realGroupNoteIdForTopicId(nodebookid)
     if (!noteId) {
+      // MNUtil.log("realGroupNoteForTopicId: note is not found")
       return this
     }
+    // MNUtil.log("realGroupNoteForTopicId")
     return MNNote.new(noteId)
   };
   /**
@@ -2062,6 +2070,66 @@ try {
     MNNote.addErrorLog(error, "appendNoteLink")
     return this
   }
+  }
+  /**
+   * 
+   * @param {Object} editConfig
+   * @param {boolean} refresh 
+   */
+  editFunc(editConfig){
+    if ("deleteNote" in editConfig && editConfig.deleteNote) {
+      this.delete()
+      //没有必要做其他编辑
+      return true
+    }
+    if ("color" in editConfig) {
+      this.color = editConfig.color
+    }
+    if ("excerptText" in editConfig) {
+      this.excerptText = editConfig.excerptText
+    }
+    if ("excerptTextMarkdown" in editConfig) {
+      this.excerptTextMarkdown = editConfig.excerptTextMarkdown
+    }
+    if ("title" in editConfig) {
+      this.title = editConfig.title
+    }
+    if ("tags" in editConfig) {
+      this.appendTags(editConfig.tags)
+    }
+    if ("markdownComment" in editConfig) {
+      if ("markdownCommentIndex" in editConfig) {
+        this.appendMarkdownComment(editConfig.markdownComment, editConfig.markdownCommentIndex)
+      }else{
+        this.appendMarkdownComment(editConfig.markdownComment)
+      }
+    }
+    if ("tagsToRemove" in editConfig) {
+      this.removeTags(editConfig.tagsToRemove)
+    }
+  }
+  /**
+   * 通过一个json配置来应用更改
+   * @param {Object} editConfig
+   * @param {boolean} undoGrouping
+   * @param {boolean} refresh 
+   * @returns {MNNote}
+   */
+  applyEdit(editConfig,undoGrouping = true,refresh = true){
+    if (undoGrouping) {
+      if (refresh) {
+        MNUtil.undoGrouping(()=>{
+          this.editFunc(editConfig)
+        })
+      }else{
+        MNUtil.undoGroupingNotRefresh(()=>{
+          this.editFunc(editConfig)
+        })
+      }
+    }else{
+      this.editFunc(editConfig)
+    }
+    return this
   }
   /**
    *
