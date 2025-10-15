@@ -2439,6 +2439,21 @@
         renderNegativeBar();
         clearSelection();
         scheduleSearch();
+
+        // 清空后立即进入输入状态
+        // 1. 展开筛选面板
+        expandFiltersForSearchInput();
+
+        // 2. 在窄模式下关闭侧边栏
+        if (isCompactLayout()) {
+          const isSidebarOpen = dom.sidebar?.classList.contains('show');
+          if (isSidebarOpen) {
+            closeSidebar();
+          }
+        }
+
+        // 3. 聚焦到搜索输入框
+        dom.searchInput.focus();
       }
 
       function handleClearPresets() {
@@ -3146,9 +3161,17 @@
           for (const group of state.exclusionGroups) {
             if (group.enabled === false) continue;
 
-            const matchedTrigger = (group.triggerWords || []).find(trigger =>
-              trigger.toLowerCase() === keyword
-            );
+            // 优化：支持包含匹配和精确匹配
+            const matchedTrigger = (group.triggerWords || []).find(trigger => {
+              const triggerLower = trigger.toLowerCase();
+              // 1. 精确匹配（优先）
+              if (keyword === triggerLower) return true;
+              // 2. 包含匹配（处理分词问题）
+              if (keyword.includes(triggerLower)) return true;
+              // 3. 反向包含（触发词包含关键词，处理部分匹配）
+              if (triggerLower.includes(keyword)) return true;
+              return false;
+            });
 
             if (matchedTrigger) {
               (group.excludeWords || []).forEach(word => exclusions.add(word));
@@ -3172,16 +3195,66 @@
       }
 
       /**
+       * 实时判断卡片是否应该被排除（降级逻辑，用于缺少 excludedGroups 字段的卡片）
+       * @param {Object} card - 卡片对象
+       * @param {Object} activeExclusions - 激活的排除词信息
+       * @returns {boolean} true 表示应该排除
+       */
+      function shouldExcludeCardRealtime(card, activeExclusions) {
+        if (!activeExclusions || activeExclusions.excludeWords.length === 0) {
+          return false;
+        }
+
+        // 收集卡片的所有文本内容
+        const searchText = [
+          card.title || '',
+          card.searchText || '',
+          card.snippet || '',
+          card.content || ''
+        ].join(' ').toLowerCase();
+
+        // 检查是否包含排除词
+        const containsExcludeWord = activeExclusions.excludeWords.some(excludeWord => {
+          return searchText.includes(excludeWord.toLowerCase());
+        });
+
+        if (!containsExcludeWord) {
+          return false;  // 不包含排除词，不排除
+        }
+
+        // 如果包含排除词，还要检查触发词是否独立存在
+        // 即排除词不能是触发词的一部分
+        const containsTriggerIndependently = activeExclusions.groups.some(group => {
+          return group.triggerWords.some(trigger => {
+            const triggerLower = trigger.toLowerCase();
+
+            // 检查触发词是否独立存在（通过从文本中移除所有排除词后检查）
+            let tempText = searchText;
+            group.excludeWords.forEach(excludeWord => {
+              tempText = tempText.replace(new RegExp(excludeWord.toLowerCase(), 'g'), '');
+            });
+
+            return tempText.includes(triggerLower);
+          });
+        });
+
+        // 如果触发词不独立存在（被排除词替换后就找不到了），则应该排除
+        return !containsTriggerIndependently;
+      }
+
+      /**
        * 判断卡片是否应该被排除
        * @param {Object} card - 卡片对象
        * @param {Object} activeExclusions - 激活的排除词信息
        * @returns {boolean} true 表示应该排除
        */
       function shouldExcludeCard(card, activeExclusions) {
+        // 新增：如果卡片没有预处理的 excludedGroups 字段，使用实时匹配
         if (!card.excludedGroups || card.excludedGroups.length === 0) {
-          return false;
+          return shouldExcludeCardRealtime(card, activeExclusions);
         }
 
+        // 原有逻辑：使用预处理的 excludedGroups 字段
         for (const activeGroup of activeExclusions.groups) {
           for (const cardGroup of card.excludedGroups) {
             if (cardGroup.groupId === activeGroup.id) {

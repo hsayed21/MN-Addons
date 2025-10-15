@@ -1328,8 +1328,7 @@ JSB.newAddon = function(mainPath){
           totalCards: allCards.length,
           updateTime: metadata.updateTime || Date.now(),
           ...metadata
-        },
-        exclusionGroups: KnowledgeBaseTemplate.getExclusionGroups(),
+        }
       };
 
       MNUtil.log(`=== 数据准备完成：共 ${allCards.length} 张卡片 ===`);
