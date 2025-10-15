@@ -5579,7 +5579,7 @@ function registerAllCustomActions() {
       MNUtil.postNotification("AddonBroadcast", { message });
 
       // 显示提示
-      MNUtil.showHUD("正在打开知识库搜索...");
+      // MNUtil.showHUD("正在打开知识库搜索...");
 
     } catch (error) {
       MNUtil.showHUD("打开知识库搜索失败: " + error.message);

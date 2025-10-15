@@ -556,6 +556,11 @@ class Pangu {
     newText = newText.replace(/\]\s*([A-Za-z])/g, "] $1")
     // 去掉 ∈ 前面的空格
     newText = newText.replace(/\s*∈\s*/g, "∈")
+
+
+    // 处理标点符号
+    newText = newText.replace(/\s*,\s*/g, ", ")
+    newText = newText.replace(/\s*:\s*/g, ": ")
     return newText
   }
 }
