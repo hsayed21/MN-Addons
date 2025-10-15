@@ -423,12 +423,16 @@ function registerAllMenuTemplates() {
           menuTitle: "只保留「摘录区」和 ✅「标题」",
         },
         {
+          action: "keepExcerptAreaWithoutTitle",
+          menuTitle: "只保留「摘录区」❌「标题」",
+        },
+        {
           action: "clearContentKeepExcerptWithTitle",
           menuTitle: "只保留「摘录」和 ✅「标题」",
         },
         {
           action: "clearContentKeepExcerpt",
-          menuTitle: "只保留摘录 ❌无标题",
+          menuTitle: "只保留摘录 ❌ 无标题",
         },
         {
           action: "renewKnowledgeNoteIntoParentNote",
@@ -631,12 +635,28 @@ function registerAllMenuTemplates() {
     action: "moveToExcerptPartBottom",
     onLongPress: {
       action: "menu",
-      menuWidth: 300,
+      menuWidth: 350,
       menuItems: [
         "✂️ 修改",
         {
           action: "renewExcerptInParentNoteByFocusNote",
-          menuTitle: "    摘录替换掉父卡片的摘录",
+          menuTitle: "    选中的卡片摘录替换掉父卡片的摘录",
+        },
+        {
+          action: "keepExcerptAreaAndTitle",
+          menuTitle: "    只保留「摘录区」和 ✅「标题」",
+        },
+        {
+          action: "keepExcerptAreaWithoutTitle",
+          menuTitle: "    只保留「摘录区」❌ 无标题",
+        },
+        {
+          action: "clearContentKeepExcerptWithTitle",
+          menuTitle: "    只保留「摘录」和 ✅「标题」",
+        },
+        {
+          action: "clearContentKeepExcerpt",
+          menuTitle: "    只保留摘录 ❌ 无标题",
         },
         "⬇️ 移动",
         {
@@ -645,12 +665,12 @@ function registerAllMenuTemplates() {
         },
         "☯️ 合并",
         {
-          "action": "mergeLastChildToExcerpt",
-          "menuTitle": "    合并最后一张子卡片到摘录区",
+          action: "mergeLastChildToExcerpt",
+          menuTitle: "    合并最后一张子卡片到摘录区",
         },
         {
-          "action": "mergeToPreviousBrotherExcerpt",
-          "menuTitle": "    合并到前一张兄弟卡片的摘录区",
+          action: "mergeToPreviousBrotherExcerpt",
+          menuTitle: "    合并到前一张兄弟卡片的摘录区",
         },
         {
           action: "mergeToParentAndMoveCommentToExcerpt",
@@ -659,6 +679,10 @@ function registerAllMenuTemplates() {
         {
           action: "mergeToParentAndMoveCommentToTop",
           menuTitle: "    合并到父卡片并移动到最顶端",
+        },
+        {
+          action: "mergeExerptAreToParentAndMoveCommentToExcerpt",
+          menuTitle: "    合并「摘录区」到父卡片并移动评论到摘录",
         },
       ],
     },
@@ -810,6 +834,24 @@ function registerAllMenuTemplates() {
         {
           action: "mergeIntoParentNoteAndMoveToProofArea",
           menuTitle: "合并到父卡片 ⇒ 移动到证明区",
+        },
+        "⬇️ 移动最后 1️⃣ 条评论",
+        {
+          action: "moveLastCommentToProofAreaTop",
+          menuTitle: "    🔝 移动到证明区顶部",
+        },
+        {
+          action: "moveLastCommentToProofAreaBottom",
+          menuTitle: "    ▼ 移动到证明区底部",
+        },
+        "⬇️ 移动最后 2️⃣ 条评论",
+        {
+          action: "moveLastTwoCommentsToProofAreaTop",
+          menuTitle: "    🔝 移动到证明区顶部",
+        },
+        {
+          action: "moveLastTwoCommentsToProofAreaBottom",
+          menuTitle: "    ▼ 移动到证明区底部",
         },
         "🔍 OCR",
         {
