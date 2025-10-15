@@ -100,7 +100,7 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
 
       // 拦截自定义 scheme
       if (config && config.scheme === "mnknowledgebase") {
-        self.executeAction(config)  // 委托给集中处理方法
+        self.executeAction(config, true)  // 委托给集中处理方法
         return false
       }
 
@@ -363,29 +363,34 @@ knowledgebaseWebController.prototype.loadHTMLFile = function() {
  * @param {string} config.host - 动作名称
  * @param {Object} config.params - 参数对象
  */
-knowledgebaseWebController.prototype.executeAction = async function(config) {
+knowledgebaseWebController.prototype.executeAction = async function(config, closedWebView = false) {
   try {
     let targetNoteId = config.params.id
     let targetNote = MNNote.new(targetNoteId)
     let focusNote = MNNote.getFocusNote()
+    let success = false
     if (!targetNote) { return }
     switch (config.host) {
       case "focusCardInMindMap":
         // 定位卡片到脑图
         await this.focusCardInMindMap(targetNoteId)
+        success = true
         break
 
       case "focusCardInFloatMindMap":
         // 聚焦到文档位置
         await this.focusCardInFloatMindMap(targetNoteId)
+        success = true
         break
 
       case "copyMarkdownLink":  // 调用 copyMarkdownLinkWithQuickPhrases 复制卡片行内链接
         await this.copyMarkdownLink(targetNoteId)
+        success = true
         break;
 
       case "copyNoteURL":  // 复制卡片 URL
         await this.copyNoteURL(targetNoteId)
+        success = true
         break;
 
       case 'mergeFocusNoteToTargetNoteExcerptPart':
@@ -398,6 +403,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
           focusNote.title = ""
           focusNote.mergeInto(targetNote);
           KnowledgeBaseTemplate.autoMoveNewContentToField(targetNote, "摘录");
+          success = true
         })
         break;
 
@@ -410,6 +416,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
           focusNote.title = ""
           focusNote.mergeInto(targetNote);
           KnowledgeBaseTemplate.autoMoveNewContentToField(targetNote, "摘录");
+          success = true
         })
         break;
 
@@ -421,6 +428,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
           }
           focusNote.appendNoteLink(targetNote, "Both")
           KnowledgeBaseTemplate.removeDuplicateLinksInLastField(targetNote)  // 链接去重
+          success = true
         })
         break;
 
@@ -431,6 +439,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
             return 
           }
           targetNote.addChild(focusNote);
+          success = true
         })
         break;
 
@@ -442,6 +451,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
           }
           targetNote.addChild(focusNote);
           focusNote.focusInMindMap(0.5)
+          success = true
         })
         break;
 
@@ -455,6 +465,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
           // await MNUtil.delay(2)
           if (classificationNote) {
             classificationNote.addChild(focusNote);
+            success = true
           } else {
             MNLog.log("未找到新卡片");
           }
@@ -472,6 +483,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
           let classificationNote = await KnowledgeBaseTemplate.addTemplate(targetNote, false);
           if (classificationNote) {
             classificationNote.addChild(focusNote);
+            success = true
             focusNote.focusInMindMap(0.5)
           } else {
             MNLog.log("未找到新卡片");
@@ -493,6 +505,13 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
 
       default:
         MNUtil.showHUD("未知动作: " + config.host)
+    }
+    if (closedWebView && success) {
+      if (this.addonBar) {
+        this.hide(this.addonBar.frame)
+      } else {
+        this.hide()
+      }
     }
   } catch (error) {
     MNUtil.showHUD("执行动作失败: " + error)

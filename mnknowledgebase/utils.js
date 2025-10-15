@@ -18234,7 +18234,7 @@ class KnowledgeBaseNetwork {
       description: '去掉比较运算符两边的空格'
     },
     {
-      pattern: "\s*，\s*",
+      pattern: "\s*，|,\s*",
       replacement: ", ",
       description: ""
     }
