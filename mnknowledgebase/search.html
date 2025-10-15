@@ -3148,49 +3148,61 @@
        * 获取激活的排除词组信息
        * @param {Array<string>} keywords - 搜索关键词数组
        * @returns {Object} 包含 excludeWords 和 groups 的对象
-       */
+      */
       function getActiveExclusions(keywords) {
-        if (!keywords || keywords.length === 0 || !state.exclusionGroups) {
+        const keywordSet = new Set((keywords || []).filter(Boolean));
+        if (keywordSet.size === 0 || !state.exclusionGroups || state.exclusionGroups.length === 0) {
           return { excludeWords: [], groups: [] };
         }
 
         const exclusions = new Set();
-        const activeGroups = [];
+        const groupMap = new Map();
 
-        for (const keyword of keywords) {
+        for (const keyword of keywordSet) {
           for (const group of state.exclusionGroups) {
-            if (group.enabled === false) continue;
+            if (!group || group.enabled === false) continue;
 
-            // 优化：支持包含匹配和精确匹配
-            const matchedTrigger = (group.triggerWords || []).find(trigger => {
-              const triggerLower = trigger.toLowerCase();
-              // 1. 精确匹配（优先）
+            const matchedTrigger = (group.triggerWords || []).find((trigger) => {
+              const triggerLower = (trigger || '').toLowerCase();
+              if (!triggerLower) return false;
               if (keyword === triggerLower) return true;
-              // 2. 包含匹配（处理分词问题）
               if (keyword.includes(triggerLower)) return true;
-              // 3. 反向包含（触发词包含关键词，处理部分匹配）
               if (triggerLower.includes(keyword)) return true;
               return false;
             });
 
-            if (matchedTrigger) {
-              (group.excludeWords || []).forEach(word => exclusions.add(word));
+            if (!matchedTrigger) continue;
 
-              if (!activeGroups.find(g => g.id === group.id)) {
-                activeGroups.push({
-                  id: group.id,
-                  name: group.name,
-                  triggerWords: group.triggerWords,
-                  excludeWords: group.excludeWords
-                });
-              }
+            const cleanedExcludeWords = (group.excludeWords || []).filter((word) => {
+              if (!word) return false;
+              return !keywordSet.has(word.toLowerCase());
+            });
+
+            if (cleanedExcludeWords.length === 0) continue;
+
+            cleanedExcludeWords.forEach((word) => exclusions.add(word));
+
+            const groupKey =
+              group.id ||
+              group.name ||
+              (group.triggerWords || []).join('|') ||
+              JSON.stringify(group);
+
+            const existing = groupMap.get(groupKey);
+            if (existing) {
+              existing.excludeWords = Array.from(new Set([...existing.excludeWords, ...cleanedExcludeWords]));
+            } else {
+              groupMap.set(groupKey, {
+                ...group,
+                excludeWords: cleanedExcludeWords.slice(),
+              });
             }
           }
         }
 
         return {
           excludeWords: Array.from(exclusions),
-          groups: activeGroups
+          groups: Array.from(groupMap.values()),
         };
       }
 
@@ -3214,7 +3226,12 @@
         ].join(' ').toLowerCase();
 
         // 检查是否包含排除词
-        const containsExcludeWord = activeExclusions.excludeWords.some(excludeWord => {
+        const excludeWords = Array.isArray(activeExclusions.excludeWords)
+          ? activeExclusions.excludeWords
+          : [];
+
+        const containsExcludeWord = excludeWords.some((excludeWord) => {
+          if (!excludeWord) return false;
           return searchText.includes(excludeWord.toLowerCase());
         });
 
@@ -3224,16 +3241,35 @@
 
         // 如果包含排除词，还要检查触发词是否独立存在
         // 即排除词不能是触发词的一部分
-        const containsTriggerIndependently = activeExclusions.groups.some(group => {
-          return group.triggerWords.some(trigger => {
-            const triggerLower = trigger.toLowerCase();
+        const activeGroups = Array.isArray(activeExclusions.groups)
+          ? activeExclusions.groups
+          : [];
 
-            // 检查触发词是否独立存在（通过从文本中移除所有排除词后检查）
-            let tempText = searchText;
-            group.excludeWords.forEach(excludeWord => {
-              tempText = tempText.replace(new RegExp(excludeWord.toLowerCase(), 'g'), '');
+        const containsTriggerIndependently = activeGroups.some((group) => {
+          const triggerWords = Array.isArray(group?.triggerWords)
+            ? group.triggerWords
+            : [];
+          const groupExcludeWords = Array.isArray(group?.excludeWords)
+            ? group.excludeWords
+            : [];
+
+          let tempText = searchText;
+          groupExcludeWords
+            .map((word) => (word || '').toLowerCase())
+            .filter(Boolean)
+            .forEach((excludeWord) => {
+              let index = tempText.indexOf(excludeWord);
+              while (index !== -1) {
+                tempText =
+                  tempText.slice(0, index) +
+                  tempText.slice(index + excludeWord.length);
+                index = tempText.indexOf(excludeWord, index);
+              }
             });
 
+          return triggerWords.some((trigger) => {
+            const triggerLower = (trigger || '').toLowerCase();
+            if (!triggerLower) return false;
             return tempText.includes(triggerLower);
           });
         });
