@@ -3785,6 +3785,54 @@ class KnowledgeBaseTemplate {
     })
   }
 
+  static createChildNoteWithTitle(note, title) {
+    let config = {
+      title: title,
+      content: "",
+      markdown: true,
+      color: note.colorIndex
+    }
+    // 创建新兄弟卡片，标题为旧卡片的标题
+    return note.createChildNote(config)
+  }
+
+  /**
+   * 基于 note 的标题生成两张同标题的卡片
+   * 
+   * 场景：note 是一个“等价刻画/充要条件”命题，需要生成充分性和必要性两个卡片
+   *   
+   * @param {MNNote} note 
+   */
+  static createEquivalenceNotes(note) {
+    MNUtil.undoGrouping(()=>{
+      try {
+        let sufficiencyNote = MNNote.clone(this.types.命题.templateNoteId);
+        let neccessaryNote = MNNote.clone(this.types.命题.templateNoteId);
+
+        sufficiencyNote.title = this.getFirstTitleLinkWord(note)
+        neccessaryNote.title = this.getFirstTitleLinkWord(note)
+
+        sufficiencyNote.colorIndex = this.types.命题.colorIndex
+        neccessaryNote.colorIndex = this.types.命题.colorIndex
+
+        sufficiencyNote.appendMarkdownComment("- [逆命题](" + neccessaryNote.noteURL + ")也成立: [等价刻画](" + note.noteURL + ")")
+        neccessaryNote.appendMarkdownComment("- [逆命题](" + sufficiencyNote.noteURL + ")也成立: [等价刻画](" + note.noteURL + ")")
+        this.autoMoveNewContentToField(sufficiencyNote, "相关思考", true, false)
+        this.autoMoveNewContentToField(neccessaryNote, "相关思考", true, false)
+
+        note.appendNoteLink(sufficiencyNote, "To")
+        note.appendNoteLink(neccessaryNote, "To")
+
+        this.moveCommentsArrToField(note, "Y, Z", "证明")
+
+        note.addChild(sufficiencyNote)
+        note.addChild(neccessaryNote)
+      } catch (error) {
+        MNUtil.showHUD(error);
+      }
+    })
+  }
+
   /**
    * 根据卡片类型确定思路链接内容要移动到哪个字段下
    */
@@ -6993,7 +7041,7 @@ class KnowledgeBaseTemplate {
    * // 将新内容移动到摘录区
    * KnowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录区");
    */
-  static autoMoveNewContentToField(note, field, toBottom = true, showEmptyHUD = true) {
+  static autoMoveNewContentToField(note, field, toBottom = true, handleInlineLink = true, showEmptyHUD = true) {
     // 自动获取要移动的内容索引
     let indexArr = this.autoGetNewContentToMoveIndexArr(note);
     
@@ -7029,7 +7077,7 @@ class KnowledgeBaseTemplate {
     this.moveCommentsArrToField(note, indexArr, field, toBottom);
 
     // 处理之前提取的 MarginNote 链接
-    if (marginNoteLinks.length > 0) {
+    if (marginNoteLinks.length > 0 && handleInlineLink) {
       this.processExtractedMarginNoteLinks(note, marginNoteLinks);
     }
     
@@ -17059,6 +17107,31 @@ class SynonymManager {
     //   "words": ["", ""],
     //   "partialReplacement": false,
     // },
+
+    // {
+    //   "words": ["", ""],
+    //   "partialReplacement": false,
+    // },
+    // {
+    //   "words": ["", ""],
+    //   "partialReplacement": false,
+    // },
+    // {
+    //   "words": ["", ""],
+    //   "partialReplacement": false,
+    // },
+    // {
+    //   "words": ["", ""],
+    //   "partialReplacement": false,
+    // },
+    {
+      "words": ["复可测函数", "可测复函数"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["实可测函数", "可测实函数"],
+      "partialReplacement": false,
+    },
     {
       "words": ["像空间", "值域"],
       "partialReplacement": false,

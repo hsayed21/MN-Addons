@@ -5784,10 +5784,13 @@ function registerAllCustomActions() {
     }
   });
 
+  global.registerCustomAction("createEquivalenceNotes", async function(context) {
+    const { focusNote } = context;
+    KnowledgeBaseTemplate.createEquivalenceNotes(focusNote);
+  })
   // global.registerCustomAction("", async function(context) {
-  //     const { focusNote } = context;
-  //   }
-  // )
+  //   const { focusNote } = context;
+  // })
 
 
 
