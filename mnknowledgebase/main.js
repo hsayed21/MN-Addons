@@ -882,18 +882,22 @@ JSB.newAddon = function(mainPath){
     //     }
     //   })
     // }
-        /**
+    /**
      * 处理来自其他插件的通信消息
      * @param {Object} sender - 消息发送者信息,包含 userInfo.message
      *
      * 消息协议格式:
-     * marginnote4app://addon/mnknowledgebase?action=ACTION
+     * marginnote4app://addon/mnknowledgebase?action=ACTION&param1=value1&param2=value2
      *
      * 支持的 actions:
      * - openSearchWebView: 打开可视化搜索界面
+     *   参数:
+     *   - enterInputMode: 是否自动进入输入模式（默认 false）
+     *   - clearPreset: 是否清除已选预设（默认 true）
      *
      * 使用示例:
      * marginnote4app://addon/mnknowledgebase?action=openSearchWebView
+     * marginnote4app://addon/mnknowledgebase?action=openSearchWebView&enterInputMode=true&clearPreset=true
      */
     onAddonBroadcast: async function (sender) {
       try {
@@ -908,7 +912,10 @@ JSB.newAddon = function(mainPath){
           let action = config.params.action
           switch (action) {
             case "openSearchWebView":
-              await self.openSearchWebView()
+              // 从 URL 参数中获取 enterInputMode 和 clearPreset
+              const enterInputMode = config.params.enterInputMode === "true" || config.params.enterInputMode === true;
+              const clearPreset = config.params.clearPreset === "true" || config.params.clearPreset === true;
+              await self.openSearchWebView(enterInputMode, clearPreset)
               break;
             default:
               MNUtil.showHUD('不支持的操作: ' + action)
@@ -1392,30 +1399,19 @@ JSB.newAddon = function(mainPath){
    * 此方法为插件通信专用,通过 self.openSearchWebView() 调用
    * 功能与实例方法 openSearchWebView 保持一致
    */
-  MNKnowledgeBaseClass.prototype.openSearchWebView = async function() {
+  MNKnowledgeBaseClass.prototype.openSearchWebView = async function(enterInputMode = false, clearPreset = true) {
     try {
       this.checkPopover()
 
       // 确保控制器已初始化
       KnowledgeBaseUtils.checkWebViewController()
+      if (enterInputMode) {
+        KnowledgeBaseUtils.webViewController.enterInputMode(clearPreset)
+      }
 
       // 如果已显示,直接返回前台
       if (!KnowledgeBaseUtils.webViewController.view.hidden) {
         MNUtil.studyView.bringSubviewToFront(KnowledgeBaseUtils.webViewController.view)
-        MNUtil.showHUD("知识库搜索")
-
-        // 清空输入框并聚焦
-        await MNUtil.delay(0.2)
-        let clearScript = `
-          const input = document.getElementById('searchInput');
-          if (input) {
-            input.value = '';
-            input.focus();
-          }
-        `
-        await KnowledgeBaseUtils.webViewController.runJavaScript(clearScript)
-
-        await KnowledgeBaseUtils.webViewController.refreshAllData()
         return
       }
 

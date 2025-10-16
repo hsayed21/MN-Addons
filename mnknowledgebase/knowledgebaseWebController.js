@@ -1138,3 +1138,38 @@ knowledgebaseWebController.prototype.refreshAllData = async function() {
     KnowledgeBaseUtils.addErrorLog(error, "refreshAllData")
   }
 }
+
+// ========================================
+// 搜索交互方法
+// ========================================
+
+/**
+ * 进入输入模式
+ * 自动展开筛选面板、关闭侧边栏（窄屏）、聚焦搜索输入框
+ * @param {boolean} clearPresets - 是否清除已选预设（默认 false）
+ */
+knowledgebaseWebController.prototype.enterInputMode = async function(clearPresets = false) {
+  try {
+    MNUtil.log("=== enterInputMode 开始执行 ===")
+    MNUtil.log("clearPresets: " + clearPresets)
+
+    // 检查 WebView 是否已加载
+    if (!this.webViewLoaded) {
+      MNUtil.log("WebView 尚未加载，无法进入输入模式")
+      MNUtil.showHUD("请稍后再试")
+      return
+    }
+
+    // 调用 JavaScript Bridge 方法
+    let script = `window.Bridge.enterInputMode(${clearPresets})`
+    MNUtil.log("执行脚本: " + script)
+
+    await this.runJavaScript(script)
+    MNUtil.log("=== enterInputMode 执行完成 ===")
+
+  } catch (error) {
+    MNUtil.log("enterInputMode 发生错误: " + error)
+    MNUtil.showHUD("进入输入模式失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "enterInputMode")
+  }
+}

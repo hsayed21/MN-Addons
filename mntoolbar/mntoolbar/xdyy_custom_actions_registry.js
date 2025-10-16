@@ -5568,12 +5568,14 @@ function registerAllCustomActions() {
   /**
    * 搜索 - 打开知识库可视化搜索界面
    * 通过插件通信调用 mnknowledgebase 的 openSearchWebView 方法
+   * 默认进入输入模式并清除已选预设，提供最佳的搜索体验
    */
   global.registerCustomAction("searchNotesInWebview", async function(context) {
     const { focusNote } = context;
     try {
       // 构建插件通信 URL
-      const message = "mnknowledgebase?action=openSearchWebView";
+      // 默认启用进入输入模式，并清除预设
+      const message = "mnknowledgebase?action=openSearchWebView&enterInputMode=true&clearPreset=true";
 
       // 发送通信消息到 mnknowledgebase 插件
       MNUtil.postNotification("AddonBroadcast", { message });

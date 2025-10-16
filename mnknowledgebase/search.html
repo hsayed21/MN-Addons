@@ -1481,6 +1481,41 @@
         } catch (error) {
           console.warn('notifyReady 失败', error);
         }
+      },
+
+      /**
+       * 进入输入模式 (Native → JS)
+       * @param {boolean} clearPresets - 是否清除已选预设（默认 false）
+       */
+      enterInputMode: function(clearPresets = false) {
+        console.log('Bridge.enterInputMode 被调用, clearPresets:', clearPresets);
+
+        // 如果需要清除预设
+        if (clearPresets) {
+          if (state.activePresets.size > 0) {
+            state.activePresets.clear();
+            renderPresetBar();
+            console.log('已清除所有预设');
+          }
+        }
+
+        // 调用已有的输入聚焦功能
+        expandFiltersForSearchInput();
+
+        // 在窄模式下关闭侧边栏
+        if (isCompactLayout()) {
+          const isSidebarOpen = dom.sidebar?.classList.contains('show');
+          if (isSidebarOpen) {
+            closeSidebar();
+            console.log('已关闭侧边栏');
+          }
+        }
+
+        // 聚焦到搜索输入框
+        if (dom.searchInput) {
+          dom.searchInput.focus();
+          console.log('已聚焦到搜索输入框');
+        }
       }
     };
 
