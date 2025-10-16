@@ -3047,10 +3047,11 @@
       }
 
       function applyFilters(payload) {
-        const query = payload || state.lastQueryPayload || buildQueryPayload();
+        try {
+          const query = payload || state.lastQueryPayload || buildQueryPayload();
 
-        // 计算当前搜索激活的排除词组
-        state.activeExclusions = getActiveExclusions(query.tokensLower);
+          // 计算当前搜索激活的排除词组
+          state.activeExclusions = getActiveExclusions(query.tokensLower);
 
         const allowedTypes = query.typeList ? new Set(query.typeList) : null;
         const negatives = query.excludePresets.map((word) => word.toLowerCase());
@@ -3125,10 +3126,14 @@
         const initialCards = results.slice(0, INITIAL_PAGE_SIZE);
         state.displayedCards = initialCards;
 
-        renderResults(initialCards);
+          renderResults(initialCards);
 
-        // 如果有更多数据，显示加载更多按钮
-        updateLoadMoreButton();
+          // 如果有更多数据，显示加载更多按钮
+          updateLoadMoreButton();
+        } catch (error) {
+          console.error('应用筛选器失败:', error);
+          showToast('筛选失败，请重试');
+        }
       }
 
       function passesNegativeFilter(card, negativeTokens) {
@@ -3464,10 +3469,12 @@
       }
 
       function renderResults(items) {
-        dom.results.innerHTML = '';
-        const fragment = document.createDocumentFragment();
+        try {
+          dom.results.innerHTML = '';
+          const fragment = document.createDocumentFragment();
 
-        items.forEach((card) => {
+          items.forEach((card) => {
+            try {
           const element = document.createElement('div');
           element.className = 'card';
           element.dataset.id = card.id;
@@ -3597,17 +3604,26 @@
             }
           });
           fragment.appendChild(element);
-        });
+            } catch (cardError) {
+              console.error('渲染卡片失败:', cardError, card);
+              // 继续渲染其他卡片
+            }
+          });
 
-        dom.results.appendChild(fragment);
-        updateSearchCount(items.length);
-        updateSelectionInfo();
-        updateActionButtonsState();
+          dom.results.appendChild(fragment);
+          updateSearchCount(items.length);
+          updateSelectionInfo();
+          updateActionButtonsState();
+        } catch (error) {
+          console.error('渲染结果失败:', error);
+          showToast('渲染失败，请刷新页面');
+        }
       }
 
       // 创建单个卡片元素（提取出来用于复用）
       function createCardElement(card) {
-        const element = document.createElement('div');
+        try {
+          const element = document.createElement('div');
         element.className = 'card';
         element.dataset.id = card.id;
 
@@ -3736,6 +3752,15 @@
           }
         });
         return element;
+        } catch (error) {
+          console.error('创建卡片元素失败:', error, card);
+          // 返回一个简单的错误占位元素
+          const errorElement = document.createElement('div');
+          errorElement.className = 'card';
+          errorElement.style.borderLeftColor = '#ff6b6b';
+          errorElement.innerHTML = '<div class="card-title">⚠️ 卡片渲染失败</div>';
+          return errorElement;
+        }
       }
 
       function resolveTypeColor(card) {
@@ -3876,105 +3901,56 @@
             if (!postBridge('copyMarkdownLink', { id })) {
               showToast('功能开发中：复制行内链接');
             } else {
-              showToast('复制行内链接')
+              showToast('复制行内链接');
             }
             break;
           }
 
           case 'mergeFocusNoteToTargetNoteExcerptPart':
             if (!postBridge('mergeFocusNoteToTargetNoteExcerptPart', { id })) {
-              
+              showToast('操作失败');
             }
-            // showToast('功能开发中：合并到目标卡片');
             break;
 
           case 'clearTitleAndMergeFocusNoteToTargetNoteExcerptPart':
             if (!postBridge('clearTitleAndMergeFocusNoteToTargetNoteExcerptPart', { id })) {
-              
+              showToast('操作失败');
             }
-            // showToast('功能开发中：清空标题并合并');
             break;
 
           case 'bidirectionalLinkFromeFocusNoteToTargetNote':
             if (!postBridge('bidirectionalLinkFromeFocusNoteToTargetNote', { id })) {
-              
+              showToast('操作失败');
             }
-            // showToast('功能开发中：双向链接');
             break;
 
           case 'moveFocusNoteToTargetNoteAsChild':
             if (!postBridge('moveFocusNoteToTargetNoteAsChild', { id })) {
-              
+              showToast('操作失败');
             }
-            // showToast('功能开发中：移到子卡片');
             break;
 
           case 'moveFocusNoteToTargetNoteAsChildAndLocate':
             if (!postBridge('moveFocusNoteToTargetNoteAsChildAndLocate', { id })) {
-              
+              showToast('操作失败');
             }
-            // showToast('功能开发中：移到子卡片并定位');
             break;
 
           case 'addTemplateToTargetNoteAndMoveFocusNoteAsChild':
             if (!postBridge('addTemplateToTargetNoteAndMoveFocusNoteAsChild', { id })) {
-              
+              showToast('操作失败');
             }
-            // showToast('功能开发中：增加模板并添加为子卡片');
             break;
 
           case 'addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocate':
             if (!postBridge('addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocate', { id })) {
-              
+              showToast('操作失败');
             }
-            // showToast('功能开发中：增加模板并添加为子卡片并定位');
             break;
 
           default:
             showToast('未知操作');
             break;
-        }
-      }
-
-      function copyToClipboard(text, successMessage = '已复制') {
-        if (!text) {
-          showToast('无可复制的内容');
-          return;
-        }
-
-        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-          navigator.clipboard
-            .writeText(text)
-            .then(() => showToast(successMessage))
-            .catch(() => fallbackCopy(text, successMessage));
-        } else {
-          fallbackCopy(text, successMessage);
-        }
-      }
-
-      function fallbackCopy(text, successMessage) {
-        try {
-          const textarea = document.createElement('textarea');
-          textarea.value = text;
-          textarea.style.position = 'fixed';
-          textarea.style.opacity = '0';
-          document.body.appendChild(textarea);
-          try {
-            textarea.focus({ preventScroll: true });
-          } catch (focusError) {
-            textarea.focus();
-          }
-          textarea.select();
-          const ok = document.execCommand('copy');
-          document.body.removeChild(textarea);
-          if (ok) {
-            showToast(successMessage);
-          } else {
-            showToast('复制失败，请在原生端使用');
-          }
-        } catch (error) {
-          console.warn('fallback copy failed', error);
-          showToast('复制失败，请在原生端使用');
         }
       }
 
