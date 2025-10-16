@@ -43,6 +43,10 @@ JSB.newAddon = function(mainPath){
         MNUtil.addObserver(self, 'onAddonBroadcast:', 'AddonBroadcast')
         // MNUtil.addObserver(self, 'onOpenKnowledgeBaseSearch:', 'openKnowledgeBaseSearch')
 
+        // 注册文本编辑生命周期观察者（用于检测新卡片创建）
+        MNUtil.addObserver(self, 'onTextDidBeginEditing:', 'UITextViewTextDidBeginEditingNotification')
+        MNUtil.addObserver(self, 'onTextDidEndEditing:', 'UITextViewTextDidEndEditingNotification')
+
         self.toggled = false
         self.excerptOCRMode = KnowledgeBaseConfig.config.excerptOCRMode || 0  // 摘录 OCR 模式：0=关闭, 1=直接OCR, 2=Markdown格式, 3=概念提取
         self.preExcerptMode = false  // 预摘录模式
@@ -64,9 +68,12 @@ JSB.newAddon = function(mainPath){
     sceneDidDisconnect: function() {
       MNUtil.undoGrouping(()=>{
         try {
-          MNUtil.removeObserver(self, 'AddonBroadcast')
-          MNUtil.removeObserver(self, 'ProcessNewExcerpt')
-          // MNUtil.removeObserver(self, 'openKnowledgeBaseSearch')
+          MNUtil.removeObservers(self, [
+            'AddonBroadcast',
+            'ProcessNewExcerpt',
+            'UITextViewTextDidBeginEditingNotification',
+            'UITextViewTextDidEndEditingNotification'
+          ])
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -155,9 +162,111 @@ JSB.newAddon = function(mainPath){
     },
 
     /**
-     * 
-     * @param {{userInfo:{noteid:String}}} sender 
-     * @returns 
+     * 检测在脑图中开始编辑文本（新卡片创建检测）
+     *
+     * 监听文本编辑开始事件，用于检测用户在脑图中创建的新卡片
+     * 利用三要素判定（无标题、无摘录、无评论）来识别新卡片
+     *
+     * @param {{object:UITextView}} param 通知参数，包含触发编辑的文本框引用
+     */
+    onTextDidBeginEditing: function(param) {
+      try {
+        // 1. 窗口隔离：多窗口环境下只处理当前活跃窗口
+        if (self.window !== MNUtil.currentWindow) {
+          return;
+        }
+
+        // 2. 学习模式过滤：复习模式(3)下不处理
+        if (MNUtil.studyMode === 3) {
+          return;
+        }
+
+        // 3. 获取触发编辑的文本框
+        let textView = param.object;
+        if (!textView) {
+          return;
+        }
+
+        // 4. 检查文本框是否在脑图中
+        if (!textView.isDescendantOfView(MNUtil.mindmapView)) {
+          return;
+        }
+
+        // 5. 获取脑图视图
+        let mindmapView = MNUtil.mindmapView;
+        if (!mindmapView || mindmapView.selViewLst.length !== 1) {
+          return;
+        }
+
+        // 6. 获取焦点卡片
+        let focusNote = MNNote.new(mindmapView.selViewLst[0].note.note);
+        if (!focusNote) {
+          return;
+        }
+
+        // 7. 🔑 三要素判定：检测是否为新卡片（无标题、无摘录、无评论）
+        if (!focusNote.noteTitle && !focusNote.excerptText && !focusNote.comments.length) {
+          // 标记为新创建的卡片
+          self.newNoteCreatedFromMindMap = focusNote;
+          self.isCreatingNewNote = true;
+
+          MNUtil.log("【新卡片检测】noteId: " + focusNote.noteId);
+        } else {
+          // 清除标记（用户在编辑已有卡片）
+          self.isCreatingNewNote = false;
+        }
+
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "onTextDidBeginEditing");
+      }
+    },
+
+    /**
+     * 处理文本编辑结束（新卡片处理）
+     *
+     * 当用户完成编辑（按回车或点击完成）时触发
+     * 此时卡片已有标题，进行自动化处理
+     *
+     * @param {{object:UITextView}} param 通知参数
+     */
+    onTextDidEndEditing: function(param) {
+      try {
+        // 1. 窗口隔离
+        if (self.window !== MNUtil.currentWindow) {
+          return;
+        }
+
+        // 2. 检查是否是新卡片编辑结束
+        if (!self.isCreatingNewNote || !self.newNoteCreatedFromMindMap) {
+          return;
+        }
+
+        // 3. 获取最新的卡片数据（因为用户已经输入了内容）
+        let note = MNNote.new(self.newNoteCreatedFromMindMap.noteId);
+
+        if (note && note.noteTitle) {
+          // 4. 显示卡片标题（测试）
+          MNUtil.showHUD("新卡片创建: " + note.noteTitle);
+
+          // 5. 记录日志
+          MNUtil.log("【新卡片创建完成】标题: " + note.noteTitle + ", ID: " + note.noteId);
+
+          // 6. 这里可以添加后续的自动化处理
+          // 例如: 自动添加标签、移动到特定位置等
+        }
+
+      } catch (error) {
+        KnowledgeBaseUtils.addErrorLog(error, "onTextDidEndEditing");
+      } finally {
+        // 7. 清理标志位
+        self.isCreatingNewNote = false;
+      }
+    },
+
+    /**
+     *
+     * @param {{userInfo:{noteid:String}}} sender
+     * @returns
      */
     onProcessNewExcerpt: async function (sender) {
       /**
