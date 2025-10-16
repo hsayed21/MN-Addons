@@ -428,6 +428,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
           }
           focusNote.appendNoteLink(targetNote, "Both")
           KnowledgeBaseTemplate.removeDuplicateLinksInLastField(targetNote)  // 链接去重
+          focusNote.focusInMindMap(0.5)
           success = true
         })
         break;
