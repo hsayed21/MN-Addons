@@ -1484,37 +1484,30 @@
       },
 
       /**
+       * 输出日志到原生层 (JS → Native)
+       * @param {string} message - 日志消息
+       */
+      log: function(message) {
+        console.log('[Bridge.log]', message);
+        try {
+          // 使用 postBridge 发送日志到原生层
+          postBridge('htmlLog', { message: '[HTML] ' + message });
+        } catch (error) {
+          console.warn('日志输出失败', error);
+        }
+      },
+
+      /**
        * 进入输入模式 (Native → JS)
        * @param {boolean} clearPresets - 是否清除已选预设（默认 false）
        */
       enterInputMode: function(clearPresets = false) {
-        console.log('Bridge.enterInputMode 被调用, clearPresets:', clearPresets);
-
-        // 如果需要清除预设
-        if (clearPresets) {
-          if (state.activePresets.size > 0) {
-            state.activePresets.clear();
-            renderPresetBar();
-            console.log('已清除所有预设');
-          }
-        }
-
-        // 调用已有的输入聚焦功能
-        expandFiltersForSearchInput();
-
-        // 在窄模式下关闭侧边栏
-        if (isCompactLayout()) {
-          const isSidebarOpen = dom.sidebar?.classList.contains('show');
-          if (isSidebarOpen) {
-            closeSidebar();
-            console.log('已关闭侧边栏');
-          }
-        }
-
-        // 聚焦到搜索输入框
-        if (dom.searchInput) {
-          dom.searchInput.focus();
-          console.log('已聚焦到搜索输入框');
+        // 调用内部实现函数（定义在 IIFE 内部，可以访问所有内部函数）
+        if (typeof window.__enterInputModeImpl === 'function') {
+          window.__enterInputModeImpl(clearPresets);
+        } else {
+          console.error('❌ enterInputMode 实现未就绪');
+          this.log('【HTML】❌ enterInputMode 实现未就绪');
         }
       }
     };
@@ -1838,7 +1831,8 @@
       const PAGE_SIZE = 50; // 每页显示50条数据
       const INITIAL_PAGE_SIZE = 100; // 初始加载100条，提供更好的初始体验
 
-      const state = {
+      // 暴露到 window 以便原生层访问
+      window.state = {
         config: {
           presetGroups: JSON.parse(JSON.stringify(DEFAULT_PRESET_GROUPS)),
           negativePresets: DEFAULT_NEGATIVE_PRESETS.slice(),
@@ -1868,7 +1862,8 @@
         activeExclusions: null  // 当前激活的排除词信息
       };
 
-      const dom = {
+      // 暴露到 window 以便调试和原生层访问
+      window.dom = {
         typeSection: document.querySelector('[data-section="type"]'),
         presetSection: document.querySelector('[data-section="preset"]'),
         negativeSection: document.querySelector('[data-section="negative"]'),
@@ -4193,6 +4188,79 @@
           timer = setTimeout(() => fn.apply(this, args), wait);
         };
       }
+
+      // ========================================
+      // enterInputMode 实现函数
+      // ========================================
+      /**
+       * enterInputMode 的内部实现
+       * 定义在 IIFE 内部，可以访问所有内部函数和变量
+       * @param {boolean} clearPresets - 是否清除已选预设
+       */
+      window.__enterInputModeImpl = function(clearPresets = false) {
+        console.log('Bridge.enterInputMode 被调用, clearPresets:', clearPresets);
+        window.Bridge.log('【HTML】enterInputMode 方法被调用，clearPresets=' + clearPresets);
+
+        // 如果需要清除预设
+        if (clearPresets) {
+          if (state.activePresets.size > 0) {
+            state.activePresets.clear();
+            renderPresetBar();
+            console.log('已清除所有预设');
+            window.Bridge.log('【HTML】已清除所有预设');
+          }
+        }
+
+        // 强制展开筛选面板（修复：不使用 expandFiltersForSearchInput，避免面板已展开时直接返回）
+        isFilterPanelManuallySet = false;
+        applyFilterPanelState(false, { skipSave: true });
+        console.log('【enterInputMode】已强制展开筛选面板');
+        window.Bridge.log('【HTML】已强制展开筛选面板');
+
+        // 在窄模式下关闭侧边栏
+        if (isCompactLayout()) {
+          const isSidebarOpen = dom.sidebar?.classList.contains('show');
+          if (isSidebarOpen) {
+            closeSidebar();
+            console.log('【enterInputMode】已关闭侧边栏');
+            window.Bridge.log('【HTML】已关闭侧边栏（窄模式）');
+          }
+        }
+
+        // 使用延迟和重试机制确保聚焦成功
+        const attemptFocus = (retries = 3, delay = 100) => {
+          if (!dom.searchInput) {
+            console.log('【enterInputMode】❌ dom.searchInput 不存在（可能未初始化）');
+            window.Bridge.log('【HTML】❌ dom.searchInput 不存在（可能未初始化）');
+            return;
+          }
+
+          console.log('【enterInputMode】尝试聚焦到搜索输入框，剩余重试次数:', retries);
+          window.Bridge.log('【HTML】尝试聚焦到搜索输入框，剩余重试次数:' + retries);
+          dom.searchInput.focus();
+
+          // 在下一个微任务中检查是否真的聚焦了
+          setTimeout(() => {
+            const isFocused = document.activeElement === dom.searchInput;
+            const status = isFocused ? '✅ 成功' : '❌ 失败';
+            console.log('【enterInputMode】聚焦状态检查:', status, '，剩余重试:', retries - 1);
+            window.Bridge.log('【HTML】聚焦状态检查:' + status + '，剩余重试:' + (retries - 1));
+
+            if (!isFocused && retries > 0) {
+              // 如果没聚焦成功，再试一次
+              setTimeout(() => attemptFocus(retries - 1, delay), delay);
+            } else if (isFocused) {
+              console.log('【enterInputMode】✅ 聚焦成功');
+              window.Bridge.log('【HTML】✅ 聚焦成功，enterInputMode 完成');
+            }
+          }, 50);
+        };
+
+        // 延迟 100ms 后开始尝试聚焦，确保 DOM 已准备好
+        window.Bridge.log('【HTML】延迟 100ms 后开始聚焦操作');
+        setTimeout(() => attemptFocus(), 100);
+      };
+
     })();
   </script>
 </body>

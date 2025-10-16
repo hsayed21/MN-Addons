@@ -122,13 +122,33 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
     // 标记 WebView 已加载完成
     self.webViewLoaded = true
     MNUtil.log("webViewLoaded 设置为 true")
-    
+
     // 🆕 新增：如果窗口已经显示，立即刷新数据
     // 这解决了首次打开时数据不刷新的问题
     if (!self.view.hidden) {
       MNUtil.log("窗口已显示，立即刷新数据")
-      MNUtil.delay(0.1).then(() => {
-        self.refreshAllData()
+      MNUtil.delay(0.1).then(async () => {
+        await self.refreshAllData()
+
+        // ⭐ 检查是否设置了 pendingEnterInputMode 标志位
+        if (typeof self.pendingEnterInputMode !== 'undefined') {
+          MNUtil.log("【标志位检查】检测到 pendingEnterInputMode=" + self.pendingEnterInputMode)
+          MNUtil.log("【标志位检查】等待 0.3s 确保数据完全加载后执行 enterInputMode")
+
+          // 等待数据完全加载（0.3秒）
+          await MNUtil.delay(0.3)
+
+          // 执行 enterInputMode
+          const clearPreset = self.pendingEnterInputMode
+          MNUtil.log("【标志位检查】开始执行 enterInputMode，clearPreset=" + clearPreset)
+          await self.enterInputMode(clearPreset)
+
+          // 清除标志位，防止重复执行
+          self.pendingEnterInputMode = undefined
+          MNUtil.log("【标志位检查】已清除 pendingEnterInputMode 标志位")
+        } else {
+          MNUtil.log("【标志位检查】未设置 pendingEnterInputMode，跳过自动进入输入模式")
+        }
       })
     }
   },
@@ -504,6 +524,12 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         MNUtil.showHUD("知识库搜索已就绪")
         break
 
+      case "htmlLog":
+        // HTML 前端发送的日志
+        let message = config.params.message || "无消息"
+        MNLog.log(message)
+        break
+
       default:
         MNUtil.showHUD("未知动作: " + config.host)
     }
@@ -736,6 +762,8 @@ knowledgebaseWebController.prototype.refreshSearchResults = async function(resul
  * @param {Object} endFrame - 最终位置和大小（可选）
  */
 knowledgebaseWebController.prototype.show = async function(beginFrame, endFrame) {
+  MNLog.log("【show() 开始】beginFrame=" + (beginFrame ? "有" : "无") + ", endFrame=" + (endFrame ? "有" : "无"))
+  
   let targetFrame = endFrame || { x: 50, y: 50, width: 420, height: 600 }
   let studyFrame = MNUtil.studyView.frame
 
@@ -751,22 +779,27 @@ knowledgebaseWebController.prototype.show = async function(beginFrame, endFrame)
   }
   this.view.layer.opacity = 0.2
   this.view.hidden = false
+  MNLog.log("【show()】设置 hidden=false，开始动画")
 
   // 动画显示
   MNUtil.animate(() => {
     this.view.layer.opacity = 1.0
     this.view.frame = targetFrame
   }).then(async () => {
+    MNLog.log("【show()】动画完成，触发 bringSubviewToFront")
     MNUtil.studyView.bringSubviewToFront(this.view)
 
     // 显示完成后自动刷新数据（确保 WebView 已加载）
     if (this.webViewLoaded) {
-      MNUtil.log("WebView 已加载，开始自动刷新数据")
+      MNLog.log("【show()】WebView 已加载，开始自动刷新数据")
       await this.refreshAllData()
+      MNLog.log("【show()】refreshAllData 完成")
     } else {
-      MNUtil.log("WebView 尚未加载，跳过自动刷新")
+      MNLog.log("【show()】WebView 尚未加载，跳过自动刷新")
     }
   })
+  
+  MNLog.log("【show() 返回】异步操作已启动")
 }
 
 /**
@@ -1150,25 +1183,133 @@ knowledgebaseWebController.prototype.refreshAllData = async function() {
  */
 knowledgebaseWebController.prototype.enterInputMode = async function(clearPresets = false) {
   try {
-    MNUtil.log("=== enterInputMode 开始执行 ===")
-    MNUtil.log("clearPresets: " + clearPresets)
+    MNLog.log("【enterInputMode 开始】clearPresets=" + clearPresets)
+    MNLog.log("【检查状态】webViewLoaded=" + this.webViewLoaded)
 
     // 检查 WebView 是否已加载
     if (!this.webViewLoaded) {
-      MNUtil.log("WebView 尚未加载，无法进入输入模式")
+      MNLog.log("【错误】WebView 尚未加载，无法进入输入模式")
       MNUtil.showHUD("请稍后再试")
       return
     }
 
-    // 调用 JavaScript Bridge 方法
-    let script = `window.Bridge.enterInputMode(${clearPresets})`
-    MNUtil.log("执行脚本: " + script)
+    // ========== 步骤 1: 验证 Bridge 对象是否存在 ==========
+    MNLog.log("【验证 Bridge】开始检查 window.Bridge 对象")
 
-    await this.runJavaScript(script)
-    MNUtil.log("=== enterInputMode 执行完成 ===")
+    let checkScript = `(function() {
+      try {
+        if (typeof window.Bridge === 'undefined') {
+          return JSON.stringify({ success: false, error: 'Bridge对象不存在' });
+        }
+        if (typeof window.Bridge.enterInputMode !== 'function') {
+          return JSON.stringify({ success: false, error: 'enterInputMode方法不存在' });
+        }
+        return JSON.stringify({ success: true, message: 'Bridge对象正常' });
+      } catch (e) {
+        return JSON.stringify({ success: false, error: e.message });
+      }
+    })()`
+
+    let checkResult = await this.runJavaScript(checkScript)
+    MNLog.log("【验证 Bridge】检查结果: " + checkResult)
+
+    // 解析检查结果
+    let checkStatus = { success: false }
+    try {
+      if (checkResult && typeof checkResult === 'string') {
+        checkStatus = JSON.parse(checkResult)
+      }
+    } catch (e) {
+      MNLog.log("【验证 Bridge】解析结果失败: " + e)
+    }
+
+    if (!checkStatus.success) {
+      MNLog.log("【错误】Bridge 对象验证失败: " + (checkStatus.error || "未知错误"))
+      MNUtil.showHUD("界面未就绪，请稍后重试")
+      return
+    }
+
+    MNLog.log("【验证 Bridge】✅ 验证通过")
+
+    // ========== 步骤 2: 等待数据加载完成标志 ==========
+    // 使用轮询方式检测数据是否加载完成
+    MNLog.log("【等待数据】开始等待数据加载完成")
+
+    let dataReadyScript = `(function() {
+      try {
+        // 检查是否有卡片数据（修复：state.cards 而不是 state.allCards）
+        if (window.state && window.state.cards && window.state.cards.length > 0) {
+          return JSON.stringify({ ready: true, count: window.state.cards.length });
+        }
+        return JSON.stringify({ ready: false });
+      } catch (e) {
+        return JSON.stringify({ ready: false, error: e.message });
+      }
+    })()`
+
+    let maxRetries = 20  // 最多等待 2 秒 (20 * 100ms)
+    let dataReady = false
+
+    for (let i = 0; i < maxRetries; i++) {
+      let dataStatus = await this.runJavaScript(dataReadyScript)
+      MNLog.log("【等待数据】轮询 " + (i + 1) + "/" + maxRetries + ": " + dataStatus)
+
+      try {
+        if (dataStatus && typeof dataStatus === 'string') {
+          let status = JSON.parse(dataStatus)
+          if (status.ready) {
+            MNLog.log("【等待数据】✅ 数据已就绪，卡片数: " + status.count)
+            dataReady = true
+            break
+          }
+        }
+      } catch (e) {
+        MNLog.log("【等待数据】解析状态失败: " + e)
+      }
+
+      // 等待 100ms 后重试
+      await MNUtil.delay(0.1)
+    }
+
+    if (!dataReady) {
+      MNLog.log("【警告】数据加载超时，仍将尝试进入输入模式")
+      // 不返回，继续尝试执行
+    }
+
+    // ========== 步骤 3: 执行 enterInputMode 并获取结果 ==========
+    MNLog.log("【执行 enterInputMode】准备调用前端方法")
+
+    let executeScript = `(function() {
+      try {
+        window.Bridge.enterInputMode(${clearPresets});
+        return JSON.stringify({ success: true, message: '已调用 enterInputMode' });
+      } catch (e) {
+        return JSON.stringify({ success: false, error: e.message });
+      }
+    })()`
+
+    let executeResult = await this.runJavaScript(executeScript)
+    MNLog.log("【执行 enterInputMode】执行结果: " + executeResult)
+
+    // 解析执行结果
+    let executeStatus = { success: false }
+    try {
+      if (executeResult && typeof executeResult === 'string') {
+        executeStatus = JSON.parse(executeResult)
+      }
+    } catch (e) {
+      MNLog.log("【执行 enterInputMode】解析结果失败: " + e)
+    }
+
+    if (executeStatus.success) {
+      MNLog.log("【成功】enterInputMode 执行成功")
+    } else {
+      MNLog.log("【错误】enterInputMode 执行失败: " + (executeStatus.error || "未知错误"))
+      MNUtil.showHUD("进入输入模式失败")
+    }
 
   } catch (error) {
-    MNUtil.log("enterInputMode 发生错误: " + error)
+    MNLog.log("【错误】enterInputMode 发生异常: " + error)
     MNUtil.showHUD("进入输入模式失败: " + error)
     KnowledgeBaseUtils.addErrorLog(error, "enterInputMode")
   }

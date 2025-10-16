@@ -606,7 +606,7 @@ JSB.newAddon = function(mainPath){
      * 注意：数据加载由 show() 方法自动处理，无需手动加载
      */
     openSearchWebView: async function() {
-      self.openSearchWebView()
+      self.openSearchWebView(true, true)  // ⭐ 修复：添加 enterInputMode=true, clearPreset=true
     },
 
     /**
@@ -1510,43 +1510,100 @@ JSB.newAddon = function(mainPath){
    */
   MNKnowledgeBaseClass.prototype.openSearchWebView = async function(enterInputMode = false, clearPreset = true) {
     try {
+      MNLog.log("【openSearchWebView 开始】enterInputMode=" + enterInputMode + ", clearPreset=" + clearPreset)
       this.checkPopover()
 
       // 确保控制器已初始化
       KnowledgeBaseUtils.checkWebViewController()
-      if (enterInputMode) {
-        KnowledgeBaseUtils.webViewController.enterInputMode(clearPreset)
-      }
+      MNLog.log("【检查点1】控制器已初始化")
 
-      // 如果已显示,直接返回前台
-      if (!KnowledgeBaseUtils.webViewController.view.hidden) {
-        MNUtil.studyView.bringSubviewToFront(KnowledgeBaseUtils.webViewController.view)
+      const controller = KnowledgeBaseUtils.webViewController
+      MNLog.log("【检查点2】view.hidden=" + controller.view.hidden + ", onAnimate=" + controller.onAnimate)
+
+      // 如果已显示且不在动画中，处理 enterInputMode
+      if (!controller.view.hidden && !controller.onAnimate) {
+        MNLog.log("【进入分支】已显示且不在动画中 - bring to front")
+        MNUtil.studyView.bringSubviewToFront(controller.view)
+
+        if (enterInputMode) {
+          MNLog.log("【执行】进入输入模式 clearPreset=" + clearPreset)
+          // 修复：直接调用，不使用标志位（v0.18 的方式）
+          // 这解决了插件通信时 webViewDidFinishLoad 不触发的问题
+          await MNUtil.delay(0.1)  // 短暂延迟确保状态稳定
+          await controller.enterInputMode(clearPreset)
+          MNLog.log("【成功】enterInputMode 执行完成")
+        } else {
+          MNLog.log("【跳过】enterInputMode=false，不执行")
+        }
+        MNLog.log("【返回】从已显示分支返回")
         return
       }
 
-      // 加载 HTML
-      if (!KnowledgeBaseUtils.webViewController.webViewLoaded) {
-        MNUtil.showHUD("正在加载搜索界面,请稍候...")
-        KnowledgeBaseUtils.webViewController.loadHTMLFile()
+      // 如果正在动画中，等待动画完成后重新调用
+      if (controller.onAnimate) {
+        MNLog.log("【进入分支】正在动画中 - 等待 0.5s 后重新调用")
+        await MNUtil.delay(0.5)
+        MNLog.log("【重新调用】递归调用 openSearchWebView")
+        return this.openSearchWebView(enterInputMode, clearPreset)
       }
 
-      // 显示窗口
-      await KnowledgeBaseUtils.webViewController.show(
-        null,
-        { x: 50, y: 50, width: 800, height: 800 }
-      )
+      MNLog.log("【进入分支】首次打开流程")
 
-      // 首次打开后聚焦输入框
-      await MNUtil.delay(0.5)
-      let focusScript = `
-        const input = document.getElementById('searchInput');
-        if (input) {
-          input.focus();
+      // 根据 WebView 加载状态决定处理方式
+      if (!controller.webViewLoaded) {
+        // ========== WebView 未加载：使用标志位机制 ==========
+        MNLog.log("【加载HTML】webViewLoaded=false，开始加载")
+        MNUtil.showHUD("正在加载搜索界面,请稍候...")
+        controller.loadHTMLFile()
+        MNLog.log("【加载HTML】loadHTMLFile 调用完成")
+
+        // 显示窗口
+        MNLog.log("【显示窗口】调用 show() 方法")
+        await controller.show(
+          null,
+          { x: 50, y: 50, width: 800, height: 800 }
+        )
+        MNLog.log("【显示完成】show() 方法返回")
+
+        // 首次加载：设置标志位，由 webViewDidFinishLoad 处理
+        if (enterInputMode) {
+          controller.pendingEnterInputMode = clearPreset
+          MNLog.log("【标志位】设置 pendingEnterInputMode=" + clearPreset + "（等待首次加载完成）")
+        } else {
+          controller.pendingEnterInputMode = undefined
+          MNLog.log("【跳过】enterInputMode=false，不执行")
         }
-      `
-      await KnowledgeBaseUtils.webViewController.runJavaScript(focusScript)
+
+      } else {
+        // ========== WebView 已加载：直接调用 ==========
+        MNLog.log("【跳过HTML】webViewLoaded=true，HTML 已加载")
+
+        // 显示窗口
+        MNLog.log("【显示窗口】调用 show() 方法")
+        await controller.show(
+          null,
+          { x: 50, y: 50, width: 800, height: 800 }
+        )
+        MNLog.log("【显示完成】show() 方法返回")
+
+        // WebView 已加载：直接调用 enterInputMode，不依赖回调
+        if (enterInputMode) {
+          MNLog.log("【直接执行】WebView 已加载，等待数据加载后直接调用 enterInputMode")
+          // 等待动画完成和数据加载（show 方法内部会调用 refreshAllData）
+          await MNUtil.delay(0.8)  // 给数据加载留出时间
+
+          MNLog.log("【执行 enterInputMode】clearPreset=" + clearPreset)
+          await controller.enterInputMode(clearPreset)
+          MNLog.log("【成功】enterInputMode 直接执行完成")
+        } else {
+          MNLog.log("【跳过】enterInputMode=false，不执行")
+        }
+      }
+
+      MNLog.log("【openSearchWebView 结束】成功")
 
     } catch (error) {
+      MNLog.log("【错误】openSearchWebView 发生异常: " + error)
       MNUtil.showHUD("打开可视化搜索失败")
       KnowledgeBaseUtils.addErrorLog(error, "openSearchWebView")
     }
