@@ -5574,8 +5574,7 @@ function registerAllCustomActions() {
     const { focusNote } = context;
     try {
       // 构建插件通信 URL
-      // 默认启用进入输入模式，并清除预设
-      const message = "mnknowledgebase?action=openSearchWebView&enterInputMode=true&clearPreset=true";
+      const message = "mnknowledgebase?action=openSearchWebView";
 
       // 发送通信消息到 mnknowledgebase 插件
       MNUtil.postNotification("AddonBroadcast", { message });

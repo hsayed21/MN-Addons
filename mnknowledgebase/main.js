@@ -606,7 +606,7 @@ JSB.newAddon = function(mainPath){
      * 注意：数据加载由 show() 方法自动处理，无需手动加载
      */
     openSearchWebView: async function() {
-      self.openSearchWebView(true, true)  // ⭐ 修复：添加 enterInputMode=true, clearPreset=true
+      self.openSearchWebView()
     },
 
     /**
@@ -1000,13 +1000,9 @@ JSB.newAddon = function(mainPath){
      *
      * 支持的 actions:
      * - openSearchWebView: 打开可视化搜索界面
-     *   参数:
-     *   - enterInputMode: 是否自动进入输入模式（默认 false）
-     *   - clearPreset: 是否清除已选预设（默认 true）
      *
      * 使用示例:
      * marginnote4app://addon/mnknowledgebase?action=openSearchWebView
-     * marginnote4app://addon/mnknowledgebase?action=openSearchWebView&enterInputMode=true&clearPreset=true
      */
     onAddonBroadcast: async function (sender) {
       try {
@@ -1021,10 +1017,7 @@ JSB.newAddon = function(mainPath){
           let action = config.params.action
           switch (action) {
             case "openSearchWebView":
-              // 从 URL 参数中获取 enterInputMode 和 clearPreset
-              const enterInputMode = config.params.enterInputMode === "true" || config.params.enterInputMode === true;
-              const clearPreset = config.params.clearPreset === "true" || config.params.clearPreset === true;
-              await self.openSearchWebView(enterInputMode, clearPreset)
+              await self.openSearchWebView()
               break;
             default:
               MNUtil.showHUD('不支持的操作: ' + action)
@@ -1506,11 +1499,11 @@ JSB.newAddon = function(mainPath){
    * 打开可视化搜索 WebView (Prototype 版本)
    *
    * 此方法为插件通信专用,通过 self.openSearchWebView() 调用
-   * 功能与实例方法 openSearchWebView 保持一致
+   * 显示可视化搜索界面
    */
-  MNKnowledgeBaseClass.prototype.openSearchWebView = async function(enterInputMode = false, clearPreset = true) {
+  MNKnowledgeBaseClass.prototype.openSearchWebView = async function() {
     try {
-      MNLog.log("【openSearchWebView 开始】enterInputMode=" + enterInputMode + ", clearPreset=" + clearPreset)
+      MNLog.log("【openSearchWebView 开始】")
       this.checkPopover()
 
       // 确保控制器已初始化
@@ -1520,38 +1513,27 @@ JSB.newAddon = function(mainPath){
       const controller = KnowledgeBaseUtils.webViewController
       MNLog.log("【检查点2】view.hidden=" + controller.view.hidden + ", onAnimate=" + controller.onAnimate)
 
-      // 如果已显示且不在动画中，处理 enterInputMode
+      // 如果已显示且不在动画中,直接置于前台
       if (!controller.view.hidden && !controller.onAnimate) {
         MNLog.log("【进入分支】已显示且不在动画中 - bring to front")
         MNUtil.studyView.bringSubviewToFront(controller.view)
-
-        if (enterInputMode) {
-          MNLog.log("【执行】进入输入模式 clearPreset=" + clearPreset)
-          // 修复：直接调用，不使用标志位（v0.18 的方式）
-          // 这解决了插件通信时 webViewDidFinishLoad 不触发的问题
-          await MNUtil.delay(0.1)  // 短暂延迟确保状态稳定
-          await controller.enterInputMode(clearPreset)
-          MNLog.log("【成功】enterInputMode 执行完成")
-        } else {
-          MNLog.log("【跳过】enterInputMode=false，不执行")
-        }
         MNLog.log("【返回】从已显示分支返回")
         return
       }
 
-      // 如果正在动画中，等待动画完成后重新调用
+      // 如果正在动画中,等待动画完成后重新调用
       if (controller.onAnimate) {
         MNLog.log("【进入分支】正在动画中 - 等待 0.5s 后重新调用")
         await MNUtil.delay(0.5)
         MNLog.log("【重新调用】递归调用 openSearchWebView")
-        return this.openSearchWebView(enterInputMode, clearPreset)
+        return this.openSearchWebView()
       }
 
       MNLog.log("【进入分支】首次打开流程")
 
       // 根据 WebView 加载状态决定处理方式
       if (!controller.webViewLoaded) {
-        // ========== WebView 未加载：使用标志位机制 ==========
+        // WebView 未加载:加载 HTML 并显示窗口
         MNLog.log("【加载HTML】webViewLoaded=false，开始加载")
         MNUtil.showHUD("正在加载搜索界面,请稍候...")
         controller.loadHTMLFile()
@@ -1565,17 +1547,8 @@ JSB.newAddon = function(mainPath){
         )
         MNLog.log("【显示完成】show() 方法返回")
 
-        // 首次加载：设置标志位，由 webViewDidFinishLoad 处理
-        if (enterInputMode) {
-          controller.pendingEnterInputMode = clearPreset
-          MNLog.log("【标志位】设置 pendingEnterInputMode=" + clearPreset + "（等待首次加载完成）")
-        } else {
-          controller.pendingEnterInputMode = undefined
-          MNLog.log("【跳过】enterInputMode=false，不执行")
-        }
-
       } else {
-        // ========== WebView 已加载：直接调用 ==========
+        // WebView 已加载:直接显示窗口
         MNLog.log("【跳过HTML】webViewLoaded=true，HTML 已加载")
 
         // 显示窗口
@@ -1585,19 +1558,6 @@ JSB.newAddon = function(mainPath){
           { x: 50, y: 50, width: 800, height: 800 }
         )
         MNLog.log("【显示完成】show() 方法返回")
-
-        // WebView 已加载：直接调用 enterInputMode，不依赖回调
-        if (enterInputMode) {
-          MNLog.log("【直接执行】WebView 已加载，等待数据加载后直接调用 enterInputMode")
-          // 等待动画完成和数据加载（show 方法内部会调用 refreshAllData）
-          await MNUtil.delay(0.8)  // 给数据加载留出时间
-
-          MNLog.log("【执行 enterInputMode】clearPreset=" + clearPreset)
-          await controller.enterInputMode(clearPreset)
-          MNLog.log("【成功】enterInputMode 直接执行完成")
-        } else {
-          MNLog.log("【跳过】enterInputMode=false，不执行")
-        }
       }
 
       MNLog.log("【openSearchWebView 结束】成功")

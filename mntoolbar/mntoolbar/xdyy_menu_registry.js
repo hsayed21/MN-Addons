@@ -763,6 +763,10 @@ function registerAllMenuTemplates() {
           action: "addNewCounterexampleNote",
           menuTitle: "    生成「反例」卡片",
         },
+        {
+          action: "createEquivalenceNotes",
+          menuTitle: "    生成「充分性」和「必要性」卡片",
+        },
       ],
     },
   });
