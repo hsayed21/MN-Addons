@@ -331,32 +331,33 @@ JSB.newAddon = function(mainPath){
         let commandTable = [
           // === 索引管理 ===
           self.tableItem('🔄   索引知识库', 'updateSearchIndex:'),
-          self.tableItem('📋   搜索知识库', 'searchForMarkdown:'),
-          self.tableItem('-------------------------------',''),
+          // self.tableItem('📋   搜索知识库', 'searchForMarkdown:'),
+          // self.tableItem('-------------------------------',''),
           // === 中间知识库管理 ===
           self.tableItem('📝   索引中间知识库', 'updateIntermediateKnowledgeIndex:'),
-          self.tableItem('🔎   搜索中间知识库', 'searchInIntermediateKB:'),
+          // self.tableItem('🔎   搜索中间知识库', 'searchInIntermediateKB:'),
           self.tableItem('-------------------------------',''),
           // === 通用搜索（支持自定义类型）===
           self.tableItem('🌐   可视化搜索', 'openSearchWebView:'),
-          self.tableItem('🔍   全部搜索', 'searchInKB:'),
+          // self.tableItem('🔍   全部搜索', 'searchInKB:'),
 
           // === 快捷搜索 ===
-          self.tableItem('    📚  知识卡片', 'searchWithPreset:', 'knowledge'),
-          self.tableItem('    📘  仅定义', 'searchWithPreset:', 'definitions'),
-          self.tableItem('    📁  仅归类', 'searchWithPreset:', 'classifications'),
-          self.tableItem('    📒  定义与归类', 'searchWithPreset:', 'definitionsAndClassifications'),
+          // self.tableItem('    📚  知识卡片', 'searchWithPreset:', 'knowledge'),
+          // self.tableItem('    📘  仅定义', 'searchWithPreset:', 'definitions'),
+          // self.tableItem('    📁  仅归类', 'searchWithPreset:', 'classifications'),
+          // self.tableItem('    📒  定义与归类', 'searchWithPreset:', 'definitionsAndClassifications'),
           self.tableItem('-------------------------------',''),
+          self.tableItem('🤖  模式',''),
+          self.tableItem('    🤖 摘录自动 OCR', 'excerptOCRModeSetting:', button, !self.excerptOCRMode==0),
+          self.tableItem('    🤖 预摘录', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
           // === 配置管理 ===
-          self.tableItem('📜   搜索历史', 'showSearchHistory:'),
-          self.tableItem('🔍   搜索模式设置', 'configureSearchMode:'),
+          // self.tableItem('📜   搜索历史', 'showSearchHistory:'),
+          // self.tableItem('🔍   搜索模式设置', 'configureSearchMode:'),
           self.tableItem('-------------------------------',''),
-          self.tableItem('⚙️   通用 OCR 模型', 'excerptOCRModelSetting:', button),
-          self.tableItem('    ⚙️ 模式1 模型', 'excerptOCRModelSettingForMode1:', button),
-          self.tableItem('    ⚙️ 模式2 模型', 'excerptOCRModelSettingForMode2:', button),
-          self.tableItem('    ⚙️ 模式3 模型', 'excerptOCRModelSettingForMode3:', button),
-          self.tableItem('🤖   摘录 OCR 模式', 'excerptOCRModeSetting:', button),
-          self.tableItem('🤖   预摘录模式', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
+          self.tableItem('⚙️  OCR 模型设置', 'excerptOCRModelSetting:', button),
+          self.tableItem('    ⚙️ Unicode OCR 模型', 'excerptOCRModelSettingForMode1:', button),
+          self.tableItem('    ⚙️ Markdown OCR 模型', 'excerptOCRModelSettingForMode2:', button),
+          self.tableItem('    ⚙️ OCR 概念提取 模型', 'excerptOCRModelSettingForMode3:', button),
         ];
 
         // 显示菜单

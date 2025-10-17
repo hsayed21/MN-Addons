@@ -732,6 +732,56 @@
       border-bottom: 1px solid #f0f2f5;
     }
 
+    /* 星标常用功能区 - 更突出的样式 */
+    .sidebar-section--starred {
+      padding: 20px 16px;
+      border-bottom: 2px solid #fbbf24;
+      background: linear-gradient(180deg, #fffbeb, #fef3c7, #fff);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    }
+
+    .sidebar-section--starred .sidebar-section-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #d97706;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .sidebar-section--starred .sidebar-btn {
+      padding: 14px 18px;
+      font-size: 15px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      color: #78350f;
+      border: 2px solid #fbbf24;
+      box-shadow: 0 6px 20px rgba(251, 191, 36, 0.4);
+      margin-bottom: 0;
+    }
+
+    .sidebar-section--starred .sidebar-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      border-color: #f59e0b;
+      transform: translateX(3px) translateY(-2px);
+      box-shadow: 0 8px 24px rgba(251, 191, 36, 0.5);
+    }
+
+    .sidebar-section--starred .sidebar-btn:active:not(:disabled) {
+      transform: scale(0.97);
+      box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+    }
+
+    .sidebar-section--starred .sidebar-btn:disabled {
+      background: linear-gradient(135deg, #fde68a, #fcd34d);
+      color: #92400e;
+      opacity: 0.6;
+      box-shadow: 0 2px 8px rgba(251, 191, 36, 0.2);
+    }
+
     .sidebar-section-title {
       font-size: 12px;
       font-weight: 600;
@@ -782,6 +832,69 @@
     .sidebar-btn.primary:hover:not(:disabled) {
       background: #1b6cef;
       transform: translateX(2px);
+    }
+
+    /* 侧边栏按钮分组 */
+    .sidebar-btn-group {
+      margin-bottom: 16px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.02);
+      border-radius: 8px;
+      border-left: 3px solid #d6dbe8;
+    }
+
+    .sidebar-btn-group:last-child {
+      margin-bottom: 0;
+    }
+
+    /* 分组配色 */
+    .sidebar-btn-group--merge {
+      background: #f0f9ff;
+      border-left-color: #3b82f6;
+    }
+
+    .sidebar-btn-group--move {
+      background: #f0fdf4;
+      border-left-color: #10b981;
+    }
+
+    .sidebar-btn-group--template {
+      background: #faf5ff;
+      border-left-color: #a855f7;
+    }
+
+    .sidebar-btn-group-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      margin-bottom: 8px;
+      padding-left: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sidebar-btn-group--merge .sidebar-btn-group-label {
+      color: #2563eb;
+    }
+
+    .sidebar-btn-group--move .sidebar-btn-group-label {
+      color: #059669;
+    }
+
+    .sidebar-btn-group--template .sidebar-btn-group-label {
+      color: #9333ea;
+    }
+
+    .sidebar-btn--grouped {
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+
+    .sidebar-btn--grouped:last-child {
+      margin-bottom: 0;
     }
 
     /* 右侧卡片区域 */
@@ -836,14 +949,15 @@
 
     .card {
       background: var(--card-bg);
-      padding: 12px;
+      padding: 10px;
       border-radius: 10px;
       box-shadow: var(--shadow);
       border-left: 6px solid transparent;
       cursor: pointer;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
+      min-height: 90px;
       transition: transform 0.18s ease, box-shadow 0.18s ease;
       position: relative;
     }
@@ -854,13 +968,13 @@
       border-left-width: 10px;
     }
 
-    /* 卡片操作图标容器 - 2x2 网格布局 */
+    /* 卡片操作图标容器 - 2x3 网格布局 */
     .card-actions {
       position: absolute;
       top: 8px;
       right: 8px;
       display: grid;
-      grid-template-columns: repeat(2, 32px);
+      grid-template-columns: repeat(3, 32px);
       grid-template-rows: repeat(2, 32px);
       gap: 6px;
       z-index: 10;
@@ -909,7 +1023,7 @@
       font-weight: 600;
       line-height: 1.4;
       word-break: break-word;
-      padding-right: 120px;  /* 为右侧图标留出空间,避免遮挡 */
+      padding-right: 130px;  /* 为右侧图标留出空间,避免遮挡 (3列: 32*3 + 6*2 + 8*2 = 124px) */
     }
 
     .card-snippet {
@@ -1351,38 +1465,60 @@
         <div class="selected-card-info empty" id="selectedCardInfo">未选中卡片</div>
       </div>
 
-      <!-- 已移除「对选中卡片的操作」区域,功能已迁移到卡片上的图标 -->
-
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">与 focusNote 交互</div>
-        <button class="sidebar-btn" id="mergeFocusNoteToTargetNoteExcerptPartBtn" type="button" disabled>
-          <span>🔗</span>
-          <span>合并 FocusNote 到选中卡片的摘录区</span>
-        </button>
-        <button class="sidebar-btn" id="clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn" type="button" disabled>
-          <span>🔗</span>
-          <span>清空 FocusNote 标题 & 合并到选中卡片的摘录区</span>
-        </button>
+      <!-- ⭐ 星标常用功能区 -->
+      <div class="sidebar-section sidebar-section--starred">
+        <div class="sidebar-section-title">⭐ 常用功能</div>
         <button class="sidebar-btn" id="bidirectionalLinkFromeFocusNoteToTargetNoteBtn" type="button" disabled>
           <span>🔗</span>
           <span>FocusNote 与选中卡片双向链接</span>
         </button>
-        <button class="sidebar-btn" id="moveFocusNoteToTargetNoteAsChildBtn" type="button" disabled>
-          <span>🗺️</span>
-          <span>移动 FocusNote 成为选中卡片的子卡片</span>
-        </button>
-        <button class="sidebar-btn" id="moveFocusNoteToTargetNoteAsChildAndLocateBtn" type="button" disabled>
-          <span>🗺️</span>
-          <span>移动 FocusNote 成为选中卡片的子卡片 & 主脑图定位 FocusNote</span>
-        </button>
-        <button class="sidebar-btn" id="addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn" type="button" disabled>
-          <span>🗺️</span>
-          <span>选中卡片增加归类卡片 & 添加 FocusNote 为新归类卡片的子卡片</span>
-        </button>
-        <button class="sidebar-btn" id="addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn" type="button" disabled>
-          <span>🗺️</span>
-          <span>选中卡片增加归类卡片 & 添加 FocusNote 为新归类卡片的子卡片 & 主脑图定位 FocusNote</span>
-        </button>
+      </div>
+
+      <!-- 与 focusNote 交互区 -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">与 focusNote 交互</div>
+
+        <!-- 合并操作组 -->
+        <div class="sidebar-btn-group sidebar-btn-group--merge">
+          <div class="sidebar-btn-group-label">
+            <span>🔗</span>
+            <span>合并操作</span>
+          </div>
+          <button class="sidebar-btn sidebar-btn--grouped" id="mergeFocusNoteToTargetNoteExcerptPartBtn" type="button" disabled>
+            <span>合并 FocusNote 到选中卡片的摘录区</span>
+          </button>
+          <button class="sidebar-btn sidebar-btn--grouped" id="clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn" type="button" disabled>
+            <span>清空 FocusNote 标题 & 合并到选中卡片的摘录区</span>
+          </button>
+        </div>
+
+        <!-- 移动操作组 -->
+        <div class="sidebar-btn-group sidebar-btn-group--move">
+          <div class="sidebar-btn-group-label">
+            <span>🗺️</span>
+            <span>移动操作</span>
+          </div>
+          <button class="sidebar-btn sidebar-btn--grouped" id="moveFocusNoteToTargetNoteAsChildBtn" type="button" disabled>
+            <span>移动 FocusNote 成为选中卡片的子卡片</span>
+          </button>
+          <button class="sidebar-btn sidebar-btn--grouped" id="moveFocusNoteToTargetNoteAsChildAndLocateBtn" type="button" disabled>
+            <span>移动 FocusNote 成为选中卡片的子卡片 & 主脑图定位 FocusNote</span>
+          </button>
+        </div>
+
+        <!-- 模板操作组 -->
+        <div class="sidebar-btn-group sidebar-btn-group--template">
+          <div class="sidebar-btn-group-label">
+            <span>📋</span>
+            <span>模板操作</span>
+          </div>
+          <button class="sidebar-btn sidebar-btn--grouped" id="addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn" type="button" disabled>
+            <span>选中卡片增加归类卡片 & 添加 FocusNote 为新归类卡片的子卡片</span>
+          </button>
+          <button class="sidebar-btn sidebar-btn--grouped" id="addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn" type="button" disabled>
+            <span>选中卡片增加归类卡片 & 添加 FocusNote 为新归类卡片的子卡片 & 主脑图定位 FocusNote</span>
+          </button>
+        </div>
       </div>
     </aside>
 
@@ -3540,9 +3676,43 @@
             }
           });
 
-          // 将图标添加到容器（2x2布局：左上、右上、左下、右下）
+          // 图标5: 双向链接（双击触发）
+          const bidirectionalLinkIcon = document.createElement('div');
+          bidirectionalLinkIcon.className = 'card-action-icon';
+          bidirectionalLinkIcon.textContent = '🔗';
+          bidirectionalLinkIcon.title = '双向链接（双击执行）';
+
+          // 双击检测逻辑
+          let clickCount = 0;
+          let clickTimer = null;
+
+          bidirectionalLinkIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            clickCount++;
+
+            if (clickTimer) clearTimeout(clickTimer);
+
+            if (clickCount === 1) {
+              // 第一次点击：显示提示
+              showToast('👆 再次点击以建立双向链接', 800);
+              clickTimer = setTimeout(() => {
+                clickCount = 0;
+              }, 300);
+            } else if (clickCount === 2) {
+              // 第二次点击：执行操作
+              clickCount = 0;
+              if (!postBridge('bidirectionalLinkFromeFocusNoteToTargetNote', { id: card.id })) {
+                showToast('操作失败');
+              } else {
+                showToast('✅ 已建立双向链接');
+              }
+            }
+          });
+
+          // 将图标添加到容器（2x3布局：第1行 - 主脑图/浮窗/双向链接，第2行 - 行内链接/复制URL/预留）
           actionsContainer.appendChild(mindMapIcon);
           actionsContainer.appendChild(floatMapIcon);
+          actionsContainer.appendChild(bidirectionalLinkIcon);
           actionsContainer.appendChild(copyMarkdownLinkIcon);
           actionsContainer.appendChild(copyURLIcon);
 
@@ -3566,30 +3736,33 @@
             meta.appendChild(subBadge);
           }
 
-          if (typeof card.matchCount === 'number' && card.matchCount > 0) {
-            const mc = document.createElement('span');
-            mc.className = 'match-count';
-            mc.textContent = `匹配 ${card.matchCount}`;
-            meta.appendChild(mc);
-          }
+          // 隐藏 matchCount
+          // if (typeof card.matchCount === 'number' && card.matchCount > 0) {
+          //   const mc = document.createElement('span');
+          //   mc.className = 'match-count';
+          //   mc.textContent = `匹配 ${card.matchCount}`;
+          //   meta.appendChild(mc);
+          // }
 
-          if (typeof card.score === 'number') {
-            const scoreChip = document.createElement('span');
-            scoreChip.className = 'chip-score';
-            scoreChip.textContent = `score ${Math.round(card.score)}`;
-            meta.appendChild(scoreChip);
-          }
+          // 隐藏 score
+          // if (typeof card.score === 'number') {
+          //   const scoreChip = document.createElement('span');
+          //   scoreChip.className = 'chip-score';
+          //   scoreChip.textContent = `score ${Math.round(card.score)}`;
+          //   meta.appendChild(scoreChip);
+          // }
 
           element.appendChild(actionsContainer);
           element.appendChild(title);
           element.appendChild(meta);
 
-          if (card.snippetHtml) {
-            const snippet = document.createElement('div');
-            snippet.className = 'card-snippet';
-            snippet.innerHTML = card.snippetHtml;
-            element.appendChild(snippet);
-          }
+          // 隐藏 snippetHtml
+          // if (card.snippetHtml) {
+          //   const snippet = document.createElement('div');
+          //   snippet.className = 'card-snippet';
+          //   snippet.innerHTML = card.snippetHtml;
+          //   element.appendChild(snippet);
+          // }
 
           element.addEventListener('click', () => toggleSelection(card.id, element));
           element.addEventListener('dblclick', () => {
@@ -3674,7 +3847,7 @@
           }
         });
 
-        // 图标4: 复制 URL
+        // 图标4: 在浮窗中定位
         const copyURLIcon = document.createElement('div');
         copyURLIcon.className = 'card-action-icon text-icon';
         copyURLIcon.innerHTML = '复制<br>URL';
@@ -3688,9 +3861,43 @@
           }
         });
 
-        // 将图标添加到容器（2x2布局：左上、右上、左下、右下）
+        // 图标5: 双向链接（双击触发）
+        const bidirectionalLinkIcon = document.createElement('div');
+        bidirectionalLinkIcon.className = 'card-action-icon';
+        bidirectionalLinkIcon.textContent = '🔗';
+        bidirectionalLinkIcon.title = '双向链接（双击执行）';
+
+        // 双击检测逻辑
+        let clickCount = 0;
+        let clickTimer = null;
+
+        bidirectionalLinkIcon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          clickCount++;
+
+          if (clickTimer) clearTimeout(clickTimer);
+
+          if (clickCount === 1) {
+            // 第一次点击：显示提示
+            showToast('👆 再次点击以建立双向链接', 800);
+            clickTimer = setTimeout(() => {
+              clickCount = 0;
+            }, 300);
+          } else if (clickCount === 2) {
+            // 第二次点击：执行操作
+            clickCount = 0;
+            if (!postBridge('bidirectionalLinkFromeFocusNoteToTargetNote', { id: card.id })) {
+              showToast('操作失败');
+            } else {
+              showToast('✅ 已建立双向链接');
+            }
+          }
+        });
+
+        // 将图标添加到容器（2x3布局：第1行 - 主脑图/浮窗/双向链接，第2行 - 行内链接/复制URL/预留）
         actionsContainer.appendChild(mindMapIcon);
         actionsContainer.appendChild(floatMapIcon);
+        actionsContainer.appendChild(bidirectionalLinkIcon);
         actionsContainer.appendChild(copyMarkdownLinkIcon);
         actionsContainer.appendChild(copyURLIcon);
 
@@ -3714,30 +3921,33 @@
           meta.appendChild(subBadge);
         }
 
-        if (typeof card.matchCount === 'number' && card.matchCount > 0) {
-          const mc = document.createElement('span');
-          mc.className = 'match-count';
-          mc.textContent = `匹配 ${card.matchCount}`;
-          meta.appendChild(mc);
-        }
+        // 隐藏 matchCount
+        // if (typeof card.matchCount === 'number' && card.matchCount > 0) {
+        //   const mc = document.createElement('span');
+        //   mc.className = 'match-count';
+        //   mc.textContent = `匹配 ${card.matchCount}`;
+        //   meta.appendChild(mc);
+        // }
 
-        if (typeof card.score === 'number') {
-          const scoreChip = document.createElement('span');
-          scoreChip.className = 'chip-score';
-          scoreChip.textContent = `score ${Math.round(card.score)}`;
-          meta.appendChild(scoreChip);
-        }
+        // 隐藏 score
+        // if (typeof card.score === 'number') {
+        //   const scoreChip = document.createElement('span');
+        //   scoreChip.className = 'chip-score';
+        //   scoreChip.textContent = `score ${Math.round(card.score)}`;
+        //   meta.appendChild(scoreChip);
+        // }
 
         element.appendChild(actionsContainer);
         element.appendChild(title);
         element.appendChild(meta);
 
-        if (card.snippetHtml) {
-          const snippet = document.createElement('div');
-          snippet.className = 'card-snippet';
-          snippet.innerHTML = card.snippetHtml;
-          element.appendChild(snippet);
-        }
+        // 隐藏 snippetHtml
+        // if (card.snippetHtml) {
+        //   const snippet = document.createElement('div');
+        //   snippet.className = 'card-snippet';
+        //   snippet.innerHTML = card.snippetHtml;
+        //   element.appendChild(snippet);
+        // }
 
         element.addEventListener('click', () => toggleSelection(card.id, element));
         element.addEventListener('dblclick', () => {
