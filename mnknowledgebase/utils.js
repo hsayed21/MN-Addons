@@ -18277,6 +18277,55 @@ class KnowledgeBaseNetwork {
 `
 
   /**
+   * OCR 人名处理规则
+   * 所有 OCR 提示词共享的人名处理规范
+   */
+  static OCRNameHandlingRules = `
+**人名处理规则**：
+- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+`
+
+  /**
+   * OCR 空格处理规则
+   * 所有 OCR 提示词共享的空格处理规范
+   */
+  static OCRSpaceHandlingRules = `
+**规则 A：数学公式内紧凑，移除多余空格**
+---
+❌ 错误：|a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|)
+✅ 正确：|a+b|/(1+|a+b|)≤|a|/(1+|a|)
+---
+
+**规则 B：文本间保留必要空格**
+---
+❌ 错误：Theorem1.1(StrongLaw)
+✅ 正确：Theorem 1.1 (Strong Law)
+
+❌ 错误：设a,b∈R,则有
+✅ 正确：设 a, b∈R, 则有
+---
+`
+
+  /**
+   * OCR 常用术语对照表
+   * 中英文数学术语对照
+   */
+  static OCRTerminologyMapping = `
+**常用术语对照**：
+- Theorem → 定理 | Lemma → 引理 | Corollary → 推论 | Proposition → 命题
+- Definition → 定义 | Proof → 证明 | Example → 例子 | Exercise → 练习
+- Limit → 极限 | Convergence → 收敛 | Derivative → 导数 | Integral → 积分
+- Continuous → 连续 | Differentiable → 可微 | Measurable → 可测
+`
+
+  /**
    * OCR 结果后处理正则替换规则
    * 用于修正 AI OCR 的常见错误输出
    */
@@ -18377,40 +18426,11 @@ class KnowledgeBaseNetwork {
 
 ## 处理规则
 
-### 1. 数学符号（优先级递减）
-**✅ 优先使用 Unicode**：
-- 上标：x², x³, xⁿ
-- 根式：√2, ∛8
-- 运算符：±, ×, ÷, ≠, ≤, ≥, ≈
-- 希腊字母：α, β, γ, δ, ε, θ, λ, μ, π, σ, ω
-- 微积分：∫, ∑, ∏, ∂, ∇, ∞, lim
+### 1. 空格处理
 
-**⚠️ LaTeX 仅作后备**（仅当 Unicode 不可用时，用 $ 包裹）：
-- 复杂分数、矩阵、高级算子
+${this.OCRSpaceHandlingRules}
 
-### 2. 文本格式
-- **上标**：¹²³⁴⁵⁶⁷⁸⁹⁰ / ᵃᵇᶜᵈᵉ
-- **下标**：₀₁₂₃₄₅₆₇₈₉ / ₐₑₕᵢⱼₖ
-- **粗体/斜体**：仅当图片中明确标示时使用 **粗体** 和 *斜体*
-
-### 3. 空格处理
-
-**规则 A：数学公式内紧凑，移除多余空格**
----
-❌ 错误：|a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|)
-✅ 正确：|a+b|/(1+|a+b|)≤|a|/(1+|a|)
----
-
-**规则 B：文本间保留必要空格**
----
-❌ 错误：Theorem1.1(StrongLaw)
-✅ 正确：Theorem 1.1 (Strong Law)
-
-❌ 错误：设a,b∈R,则有
-✅ 正确：设 a, b∈R, 则有
----
-
-### 4. 翻译规则
+### 2. 翻译规则
 
 **核心原则**：
 - ✅ 使用标准数学教材术语（如高等教育出版社数学词汇）
@@ -18422,23 +18442,11 @@ class KnowledgeBaseNetwork {
 **定理名称格式**（用分号分隔中文、英文）：
     示例：如果……, 则范数一致有界; 一致有界原理; uniformly bounded principle
 
-**人名处理规则**：
-- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
-- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
-- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
-- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
-- ✅ 常见数学家人名示例：
-  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
-  - Banach, Hilbert, Sobolev, Schwartz, Hölder
-  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+${this.OCRNameHandlingRules}
 
-**常用术语对照**：
-- Theorem → 定理 | Lemma → 引理 | Corollary → 推论 | Proposition → 命题
-- Definition → 定义 | Proof → 证明 | Example → 例子 | Exercise → 练习
-- Limit → 极限 | Convergence → 收敛 | Derivative → 导数 | Integral → 积分
-- Continuous → 连续 | Differentiable → 可微 | Measurable → 可测
+${this.OCRTerminologyMapping}
 
-### 5. 标记移除规则 ⚠️
+### 3. 标记移除规则 ⚠️
 
 **核心原则**：完全删除数学陈述的编号标记，这些标记对内容理解没有帮助。
 
@@ -18485,21 +18493,6 @@ class KnowledgeBaseNetwork {
 - 编号包括单个数字（如 "定理 1"）和带小数点的数字（如 "定理 2.24"）
 - 需要移除标记词 + 编号，但保留括号中的定理名称（如 "Cauchy 准则"）
 - 标记可能在开头或内容前，都要识别并移除
-
-## Unicode 快速参考
-
-**常用符号**：
-- 分数：½ ⅓ ⅔ ¼ ¾ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
-- 运算符：± × ÷ ≈ ≠ ≤ ≥ ∝ ∴ ∵ ∈ ∉ ⊂ ⊃ ∪ ∩ ∧ ∨
-- 希腊字母：α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω
-- 微积分：∫ ∬ ∭ ∮ ∂ ∇ ∞ ∑ ∏ lim
-- 几何：° ∠ ⊥ ∥ △ ◯ □ ◇
-
-**组合字符**（用 Unicode 组合符）：
-- 带帽 (^)：â b̂ ĉ x̂ ŷ / α̂ β̂ γ̂ / Â B̂ Ĉ
-- 上划线 (¯)：ā b̄ c̄ x̄ ȳ / ᾱ β̄ γ̄ / Ā B̄ C̄
-- 波浪 (~)：ã b̃ c̃ x̃ ỹ / α̃ β̃ γ̃ / Ã B̃ C̃
-- 点 (·)：ȧ ḃ ċ ẋ ẏ / α̇ β̇ γ̇ / Ȧ Ḃ Ċ
 
 ${this.OCRCorrectionRules}
 
@@ -18614,15 +18607,7 @@ LaTeX 会自动处理公式内的间距：
 - 去掉数学陈述的编号标记（完全删除，不保留）
 - 去掉末尾标点
 
-**人名处理规则**：
-- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
-- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
-- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
-- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
-- ✅ 常见数学家人名示例：
-  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
-  - Banach, Hilbert, Sobolev, Schwartz, Hölder
-  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+${this.OCRNameHandlingRules}
 
 **标记移除示例**：
 - Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...（移除 "Theorem 1.1"）
@@ -18895,40 +18880,11 @@ ${this.OCRNumberingRules}
 
 ## 处理规则
 
-### 1. 数学符号（优先级递减）
-**✅ 优先使用 Unicode**：
-- 上标：x², x³, xⁿ
-- 根式：√2, ∛8
-- 运算符：±, ×, ÷, ≠, ≤, ≥, ≈
-- 希腊字母：α, β, γ, δ, ε, θ, λ, μ, π, σ, ω
-- 微积分：∫, ∑, ∏, ∂, ∇, ∞, lim
+### 1. 空格处理
 
-**⚠️ LaTeX 仅作后备**（仅当 Unicode 不可用时，用 $ 包裹）：
-- 复杂分数、矩阵、高级算子
+${this.OCRSpaceHandlingRules}
 
-### 2. 文本格式
-- **上标**：¹²³⁴⁵⁶⁷⁸⁹⁰ / ᵃᵇᶜᵈᵉ
-- **下标**：₀₁₂₃₄₅₆₇₈₉ / ₐₑₕᵢⱼₖ
-- **粗体/斜体**：仅当图片中明确标示时使用 **粗体** 和 *斜体*
-
-### 3. 空格处理
-
-**规则 A：数学公式内紧凑，移除多余空格**
----
-❌ 错误：|a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|)
-✅ 正确：|a+b|/(1+|a+b|)≤|a|/(1+|a|)
----
-
-**规则 B：文本间保留必要空格**
----
-❌ 错误：定理1.1(强大数定律)
-✅ 正确：定理 1.1 (强大数定律)
-
-❌ 错误：设a,b∈R,则有
-✅ 正确：设 a, b∈R, 则有
----
-
-### 4. 翻译规则
+### 2. 翻译规则
 
 **核心原则**：
 - ✅ 使用标准数学教材术语（如高等教育出版社数学词汇）
@@ -18937,36 +18893,9 @@ ${this.OCRNumberingRules}
 - ❌ 去掉数学陈述的编号标记（完全删除，不保留）
 - ❌ 去掉末尾标点
 
-**人名处理规则**：
-- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
-- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
-- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
-- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
-- ✅ 常见数学家人名示例：
-  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
-  - Banach, Hilbert, Sobolev, Schwartz, Hölder
-  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+${this.OCRNameHandlingRules}
 
-**常用术语对照**：
-- Theorem → 定理 | Lemma → 引理 | Corollary → 推论 | Proposition → 命题
-- Definition → 定义 | Proof → 证明 | Example → 例子 | Exercise → 练习
-- Limit → 极限 | Convergence → 收敛 | Derivative → 导数 | Integral → 积分
-- Continuous → 连续 | Differentiable → 可微 | Measurable → 可测
-
-## Unicode 快速参考
-
-**常用符号**：
-- 分数：½ ⅓ ⅔ ¼ ¾ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
-- 运算符：± × ÷ ≈ ≠ ≤ ≥ ∝ ∴ ∵ ∈ ∉ ⊂ ⊃ ∪ ∩ ∧ ∨
-- 希腊字母：α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω
-- 微积分：∫ ∬ ∭ ∮ ∂ ∇ ∞ ∑ ∏ lim
-- 几何：° ∠ ⊥ ∥ △ ◯ □ ◇
-
-**组合字符**（用 Unicode 组合符）：
-- 带帽 (^)：â b̂ ĉ x̂ ŷ / α̂ β̂ γ̂ / Â B̂ Ĉ
-- 上划线 (¯)：ā b̄ c̄ x̄ ȳ / ᾱ β̄ γ̄ / Ā B̄ C̄
-- 波浪 (~)：ã b̃ c̃ x̃ ỹ / α̃ β̃ γ̃ / Ã B̃ C̃
-- 点 (·)：ȧ ḃ ċ ẋ ẏ / α̇ β̇ γ̇ / Ȧ Ḃ Ċ
+${this.OCRTerminologyMapping}
 
 ${this.OCRCorrectionRules}
 
@@ -19103,15 +19032,7 @@ LaTeX 会自动处理公式内的间距：
 - 去掉数学陈述的编号标记（完全删除，不保留）
 - 去掉末尾标点
 
-**人名处理规则**：
-- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
-- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
-- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
-- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
-- ✅ 常见数学家人名示例：
-  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
-  - Banach, Hilbert, Sobolev, Schwartz, Hölder
-  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+${this.OCRNameHandlingRules}
 
 **标记移除示例**：
 - Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...（移除 "Theorem 1.1"）
