@@ -18416,7 +18416,7 @@ class KnowledgeBaseNetwork {
 - ✅ 使用标准数学教材术语（如高等教育出版社数学词汇）
 - ✅ 公式保持原样，仅翻译描述性文字
 - ✅ 根据数学分支（分析/代数/几何等）选择恰当术语
-- ❌ 去掉开头标记（如 "例子 2"、"定理 1.2"）
+- ❌ 去掉数学陈述的编号标记（完全删除，不保留）
 - ❌ 去掉末尾标点
 
 **定理名称格式**（用分号分隔中文、英文）：
@@ -18437,6 +18437,54 @@ class KnowledgeBaseNetwork {
 - Definition → 定义 | Proof → 证明 | Example → 例子 | Exercise → 练习
 - Limit → 极限 | Convergence → 收敛 | Derivative → 导数 | Integral → 积分
 - Continuous → 连续 | Differentiable → 可微 | Measurable → 可测
+
+### 5. 标记移除规则 ⚠️
+
+**核心原则**：完全删除数学陈述的编号标记，这些标记对内容理解没有帮助。
+
+**需要移除的标记类型**：
+
+#### 定理类标记
+- ❌ 定理 2.24、Theorem 1.1、定理 1
+- ❌ 引理 3.5、Lemma 2.3、引理 2
+- ❌ 推论 1.12、Corollary 4.2、推论 3
+- ❌ 命题 5.7、Proposition 6.1、命题 4
+
+#### 例题类标记
+- ❌ 例子 2、Example 3.4、例 1
+- ❌ 反例 1.3、Counterexample 2
+- ❌ 注释 4、Remark 2.1、注 3
+
+#### 练习类标记
+- ❌ 练习 1.2、Exercise 3.5、习题 4
+- ❌ 问题 2.3、Problem 5.1、题 6
+
+**正确处理示例**：
+
+**示例 1：定理编号**
+- 输入图片：Theorem 2.24 (Cauchy Criterion): A sequence converges if...
+- ❌ 错误：定理 2.24 (Cauchy 准则): 序列收敛当且仅当...
+- ✅ 正确：序列收敛当且仅当...; Cauchy 准则; Cauchy Criterion
+
+**示例 2：推论编号**
+- 输入图片：推论 1.12: 若 f 连续，则...
+- ❌ 错误：推论 1.12: 若 f 连续，则...
+- ✅ 正确：若 f 连续，则...: If f is continuous, then...
+
+**示例 3：练习编号**
+- 输入图片：Exercise 1.2: Prove that...
+- ❌ 错误：练习 1.2: 证明...
+- ✅ 正确：证明...: Prove that...
+
+**示例 4：例子编号**
+- 输入图片：例子 3: 设 f(x) = x²
+- ❌ 错误：例子 3: 设 f(x) = x²
+- ✅ 正确：设 f(x) = x²: Let f(x) = x²
+
+**⚠️ 特别注意**：
+- 编号包括单个数字（如 "定理 1"）和带小数点的数字（如 "定理 2.24"）
+- 需要移除标记词 + 编号，但保留括号中的定理名称（如 "Cauchy 准则"）
+- 标记可能在开头或内容前，都要识别并移除
 
 ## Unicode 快速参考
 
@@ -18563,7 +18611,7 @@ LaTeX 会自动处理公式内的间距：
 - 已是中文的保持原样
 - 英文数学术语翻译为标准中文（参考高教出版社数学词典）
 - 公式符号保持原样，仅翻译描述性文字
-- 去掉例题编号、定理编号等标记
+- 去掉数学陈述的编号标记（完全删除，不保留）
 - 去掉末尾标点
 
 **人名处理规则**：
@@ -18576,9 +18624,11 @@ LaTeX 会自动处理公式内的间距：
   - Banach, Hilbert, Sobolev, Schwartz, Hölder
   - Clark, Aleksandrov, Kolmogorov, Chebyshev
 
-**示例**：
-- Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...
-- Example 2.3: Let f be ... → 设 $f$ 为 ...
+**标记移除示例**：
+- Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...（移除 "Theorem 1.1"）
+- Example 2.3: Let f be ... → 设 $f$ 为 ...（移除 "Example 2.3"）
+- 推论 1.12: 若 f 连续 → 若 $f$ 连续（移除 "推论 1.12"）
+- 练习 1.2: 证明... → 证明...（移除 "练习 1.2"）
 
 ${this.OCRNumberingRules}
 `
@@ -18884,7 +18934,7 @@ ${this.OCRNumberingRules}
 - ✅ 使用标准数学教材术语（如高等教育出版社数学词汇）
 - ✅ 公式保持原样，仅翻译描述性文字
 - ✅ 根据数学分支（分析/代数/几何等）选择恰当术语
-- ❌ 去掉开头标记（如 "Example 2"、"Theorem 1.2"）
+- ❌ 去掉数学陈述的编号标记（完全删除，不保留）
 - ❌ 去掉末尾标点
 
 **人名处理规则**：
@@ -19050,7 +19100,7 @@ LaTeX 会自动处理公式内的间距：
 - 已是中文的保持原样
 - 英文数学术语翻译为标准中文（参考高教出版社数学词典）
 - 公式符号保持原样，仅翻译描述性文字
-- 去掉例题编号、定理编号等标记
+- 去掉数学陈述的编号标记（完全删除，不保留）
 - 去掉末尾标点
 
 **人名处理规则**：
@@ -19063,10 +19113,12 @@ LaTeX 会自动处理公式内的间距：
   - Banach, Hilbert, Sobolev, Schwartz, Hölder
   - Clark, Aleksandrov, Kolmogorov, Chebyshev
 
-**示例**：
-- Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...
-- Example 2.3: Let f be ... → 设 $f$ 为 ...
-- Definition: A function f is continuous if ... → 若 ..., 则函数 $f$ 是连续的
+**标记移除示例**：
+- Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...（移除 "Theorem 1.1"）
+- Example 2.3: Let f be ... → 设 $f$ 为 ...（移除 "Example 2.3"）
+- Definition 2.5: A function f is continuous if ... → 若 ..., 则函数 $f$ 是连续的（移除 "Definition 2.5"）
+- 推论 1.12: 若 f 连续 → 若 $f$ 连续（移除 "推论 1.12"）
+- 练习 1.2: 证明... → 证明...（移除 "练习 1.2"）
 
 ${this.OCRNumberingRules}
 `
