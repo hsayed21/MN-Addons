@@ -542,13 +542,14 @@ JSB.newAddon = function(mainPath){
           self.popoverController.dismissPopoverAnimated(true);
         }
         
-        let focusNote = MNNote.getFocusNote()
-        let rootNote
-        if (focusNote) {
-          rootNote = focusNote
-        } else {
-          rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
-        }
+        // let focusNote = MNNote.getFocusNote()
+        // let rootNote
+        // if (focusNote) {
+        //   rootNote = focusNote
+        // } else {
+        //   rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
+        // }
+        let rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
         
         if (!rootNote) {
           MNUtil.showHUD("知识库不存在！");
