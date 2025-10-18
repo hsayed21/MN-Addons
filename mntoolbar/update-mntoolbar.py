@@ -115,91 +115,9 @@ class MNToolbarUpdater:
           }
         }, 500);
         // 夏大鱼羊 - end'''
-                },
-                {
-                    'type': 'insert_before',
-                    'marker': '      openDocument:function (button) {',
-                    'content': '''      // 夏大鱼羊增加：卡片的预处理
-      togglePreprocess: function () {
-        self.checkPopoverController()
-        toolbarConfig.togglePreprocess()
-      },
-      // 夏大鱼羊结束
-'''
-                },
-                {
-                    'type': 'insert_before',
-                    'marker': '            self.tableItem(\'📄   Document\', \'openDocument:\'),',
-                    'content': '''            self.tableItem('🗂️   卡片预处理模式  ',"togglePreprocess", undefined, toolbarConfig.windowState.preprocess),
-            self.tableItem('📖   粗读模式  ',"toggleRoughReading", undefined, toolbarConfig.windowState.roughReading),'''
-                },
-                {
-                    'type': 'insert_before',
-                    'marker': '      openDocument:function (button) {',
-                    'content': '''      // 夏大鱼羊增加：粗读模式
-      toggleRoughReading: function () {
-        self.checkPopoverController()
-        toolbarConfig.toggleRoughReading()
-      },
-      // 夏大鱼羊结束
-'''
                 }
             ],
             'webviewController.js': [
-                {
-                    'type': 'replace_section',
-                    'start_marker': '    if (self.dynamicWindow) {',
-                    'end_marker': '    }',
-                    'old_content': '''    if (self.dynamicWindow) {
-      if (toolbarConfig.vertical(true)) {
-        commandTable.unshift(self.tableItem('🌟  Direction   ↕️', selector,"dynamic"))
-      }else{
-        commandTable.unshift(self.tableItem('🌟  Direction   ↔️', selector,"dynamic"))
-      }
-    }else{
-      if (toolbarConfig.vertical()) {
-        commandTable.unshift(self.tableItem('🛠️  Direction   ↕️', selector,"fixed"))
-      }else{
-        commandTable.unshift(self.tableItem('🛠️  Direction   ↔️', selector,"fixed"))
-      }
-    }''',
-                    'new_content': '''    if (self.dynamicWindow) {
-      if (toolbarConfig.vertical(true)) {
-        commandTable.unshift(self.tableItem('🌟  Direction   ↕️', selector,"dynamic"))
-      }else{
-        commandTable.unshift(self.tableItem('🌟  Direction   ↔️', selector,"dynamic"))
-      }
-      // 夏大鱼羊 - begin
-      commandTable.unshift(self.tableItem('🗂️   卡片预处理模式',"togglePreprocess:", "", toolbarConfig.windowState.preprocess))
-      commandTable.unshift(self.tableItem('📖   粗读模式',"toggleRoughReading:", "", toolbarConfig.windowState.roughReading))
-      // 夏大鱼羊 - end
-    }else{
-      if (toolbarConfig.vertical()) {
-        commandTable.unshift(self.tableItem('🛠️  Direction   ↕️', selector,"fixed"))
-      }else{
-        commandTable.unshift(self.tableItem('🛠️  Direction   ↔️', selector,"fixed"))
-      }
-      // 夏大鱼羊 - begin
-      commandTable.unshift(self.tableItem('🗂️   卡片预处理模式',"togglePreprocess:", "", toolbarConfig.windowState.preprocess))
-      commandTable.unshift(self.tableItem('📖   粗读模式',"toggleRoughReading:", "", toolbarConfig.windowState.roughReading))
-      // 夏大鱼羊 - end
-    }'''
-                },
-                # 在 toggleDynamic 函数后添加 togglePreprocess 和 toggleRoughReading
-                {
-                    'type': 'insert_after',
-                    'marker': '} catch (error) {\n  MNUtil.showHUD(error)\n}\n  },',
-                    'content': '''  // 夏大鱼羊 - begin
-  togglePreprocess: function () {
-    self.checkPopover()
-    toolbarConfig.togglePreprocess()
-  },
-  toggleRoughReading: function () {
-    self.checkPopover()
-    toolbarConfig.toggleRoughReading()
-  },
-  // 夏大鱼羊 - end'''
-                },
                 {
                     'type': 'wrap_code',
                     'start_marker': '    if (actionName.includes("color")) {',
@@ -252,14 +170,6 @@ class MNToolbarUpdater:
                 }
             ],
             'utils.js': [
-                {
-                    'type': 'insert_after',
-                    'marker': '  static defaultWindowState = {',
-                    'content': '''    // 夏大鱼羊 - begin：add Preprocess and RoughReading
-    preprocess:false,
-    roughReading:false,
-    // 夏大鱼羊 - end'''
-                },
                 {
                     'type': 'insert_after',
                     'marker': '    this.addonLogos = this.getByDefault("MNToolbar_addonLogos",{})',
@@ -522,16 +432,7 @@ if (typeof extendToolbarConfigInit === 'function') {
         
         for mod in modifications:
             try:
-                if mod['type'] == 'insert_after' or mod['type'] == 'insert_after_once':
-                    # 对于 insert_after_once，先检查内容是否已存在
-                    if mod['type'] == 'insert_after_once':
-                        # 提取关键代码来检查是否已存在（去除注释行）
-                        key_content = '\n'.join([line for line in mod['content'].split('\n') 
-                                               if not line.strip().startswith('//') and line.strip()])
-                        if 'togglePreprocess: function' in key_content and 'togglePreprocess: function' in content:
-                            # togglePreprocess 函数已存在，跳过
-                            continue
-                    
+                if mod['type'] == 'insert_after':
                     # 检查是否需要根据上下文来确定插入位置
                     if 'context' in mod:
                         # 使用上下文查找正确的位置
@@ -678,10 +579,6 @@ if (typeof extendToolbarConfigInit === 'function') {
                 if os.path.exists(file_path):
                     print(f"  处理 {modified_file}...")
                     self.apply_user_modifications(file_path)
-                        
-                    # 清理 webviewController.js 中的重复函数
-                    if modified_file == 'webviewController.js':
-                        self.clean_duplicate_togglePreprocess(file_path)
                     
         # 应用文本替换（仅在开发目录）
         if is_dev:
@@ -719,47 +616,6 @@ if (typeof extendToolbarConfigInit === 'function') {
                     
         if replaced_count > 0:
             print(f"🔧 已修复拼写错误：{replaced_count} 个文件")
-    
-    def clean_duplicate_togglePreprocess(self, file_path):
-        """清理 webviewController.js 中重复的 togglePreprocess 函数定义"""
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            # 两种模式：
-            # 1. 带有 "dynamic" 注释的
-            pattern_with_dynamic = r'  // 夏大鱼羊 - begin\n  // dynamic 这里还需要再写一次下面的 togglePreprocess 函数\n  togglePreprocess: function \(\) \{\n    self\.checkPopover\(\)\n    toolbarConfig\.togglePreprocess\(\)\n  \},\n  // 夏大鱼羊 - end\n'
-            
-            # 2. 不带 "dynamic" 注释的
-            pattern_without_dynamic = r'  // 夏大鱼羊 - begin\n  togglePreprocess: function \(\) \{\n    self\.checkPopover\(\)\n    toolbarConfig\.togglePreprocess\(\)\n  \},\n  // 夏大鱼羊 - end\n'
-            
-            # 查找所有匹配
-            matches_with_dynamic = list(re.finditer(pattern_with_dynamic, content))
-            matches_without_dynamic = list(re.finditer(pattern_without_dynamic, content))
-            all_matches = matches_with_dynamic + matches_without_dynamic
-            
-            if len(all_matches) > 1:
-                # 按位置排序
-                all_matches.sort(key=lambda m: m.start())
-                
-                # 删除除最后一个之外的所有匹配
-                removed_count = 0
-                for match in all_matches[:-1]:
-                    content = content.replace(match.group(0), '', 1)
-                    removed_count += 1
-                
-                print(f"  ✅ 清理了 {removed_count} 个重复的 togglePreprocess 函数")
-                
-                # 写回文件
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(content)
-                    
-                return True
-                
-        except Exception as e:
-            print(f"  ⚠️ 清理重复函数时出错：{str(e)[:50]}")
-        
-        return False
             
     def run(self):
         """执行更新流程"""

@@ -8,11 +8,6 @@
  * 需要在 toolbarUtils 定义后调用
  */
 function initXDYYExtensions() {
-  // 扩展 defaultWindowState 配置
-  if (toolbarUtils.defaultWindowState) {
-    toolbarUtils.defaultWindowState.preprocess = false;
-  }
-
   /**
    * 批量获取卡片 ID 存到 Arr 里
    */
@@ -1415,27 +1410,6 @@ function extendToolbarConfigInit() {
     );
   };
 
-  // 添加 togglePreprocess 静态方法
-  // 夏大鱼羊
-  toolbarConfig.togglePreprocess = function () {
-    MNUtil.showHUD("调试：togglePreprocess 函数开始执行");
-    if (!toolbarUtils.checkSubscribe(true)) {
-      MNUtil.showHUD("调试：订阅检查失败");
-      return;
-    }
-    MNUtil.showHUD("调试：订阅检查通过");
-    if (toolbarConfig.getWindowState("preprocess") === false) {
-      toolbarConfig.windowState.preprocess = true;
-      toolbarConfig.save("MNToolbar_windowState");
-      MNUtil.showHUD("卡片预处理模式：✅ 开启");
-    } else {
-      toolbarConfig.windowState.preprocess = false;
-      toolbarConfig.save("MNToolbar_windowState");
-      MNUtil.showHUD("卡片预处理模式：❌ 关闭");
-    }
-    MNUtil.postNotification("refreshToolbarButton", {});
-  };
-
   // ===== AI 调用相关函数 =====
 
   /**
@@ -2519,12 +2493,6 @@ function extendToolbarConfigInit() {
         };
       }
     }
-
-  // 扩展 defaultWindowState
-  // 夏大鱼羊
-  if (toolbarConfig.defaultWindowState) {
-    toolbarConfig.defaultWindowState.preprocess = false;
-  }
 }
 
 // 导出初始化函数

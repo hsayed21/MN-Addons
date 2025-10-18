@@ -4231,16 +4231,10 @@ function registerAllCustomActions() {
 
   // makeNote
   global.registerCustomAction("makeNote", async function (context) {
-    const { button, des, focusNote, focusNotes, self } = context;
+    const { focusNote } = context;
     MNUtil.undoGrouping(() => {
       try {
-        if (toolbarConfig.windowState.preprocess) {
-          let processedNote = KnowledgeBaseTemplate.preprocessNote(focusNote)
-          processedNote.focusInMindMap(0.4);
-        } else {
-          // 正常模式：完整制卡流程
-          KnowledgeBaseTemplate.makeNote(focusNote);
-        }
+        KnowledgeBaseTemplate.makeNote(focusNote);
       } catch (error) {
         MNUtil.showHUD(error);
       }

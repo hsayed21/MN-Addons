@@ -383,6 +383,7 @@ JSB.newAddon = function(mainPath){
           self.tableItem('🤖  模式',''),
           self.tableItem('    🤖 摘录自动 OCR', 'excerptOCRModeSetting:', button, !self.excerptOCRMode==0),
           self.tableItem('    🤖 预摘录', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
+          self.tableItem('    🤖 卡片预处理', 'preProcessModeToggled:', undefined, KnowledgeBaseConfig.config.preProcessMode),
           self.tableItem('    🤖 上课', 'classModeToggled:', undefined, self.classMode),
           // === 配置管理 ===
           // self.tableItem('📜   搜索历史', 'showSearchHistory:'),
@@ -566,6 +567,13 @@ JSB.newAddon = function(mainPath){
       self.preExcerptMode = !self.preExcerptMode
 
       MNUtil.showHUD(self.preExcerptMode ? "已开启预摘录模式" : "已关闭预摘录模式", 1)
+    },
+
+    preProcessModeToggled: function() {
+      self.checkPopover()
+      KnowledgeBaseConfig.config.preProcessMode = !KnowledgeBaseConfig.config.preProcessMode
+      KnowledgeBaseConfig.save()
+      MNUtil.showHUD(KnowledgeBaseConfig.config.preProcessMode ? "已开启卡片预处理模式" : "已关闭卡片预处理模式", 1)
     },
 
     classModeToggled: function() {

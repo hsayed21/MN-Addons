@@ -448,23 +448,43 @@ class KnowledgeBaseTemplate {
    * 一键制卡（支持摘录版本）
    */
   static makeNote(note, addToReview = true, reviewEverytime = true, focusInMindMap = true) {
-    if (note.excerptText) {
-      let newnote = this.toNoExcerptVersion(note)
-      newnote.focusInMindMap(0.5)
-      MNUtil.delay(0.5).then(()=>{
-        note = MNNote.getFocusNote()
+    // 检查是否启用预处理模式
+    if (KnowledgeBaseConfig.config.preProcessMode) {
+      // 预处理模式：简化的制卡流程
+      if (note.excerptText) {
+        let newnote = this.toNoExcerptVersion(note)
+        newnote.focusInMindMap(0.5)
         MNUtil.delay(0.5).then(()=>{
-          this.makeCard(note, addToReview, reviewEverytime, focusInMindMap) // 制卡
+          note = MNNote.getFocusNote()
+          MNUtil.delay(0.5).then(()=>{
+            let processedNote = this.preprocessNote(note)
+            processedNote.focusInMindMap(0.4)
+          })
         })
-        MNUtil.undoGrouping(()=>{
-          // this.refreshNote(note)
-          this.refreshNotes(note)
-          // this.addToReview(note, true) // 加入复习
-        })
-      })
+      } else {
+        let processedNote = this.preprocessNote(note)
+        processedNote.focusInMindMap(0.4)
+      }
     } else {
-      this.makeCard(note, addToReview, reviewEverytime) // 制卡
-      this.refreshNotes(note)
+      // 正常模式：完整制卡流程
+      if (note.excerptText) {
+        let newnote = this.toNoExcerptVersion(note)
+        newnote.focusInMindMap(0.5)
+        MNUtil.delay(0.5).then(()=>{
+          note = MNNote.getFocusNote()
+          MNUtil.delay(0.5).then(()=>{
+            this.makeCard(note, addToReview, reviewEverytime, focusInMindMap) // 制卡
+          })
+          MNUtil.undoGrouping(()=>{
+            // this.refreshNote(note)
+            this.refreshNotes(note)
+            // this.addToReview(note, true) // 加入复习
+          })
+        })
+      } else {
+        this.makeCard(note, addToReview, reviewEverytime) // 制卡
+        this.refreshNotes(note)
+      }
     }
   }
 
@@ -19672,6 +19692,9 @@ class KnowledgeBaseConfig {
       excerptOCRModelForMode1: "doubao-seed-1-6",        // 模式1：直接OCR
       excerptOCRModelForMode2: "Doc2X",                  // 模式2：Markdown格式（Doc2X专为数学公式优化）
       excerptOCRModelForMode3: "doubao-seed-1-6",        // 模式3：概念提取
+
+      // 卡片预处理模式
+      preProcessMode: false,  // 是否启用预处理模式（默认关闭）
     }
   }
   
