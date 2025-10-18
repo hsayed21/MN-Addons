@@ -359,6 +359,27 @@ class KnowledgeBaseTemplate {
 
 
   /**
+   * 根据颜色索引获取卡片类型（粗读模式使用）
+   * @param {number} colorIndex - 颜色索引
+   * @returns {string|null} 卡片类型，如果未找到则返回 null
+   */
+  static getNoteTypeByColor(colorIndex) {
+    // 建立颜色到类型的映射
+    const colorTypeMap = {
+      0: "归类",       // 淡黄色
+      1: "问题",       // 淡绿色
+      2: "定义",       // 淡蓝色（作者也是淡蓝色，但粗读模式优先定义）
+      3: "反例",       // 粉色
+      6: "研究进展",   // 蓝色（总结也是蓝色，但粗读模式优先研究进展）
+      9: "思想方法",   // 深绿色
+      10: "命题",      // 深蓝色
+      13: "思路",      // 淡灰色
+      15: "例子"       // 紫色（粗读模式下统一为例子，不考虑文献/论文/书作）
+    }
+    return colorTypeMap[colorIndex] || null
+  }
+
+  /**
    * 制卡（只支持非摘录版本）
    */
   static makeCard(note, addToReview = true, reviewEverytime = true, focusInMindMap = true) {
@@ -465,16 +486,21 @@ class KnowledgeBaseTemplate {
       if (note.excerptText) {
         let newnote = this.toNoExcerptVersion(note)
         newnote.focusInMindMap(0.5)
-        MNUtil.delay(0.5).then(()=>{
+        MNUtil.delay(0.4).then(()=>{
           note = MNNote.getFocusNote()
-          MNUtil.delay(0.5).then(()=>{
-            let processedNote = this.preprocessNote(note)
-            processedNote.focusInMindMap(0.4)
+          MNUtil.delay(0.4).then(()=>{
+            MNUtil.undoGrouping(()=>{
+              let processedNote = this.preprocessNote(note)
+              processedNote.focusInMindMap(0.4)
+            })
           })
         })
+        
       } else {
-        let processedNote = this.preprocessNote(note)
-        processedNote.focusInMindMap(0.4)
+        MNUtil.undoGrouping(()=>{
+          let processedNote = this.preprocessNote(note)
+          processedNote.focusInMindMap(0.4)
+        })
       }
     } else {
       // 正常模式：完整制卡流程
@@ -775,7 +801,7 @@ class KnowledgeBaseTemplate {
     this.moveCommentsArrToField(note, moveIndexArr, defaultField);
     
     // 处理之前提取的 MarginNote 链接
-    if (marginNoteLinks.length > 0) {
+    if (marginNoteLinks.length > 0 && noteType !== "定义") {
       this.processExtractedMarginNoteLinks(note, marginNoteLinks);
     }
   }
@@ -4285,38 +4311,81 @@ class KnowledgeBaseTemplate {
   }
 
   /**
-   * 通过弹窗来精准修改单个 HtmlMarkdown 评论的类型
+   * 通过弹窗来修改评论类型或将普通评论转换为 HtmlMarkdown 评论
    */
   static changeHtmlMarkdownCommentTypeByPopup(note) {
-    let htmlMarkdownCommentsTextArr = this.parseNoteComments(note).htmlMarkdownCommentsTextArr;
-    let htmlMarkdownCommentsObjArr = this.parseNoteComments(note).htmlMarkdownCommentsObjArr;
-    
-    if (htmlMarkdownCommentsTextArr.length === 0) {
-      MNUtil.showHUD("当前笔记没有 HtmlMarkdown 评论");
+    // 1. 收集所有可转换的评论
+    const allConvertibleComments = [];
+
+    note.MNComments.forEach((comment, index) => {
+      if (!comment) return;
+
+      // 跳过特殊类型：HtmlComment（字段）和 linkComment
+      if (comment.type === 'HtmlComment' || comment.type === 'linkComment') {
+        return;
+      }
+
+      let text = comment.text || "";
+      let hasLeadingDash = text.startsWith("- ");
+      let cleanText = hasLeadingDash ? text.substring(2) : text;
+
+      if (HtmlMarkdownUtils.isHtmlMDComment(cleanText)) {
+        // HtmlMarkdown 评论
+        let type = HtmlMarkdownUtils.getSpanType(cleanText);
+        let content = HtmlMarkdownUtils.getSpanTextContent(cleanText);
+
+        allConvertibleComments.push({
+          index: index,
+          isHtmlMD: true,
+          type: type,
+          content: content,
+          displayText: (hasLeadingDash ? "- " : "") + `[${type}] ${content}`,
+          hasLeadingDash: hasLeadingDash
+        });
+      } else if (cleanText.trim()) {
+        // 普通文本评论（排除空评论）
+        let displayContent = cleanText.length > 30 ? cleanText.substring(0, 30) + "..." : cleanText;
+        allConvertibleComments.push({
+          index: index,
+          isHtmlMD: false,
+          content: cleanText,
+          displayText: (hasLeadingDash ? "- " : "") + `[文本] ${displayContent}`,
+          hasLeadingDash: hasLeadingDash
+        });
+      }
+    });
+
+    if (allConvertibleComments.length === 0) {
+      MNUtil.showHUD("当前笔记没有可转换的评论");
       return;
     }
 
+    // 2. 显示评论选择弹窗
     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "选择要修改类型的 HtmlMarkdown 评论",
-      "请选择要修改的评论",
+      "选择要转换的评论",
+      "可以修改 HtmlMarkdown 评论类型或将文本评论转换为 HtmlMarkdown",
       0,
       "取消",
-      htmlMarkdownCommentsTextArr,
+      allConvertibleComments.map(c => c.displayText),
       (alert, buttonIndex) => {
         if (buttonIndex === 0) {
           return; // 取消
         }
-        
-        let selectedCommentObj = htmlMarkdownCommentsObjArr[buttonIndex - 1];
-        let currentType = selectedCommentObj.type;
-        
+
+        let selectedComment = allConvertibleComments[buttonIndex - 1];
+
         // 获取所有可用的类型选项
         let availableTypes = Object.keys(HtmlMarkdownUtils.icons);
         let typeDisplayTexts = availableTypes.map(type => `${HtmlMarkdownUtils.icons[type]} ${type}`);
-        
+
+        // 3. 显示类型选择弹窗
+        let promptMessage = selectedComment.isHtmlMD
+          ? `当前类型：${HtmlMarkdownUtils.icons[selectedComment.type]} ${selectedComment.type}\n\n请选择要转换成的类型：`
+          : "这是一个文本评论，请选择要转换成的类型：";
+
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
           "选择目标类型",
-          `当前类型：${HtmlMarkdownUtils.icons[currentType]} ${currentType}\n\n请选择要转换成的类型：`,
+          promptMessage,
           0,
           "取消",
           typeDisplayTexts,
@@ -4324,36 +4393,50 @@ class KnowledgeBaseTemplate {
             if (typeButtonIndex === 0) {
               return; // 取消
             }
-            
+
             let targetType = availableTypes[typeButtonIndex - 1];
-            
-            if (targetType === currentType) {
+
+            // 检查是否与当前类型相同（仅对 HtmlMarkdown 评论）
+            if (selectedComment.isHtmlMD && targetType === selectedComment.type) {
               MNUtil.showHUD("目标类型与当前类型相同，无需修改");
               return;
             }
-            
+
             MNUtil.undoGrouping(() => {
               try {
-                let comments = note.MNComments;
-                let targetComment = comments[selectedCommentObj.index];
-                let content = selectedCommentObj.content;
-                let hasLeadingDash = selectedCommentObj.hasLeadingDash;
-                
-                // 生成新的 HtmlMarkdown 文本
-                let newHtmlMarkdownText = HtmlMarkdownUtils.createHtmlMarkdownText(content, targetType);
-                
-                // 如果原来有前导破折号，保持前导破折号
-                if (hasLeadingDash) {
+                let targetComment = note.MNComments[selectedComment.index];
+                let newHtmlMarkdownText;
+
+                // 4. 根据目标类型创建评论
+                const numberedTypes = ['case', 'step'];
+                if (numberedTypes.includes(targetType)) {
+                  // 使用带序号的创建方法
+                  newHtmlMarkdownText = HtmlMarkdownUtils.createNumberedHtmlText(
+                    selectedComment.content,
+                    targetType,
+                    null,  // number 参数为 null，自动计算
+                    note   // 传入 note 用于自动计算序号
+                  );
+                } else {
+                  // 使用普通创建方法
+                  newHtmlMarkdownText = HtmlMarkdownUtils.createHtmlMarkdownText(
+                    selectedComment.content,
+                    targetType
+                  );
+                }
+
+                // 保持前导破折号
+                if (selectedComment.hasLeadingDash) {
                   newHtmlMarkdownText = "- " + newHtmlMarkdownText;
                 }
-                
+
                 // 更新评论文本
                 targetComment.text = newHtmlMarkdownText;
-                
-                // MNUtil.showHUD(`已将类型从 ${currentType} 改为 ${targetType}`);
-                
+
+                MNUtil.showHUD(`✅ 已转换为 ${targetType} 类型`);
+
               } catch (error) {
-                MNUtil.showHUD("修改失败：" + error.toString());
+                MNUtil.showHUD("转换失败：" + error.toString());
               }
             });
           }
@@ -7076,7 +7159,7 @@ class KnowledgeBaseTemplate {
     this.moveCommentsArrToField(note, indexArr, field, toBottom);
 
     // 处理之前提取的 MarginNote 链接
-    if (marginNoteLinks.length > 0 && handleInlineLink) {
+    if (marginNoteLinks.length > 0 && handleInlineLink && this.getNoteType(note) !== "定义") {  // 定义类型不处理
       this.processExtractedMarginNoteLinks(note, marginNoteLinks);
     }
     
@@ -15174,6 +15257,7 @@ class KnowledgeBaseIndexer {
   static buildIndexEntry(note) {
     // 基本防御性检查
     if (!note || !note.noteId) {
+      KnowledgeBaseUtils.log(`防御性检查没通过`, "buildIndexEntry");
       return null;
     }
 
@@ -15192,6 +15276,7 @@ class KnowledgeBaseIndexer {
 
       // ✅ 过滤掉 noteType 为 undefined 的卡片
       if (!noteType) {
+        KnowledgeBaseUtils.log(`跳过无类型卡片: ${note.noteId}`, "buildIndexEntry");
         return null;
       }
 
@@ -15226,6 +15311,7 @@ class KnowledgeBaseIndexer {
       // 移除类型名后，如果没有实质性内容，则过滤掉
       const searchTextWithoutType = entry.searchText.replace(new RegExp(`^${noteType}\\s*`, 'i'), '').trim();
       if (!searchTextWithoutType) {
+        KnowledgeBaseUtils.log('移除类型名后，如果没有实质性内容', "KnowledgeBaseIndexer: buildIndexEntry");
         return null;
       }
 
@@ -15239,6 +15325,7 @@ class KnowledgeBaseIndexer {
 
     } catch (error) {
       // 静默失败，返回 null（不索引出错的卡片）
+      KnowledgeBaseUtils.addErrorLog(error, "KnowledgeBaseIndexer: buildIndexEntry");
       return null;
     }
   }
@@ -18080,6 +18167,10 @@ class KnowledgeBaseNetwork {
       replacement: ": ",
       description: ""
     },
+    {
+      pattern: "\{?(∂𝔻)\}?",
+      replacement: "𝕋",
+    },
 
     // === 定理编号处理规则（按复杂度从高到低排列）===
     // 1. 处理带名称+内容的完整格式（最优先）
@@ -20333,9 +20424,27 @@ class HtmlMarkdownUtils {
                       // HtmlMarkdownUtils.addSameLevelHtmlMDComment(parentNode, rawTextFromTitle, typeForCurrentNodeTitleInParentComment);
                       // 或者，如果更倾向于直接使用 appendMarkdownComment:
                       if (typeof parentNode.appendMarkdownComment === 'function') {
-                          parentNode.appendMarkdownComment(
-                              HtmlMarkdownUtils.createHtmlMarkdownText(rawTextFromTitle, typeForCurrentNodeTitleInParentComment)
-                          );
+                          // 检查是否是需要序号的类型（case, step）
+                          const numberedTypes = ['case', 'step'];
+                          let commentHtml;
+
+                          if (numberedTypes.includes(typeForCurrentNodeTitleInParentComment)) {
+                              // 使用带序号的创建方法
+                              commentHtml = HtmlMarkdownUtils.createNumberedHtmlText(
+                                  rawTextFromTitle,
+                                  typeForCurrentNodeTitleInParentComment,
+                                  null,  // number 参数为 null，自动计算
+                                  parentNode  // 传入 parentNode 用于自动计算序号
+                              );
+                          } else {
+                              // 使用普通创建方法
+                              commentHtml = HtmlMarkdownUtils.createHtmlMarkdownText(
+                                  rawTextFromTitle,
+                                  typeForCurrentNodeTitleInParentComment
+                              );
+                          }
+
+                          parentNode.appendMarkdownComment(commentHtml);
                       } else {
                           MNUtil.warn(`parentNode ${parentNode.id} 上未找到 appendMarkdownComment 方法。`);
                       }

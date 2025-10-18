@@ -4245,7 +4245,7 @@ function registerAllCustomActions() {
   global.registerCustomAction("doubleClickMakeNote", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
     MNUtil.undoGrouping(() => {
-      KnowledgeBaseTemplate.makeNote(focusNote, false);
+      KnowledgeBaseTemplate.makeCard(focusNote, false);
     });
   });
 
