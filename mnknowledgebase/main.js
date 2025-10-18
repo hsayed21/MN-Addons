@@ -364,30 +364,17 @@ JSB.newAddon = function(mainPath){
         let commandTable = [
           // === 索引管理 ===
           self.tableItem('🔄   索引知识库', 'updateSearchIndex:'),
-          // self.tableItem('📋   搜索知识库', 'searchForMarkdown:'),
-          // self.tableItem('-------------------------------',''),
           // === 中间知识库管理 ===
           self.tableItem('📝   索引中间知识库', 'updateIntermediateKnowledgeIndex:'),
-          // self.tableItem('🔎   搜索中间知识库', 'searchInIntermediateKB:'),
           self.tableItem('-------------------------------',''),
           // === 通用搜索（支持自定义类型）===
           self.tableItem('🌐   可视化搜索', 'openSearchWebView:'),
-          // self.tableItem('🔍   全部搜索', 'searchInKB:'),
-
-          // === 快捷搜索 ===
-          // self.tableItem('    📚  知识卡片', 'searchWithPreset:', 'knowledge'),
-          // self.tableItem('    📘  仅定义', 'searchWithPreset:', 'definitions'),
-          // self.tableItem('    📁  仅归类', 'searchWithPreset:', 'classifications'),
-          // self.tableItem('    📒  定义与归类', 'searchWithPreset:', 'definitionsAndClassifications'),
           self.tableItem('-------------------------------',''),
           self.tableItem('🤖  模式',''),
           self.tableItem('    🤖 摘录自动 OCR', 'excerptOCRModeSetting:', button, !self.excerptOCRMode==0),
           self.tableItem('    🤖 预摘录', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
           self.tableItem('    🤖 卡片预处理', 'preProcessModeToggled:', undefined, KnowledgeBaseConfig.config.preProcessMode),
           self.tableItem('    🤖 上课', 'classModeToggled:', undefined, self.classMode),
-          // === 配置管理 ===
-          // self.tableItem('📜   搜索历史', 'showSearchHistory:'),
-          // self.tableItem('🔍   搜索模式设置', 'configureSearchMode:'),
           self.tableItem('-------------------------------',''),
           self.tableItem('⚙️  OCR 模型设置', 'excerptOCRModelSetting:', button),
           self.tableItem('    ⚙️ Unicode OCR 模型', 'excerptOCRModelSettingForMode1:', button),
@@ -855,197 +842,10 @@ JSB.newAddon = function(mainPath){
       }
     },
 
-    /**
-     * 显示搜索历史
-     */
-    showSearchHistory: async function() {
-      try {
-        // 关闭菜单
-        if (self.popoverController) {
-          self.popoverController.dismissPopoverAnimated(true);
-        }
-        
-        // 检查是否有搜索历史
-        if (!KnowledgeBaseSearcher.searchHistory || KnowledgeBaseSearcher.searchHistory.length === 0) {
-          MNUtil.showHUD("暂无搜索历史");
-          return;
-        }
-        
-        // 格式化时间显示
-        const formatTime = (timestamp) => {
-          const now = Date.now();
-          const diff = now - timestamp;
-          const seconds = Math.floor(diff / 1000);
-          const minutes = Math.floor(seconds / 60);
-          const hours = Math.floor(minutes / 60);
-          const days = Math.floor(hours / 24);
-          
-          if (days > 0) return `${days}天前`;
-          if (hours > 0) return `${hours}小时前`;
-          if (minutes > 0) return `${minutes}分钟前`;
-          return `刚刚`;
-        };
-        
-        // 构建历史列表选项
-        const options = KnowledgeBaseSearcher.searchHistory.map((entry, index) => {
-          const typeInfo = entry.types ? `[${entry.types.join(",")}]` : "[全部]";
-          const timeInfo = formatTime(entry.timestamp);
-          return `${index + 1}. ${timeInfo} - "${entry.keyword}" ${typeInfo} (${entry.results.length}个结果)`;
-        });
-        
-        // 添加清空历史选项
-        options.push("🗑️ 清空搜索历史");
-        
-        // 显示历史列表
-        const choice = await MNUtil.userSelect(
-          `搜索历史 (最近${KnowledgeBaseSearcher.searchHistory.length}条)`,
-          "选择要查看的历史记录：",
-          options
-        );
-        
-        if (choice === 0) {
-          // 用户取消
-          return;
-        } else if (choice === options.length) {
-          // 清空历史
-          self.clearSearchHistory();
-        } else {
-          // 显示选中的历史记录结果
-          const selectedHistory = KnowledgeBaseSearcher.searchHistory[choice - 1];
 
-          // 尝试加载搜索器（用于返回搜索功能）
-          const searcher = await KnowledgeBaseSearcher.loadFromFile();
 
-          // 重用之前的搜索结果
-          const searchOptions = {
-            types: selectedHistory.types,
-            searchModeConfig: selectedHistory.searchModeConfig,
-            originalKeyword: selectedHistory.keyword,
-            isFromHistory: true
-          };
 
-          // 显示历史搜索结果（用户在点击卡片时通过菜单选择操作）
-          KnowledgeBaseSearcher.showSearchResults(
-            selectedHistory.results,
-            searcher,
-            searchOptions
-          );
-        }
-        
-      } catch (error) {
-        MNUtil.showHUD("显示搜索历史失败: " + error.message);
-        MNLog.error(error, "MNKnowledgeBase: showSearchHistory");
-      }
-    },
-    
-    /**
-     * 清空搜索历史
-     */
-    clearSearchHistory: async function() {
-      self.clearSearchHistory()
-    },
 
-    /**
-     * 配置搜索模式
-     */
-    configureSearchMode: async function() {
-      try {
-        // 关闭菜单
-        if (self.popoverController) {
-          self.popoverController.dismissPopoverAnimated(true);
-        }
-        
-        // 调用搜索模式配置界面
-        await KnowledgeBaseTemplate.configureSearchMode();
-      } catch (error) {
-        MNUtil.showHUD("配置搜索模式失败: " + error.message);
-      }
-    },
-
-    /**
-     * 管理排除词
-     */
-    manageExclusions: async function() {
-      try {
-        // 关闭菜单
-        if (self.popoverController) {
-          self.popoverController.dismissPopoverAnimated(true);
-        }
-        
-        // 调用排除词管理界面
-        await KnowledgeBaseTemplate.manageExclusionGroups();
-      } catch (error) {
-        MNUtil.showHUD("管理排除词失败: " + error.message);
-        MNLog.error(error, "MNKnowledgeBase: manageExclusions");
-      }
-    },
-
-    /**
-     * 使用预设类型进行快捷搜索
-     * @param {String} preset - 预设类型键名（如 'knowledge', 'definitions' 等）
-     */
-    searchWithPreset: async function(preset) {
-      try {
-        self.checkPopover();
-
-        // 异步加载搜索器
-        const searcher = await KnowledgeBaseSearcher.loadFromFile();
-        if (!searcher) {
-          MNUtil.showHUD("索引未找到，请先更新搜索索引");
-          return;
-        }
-
-        // 获取预设类型
-        const types = SearchConfig.getTypesByPreset(preset);
-        if (!types) {
-          MNUtil.showHUD("无效的搜索预设");
-          return;
-        }
-
-        // 显示搜索对话框，跳过类型选择
-        const searchConfig = {
-          enableTypeSelection: false,  // 禁用类型选择
-          defaultTypes: types,         // 使用预设类型
-          presetKey: preset            // 传递预设键用于显示
-        };
-
-        KnowledgeBaseSearcher.showSearchDialog(searcher, searchConfig);
-
-      } catch (error) {
-        MNUtil.showHUD("快捷搜索失败: " + error.message);
-        MNLog.error(error, "MNKnowledgeBase: searchWithPreset");
-      }
-    },
-
-    /**
-     * 搜索并复制 Markdown 链接
-     */
-    searchForMarkdown: async function() {
-      try {
-        self.checkPopover();
-
-        // 异步加载搜索器
-        const searcher = await KnowledgeBaseSearcher.loadFromFile();
-        if (!searcher) {
-          MNUtil.showHUD("索引未找到，请先更新搜索索引");
-          return;
-        }
-
-        // 获取知识卡片类型
-        const types = SearchConfig.getTypesByPreset('knowledge');
-
-        // 显示搜索对话框，使用知识卡片类型
-        KnowledgeBaseSearcher.showSearchDialog(searcher, {
-          enableTypeSelection: false,  // 禁用类型选择
-          defaultTypes: types,         // 使用知识卡片类型
-          presetKey: 'knowledge'       // 使用知识卡片预设
-        });
-
-      } catch (error) {
-        MNUtil.showHUD("搜索失败: " + error.message);
-        MNLog.error(error, "MNKnowledgeBase: searchForMarkdown");
-      }
-    },
 
 
     // 生命周期测试
@@ -1343,23 +1143,6 @@ JSB.newAddon = function(mainPath){
 
 
 
-  MNKnowledgeBaseClass.prototype.clearSearchHistory = async function() {
-    try {
-      const confirm = await MNUtil.userSelect(
-        "确认清空",
-        "确定要清空所有搜索历史吗？此操作不可恢复。",
-        ["取消", "确认清空"]
-      );
-
-      if (confirm === 1) {
-        this.searchHistory = [];
-        MNUtil.showHUD("搜索历史已清空");
-      }
-    } catch (error) {
-      MNUtil.showHUD("清空历史失败: " + error.message);
-      MNLog.error(error, "MNKnowledgeBase: clearSearchHistory");
-    }
-  }
 
   /**
    * 加载搜索数据到 WebView（合并主知识库和中间知识库）

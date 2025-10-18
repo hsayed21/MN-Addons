@@ -17104,10 +17104,10 @@ class SynonymManager {
     //   "words": ["", ""],
     //   "partialReplacement": false,
     // },
-    // {
-    //   "words": ["", ""],
-    //   "partialReplacement": false,
-    // },
+    {
+      "words": ["空集", "∅"],
+      "partialReplacement": false,
+    },
     {
       "words": ["复可测函数", "可测复函数"],
       "partialReplacement": false,
