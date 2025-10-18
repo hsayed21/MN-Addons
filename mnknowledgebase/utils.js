@@ -3785,12 +3785,12 @@ class KnowledgeBaseTemplate {
     })
   }
 
-  static createChildNoteWithTitle(note, title) {
+  static createChildNoteWithTitle(note, title, colorIndex = note.colorIndex) {
     let config = {
       title: title,
       content: "",
       markdown: true,
-      color: note.colorIndex
+      color: colorIndex
     }
     // 创建新兄弟卡片，标题为旧卡片的标题
     return note.createChildNote(config)
@@ -8401,11 +8401,14 @@ class KnowledgeBaseTemplate {
   }
 
 
-  static createClassificationNote(note, title, type) {
-    let templateNote = MNNote.clone(this.types["归类"].templateNoteId);
+  /**
+   * simpleTemplate: 没有“相关思考”字段
+   */
+  static createClassificationNote(note, title, type, linkParentNote = true, simpleTemplate = false) {
+    let templateNote = simpleTemplate?MNNote.clone("marginnote4app://note/14C17839-C256-4D3C-A611-726C5B6C1A04"):MNNote.clone(this.types["归类"].templateNoteId);
     templateNote.noteTitle = `“${title}”相关${type}`;
     note.addChild(templateNote.note);
-    this.linkParentNote(templateNote);
+    if (linkParentNote) { this.linkParentNote(templateNote); }
     return templateNote;
   }
 

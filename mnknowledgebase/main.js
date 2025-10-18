@@ -33,6 +33,14 @@ JSB.newAddon = function(mainPath){
     sceneWillConnect: function() {
       try {
         KnowledgeBaseConfig.init(mainPath)
+        self.preExcerptRootNote = MNNote.new("marginnote4app://note/B48C92CF-A5FD-442A-BF8C-53E1E801F05D")
+        self.classInputRootNote = MNNote.new("marginnote4app://note/9F2D24D3-5348-4677-9DCD-01A6C9C1303A")
+        if (self.classInputRootNote) {
+          self.classDateNotes = self.classInputRootNote.childNotes 
+        }
+        self.dateObj = MNUtil.getDateObject()
+        self.todayDateStr = `${self.dateObj.year}.${self.dateObj.month}.${self.dateObj.day}`
+        // MNUtil.showHUD(self.todayDateStr)
 
         // 保存插件实例引用，供 knowledgebaseWebController 调用
         if (typeof MNKnowledgeBaseInstance === 'undefined') {
@@ -50,6 +58,7 @@ JSB.newAddon = function(mainPath){
         self.toggled = false
         self.excerptOCRMode = KnowledgeBaseConfig.config.excerptOCRMode || 0  // 摘录 OCR 模式：0=关闭, 1=直接OCR, 2=Markdown格式, 3=概念提取
         self.preExcerptMode = false  // 预摘录模式
+        self.classMode = false
         // MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
         MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
       } catch (error) {
@@ -210,7 +219,7 @@ JSB.newAddon = function(mainPath){
           self.newNoteCreatedFromMindMap = focusNote;
           self.isCreatingNewNote = true;
 
-          MNUtil.log("【新卡片检测】noteId: " + focusNote.noteId);
+          // MNUtil.log("【新卡片检测】noteId: " + focusNote.noteId);
         } else {
           // 清除标记（用户在编辑已有卡片）
           self.isCreatingNewNote = false;
@@ -245,14 +254,22 @@ JSB.newAddon = function(mainPath){
         let note = MNNote.new(self.newNoteCreatedFromMindMap.noteId);
 
         if (note && note.noteTitle) {
-          // 4. 显示卡片标题（测试）
-          MNUtil.showHUD("新卡片创建: " + note.noteTitle);
-
-          // 5. 记录日志
-          MNUtil.log("【新卡片创建完成】标题: " + note.noteTitle + ", ID: " + note.noteId);
-
-          // 6. 这里可以添加后续的自动化处理
-          // 例如: 自动添加标签、移动到特定位置等
+          if (self.classMode) {
+            MNUtil.undoGrouping(()=>{
+              switch (note.colorIndex) {
+                case 2:  // 定义
+                  self.classTodayDefClassificationNote.addChild(note) 
+                  break;
+                case 10: // 命题
+                  self.classTodayThmClassificationNote.addChild(note)
+                  break;
+                default:
+                  self.classTodayNote.addChild(note)
+                  break;
+              }
+              note.focusInMindMap(0.3)
+            })
+          }
         }
 
       } catch (error) {
@@ -279,19 +296,35 @@ JSB.newAddon = function(mainPath){
         const noteId = sender.userInfo.noteid
         const note = MNNote.new(noteId)
         if (!note) return
-        if (self.preExcerptMode) {
-          // 预摘录模式：自动移动到预备知识库
-          const preExcerptRootNote = MNNote.new("marginnote4app://note/B48C92CF-A5FD-442A-BF8C-53E1E801F05D")
-          if (preExcerptRootNote) {
-            preExcerptRootNote.addChild(note)
-          }
-        }
-
         if (self.excerptOCRMode > 0) {
           let OCRResult = await KnowledgeBaseNetwork.OCRToTitle(note, self.excerptOCRMode, self.preExcerptMode)
           if (OCRResult) {
             IntermediateKnowledgeIndexer.addToIncrementalIndex(note)
           }
+        }
+        if (self.preExcerptMode && self.preExcerptRootNote) {
+          // 预摘录模式：自动移动到预备知识库
+          MNUtil.undoGrouping(()=>{
+            self.preExcerptRootNote.addChild(note)
+          })
+          return  // 预处理模式优先级更高
+        }
+
+        if (self.classMode && self.classTodayNote) {
+          MNUtil.undoGrouping(()=>{
+            switch (note.colorIndex) {
+              case 2:  // 定义
+                self.classTodayDefClassificationNote.addChild(note) 
+                break;
+              case 10: // 命题
+                self.classTodayThmClassificationNote.addChild(note)
+                break;
+              default:
+                self.classTodayNote.addChild(note)
+                break;
+            }
+          })
+          return 
         }
       } catch (error) {
         KnowledgeBaseUtils.addErrorLog(error, "onProcessNewExcerpt")
@@ -350,6 +383,7 @@ JSB.newAddon = function(mainPath){
           self.tableItem('🤖  模式',''),
           self.tableItem('    🤖 摘录自动 OCR', 'excerptOCRModeSetting:', button, !self.excerptOCRMode==0),
           self.tableItem('    🤖 预摘录', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
+          self.tableItem('    🤖 上课', 'classModeToggled:', undefined, self.classMode),
           // === 配置管理 ===
           // self.tableItem('📜   搜索历史', 'showSearchHistory:'),
           // self.tableItem('🔍   搜索模式设置', 'configureSearchMode:'),
@@ -530,7 +564,30 @@ JSB.newAddon = function(mainPath){
     preExcerptModeToggled: function() {
       self.checkPopover()
       self.preExcerptMode = !self.preExcerptMode
+
       MNUtil.showHUD(self.preExcerptMode ? "已开启预摘录模式" : "已关闭预摘录模式", 1)
+    },
+
+    classModeToggled: function() {
+      self.checkPopover()
+      self.classMode = !self.classMode
+      MNUtil.showHUD(self.classMode ? "已开启上课模式" : "已关闭上课模式", 1)
+      self.classTodayNote = self.classDateNotes.find(note => {
+        return note.noteTitle.includes(self.todayDateStr)
+      })
+      self.classTodayDefClassificationNote = self.classTodayNote.childNotes.find(note => {
+        return KnowledgeBaseTemplate.getNoteType(note) === "归类" && note.noteTitle.includes(self.todayDateStr) && note.noteTitle.includes("定义")
+      })
+      self.classTodayThmClassificationNote = self.classTodayNote.childNotes.find(note => {
+        return KnowledgeBaseTemplate.getNoteType(note) === "归类" && note.noteTitle.includes(self.todayDateStr) && note.noteTitle.includes("命题")
+      })
+      if (!self.classTodayNote) {
+        self.classTodayNote = MNNote.clone("marginnote4app://note/B6F95A90-7565-4479-94E3-CA7BFAE8C58F")
+        self.classTodayNote.title = "📥 上课输入 - " + self.todayDateStr
+        self.classInputRootNote.addChild(self.classTodayNote)
+        self.classTodayDefClassificationNote = KnowledgeBaseTemplate.createClassificationNote(self.classTodayNote, self.todayDateStr, "定义", true, true)
+        self.classTodayThmClassificationNote = KnowledgeBaseTemplate.createClassificationNote(self.classTodayNote, self.todayDateStr, "命题", true, true)
+      }
     },
     
     /**

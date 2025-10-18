@@ -4319,35 +4319,14 @@
         // 清理可能存在的旧占位符（防御性措施）
         text = text.replace(/__HL_\d+_\d+__/g, '');
 
-        if (!tokens || tokens.length === 0) {
-          if (/<[^>]+>/.test(text)) return text;
-          return escapeHtml(text);
-        }
-
+        // 移除高亮功能，直接返回转义后的文本
         if (/<[^>]+>/.test(text)) {
-          // 已经是高亮/富文本，直接返回
+          // 如果已经包含 HTML 标签，直接返回
           return text;
         }
 
-        let safe = escapeHtml(text);
-        const placeholders = [];
-        const sorted = tokens.slice().sort((a, b) => b.length - a.length);
-
-        sorted.forEach((token, index) => {
-          if (!token) return;
-          const regexp = new RegExp(escapeRegExp(token), 'ig');
-          safe = safe.replace(regexp, (match) => {
-            const key = `__HL_${index}_${placeholders.length}__`;
-            placeholders.push({ key, text: match });
-            return key;
-          });
-        });
-
-        placeholders.forEach((placeholder) => {
-          safe = safe.split(placeholder.key).join(`<mark class="matched">${placeholder.text}</mark>`);
-        });
-
-        return safe;
+        // 返回 HTML 转义后的纯文本，确保安全性
+        return escapeHtml(text);
       }
 
       function escapeRegExp(string) {
