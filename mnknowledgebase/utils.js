@@ -3869,11 +3869,14 @@ class KnowledgeBaseTemplate {
   static getNoteType(note) {
     // 防御性检查
     if (!note) {
+      KnowledgeBaseUtils.log(`返回 undefined 原因：无卡片`, "getNoteType");
       return undefined;
     }
 
-    let noteType
+    let noteType = null;
     let title = note.title || "";
+    let match
+    let matchResult
     /**
      * 如果是
      * "xxx"："yyy"相关 zz
@@ -3889,21 +3892,21 @@ class KnowledgeBaseTemplate {
        * 【xx：yy】zz
        * 则根据 xx 作为 prefixName 在 types 搜索类型
        */
-      let match = title.match(/^【(.{2,4})\s*(?:>>|：)\s*.*】(.*)/)
-      let matchResult
+      match = title.match(/^【(.{2,4})\s*(?:>>|：)\s*.*】(.*)/)
       if (match) {
         matchResult = match[1].trim();
       } else {
         match = title.match(/^【(.*)】(.*)/)
         if (match) {
           matchResult = match[1].trim();
-        } else {
-          // 从标题判断不了的话，就从卡片的归类卡片来判断
-          let classificationNote = this.getFirstClassificationParentNote(note);
-          if (classificationNote) {
-            let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
-            matchResult = classificationNoteTitleParts.type;
-          }
+        }
+      }
+      if (!matchResult) {
+        // 从标题判断不了的话，就从卡片的归类卡片来判断
+        let classificationNote = this.getFirstClassificationParentNote(note);
+        if (classificationNote) {
+          let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
+          matchResult = classificationNoteTitleParts.type;
         }
       }
       for (let typeKey in this.types) {
@@ -3915,6 +3918,10 @@ class KnowledgeBaseTemplate {
       }
     }
 
+    if (!noteType) {
+      // 如果还是获取不到的话，就尝试用颜色判断
+      noteType = this.getNoteTypeByColor(note.colorIndex);
+    }
     return noteType || undefined;
   }
 
