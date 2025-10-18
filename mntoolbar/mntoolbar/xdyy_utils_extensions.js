@@ -11,7 +11,6 @@ function initXDYYExtensions() {
   // 扩展 defaultWindowState 配置
   if (toolbarUtils.defaultWindowState) {
     toolbarUtils.defaultWindowState.preprocess = false;
-    toolbarUtils.defaultWindowState.roughReading = false;
   }
 
   /**
@@ -34,162 +33,6 @@ function initXDYYExtensions() {
       idsArr.push(note.noteURL);
     });
     return idsArr;
-  };
-
-  /**
-   * 粗读模式制卡函数
-   * 特点：
-   * 1. 先处理摘录卡片转换
-   * 2. 使用颜色判断卡片类型
-   * 3. 不加入复习
-   * 4. 自动移动到根目录（如果没有归类父卡片或类型不符）
-   */
-  toolbarUtils.roughReadingMakeNote = function (note) {
-    MNUtil.undoGrouping(() => {
-      try {
-        // 保存原始剪贴板内容
-        const originalClipboard = MNUtil.clipboardText;
-        if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(
-            "🔍 [粗读制卡] 开始，原剪贴板内容: " +
-              (originalClipboard
-                ? originalClipboard.substring(0, 50) + "..."
-                : "空"),
-          );
-        }
-
-        // 0. 如果是摘录卡片，先转换为非摘录版本
-        if (note.excerptText) {
-          if (typeof MNUtil !== "undefined" && MNUtil.log) {
-            MNUtil.log("🔍 [粗读制卡] 检测到摘录卡片，开始转换");
-          }
-          note = KnowledgeBaseTemplate.toNoExcerptVersion(note);
-          if (!note) {
-            MNUtil.log("❌ 转换为非摘录版本失败");
-            return;
-          }
-          if (typeof MNUtil !== "undefined" && MNUtil.log) {
-            MNUtil.log("🔍 [粗读制卡] 转换完成，新卡片ID: " + note.noteId);
-            // 检查剪贴板是否被意外修改
-            const currentClipboard = MNUtil.clipboardText;
-            if (currentClipboard !== originalClipboard) {
-              MNUtil.log(
-                "⚠️ [粗读制卡] 检测到剪贴板被修改: " + currentClipboard,
-              );
-              // 恢复原始剪贴板内容
-              MNUtil.clipboardText = originalClipboard;
-              MNUtil.log("✅ [粗读制卡] 已恢复原始剪贴板内容");
-            }
-          }
-        }
-
-        // 1. 先判断是否需要移动到根目录
-        const noteTypeByColor = KnowledgeBaseTemplate.getNoteTypeByColor(note.colorIndex); // 根据颜色判断类型
-        const noteTypeByTitle = KnowledgeBaseTemplate.getNoteType(note, false); // 根据标题判断类型（不使用颜色后备）
-        const classificationParent =
-          KnowledgeBaseTemplate.getFirstClassificationParentNote(note);
-
-        // 判断是否需要移动：
-        // 1) 没有归类父卡片
-        // 2) 有归类父卡片，但类型与颜色判断的不符
-        let needMove = false;
-        if (!classificationParent) {
-          needMove = true;
-        } else {
-          // 从归类父卡片标题解析出类型
-          const classificationTitle = classificationParent.noteTitle;
-          const classificationTypeMatch =
-            classificationTitle.match(/相关\s*(.+)$/);
-          if (classificationTypeMatch) {
-            const classificationType = classificationTypeMatch[1].trim();
-            // 如果归类卡片的类型与颜色判断的类型不符，需要移动
-            if (classificationType !== noteTypeByColor) {
-              needMove = true;
-            }
-          }
-        }
-
-        if (
-          needMove &&
-          noteTypeByColor &&
-          KnowledgeBaseTemplate.roughReadingRootNoteIds[noteTypeByColor]
-        ) {
-          const rootNoteId = KnowledgeBaseTemplate.roughReadingRootNoteIds[noteTypeByColor];
-          if (rootNoteId && toolbarUtils.isValidNoteId(rootNoteId)) {
-            try {
-              // 移动到对应类型的根目录
-              const rootNote = MNNote.new(rootNoteId);
-              if (rootNote) {
-                rootNote.addChild(note);
-                MNUtil.log(`✅ 卡片移动到 ${noteTypeByColor} 根目录`);
-              }
-            } catch (error) {
-              MNUtil.log(`❌ 移动到根目录失败: ${error.message}`);
-            }
-          }
-        }
-
-        // 2. 使用 KnowledgeBaseTemplate 的制卡体系
-        // addToReview = false, reviewEverytime = true, focusInMindMap = true
-        if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          const beforeMakeCardClipboard = MNUtil.clipboardText;
-          MNUtil.log(
-            "🔍 [粗读制卡] 调用 KnowledgeBaseTemplate.makeCard 前，剪贴板: " +
-              (beforeMakeCardClipboard === originalClipboard
-                ? "未变化"
-                : "已变化为: " + beforeMakeCardClipboard),
-          );
-        }
-
-        KnowledgeBaseTemplate.makeCard(note, false, true, true);
-
-        if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          const afterMakeCardClipboard = MNUtil.clipboardText;
-          MNUtil.log(
-            "🔍 [粗读制卡] 调用 KnowledgeBaseTemplate.makeCard 后，剪贴板: " +
-              (afterMakeCardClipboard === originalClipboard
-                ? "未变化"
-                : "已变化为: " + afterMakeCardClipboard),
-          );
-        }
-
-        // 3. 定位到脑图中，防止移动后找不到
-        note.focusInMindMap(0.5);
-
-        if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          const afterFocusClipboard = MNUtil.clipboardText;
-          MNUtil.log(
-            "🔍 [粗读制卡] 调用 focusInMindMap 后，剪贴板: " +
-              (afterFocusClipboard === originalClipboard
-                ? "未变化"
-                : "已变化为: " + afterFocusClipboard),
-          );
-        }
-
-        // 最后再次检查并恢复剪贴板
-        if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          const finalClipboard = MNUtil.clipboardText;
-          if (finalClipboard !== originalClipboard) {
-            MNUtil.log(
-              "⚠️ [粗读制卡] 制卡完成后检测到剪贴板被修改: " + finalClipboard,
-            );
-            MNUtil.clipboardText = originalClipboard;
-            MNUtil.log("✅ [粗读制卡] 已恢复原始剪贴板内容");
-          }
-          MNUtil.log("✅ [粗读制卡] 完成");
-        }
-
-        // MNUtil.showHUD("✅ 粗读制卡完成（未加入复习）")
-      } catch (error) {
-        toolbarUtils.addErrorLog(error, "roughReadingMakeNote");
-        // MNUtil.showHUD(`❌ 粗读制卡失败: ${error.message}`)
-
-        // 出错时也要恢复剪贴板
-        if (typeof originalClipboard !== "undefined") {
-          MNUtil.clipboardText = originalClipboard;
-        }
-      }
-    });
   };
 
   toolbarUtils.isValidNoteId = function (noteId) {
@@ -2404,24 +2247,6 @@ function extendToolbarConfigInit() {
     ];
   };
 
-  // 添加 toggleRoughReading 静态方法
-  // 夏大鱼羊
-  toolbarConfig.toggleRoughReading = function () {
-    if (!toolbarUtils.checkSubscribe(true)) {
-      return;
-    }
-    if (toolbarConfig.getWindowState("roughReading") === false) {
-      toolbarConfig.windowState.roughReading = true;
-      toolbarConfig.save("MNToolbar_windowState");
-      MNUtil.showHUD("粗读模式：✅ 开启");
-    } else {
-      toolbarConfig.windowState.roughReading = false;
-      toolbarConfig.save("MNToolbar_windowState");
-      MNUtil.showHUD("粗读模式：❌ 关闭");
-    }
-    MNUtil.postNotification("refreshToolbarButton", {});
-  };
-
   // ===== 代码学习相关功能 =====
   // 夏大鱼羊
 
@@ -2699,7 +2524,6 @@ function extendToolbarConfigInit() {
   // 夏大鱼羊
   if (toolbarConfig.defaultWindowState) {
     toolbarConfig.defaultWindowState.preprocess = false;
-    toolbarConfig.defaultWindowState.roughReading = false;
   }
 }
 

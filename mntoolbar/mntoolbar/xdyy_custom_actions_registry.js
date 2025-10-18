@@ -4234,10 +4234,7 @@ function registerAllCustomActions() {
     const { button, des, focusNote, focusNotes, self } = context;
     MNUtil.undoGrouping(() => {
       try {
-        if (toolbarConfig.windowState.roughReading) {
-          // 粗读模式：使用颜色判断类型，不加入复习，自动移动到根目录
-          toolbarUtils.roughReadingMakeNote(focusNote);
-        } else if (toolbarConfig.windowState.preprocess) {
+        if (toolbarConfig.windowState.preprocess) {
           let processedNote = KnowledgeBaseTemplate.preprocessNote(focusNote)
           processedNote.focusInMindMap(0.4);
         } else {
@@ -4286,34 +4283,6 @@ function registerAllCustomActions() {
     })
   })
 
-  global.registerCustomAction("sendNotesToRoughReadingArea", async function (context) {
-    const { focusNotes } = context;
-    MNUtil.undoGrouping(() => {
-      try {
-        let rootNote = MNNote.new(KnowledgeBaseTemplate.roughReadingRootNoteIds["命题"]);
-        focusNotes.forEach((note) => {
-          rootNote.addChild(note);
-        })
-      } catch (error) {
-        MNUtil.showHUD(error);
-      }
-    })
-  })
-
-  global.registerCustomAction("sendNotesToRoughReadingAreaAndFocus", async function (context) {
-    const { focusNotes } = context;
-    MNUtil.undoGrouping(() => {
-      try {
-        let rootNote = MNNote.new(KnowledgeBaseTemplate.roughReadingRootNoteIds["命题"]);
-        focusNotes.forEach((note) => {
-          rootNote.addChild(note);
-        })
-        focusNotes[0].focusInMindMap(0.3);
-      } catch (error) {
-        MNUtil.showHUD(error);
-      }
-    })
-  })
 
   // replaceFieldContentByPopup
   global.registerCustomAction(

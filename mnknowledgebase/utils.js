@@ -1,17 +1,5 @@
 class KnowledgeBaseTemplate {
   /**
-   * 粗读根目录
-   */
-  static roughReadingRootNoteIds = {
-    "定义": "38ACB470-803E-4EE8-B7DD-1BF4722AB0FE",
-    "命题": "D6F7EA72-DDD1-495B-8DF5-5E2559C5A982",
-    "例子": "9BAEB3FF-318E-48BD-92E4-66727427EDD5",
-    "反例": "AE530B71-E758-47CA-8C88-A59E5D287CBD",
-    "问题": "C58ED58F-56BE-47F8-8F6B-1D76FF6212F8",
-    "思想方法": "A4A7B09E-D124-4192-9804-C074718E399C",
-    "研究进展": "7D37A27B-9964-4552-9F64-684DA0F10270",
-  }
-  /**
    * 单条 HtmlComment 的模板卡片 id
    */
   static singleHtmlCommentTemplateNoteIds = {
@@ -358,27 +346,6 @@ class KnowledgeBaseTemplate {
     "问题": "研究思路"  // 注意：这里是"研究思路"而不是默认的"研究脉络"
   }
 
-
-  /**
-   * 根据颜色索引获取卡片类型（粗读模式使用）
-   * @param {number} colorIndex - 颜色索引
-   * @returns {string|null} 卡片类型，如果未找到则返回 null
-   */
-  static getNoteTypeByColor(colorIndex) {
-    // 建立颜色到类型的映射
-    const colorTypeMap = {
-      0: "归类",       // 淡黄色
-      1: "问题",       // 淡绿色
-      2: "定义",       // 淡蓝色（作者也是淡蓝色，但粗读模式优先定义）
-      3: "反例",       // 粉色
-      6: "研究进展",   // 蓝色（总结也是蓝色，但粗读模式优先研究进展）
-      9: "思想方法",   // 深绿色
-      10: "命题",      // 深蓝色
-      13: "思路",      // 淡灰色
-      15: "例子"       // 紫色（粗读模式下统一为例子，不考虑文献/论文/书作）
-    }
-    return colorTypeMap[colorIndex] || null
-  }
 
   /**
    * 制卡（只支持非摘录版本）
@@ -3863,18 +3830,17 @@ class KnowledgeBaseTemplate {
 
   /**
    * 获取卡片类型
-   * 
+   *
    * 目前是靠卡片标题来判断
    * @param {MNNote} note - 要判断类型的卡片
-   * @param {boolean} useColorFallback - 是否在无法从标题/归类卡片判断时使用颜色判断（粗读模式使用）
    * @returns {string|undefined} 卡片类型
    */
-  static getNoteType(note, useColorFallback = false) {
+  static getNoteType(note) {
     // 防御性检查
     if (!note) {
       return undefined;
     }
-    
+
     let noteType
     let title = note.title || "";
     /**
@@ -3916,11 +3882,6 @@ class KnowledgeBaseTemplate {
           break;
         }
       }
-    }
-
-    // 粗读模式：如果无法从标题或归类卡片判断，尝试根据颜色判断
-    if (useColorFallback && note.colorIndex !== undefined) {
-      noteType = this.getNoteTypeByColor(note.colorIndex);
     }
 
     return noteType || undefined;

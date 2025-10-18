@@ -499,14 +499,6 @@ function registerAllMenuTemplates() {
               action: "sendNotesToThinkingArea",
               menuTitle: "⇨ 思考区",
             },
-            // {
-            //   action: "sendNotesToRoughReadingArea",
-            //   menuTitle: "⇨ 粗读区",
-            // },
-            // {
-            //   action: "sendNotesToRoughReadingAreaAndFocus",
-            //   menuTitle: "⇨ 粗读区 & 定位",
-            // },
             {
               action: "toBeIndependent",
               menuTitle: "⇨ 独立",

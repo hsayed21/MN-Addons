@@ -175,7 +175,6 @@ viewWillLayoutSubviews: function() {
       }
       // 夏大鱼羊 - begin
       commandTable.unshift(self.tableItem('🗂️   卡片预处理模式',"togglePreprocess:", "", toolbarConfig.windowState.preprocess))
-      commandTable.unshift(self.tableItem('📖   粗读模式',"toggleRoughReading:", "", toolbarConfig.windowState.roughReading))
       // 夏大鱼羊 - end
     }else{
       if (toolbarConfig.vertical()) {
@@ -185,7 +184,6 @@ viewWillLayoutSubviews: function() {
       }
       // 夏大鱼羊 - begin
       commandTable.unshift(self.tableItem('🗂️   卡片预处理模式',"togglePreprocess:", "", toolbarConfig.windowState.preprocess))
-      commandTable.unshift(self.tableItem('📖   粗读模式',"toggleRoughReading:", "", toolbarConfig.windowState.roughReading))
       // 夏大鱼羊 - end
     }
     commandTable.push()

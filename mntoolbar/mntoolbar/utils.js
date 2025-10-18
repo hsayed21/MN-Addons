@@ -6744,9 +6744,8 @@ class toolbarConfig {
   static showEditorOnNoteEdit = false
   static defalutButtonConfig = {color:"#ffffff",alpha:0.85}
   static defaultWindowState = {
-    // 夏大鱼羊 - begin：add Preprocess and RoughReading
+    // 夏大鱼羊 - begin：add Preprocess
     preprocess:false,
-    roughReading:false,
     // 夏大鱼羊 - end
     sideMode:"",//固定工具栏下贴边模式
     splitMode:false,//固定工具栏下是否跟随分割线
