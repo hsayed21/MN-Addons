@@ -232,6 +232,17 @@ class KnowledgeBaseTemplate {
   }
 
   /**
+   * 链接词快捷短语列表（代码层面管理）
+   * 支持 {{}} 占位符，会自动替换为输入框的内容
+   * 例如：短语 "作为{{}}特例" + 输入 "度量空间" → "作为度量空间特例"
+   *       短语 "作为{{}}特例" + 输入为空 → "作为特例"
+   */
+  static inlineLinkPhrases = [
+    "作为{{}}特例",
+    "因此",
+  ]
+
+  /**
    * 根据用户输入文本智能识别卡片类型
    * @param {string} userInputText - 用户输入的文本
    * @returns {string|null} - 识别出的类型，未匹配时返回null
@@ -8129,9 +8140,6 @@ class KnowledgeBaseTemplate {
       let previousTitle = titlePartsArray[0]  // 记录上一个标题
       let changedTitlePart = titlePartsArray[titlePartsArray.length-1]
       switch (userInputRes.button) {
-        case 0:
-          MNUtil.showHUD("取消增加模板")
-          break;
         case 4:
           try {
             /* 向上增加模板 */
@@ -8163,7 +8171,10 @@ class KnowledgeBaseTemplate {
             // 5. 使用 this API 处理链接关系
             this.linkParentNote(newClassificationNote);
             this.linkParentNote(note);
-            
+
+            // 5.1 添加到增量索引
+            KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote);
+
             // 6. 聚焦到新创建的卡片
             if (focusLastNote) {
               newClassificationNote.focusInMindMap(0.5);
@@ -8191,8 +8202,9 @@ class KnowledgeBaseTemplate {
               firstNote.noteTitle = "“" + titlePartsArray[0] + "”相关" + titleType
               note.parentNote.addChild(firstNote.note)
               this.linkParentNote(firstNote)
+              KnowledgeBaseIndexer.addToIncrementalIndex(firstNote)
               lastNote = firstNote
-              
+
               // 如果有更多部分，创建子卡片链
               for (let i = 1; i < titlePartsArray.length; i++) {
                 let childNote = MNNote.clone(this.types["归类"].templateNoteId)
@@ -8201,6 +8213,7 @@ class KnowledgeBaseTemplate {
                 childNote.noteTitle = "“" + accumulatedTitle + "”相关" + titleType
                 lastNote.addChild(childNote.note)
                 this.linkParentNote(childNote)
+                KnowledgeBaseIndexer.addToIncrementalIndex(childNote)
                 lastNote = childNote
                 previousTitle = accumulatedTitle  // 更新上一个标题
               }
@@ -8243,6 +8256,7 @@ class KnowledgeBaseTemplate {
                     intelligentType = this.getTypeFromInputText(title);
                     finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
                     newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
+                    KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                     lastNote = newClassificationNote
                   })
                   if (focusLastNote) {
@@ -8260,6 +8274,7 @@ class KnowledgeBaseTemplate {
                   MNUtil.undoGrouping(() => {
                     titlesArray.forEach(title => {
                       newClassificationNote = this.createClassificationNote(lastNote, title, type);
+                      KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote);
                       lastNote = newClassificationNote;
                     });
                     if (focusLastNote) {
@@ -8277,6 +8292,7 @@ class KnowledgeBaseTemplate {
                   type = typeArr[userInputRes - 1]
                   titlesArray.forEach(title => {
                     newClassificationNote = this.createClassificationNote(lastNote, title, type)
+                    KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                     lastNote = newClassificationNote
                   })
                   if (focusLastNote) {
@@ -8312,6 +8328,7 @@ class KnowledgeBaseTemplate {
                   intelligentType = this.getTypeFromInputText(title);
                   finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
                   newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
+                  KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                   lastNote = newClassificationNote
                 })
                 if (focusLastNote) {
@@ -8326,6 +8343,7 @@ class KnowledgeBaseTemplate {
                   type = intelligentType;
                   titlesArray.forEach(title => {
                     newClassificationNote = this.createClassificationNote(lastNote, title, type);
+                    KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote);
                     lastNote = newClassificationNote;
                   });
                   if (focusLastNote) {
@@ -8346,6 +8364,7 @@ class KnowledgeBaseTemplate {
                   // KnowledgeBaseUtils.log(type, "addTemplate:type")
                   titlesArray.forEach(title => {
                     newClassificationNote = this.createClassificationNote(lastNote, title, type)
+                    KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                     lastNote = newClassificationNote
                   })
                   if (focusLastNote) {
@@ -8405,78 +8424,51 @@ class KnowledgeBaseTemplate {
   }
 
   /**
-   * 加载链接词快捷短语配置
-   * @returns {string[]} 快捷短语数组
+   * 处理快捷短语中的占位符
+   * @param {string} phrase - 包含 {{}} 占位符的短语
+   * @param {string} inputText - 用户输入的文本
+   * @returns {string} - 替换后的短语
+   *
+   * @example
+   * processPhrasePlaceholder("作为{{}}特例", "度量空间") // 返回 "作为度量空间特例"
+   * processPhrasePlaceholder("作为{{}}特例", "") // 返回 "作为特例"
+   * processPhrasePlaceholder("因此", "任意文本") // 返回 "因此"
    */
-  static loadLinkPhrasesConfig() {
-    try {
-      const configKey = "KnowledgeBaseTemplate_LinkPhrases";
-      const defaultPhrases = [
-        "因此",
-        "作为特例"
-      ];
-      
-      // 从 NSUserDefaults 加载
-      const savedConfig = NSUserDefaults.standardUserDefaults().objectForKey(configKey);
-      if (savedConfig) {
-        try {
-          const parsed = JSON.parse(savedConfig);
-          // 确保返回的是数组
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        } catch (e) {
-          // 解析失败，返回默认值
-          MNUtil.log("Failed to parse saved link phrases config");
-        }
-      }
-      
-      // 如果没有保存的配置或解析失败，返回默认值并保存
-      this.saveLinkPhrasesConfig(defaultPhrases);
-      return defaultPhrases;
-    } catch (error) {
-      MNUtil.log("Error loading link phrases config: " + error.toString());
-      return ["作为特例", "因此"];
+  static processPhrasePlaceholder(phrase, inputText) {
+    // 如果短语不包含占位符，直接返回
+    if (!phrase.includes("{{}}")) {
+      return phrase;
     }
-  }
 
-  /**
-   * 保存链接词快捷短语配置
-   * @param {string[]} phrases - 快捷短语数组
-   * @returns {boolean} 是否保存成功
-   */
-  static saveLinkPhrasesConfig(phrases) {
-    try {
-      const configKey = "KnowledgeBaseTemplate_LinkPhrases";
-      // 过滤空字符串并去重
-      const cleanPhrases = [...new Set(phrases.filter(p => p && p.trim()))];
-      NSUserDefaults.standardUserDefaults().setObjectForKey(
-        JSON.stringify(cleanPhrases), 
-        configKey
-      );
-      return true;
-    } catch (error) {
-      MNUtil.log("Error saving link phrases config: " + error.toString());
-      return false;
+    // 获取实际要填充的内容（去除前后空格）
+    const fillText = (inputText || "").trim();
+
+    // 如果没有输入内容，移除占位符
+    if (!fillText) {
+      return phrase.replace(/{{}}/g, "");
     }
+
+    // 替换占位符为输入内容
+    return phrase.replace(/{{}}/g, fillText);
   }
 
   /**
    * 复制 Markdown 格式的卡片链接（带快捷短语功能）
    * @param {MNNote} note - 要生成链接的卡片
+   * @param {string|null} prefilledText - 预填充的文本
    */
   static copyMarkdownLinkWithQuickPhrases(note, prefilledText = null) {
     if (!note) {
       MNUtil.showHUD("❌ 请先选择一个卡片");
       return;
     }
-    
+
     // 获取默认链接词（如果没有预填充文本）
-    const defaultLinkWord = prefilledText|| "";
-    
-    // 加载快捷短语
-    let phrases = this.loadLinkPhrasesConfig();
-    
+    const defaultLinkWord = prefilledText || "";
+
+    // 使用静态配置的快捷短语
+    const phrases = this.inlineLinkPhrases;
+
     // 构建选项列表
     let menuOptions = [];
 
@@ -8490,11 +8482,7 @@ class KnowledgeBaseTemplate {
     phrases.forEach(phrase => {
       menuOptions.push(`📝 ${phrase}`);
     });
-    
-    // 添加分隔线和管理选项
-    menuOptions.push("────────────────");
-    menuOptions.push("⚙️ 管理快捷短语");
-    
+
     // 显示带输入框的对话框
     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
       "复制 Markdown 链接",
@@ -8504,10 +8492,10 @@ class KnowledgeBaseTemplate {
       menuOptions,
       (alert, buttonIndex) => {
         if (buttonIndex === 0) return; // 取消
-        
+
         const selectedIndex = buttonIndex - 1;
         const inputText = alert.textFieldAtIndex(0).text;
-        
+
         if (selectedIndex === 0) {
           // 点击"确定"按钮
           const linkWord = inputText && inputText.trim() ? inputText : defaultLinkWord;
@@ -8531,285 +8519,25 @@ class KnowledgeBaseTemplate {
           }
 
         } else if (selectedIndex <= phrases.length + 1) {
-          // 选择了快捷短语，直接使用并复制
+          // 选择了快捷短语
           const selectedPhrase = phrases[selectedIndex - 2];
-          const mdLink = `[${selectedPhrase}](${note.noteURL})`;
+
+          // 处理占位符（新增）
+          const processedPhrase = this.processPhrasePlaceholder(selectedPhrase, inputText);
+
+          const mdLink = `[${processedPhrase}](${note.noteURL})`;
           MNUtil.copy(mdLink);
           MNUtil.showHUD(`✅ 已复制: ${mdLink}`);
-
-        } else if (menuOptions[selectedIndex] === "⚙️ 管理快捷短语") {
-          // 管理快捷短语
-          this.manageLinkPhrases(() => {
-            // 管理完成后重新显示主菜单，保持之前的输入
-            this.copyMarkdownLinkWithQuickPhrases(note, inputText);
-          });
         }
       }
     );
-    
+
     // 设置输入框的默认值
     MNUtil.delay(0.1).then(() => {
       if (UIAlertView.currentAlert) {
         UIAlertView.currentAlert.textFieldAtIndex(0).text = defaultLinkWord;
       }
     });
-  }
-
-  /**
-   * 显示手动输入对话框
-   * @private
-   */
-  static showLinkWordInputDialog(note) {
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "输入链接词",
-      "请输入自定义的链接词",
-      2, // 输入框样式
-      "取消",
-      ["确定"],
-      (alert, buttonIndex) => {
-        if (buttonIndex === 1) {
-          let linkWord = alert.textFieldAtIndex(0).text;
-          // 如果没有输入，使用第一个标题链接词
-          if (!linkWord || !linkWord.trim()) {
-            linkWord = this.getFirstTitleLinkWord(note);
-          }
-          
-          if (linkWord) {
-            const mdLink = `[${linkWord}](${note.noteURL})`;
-            MNUtil.copy(mdLink);
-            MNUtil.showHUD(`✅ 已复制: ${mdLink}`);
-            
-            // 不再自动询问是否添加到快捷短语
-          }
-        }
-      }
-    );
-  }
-
-  /**
-   * 询问是否添加到快捷短语
-   * @private
-   */
-  static askToAddPhrase(phrase) {
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "添加到快捷短语？",
-      `是否将 "${phrase}" 添加到快捷短语列表？`,
-      0,
-      "否",
-      ["是"],
-      (alert, buttonIndex) => {
-        if (buttonIndex === 1) {
-          let phrases = this.loadLinkPhrasesConfig();
-          if (!phrases.includes(phrase)) {
-            phrases.unshift(phrase); // 添加到开头
-            if (phrases.length > 20) {
-              phrases.pop(); // 限制最多20个
-            }
-            if (this.saveLinkPhrasesConfig(phrases)) {
-              MNUtil.showHUD("✅ 已添加到快捷短语");
-            }
-          }
-        }
-      }
-    );
-  }
-
-  /**
-   * 管理链接词快捷短语
-   * @param {Function} callback - 完成后的回调函数
-   */
-  static manageLinkPhrases(callback) {
-    let phrases = this.loadLinkPhrasesConfig();
-    
-    let menuOptions = [
-      "➕ 添加新短语",
-      "➖ 删除短语",
-      "🔄 恢复默认短语",
-      "📋 查看所有短语"
-    ];
-    
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "管理快捷短语",
-      `当前有 ${phrases.length} 个快捷短语`,
-      0,
-      "返回",
-      menuOptions,
-      (alert, buttonIndex) => {
-        if (buttonIndex === 0) {
-          // 返回
-          if (callback) callback();
-          return;
-        }
-        
-        const selectedOption = menuOptions[buttonIndex - 1];
-        
-        switch (selectedOption) {
-          case "➕ 添加新短语":
-            this.addNewPhrase(callback);
-            break;
-            
-          case "➖ 删除短语":
-            this.deletePhrase(callback);
-            break;
-            
-          case "🔄 恢复默认短语":
-            this.restoreDefaultPhrases(callback);
-            break;
-            
-          case "📋 查看所有短语":
-            this.viewAllPhrases(callback);
-            break;
-        }
-      }
-    );
-  }
-
-  /**
-   * 添加新的快捷短语
-   * @private
-   */
-  static addNewPhrase(callback) {
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "添加新短语",
-      "请输入新的快捷短语",
-      2, // 输入框样式
-      "取消",
-      ["添加"],
-      (alert, buttonIndex) => {
-        if (buttonIndex === 1) {
-          const newPhrase = alert.textFieldAtIndex(0).text;
-          if (newPhrase && newPhrase.trim()) {
-            let phrases = this.loadLinkPhrasesConfig();
-            if (!phrases.includes(newPhrase.trim())) {
-              phrases.unshift(newPhrase.trim());
-              if (phrases.length > 20) {
-                phrases.pop(); // 限制最多20个
-              }
-              if (this.saveLinkPhrasesConfig(phrases)) {
-                MNUtil.showHUD(`✅ 已添加: ${newPhrase}`);
-              }
-            } else {
-              MNUtil.showHUD("⚠️ 该短语已存在");
-            }
-          }
-        }
-        // 返回管理界面
-        this.manageLinkPhrases(callback);
-      }
-    );
-  }
-
-  /**
-   * 删除快捷短语
-   * @private
-   */
-  static deletePhrase(callback) {
-    let phrases = this.loadLinkPhrasesConfig();
-    
-    if (phrases.length === 0) {
-      MNUtil.showHUD("没有可删除的短语");
-      this.manageLinkPhrases(callback);
-      return;
-    }
-    
-    // 为每个短语添加序号
-    const numberedPhrases = phrases.map((phrase, index) => `${index + 1}. ${phrase}`);
-    
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "选择要删除的短语",
-      "点击短语将其删除",
-      0,
-      "返回",
-      numberedPhrases,
-      (alert, buttonIndex) => {
-        if (buttonIndex === 0) {
-          // 返回
-          this.manageLinkPhrases(callback);
-          return;
-        }
-        
-        const indexToDelete = buttonIndex - 1;
-        const deletedPhrase = phrases[indexToDelete];
-        
-        phrases.splice(indexToDelete, 1);
-        if (this.saveLinkPhrasesConfig(phrases)) {
-          MNUtil.showHUD(`✅ 已删除: ${deletedPhrase}`);
-        }
-        
-        // 继续显示删除界面
-        this.deletePhrase(callback);
-      }
-    );
-  }
-
-  /**
-   * 恢复默认短语列表
-   * @private
-   */
-  static restoreDefaultPhrases(callback) {
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "恢复默认短语？",
-      "这将替换当前的所有快捷短语",
-      0,
-      "取消",
-      ["确认恢复"],
-      (alert, buttonIndex) => {
-        if (buttonIndex === 1) {
-          const defaultPhrases = [
-            "作为特例", 
-            "因此", 
-            "参见", 
-            "根据", 
-            "证明", 
-            "应用于", 
-            "等价于", 
-            "推广到",
-            "由此可得",
-            "进一步",
-            "类比",
-            "对比"
-          ];
-          
-          if (this.saveLinkPhrasesConfig(defaultPhrases)) {
-            MNUtil.showHUD("✅ 已恢复默认短语列表");
-          }
-        }
-        
-        // 返回管理界面
-        this.manageLinkPhrases(callback);
-      }
-    );
-  }
-
-  /**
-   * 查看所有短语
-   * @private
-   */
-  static viewAllPhrases(callback) {
-    let phrases = this.loadLinkPhrasesConfig();
-    
-    if (phrases.length === 0) {
-      MNUtil.showHUD("短语列表为空");
-      this.manageLinkPhrases(callback);
-      return;
-    }
-    
-    // 将短语列表转换为带序号的字符串
-    const phraseList = phrases.map((phrase, index) => 
-      `${index + 1}. ${phrase}`
-    ).join("\n");
-    
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "所有快捷短语",
-      phraseList,
-      0,
-      "返回",
-      [],
-      (alert, buttonIndex) => {
-        // 返回管理界面
-        this.manageLinkPhrases(callback);
-      }
-    );
   }
 
   /**
@@ -17105,10 +16833,6 @@ class SynonymManager {
     //   "partialReplacement": false,
     // },
     {
-      "words": ["空集", "∅"],
-      "partialReplacement": false,
-    },
-    {
       "words": ["复可测函数", "可测复函数"],
       "partialReplacement": false,
     },
@@ -17256,7 +16980,7 @@ class SynonymManager {
     { "id": "group_1757666483247", "words": ["非空", "非空集", "不是空集", "不空", "不等于空集", "≠∅", "≠ ∅"], "caseSensitive": true },
     { "id": "group_1757673809311", "words": ["集代数", "布尔代数"], "caseSensitive": true },
     { "id": "group_1757675563901", "words": ["空集", "∅"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1757675577813", "words": ["属于", "∈"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1757675577813", "words": ["属于", "∈", "包含"], "partialReplacement": true, "caseSensitive": true },
     { "id": "group_1757755186225", "words": ["无限", "∞", "无穷"], "partialReplacement": true, "caseSensitive": true },
     { "id": "group_1757755714989", "words": ["补封闭", "补集封闭", "补运算封闭", "补集运算封闭"] },
     { "id": "group_1757938639733", "words": ["T₄ 空间", "T₄ 正规空间", "满足 T₁ 和 T₄ 公理的正规空间", "满足 T₂ 和 T₄ 公理的正规空间", "满足 T₁ 和 T₄ 公理的空间", "满足 T₂ 和 T₄ 公理的空间"], "caseSensitive": true },
@@ -19764,6 +19488,8 @@ class HtmlMarkdownUtils {
     method: '✨',
     check: '🔍',
     sketch: '✏️',
+    case: '📋',
+    step: '👣',
   };
   static prefix = {
     danger: '',
@@ -19785,6 +19511,8 @@ class HtmlMarkdownUtils {
     method: '方法：',
     check: 'CHECK',
     sketch: 'SKETCH',
+    case: '',  // 序号将动态生成
+    step: '',  // 序号将动态生成
   };
   static styles = {
     // 格外注意
@@ -19811,8 +19539,10 @@ class HtmlMarkdownUtils {
     check: 'font-weight:600;color:#34A853;background:#E6F7EE;border:2px solid #34A853;border-radius:4px;padding:4px 8px;display:inline-block;box-shadow:0 1px 2px rgba(52,168,83,0.2);margin:0 2px;line-height:1.3;vertical-align:baseline;position:relative;',
     // 草稿/手绘
     sketch: 'background:transparent;color:#5D4037;display:inline-block;border-bottom:2px dotted #FF9800;padding:0 4px 2px;margin:0 2px;line-height:1.2;vertical-align:baseline;position:relative;font-size:0.9em;font-style:italic;',
-    // 等价证明
-    // 蕴含关系
+    // 案例
+    case: 'font-weight:600;color:#2563EB;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:2px solid #3B82F6;border-radius:8px;padding:8px 16px;display:inline-block;box-shadow:0 2px 4px rgba(37,99,235,0.2);margin:4px 0;',
+    // 步骤
+    step: 'font-weight:500;color:#059669;background:#ECFDF5;border-left:4px solid #10B981;padding:6px 12px;display:inline-block;border-radius:0 4px 4px 0;margin:4px 0;',
   };
   // 定义即使内容为空也要输出的类型白名单
   static emptyContentWhitelist = ['check'];
@@ -20260,183 +19990,6 @@ class HtmlMarkdownUtils {
     }
     
     return adjustedCount;
-  }
-
-  /**
-   * 批量调整所有 HtmlMarkdown 评论的层级
-   * 
-   * @param {MNNote} note - 要处理的卡片
-   * @param {string} direction - 调整方向："up"（上移）或"down"（下移）
-   * @returns {number} 调整的评论数量
-   */
-  static adjustAllHtmlMDLevels(note, direction = "down") {
-    if (!note || !note.MNComments) return 0;
-    
-    let adjustedCount = 0;
-    let comments = note.MNComments;
-    
-    MNUtil.undoGrouping(() => {
-      comments.forEach((comment, index) => {
-        if (!comment || !comment.text) return;
-        
-        // 处理可能的前导 "- "
-        let text = comment.text;
-        let hasLeadingDash = false;
-        if (text.startsWith("- ")) {
-          hasLeadingDash = true;
-          text = text.substring(2);
-        }
-        
-        // 检查是否是 HtmlMarkdown 评论
-        if (!HtmlMarkdownUtils.isHtmlMDComment(text)) return;
-        
-        let type = HtmlMarkdownUtils.getSpanType(text);
-        let content = HtmlMarkdownUtils.getSpanTextContent(text);
-        
-        // 检查是否是层级类型
-        if (!HtmlMarkdownUtils.isLevelType(type)) return;
-        
-        // 根据方向获取新的层级类型
-        let newType;
-        if (direction === "up") {
-          newType = HtmlMarkdownUtils.getSpanLastLevelType(type);
-        } else {
-          newType = HtmlMarkdownUtils.getSpanNextLevelType(type);
-        }
-        
-        // 如果层级没有变化（已到边界），跳过
-        if (newType === type) return;
-        
-        // 创建新的 HtmlMarkdown 文本
-        let newHtmlText = HtmlMarkdownUtils.createHtmlMarkdownText(content, newType);
-        
-        // 保持前导破折号
-        if (hasLeadingDash) {
-          newHtmlText = "- " + newHtmlText;
-        }
-        
-        // 更新评论
-        comment.text = newHtmlText;
-        adjustedCount++;
-      });
-    });
-    
-    return adjustedCount;
-  }
-
-  /**
-   * 根据指定的最高级别调整所有层级
-   * 
-   * @param {MNNote} note - 要处理的卡片
-   * @param {string} targetHighestLevel - 目标最高级别（如 "goal", "level1", "level2" 等）
-   * @returns {Object} 返回调整结果 {adjustedCount: 数量, originalHighest: 原最高级, targetHighest: 目标最高级}
-   */
-  static adjustHtmlMDLevelsByHighest(note, targetHighestLevel) {
-    if (!note || !note.MNComments) {
-      return { adjustedCount: 0, originalHighest: null, targetHighest: targetHighestLevel };
-    }
-    
-    // 定义层级顺序映射（数字越小层级越高）
-    const levelOrder = {
-      'goal': 0,
-      'level1': 1,
-      'level2': 2,
-      'level3': 3,
-      'level4': 4,
-      'level5': 5
-    };
-    
-    // 验证目标层级是否有效
-    if (!(targetHighestLevel in levelOrder)) {
-      MNUtil.showHUD(`无效的目标层级: ${targetHighestLevel}`);
-      return { adjustedCount: 0, originalHighest: null, targetHighest: targetHighestLevel };
-    }
-    
-    // 收集所有层级类型的 HtmlMarkdown 评论
-    let levelComments = [];
-    let comments = note.MNComments;
-    
-    comments.forEach((comment, index) => {
-      if (!comment || !comment.text) return;
-      
-      // 处理前导 "- "
-      let text = comment.text;
-      let hasLeadingDash = false;
-      if (text.startsWith("- ")) {
-        hasLeadingDash = true;
-        text = text.substring(2);
-      }
-      
-      if (!HtmlMarkdownUtils.isHtmlMDComment(text)) return;
-      
-      let type = HtmlMarkdownUtils.getSpanType(text);
-      let content = HtmlMarkdownUtils.getSpanTextContent(text);
-      
-      if (!HtmlMarkdownUtils.isLevelType(type)) return;
-      
-      levelComments.push({
-        index: index,
-        comment: comment,
-        type: type,
-        content: content,
-        hasLeadingDash: hasLeadingDash,
-        order: levelOrder[type]
-      });
-    });
-    
-    if (levelComments.length === 0) {
-      MNUtil.showHUD("没有找到层级类型的 HtmlMarkdown 评论");
-      return { adjustedCount: 0, originalHighest: null, targetHighest: targetHighestLevel };
-    }
-    
-    // 找出当前最高层级（order 值最小的）
-    let currentHighestOrder = Math.min(...levelComments.map(item => item.order));
-    let currentHighestLevel = Object.keys(levelOrder).find(key => levelOrder[key] === currentHighestOrder);
-    
-    // 计算需要调整的偏移量
-    let targetOrder = levelOrder[targetHighestLevel];
-    let offset = targetOrder - currentHighestOrder;
-    
-    if (offset === 0) {
-      MNUtil.showHUD(`当前最高级已经是 ${targetHighestLevel}`);
-      return { adjustedCount: 0, originalHighest: currentHighestLevel, targetHighest: targetHighestLevel };
-    }
-    
-    // 批量调整所有层级
-    let adjustedCount = 0;
-    
-    MNUtil.undoGrouping(() => {
-      levelComments.forEach(item => {
-        let newOrder = item.order + offset;
-        
-        // 确保不超出边界
-        if (newOrder < 0) newOrder = 0;
-        if (newOrder > 5) newOrder = 5;
-        
-        // 找到对应的新层级类型
-        let newType = Object.keys(levelOrder).find(key => levelOrder[key] === newOrder);
-        
-        if (newType && newType !== item.type) {
-          // 创建新的 HtmlMarkdown 文本
-          let newHtmlText = HtmlMarkdownUtils.createHtmlMarkdownText(item.content, newType);
-          
-          // 保持前导破折号
-          if (item.hasLeadingDash) {
-            newHtmlText = "- " + newHtmlText;
-          }
-          
-          // 更新评论
-          item.comment.text = newHtmlText;
-          adjustedCount++;
-        }
-      });
-    });
-    
-    return {
-      adjustedCount: adjustedCount,
-      originalHighest: currentHighestLevel,
-      targetHighest: targetHighestLevel
-    };
   }
 
   /**
@@ -21354,4 +20907,131 @@ class HtmlMarkdownUtils {
   /**
    * 导入证明模板配置
    */
+
+  /**
+   * ========== Case/Step 带序号评论功能 ==========
+   */
+
+  /**
+   * 获取笔记中某类型的下一个序号
+   * @param {MNNote} note - 笔记对象
+   * @param {string} typePrefix - 类型前缀，如 "Case", "Step" 等
+   * @returns {number} 下一个可用的序号
+   */
+  static getNextNumberForType(note, typePrefix) {
+    const pattern = new RegExp(`${typePrefix}\\s*(\\d+)`, 'gi');
+    let maxNumber = 0;
+
+    // 遍历所有评论查找最大序号
+    const comments = note.comments || note.MNComments || [];
+    for (const comment of comments) {
+      if (comment && comment.text) {
+        const matches = [...comment.text.matchAll(pattern)];
+        for (const match of matches) {
+          const num = parseInt(match[1]);
+          if (num > maxNumber) maxNumber = num;
+        }
+      }
+    }
+
+    return maxNumber + 1;
+  }
+
+  /**
+   * 创建带序号的 HTML 文本
+   * @param {string} text - 内容文本
+   * @param {string} type - 类型（如 'case', 'step'）
+   * @param {number} number - 序号（可选，不提供则自动计算）
+   * @param {MNNote} note - 笔记对象（用于自动计算序号）
+   * @returns {string} 格式化后的 HTML 文本
+   */
+  static createNumberedHtmlText(text, type, number, note) {
+    // 支持的带序号类型配置
+    const numberedTypes = {
+      'case': { prefix: 'Case', icon: '📋' },
+      'step': { prefix: 'Step', icon: '👣' },
+    };
+
+    // 如果不是带序号的类型，使用原有方法
+    if (!numberedTypes[type]) {
+      return this.createHtmlMarkdownText(text, type);
+    }
+
+    const config = numberedTypes[type];
+
+    // 如果没有提供序号，自动计算
+    if (!number && note) {
+      number = this.getNextNumberForType(note, config.prefix);
+    }
+
+    // 如果还是没有序号，默认为 1
+    if (!number) {
+      number = 1;
+    }
+
+    // 构建带序号的文本
+    const formattedText = `${config.prefix} ${number}: ${typeof Pangu !== 'undefined' ? Pangu.spacing(text) : text}`;
+
+    // 使用对应的样式
+    const style = this.styles[type] || '';
+    const icon = this.icons[type] || config.icon;
+
+    return `<span id="${type}" style="${style}">${icon} ${formattedText}</span>`;
+  }
+
+  /**
+   * 添加带序号的 Case 评论
+   * @param {MNNote} note - 笔记对象
+   * @param {string} text - 评论内容
+   * @param {number} customNumber - 自定义序号（可选）
+   * @returns {number} 使用的序号
+   */
+  static addCaseComment(note, text, customNumber) {
+    const number = customNumber || this.getNextNumberForType(note, 'Case');
+    const htmlText = this.createNumberedHtmlText(text, 'case', number, note);
+    note.appendMarkdownComment(htmlText);
+    return number;
+  }
+
+  /**
+   * 添加带序号的 Step 评论
+   * @param {MNNote} note - 笔记对象
+   * @param {string} text - 评论内容
+   * @param {number} customNumber - 自定义序号（可选）
+   * @returns {number} 使用的序号
+   */
+  static addStepComment(note, text, customNumber) {
+    const number = customNumber || this.getNextNumberForType(note, 'Step');
+    const htmlText = this.createNumberedHtmlText(text, 'step', number, note);
+    note.appendMarkdownComment(htmlText);
+    return number;
+  }
+
+  /**
+   * 通用的添加带序号评论方法
+   * @param {MNNote} note - 笔记对象
+   * @param {string} text - 评论内容
+   * @param {string} type - 类型（'case', 'step' 等）
+   * @param {number} customNumber - 自定义序号（可选）
+   * @returns {number} 使用的序号
+   */
+  static addNumberedComment(note, text, type, customNumber) {
+    // 获取类型对应的前缀
+    const numberedTypes = {
+      'case': 'Case',
+      'step': 'Step'
+    };
+
+    const prefix = numberedTypes[type];
+    if (!prefix) {
+      // 如果不是带序号的类型，使用普通方法
+      note.appendMarkdownComment(this.createHtmlMarkdownText(text, type));
+      return null;
+    }
+
+    const number = customNumber || this.getNextNumberForType(note, prefix);
+    const htmlText = this.createNumberedHtmlText(text, type, number, note);
+    note.appendMarkdownComment(htmlText);
+    return number;
+  }
 }

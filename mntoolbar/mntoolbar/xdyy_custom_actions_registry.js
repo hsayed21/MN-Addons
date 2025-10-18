@@ -2408,7 +2408,7 @@ function registerAllCustomActions() {
             try {
               const inputText = alert.textFieldAtIndex(0).text;
               if (inputText && inputText.trim()) {
-                const number = KnowledgeBaseTemplate.addCaseComment(focusNote, inputText.trim());
+                const number = HtmlMarkdownUtils.addCaseComment(focusNote, inputText.trim());
                 MNUtil.showHUD(`✅ 已添加 Case ${number}`);
               }
             } catch (error) {
@@ -2436,7 +2436,7 @@ function registerAllCustomActions() {
             try {
               const inputText = alert.textFieldAtIndex(0).text;
               if (inputText && inputText.trim()) {
-                const number = KnowledgeBaseTemplate.addStepComment(focusNote, inputText.trim());
+                const number = HtmlMarkdownUtils.addStepComment(focusNote, inputText.trim());
                 MNUtil.showHUD(`✅ 已添加 Step ${number}`);
               }
             } catch (error) {
