@@ -1126,6 +1126,7 @@ static fileTypeFromBase64(content) {
       return splitLine
     }
   }
+  static _appVersion = undefined
   /**
    * Retrieves the version and type of the application.
    * 
@@ -1136,9 +1137,10 @@ static fileTypeFromBase64(content) {
    * @returns {{version: "marginnote4" | "marginnote3", type: "iPadOS" | "iPhoneOS" | "macOS"}} An object containing the application version and operating system type.
    */
   static appVersion() {
+    if (this._appVersion) {
+      return this._appVersion
+    }
     try {
-      
-
     let info = {}
     let version = parseFloat(this.app.appVersion)
     if (version >= 4) {
@@ -1161,6 +1163,7 @@ static fileTypeFromBase64(content) {
       default:
         break;
     }
+    this._appVersion = info
     return info
     } catch (error) {
       this.addErrorLog(error, "appVersion")
@@ -1813,6 +1816,13 @@ static textMatchPhrase(text, query) {
 
     if (type === "NSURL") {
       let urlString = url.absoluteString()
+      if (urlString.startsWith("marginnote")) {
+        if (MNUtil.isMN4() && urlString.startsWith("marginnote3app://")) {
+          urlString = urlString.replace("marginnote3app://", "marginnote4app://")
+        }else if (MNUtil.isMN3() && urlString.startsWith("marginnote4app://")) {
+          urlString = urlString.replace("marginnote4app://", "marginnote3app://")
+        }
+      }
       switch (mode) {
         case "auto":
           if (urlString.startsWith("http://") || urlString.startsWith("https://")) {
@@ -1839,6 +1849,13 @@ static textMatchPhrase(text, query) {
       return
     }
     if (typeof url === "string") {
+      if (url.startsWith("marginnote")) {
+        if (MNUtil.isMN4() && url.startsWith("marginnote3app://")) {
+          url = url.replace("marginnote3app://", "marginnote4app://")
+        }else if (MNUtil.isMN3() && url.startsWith("marginnote4app://")) {
+          url = url.replace("marginnote4app://", "marginnote3app://")
+        }
+      }
       switch (mode) {
         case "auto":
           if (url.startsWith("http://") || url.startsWith("https://")) {
@@ -2945,12 +2962,20 @@ static getValidJSON(jsonString,debug = false) {
    * @returns {string} The encrypted or decrypted string.
    */
   static xorEncryptDecrypt(input, key) {
+  try {
+
     let output = [];
     for (let i = 0; i < input.length; i++) {
         // Perform XOR between the input character and the key character
         output.push(input.charCodeAt(i) ^ key.charCodeAt(i % key.length));
     }
     return String.fromCharCode.apply(null, output);
+    
+  } catch (error) {
+    MNUtil.log("xorEncryptDecrypt error: "+error, key)
+    this.addErrorLog(error, "xorEncryptDecrypt")
+    return undefined
+  }
   }
   // static encrypt(text,key){
   //   var encrypted = CryptoJS.AES.encrypt(text, key).toString();

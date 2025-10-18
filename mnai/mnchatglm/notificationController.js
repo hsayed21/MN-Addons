@@ -1191,6 +1191,10 @@ notificationController.prototype.askWithDynamicPromptOnNote = async function (no
 notificationController.prototype.askWithPrompt = async function (prompt) {
   try {
     let config = chatAIConfig.getConfigFromPrompt(prompt)
+    if (!config) {
+      MNUtil.showHUD("No config for prompt: "+prompt)
+      return
+    }
     let question = await chatAIUtils.chatController.getQuestion(prompt)
     if (!question) {
       return
@@ -1238,6 +1242,10 @@ try {
     this.currentModel = "Default"
   }
   let config = chatAIConfig.getConfigFromPrompt(promptKey)
+  if (!config) {
+    MNUtil.showHUD("No config for prompt: "+promptKey)
+    return
+  }
   // MNUtil.copyJSON(config)
   this.baseAsk(question,config,temperature)
 
@@ -1329,6 +1337,7 @@ try {
   this.token = []
   this.preFuncResponse = ""
   this.actions = config.action
+  // chatAIUtils.log("askByDynamic", this.actions)
   this.toolbarAction = config.toolbarAction ?? ""
   // this.targetTextview = "textviewResponse"
   if (!this.preCheck()) {
@@ -1479,15 +1488,6 @@ notificationController.prototype.continueAfterToolCall = function(temperature=un
     MNUtil.showHUD("on output")
     return
   }
-  // let funcIndices
-  // // config = chatAIConfig.getConfigFromPrompt(this.currentPrompt)
-  // if (this.dynamic) {
-  //   funcIndices =  chatAIConfig.config.dynamicFunc
-  // }else{
-  //   funcIndices =  chatAIConfig.prompts[this.currentPrompt].func ? chatAIConfig.prompts[this.currentPrompt].func : []
-  // }
-  // this.apikey = config.apikey
-  // this.func = []
   
   this.baseAsk(undefined,config,temperature)
   } catch (error) {
@@ -1585,18 +1585,17 @@ try {
     // MNUtil.copyJSON(this.history)
     this.funcResponse = ""
     this.lastResponse = this.response.trim()
-
-    MNUtil.log({
-      message:this.currentTitle??"notification.aiResponse",
-      source:"MN ChatAI",
-      detail:this.response
-    })
+    chatAIUtils.log(this.currentTitle??"notification.aiResponse", this.response)
     MNUtil.postNotification("MNCatAINotoficationResponse", {response:this.response})
     this.response = ""
     this.preResponse = ""
     this.preFuncResponse = ""
-    if (this.actions.length && !this.onChat) {
-      await this.executeFinishAction(this.actions,this.lastResponse)
+    // chatAIUtils.log("executeFinishAction", this.actions)
+    if (this.actions.length) {
+      let validAction = this.actions.filter(action=> action <= 16)
+      if (validAction.length) {
+        await this.executeFinishAction(validAction,this.lastResponse)
+      }
     }
     // MNUtil.log(this.toolbarAction)
     if (this.toolbarAction && this.toolbarAction.trim()) {

@@ -4673,7 +4673,7 @@ try {
         return this.currentNote()
       }
       if (allowSelection && this.currentSelection.onSelection) {
-        // MNUtil.log("create from selection")
+        chatAIUtils.log("create from selection")
         return MNNote.fromSelection().realGroupNoteForTopicId()
       }
       return undefined
@@ -4857,7 +4857,7 @@ try {
       config.isSelectionText = false
       config.isSelectionImage = false
     }
-    let focusNote = this.getFocusNote()
+    let focusNote = this.getFocusNote(false)
     if (focusNote) {
       config.hasFocusNote = true
     }else{
@@ -7405,8 +7405,8 @@ code.hljs {
   }
   static extractJSONFromMarkdown(markdown) {
     // 使用正则表达式匹配被```JSON```包裹的内容
-    const regex = /```JSON([\s\S]*?)```/g;
-    const matches = regex.exec(markdown);
+    const regex = /^```JSON([\s\S]*?)```$/;
+    const matches = regex.exec(markdown.trim());
     
     // 提取匹配结果中的JSON字符串部分，并去掉多余的空格和换行符
     if (matches && matches[1]) {
@@ -10304,9 +10304,9 @@ static modelsWithoutVisionPatterns = [
       chatAIConfig.backUp()
     });
   }
-  static checkCloudStore(notificaiton = true){
+  static checkCloudStore(notificaiton = true, force = false){
     let iCloudSync = this.getConfig("syncSource") === "iCloud"
-    if (iCloudSync &&!this.cloudStore) {
+    if ((iCloudSync || force) && !this.cloudStore) {
       this.cloudStore = NSUbiquitousKeyValueStore.defaultStore()
       if (notificaiton) {
         MNUtil.postNotification("NSUbiquitousKeyValueStoreDidChangeExternallyNotificationUI", {}) 
@@ -10467,7 +10467,7 @@ static modelsWithoutVisionPatterns = [
     // if (!chatAIUtils.checkSubscribe(false,msg,true)) {
     //   return false
     // }
-    this.checkCloudStore(false)
+    this.checkCloudStore(false,force)
     if (force) {
       this.config.lastSyncTime = Date.now()
       // this.config.modifiedTime = Date.now()
@@ -10524,16 +10524,19 @@ static modelsWithoutVisionPatterns = [
     }
     return undefined
   }
-   static async checkR2Password(){
+   static async checkR2Password(save = true){
     if (!this.getConfig("r2password")) {
-      let res = await MNUtil.input("Passward for Config","设置云端配置文件加密密码",["Cancel","Confirm"])
+      let res = await MNUtil.input("Passward for Config","设置云端配置文件密码",["Cancel","Confirm"])
       if (!res.button) {
         MNUtil.showHUD("User Cancel")
         return false
       }
       if (res.input && res.input.trim()) {
         this.config.r2password = res.input
-        this.save("MNChatglm_config",true)
+        MNUtil.showHUD("✅ Set Password for Cloudflare R2")
+        if (save) {
+          this.save("MNChatglm_config",true)
+        }
         return true
       }else{
         return false
@@ -10541,16 +10544,19 @@ static modelsWithoutVisionPatterns = [
     }
     return true
   }
-   static async checkInfiPassword(){
+   static async checkInfiPassword(save = true){
     if (!this.getConfig("InfiPassword")) {
-      let res = await MNUtil.input("Passward for Config","设置云端配置文件加密密码",["Cancel","Confirm"])
+      let res = await MNUtil.input("Passward for Config","设置云端配置文件密码",["Cancel","Confirm"])
       if (!res.button) {
         MNUtil.showHUD("User Cancel")
         return false
       }
       if (res.input && res.input.trim()) {
         this.config.InfiPassword = res.input
-        this.save("MNChatglm_config",true)
+        MNUtil.showHUD("✅ Set Password for InfiniCloud")
+        if (save) {
+          this.save("MNChatglm_config",true)
+        }
         return true
       }else{
         return false
@@ -10610,7 +10616,7 @@ static modelsWithoutVisionPatterns = [
     }
     return true
   }
-  static async export(alert = true,force = false){
+  static async export(alert = true,force = false, syncSource = this.getConfig("syncSource")){
   try {
 
     if (!chatAIUtils.checkSubscribe(true)) {
@@ -10622,17 +10628,17 @@ static modelsWithoutVisionPatterns = [
       MNUtil.showHUD("onSync")
       return
     }
-    let syncSource = this.getConfig("syncSource")
     this.setSyncStatus(true)
     if (force) {
+      let success = false
       switch (syncSource) {
         case "None":
           this.setSyncStatus(false,false)
           return false
         case "iCloud":
-          let success = this.writeCloudConfig(true,true)
+          success = this.writeCloudConfig(true,true)
           this.setSyncStatus(false,success)
-          return;
+          return success;
         case "MNNote":
           let noteId = this.getConfig("syncNoteId")
           let latestTime = this.getLocalLatestTime()
@@ -10661,19 +10667,27 @@ static modelsWithoutVisionPatterns = [
           this.config.lastSyncTime = Date.now()+5
           // this.config.modifiedTime = this.config.lastSyncTime
           this.config.syncNoteId = focusNote.noteId
-          if (chatAIUtils.chatController) {
+          let currentSyncSource = this.getConfig("syncSource")
+          if (chatAIUtils.chatController && currentSyncSource === "MNNote") {
             chatAIUtils.chatController.configNoteIdInput.text = focusNote.noteId
           }
           this.export2MNNote(focusNote)
           this.setSyncStatus(false,true)
           return true
         case "CFR2":
+          // chatAIUtils.log("export CFR2")
           this.setSyncStatus(true)
           this.config.lastSyncTime = Date.now()+5
           // this.config.modifiedTime = this.config.lastSyncTime
           if (alert) {
             MNUtil.showHUD("Uploading...")
           }
+          if (!await this.checkR2Password()) {
+            MNUtil.showHUD("No password for Cloudflare R2!")
+            return false
+          }
+          // chatAIUtils.log("export CFR2 uploadConfigWithEncryptionFromR2")
+
           await chatAIConfig.uploadConfigWithEncryptionFromR2(this.config.r2file, this.config.r2password, alert)
           // MNUtil.copyJSON(this.config)
           this.setSyncStatus(false,true)
@@ -10684,6 +10698,10 @@ static modelsWithoutVisionPatterns = [
           // this.config.modifiedTime = this.config.lastSyncTime
           if (alert) {
             MNUtil.showHUD("Uploading...")
+          }
+          if (!await this.checkInfiPassword()) {
+            MNUtil.showHUD("No password for InfiniCloud!")
+            return false
           }
           await chatAIConfig.uploadConfigWithEncryptionToInfi(this.config.InfiFile, this.config.InfiPassword, alert)
           // MNUtil.copyJSON(this.config)
@@ -10724,14 +10742,15 @@ static modelsWithoutVisionPatterns = [
       this.setSyncStatus(false)
       return false
     }
+    let success = false
     switch (syncSource) {
       case "None":
         this.setSyncStatus(false,false)
         return false
       case "iCloud":
-        let success = this.writeCloudConfig(false,true)
+        success = this.writeCloudConfig(false,true)
         this.setSyncStatus(false,success)
-        return;
+        return success;
       case "MNNote":
         let noteId = this.getConfig("syncNoteId")
         let latestTime = this.getLocalLatestTime()
@@ -10760,7 +10779,8 @@ static modelsWithoutVisionPatterns = [
         this.config.lastSyncTime = Date.now()+5
         // this.config.modifiedTime = this.config.lastSyncTime
         this.config.syncNoteId = focusNote.noteId
-        if (chatAIUtils.chatController) {
+        let currentSyncSource = this.getConfig("syncSource")
+        if (chatAIUtils.chatController && currentSyncSource === "MNNote") {
           chatAIUtils.chatController.configNoteIdInput.text = focusNote.noteId
         }
         this.export2MNNote(focusNote)
@@ -10785,6 +10805,10 @@ static modelsWithoutVisionPatterns = [
         if (alert) {
           MNUtil.showHUD("Uploading...")
         }
+        if (!await this.checkR2Password()) {
+          MNUtil.showHUD("No password for Cloudflare R2!")
+          return false
+        }
         await chatAIConfig.uploadConfigWithEncryptionFromR2(this.config.r2file, this.config.r2password, alert)
         // MNUtil.copyJSON(this.config)
         this.setSyncStatus(false,true)
@@ -10807,6 +10831,10 @@ static modelsWithoutVisionPatterns = [
         // this.config.modifiedTime = this.config.lastSyncTime
         if (alert) {
           MNUtil.showHUD("Uploading...")
+        }
+        if (!await this.checkInfiPassword()) {
+          MNUtil.showHUD("No password for InfiniCloud!")
+          return false
         }
         await chatAIConfig.uploadConfigWithEncryptionToInfi(this.config.InfiFile, this.config.InfiPassword, alert)
         // MNUtil.copyJSON(this.config)
@@ -10878,14 +10906,14 @@ static modelsWithoutVisionPatterns = [
    * @param {boolean} alert 
    * @returns 
    */
-  static async getCloudConfigFromSource(syncSource,alert){
+  static async getCloudConfigFromSource(syncSource,alert,force = false){
     try {
     let config = undefined
     switch (syncSource) {
       case "None":
         return undefined
       case "iCloud":
-        this.checkCloudStore(false)
+        this.checkCloudStore(false,true)
         config = this.cloudStore.objectForKey("MNChatAI_totalConfig")
         break;
       case "MNNote":
@@ -10901,7 +10929,8 @@ static modelsWithoutVisionPatterns = [
           MNUtil.showHUD("Note not exists!")
           return undefined
         }
-        if (chatAIUtils.chatController) {
+        let currentSyncSource = this.getConfig("syncSource")
+        if (chatAIUtils.chatController && currentSyncSource === "MNNote") {
           chatAIUtils.chatController.configNoteIdInput.text = focusNote.noteId
         }
         if (focusNote.noteTitle !== "MN ChatAI Config") {
@@ -10914,7 +10943,9 @@ static modelsWithoutVisionPatterns = [
           contentToParse = chatAIUtils.extractJSONFromMarkdown(contentToParse)
         }
         if (!MNUtil.isValidJSON(contentToParse)) {
+          MNUtil.copy(contentToParse)
           MNUtil.showHUD("Invalid Config")
+          chatAIUtils.log("Invalid Config", contentToParse)
           return undefined
         }
         config = JSON.parse(contentToParse)
@@ -10983,7 +11014,7 @@ static modelsWithoutVisionPatterns = [
     let modifiedTime = this.config.modifiedTime ?? 0
     return Math.max(lastSyncTime,modifiedTime)
   }
-  static async import(alert = true,force = false){
+  static async import(alert = true,force = false, syncSource = this.getConfig("syncSource")){
     if (!chatAIUtils.checkSubscribe(true)) {
       return false
     }
@@ -10993,7 +11024,6 @@ static modelsWithoutVisionPatterns = [
       }
       return false
     }
-    let syncSource = this.getConfig("syncSource")
     // if (syncSource === "iCloud") {
     //   return false
     // }
@@ -11009,7 +11039,8 @@ static modelsWithoutVisionPatterns = [
         }
         return true
       }else{
-        MNUtil.showHUD("Invalid config in note!")
+        MNUtil.showHUD("Invalid config!")
+        chatAIUtils.log("Invalid config", config,"error")
         return false
       }
     }
@@ -11058,7 +11089,8 @@ static modelsWithoutVisionPatterns = [
       }
       return true
     }else{
-      MNUtil.showHUD("Invalid config in note!")
+      MNUtil.showHUD("❌ Failed to import config!")
+      chatAIUtils.log("❌ Failed to import config!", config,"error")
       return false
     }
   }
@@ -11164,13 +11196,6 @@ static modelsWithoutVisionPatterns = [
       }
       return success
     }else{
-      // if (!this.getConfig("r2file")) {
-      //   let fileName = NSUUID.UUID().UUIDString()
-      //   this.config.r2file = fileName
-      //   chatAIUtils.chatController.configNoteIdInput.text = fileName
-      // }
-      // this.config.lastSyncTime = Date.now()+5
-      // this.config.modifiedTime = this.config.lastSyncTime
       
       MNUtil.showHUD("Uploading...")
       await this.uploadConfigWithEncryptionFromR2(this.config.r2file, this.config.r2password)
@@ -11202,14 +11227,6 @@ static modelsWithoutVisionPatterns = [
       }
       return success
     }else{
-      // if (!this.getConfig("InfiFile")) {
-      //   let fileName = NSUUID.UUID().UUIDString()
-      //   this.config.InfiFile = fileName
-      //   chatAIUtils.chatController.configNoteIdInput.text = fileName
-      // }
-
-      // this.config.lastSyncTime = Date.now()+5
-      // this.config.modifiedTime = this.config.lastSyncTime
       
       MNUtil.showHUD("Uploading...")
       await this.uploadConfigWithEncryptionToInfi(this.config.InfiFile, this.config.InfiPassword)
@@ -11242,14 +11259,6 @@ static modelsWithoutVisionPatterns = [
       }
       return success
     }else{
-      // if (!this.getConfig("webdavFile")) {
-      //   let fileName = NSUUID.UUID().UUIDString()
-      //   this.config.webdavFile = fileName
-      //   chatAIUtils.chatController.configNoteIdInput.text = fileName
-      // }
-
-      // this.config.lastSyncTime = Date.now()+5
-      // this.config.modifiedTime = this.config.lastSyncTime
       
       MNUtil.showHUD("Uploading...")
       let authorization = {
@@ -11727,6 +11736,9 @@ static modelsWithoutVisionPatterns = [
     }
   }
   static getConfigFromPrompt(prompt = this.currentPrompt){
+    if (!(prompt in this.prompts)) {
+      return undefined
+    }
     let promptConfig = this.prompts[prompt]
     // MNUtil.copyJSON(promptConfig)
     let promptModel = promptConfig.model
@@ -11780,6 +11792,7 @@ static modelsWithoutVisionPatterns = [
     if (dynamicToolbarAction) {
       config.toolbarAction = dynamicToolbarAction
     }
+    // chatAIUtils.log("getDynmaicConfig", config)
     return config
   }
   /**
@@ -11874,16 +11887,26 @@ static modelsWithoutVisionPatterns = [
   }
   }
   static async uploadConfigWithEncryptionFromR2(fileName,key,alert = true){
+  try {
+    // chatAIUtils.log("uploadConfigWithEncryptionFromR2")
     if (!this.getConfig("r2file")) {
       let fileName = NSUUID.UUID().UUIDString()
       this.config.r2file = fileName
-      chatAIUtils.chatController.configNoteIdInput.text = fileName
+      let currentSyncSource = this.getConfig("syncSource")
+      if (currentSyncSource === "CFR2") {
+        chatAIUtils.chatController.configNoteIdInput.text = fileName
+      }
     }
     this.config.lastSyncTime = Date.now()+5
     this.config.modifiedTime = this.config.lastSyncTime
     let text = JSON.stringify(this.getAllConfig())
     let encodedText = MNUtil.xorEncryptDecrypt(text, key)
     await chatAINetwork.uploadFileToR2(encodedText, fileName,alert)
+    return true
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "uploadConfigWithEncryptionFromR2")
+    return false
+  }
   }
   static async readEncryptedConfigFromInfi(fileName,key){
   try {
@@ -11931,7 +11954,10 @@ static modelsWithoutVisionPatterns = [
     if (!this.getConfig("InfiFile")) {
       let fileName = NSUUID.UUID().UUIDString()
       this.config.InfiFile = fileName
-      chatAIUtils.chatController.configNoteIdInput.text = fileName
+      let currentSyncSource = this.getConfig("syncSource")
+      if (currentSyncSource === "Infi") {
+        chatAIUtils.chatController.configNoteIdInput.text = fileName
+      }
     }
     this.config.lastSyncTime = Date.now()+5
     // this.config.modifiedTime = this.config.lastSyncTime
@@ -11975,7 +12001,10 @@ static modelsWithoutVisionPatterns = [
     if (!this.getConfig("webdavFile")) {
       let fileName = NSUUID.UUID().UUIDString()
       this.config.webdavFile = fileName
-      chatAIUtils.chatController.configNoteIdInput.text = fileName
+      let currentSyncSource = this.getConfig("syncSource")
+      if (currentSyncSource === "Webdav") {
+        chatAIUtils.chatController.configNoteIdInput.text = fileName
+      }
     }
     this.config.lastSyncTime = Date.now()+5
     this.config.modifiedTime = this.config.lastSyncTime

@@ -58,7 +58,12 @@ editNote工具支持传入指定noteId，可以实现同时编辑多个卡片
 支持设置默认系统提示词
 增加变量hasFocusNote，用于判断当前是否有选中卡片
 
+修复异常创建卡片的问题
+修复复制提示词的问题
+修复action的一些问题
 
+改进同步功能，支持导出配置到文件
+修复一些同步的bug
 killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app"
 
 pgrep -x "MarginNote 4" > /dev/null && (killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app") || open "/Applications/MarginNote 4.app"

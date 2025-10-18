@@ -1529,6 +1529,10 @@ try {
 sideOutputController.prototype.askWithPrompt = async function (prompt) {
   try {
     let config = chatAIConfig.getConfigFromPrompt(prompt)
+    if (!config) {
+      MNUtil.showHUD("No config for prompt: "+prompt)
+      return
+    }
     let question = await chatAIUtils.chatController.getQuestion(prompt)
     if (!question) {
       return
@@ -1577,6 +1581,10 @@ try {
     this.currentModel = "Default"
   }
   let config = chatAIConfig.getConfigFromPrompt(promptKey)
+  if (!config) {
+    MNUtil.showHUD("No config for prompt: "+promptKey)
+    return
+  }
   // MNUtil.copyJSON(config)
   this.baseAsk(question,config,temperature)
 
@@ -1801,15 +1809,6 @@ sideOutputController.prototype.continueAfterToolCall = function(temperature=0.8)
     MNUtil.showHUD("on output")
     return
   }
-  // let funcIndices
-  // // config = chatAIConfig.getConfigFromPrompt(this.currentPrompt)
-  // if (this.dynamic) {
-  //   funcIndices =  chatAIConfig.config.dynamicFunc
-  // }else{
-  //   funcIndices =  chatAIConfig.prompts[this.currentPrompt].func ? chatAIConfig.prompts[this.currentPrompt].func : []
-  // }
-  // this.apikey = config.apikey
-  // this.func = []
   
   this.baseAsk(this.history,config,temperature)
   } catch (error) {
