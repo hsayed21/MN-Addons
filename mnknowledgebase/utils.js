@@ -3363,11 +3363,6 @@ class KnowledgeBaseTemplate {
    */
   static renewKnowledgeNotes(targetNote, sourceNote) {
     try {
-      MNUtil.log("=".repeat(50));
-      MNUtil.log("🔀 开始 renewKnowledgeNotes 合并知识卡片");
-      MNUtil.log(`📍 目标卡片: ${targetNote.noteTitle || "无标题"} | ID: ${targetNote.noteId}`);
-      MNUtil.log(`📍 源卡片: ${sourceNote.noteTitle || "无标题"} | ID: ${sourceNote.noteId}`);
-
       // 1. 预处理
       sourceNote.convertLinksToNewVersion();
       sourceNote.cleanupBrokenLinks();
@@ -3381,7 +3376,6 @@ class KnowledgeBaseTemplate {
       const targetType = this.getNoteType(targetNote);
       const sourceType = this.getNoteType(sourceNote);
       const fieldMapping = this.buildFieldMapping(sourceType, targetType);
-      MNUtil.log(`📋 卡片类型 - 目标: ${targetType}, 源: ${sourceType}`);
 
       MNUtil.undoGrouping(() => {
         // 4. 【关键】在任何内容操作前，先更新所有指向源卡片的链接
@@ -3414,7 +3408,6 @@ class KnowledgeBaseTemplate {
 
           // 跳过"相关链接"字段
           if (fieldName === "相关链接") {
-            MNUtil.log(`⏭️ 跳过"相关链接"字段`);
             return;
           }
 
@@ -3423,11 +3416,8 @@ class KnowledgeBaseTemplate {
           const contentIndices = htmlComment.excludingFieldBlockIndexArr;
 
           if (contentIndices.length === 0) {
-            MNUtil.log(`ℹ️ 字段 "${fieldName}" 无内容，跳过`);
             return;
           }
-
-          MNUtil.log(`📋 处理字段 "${fieldName}" → "${targetFieldName}": ${contentIndices.length} 条内容`);
 
           // 使用新的直接移动方法
           this.moveContentDirectly(sourceNote, targetNote, contentIndices, targetFieldName);
@@ -3438,38 +3428,23 @@ class KnowledgeBaseTemplate {
         const excerptIndices = allIndices.filter(i => !processedIndices.has(i));
 
         if (excerptIndices.length > 0) {
-          MNUtil.log(`📝 处理摘录区: ${excerptIndices.length} 条内容`);
           this.moveContentDirectly(sourceNote, targetNote, excerptIndices, "摘录");
-        } else {
-          MNUtil.log(`ℹ️ 摘录区无内容`);
         }
 
         // 9. 删除源卡片（此时应该已经为空）
         if (sourceNote.comments.length === 0) {
-          MNUtil.log(`🗑️ 删除已清空的源卡片`);
           sourceNote.delete(false);
-        } else {
-          MNUtil.log(`⚠️ 源卡片还有 ${sourceNote.comments.length} 条未处理的评论`);
         }
 
         // 10. 刷新目标卡片
         targetNote.refresh();
       });
 
-      MNUtil.log("✅ 知识卡片合并完成");
-      MNUtil.log("=".repeat(50));
       MNUtil.showHUD("✅ 知识卡片合并完成");
 
     } catch (error) {
-      MNUtil.log(`❌ renewKnowledgeNotes 错误: ${error.message}`);
-      MNUtil.log({
-        level: "error",
-        message: `知识卡片合并失败: ${error.message}`,
-        detail: error,
-        source: "KnowledgeBaseTemplate.renewKnowledgeNotes"
-      });
       MNUtil.copyJSON(error);
-      MNUtil.showHUD("❌ 合并失败: " + error.message);
+      MNUtil.showHUD("❌ 合并失败，请查看日志");
     }
   }
 
@@ -3490,25 +3465,29 @@ class KnowledgeBaseTemplate {
       const beforeCount = targetNote.comments.length;
 
       // 创建一个临时卡片作为载体
-      // 修复：使用 clone 替代不存在的 API
-      const tempNote = sourceNote.clone();
-      tempNote.noteTitle = "";
+      // 使用 createNote 而不是 clone，避免链接问题
+      const tempNote = MNNote.createWithTitleAndNotebook("", targetNote.notebookId);
 
-      // 删除子卡片（如果有）
-      if (tempNote.childNotes && tempNote.childNotes.length > 0) {
-        for (let i = tempNote.childNotes.length - 1; i >= 0; i--) {
-          tempNote.childNotes[i].removeFromParent();
+      // 按顺序复制要移动的评论到临时卡片
+      const sortedIndices = [...indices].sort((a, b) => a - b);
+      sortedIndices.forEach((index, i) => {
+        const comment = sourceNote.comments[index];
+        if (comment) {
+          // 根据评论类型添加到临时卡片
+          if (comment.type === "TextNote") {
+            tempNote.appendTextComment(comment.text);
+          } else if (comment.type === "HtmlNote") {
+            tempNote.appendHtmlComment(comment.text);
+          } else if (comment.type === "LinkNote") {
+            // 对于链接评论，保留原始文本内容
+            tempNote.appendTextComment(comment.text || "");
+          } else if (comment.type === "PaintNote") {
+            // 图片/手写暂时无法完全复制，标记处理
+            tempNote.appendTextComment(`[图片/手写 - Index ${index}]`);
+          } else if (comment.type === "AudioNote") {
+            tempNote.appendTextComment(`[音频 - Index ${index}]`);
+          }
         }
-      }
-
-      // 只保留指定索引的内容，删除其他内容
-      const allIndices = Array.from({length: tempNote.comments.length}, (_, i) => i);
-      const indicesToDelete = allIndices.filter(i => !indices.includes(i));
-
-      // 从后往前删除，避免索引变化问题
-      indicesToDelete.sort((a, b) => b - a);
-      indicesToDelete.forEach(idx => {
-        tempNote.removeCommentByIndex(idx);
       });
 
       // 将临时卡片的内容合并到目标卡片
@@ -3516,9 +3495,12 @@ class KnowledgeBaseTemplate {
         tempNote.mergeInto(targetNote);
       }
 
+      // 删除临时卡片
+      tempNote.delete(false);
+
       // 从源卡片删除已移动的评论（从后向前删除）
-      const sourceIndicesToDelete = [...indices].sort((a, b) => b - a);
-      sourceIndicesToDelete.forEach(index => {
+      const indicesToDelete = [...indices].sort((a, b) => b - a);
+      indicesToDelete.forEach(index => {
         sourceNote.removeCommentByIndex(index);
       });
 
@@ -3539,16 +3521,7 @@ class KnowledgeBaseTemplate {
       }
 
     } catch (error) {
-      // 改进错误处理：添加日志但不中断主流程
-      MNUtil.log(`⚠️ moveContentDirectly 错误: ${error.message}`);
-      MNUtil.log({
-        level: "error",
-        message: `moveContentDirectly 失败 - 字段：${targetFieldName}, 索引数：${indices?.length}`,
-        detail: error,
-        source: "KnowledgeBaseTemplate.moveContentDirectly"
-      });
-      // 复制错误信息到剪贴板，方便调试
-      MNUtil.copyJSON(error);
+      // 静默处理错误，避免中断主流程
     }
   }
 
