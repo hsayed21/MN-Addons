@@ -3938,6 +3938,17 @@ function registerAllCustomActions() {
     });
   });
 
+  global.registerCustomAction("mergeInSummaryParentNote", async function (context) {
+    const { focusNote } = context;
+    MNUtil.undoGrouping(() => {
+      try {
+        KnowledgeBaseTemplate.mergeIntoSummaryNote(focusNote)
+      } catch (error) {
+        MNUtil.showHUD(error);
+      }
+    });
+  });
+
   global.registerCustomAction("mergeApplicationFieldInParentNote", async function(context) {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(()=>{

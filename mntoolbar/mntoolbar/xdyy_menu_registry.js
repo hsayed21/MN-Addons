@@ -439,6 +439,10 @@ function registerAllMenuTemplates() {
           menuTitle: "🔀 合并重复知识点",
         },
         {
+          action: "mergeInSummaryParentNote",
+          menuTitle: "🔀 合并到父「Summary」卡片",
+        },
+        {
           action: "mergeInParentNote",
           menuTitle: "🔀 合并到父卡片",
         },

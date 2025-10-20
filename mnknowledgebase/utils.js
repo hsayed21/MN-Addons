@@ -14628,6 +14628,18 @@ class KnowledgeBaseTemplate {
       MNLog.error(error, "KnowledgeBaseTemplate: convertClassificationNoteToDefinitionNote");
     }
   }
+
+  static mergeIntoSummaryNote(note) {
+    let summaryNote = note.parentNote
+    if (summaryNote.title == "summary" || summaryNote.title == "Summary") {
+      MNUtil.undoGrouping(()=>{
+        summaryNote.title = note.title
+        note.title = ""
+        summaryNote.colorIndex = note.colorIndex
+        note.mergeInto(summaryNote)
+      })
+    }
+  }
 }
 
 /**
