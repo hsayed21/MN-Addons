@@ -131,6 +131,7 @@ function registerAllCustomActions() {
 
   // HTML 设置
   const htmlSetting = [
+    { title: "SKETCH: ✍️", type: "sketch" },
     { title: "注: 📝", type: "remark" },
     { title: "方法: ✔", type: "method" },
     { title: "关键: 🔑", type: "key" },
@@ -139,7 +140,6 @@ function registerAllCustomActions() {
     { title: "特别注意: ❗❗❗", type: "danger" },
     { title: "Case: 📋", type: "case" },
     { title: "Step: 👣", type: "step" },
-    { title: "SKETCH: ✍️", type: "sketch" },
     { title: "目标: 🎯", type: "goal" },
     { title: "level1: 🚩", type: "level1" },
     { title: "level2: ▸", type: "level2" },
