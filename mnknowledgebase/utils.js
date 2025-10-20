@@ -2880,7 +2880,8 @@ class KnowledgeBaseTemplate {
    */
   static mergeTitleLinkWords(targetNote, sourceNote) {
     // 如果任一卡片没有标题，不处理
-    if (!targetNote.noteTitle || !sourceNote.noteTitle) {
+    if (!sourceNote.noteTitle) {
+      KnowledgeBaseUtils.log("sourceNote 没有标题", "mergeTitleLinkWords")
       return;
     }
 
@@ -2962,19 +2963,7 @@ class KnowledgeBaseTemplate {
       // 收集需要检查的卡片
       const notesToCheck = new Set();
 
-      // 1. 添加源卡片的父卡片
-      if (sourceNote.parentNote) {
-        notesToCheck.add(sourceNote.parentNote.noteId);
-      }
-
-      // 2. 添加源卡片的子卡片
-      if (sourceNote.childNotes && sourceNote.childNotes.length > 0) {
-        sourceNote.childNotes.forEach(child => {
-          if (child) notesToCheck.add(child.noteId);
-        });
-      }
-
-      // 3. 添加源卡片链接到的卡片（通过 linkComment）
+      //   添加源卡片链接到的卡片（通过 linkComment）
       sourceNote.MNComments.forEach(comment => {
         if (comment.type === "linkComment") {
           const linkedNoteId = comment.text.toNoteId();
@@ -2984,7 +2973,7 @@ class KnowledgeBaseTemplate {
         }
       });
 
-      // 4. 添加源卡片 markdown 中链接到的卡片
+      //   添加源卡片 markdown 中链接到的卡片
       sourceNote.MNComments.forEach(comment => {
         if (comment.type === "markdownComment") {
           // 提取 markdown 中的所有链接
@@ -3021,8 +3010,7 @@ class KnowledgeBaseTemplate {
             const oldText = comment.text;
             const newText = oldText.replace(new RegExp(sourceNoteURL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), targetNoteURL);
             if (oldText !== newText) {
-              note.removeCommentByIndex(idx);
-              note.insertCommentByIndex(idx, { text: newText, type: "markdownComment" });
+              comment.text = newText;
               updateCount++;
               hasUpdates = true;
             }
@@ -3043,310 +3031,6 @@ class KnowledgeBaseTemplate {
     return updateCount;
   }
 
-  /**
-   * 合并知识卡片
-   * 将 sourceNote (B) 的内容按字段合并到 targetNote (A) 中
-   *
-   * 注意：
-   * - "相关链接"字段的内容会被删除，不参与合并
-   * - 支持特殊字段映射（如思想方法的"原理"→命题的"证明"）
-   * - 会自动处理字段名中的多余冒号
-   *
-   * @param {MNNote} targetNote - 目标卡片 (A)，保留的卡片
-   * @param {MNNote} sourceNote - 源卡片 (B)，将被合并的卡片
-   */
-  static renewKnowledgeNotes_old(targetNote, sourceNote) {
-    try {
-      MNUtil.log("=".repeat(50));
-      MNUtil.log("🔀 开始 renewKnowledgeNotes 合并知识卡片");
-      MNUtil.log(`📍 目标卡片(保留): ${targetNote.noteTitle || "无标题"} | ID: ${targetNote.noteId}`);
-      MNUtil.log(`📍 源卡片(将合并): ${sourceNote.noteTitle || "无标题"} | ID: ${sourceNote.noteId}`);
-      MNUtil.log(`📍 源卡片 URL: ${sourceNote.noteURL}`);
-      MNUtil.log(`📍 目标卡片 URL: ${targetNote.noteURL}`);
-
-      // 记录源卡片的所有链接
-      MNUtil.log("📋 源卡片的链接评论:");
-      sourceNote.MNComments.forEach((comment, idx) => {
-        if (comment.type === "linkComment") {
-          let linkedNoteId = comment.text.toNoteId();
-          let linkedNote = MNNote.new(linkedNoteId, false);
-          MNUtil.log(`  [${idx}] 链接到: ${linkedNote?.noteTitle || "未知"} | ID: ${linkedNoteId}`);
-        }
-      });
-
-      // 记录源卡片的 markdown 内容
-      MNUtil.log("📝 源卡片的 Markdown 评论:");
-      sourceNote.MNComments.forEach((comment, idx) => {
-        if (comment.type === "markdownComment") {
-          MNUtil.log(`  [${idx}] ${comment.text.substring(0, 200)}${comment.text.length > 200 ? '...' : ''}`);
-        }
-      });
-
-      // 先预处理一下 sourceNote
-      sourceNote.convertLinksToNewVersion()
-      sourceNote.cleanupBrokenLinks()
-      sourceNote.fixMergeProblematicLinks()
-
-      // 去掉一些评论，比如"- "
-      this.removeUnnecessaryComments(sourceNote)
-      
-      // 1. 先处理标题合并（在任何其他操作之前）
-      this.mergeTitleLinkWords(targetNote, sourceNote);
-      
-      // 2. 获取两个卡片的类型
-      const targetType = this.getNoteType(targetNote);
-      const sourceType = this.getNoteType(sourceNote);
-      
-      MNUtil.log(`📋 目标卡片类型: ${targetType || '未知'}, 源卡片类型: ${sourceType || '未知'}`);
-      
-      // 3. 使用 ifTemplateMerged 判断源卡片是否有字段结构
-      const sourceHasTemplate = this.ifTemplateMerged(sourceNote);
-      
-      // 4. 使用 undoGrouping 包装所有修改操作
-      MNUtil.undoGrouping(() => {
-        // 清除源卡片的标题
-        sourceNote.noteTitle = "";
-        
-        // 根据是否有模板分别处理
-        if (!sourceHasTemplate) {
-          // 无字段结构的特殊处理
-          MNUtil.log("📝 源卡片无字段结构，将内容移动到摘录区");
-
-          // 在合并前更新所有反向链接
-          this.updateAllIncomingLinks(sourceNote.noteURL, targetNote.noteURL);
-
-          // 执行合并
-          sourceNote.mergeInto(targetNote);
-
-          // 将新内容移动到摘录区
-          this.autoMoveNewContentToField(targetNote, "摘录", true, false);
-
-          // 刷新卡片显示
-          targetNote.refresh();
-
-          MNUtil.showHUD("✅ 知识卡片合并完成（内容已移至摘录区）");
-          return;
-        }
-        
-        // 有字段结构的处理 - 采用逐字段处理策略
-        // 解析源卡片的评论结构
-        const sourceCommentsObj = this.parseNoteComments(sourceNote);
-        const sourceHtmlComments = sourceCommentsObj.htmlCommentsObjArr;
-        
-        // 建立字段映射关系
-        const fieldMapping = this.buildFieldMapping(sourceType, targetType);
-        
-        // 记录所有已处理的内容索引
-        const processedIndices = new Set();
-
-        // 在处理字段之前，先更新所有反向链接
-        // 这样即使字段为空也会执行链接更新
-        this.updateAllIncomingLinks(sourceNote.noteURL, targetNote.noteURL);
-
-        // 逐个处理每个字段（不要一次性删除所有字段标记）
-        sourceHtmlComments.forEach(htmlComment => {
-          try {
-            // 标准化字段名（去除多余的冒号）
-            const fieldName = this.normalizeFieldName(htmlComment.text);
-            
-            // 跳过"相关链接"字段
-            if (fieldName === "相关链接") {
-              MNUtil.log(`⏭️ 跳过"相关链接"字段`);
-              // 记录相关链接字段的所有索引（包括标记和内容）
-              processedIndices.add(htmlComment.index);
-              htmlComment.excludingFieldBlockIndexArr.forEach(idx => {
-                processedIndices.add(idx);
-              });
-              return;
-            }
-            
-            // 获取字段内容的索引（不包括字段标记本身）
-            const contentIndices = htmlComment.excludingFieldBlockIndexArr;
-            
-            // 记录已处理的索引
-            processedIndices.add(htmlComment.index); // 字段标记本身
-            contentIndices.forEach(idx => processedIndices.add(idx)); // 字段内容
-            
-            if (contentIndices.length === 0) {
-              MNUtil.log(`ℹ️ 字段 "${fieldName}" 无内容，跳过`);
-              return;
-            }
-            
-            // 确定目标字段名
-            const targetFieldName = fieldMapping[fieldName] || fieldName;
-            
-            MNUtil.log(`📋 处理字段 "${fieldName}" → "${targetFieldName}": ${contentIndices.length} 条内容`);
-            
-            // 在克隆和合并之前，先维护链接关系
-            // 将其他卡片中指向源卡片B的链接替换为指向目标卡片A
-            contentIndices.forEach(index => {
-              const comment = sourceNote.MNComments[index];
-              if (comment && comment.type === "linkComment") {
-                const linkedNote = MNNote.new(comment.text);
-                if (linkedNote) {
-                  // 找到被链接卡片C中所有指向源卡片B的链接
-                  const sourceLinkIndices = linkedNote.getLinkCommentsIndexArr(sourceNote.noteURL);
-                  if (sourceLinkIndices.length > 0) {
-                    MNUtil.log(`🔗 在卡片 ${linkedNote.noteId} 中找到 ${sourceLinkIndices.length} 个指向源卡片的链接，正在替换...`);
-                    // 直接替换为指向目标卡片A的链接
-                    sourceLinkIndices.forEach(linkIndex => {
-                      linkedNote.replaceWithMarkdownComment(targetNote.noteURL, linkIndex);
-                    });
-                    linkedNote.refresh();
-                  }
-                }
-              }
-            });
-            
-            // 记录合并前目标卡片的评论数量
-            const targetCommentsCountBefore = targetNote.comments.length;
-            
-            // 克隆源卡片用于提取字段内容（借鉴 performExtract 的思路）
-            const tempNote = sourceNote.clone();
-            tempNote.noteTitle = "";
-            
-            // 删除子卡片（如果有的话）
-            if (tempNote.childNotes && tempNote.childNotes.length > 0) {
-              for (let i = tempNote.childNotes.length - 1; i >= 0; i--) {
-                tempNote.childNotes[i].removeFromParent();
-              }
-            }
-            
-            // 只保留当前字段的内容
-            const allIndices = Array.from({length: tempNote.comments.length}, (_, i) => i);
-            const indicesToDelete = allIndices.filter(i => !contentIndices.includes(i));
-            
-            // 从后往前删除，避免索引变化
-            indicesToDelete.sort((a, b) => b - a);
-            indicesToDelete.forEach(index => {
-              tempNote.removeCommentByIndex(index);
-            });
-            
-            // 将提取的内容合并到目标卡片
-            tempNote.mergeInto(targetNote);
-            
-            // 计算新增内容的索引（新内容被添加到目标卡片的末尾）
-            const newContentIndices = [];
-            const newContentCount = contentIndices.length;
-            for (let i = 0; i < newContentCount; i++) {
-              newContentIndices.push(targetCommentsCountBefore + i);
-            }
-            
-            // 立即将新内容移动到对应的目标字段
-            if (newContentIndices.length > 0) {
-              // 先检查目标字段是否存在
-              const targetFieldIndex = targetNote.getIncludingHtmlCommentIndex(targetFieldName);
-              
-              if (targetFieldIndex !== -1) {
-                // 移动内容到目标字段
-                this.moveCommentsArrToField(targetNote, newContentIndices, targetFieldName, true);
-              }
-              
-              
-              MNUtil.log(`✅ 已将 ${newContentIndices.length} 条内容移动到 "${targetFieldName}" 字段`);
-            }
-            
-          } catch (fieldError) {
-            MNUtil.log(`⚠️ 处理字段 "${htmlComment.text}" 时出错: ${fieldError.message}`);
-            // 继续处理下一个字段
-          }
-        });
-        
-        // 处理摘录区：源卡片中未被处理的内容就是摘录区
-        const allSourceIndices = Array.from({length: sourceNote.comments.length}, (_, i) => i);
-        const excerptIndices = allSourceIndices.filter(i => !processedIndices.has(i));
-        
-        if (excerptIndices.length > 0) {
-          MNUtil.log(`📝 处理摘录区: ${excerptIndices.length} 条内容`);
-          
-          // 在处理摘录区内容之前，同样维护链接关系
-          excerptIndices.forEach(index => {
-            const comment = sourceNote.MNComments[index];
-            if (comment && comment.type === "linkComment") {
-              const linkedNote = MNNote.new(comment.text);
-              if (linkedNote) {
-                // 找到被链接卡片中所有指向源卡片B的链接
-                const sourceLinkIndices = linkedNote.getLinkCommentsIndexArr(sourceNote.noteURL);
-                if (sourceLinkIndices.length > 0) {
-                  MNUtil.log(`🔗 摘录区：在卡片 ${linkedNote.noteId} 中找到 ${sourceLinkIndices.length} 个指向源卡片的链接，正在替换...`);
-                  // 直接替换为指向目标卡片A的链接
-                  sourceLinkIndices.forEach(linkIndex => {
-                    linkedNote.replaceWithMarkdownComment(targetNote.noteURL, linkIndex);
-                  });
-                  linkedNote.refresh();
-                }
-              }
-            }
-          });
-          
-          // 记录合并前的评论数量
-          const targetCommentsCountBefore = targetNote.comments.length;
-          
-          // 克隆源卡片处理摘录区
-          const tempNote = sourceNote.clone();
-          tempNote.noteTitle = "";
-          
-          // 删除子卡片（如果有的话）
-          if (tempNote.childNotes && tempNote.childNotes.length > 0) {
-            for (let i = tempNote.childNotes.length - 1; i >= 0; i--) {
-              tempNote.childNotes[i].removeFromParent();
-            }
-          }
-          
-          // 删除已处理的内容，只保留摘录区
-          const indicesToDelete = Array.from(processedIndices).sort((a, b) => b - a);
-          indicesToDelete.forEach(index => {
-            tempNote.removeCommentByIndex(index);
-          });
-          
-          // 合并到目标卡片
-          tempNote.mergeInto(targetNote);
-          
-          // 计算新增内容的索引并移动到摘录区
-          const newContentIndices = [];
-          const excerptContentCount = excerptIndices.length;
-          for (let i = 0; i < excerptContentCount; i++) {
-            newContentIndices.push(targetCommentsCountBefore + i);
-          }
-          
-          this.moveCommentsArrToField(targetNote, newContentIndices, "摘录区", true);
-          MNUtil.log(`✅ 已将摘录区内容移动到目标卡片的摘录区`);
-        }
-        
-        // 所有内容处理完成后，删除源卡片
-        try {
-          sourceNote.delete(false); // false 表示不删除子孙卡片
-          MNUtil.log("✅ 已删除源卡片");
-        } catch (deleteError) {
-          MNLog.error(`⚠️ 删除源卡片失败: ${deleteError.message}`);
-          // 不影响合并结果，继续执行
-        }
-        
-        // 刷新目标卡片显示
-        targetNote.refresh();
-
-        // 记录合并后的状态
-        MNUtil.log("✅ 合并后目标卡片的 Markdown 评论:");
-        targetNote.MNComments.forEach((comment, idx) => {
-          if (comment.type === "markdownComment") {
-            MNUtil.log(`  [${idx}] ${comment.text.substring(0, 200)}${comment.text.length > 200 ? '...' : ''}`);
-          }
-        });
-      });
-
-      MNUtil.showHUD("✅ 知识卡片合并完成");
-      MNUtil.log("✅ 知识卡片合并完成");
-      MNUtil.log("=".repeat(50));
-      
-    } catch (error) {
-      MNUtil.showHUD("❌ 合并知识卡片时出错: " + error.message);
-      MNUtil.log({
-        level: "error",
-        message: "合并知识卡片失败: " + error.message,
-        source: "KnowledgeBaseTemplate.renewKnowledgeNotes"
-      });
-    }
-  }
 
   /**
    * 【新版本】合并知识卡片 - 重新设计的实现
@@ -3368,7 +3052,8 @@ class KnowledgeBaseTemplate {
       sourceNote.cleanupBrokenLinks();
       sourceNote.fixMergeProblematicLinks();
       this.removeUnnecessaryComments(sourceNote);
-
+      
+      KnowledgeBaseUtils.log("合并标题链接词", "renewKnowledgeNotes")
       // 2. 合并标题链接词
       this.mergeTitleLinkWords(targetNote, sourceNote);
 
@@ -3378,6 +3063,7 @@ class KnowledgeBaseTemplate {
       const fieldMapping = this.buildFieldMapping(sourceType, targetType);
 
       MNUtil.undoGrouping(() => {
+        KnowledgeBaseUtils.log("开始执行", "renewKnowledgeNotes")
         // 4. 【关键】在任何内容操作前，先更新所有指向源卡片的链接
         this.updateAllIncomingLinks(sourceNote.noteURL, targetNote.noteURL);
 
@@ -3387,6 +3073,7 @@ class KnowledgeBaseTemplate {
 
         // 6. 如果没有字段结构，直接合并到摘录区
         if (!sourceHtmlComments || sourceHtmlComments.length === 0) {
+          KnowledgeBaseUtils.log("无字段结构", "renewKnowledgeNotes")
           sourceNote.noteTitle = "";
           sourceNote.mergeInto(targetNote);
           this.autoMoveNewContentToField(targetNote, "摘录", true, false);
@@ -3401,7 +3088,7 @@ class KnowledgeBaseTemplate {
         // 处理每个字段
         sourceHtmlComments.forEach(htmlComment => {
           const fieldName = this.normalizeFieldName(htmlComment.text);
-
+          KnowledgeBaseUtils.log("开始处理字段" + fieldName, "renewKnowledgeNotes")
           // 记录已处理的索引
           processedIndices.add(htmlComment.index);
           htmlComment.excludingFieldBlockIndexArr.forEach(idx => processedIndices.add(idx));
@@ -3413,26 +3100,26 @@ class KnowledgeBaseTemplate {
 
           // 确定目标字段名
           const targetFieldName = fieldMapping[fieldName] || fieldName;
-          const contentIndices = htmlComment.excludingFieldBlockIndexArr;
 
-          if (contentIndices.length === 0) {
+          if (htmlComment.excludingFieldBlockIndexArr.length === 0) {
             return;
           }
 
-          // 使用新的直接移动方法
-          this.moveContentDirectly(sourceNote, targetNote, contentIndices, targetFieldName);
+          this.extractComments(sourceNote, htmlComment.excludingFieldBlockIndexArr).mergeInto(targetNote);
+          this.cleanupExtractedContentLinks(sourceNote, htmlComment.excludingFieldBlockIndexArr);
+          sourceNote.removeCommentsByIndexArr(htmlComment.includingFieldBlockIndexArr)
+          this.autoMoveNewContentToField(targetNote, targetFieldName, true, false);
+          KnowledgeBaseUtils.log("结束处理字段" + fieldName, "renewKnowledgeNotes")
         });
 
-        // 8. 处理摘录区（未被字段包含的内容）
-        const allIndices = Array.from({length: sourceNote.comments.length}, (_, i) => i);
-        const excerptIndices = allIndices.filter(i => !processedIndices.has(i));
-
-        if (excerptIndices.length > 0) {
-          this.moveContentDirectly(sourceNote, targetNote, excerptIndices, "摘录");
-        }
-
-        // 9. 删除源卡片（此时应该已经为空）
-        if (sourceNote.comments.length === 0) {
+        if (sourceNote.comments.length > 0) {
+          // 还剩摘录区
+          KnowledgeBaseUtils.log("合并摘录区", "renewKnowledgeNotes")
+          this.retainFieldContentByName(sourceNote, "摘录")
+          sourceNote.mergeInto(targetNote);
+          this.autoMoveNewContentToField(targetNote, "摘录", true, false);
+        } else {
+          KnowledgeBaseUtils.log("删除卡片", "renewKnowledgeNotes")
           sourceNote.delete(false);
         }
 
@@ -3445,83 +3132,6 @@ class KnowledgeBaseTemplate {
     } catch (error) {
       MNUtil.copyJSON(error);
       MNUtil.showHUD("❌ 合并失败，请查看日志");
-    }
-  }
-
-  /**
-   * 直接从源卡片移动内容到目标卡片的指定字段
-   * 使用创建新卡片的方式，避免 clone 带来的链接问题
-   *
-   * @param {MNNote} sourceNote - 源卡片
-   * @param {MNNote} targetNote - 目标卡片
-   * @param {Array<number>} indices - 要移动的评论索引
-   * @param {string} targetFieldName - 目标字段名
-   */
-  static moveContentDirectly(sourceNote, targetNote, indices, targetFieldName) {
-    if (!indices || indices.length === 0) return;
-
-    try {
-      // 记录目标卡片合并前的评论数
-      const beforeCount = targetNote.comments.length;
-
-      // 创建一个临时卡片作为载体
-      // 使用 createNote 而不是 clone，避免链接问题
-      const tempNote = MNNote.createWithTitleAndNotebook("", targetNote.notebookId);
-
-      // 按顺序复制要移动的评论到临时卡片
-      const sortedIndices = [...indices].sort((a, b) => a - b);
-      sortedIndices.forEach((index, i) => {
-        const comment = sourceNote.comments[index];
-        if (comment) {
-          // 根据评论类型添加到临时卡片
-          if (comment.type === "TextNote") {
-            tempNote.appendTextComment(comment.text);
-          } else if (comment.type === "HtmlNote") {
-            tempNote.appendHtmlComment(comment.text);
-          } else if (comment.type === "LinkNote") {
-            // 对于链接评论，保留原始文本内容
-            tempNote.appendTextComment(comment.text || "");
-          } else if (comment.type === "PaintNote") {
-            // 图片/手写暂时无法完全复制，标记处理
-            tempNote.appendTextComment(`[图片/手写 - Index ${index}]`);
-          } else if (comment.type === "AudioNote") {
-            tempNote.appendTextComment(`[音频 - Index ${index}]`);
-          }
-        }
-      });
-
-      // 将临时卡片的内容合并到目标卡片
-      if (tempNote.comments.length > 0) {
-        tempNote.mergeInto(targetNote);
-      }
-
-      // 删除临时卡片
-      tempNote.delete(false);
-
-      // 从源卡片删除已移动的评论（从后向前删除）
-      const indicesToDelete = [...indices].sort((a, b) => b - a);
-      indicesToDelete.forEach(index => {
-        sourceNote.removeCommentByIndex(index);
-      });
-
-      // 计算新增内容的索引
-      const newCount = targetNote.comments.length - beforeCount;
-      const newIndices = [];
-      for (let i = 0; i < newCount; i++) {
-        newIndices.push(beforeCount + i);
-      }
-
-      // 移动到指定字段
-      if (newIndices.length > 0) {
-        if (targetFieldName === "摘录") {
-          this.autoMoveNewContentToField(targetNote, "摘录", true, false);
-        } else {
-          this.moveCommentsArrToField(targetNote, newIndices, targetFieldName, true);
-        }
-      }
-
-    } catch (error) {
-      // 静默处理错误，避免中断主流程
     }
   }
 
@@ -4576,7 +4186,7 @@ class KnowledgeBaseTemplate {
 
     // 特殊处理：摘录区
     if (fieldName === "摘录区" || fieldName === "摘录") {
-      retainIndices = this.getExcerptBlockIndexArr(note);
+      retainIndices = this.getExcerptBlockIndexArr(note, true);
 
       if (retainIndices.length === 0) {
         // MNUtil.showHUD(`摘录区没有内容`);
@@ -7780,14 +7390,20 @@ class KnowledgeBaseTemplate {
   
   /**
    * 获取 Note 的摘录区的 indexArr
+   * 
+   * all: 是否是所有，包括可能存在的文本评论
    */
-  static getExcerptBlockIndexArr(note) {
+  static getExcerptBlockIndexArr(note, all = false) {
     let indexArr = []
     let endIndex = this.parseNoteComments(note).htmlCommentsObjArr[0]?.index? this.parseNoteComments(note).htmlCommentsObjArr[0].index : -1;
     switch (endIndex) {
       case 0:
         break;
       case -1: // 此时没有 html 评论
+        if (all) {
+          indexArr = Array.from({length: note.comments.length}, (_, i) => i)
+          break;
+        }
         for (let i = 0; i < note.comments.length-1; i++) {
           let comment = note.MNComments[i]
           if (i == 0) {
@@ -7805,6 +7421,10 @@ class KnowledgeBaseTemplate {
         }
         break;
       default:
+        if (all)  {
+          indexArr = Array.from({length: endIndex}, (_, i) => i)
+          break;
+        }
         for (let i = 0; i < endIndex; i++) {
           let comment = note.MNComments[i]
           if (comment.type == "mergedImageComment") {
@@ -17927,6 +17547,7 @@ class KnowledgeBaseUtils {
   static log(message, source, detail, level = "INFO"){
     MNUtil.log({message:message, detail:detail, source:"MN KnowledgeBase:" + source , level:level})
   }
+  
   static addErrorLog(error, source, info){
     MNUtil.showHUD("MN KnowledgeBase Error ("+source+"): "+error)
     let tem = {source:source,time:(new Date(Date.now())).toString()}
@@ -19232,7 +18853,7 @@ ${this.OCRNumberingRules}
   static async OCRToTitle(note, mode = 1, needTranslation = undefined) {
     let imageData = ocrUtils.getImageFromNote(note)
     if (!imageData) {
-      MNUtil.showHUD("No image found")
+      // MNUtil.showHUD("No image found")
       return
     }
     let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
@@ -19276,6 +18897,9 @@ ${this.OCRNumberingRules}
     switch (mode) {
       case 1:
         // 模式1：直接OCR - 使用专用模型，未设置时回退到通用模型
+        if (note.colorIndex === KnowledgeBaseTemplate.types["定义"].colorIndex) {
+          return false  // 定义卡片不进行 OCR
+        }
         ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode1 || KnowledgeBaseConfig.config.excerptOCRModel;
         break;
       case 2:
@@ -19657,7 +19281,7 @@ class HtmlMarkdownUtils {
     step: 'font-weight:500;color:#059669;background:#ECFDF5;border-left:4px solid #10B981;padding:6px 12px;display:inline-block;border-radius:0 4px 4px 0;margin:4px 0;',
   };
   // 定义即使内容为空也要输出的类型白名单
-  static emptyContentWhitelist = ['check'];
+  static emptyContentWhitelist = ['check', 'sketch'];
   
   static createHtmlMarkdownText(text, type = 'none') {
     // 对于白名单中的类型，特殊处理
@@ -19681,16 +19305,16 @@ class HtmlMarkdownUtils {
     } else {
       // 如果内容为空且类型不在白名单中，返回空字符串
       if (!handledText) {
-        // return '';
-        switch (type) {
-          case "sketch":
-            handledText = ":"
-            break;
-        }
+        handledText = ' ';
+        // switch (type) {
+        //   case "sketch":
+        //     handledText = ":"
+        //     break;
+        // }
       } else {
         switch (type) {
           case "sketch":
-            handledText = ": " = handledText
+            handledText = ": " + handledText
             break;
         }
       }
