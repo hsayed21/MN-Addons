@@ -382,17 +382,12 @@ class KnowledgeBaseTemplate {
   /**
    * 制卡（只支持非摘录版本）
    */
-  static makeCard(note, addToReview = true, reviewEverytime = true, focusInMindMap = true) {
+  static makeCard(note, addToReview = true, reviewEverytime = true) {
     this.renewNote(note) // 处理旧卡片
     this.mergeTemplateAndAutoMoveNoteContent(note) // 合并模板卡片并自动移动内容
     this.templateMergedCardMake(note)
     if (addToReview) {
       this.addToReview(note, reviewEverytime) // 加入复习
-    }
-    if (focusInMindMap) {
-      MNUtil.undoGrouping(()=>{
-        note.focusInMindMap()
-      })
     }
   }
 
@@ -479,49 +474,26 @@ class KnowledgeBaseTemplate {
   /**
    * 一键制卡（支持摘录版本）
    */
-  static makeNote(note, addToReview = true, reviewEverytime = true, focusInMindMap = true) {
+  static makeNote(note, addToReview = true, reviewEverytime = true) {
     // 检查是否启用预处理模式
     if (KnowledgeBaseConfig.config.preProcessMode) {
       // 预处理模式：简化的制卡流程
-      if (note.excerptText) {
-        let newnote = this.toNoExcerptVersion(note)
-        newnote.focusInMindMap(0.5)
-        MNUtil.delay(0.4).then(()=>{
-          note = MNNote.getFocusNote()
-          MNUtil.delay(0.4).then(()=>{
-            MNUtil.undoGrouping(()=>{
-              let processedNote = this.preprocessNote(note)
-              processedNote.focusInMindMap(0.4)
-            })
-          })
-        })
-        
-      } else {
-        MNUtil.undoGrouping(()=>{
-          let processedNote = this.preprocessNote(note)
-          processedNote.focusInMindMap(0.4)
-        })
-      }
+      MNUtil.undoGrouping(()=>{
+        let processedNote = this.preprocessNote(note)
+        switch (this.getNoteType(processedNote)) {
+          case "定义":
+            this.makeCard(processedNote, true, true)
+            break;
+        }
+        processedNote.focusInMindMap(0.4)
+      })
     } else {
       // 正常模式：完整制卡流程
-      if (note.excerptText) {
-        let newnote = this.toNoExcerptVersion(note)
-        newnote.focusInMindMap(0.5)
-        MNUtil.delay(0.5).then(()=>{
-          note = MNNote.getFocusNote()
-          MNUtil.delay(0.5).then(()=>{
-            this.makeCard(note, addToReview, reviewEverytime, focusInMindMap) // 制卡
-          })
-          MNUtil.undoGrouping(()=>{
-            // this.refreshNote(note)
-            this.refreshNotes(note)
-            // this.addToReview(note, true) // 加入复习
-          })
-        })
-      } else {
-        this.makeCard(note, addToReview, reviewEverytime) // 制卡
-        this.refreshNotes(note)
-      }
+      MNUtil.undoGrouping(()=>{
+        let processedNote = this.preprocessNote(note)
+        this.makeCard(processedNote, addToReview, reviewEverytime)
+        processedNote.focusInMindMap(0.4)
+      })
     }
   }
 
@@ -1000,11 +972,10 @@ class KnowledgeBaseTemplate {
   /**
    * 转化为非摘录版本
    */
-  static toNoExcerptVersion(note){
-    if (note.parentNote) {
+  static toNoExcerptVersion(note, inputParentNote){
+    let parentNote = inputParentNote || note.parentNote
+    if (parentNote) {
       if (note.excerptText) { // 把摘录内容的检测放到 toNoExcerptVersion 的内部
-        let parentNote = note.parentNote
-        
         let config = {
           title: note.noteTitle,
           content: "",
@@ -1025,6 +996,7 @@ class KnowledgeBaseTemplate {
       }
     } else {
       MNUtil.showHUD("没有父卡片，无法进行非摘录版本的转换！")
+      return note
     }
   }
 
