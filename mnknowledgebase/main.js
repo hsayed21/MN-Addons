@@ -36,10 +36,15 @@ JSB.newAddon = function(mainPath){
         self.preExcerptRootNote = MNNote.new("marginnote4app://note/B48C92CF-A5FD-442A-BF8C-53E1E801F05D")
         self.classInputRootNote = MNNote.new("marginnote4app://note/9F2D24D3-5348-4677-9DCD-01A6C9C1303A")
         if (self.classInputRootNote) {
-          self.classDateNotes = self.classInputRootNote.childNotes 
+          KnowledgeBaseUtils.log("上课输入根卡片存在:", "sceneWillConnect", self.classInputRootNote.noteTitle)
+          self.classDateNotes = self.classInputRootNote.childNotes
+          if (self.classDateNotes.length > 0) {
+            KnowledgeBaseUtils.log(`上课输入根卡片下有 ${self.classDateNotes.length} 个日期分类卡片`, "sceneWillConnect", self.classDateNotes.map(n=>n.noteTitle).join(", ") )
+          }
         }
         self.dateObj = MNUtil.getDateObject()
         self.todayDateStr = `${self.dateObj.year}.${self.dateObj.month}.${self.dateObj.day}`
+        KnowledgeBaseUtils.log("今日日期", "sceneWillConnect", self.todayDateStr)
         // MNUtil.showHUD(self.todayDateStr)
 
         // 保存插件实例引用，供 knowledgebaseWebController 调用
@@ -570,13 +575,30 @@ JSB.newAddon = function(mainPath){
       self.classTodayNote = self.classDateNotes.find(note => {
         return note.noteTitle.includes(self.todayDateStr)
       })
-      self.classTodayDefClassificationNote = self.classTodayNote.childNotes.find(note => {
-        return KnowledgeBaseTemplate.getNoteType(note) === "归类" && note.noteTitle.includes(self.todayDateStr) && note.noteTitle.includes("定义")
-      })
-      self.classTodayThmClassificationNote = self.classTodayNote.childNotes.find(note => {
-        return KnowledgeBaseTemplate.getNoteType(note) === "归类" && note.noteTitle.includes(self.todayDateStr) && note.noteTitle.includes("命题")
-      })
-      if (!self.classTodayNote) {
+      if (self.classTodayNote) {
+        KnowledgeBaseUtils.log("有今日上课卡片", "classModeToggled")
+        self.classTodayDefClassificationNote = self.classTodayNote.childNotes.find(note => {
+          return KnowledgeBaseTemplate.getNoteType(note) === "归类" && note.noteTitle.includes(self.todayDateStr) && note.noteTitle.includes("定义")
+        })
+        if (!self.classTodayDefClassificationNote) {
+          KnowledgeBaseUtils.log("没有今日上课定义归类卡片", "classModeToggled")
+          self.classTodayDefClassificationNote = KnowledgeBaseTemplate.createClassificationNote(self.classTodayNote, self.todayDateStr, "定义", true, true)
+          self.classTodayNote.addChild(self.classTodayDefClassificationNote)
+        } else {
+          KnowledgeBaseUtils.log("找到今日上课定义归类卡片", "classModeToggled", self.classTodayDefClassificationNote.noteTitle)
+        }
+        self.classTodayThmClassificationNote = self.classTodayNote.childNotes.find(note => {
+          return KnowledgeBaseTemplate.getNoteType(note) === "归类" && note.noteTitle.includes(self.todayDateStr) && note.noteTitle.includes("命题")
+        })
+        if (!self.classTodayThmClassificationNote) {
+          KnowledgeBaseUtils.log("没有今日上课命题归类卡片", "classModeToggled")
+          self.classTodayThmClassificationNote = KnowledgeBaseTemplate.createClassificationNote(self.classTodayNote, self.todayDateStr, "命题", true, true)
+          self.classTodayNote.addChild(self.classTodayThmClassificationNote)
+        } else {
+          KnowledgeBaseUtils.log("找到今日上课命题归类卡片", "classModeToggled", self.classTodayThmClassificationNote.noteTitle)
+        }
+      } else {
+        KnowledgeBaseUtils.log("没有今日上课卡片", "classModeToggled")
         self.classTodayNote = MNNote.clone("marginnote4app://note/B6F95A90-7565-4479-94E3-CA7BFAE8C58F")
         self.classTodayNote.title = "📥 上课输入 - " + self.todayDateStr
         self.classInputRootNote.addChild(self.classTodayNote)
