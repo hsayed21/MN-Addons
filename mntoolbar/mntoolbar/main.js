@@ -887,7 +887,6 @@ try {
         }
         MNUtil.refreshAddonCommands()
       },
-
       openDocument:function (button) {
         if (typeof MNUtil === 'undefined') return
         // let self = getMNToolbarClass()

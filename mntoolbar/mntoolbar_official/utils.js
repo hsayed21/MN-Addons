@@ -401,7 +401,7 @@ class toolbarUtils {
         menuItems = ["target","tags","tag"]
         break;
       case "searchInDict":
-        menuItems = ["target"]
+        menuItems = ["target","searchOrder"]
         break;
       case "setColor":
         menuItems = ["color","fillPattern","followAutoStyle","usingCommand","asTitleForNewNote","sendToMindmapForNewNote","wordThreshold"]
@@ -2799,6 +2799,105 @@ try {
   }
   /**
    * 
+   * @param {MNNote|MbBookNote} note 
+   * @returns 
+   */
+  static noteHasExcerptText(note) {
+    //当摘要文本存在且没有评论时,不管是否是图片摘录,都返回true
+    if (note.excerptText && note.excerptText.trim() && (note.comments.length === 0)) {
+      return true
+    }
+    //考虑到可能存在图片摘要，因此要么图片摘要不存在，要么图片摘要已被转为文本
+    let isBlankNote = MNUtil.isBlankNote(note)//指有图片摘录但图片分辨率为1x1的空白图片
+    if (isBlankNote) {
+      return note.excerptText && note.excerptText !== ""
+    }
+    return note.excerptText && note.excerptText !== "" && (!note.excerptPic || note.textFirst)
+  }
+  /**
+   * 
+   * @param {MbBookNote|MNNote} note 
+   * @param {number[]} order 
+   * @returns {string}
+   */
+  static getTextForSearch(note,order = [2,1,3]) {
+    let text
+    for (let index = 0; index < order.length; index++) {
+      const element = order[index];
+      switch (element) {
+        case 1:
+          if (note.noteTitle && note.noteTitle !== "") {
+            text = note.noteTitle
+          }
+          break;
+        case 2:
+          if (MNUtil.isBlankNote(note)) {//单独处理留白笔记
+            text = note.excerptText??""
+          }else if (this.noteHasExcerptText(note)) {
+            text = note.excerptText
+          }
+          //如果都不满足，此时text依然为undefined
+          break;
+        case 3:
+          let commentText
+          //用find主要是保证得到想要的元素之后就会直接返回，而不是继续执行
+          //但是find处理不了异步的情况
+          note.comments.find(comment=>{
+            switch (comment.type) {
+              case "TextNote":
+                if (/^marginnote\dapp:\/\//.test(comment.text)) {
+                  return false
+                }else{
+                  commentText = comment.text
+                  return true
+                }
+              case "HtmlNote":
+                commentText = comment.text
+                return true
+              case "LinkNote":
+                if (comment.q_hpic && !note.textFirst) {
+                  return false
+                }else{
+                  commentText = comment.q_htext
+                  return true
+                }
+              default:
+                return false
+            }
+          })
+          if (commentText && commentText.length) {
+            text = commentText
+          }
+          break;
+        default:
+          break;
+      }
+      if (text) {
+        return text
+      }
+    }
+    return undefined
+  }
+  static getSearchOrder(searchOrder) {
+    switch (searchOrder) {
+      case "Title → Excerpt → Comment":
+        return [1,2,3]
+      case "Title → Comment → Excerpt":
+        return [1,3,2]
+      case "Excerpt → Title → Comment":
+        return [2,1,3]
+      case "Excerpt → Comment → Title":
+        return [2,3,1]
+      case "Comment → Title → Excerpt":
+        return [3,1,2]
+      case "Comment → Excerpt → Title":
+        return [3,2,1]
+      default:
+        return [2,1,3]
+    }
+  }
+  /**
+   * 
    * @param {object} des 
    * @param {UIButton|undefined} button 
    * @returns 
@@ -2809,16 +2908,8 @@ try {
     if (!textSelected) {
       let focusNote = MNNote.getFocusNote()
       if (focusNote) {
-        if (focusNote.excerptText) {
-          textSelected = focusNote.excerptText
-        }else if (focusNote.noteTitle) {
-          textSelected = focusNote.noteTitle
-        }else{
-          let firstComment = focusNote.comments.filter(comment=>comment.type === "TextNote")[0]
-          if (firstComment) {
-            textSelected = firstComment.text
-          }
-        }
+        let searchOrder = des.searchOrder ? this.getSearchOrder(des.searchOrder) : [2,1,3]
+        textSelected = this.getTextForSearch(focusNote,searchOrder)
       }
     }
     if (textSelected) {
@@ -6249,11 +6340,7 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         break;
       case "link":
         let linkType = des.linkType ?? "Both"
-        let targetUrl = des.target
-        if (targetUrl === "{{clipboardText}}") {
-          targetUrl = MNUtil.clipboardText
-        }
-        // MNUtil.showHUD(targetUrl)
+        let targetUrl = await this.render(des.target)
         let targetNote = MNNote.new(targetUrl)
         MNUtil.undoGrouping(()=>{
           if (targetNote) {

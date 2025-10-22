@@ -621,6 +621,7 @@ function getSchemaByActionName(actionName) {
       break;
     case "searchInDict":
       properties.target = stringEnum(['eudic','MdxDictOxford','MdxDictCollins'])
+      properties.searchOrder = stringEnum(['Title → Excerpt → Comment','Title → Comment → Excerpt','Excerpt → Title → Comment','Excerpt → Comment → Title','Comment → Title → Excerpt','Comment → Excerpt → Title'])
       break;
     case "setColor":
       properties.color = numberEnum([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15])
