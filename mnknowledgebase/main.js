@@ -582,7 +582,7 @@ JSB.newAddon = function(mainPath){
         })
         if (!self.classTodayDefClassificationNote) {
           KnowledgeBaseUtils.log("没有今日上课定义归类卡片", "classModeToggled")
-          self.classTodayDefClassificationNote = KnowledgeBaseTemplate.createClassificationNote(self.classTodayNote, self.todayDateStr, "定义", true, true)
+          self.classTodayDefClassificationNote = KnowledgeBaseTemplate.createClassificationNoteAsChildNote(self.classTodayNote, self.todayDateStr, "定义", true, true)
           self.classTodayNote.addChild(self.classTodayDefClassificationNote)
         } else {
           KnowledgeBaseUtils.log("找到今日上课定义归类卡片", "classModeToggled", self.classTodayDefClassificationNote.noteTitle)
@@ -592,7 +592,7 @@ JSB.newAddon = function(mainPath){
         })
         if (!self.classTodayThmClassificationNote) {
           KnowledgeBaseUtils.log("没有今日上课命题归类卡片", "classModeToggled")
-          self.classTodayThmClassificationNote = KnowledgeBaseTemplate.createClassificationNote(self.classTodayNote, self.todayDateStr, "命题", true, true)
+          self.classTodayThmClassificationNote = KnowledgeBaseTemplate.createClassificationNoteAsChildNote(self.classTodayNote, self.todayDateStr, "命题", true, true)
           self.classTodayNote.addChild(self.classTodayThmClassificationNote)
         } else {
           KnowledgeBaseUtils.log("找到今日上课命题归类卡片", "classModeToggled", self.classTodayThmClassificationNote.noteTitle)
@@ -602,8 +602,8 @@ JSB.newAddon = function(mainPath){
         self.classTodayNote = MNNote.clone("marginnote4app://note/B6F95A90-7565-4479-94E3-CA7BFAE8C58F")
         self.classTodayNote.title = "📥 上课输入 - " + self.todayDateStr
         self.classInputRootNote.addChild(self.classTodayNote)
-        self.classTodayDefClassificationNote = KnowledgeBaseTemplate.createClassificationNote(self.classTodayNote, self.todayDateStr, "定义", true, true)
-        self.classTodayThmClassificationNote = KnowledgeBaseTemplate.createClassificationNote(self.classTodayNote, self.todayDateStr, "命题", true, true)
+        self.classTodayDefClassificationNote = KnowledgeBaseTemplate.createClassificationNoteAsChildNote(self.classTodayNote, self.todayDateStr, "定义", true, true)
+        self.classTodayThmClassificationNote = KnowledgeBaseTemplate.createClassificationNoteAsChildNote(self.classTodayNote, self.todayDateStr, "命题", true, true)
       }
     },
     

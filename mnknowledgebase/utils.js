@@ -7486,305 +7486,6 @@ class KnowledgeBaseTemplate {
     return indexArr
   }
 
-
-  // static addTemplate(note, focusLastNote = true) {
-  //   let type
-  //   let contentInTitle
-  //   let titleParts = this.parseNoteTitle(note)
-  //   switch (this.getNoteType(note)) {
-  //     case "归类":
-  //       contentInTitle = titleParts.content
-  //       break;
-  //     default:
-  //       contentInTitle = titleParts.prefixContent + "｜" + titleParts.titleLinkWordsArr[0];
-  //       break;
-  //   }
-  //   MNUtil.copy(contentInTitle)
-  //   let lastClassificationNote
-  //   try {
-  //     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-  //       "增加模板",
-  //       // "请输入标题并选择类型\n注意向上下层添加模板时\n标题是「增量」输入",
-  //       "请输入标题并选择类型",
-  //       2,
-  //       "取消",
-  //       // ["向下层增加模板", "增加概念衍生层级","增加兄弟层级模板","向上层增加模板", "最顶层（淡绿色）", "专题"],
-  //       [
-  //         "连续向下「顺序」增加模板",  // 1
-  //         "连续向下「倒序」增加模板",  // 2
-  //         "增加兄弟层级模板",  // 3
-  //         "向上层增加模板",  // 4
-  //       ],
-  //       (alert, buttonIndex) => {
-  //         let userInputTitle = alert.textFieldAtIndex(0).text;
-  //         switch (buttonIndex) {
-  //           case 4:
-  //             try {
-  //               /* 向上增加模板 */
-                
-  //               // 获取当前卡片类型和父卡片
-  //               let noteType = this.parseNoteTitle(note).type
-  //               let parentNote = note.parentNote
-                
-  //               if (!noteType) {
-  //                 MNUtil.showHUD("无法识别当前卡片类型");
-  //                 return;
-  //               }
-                
-  //               // 智能识别类型（仅用于标题）
-  //               let intelligentType = this.getTypeFromInputText(userInputTitle);
-  //               let titleType = intelligentType || noteType;  // 标题中显示的类型
-  //               let templateNoteId = this.types["归类"].templateNoteId;  // 始终使用归类模板
-                
-  //               MNUtil.undoGrouping(() => {
-  //                 // 1. 创建新的归类卡片
-  //                 let newClassificationNote = MNNote.clone(templateNoteId);
-  //                 newClassificationNote.note.noteTitle = `“${userInputTitle}”相关${titleType}`;
-                  
-  //                 // 3. 建立层级关系：新卡片作为父卡片的子卡片
-  //                 parentNote.addChild(newClassificationNote.note);
-                  
-  //                 // 4. 移动选中卡片：从原位置移动到新卡片下
-  //                 newClassificationNote.addChild(note.note);
-                  
-  //                 // 5. 使用 this API 处理链接关系
-  //                 this.linkParentNote(newClassificationNote);
-  //                 this.linkParentNote(note);
-                  
-  //                 // 6. 聚焦到新创建的卡片
-  //                 if (focusLastNote) {
-  //                   newClassificationNote.focusInMindMap(0.5);
-  //                 }
-
-  //                 lastClassificationNote = newClassificationNote;
-  //               });
-                
-  //             } catch (error) {
-  //               MNUtil.showHUD(`向上增加模板失败: ${error.message || error}`);
-  //             }
-  //             break;
-  //           case 3:
-  //             // 增加兄弟层级模板
-  //             type = this.parseNoteTitle(note).type
-  //             if (type) {
-  //               // 智能识别类型（仅用于标题）
-  //               let intelligentType = this.getTypeFromInputText(userInputTitle);
-  //               let titleType = intelligentType || type;  // 标题中显示的类型
-                
-  //               // 分割输入，支持通过//创建多个兄弟卡片链
-  //               let titlePartsArray = userInputTitle.split("//")
-                
-  //               MNUtil.undoGrouping(()=>{
-  //                 let lastNote = null
-                  
-  //                 // 创建第一个兄弟卡片（始终使用归类模板）
-  //                 let firstNote = MNNote.clone(this.types["归类"].templateNoteId)
-  //                 firstNote.noteTitle = "“" + titlePartsArray[0] + "”相关" + titleType
-  //                 note.parentNote.addChild(firstNote.note)
-  //                 this.linkParentNote(firstNote)
-  //                 lastNote = firstNote
-                  
-  //                 // 如果有更多部分，创建子卡片链
-  //                 let previousTitle = titlePartsArray[0]  // 记录上一个标题
-  //                 for (let i = 1; i < titlePartsArray.length; i++) {
-  //                   let childNote = MNNote.clone(this.types["归类"].templateNoteId)
-  //                   // 累积标题：上一个标题 + 当前部分
-  //                   let accumulatedTitle = previousTitle + titlePartsArray[i]
-  //                   childNote.noteTitle = "“" + accumulatedTitle + "”相关" + titleType
-  //                   lastNote.addChild(childNote.note)
-  //                   this.linkParentNote(childNote)
-  //                   lastNote = childNote
-  //                   previousTitle = accumulatedTitle  // 更新上一个标题
-  //                 }
-                  
-  //                 // 聚焦最后创建的卡片
-  //                 if (focusLastNote && lastNote) {
-  //                   lastNote.focusInMindMap(0.5)
-  //                 }
-  //                 lastClassificationNote = lastNote
-  //               })
-  //             }
-  //             break
-  //           case 2: // 连续向下「倒序」增加模板
-  //             /**
-  //              * 通过//来分割标题，增加一连串的归类卡片
-  //              * 比如：赋范空间上的//有界//线性//算子
-  //              * 依次增加：赋范空间上的算子、赋范空间上的线性算子、赋范空间上的有界线性算子
-  //              */
-  //             try {
-  //               let titlePartsArray = userInputTitle.split("//")
-  //               let titlesArray = []
-  //               if (titlePartsArray.length > 1) {
-  //                 // 生成倒序组合
-  //                 // 把 item1+itemn, item1+itemn-1+itemn, item1+itemn-2+itemn-1+itemn, ... , item1+item2+item3+...+itemn 依次加入数组
-  //                 // 比如 "赋范空间上的//有界//线性//算子" 得到的 titlePartsArray 是
-  //                 // ["赋范空间上的", "有界", "线性", "算子"]
-  //                 // 则 titleArray = ["赋范空间上的算子", "赋范空间上的线性算子", "赋范空间上的有界线性算子"]
-  //                 const prefix = titlePartsArray[0];
-  //                 let changedTitlePart = titlePartsArray[titlePartsArray.length-1]
-  //                 for (let i = titlePartsArray.length-1 ; i >= 1 ; i--) {
-  //                   if  (i < titlePartsArray.length-1) {
-  //                     changedTitlePart = titlePartsArray[i] + changedTitlePart
-  //                   }
-  //                   titlesArray.push(prefix + changedTitlePart)
-  //                 }
-  //               }
-  //               let type
-  //               let lastNote = note
-  //               switch (this.getNoteType(note)) {
-  //                 case "归类":
-  //                   let defaultType = this.parseNoteTitle(note).type  // 默认类型
-  //                   MNUtil.undoGrouping(()=>{
-  //                     titlesArray.forEach(title => {
-  //                       // 对每个标题尝试智能识别
-  //                       let intelligentType = this.getTypeFromInputText(title);
-  //                       let finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
-  //                       let newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
-  //                       lastNote = newClassificationNote
-  //                     })
-  //                     if (focusLastNote) {
-  //                       lastNote.focusInMindMap(0.3)
-  //                     }
-  //                     lastClassificationNote =  lastNote
-  //                   })
-  //                   break;
-  //                 default:
-  //                   // 智能识别类型
-  //                   let intelligentType = this.getTypeFromInputText(userInputTitle);
-  //                   if (intelligentType) {
-  //                     type = intelligentType;
-  //                     // 直接执行创建逻辑，无需弹窗选择
-  //                     MNUtil.undoGrouping(() => {
-  //                       titlesArray.forEach(title => {
-  //                         let newClassificationNote = this.createClassificationNote(lastNote, title, type);
-  //                         lastNote = newClassificationNote;
-  //                       });
-  //                       if (focusLastNote) {
-  //                         lastNote.focusInMindMap(0.3);
-  //                       }
-  //                       lastClassificationNote = lastNote;
-  //                     });
-  //                   } else {
-  //                     // 原有的弹窗选择逻辑
-  //                     let typeArr = ["定义","命题","例子","反例","思想方法","问题"]
-  //                     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-  //                       "增加归类卡片",
-  //                       "选择类型",
-  //                       0,
-  //                       "取消",
-  //                       typeArr,
-  //                       (alert, buttonIndex) => {
-  //                         if (buttonIndex == 0) { return }
-  //                         type = typeArr[buttonIndex-1]
-  //                         MNUtil.undoGrouping(()=>{
-  //                           titlesArray.forEach(title => {
-  //                           let newClassificationNote = this.createClassificationNote(lastNote, title, type)
-  //                             lastNote = newClassificationNote
-  //                           })
-  //                           if (focusLastNote) {
-  //                             lastNote.focusInMindMap(0.3)
-  //                           }
-  //                           lastClassificationNote = lastNote
-  //                         })
-  //                       })
-  //                   }
-  //                   break;
-  //               }
-  //             } catch (error) {
-  //               MNUtil.showHUD(`连续向下倒序增加模板失败: ${error.message || error}`);
-  //             }
-  //             break;
-  //           case 1: // 连续向下「顺序」增加模板
-  //             /**
-  //              * 通过//来分割标题，增加一连串的归类卡片（顺序，与case2倒序不同）
-  //              * 比如：赋范空间上的有界线性算子//的判定//：充分条件
-  //              * -> 赋范空间上的有界线性算子、赋范空间上的有界线性算子的判定、赋范空间上的有界线性算子的判定：充分条件
-  //              */
-  //             try {
-  //               let titlePartsArray = userInputTitle.split("//")
-  //               let titlesArray = []
-  //               titlesArray.push(titlePartsArray[0]) // 添加第一个部分
-  //               if (titlePartsArray.length > 1) {
-  //                 // 生成顺序组合
-  //                 for (let i = 1; i < titlePartsArray.length; i++) {
-  //                   titlesArray.push(titlesArray[i-1] + titlePartsArray[i])
-  //                 }
-  //               }
-  //               let type
-  //               let lastNote = note
-  //               switch (this.getNoteType(note)) {
-  //                 case "归类":
-  //                   let defaultType = this.parseNoteTitle(note).type  // 默认类型
-  //                   MNUtil.undoGrouping(()=>{
-  //                     titlesArray.forEach(title => {
-  //                       // 对每个标题尝试智能识别
-  //                       let intelligentType = this.getTypeFromInputText(title);
-  //                       let finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
-  //                       let newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
-  //                       lastNote = newClassificationNote
-  //                     })
-  //                     if (focusLastNote) {
-  //                       lastNote.focusInMindMap(0.3)
-  //                     }
-  //                     lastClassificationNote = lastNote
-  //                   })
-  //                   break;
-  //                 default:
-  //                   // 智能识别类型
-  //                   let intelligentType = this.getTypeFromInputText(userInputTitle);
-  //                   if (intelligentType) {
-  //                     type = intelligentType;
-  //                     // 直接执行创建逻辑，无需弹窗选择
-  //                     MNUtil.undoGrouping(() => {
-  //                       titlesArray.forEach(title => {
-  //                         let newClassificationNote = this.createClassificationNote(lastNote, title, type);
-  //                         lastNote = newClassificationNote;
-  //                       });
-  //                       if (focusLastNote) {
-  //                         lastNote.focusInMindMap(0.3);
-  //                       }
-  //                       lastClassificationNote = lastNote;
-  //                     });
-  //                   } else {
-  //                     // 原有的弹窗选择逻辑
-  //                     let typeArr = ["定义","命题","例子","反例","思想方法","问题"]
-  //                     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-  //                       "增加归类卡片",
-  //                       "选择类型",
-  //                       0,
-  //                       "取消",
-  //                       typeArr,
-  //                       (alert, buttonIndex) => {
-  //                         if (buttonIndex == 0) { return }
-  //                         type = typeArr[buttonIndex-1]
-  //                         MNUtil.undoGrouping(()=>{
-  //                           titlesArray.forEach(title => {
-  //                           let newClassificationNote = this.createClassificationNote(lastNote, title, type)
-  //                             lastNote = newClassificationNote
-  //                           })
-  //                           if (focusLastNote) {
-  //                             lastNote.focusInMindMap(0.3)
-  //                           }
-  //                           lastClassificationNote = lastNote
-  //                         })
-  //                       })
-  //                   }
-  //                   break;
-  //               }
-  //             } catch (error) {
-  //               MNUtil.showHUD(`连续向下顺序增加模板失败: ${error.message || error}`);
-  //             }
-  //             break;
-  //         }
-  //       }
-  //     )
-
-  //     return lastClassificationNote
-  //   } catch (error) {
-  //     MNUtil.showHUD(error);
-  //   }
-  // }
-
   static async addTemplate(note, focusLastNote = true) {
     let type, noteType, intelligentType, titleType, finalType
     let defaultType = this.parseNoteTitle(note).type  // 默认类型
@@ -7937,7 +7638,7 @@ class KnowledgeBaseTemplate {
                     // 对每个标题尝试智能识别
                     intelligentType = this.getTypeFromInputText(title);
                     finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
-                    newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
+                    newClassificationNote = this.createClassificationNoteAsChildNote(lastNote, title, finalType)
                     KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                     lastNote = newClassificationNote
                   })
@@ -7955,7 +7656,7 @@ class KnowledgeBaseTemplate {
                   // 直接执行创建逻辑，无需弹窗选择
                   MNUtil.undoGrouping(() => {
                     titlesArray.forEach(title => {
-                      newClassificationNote = this.createClassificationNote(lastNote, title, type);
+                      newClassificationNote = this.createClassificationNoteAsChildNote(lastNote, title, type);
                       KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote);
                       lastNote = newClassificationNote;
                     });
@@ -7973,7 +7674,7 @@ class KnowledgeBaseTemplate {
                   if (userInputRes === 0) { return; }
                   type = typeArr[userInputRes - 1]
                   titlesArray.forEach(title => {
-                    newClassificationNote = this.createClassificationNote(lastNote, title, type)
+                    newClassificationNote = this.createClassificationNoteAsChildNote(lastNote, title, type)
                     KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                     lastNote = newClassificationNote
                   })
@@ -8009,7 +7710,7 @@ class KnowledgeBaseTemplate {
                   // 对每个标题尝试智能识别
                   intelligentType = this.getTypeFromInputText(title);
                   finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
-                  newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
+                  newClassificationNote = this.createClassificationNoteAsChildNote(lastNote, title, finalType)
                   KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                   lastNote = newClassificationNote
                 })
@@ -8024,7 +7725,7 @@ class KnowledgeBaseTemplate {
                 if (intelligentType) {
                   type = intelligentType;
                   titlesArray.forEach(title => {
-                    newClassificationNote = this.createClassificationNote(lastNote, title, type);
+                    newClassificationNote = this.createClassificationNoteAsChildNote(lastNote, title, type);
                     KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote);
                     lastNote = newClassificationNote;
                   });
@@ -8045,7 +7746,7 @@ class KnowledgeBaseTemplate {
                   type = typeArr[userInputRes - 1]
                   // KnowledgeBaseUtils.log(type, "addTemplate:type")
                   titlesArray.forEach(title => {
-                    newClassificationNote = this.createClassificationNote(lastNote, title, type)
+                    newClassificationNote = this.createClassificationNoteAsChildNote(lastNote, title, type)
                     KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                     lastNote = newClassificationNote
                   })
@@ -8086,12 +7787,61 @@ class KnowledgeBaseTemplate {
   /**
    * simpleTemplate: 没有“相关思考”字段
    */
-  static createClassificationNote(note, title, type, linkParentNote = true, simpleTemplate = false) {
+  static createClassificationNoteAsChildNote(note, title, type, linkParentNote = true, simpleTemplate = false) {
     let templateNote = simpleTemplate?MNNote.clone("marginnote4app://note/14C17839-C256-4D3C-A611-726C5B6C1A04"):MNNote.clone(this.types["归类"].templateNoteId);
     templateNote.noteTitle = `“${title}”相关${type}`;
     note.addChild(templateNote.note);
     if (linkParentNote) { this.linkParentNote(templateNote); }
     return templateNote;
+  }
+
+  /**
+   * 将选中的卡片变成归类卡片
+   * 
+   * directly: 直接转换，不借助弹窗处理
+   */
+  static async convertNoteToClassificationNote(note, directly = true) {
+    if (!note) { return undefined }
+    let preprocessedNote = this.toNoExcerptVersion(note)
+    let titleContent = note.title
+    let intelligentType = this.getTypeFromInputText(titleContent);
+    let type = intelligentType || (
+      this.parseNoteTitle(preprocessedNote.parentNote).type
+    )
+
+    if (!directly) {
+      MNUtil.copy(
+        (this.parseNoteTitle(preprocessedNote.parentNote).content || "")
+        + 
+        "｜" + titleContent
+      )
+      let input = await MNUtil.userInput(
+        "输入要生成的归类卡片标题",
+        "",
+        [
+          "取消",
+          "确定"
+        ]
+      )
+      switch (input.button) {
+        case 0:
+          break;
+        case 1:
+          titleContent = input.input
+          break;
+      }
+    }
+
+    let finalTitle = "“" + titleContent + "”相关" + type 
+
+    this.cloneAndMergeById(preprocessedNote, this.types["归类"].templateNoteId)
+
+    preprocessedNote.title = finalTitle
+    this.changeNoteColor(preprocessedNote, '归类')
+    this.linkParentNote(preprocessedNote)
+
+
+    KnowledgeBaseIndexer.addToIncrementalIndex(preprocessedNote)
   }
 
   /**

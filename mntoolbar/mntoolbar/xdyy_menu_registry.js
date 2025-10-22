@@ -717,6 +717,14 @@ function registerAllMenuTemplates() {
           menuTitle: "    归类卡片 ⇒ 定义卡片",
         },
         {
+          action: "convertToClassificationNoteDirectly",
+          menuTitle: "    直接转为归类卡片",
+        },
+        {
+          action: "convertToClassificationNoteWithPopup",
+          menuTitle: "    弹窗 + 转为归类卡片",
+        },
+        {
           action: "menu",
           menuTitle: "➡️ 文献制卡",
           menuItems: [
