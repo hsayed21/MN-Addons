@@ -267,10 +267,10 @@ class ocrUtils {
   }
   static getImageForOCR(){
     //先看文档有没有，没有就从笔记里找，再没有就从文档上的笔记找
-    let foucsNote = ocrUtils.getFocusNote()
+    let focusNote = ocrUtils.getFocusNote()
     let imageData = ocrUtils.currentDocController.imageFromSelection()
-    if (!imageData && foucsNote) {
-      imageData = ocrUtils.getImageFromNote(foucsNote)
+    if (!imageData && focusNote) {
+      imageData = ocrUtils.getImageFromNote(focusNote)
     }
     if (!imageData) {
       imageData = ocrUtils.currentDocController.imageFromFocusNote()

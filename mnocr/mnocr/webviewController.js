@@ -236,13 +236,11 @@ viewWillLayoutSubviews: function() {
     self.settingButton.frame = {x: xLeft+5,y: 5,width: 30,height: 30};
     self.closeButton.frame = {x: xLeft+225,y: 5,width: 30,height: 30};
     let buttonHeight = 33
-    self.OCROptionButton.frame = {x: xLeft+15 ,y: 10,width: 230,height: buttonHeight};
-    self.OCRCommentButton.frame = {x: xLeft+15 ,y: 50,width: 230,height: buttonHeight};
-    self.OCRCopyButton.frame = {x: xLeft+15 ,y: 90,width: 230,height: buttonHeight};
-    self.OCRExcerptButton.frame = {x: xLeft+15 ,y: 130,width: 230,height: buttonHeight};
-    self.OCRChildButton.frame = {x: xLeft+15 ,y: 170,width: 230,height: buttonHeight};
-    self.OCREditorButton.frame = {x: xLeft+15 ,y: 210,width: 230,height: buttonHeight};
-    self.OCRTitleButton.frame = {x: xLeft+15 ,y: 250,width: 230,height: buttonHeight};
+    self.OCRTitleButton.frame = {x: xLeft+15 ,y: 10,width: 230,height: buttonHeight};
+    self.OCRChildButton.frame = {x: xLeft+15 ,y: 50,width: 230,height: buttonHeight};
+    self.OCRCommentButton.frame = {x: xLeft+15 ,y: 90,width: 230,height: buttonHeight};
+    self.OCRCopyButton.frame = {x: xLeft+15 ,y: 130,width: 230,height: buttonHeight};
+    self.OCREditorButton.frame = {x: xLeft+15 ,y: 170,width: 230,height: buttonHeight};
 
     self.OCRClearButton.frame = MNUtil.genFrame(xRight-45, yBottom-85, 35, 35);
     self.PDFOCRFileButton.frame = {x: xLeft+15 ,y: 10,width: 230,height: buttonHeight};
@@ -426,12 +424,12 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
   },
   clearBuffer: function (params) {
     ocrNetwork.OCRBuffer = {}
-    // let foucsNote = ocrUtils.getFocusNote()
+    // let focusNote = ocrUtils.getFocusNote()
     // // let imageData = ocrUtils.getImageForOCR()
     // let imageData = MNUtil.getDocImage(true,true)
     // if (!imageData) {
-    //   if (foucsNote) {
-    //     imageData = ocrUtils.getImageFromNote(foucsNote)
+    //   if (focusNote) {
+    //     imageData = ocrUtils.getImageFromNote(focusNote)
     //   }else{
     //     MNUtil.showHUD("No image found")
     //     return;
@@ -608,13 +606,13 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
   try {
     // let docSplitMode = MNUtil.studyController.docMapSplitMode
     // MNUtil.showHUD("message"+docSplitMode)
-    let foucsNote = MNNote.getFocusNote()
+    let focusNote = MNNote.getFocusNote()
 
     // let imageData = ocrUtils.getImageForOCR()
     let imageData = MNUtil.getDocImage(true,true)
     if (!imageData) {
-      if (foucsNote) {
-        imageData = ocrUtils.getImageFromNote(foucsNote)
+      if (focusNote) {
+        imageData = ocrUtils.getImageFromNote(focusNote)
       }else{
         MNUtil.showHUD("No image found")
         return;
@@ -632,16 +630,16 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
       MNUtil.stopHUD()
     })
     let selection = MNUtil.currentSelection
-    let actions2createNote = ["toChild","toExcerpt","toComment"]
+    let actions2createNote = ["toExcerpt"]
     if (selection.onSelection && actions2createNote.includes(button.action)) {
-      foucsNote = MNNote.fromSelection()
+      focusNote = MNNote.fromSelection()
     }
     // MNUtil.copyJSON(res)
     if (res) {
       // ocrUtils.showHUD("Time usage: "+(Date.now()-self.currentTime)+" ms")
       switch (button.action) {
         case "toOption":
-          if (foucsNote) {
+          if (focusNote) {
             let userSelect = await MNUtil.userSelect("OCR Result", res, ["Copy","Comment","Excerpt","Editor","ChildNote"])
             switch (userSelect) {
               case 0:
@@ -652,19 +650,19 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
                 return;
               case 2:
                 MNUtil.undoGrouping(()=>{
-                  foucsNote.appendMarkdownComment(res)
+                  focusNote.appendMarkdownComment(res)
                   MNUtil.showHUD("✅ Append to comment")
                 })
-                MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:foucsNote.noteId,result:res})
+                MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:focusNote.noteId,result:res})
                 return;
               case 3:
                 ocrUtils.undoGrouping(()=>{
-                  // foucsNote.textFirst = true
-                  foucsNote.excerptTextMarkdown = true
-                  foucsNote.excerptText =  res
+                  // focusNote.textFirst = true
+                  focusNote.excerptTextMarkdown = true
+                  focusNote.excerptText =  res
                   MNUtil.showHUD("✅ Set to excerpt")
                 })
-                MNUtil.postNotification("OCRFinished", {action:"toExcerpt",noteId:foucsNote.noteId,result:res})
+                MNUtil.postNotification("OCRFinished", {action:"toExcerpt",noteId:focusNote.noteId,result:res})
                 return;
               case 4:
                 let beginFrame = self.view.frame
@@ -685,7 +683,7 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
                 return;
               case 5:
                 MNUtil.undoGrouping(()=>{
-                  let child = foucsNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
+                  let child = focusNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
                   child.focusInMindMap(0.5)
                 })
                 MNUtil.showHUD("✅ Create child note")
@@ -723,7 +721,7 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
                 MNUtil.undoGrouping(()=>{
                   let childmap = MNUtil.currentChildMap
                   if (childmap) {
-                    let child = foucsNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
+                    let child = focusNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
                     child.focusInMindMap(0.5)
                   }else{
                     let child = MNNote.new({excerptText:res,excerptTextMarkdown:true})
@@ -737,12 +735,12 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
             }
           }
         case "toComment":
-          if (foucsNote) {
+          if (focusNote) {
             MNUtil.undoGrouping(()=>{
-              foucsNote.appendMarkdownComment(res)
+              focusNote.appendMarkdownComment(res)
               MNUtil.waitHUD("✅ Append to comment")
             })
-            MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:foucsNote.noteId,result:res})
+            MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:focusNote.noteId,result:res})
           }else{
             MNUtil.copy(res)
           }
@@ -769,34 +767,34 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
           MNUtil.postNotification("openInEditor", {content:res})
           break;
         case "toChild":
-          if (foucsNote) {
+          if (focusNote) {
             MNUtil.undoGrouping(()=>{
-              let child = foucsNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
+              let child = focusNote.createChildNote({content:res,markdown:true})
               child.focusInMindMap(0.5)
             })
             MNUtil.waitHUD("✅ Create child note")
           }
           break;
         case "toExcerpt":
-          if (foucsNote) {
+          if (focusNote) {
             ocrUtils.undoGrouping(()=>{
-              // foucsNote.textFirst = true
-              foucsNote.excerptTextMarkdown = true
-              foucsNote.excerptText =  res
+              // focusNote.textFirst = true
+              focusNote.excerptTextMarkdown = true
+              focusNote.excerptText =  res
               MNUtil.waitHUD("✅ Set to excerpt")
             })
-            MNUtil.postNotification("OCRFinished", {action:"toExcerpt",noteId:foucsNote.noteId,result:res})
+            MNUtil.postNotification("OCRFinished", {action:"toExcerpt",noteId:focusNote.noteId,result:res})
           }else{
             MNUtil.copy(res)
           }
           break;
         case "toTitle":
-          if (foucsNote) {
+          if (focusNote) {
             MNUtil.undoGrouping(()=>{
-              foucsNote.noteTitle = res
+              focusNote.noteTitle = res
               MNUtil.waitHUD("✅ Set to title")
             })
-            MNUtil.postNotification("OCRFinished", {action:"toTitle",noteId:foucsNote.noteId,result:res})
+            MNUtil.postNotification("OCRFinished", {action:"toTitle",noteId:focusNote.noteId,result:res})
           }else{
             MNUtil.showHUD("Please select a note first")
           }
@@ -935,7 +933,7 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
     //   }
     //   return
     // }
-    // let foucsNote = ocrUtils.getFocusNote()
+    // let focusNote = ocrUtils.getFocusNote()
     // // let regexp = new RegExp("(\[\\)|(\\\])", "g")
     // // MNUtil.copyJSON(self.res)
     // let md = self.res.pages[0].md
@@ -948,15 +946,15 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
     // let convertText = md
     // .replace(/(\\\[\s?)|(\s?\\\])/g, '$$') // Replace display math mode delimiters
     // .replace(/(\\\(\s?)|(\s?\\\))/g, '$') // Replace inline math mode opening delimiter
-    // if (self.toExcerpt && foucsNote) {
+    // if (self.toExcerpt && focusNote) {
     //   ocrUtils.undoGrouping(()=>{
-    //     foucsNote.excerptText =  convertText
+    //     focusNote.excerptText =  convertText
     //   })
     //   return
     // }
-    // if (foucsNote) {
+    // if (focusNote) {
     //   ocrUtils.undoGrouping(()=>{
-    //     foucsNote.appendMarkdownComment(convertText)
+    //     focusNote.appendMarkdownComment(convertText)
     //   })
     // }
     // } catch (error) {
@@ -1130,8 +1128,8 @@ ocrController.prototype.refreshView = function (source){
       this.PDFOCRFileButton.hidden = true
       this.PDFOCRCopyButton.hidden = true
       this.OCRCommentButton.hidden = false
-      this.OCROptionButton.hidden = false
-      this.OCRExcerptButton.hidden = false
+      // this.OCROptionButton.hidden = false
+      // this.OCRExcerptButton.hidden = false
       this.OCRCopyButton.hidden = false
       this.OCRChildButton.hidden = false
       this.OCREditorButton.hidden = false
@@ -1158,8 +1156,8 @@ ocrController.prototype.refreshView = function (source){
       this.OCRClearButton.hidden = true
       this.rotationButton.hidden = true
       this.OCRCommentButton.hidden = true
-      this.OCROptionButton.hidden = true
-      this.OCRExcerptButton.hidden = true
+      // this.OCROptionButton.hidden = true
+      // this.OCRExcerptButton.hidden = true
       this.OCRChildButton.hidden = true
       this.OCREditorButton.hidden = true
       this.OCRTitleButton.hidden = true
@@ -1195,9 +1193,9 @@ ocrController.prototype.refreshView = function (source){
       this.PDFOCRFileButton.hidden = true
       this.PDFOCRCopyButton.hidden = true
       this.OCRCommentButton.hidden = false
-      this.OCROptionButton.hidden = false
+      // this.OCROptionButton.hidden = false
       this.OCRCopyButton.hidden = false
-      this.OCRExcerptButton.hidden = false
+      // this.OCRExcerptButton.hidden = false
       this.apikeyInput.hidden = false
       this.pasteKeyButton.hidden = false
       this.clearButton.hidden = false
@@ -1262,9 +1260,9 @@ ocrController.prototype.refreshView = function (source){
       this.PDFOCRFileButton.hidden = true
       this.PDFOCRCopyButton.hidden = true
       this.OCRCommentButton.hidden = false
-      this.OCROptionButton.hidden = false
+      // this.OCROptionButton.hidden = false
       this.OCRCopyButton.hidden = false
-      this.OCRExcerptButton.hidden = false
+      // this.OCRExcerptButton.hidden = false
       this.apikeyInput.hidden = true
       this.pasteKeyButton.hidden = true
       this.clearButton.hidden = true
