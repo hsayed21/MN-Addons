@@ -64,7 +64,8 @@ JSB.newAddon = function(mainPath){
         self.excerptOCRMode = KnowledgeBaseConfig.config.excerptOCRMode || 0  // 摘录 OCR 模式：0=关闭, 1=直接OCR, 2=Markdown格式, 3=概念提取
         self.preExcerptMode = false  // 预摘录模式
         self.classMode = false
-        // MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
+        self.classificationMode = false
+        MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
         MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
       } catch (error) {
         KnowledgeBaseUtils.addErrorLog(error, "sceneWillConnect")
@@ -86,7 +87,8 @@ JSB.newAddon = function(mainPath){
             'AddonBroadcast',
             'ProcessNewExcerpt',
             'UITextViewTextDidBeginEditingNotification',
-            'UITextViewTextDidEndEditingNotification'
+            'UITextViewTextDidEndEditingNotification',
+            'PopupMenuOnNote',
           ])
         } catch (error) {
           MNUtil.showHUD(error);
@@ -259,6 +261,9 @@ JSB.newAddon = function(mainPath){
         let note = MNNote.new(self.newNoteCreatedFromMindMap.noteId);
 
         if (note && note.noteTitle) {
+          if (self.classificationMode) {
+            KnowledgeBaseClassUtils.createClassificationNoteAfterTextEditingInMindMap(note)
+          }
           if (self.classMode) {
             MNUtil.undoGrouping(()=>{
               switch (note.colorIndex) {
@@ -306,6 +311,9 @@ JSB.newAddon = function(mainPath){
           if (OCRResult) {
             IntermediateKnowledgeIndexer.addToIncrementalIndex(note)
           }
+        }
+        if (self.classificationMode) {  // 归类模式
+          KnowledgeBaseClassUtils.createClassificationNoteAfterProcessNewExcerpt(note)
         }
         if (self.preExcerptMode && self.preExcerptRootNote) {
           // 预摘录模式：自动移动到预备知识库
@@ -377,9 +385,10 @@ JSB.newAddon = function(mainPath){
           self.tableItem('-------------------------------',''),
           self.tableItem('🤖  模式',''),
           self.tableItem('    🤖 摘录自动 OCR', 'excerptOCRModeSetting:', button, !self.excerptOCRMode==0),
-          self.tableItem('    🤖 预摘录', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
+          self.tableItem('    🤖 预摘录卡片', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
           self.tableItem('    🤖 卡片预处理', 'preProcessModeToggled:', undefined, KnowledgeBaseConfig.config.preProcessMode),
           self.tableItem('    🤖 上课', 'classModeToggled:', undefined, self.classMode),
+          self.tableItem('    🤖 归类', 'classificationModeToggled:', undefined, self.classificationMode),
           self.tableItem('-------------------------------',''),
           self.tableItem('⚙️  OCR 模型设置', 'excerptOCRModelSetting:', button),
           self.tableItem('    ⚙️ Unicode OCR 模型', 'excerptOCRModelSettingForMode1:', button),
@@ -552,6 +561,16 @@ JSB.newAddon = function(mainPath){
       } catch (error) {
         KnowledgeBaseUtils.addErrorLog(error, "setExcerptOCRModelForMode3")
       }
+    },
+
+    classificationModeToggled: function() {
+      self.checkPopover()
+      self.classificationMode = !self.classificationMode
+
+      MNUtil.showHUD(self.classificationMode ? "已开启归类模式" : "已关闭归类模式", 1)
+
+      // KnowledgeBaseConfig.config.lastClassificationNoteId = null
+      // KnowledgeBaseConfig.save()
     },
 
     preExcerptModeToggled: function() {
@@ -872,14 +891,29 @@ JSB.newAddon = function(mainPath){
 
     // 生命周期测试
 
-    // onPopupMenuOnNote: async function (sender) {
-    //   MNUtil.undoGrouping(()=>{
-    //     try {
-    //     } catch (error) {
-    //       MNUtil.showHUD(error);
-    //     }
-    //   })
-    // }
+    onPopupMenuOnNote: async function (sender) {
+      if (self.classificationMode && sender.userInfo.note.noteId) {
+        let note = MNNote.new(sender.userInfo.note.noteId, false)
+        if (!note) { return }
+        if (KnowledgeBaseTemplate.getNoteType(note) && KnowledgeBaseTemplate.parseNoteTitle(note)) {
+          // KnowledgeBaseUtils.log("复制前的类型"+ KnowledgeBaseTemplate.getNoteType(note), "onPopupMenuOnNote")
+          switch (KnowledgeBaseTemplate.getNoteType(note)) {
+            case "归类":
+              MNUtil.copy(
+                KnowledgeBaseTemplate.parseNoteTitle(note).content || ""
+              )
+              break;
+            default:
+              MNUtil.copy(
+                KnowledgeBaseTemplate.parseNoteTitle(note).prefixContent + "｜" + KnowledgeBaseTemplate.parseNoteTitle(note).content || ""
+              )
+              break;
+          }
+          KnowledgeBaseUtils.log("复制后的类型"+ KnowledgeBaseTemplate.getNoteType(note), "onPopupMenuOnNote")
+        }
+
+      }
+    },
     /**
      * 处理来自其他插件的通信消息
      * @param {Object} sender - 消息发送者信息,包含 userInfo.message

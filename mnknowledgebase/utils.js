@@ -383,11 +383,15 @@ class KnowledgeBaseTemplate {
    * 制卡（只支持非摘录版本）
    */
   static makeCard(note, addToReview = true, reviewEverytime = true) {
-    this.renewNote(note) // 处理旧卡片
-    this.mergeTemplateAndAutoMoveNoteContent(note) // 合并模板卡片并自动移动内容
-    this.templateMergedCardMake(note)
-    if (addToReview) {
-      this.addToReview(note, reviewEverytime) // 加入复习
+    try {
+      this.renewNote(note) // 处理旧卡片
+      this.mergeTemplateAndAutoMoveNoteContent(note) // 合并模板卡片并自动移动内容
+      this.templateMergedCardMake(note)
+      if (addToReview) {
+        this.addToReview(note, reviewEverytime) // 加入复习
+      }
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "makeCard")
     }
   }
 
@@ -475,25 +479,33 @@ class KnowledgeBaseTemplate {
    * 一键制卡（支持摘录版本）
    */
   static makeNote(note, addToReview = true, reviewEverytime = true) {
-    // 检查是否启用预处理模式
-    if (KnowledgeBaseConfig.config.preProcessMode) {
-      // 预处理模式：简化的制卡流程
-      MNUtil.undoGrouping(()=>{
-        let processedNote = this.preprocessNote(note)
-        switch (this.getNoteType(processedNote)) {
-          case "定义":
-            this.makeCard(processedNote, true, true)
-            break;
-        }
-        processedNote.focusInMindMap(0.4)
-      })
-    } else {
-      // 正常模式：完整制卡流程
-      MNUtil.undoGrouping(()=>{
-        let processedNote = this.preprocessNote(note)
-        this.makeCard(processedNote, addToReview, reviewEverytime)
-        processedNote.focusInMindMap(0.4)
-      })
+    try {
+      // 检查是否启用预处理模式
+      if (KnowledgeBaseConfig.config.preProcessMode) {
+        // 预处理模式：简化的制卡流程
+        // KnowledgeBaseUtils.log("预处理模式制卡", "makeNote");
+        MNUtil.undoGrouping(()=>{
+          let processedNote = this.processNote(note)
+          switch (this.getNoteType(processedNote)) {
+            case "定义":
+              this.makeCard(processedNote, true, true)
+              // KnowledgeBaseUtils.log("预处理模式：makeCard 了", "makeNote");
+              break;
+          }
+          processedNote.focusInMindMap(0.4)
+        })
+      } else {
+        // 正常模式：完整制卡流程
+        // KnowledgeBaseUtils.log("正常模式制卡", "makeNote");
+        MNUtil.undoGrouping(()=>{
+          let processedNote = this.processNote(note)
+          this.makeCard(processedNote, addToReview, reviewEverytime)
+          processedNote.focusInMindMap(0.4)
+        })
+      }
+    } catch (error) {
+      MNUtil.showHUD(`❌ 制卡失败: ${error.message}`);
+      KnowledgeBaseUtils.addErrorLog(error, "makeNote")
     }
   }
 
@@ -772,8 +784,11 @@ class KnowledgeBaseTemplate {
     // 移动内容到默认字段
     this.moveCommentsArrToField(note, moveIndexArr, defaultField);
     
+    if (!["证明", "反例", "原理"].includes(this.normalizeFieldName(defaultField))) {
+      return
+    }
     // 处理之前提取的 MarginNote 链接
-    if (marginNoteLinks.length > 0 && noteType !== "定义") {
+    if (marginNoteLinks.length > 0) {
       this.processExtractedMarginNoteLinks(note, marginNoteLinks);
     }
   }
@@ -986,9 +1001,13 @@ class KnowledgeBaseTemplate {
         let newNote = parentNote.createChildNote(config)
         
         note.noteTitle = ""
+
+        let index = note.indexInBrotherNotes
         
         // 将旧卡片合并到新卡片中
         note.mergeInto(newNote)
+
+        newNote.moveTo(index)
       
         return newNote; // 返回新卡片
       } else {
@@ -2751,7 +2770,7 @@ class KnowledgeBaseTemplate {
       if (commentType === "drawingComment" || 
           commentType === "imageCommentWithDrawing" || 
           commentType === "mergedImageCommentWithDrawing") {
-        MNUtil.log("🖊️ 检测到单个手写评论，直接合并模板，不移动内容");
+        // MNUtil.log("🖊️ 检测到单个手写评论，直接合并模板，不移动内容");
         this.mergeTemplate(note);
         return;
       }
@@ -2799,15 +2818,14 @@ class KnowledgeBaseTemplate {
     let marginNoteLinks = [];
     if (moveIndexArr.length > 0) {
       marginNoteLinks = this.extractMarginNoteLinksFromComments(note, moveIndexArr);
-      MNUtil.log(`🔍 在合并模板前找到 ${marginNoteLinks.length} 个 MarginNote 链接`);
+      // MNUtil.log(`🔍 在合并模板前找到 ${marginNoteLinks.length} 个 MarginNote 链接`);
     }
     
     let ifTemplateMerged = this.mergeTemplate(note)
 
+    // 使用映射表获取默认字段
+    let field = this.getDefaultFieldForType(noteType);
     if (!ifTemplateMerged) {
-      // 使用映射表获取默认字段
-      let field = this.getDefaultFieldForType(noteType);
-      
       // 特殊处理：将链接移动到最底下
       if (isSpecialCase) {
         note.moveCommentsByIndexArr(moveIndexArr, note.comments.length);
@@ -2817,10 +2835,14 @@ class KnowledgeBaseTemplate {
         }
       }
     }
+
+    if (!["证明", "反例", "原理"].includes(this.normalizeFieldName(field))) {
+      return
+    }
     
     // 处理之前提取的 MarginNote 链接
     if (marginNoteLinks.length > 0) {
-      MNUtil.log("🔗 开始处理合并模板前提取的 MarginNote 链接...");
+      // MNUtil.log("🔗 开始处理合并模板前提取的 MarginNote 链接...");
       this.processExtractedMarginNoteLinks(note, marginNoteLinks);
     }
   }
@@ -6705,7 +6727,7 @@ class KnowledgeBaseTemplate {
    * // 将新内容移动到摘录区
    * KnowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录区");
    */
-  static autoMoveNewContentToField(note, field, toBottom = true, handleInlineLink = true, showEmptyHUD = true) {
+  static autoMoveNewContentToField(note, field, toBottom = true, handleInlineLink = true, showEmptyHUD = false) {
     // 自动获取要移动的内容索引
     let indexArr = this.autoGetNewContentToMoveIndexArr(note);
     
@@ -6740,8 +6762,12 @@ class KnowledgeBaseTemplate {
     // 执行移动操作
     this.moveCommentsArrToField(note, indexArr, field, toBottom);
 
+    if (!["证明", "反例", "原理"].includes(this.normalizeFieldName(field))) {
+      return
+    }
+
     // 处理之前提取的 MarginNote 链接
-    if (marginNoteLinks.length > 0 && handleInlineLink && this.getNoteType(note) !== "定义") {  // 定义类型不处理
+    if (marginNoteLinks.length > 0 && handleInlineLink) {  // 定义类型不处理
       this.processExtractedMarginNoteLinks(note, marginNoteLinks);
     }
     
@@ -6979,7 +7005,7 @@ class KnowledgeBaseTemplate {
     let autoContentIndices = this.autoGetNewContentToMoveIndexArr(note);
     
     if (autoContentIndices.length === 0) {
-      MNUtil.showHUD("没有检测到可移动的新内容");
+      // MNUtil.showHUD("没有检测到可移动的新内容");
       return;
     }
     
@@ -7776,6 +7802,7 @@ class KnowledgeBaseTemplate {
         }
       });
       // 明确返回创建的分类卡片（如果有），以便外部 await 可以接收到
+      KnowledgeBaseConfig.config.lastClassificationNoteId = lastClassificationNote ? lastClassificationNote.noteId : null;
       return lastClassificationNote;
     } catch (error) {
       KnowledgeBaseUtils.log(error, "addTemplate")
@@ -7800,10 +7827,18 @@ class KnowledgeBaseTemplate {
    * 
    * directly: 直接转换，不借助弹窗处理
    */
-  static async convertNoteToClassificationNote(note, directly = true) {
+  static async convertNoteToClassificationNote(note, directly = true, linkParentNote = true, preprocessNote = true) {
     if (!note) { return undefined }
-    let preprocessedNote = this.toNoExcerptVersion(note)
-    let titleContent = note.title
+    // KnowledgeBaseUtils.log("处理前标题为：" + note.title, "convertNoteToClassificationNote")
+    let preprocessedNote
+    if (preprocessNote) {
+      preprocessedNote = this.toNoExcerptVersion(note)
+    } else {
+      preprocessedNote = note
+    }
+    // KnowledgeBaseUtils.log("处理卡片后标题为：" + preprocessedNote.title, "convertNoteToClassificationNote")
+    let titleContent = preprocessedNote.title
+    // KnowledgeBaseUtils.log("处理卡片后 titleContent 为：" + titleContent, "convertNoteToClassificationNote")
     let intelligentType = this.getTypeFromInputText(titleContent);
     let type = intelligentType || (
       this.parseNoteTitle(preprocessedNote.parentNote).type
@@ -7832,16 +7867,24 @@ class KnowledgeBaseTemplate {
       }
     }
 
+    // KnowledgeBaseUtils.log("准备设置标题前 titleContent 为：" + titleContent, "convertNoteToClassificationNote")
     let finalTitle = "“" + titleContent + "”相关" + type 
+    let templateNote = MNNote.clone(this.types["归类"].templateNoteId)
+    MNUtil.undoGrouping(()=>{
+      preprocessedNote.parentNote.addChild(templateNote)
+      preprocessedNote.title = ""
+      preprocessedNote.mergeInto(templateNote)
+      this.autoMoveNewContentToField(templateNote, "摘录")
+      templateNote.title = finalTitle
+      this.changeNoteColor(templateNote, '归类')
+      if (linkParentNote) {
+        this.linkParentNote(templateNote)
+      }
+    })
 
-    this.cloneAndMergeById(preprocessedNote, this.types["归类"].templateNoteId)
+    KnowledgeBaseIndexer.addToIncrementalIndex(templateNote)
 
-    preprocessedNote.title = finalTitle
-    this.changeNoteColor(preprocessedNote, '归类')
-    this.linkParentNote(preprocessedNote)
-
-
-    KnowledgeBaseIndexer.addToIncrementalIndex(preprocessedNote)
+    return templateNote
   }
 
   /**
@@ -14221,9 +14264,10 @@ class KnowledgeBaseTemplate {
   /**
    * 卡片的预处理
    */
-  static preprocessNote(note) {
+  static processNote(note) {
     if (this.isOldTemplateCard(note)) {
       // MNUtil.showHUD("旧卡片")
+      // KnowledgeBaseUtils.log("开始处理旧卡片", "processNote");
       let newNote = this.renewNote(note)
       this.changeTitle(newNote)
       this.changeNoteColor(newNote)
@@ -14231,6 +14275,7 @@ class KnowledgeBaseTemplate {
     } else {
       if (this.ifTemplateMerged(note)) {
         // MNUtil.showHUD("模板！")
+        // KnowledgeBaseUtils.log("开始处理已合并模板的卡片", "processNote");
         this.renewNote(note)
         this.changeTitle(note)
         this.changeNoteColor(note)
@@ -14239,6 +14284,7 @@ class KnowledgeBaseTemplate {
         return note
       } else {
         // MNUtil.showHUD("不是模板")
+        // KnowledgeBaseUtils.log("开始处理未合并模板的新卡片", "processNote");
         this.changeTitle(note)
         this.changeNoteColor(note)
         note.convertLinksToNewVersion()
@@ -18664,6 +18710,7 @@ ${this.OCRNumberingRules}
     if (result) {
       MNUtil.undoGrouping(()=>{
         note.title = result.trim()
+        KnowledgeBaseUtils.log("Set note title via OCR: "+result, "OCRToTitle")
         return true
       })
     } else {
@@ -20747,5 +20794,47 @@ class Pangu {
 
     newText = newText.replace(/ᵩ,\s*/g, "ᵩ,")
     return newText
+  }
+}
+
+class KnowledgeBaseClassUtils {
+  static async createClassificationNoteAfterProcessNewExcerpt (note) {
+    let parentNote = note.parentNote
+    if (!parentNote) { return }
+    // KnowledgeBaseUtils.log("处理前卡片的标题为" + note.title, "onProcessNewExcerpt - 归类模式")
+    if ( note.colorIndex !== KnowledgeBaseTemplate.types.归类.colorIndex ) { return }
+    let finalParentNote
+    if (KnowledgeBaseTemplate.getNoteType(parentNote)) {
+      if (parentNote.childNotes.length > 1) {  // 因为此时自己也算子卡片了，所以从 1 开始算
+        finalParentNote = parentNote.childNotes[parentNote.childNotes.length - 2] // 获取上一个兄弟卡片
+      } else {
+        finalParentNote = parentNote
+      }
+      note.moveTo(finalParentNote)
+      let convertedNote = await KnowledgeBaseTemplate.convertNoteToClassificationNote(note, true, true)
+      MNUtil.undoGrouping(()=>{
+        convertedNote.focusInMindMap(0.3)
+      })
+    } else {
+      // 此时表示摘录为独立卡片了
+      let convertedNote = await KnowledgeBaseTemplate.convertNoteToClassificationNote(note, true, false)
+      if (convertedNote) {
+        MNUtil.undoGrouping(()=>{
+          convertedNote.focusInMindMap(0.3)
+        })
+      }
+    }
+  }
+  static async createClassificationNoteAfterTextEditingInMindMap (note) {
+    let parentNote = note.parentNote
+    let lastClassificationNote
+    if (!parentNote || (
+      !KnowledgeBaseTemplate.getNoteType(parentNote)
+    )) {
+      lastClassificationNote = await KnowledgeBaseTemplate.convertNoteToClassificationNote(note, true, false, false)
+    } else {
+      lastClassificationNote = await KnowledgeBaseTemplate.convertNoteToClassificationNote(note, true, true, false)
+    }
+    lastClassificationNote.focusInMindMap(0.2)
   }
 }
