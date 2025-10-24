@@ -1085,6 +1085,20 @@ function registerAllMenuTemplates() {
     }
   });
 
+  global.registerMenuTemplate("menu_addTemplate", {
+    action: "addTemplate",
+    onLongPress: {
+      action: "menu",
+      menuWidth: 350,
+      menuItems: [
+        {
+          action: "addDefinitionNoteAsParentNote",
+          menuTitle: "向上增加定义卡片",
+        },
+      ]
+    }
+  });
+
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
     MNUtil.log(
       `🚀 已注册 ${Object.keys(global.customMenuTemplates).length} 个自定义菜单模板`,

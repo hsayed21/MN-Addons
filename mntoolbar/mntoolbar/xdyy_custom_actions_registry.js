@@ -5777,6 +5777,21 @@ function registerAllCustomActions() {
     })
   })
 
+  global.registerCustomAction("addTemplate", async function(context) {
+    const { focusNote } = context;
+    KnowledgeBaseTemplate.addTemplate(focusNote);
+  })
+
+  global.registerCustomAction("addDefinitionNoteAsParentNote", async function(context) {
+    const { focusNote } = context;
+    try {
+      let classificationNote = await KnowledgeBaseTemplate.addTemplate(focusNote);
+      KnowledgeBaseTemplate.convertClassificationNoteToDefinitionNote(classificationNote);
+      classificationNote.focusInMindMap(0.4)
+    } catch (error) {
+      MNUtil.showHUD("addDefinitionNoteAsParentNote: " + error.message);
+    }
+  })
   // global.registerCustomAction("", async function(context) {
   //   const { focusNote } = context;
   // })

@@ -87,7 +87,7 @@ function registerAllButtons() {
   global.registerButton("custom3", {
     name: "增加模板",
     image: "addTemplate",
-    templateName: "addTemplate"
+    templateName: "menu_addTemplate"
   });
 
   global.registerButton("custom11", {
