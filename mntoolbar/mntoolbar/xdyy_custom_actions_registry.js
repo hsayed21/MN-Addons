@@ -5683,7 +5683,7 @@ function registerAllCustomActions() {
             MNUtil.showHUD("当前卡片没有父卡片，无法合并");
             return;
           }
-          if (KnowledgeBaseTemplate.getNoteType(focusNote)) { return } // 不合并知识点卡片，防止点错
+          if (KnowledgeBaseTemplate.getNoteType(focusNote, true)) { return } // 不合并知识点卡片，防止点错
           focusNote.mergeInto(parentNote)
           KnowledgeBaseTemplate.autoMoveNewContentToField(parentNote, "证明");
         } catch (error) {

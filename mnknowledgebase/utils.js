@@ -3492,11 +3492,11 @@ class KnowledgeBaseTemplate {
   /**
    * 获取卡片类型
    *
-   * 目前是靠卡片标题来判断
    * @param {MNNote} note - 要判断类型的卡片
+   * @param {boolean} direcly - 是否只基于卡片自身标题判断（不向上查找）
    * @returns {string|undefined} 卡片类型
    */
-  static getNoteType(note) {
+  static getNoteType(note, direcly = false) {
     // 防御性检查
     if (!note) {
       KnowledgeBaseUtils.log(`返回 undefined 原因：无卡片`, "getNoteType");
@@ -3531,7 +3531,7 @@ class KnowledgeBaseTemplate {
           matchResult = match[1].trim();
         }
       }
-      if (!matchResult) {
+      if (!matchResult && !direcly) {
         // 从标题判断不了的话，就从卡片的归类卡片来判断
         let classificationNote = this.getFirstClassificationParentNote(note);
         if (classificationNote) {
@@ -3548,7 +3548,7 @@ class KnowledgeBaseTemplate {
       }
     }
 
-    if (!noteType) {
+    if (!noteType && !direcly) {
       // 如果还是获取不到的话，就尝试用颜色判断
       noteType = this.getNoteTypeByColor(note.colorIndex);
     }
@@ -14392,6 +14392,8 @@ class KnowledgeBaseTemplate {
       this.changeNoteColor(note, "定义") // 修改卡片颜色
       this.linkParentNote(note) // 链接广义的父卡片（可能是链接归类卡片）
       this.refreshNotes(note) // 刷新卡片
+
+      return note
     } catch (error) {
       MNLog.error(error, "KnowledgeBaseTemplate: convertClassificationNoteToDefinitionNote");
     }
