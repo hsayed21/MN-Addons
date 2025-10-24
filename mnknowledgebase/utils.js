@@ -7609,10 +7609,11 @@ class KnowledgeBaseTemplate {
               // 创建第一个兄弟卡片（始终使用归类模板）
               let firstNote = MNNote.clone(this.types["归类"].templateNoteId)
               firstNote.noteTitle = "“" + titlePartsArray[0] + "”相关" + titleType
-              note.parentNote.addChild(firstNote.note)
+              note.parentNote.addChild(firstNote)
               this.linkParentNote(firstNote)
               KnowledgeBaseIndexer.addToIncrementalIndex(firstNote)
               lastNote = firstNote
+              firstNote.moveTo(note.indexInBrotherNotes + 1)
 
               // 如果有更多部分，创建子卡片链
               for (let i = 1; i < titlePartsArray.length; i++) {
