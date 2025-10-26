@@ -321,6 +321,7 @@ JSB.newAddon = function(mainPath){
           // 预摘录模式：自动移动到预备知识库
           MNUtil.undoGrouping(()=>{
             self.preExcerptRootNote.addChild(note)
+            KnowledgeBaseTemplate.toNoExcerptVersion(note)
           })
           return 
         }
@@ -339,10 +340,13 @@ JSB.newAddon = function(mainPath){
                 break;
             }
           })
-          return 
+          // return 
         }
 
         let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(note)
+        KnowledgeBaseTemplate.changeTitle(processedNote, true)
+        KnowledgeBaseTemplate.changeNoteColor(processedNote, true)
+        KnowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(processedNote)
         processedNote.focusInMindMap(0.3)
       } catch (error) {
         KnowledgeBaseUtils.addErrorLog(error, "onProcessNewExcerpt")
