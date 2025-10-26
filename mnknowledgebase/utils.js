@@ -475,11 +475,30 @@ class KnowledgeBaseTemplate {
     }
   }
 
+
+  /**
+   * 是否已经链接广义父卡片了
+   */
+  static ifLinkParentNote(note) {
+    let linkHtmlCommentObj = this.parseNoteComments(note).htmlCommentsObjArr.find(htmlObj => ["相关链接", "相关链接："].includes(htmlObj.text))
+    return linkHtmlCommentObj.excludingFieldBlockIndexArr?linkHtmlCommentObj.excludingFieldBlockIndexArr.length > 0:false
+  } 
+
   /**
    * 一键制卡（支持摘录版本）
    */
   static makeNote(note, addToReview = true, reviewEverytime = true) {
     try {
+      if (KnowledgeBaseConfig.config.classificationMode) {
+        // 归类模式：快速创建归类卡片
+        this.changeTitle(note, true)
+        this.changeNoteColor(note, true)
+        this.mergeTemplateAndAutoMoveNoteContent(note)
+        if (this.ifLinkParentNote(note)) {
+          this.linkParentNote(note, false) // 链接广义的父卡片（可能是链接归类卡片）此时主要考虑同时属于多张父卡片的情形
+        }
+        return 
+      }
       // 检查是否启用预处理模式
       if (KnowledgeBaseConfig.config.preProcessMode) {
         // 预处理模式：简化的制卡流程
@@ -494,15 +513,17 @@ class KnowledgeBaseTemplate {
           }
           processedNote.focusInMindMap(0.4)
         })
-      } else {
-        // 正常模式：完整制卡流程
-        // KnowledgeBaseUtils.log("正常模式制卡", "makeNote");
-        MNUtil.undoGrouping(()=>{
-          let processedNote = this.processNote(note)
-          this.makeCard(processedNote, addToReview, reviewEverytime)
-          processedNote.focusInMindMap(0.4)
-        })
+        return 
       }
+      
+
+      // 正常模式：完整制卡流程
+      // KnowledgeBaseUtils.log("正常模式制卡", "makeNote");
+      MNUtil.undoGrouping(()=>{
+        let processedNote = this.processNote(note)
+        this.makeCard(processedNote, addToReview, reviewEverytime)
+        processedNote.focusInMindMap(0.4)
+      })
     } catch (error) {
       MNUtil.showHUD(`❌ 制卡失败: ${error.message}`);
       KnowledgeBaseUtils.addErrorLog(error, "makeNote")
@@ -1024,7 +1045,7 @@ class KnowledgeBaseTemplate {
    * 
    * 支持清理旧链接：当卡片移动位置导致父卡片改变时，会自动删除与旧父卡片的链接
    */
-  static linkParentNote(note) {
+  static linkParentNote(note, force = true) {
     /**
      * 不处理的类型
      */
@@ -1085,10 +1106,12 @@ class KnowledgeBaseTemplate {
           break;
       }
 
-      /**
-       * 清理旧链接：删除与其他父卡片的链接
-       */
-      this.cleanupOldParentLinks(note, actualParentNote)
+      if (force) {
+        /**
+         * 清理旧链接：删除与其他父卡片的链接
+         */
+        this.cleanupOldParentLinks(note, actualParentNote)
+      }
 
       /**
        * 先保证有链接（在确定目标字段后再添加链接）
@@ -1108,6 +1131,8 @@ class KnowledgeBaseTemplate {
         noteInParentNoteIndex = this.getNoteIndexInAnotherNote(note, actualParentNote)
       }
 
+      KnowledgeBaseUtils.log(`linkParentNote: parentNoteInNoteIndex=${parentNoteInNoteIndex}, noteInParentNoteIndex=${noteInParentNoteIndex}`, "linkParentNote", {linkParentNote:this.ifLinkParentNote(note)})
+
       // 最后进行移动（确保索引是最新的）
       if (parentNoteInNoteIndex !== -1 && parentNoteInNoteTargetField) {
         this.moveCommentsArrToField(note, [parentNoteInNoteIndex], parentNoteInNoteTargetField, ifParentNoteInNoteTargetFieldToBottom)
@@ -1123,6 +1148,7 @@ class KnowledgeBaseTemplate {
    * 
    * 删除当前卡片和其他父卡片之间的相互链接（保留与当前父卡片的链接）
    * 
+   * TODO: 待优化！
    * @param {MNNote} note - 当前卡片
    * @param {MNNote} currentParentNote - 当前的父卡片，不会被删除
    */
@@ -1134,6 +1160,7 @@ class KnowledgeBaseTemplate {
     // 性能优化：先过滤出可能需要清理的链接
     // 跳过在"应用"字段下的链接，因为它们不太可能是父卡片链接
     let htmlCommentsObjArr = noteCommentsObj.htmlCommentsObjArr
+    // let potentialParentLinks = htmlCommentsObjArr.find(htmlObj => ["相关链接", "相关链接："].includes(htmlObj.text)).excludingFieldBlockIndexArr
     let applicationFieldObj = null
     
     // 查找"应用"字段
@@ -16325,10 +16352,10 @@ class SynonymManager {
     //   "words": ["", ""],
     //   "partialReplacement": false,
     // },
-    // {
-    //   "words": ["", ""],
-    //   "partialReplacement": false,
-    // },
+    {
+      "words": ["线性闭包", "闭线性扩张", "闭线性张成", "span 闭包"],
+      "partialReplacement": false,
+    },
     {
       "words": ["复可测函数", "可测复函数"],
       "partialReplacement": false,
@@ -18939,6 +18966,7 @@ class KnowledgeBaseConfig {
 
       // 卡片预处理模式
       preProcessMode: false,  // 是否启用预处理模式（默认关闭）
+      classificationMode: false  // 归类模式
     }
   }
   
@@ -20801,6 +20829,40 @@ class Pangu {
 }
 
 class KnowledgeBaseClassUtils {
+  static async makeNoteAfterProcessNewExcerpt (note, addToReview = false) {
+    let type = KnowledgeBaseTemplate.getNoteTypeByColor(note.colorIndex)
+    switch (type) {
+      case "归类":
+        await this.createClassificationNoteAfterProcessNewExcerpt(note)
+        break;
+      default:
+        let parentNote = note.parentNote
+        let parentNoteType =  KnowledgeBaseTemplate.getNoteType(parentNote)
+        let brotherIndex = note.indexInBrotherNotes
+        if (
+          parentNoteType &&
+          parentNoteType == "归类" &&
+          KnowledgeBaseTemplate.parseNoteTitle(parentNote).type == type
+        ) {
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(note)
+          KnowledgeBaseTemplate.makeNote(processedNote, addToReview)
+          //   KnowledgeBaseUtils.log("完整制卡", "onProcessNewExcerpt - 归类模式", {
+          //   brotherIndex: brotherIndex,
+          //   "父卡片": processedNote.parentNote.title,
+          // })
+          // parentNote.addChild(processedNote)
+          processedNote.moveTo(brotherIndex)
+          processedNote.focusInMindMap(0.5)
+        } else {
+          // KnowledgeBaseUtils.log("只能转为非摘录 不制卡", "onProcessNewExcerpt - 归类模式", {"1" : parentNoteType, "2 ": 
+          // parentNoteType == "归类", "3 ":
+          // KnowledgeBaseTemplate.parseNoteTitle(parentNote).type, 4:type})
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(note)
+          processedNote.focusInMindMap(0.3)
+        }
+        break;
+    }
+  }
   static async createClassificationNoteAfterProcessNewExcerpt (note) {
     let parentNote = note.parentNote
     if (!parentNote) { return }
