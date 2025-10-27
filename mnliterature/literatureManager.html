@@ -434,6 +434,25 @@
       color: var(--accent);
       border-radius: 12px;
       font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .keyword-tag:hover {
+      background: rgba(43, 124, 255, 0.15);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(43, 124, 255, 0.2);
+    }
+
+    .keyword-tag:active {
+      transform: translateY(0);
+    }
+
+    .keyword-tag.search-active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(43, 124, 255, 0.3);
     }
 
     /* 展开的详情 */
@@ -1271,7 +1290,7 @@
           ${lit.keywords && lit.keywords.length > 0 ? `
             <div class="card-keywords">
               ${lit.keywords.slice(0, 5).map(kw => `
-                <span class="keyword-tag">${kw}</span>
+                <span class="keyword-tag" data-keyword="${escapeHtml(kw)}" title="点击搜索该关键词">${kw}</span>
               `).join('')}
             </div>
           ` : ''}
@@ -1532,6 +1551,29 @@
         handleAction(action, id);
       });
 
+      // 关键词点击搜索
+      dom.literatureGrid.addEventListener('click', (e) => {
+        const keywordTag = e.target.closest('.keyword-tag');
+        if (!keywordTag) return;
+
+        e.stopPropagation();
+        const keyword = keywordTag.dataset.keyword;
+
+        // 设置搜索关键词
+        dom.searchInput.value = keyword;
+        state.searchQuery = keyword;
+
+        // 执行搜索
+        applyFilters();
+
+        // 滚动到顶部查看结果
+        dom.mainLayout.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // 显示提示
+        const count = state.filteredLiteratures.length;
+        showToast(`🔍 找到 ${count} 篇包含「${keyword}」的文献`);
+      });
+
       // 点击背景遮罩关闭详情
       dom.backdropBlur.addEventListener('click', () => {
         if (state.expandedId) {
@@ -1620,6 +1662,135 @@
           abstract: '本文全面综述了深度神经网络模型压缩与加速的最新研究进展。系统分析了剪枝、量化、知识蒸馏和轻量化网络设计等技术的原理与应用场景。',
           doi: '10.1109/TPAMI.2023.xxx',
           citations: 112
+        },
+        // ========== 新增测试数据 ==========
+        {
+          id: 'li2023nlp',
+          title: '预训练语言模型在跨语言理解中的应用',
+          authors: ['李华', 'Emily Zhang', '王磊'],
+          year: 2023,
+          type: 'inproceedings',
+          journal: 'ACL 2023',
+          keywords: ['自然语言处理', 'Transformer', '跨语言学习', '预训练模型'],
+          abstract: '本文探讨了预训练语言模型在跨语言理解任务中的应用。通过设计新型的跨语言对齐机制，我们的模型在多个基准测试中取得了显著提升。',
+          doi: '10.18653/v1/2023.acl-long.123',
+          citations: 67
+        },
+        {
+          id: 'zhao2022vision',
+          title: '视觉 Transformer 在医疗影像分析中的研究',
+          authors: ['赵丽', 'John Smith', '陈强'],
+          year: 2022,
+          type: 'article',
+          journal: 'Medical Image Analysis',
+          keywords: ['深度学习', 'Transformer', '医疗图像', '计算机视觉'],
+          abstract: '将 Vision Transformer 应用于医学影像分析，特别是在肿瘤检测和病变分割任务中。实验表明 ViT 在处理高分辨率医学图像时具有明显优势。',
+          doi: '10.1016/j.media.2022.102456',
+          citations: 89
+        },
+        {
+          id: 'wu2024multimodal',
+          title: '多模态大语言模型的视觉推理能力研究',
+          authors: ['吴明', 'Sarah Lee', '张鹏'],
+          year: 2024,
+          type: 'inproceedings',
+          journal: 'CVPR 2024',
+          keywords: ['深度学习', '多模态学习', 'Transformer', '视觉推理'],
+          abstract: '研究多模态大语言模型在视觉推理任务中的表现，提出了一种新的视觉-语言对齐方法，显著提升了模型的推理能力。',
+          citations: 34
+        },
+        {
+          id: 'sun2021attention',
+          title: '注意力机制在时序预测中的应用综述',
+          authors: ['孙伟', 'Michael Brown'],
+          year: 2021,
+          type: 'article',
+          journal: 'IEEE Transactions on Neural Networks',
+          keywords: ['注意力机制', '时序预测', '深度学习', 'Transformer'],
+          abstract: '全面综述了注意力机制在时序预测领域的应用进展，包括 Transformer、时间注意力网络等架构的原理和应用场景。',
+          doi: '10.1109/TNNLS.2021.3089456',
+          citations: 156
+        },
+        {
+          id: 'tang2023robotics',
+          title: '深度强化学习在机器人操控任务中的应用',
+          authors: ['唐莉', 'David Kim', '林强'],
+          year: 2023,
+          type: 'inproceedings',
+          journal: 'ICRA 2023',
+          keywords: ['强化学习', '机器人', '深度学习', '操控系统'],
+          abstract: '提出了一种基于深度强化学习的机器人操控框架，通过模仿学习和在线强化学习的结合，实现了复杂操控任务的快速学习。',
+          citations: 45
+        },
+        {
+          id: 'ma2022graph',
+          title: '图神经网络在社交网络分析中的最新进展',
+          authors: ['马涛', 'Jennifer Wang', '周敏'],
+          year: 2022,
+          type: 'article',
+          journal: 'ACM Computing Surveys',
+          keywords: ['图神经网络', '社交网络', '深度学习', '网络分析'],
+          abstract: '系统回顾了图神经网络在社交网络分析中的应用，包括社区发现、影响力传播、链路预测等任务的最新研究进展。',
+          doi: '10.1145/3522771',
+          citations: 203
+        },
+        {
+          id: 'xu2024edge',
+          title: '边缘计算环境下的深度学习模型优化',
+          authors: ['徐刚', 'Lisa Chen'],
+          year: 2024,
+          type: 'article',
+          journal: 'IEEE Internet of Things Journal',
+          keywords: ['边缘计算', '深度学习', '模型压缩', '模型加速'],
+          abstract: '针对边缘设备资源受限的特点，提出了一套完整的深度学习模型优化方案，包括量化、剪枝和知识蒸馏等技术。',
+          doi: '10.1109/JIOT.2024.3356789',
+          citations: 28
+        },
+        {
+          id: 'qian2021privacy',
+          title: '联邦学习中的差分隐私保护机制',
+          authors: ['钱红', 'Andrew Miller', '宋伟'],
+          year: 2021,
+          type: 'inproceedings',
+          journal: 'NeurIPS 2021',
+          keywords: ['联邦学习', '隐私保护', '差分隐私', '机器学习'],
+          abstract: '研究联邦学习场景下的隐私保护问题，提出了一种高效的差分隐私机制，在保证隐私的同时最小化性能损失。',
+          citations: 98
+        },
+        {
+          id: 'ding2023adversarial',
+          title: '对抗训练在自然语言处理中的鲁棒性研究',
+          authors: ['丁磊', 'Rebecca White', '何敏'],
+          year: 2023,
+          type: 'article',
+          journal: 'Computational Linguistics',
+          keywords: ['自然语言处理', '对抗训练', '鲁棒性', '深度学习'],
+          abstract: '深入研究对抗训练方法在提升 NLP 模型鲁棒性方面的作用，提出了多种针对文本数据的对抗样本生成策略。',
+          doi: '10.1162/coli_a_00456',
+          citations: 72
+        },
+        {
+          id: 'gao2022semantic',
+          title: '基于语义理解的图像分割新方法',
+          authors: ['高静', 'Thomas Anderson'],
+          year: 2022,
+          type: 'inproceedings',
+          journal: 'ECCV 2022',
+          keywords: ['计算机视觉', '图像分割', '语义理解', '深度学习'],
+          abstract: '提出了一种结合语义理解的图像分割方法，通过引入语言先验知识，显著提升了分割的准确性和一致性。',
+          citations: 81
+        },
+        {
+          id: 'pan2020survey',
+          title: '迁移学习理论与应用研究综述',
+          authors: ['潘伟', '杨敏', 'Kevin Lee'],
+          year: 2020,
+          type: 'article',
+          journal: 'IEEE Transactions on Knowledge and Data Engineering',
+          keywords: ['迁移学习', '深度学习', '领域适应', '机器学习'],
+          abstract: '全面综述了迁移学习的理论基础和实际应用，涵盖了领域适应、任务迁移、零样本学习等多个方面。',
+          doi: '10.1109/TKDE.2020.2987980',
+          citations: 267
         }
       ];
 
