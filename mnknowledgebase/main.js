@@ -343,11 +343,13 @@ JSB.newAddon = function(mainPath){
           // return 
         }
 
-        let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(note)
-        KnowledgeBaseTemplate.changeTitle(processedNote, true)
-        KnowledgeBaseTemplate.changeNoteColor(processedNote, true)
-        KnowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(processedNote)
-        processedNote.focusInMindMap(0.3)
+        if (KnowledgeBaseTemplate.getNoteType(note) == "命题" && self.excerptOCRMode > 0 && KnowledgeBaseTemplate.getNoteType(note.parentNote) == "归类") {
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(note)
+          KnowledgeBaseTemplate.changeTitle(processedNote, true)
+          KnowledgeBaseTemplate.changeNoteColor(processedNote, true)
+          KnowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(processedNote)
+          processedNote.focusInMindMap(0.3)
+        }
       } catch (error) {
         KnowledgeBaseUtils.addErrorLog(error, "onProcessNewExcerpt")
       }

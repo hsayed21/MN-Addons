@@ -238,7 +238,8 @@ class KnowledgeBaseTemplate {
    *       短语 "作为{{}}特例" + 输入为空 → "作为特例"
    */
   static inlineLinkPhrases = [
-    "作为{{}}特例",
+    "作为{{}}的特例",
+    "{{}}情形",
     "因此",
   ]
 
@@ -480,8 +481,8 @@ class KnowledgeBaseTemplate {
    * 是否已经链接广义父卡片了
    */
   static ifLinkParentNote(note) {
-    let linkHtmlCommentObj = this.parseNoteComments(note).htmlCommentsObjArr.find(htmlObj => ["相关链接", "相关链接："].includes(htmlObj.text))
-    return linkHtmlCommentObj.excludingFieldBlockIndexArr?linkHtmlCommentObj.excludingFieldBlockIndexArr.length > 0:false
+    let linkHtmlCommentObj = this.parseNoteComments(note).htmlCommentsObjArr.find(htmlObj => ["相关链接", "相关链接：","所属", "所属："].includes(htmlObj.text))
+    return linkHtmlCommentObj.excludingFieldBlockIndexArr??linkHtmlCommentObj.excludingFieldBlockIndexArr.length > 0
   } 
 
   /**
@@ -16348,10 +16349,10 @@ class SynonymManager {
     //   "words": ["", ""],
     //   "partialReplacement": false,
     // },
-    // {
-    //   "words": ["", ""],
-    //   "partialReplacement": false,
-    // },
+    {
+      "words": ["扩张", "延拓"],
+      "partialReplacement": false,
+    },
     {
       "words": ["线性闭包", "闭线性扩张", "闭线性张成", "span 闭包"],
       "partialReplacement": false,
