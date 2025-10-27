@@ -1,0 +1,1640 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="filename" content="MarginNote_Literature_Manager.html">
+  <title>MarginNote 文献管理系统</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --card-bg: #fff;
+      --accent: #2b7cff;
+      --muted: #666;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      --topbar-height: 64px;
+      --tabs-height: 52px;
+      --filter-height: 0px;
+
+      /* 文献类型颜色 */
+      --article-color: #5569ff;
+      --conference-color: #ff9d4d;
+      --book-color: #a36bff;
+      --thesis-color: #5bd0a9;
+      --other-color: #b7c2d0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: #111;
+      -webkit-font-smoothing: antialiased;
+      touch-action: manipulation;
+      overscroll-behavior: contain;
+    }
+
+    /* ========== 固定顶栏 ========== */
+    .topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 130;
+      backdrop-filter: blur(6px);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.9));
+      border-bottom: 1px solid #e6e9ef;
+      padding: 14px 20px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      min-height: var(--topbar-height);
+      transition: transform 0.3s ease;
+    }
+
+    .topbar-main {
+      flex: 1 1 640px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .search-input-wrap {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex: 1;
+      min-width: 240px;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #d6dbe8;
+      background: var(--card-bg);
+      box-shadow: var(--shadow);
+      font-size: 15px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(43, 124, 255, 0.1);
+    }
+
+    .search-count {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .btn {
+      background: var(--card-bg);
+      border: 1px solid #e3e6ee;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: #f7f9fc;
+      border-color: var(--accent);
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 4px 12px rgba(43, 124, 255, 0.2);
+    }
+
+    .btn.primary:hover {
+      background: #1b6cef;
+    }
+
+    .btn.ghost {
+      background: transparent;
+      border-color: transparent;
+      color: #4d5e78;
+      box-shadow: none;
+    }
+
+    .btn.ghost:hover {
+      background: rgba(43, 124, 255, 0.08);
+      border-color: rgba(43, 124, 255, 0.12);
+      color: #2b7cff;
+    }
+
+    /* ========== 筛选面板 ========== */
+    .filters-panel {
+      position: fixed;
+      top: var(--topbar-height);
+      left: 0;
+      right: 0;
+      z-index: 80;
+      background: rgba(247, 248, 251, 0.95);
+      backdrop-filter: blur(4px);
+      padding: 12px 20px;
+      border-bottom: 1px solid #e6e9ef;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.3s ease;
+    }
+
+    .filters-panel.show {
+      max-height: 500px;
+      padding: 16px 20px;
+    }
+
+    .filter-section {
+      margin-bottom: 14px;
+    }
+
+    .filter-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .filter-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #5b6a80;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .filter-label::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.45;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .pill {
+      background: #eef5ff;
+      color: #2f4a8a;
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .pill:hover {
+      background: #e0efff;
+      transform: translateY(-1px);
+    }
+
+    .pill.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: rgba(43, 124, 255, 0.6);
+      box-shadow: 0 4px 12px rgba(43, 124, 255, 0.18);
+    }
+
+    /* 年份范围滑块 */
+    .year-range-slider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .year-range-slider input[type="range"] {
+      flex: 1;
+      height: 6px;
+      background: #d6dbe8;
+      border-radius: 3px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .year-range-slider input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(43, 124, 255, 0.3);
+    }
+
+    .year-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      min-width: 40px;
+      text-align: center;
+    }
+
+    /* ========== 主内容区 ========== */
+    .main-layout {
+      padding-top: calc(var(--topbar-height) + var(--tabs-height));
+      height: 100vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .main-layout.with-filters {
+      padding-top: calc(var(--topbar-height) + var(--tabs-height) + var(--filter-height));
+    }
+
+    .container {
+      padding: 16px 20px 80px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* ========== 文献卡片网格 ========== */
+    .literature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .literature-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      border-left: 4px solid var(--other-color);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .literature-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    }
+
+    .literature-card.selected {
+      border-left-width: 8px;
+      box-shadow: 0 12px 28px rgba(43, 124, 255, 0.3), 0 0 0 3px rgba(43, 124, 255, 0.1);
+      transform: translateY(-4px) scale(1.01);
+      background: linear-gradient(135deg, rgba(43, 124, 255, 0.02), rgba(255, 255, 255, 1));
+      animation: pulseSelection 0.5s ease-out;
+    }
+
+    @keyframes pulseSelection {
+      0% {
+        box-shadow: 0 12px 28px rgba(43, 124, 255, 0.3), 0 0 0 0 rgba(43, 124, 255, 0.3);
+      }
+      50% {
+        box-shadow: 0 12px 28px rgba(43, 124, 255, 0.3), 0 0 0 8px rgba(43, 124, 255, 0);
+      }
+      100% {
+        box-shadow: 0 12px 28px rgba(43, 124, 255, 0.3), 0 0 0 3px rgba(43, 124, 255, 0.1);
+      }
+    }
+
+    .literature-card.expanded {
+      grid-column: 1 / -1;
+      max-width: 900px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 100;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    /* 卡片操作图标 - iPad 友好,始终可见 */
+    .card-actions {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+      opacity: 1;  /* 始终可见 */
+    }
+
+    .action-icon {
+      width: 40px;  /* 加大触摸区域 */
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 16px;  /* 图标稍大 */
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s ease;
+    }
+
+    .action-icon:active {
+      transform: scale(0.9);  /* 触摸反馈 */
+    }
+
+    /* 卡片头部 */
+    .card-header {
+      padding-right: 140px;  /* 为3个按钮留出空间 */
+    }
+
+    .card-type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.4;
+      color: #2c3e50;
+      margin-bottom: 8px;
+      word-break: break-word;
+    }
+
+    .card-authors {
+      font-size: 13px;
+      color: #5b6a80;
+      margin-bottom: 4px;
+    }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .meta-divider {
+      width: 1px;
+      height: 12px;
+      background: #d6dbe8;
+    }
+
+    .card-keywords {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .keyword-tag {
+      padding: 3px 10px;
+      background: rgba(43, 124, 255, 0.08);
+      color: var(--accent);
+      border-radius: 12px;
+      font-size: 12px;
+    }
+
+    /* 展开的详情 */
+    .card-details {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .literature-card.expanded .card-details {
+      max-height: 1000px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e6e9ef;
+    }
+
+    .detail-section {
+      margin-bottom: 12px;
+    }
+
+    .detail-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #5b6a80;
+      margin-bottom: 6px;
+    }
+
+    .detail-content {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #2c3e50;
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e6e9ef;
+    }
+
+    /* ========== 空状态 ========== */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state i {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
+    .empty-state h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+    }
+
+    /* ========== 加载更多 ========== */
+    .load-more-container {
+      text-align: center;
+      padding: 24px 0;
+      display: none;
+    }
+
+    .load-more-container.show {
+      display: block;
+    }
+
+    /* ========== Toast 提示 ========== */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(33, 33, 33, 0.88);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 200;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    /* ========== 背景模糊遮罩 ========== */
+    .backdrop-blur {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(247, 248, 251, 0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 90;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .backdrop-blur.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ========== 星标功能样式 ========== */
+    .action-icon.pin-icon {
+      color: #fbbf24;
+    }
+
+    .action-icon.pin-icon.pinned {
+      color: #f59e0b;
+      background: rgba(251, 191, 36, 0.15);
+    }
+
+    /* ========== Tab导航栏 ========== */
+    .view-tabs {
+      position: fixed;
+      top: var(--topbar-height);
+      left: 0;
+      right: 0;
+      z-index: 120;
+      background: #fff;
+      border-bottom: 1px solid #e6e9ef;
+      display: flex;
+      padding: 0 20px;
+      gap: 4px;
+    }
+
+    .tab {
+      padding: 14px 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #5b6a80;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .tab.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .tab:not(.disabled):active {
+      transform: scale(0.95);
+    }
+
+    /* ========== 响应式 ========== */
+    @media (max-width: 1024px) {
+      .literature-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      }
+
+      .literature-card.expanded {
+        grid-column: auto;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .topbar {
+        padding: 12px 14px;
+      }
+
+      .topbar-main {
+        flex-direction: column;
+        align-items: stretch;
+        min-width: 100%;
+        gap: 10px;
+      }
+
+      .literature-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .container {
+        padding: 12px 14px 80px;
+      }
+    }
+
+    /* ========== 高亮样式 ========== */
+    mark.highlight {
+      background: rgba(255, 230, 120, 0.9);
+      color: #111;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <!-- 固定顶栏 -->
+  <div class="topbar">
+    <div class="topbar-main">
+      <div class="search-input-wrap">
+        <input id="searchInput" class="search-input" placeholder="搜索文献：标题、作者、关键词、年份..." autocomplete="off" />
+        <div id="searchCount" class="search-count">0 篇文献</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="toggleFiltersBtn" class="btn ghost" type="button">筛选</button>
+      <button id="refreshBtn" class="btn" type="button">🔄 刷新</button>
+      <button id="clearBtn" class="btn" type="button">清空</button>
+    </div>
+  </div>
+
+  <!-- Tab 导航栏 -->
+  <div class="view-tabs" id="viewTabs">
+    <div class="tab active" data-view="all">📚 全部 (0)</div>
+    <div class="tab" data-view="pinned">⭐ 星标 (0)</div>
+    <div class="tab disabled" data-view="author">👤 作者</div>
+    <div class="tab disabled" data-view="journal">📖 期刊</div>
+  </div>
+
+  <!-- 筛选面板 -->
+  <div class="filters-panel" id="filtersPanel">
+    <!-- 文献类型筛选 -->
+    <div class="filter-section">
+      <div class="filter-label">文献类型</div>
+      <div class="pill-row" id="typeFilters">
+        <!-- 动态渲染 -->
+      </div>
+    </div>
+
+    <!-- 年份范围 -->
+    <div class="filter-section">
+      <div class="filter-label">年份范围</div>
+      <div class="year-range-slider">
+        <span class="year-label" id="yearStartLabel">2000</span>
+        <input type="range" id="yearStartRange" min="1990" max="2030" value="2000" />
+        <span style="color: #999;">至</span>
+        <input type="range" id="yearEndRange" min="1990" max="2030" value="2030" />
+        <span class="year-label" id="yearEndLabel">2030</span>
+      </div>
+    </div>
+
+    <!-- 期刊/会议筛选 -->
+    <div class="filter-section">
+      <div class="filter-label">期刊/会议</div>
+      <div class="pill-row" id="venueFilters">
+        <!-- 动态渲染 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 主内容区 -->
+  <div class="main-layout" id="mainLayout">
+    <div class="container">
+      <div class="literature-grid" id="literatureGrid">
+        <!-- 动态渲染文献卡片 -->
+      </div>
+
+      <!-- 加载更多 -->
+      <div class="load-more-container" id="loadMoreContainer">
+        <button class="btn primary" id="loadMoreBtn">加载更多</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 提示 -->
+  <div class="toast" id="toast"></div>
+
+  <!-- 背景模糊遮罩 -->
+  <div class="backdrop-blur" id="backdropBlur"></div>
+
+  <script>
+    // ==================== 数据模型和状态管理 ====================
+
+    const state = {
+      // 全部文献数据
+      literatures: [],
+      // 筛选后的文献
+      filteredLiteratures: [],
+      // 显示的文献（分页）
+      displayedLiteratures: [],
+      // 当前选中的文献ID
+      selectedId: null,
+      // 搜索关键词
+      searchQuery: '',
+      // 筛选器状态
+      filters: {
+        activeType: 'all',
+        yearStart: 2000,
+        yearEnd: 2030,
+        activeVenue: 'all'
+      },
+      // 分页状态
+      pagination: {
+        currentPage: 1,
+        pageSize: 50,
+        hasMore: false
+      },
+      // 可用的期刊/会议列表
+      availableVenues: new Set(),
+      // 星标文献ID集合
+      pinnedLiteratures: new Set(),
+      // 当前视图: 'all' | 'pinned' | 'author' | 'journal'
+      currentView: 'all'
+    };
+
+    // DOM 元素引用
+    const dom = {
+      searchInput: document.getElementById('searchInput'),
+      searchCount: document.getElementById('searchCount'),
+      toggleFiltersBtn: document.getElementById('toggleFiltersBtn'),
+      refreshBtn: document.getElementById('refreshBtn'),
+      clearBtn: document.getElementById('clearBtn'),
+      viewTabs: document.getElementById('viewTabs'),
+      filtersPanel: document.getElementById('filtersPanel'),
+      mainLayout: document.getElementById('mainLayout'),
+      typeFilters: document.getElementById('typeFilters'),
+      yearStartRange: document.getElementById('yearStartRange'),
+      yearEndRange: document.getElementById('yearEndRange'),
+      yearStartLabel: document.getElementById('yearStartLabel'),
+      yearEndLabel: document.getElementById('yearEndLabel'),
+      venueFilters: document.getElementById('venueFilters'),
+      literatureGrid: document.getElementById('literatureGrid'),
+      loadMoreContainer: document.getElementById('loadMoreContainer'),
+      loadMoreBtn: document.getElementById('loadMoreBtn'),
+      toast: document.getElementById('toast'),
+      backdropBlur: document.getElementById('backdropBlur')
+    };
+
+    // ==================== Bridge 通信接口 ====================
+
+    window.Bridge = {
+      /**
+       * 加载文献数据 (Native → JS)
+       * @param {Object} data - 文献数据对象
+       * @param {Array} data.literatures - 文献数组
+       */
+      loadLiteratures: function(data) {
+        console.log('Bridge.loadLiteratures 被调用', data);
+
+        if (data && Array.isArray(data.literatures)) {
+          state.literatures = data.literatures;
+          extractVenues();
+          applyFilters();
+          renderFilters();
+          showToast(`已加载 ${data.literatures.length} 篇文献`);
+        }
+      },
+
+      /**
+       * 刷新数据 (JS → Native)
+       */
+      refreshData: function() {
+        console.log('Bridge.refreshData 被调用');
+        postBridge('refreshLiteratures');
+      },
+
+      /**
+       * 通知就绪 (JS → Native)
+       */
+      notifyReady: function() {
+        console.log('Bridge.notifyReady 被调用');
+        postBridge('htmlReady');
+      }
+    };
+
+    // ==================== 工具函数 ====================
+
+    /**
+     * 向 Native 发送消息
+     */
+    function postBridge(action, params = {}) {
+      try {
+        const url = `mnliterature://${action}?${buildQueryString(params)}`;
+        window.location.href = url;
+        return true;
+      } catch (error) {
+        console.warn('postBridge 失败', error);
+        return false;
+      }
+    }
+
+    /**
+     * 构建查询字符串
+     */
+    function buildQueryString(params) {
+      return Object.keys(params)
+        .map(key => {
+          const value = typeof params[key] === 'object'
+            ? JSON.stringify(params[key])
+            : params[key];
+          return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+        })
+        .join('&');
+    }
+
+    /**
+     * 显示 Toast 提示
+     */
+    function showToast(message, duration = 1600) {
+      dom.toast.textContent = message;
+      dom.toast.classList.add('show');
+
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => {
+        dom.toast.classList.remove('show');
+      }, duration);
+    }
+
+    /**
+     * 防抖函数
+     */
+    function debounce(fn, wait) {
+      let timer = null;
+      return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), wait);
+      };
+    }
+
+    /**
+     * HTML 转义
+     */
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    /**
+     * 高亮关键词
+     */
+    function highlightText(text, query) {
+      if (!text || !query) return escapeHtml(text);
+
+      const keywords = query.trim().split(/\s+/);
+      let result = escapeHtml(text);
+
+      keywords.forEach(keyword => {
+        if (!keyword) return;
+        const regex = new RegExp(`(${escapeRegExp(keyword)})`, 'gi');
+        result = result.replace(regex, '<mark class="highlight">$1</mark>');
+      });
+
+      return result;
+    }
+
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /**
+     * 平滑滚动到指定卡片
+     */
+    function scrollToCard(cardElement) {
+      if (!cardElement) return;
+
+      // 使用 scrollIntoView 实现平滑滚动
+      cardElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest'
+      });
+    }
+
+    /**
+     * 显示背景模糊
+     */
+    function showBackdrop() {
+      dom.backdropBlur.classList.add('show');
+    }
+
+    /**
+     * 隐藏背景模糊
+     */
+    function hideBackdrop() {
+      dom.backdropBlur.classList.remove('show');
+    }
+
+    /**
+     * 获取文献类型颜色
+     */
+    function getTypeColor(type) {
+      const colorMap = {
+        'article': 'var(--article-color)',
+        'inproceedings': 'var(--conference-color)',
+        'book': 'var(--book-color)',
+        'phdthesis': 'var(--thesis-color)',
+        'mastersthesis': 'var(--thesis-color)'
+      };
+      return colorMap[type] || 'var(--other-color)';
+    }
+
+    /**
+     * 获取文献类型中文名
+     */
+    function getTypeName(type) {
+      const nameMap = {
+        'article': '期刊论文',
+        'inproceedings': '会议论文',
+        'book': '书籍',
+        'phdthesis': '博士论文',
+        'mastersthesis': '硕士论文'
+      };
+      return nameMap[type] || '其他';
+    }
+
+    // ==================== 星标功能 ====================
+
+    /**
+     * 切换星标状态
+     * @param {string} id - 文献ID
+     */
+    function togglePin(id) {
+      if (state.pinnedLiteratures.has(id)) {
+        state.pinnedLiteratures.delete(id);
+      } else {
+        state.pinnedLiteratures.add(id);
+      }
+      savePinnedData();
+      applyFilters();  // 重新排序
+    }
+
+    /**
+     * 保存星标数据到 localStorage
+     */
+    function savePinnedData() {
+      const pinnedIds = Array.from(state.pinnedLiteratures);
+      localStorage.setItem('mnliterature_pinned', JSON.stringify(pinnedIds));
+    }
+
+    /**
+     * 从 localStorage 加载星标数据
+     */
+    function loadPinnedData() {
+      try {
+        const saved = localStorage.getItem('mnliterature_pinned');
+        if (saved) {
+          const pinnedIds = JSON.parse(saved);
+          state.pinnedLiteratures = new Set(pinnedIds);
+        }
+      } catch (error) {
+        console.error('加载星标数据失败:', error);
+        state.pinnedLiteratures = new Set();
+      }
+    }
+
+    /**
+     * 对文献列表排序(星标优先)
+     * @param {Array} literatures - 文献列表
+     * @returns {Array} 排序后的文献列表
+     */
+    function sortLiteratures(literatures) {
+      return literatures.sort((a, b) => {
+        const aPin = state.pinnedLiteratures.has(a.id) ? 1 : 0;
+        const bPin = state.pinnedLiteratures.has(b.id) ? 1 : 0;
+
+        // 星标的排在前面
+        if (aPin !== bPin) {
+          return bPin - aPin;
+        }
+
+        // 同等级按年份降序
+        return b.year - a.year;
+      });
+    }
+
+    // ==================== 数据处理 ====================
+
+    /**
+     * 提取所有期刊/会议
+     */
+    function extractVenues() {
+      state.availableVenues.clear();
+      state.literatures.forEach(lit => {
+        if (lit.journal) {
+          state.availableVenues.add(lit.journal);
+        }
+      });
+    }
+
+    /**
+     * 应用筛选器
+     */
+    function applyFilters() {
+      const { searchQuery, filters } = state;
+
+      let results = state.literatures.filter(lit => {
+        // 类型筛选
+        if (filters.activeType !== 'all' && lit.type !== filters.activeType) {
+          return false;
+        }
+
+        // 年份筛选
+        if (lit.year < filters.yearStart || lit.year > filters.yearEnd) {
+          return false;
+        }
+
+        // 期刊筛选
+        if (filters.activeVenue !== 'all' && lit.journal !== filters.activeVenue) {
+          return false;
+        }
+
+        // 搜索关键词
+        if (searchQuery) {
+          const searchText = [
+            lit.title || '',
+            (lit.authors || []).join(' '),
+            (lit.keywords || []).join(' '),
+            String(lit.year),
+            lit.journal || ''
+          ].join(' ').toLowerCase();
+
+          const keywords = searchQuery.toLowerCase().split(/\s+/);
+          return keywords.every(keyword => searchText.includes(keyword));
+        }
+
+        return true;
+      });
+
+      // 排序：星标优先，同级按年份降序
+      results = sortLiteratures(results);
+
+      state.filteredLiteratures = results;
+      state.pagination.currentPage = 1;
+      state.pagination.hasMore = results.length > state.pagination.pageSize;
+
+      updateDisplay();
+    }
+
+    /**
+     * 更新显示
+     */
+    function updateDisplay() {
+      const { currentPage, pageSize } = state.pagination;
+      const startIndex = 0;
+      const endIndex = currentPage * pageSize;
+
+      state.displayedLiteratures = state.filteredLiteratures.slice(startIndex, endIndex);
+      state.pagination.hasMore = endIndex < state.filteredLiteratures.length;
+
+      renderTabs();
+      renderLiteratures();
+      updateSearchCount();
+      updateLoadMoreButton();
+    }
+
+    /**
+     * 加载更多
+     */
+    function loadMore() {
+      state.pagination.currentPage++;
+      updateDisplay();
+    }
+
+    // ==================== 渲染函数 ====================
+
+    /**
+     * 渲染筛选器
+     */
+    function renderFilters() {
+      // 渲染类型筛选
+      const types = [
+        { key: 'all', label: '全部类型' },
+        { key: 'article', label: '期刊论文' },
+        { key: 'inproceedings', label: '会议论文' },
+        { key: 'book', label: '书籍' },
+        { key: 'phdthesis', label: '博士论文' },
+        { key: 'mastersthesis', label: '硕士论文' }
+      ];
+
+      dom.typeFilters.innerHTML = types.map(type => `
+        <div class="pill ${state.filters.activeType === type.key ? 'active' : ''}"
+             data-type="${type.key}">
+          ${type.label}
+        </div>
+      `).join('');
+
+      // 渲染期刊筛选
+      const venues = ['all', ...Array.from(state.availableVenues)];
+      dom.venueFilters.innerHTML = venues.map(venue => `
+        <div class="pill ${state.filters.activeVenue === venue ? 'active' : ''}"
+             data-venue="${venue}">
+          ${venue === 'all' ? '全部期刊' : venue}
+        </div>
+      `).join('');
+    }
+
+    /**
+     * 渲染Tab导航
+     */
+    function renderTabs() {
+      const pinnedCount = state.pinnedLiteratures.size;
+      const allCount = state.filteredLiteratures.length;
+
+      const tabsHtml = `
+        <div class="tab ${state.currentView === 'all' ? 'active' : ''}" data-view="all">
+          📚 全部 (${allCount})
+        </div>
+        <div class="tab ${state.currentView === 'pinned' ? 'active' : ''}" data-view="pinned">
+          ⭐ 星标 (${pinnedCount})
+        </div>
+        <div class="tab disabled" data-view="author">
+          👤 作者
+        </div>
+        <div class="tab disabled" data-view="journal">
+          📖 期刊
+        </div>
+      `;
+
+      dom.viewTabs.innerHTML = tabsHtml;
+    }
+
+    /**
+     * 切换视图
+     */
+    function switchView(viewKey) {
+      state.currentView = viewKey;
+      renderTabs();
+      renderLiteratures();
+    }
+
+    /**
+     * 渲染文献列表(基于当前视图)
+     */
+    function renderLiteratures() {
+      // 根据当前视图过滤数据
+      let displayData = [];
+
+      switch (state.currentView) {
+        case 'pinned':
+          displayData = state.displayedLiteratures.filter(lit =>
+            state.pinnedLiteratures.has(lit.id)
+          );
+          break;
+        case 'all':
+        default:
+          displayData = state.displayedLiteratures;
+          break;
+      }
+
+      // 空状态
+      if (displayData.length === 0) {
+        const emptyMessage = state.currentView === 'pinned'
+          ? '还没有星标文献<br>点击卡片上的 ☆ 添加星标'
+          : '未找到文献<br>尝试调整搜索关键词或筛选条件';
+
+        dom.literatureGrid.innerHTML = `
+          <div class="empty-state">
+            <div style="font-size: 48px; margin-bottom: 16px;">
+              ${state.currentView === 'pinned' ? '⭐' : '📚'}
+            </div>
+            <h3>${emptyMessage.split('<br>')[0]}</h3>
+            <p>${emptyMessage.split('<br>')[1]}</p>
+          </div>
+        `;
+        return;
+      }
+
+      // 渲染卡片
+      dom.literatureGrid.innerHTML = displayData
+        .map(lit => renderLiteratureCard(lit))
+        .join('');
+    }
+
+    /**
+     * 渲染单个文献卡片
+     */
+    function renderLiteratureCard(lit) {
+      const isSelected = state.selectedId === lit.id;
+      const isExpanded = isSelected && state.expandedId === lit.id;
+      const isPinned = state.pinnedLiteratures.has(lit.id);
+      const typeColor = getTypeColor(lit.type);
+      const typeName = getTypeName(lit.type);
+
+      // 作者显示（最多3个，其余显示 et al.）
+      const authorsDisplay = Array.isArray(lit.authors)
+        ? (lit.authors.length <= 3
+            ? lit.authors.join(', ')
+            : `${lit.authors.slice(0, 3).join(', ')} et al.`)
+        : '';
+
+      return `
+        <div class="literature-card ${isSelected ? 'selected' : ''} ${isExpanded ? 'expanded' : ''}"
+             data-id="${lit.id}"
+             style="border-left-color: ${typeColor}">
+
+          <!-- 操作图标 -->
+          <div class="card-actions">
+            <div class="action-icon pin-icon ${isPinned ? 'pinned' : ''}"
+                 data-action="pin"
+                 title="${isPinned ? '取消星标' : '添加星标'}">
+              ${isPinned ? '⭐' : '☆'}
+            </div>
+            <div class="action-icon" data-action="focus" title="在 MarginNote 中定位">📍</div>
+            <div class="action-icon" data-action="pdf" title="打开 PDF">📄</div>
+          </div>
+
+          <!-- 卡片头部 -->
+          <div class="card-header">
+            <div class="card-type-badge" style="background: ${typeColor}">
+              ${typeName}
+            </div>
+            <div class="card-title">${highlightText(lit.title, state.searchQuery)}</div>
+            ${authorsDisplay ? `<div class="card-authors">${highlightText(authorsDisplay, state.searchQuery)}</div>` : ''}
+
+            <div class="card-meta">
+              <span class="meta-item">${lit.year}</span>
+              ${lit.journal ? `
+                <span class="meta-divider"></span>
+                <span class="meta-item">${lit.journal}</span>
+              ` : ''}
+              ${lit.citations ? `
+                <span class="meta-divider"></span>
+                <span class="meta-item">引用: ${lit.citations}</span>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- 关键词 -->
+          ${lit.keywords && lit.keywords.length > 0 ? `
+            <div class="card-keywords">
+              ${lit.keywords.slice(0, 5).map(kw => `
+                <span class="keyword-tag">${kw}</span>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          <!-- 展开的详情 -->
+          <div class="card-details">
+            ${lit.abstract ? `
+              <div class="detail-section">
+                <div class="detail-label">摘要</div>
+                <div class="detail-content">${escapeHtml(lit.abstract)}</div>
+              </div>
+            ` : ''}
+
+            ${lit.doi ? `
+              <div class="detail-section">
+                <div class="detail-label">DOI</div>
+                <div class="detail-content">${lit.doi}</div>
+              </div>
+            ` : ''}
+
+            <div class="detail-actions">
+              <button class="btn" onclick="handleAction('focus', '${lit.id}')">在 MarginNote 中查看</button>
+              <button class="btn" onclick="handleAction('bibtex', '${lit.id}')">导出 BibTeX</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * 更新搜索计数
+     */
+    function updateSearchCount() {
+      const count = state.filteredLiteratures.length;
+      dom.searchCount.textContent = `${count} 篇文献`;
+    }
+
+    /**
+     * 更新加载更多按钮
+     */
+    function updateLoadMoreButton() {
+      if (state.pagination.hasMore) {
+        dom.loadMoreContainer.classList.add('show');
+        const remaining = state.filteredLiteratures.length - state.displayedLiteratures.length;
+        dom.loadMoreBtn.textContent = `加载更多 (剩余 ${remaining} 篇)`;
+      } else {
+        dom.loadMoreContainer.classList.remove('show');
+      }
+    }
+
+    // ==================== 事件处理 ====================
+
+    /**
+     * 处理卡片点击
+     */
+    function handleCardClick(event) {
+      const card = event.target.closest('.literature-card');
+      if (!card) return;
+
+      // 如果点击的是操作图标，不处理卡片点击
+      if (event.target.closest('.action-icon') || event.target.closest('.btn')) {
+        return;
+      }
+
+      const id = card.dataset.id;
+
+      if (state.selectedId === id) {
+        // 第二次点击：展开/收起详情
+        if (state.expandedId === id) {
+          // 收起详情
+          state.expandedId = null;
+          hideBackdrop();
+        } else {
+          // 展开详情
+          state.expandedId = id;
+          renderLiteratures();
+
+          // 延迟执行滚动和显示背景，等待 DOM 更新
+          setTimeout(() => {
+            const expandedCard = document.querySelector('.literature-card.expanded');
+            if (expandedCard) {
+              scrollToCard(expandedCard);
+              showBackdrop();
+            }
+          }, 50);
+          return;
+        }
+      } else {
+        // 第一次点击：选中卡片
+        state.selectedId = id;
+        state.expandedId = null;
+        hideBackdrop();
+      }
+
+      renderLiteratures();
+    }
+
+    /**
+     * 处理操作按钮点击
+     */
+    function handleAction(action, id) {
+      const lit = state.literatures.find(l => l.id === id);
+      if (!lit) return;
+
+      switch (action) {
+        case 'pin':
+          togglePin(id);
+          showToast(state.pinnedLiteratures.has(id) ? '✅ 已添加星标' : '已取消星标');
+          break;
+        case 'focus':
+          postBridge('focusInMindMap', { id });
+          showToast('正在定位到 MarginNote...');
+          break;
+        case 'pdf':
+          postBridge('openPDF', { id });
+          showToast('正在打开 PDF...');
+          break;
+        case 'bibtex':
+          postBridge('exportBibTeX', { id });
+          showToast('已复制 BibTeX');
+          break;
+      }
+    }
+
+    /**
+     * 处理搜索输入
+     */
+    const handleSearchInput = debounce(function() {
+      state.searchQuery = dom.searchInput.value.trim();
+      applyFilters();
+    }, 300);
+
+    /**
+     * 处理筛选器切换
+     */
+    function handleFilterToggle() {
+      const isShowing = dom.filtersPanel.classList.contains('show');
+
+      if (isShowing) {
+        dom.filtersPanel.classList.remove('show');
+        dom.mainLayout.classList.remove('with-filters');
+        dom.toggleFiltersBtn.textContent = '筛选';
+      } else {
+        dom.filtersPanel.classList.add('show');
+        dom.mainLayout.classList.add('with-filters');
+        dom.toggleFiltersBtn.textContent = '收起筛选';
+      }
+    }
+
+    /**
+     * 处理清空操作
+     */
+    function handleClear() {
+      dom.searchInput.value = '';
+      state.searchQuery = '';
+      state.filters.activeType = 'all';
+      state.filters.yearStart = 2000;
+      state.filters.yearEnd = 2030;
+      state.filters.activeVenue = 'all';
+      state.selectedId = null;
+      state.expandedId = null;
+
+      dom.yearStartRange.value = 2000;
+      dom.yearEndRange.value = 2030;
+      dom.yearStartLabel.textContent = '2000';
+      dom.yearEndLabel.textContent = '2030';
+
+      hideBackdrop();
+      applyFilters();
+      renderFilters();
+      showToast('已清空筛选条件');
+    }
+
+    // ==================== 初始化 ====================
+
+    function init() {
+      // 加载星标数据
+      loadPinnedData();
+
+      // 事件监听
+      dom.searchInput.addEventListener('input', handleSearchInput);
+      dom.toggleFiltersBtn.addEventListener('click', handleFilterToggle);
+      dom.clearBtn.addEventListener('click', handleClear);
+      dom.refreshBtn.addEventListener('click', () => Bridge.refreshData());
+      dom.loadMoreBtn.addEventListener('click', loadMore);
+      dom.literatureGrid.addEventListener('click', handleCardClick);
+
+      // Tab 切换
+      dom.viewTabs.addEventListener('click', (e) => {
+        const tab = e.target.closest('.tab');
+        if (!tab || tab.classList.contains('disabled')) return;
+
+        const viewKey = tab.dataset.view;
+        switchView(viewKey);
+      });
+
+      // 类型筛选
+      dom.typeFilters.addEventListener('click', (e) => {
+        const pill = e.target.closest('.pill');
+        if (!pill) return;
+
+        state.filters.activeType = pill.dataset.type;
+        applyFilters();
+        renderFilters();
+      });
+
+      // 期刊筛选
+      dom.venueFilters.addEventListener('click', (e) => {
+        const pill = e.target.closest('.pill');
+        if (!pill) return;
+
+        state.filters.activeVenue = pill.dataset.venue;
+        applyFilters();
+        renderFilters();
+      });
+
+      // 年份范围
+      dom.yearStartRange.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        state.filters.yearStart = value;
+        dom.yearStartLabel.textContent = value;
+
+        // 确保起始年份不大于结束年份
+        if (value > state.filters.yearEnd) {
+          state.filters.yearEnd = value;
+          dom.yearEndRange.value = value;
+          dom.yearEndLabel.textContent = value;
+        }
+
+        applyFilters();
+      });
+
+      dom.yearEndRange.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        state.filters.yearEnd = value;
+        dom.yearEndLabel.textContent = value;
+
+        // 确保结束年份不小于起始年份
+        if (value < state.filters.yearStart) {
+          state.filters.yearStart = value;
+          dom.yearStartRange.value = value;
+          dom.yearStartLabel.textContent = value;
+        }
+
+        applyFilters();
+      });
+
+      // 操作图标点击
+      dom.literatureGrid.addEventListener('click', (e) => {
+        const icon = e.target.closest('.action-icon');
+        if (!icon) return;
+
+        e.stopPropagation();
+        const card = icon.closest('.literature-card');
+        const id = card.dataset.id;
+        const action = icon.dataset.action;
+
+        handleAction(action, id);
+      });
+
+      // 点击背景遮罩关闭详情
+      dom.backdropBlur.addEventListener('click', () => {
+        if (state.expandedId) {
+          state.expandedId = null;
+          hideBackdrop();
+          renderLiteratures();
+        }
+      });
+
+      // ESC 键关闭详情
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && state.expandedId) {
+          state.expandedId = null;
+          hideBackdrop();
+          renderLiteratures();
+        }
+      });
+
+      // 加载示例数据（用于测试）
+      loadSampleData();
+
+      // 通知 Native 准备就绪
+      Bridge.notifyReady();
+    }
+
+    /**
+     * 加载示例数据（测试用）
+     */
+    function loadSampleData() {
+      const sampleData = [
+        {
+          id: 'zhang2023transformer',
+          title: 'Transformer 模型在自然语言处理中的突破性进展',
+          authors: ['张伟', '李明', 'Anna Wilson'],
+          year: 2023,
+          type: 'article',
+          journal: '人工智能学报',
+          keywords: ['自然语言处理', 'Transformer', '注意力机制', '深度学习'],
+          abstract: '本文深入分析了Transformer架构在自然语言处理领域的革命性影响。通过对多个大规模NLP任务的实验评估，我们证明了Transformer模型在处理长序列和语义理解方面的显著优势。',
+          doi: '10.1000/ai.2023.001',
+          citations: 128,
+          pdfLink: 'marginnote://note/xxx'
+        },
+        {
+          id: 'wang2022federated',
+          title: '联邦学习在医疗图像分析中的隐私保护应用',
+          authors: ['王芳', 'Robert Davis', '刘强'],
+          year: 2022,
+          type: 'inproceedings',
+          journal: '国际医学影像会议',
+          keywords: ['联邦学习', '医疗图像', '隐私保护', '深度学习'],
+          abstract: '针对医疗数据隐私保护需求，本研究提出了一种基于联邦学习的医学图像分析框架。该方案在保持数据本地化的基础上实现了分布式模型训练。',
+          citations: 89
+        },
+        {
+          id: 'chen2021reinforcement',
+          title: '基于深度强化学习的自动驾驶决策系统',
+          authors: ['陈明', 'Steven Chen', '赵敏'],
+          year: 2021,
+          type: 'article',
+          journal: 'IEEE 智能交通系统',
+          keywords: ['自动驾驶', '强化学习', '决策系统', '人工智能'],
+          abstract: '本文提出了一种结合深度强化学习的自动驾驶决策框架。通过设计新型奖励函数和状态表示方法，系统在复杂交通场景中表现出优异的决策能力。',
+          doi: '10.1109/TITS.2021.xxx',
+          citations: 145
+        },
+        {
+          id: 'liu2020knowledge',
+          title: '知识图谱构建中的实体对齐技术研究',
+          authors: ['刘建华', '王伟', '张明'],
+          year: 2020,
+          type: 'article',
+          journal: '计算机研究与发展',
+          keywords: ['知识图谱', '实体对齐', '图神经网络', '自然语言处理'],
+          abstract: '本研究系统探讨了大规模知识图谱构建中的实体对齐关键技术。提出了一种基于图神经网络和预训练语言模型的联合学习方法。',
+          citations: 76
+        },
+        {
+          id: 'huang2023compression',
+          title: '神经网络模型压缩与加速技术综述',
+          authors: ['Steven Chen', '黄伟', 'Anna Wilson'],
+          year: 2023,
+          type: 'article',
+          journal: 'IEEE 模式分析与机器智能',
+          keywords: ['模型压缩', '神经网络', '模型加速', '边缘计算'],
+          abstract: '本文全面综述了深度神经网络模型压缩与加速的最新研究进展。系统分析了剪枝、量化、知识蒸馏和轻量化网络设计等技术的原理与应用场景。',
+          doi: '10.1109/TPAMI.2023.xxx',
+          citations: 112
+        }
+      ];
+
+      Bridge.loadLiteratures({ literatures: sampleData });
+    }
+
+    // 页面加载完成后初始化
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+
+    // 暴露 handleAction 到全局（用于按钮点击）
+    window.handleAction = handleAction;
+  </script>
+</body>
+</html>
