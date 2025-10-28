@@ -2963,20 +2963,29 @@ static getValidJSON(jsonString,debug = false) {
    */
   static xorEncryptDecrypt(input, key) {
   try {
-
+    if (!key) throw new Error("Key cannot be empty"); // 提前校验key非空
     let output = [];
+    let result = "";
+    const chunkSize = 10000; // 分块大小（根据引擎性能调整）
     for (let i = 0; i < input.length; i++) {
-        // Perform XOR between the input character and the key character
-        output.push(input.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+      const code = input.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+      output.push(code);
+      // 分块转换：当数组达到chunkSize时，批量生成字符串并清空临时数组
+      if (output.length >= chunkSize) {
+        result += String.fromCharCode(...output); // 用扩展运算符（...）代替apply，或直接循环拼接
+        output = [];
+      }
     }
-    return String.fromCharCode.apply(null, output);
-    
+    // 处理剩余的码点
+    result += String.fromCharCode(...output);
+    return result;
   } catch (error) {
-    MNUtil.log("xorEncryptDecrypt error: "+error, key)
-    this.addErrorLog(error, "xorEncryptDecrypt")
-    return undefined
+    MNLog.error("xorEncryptDecrypt error: "+error, key);
+    this.addErrorLog(error, "xorEncryptDecrypt");
+    return undefined;
   }
-  }
+}
+
   // static encrypt(text,key){
   //   var encrypted = CryptoJS.AES.encrypt(text, key).toString();
   //   return encrypted
@@ -3955,6 +3964,38 @@ static getUnformattedText(token) {
     // MNUtil.copy(tokens)
     return this.buildTree(tokens)
   }
+static extractHeadingNames(node) {
+  try {
+    
+
+  let result = [];
+  
+  // 检查当前节点是否是 heading 类型
+  if (node.type && node.type === 'heading') {
+    result.push(node.name);
+  }
+  
+  // 递归处理子节点
+  if (node.children && node.children.length > 0) {
+    for (const child of node.children) {
+      result = result.concat(this.extractHeadingNames(child));
+    }
+  }
+  
+  return result;
+  } catch (error) {
+    this.addErrorLog(error, "extractHeadingNames")
+    return []
+  }
+}
+  /**
+   * @param {string} markdown 
+   * @returns {string[]}
+   */
+  static headingNamesFromMarkdown(markdown){
+    let ast = this.markdown2AST(markdown)
+    return this.extractHeadingNames(ast)
+  }
 static  containsMathFormula(markdownText) {
     // 正则表达式匹配单美元符号包裹的公式
     const inlineMathRegex = /\$[^$]+\$/;
@@ -4241,6 +4282,13 @@ static NSValue2String(v) {
     .join(" ")
     .trim()
 }
+static isEmptyImage(imageData){
+  let image = UIImage.imageWithData(imageData)
+  if (image.size.width === 1 && image.size.height === 1) {
+    return true
+  }
+  return false
+}
 /**
  * 
  * @param {MNNote} note 
@@ -4256,6 +4304,7 @@ static isBlankNote(note){//指有图片摘录但图片分辨率为1x1的空白�
   }
   return false
 }
+
 
   /**
    * 

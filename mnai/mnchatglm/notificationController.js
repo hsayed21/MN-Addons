@@ -1100,6 +1100,8 @@ try {
     case "SiliconFlow":
     case "ModelScope":
     case "PPIO":
+    case "Qiniu":
+    case "OpenRouter":
     case "Github":
     case "Metaso":
     case "Qwen":
@@ -1592,7 +1594,7 @@ try {
     this.preFuncResponse = ""
     // chatAIUtils.log("executeFinishAction", this.actions)
     if (this.actions.length) {
-      let validAction = this.actions.filter(action=> action <= 16)
+      let validAction = this.actions.filter(action=> action <= 19)
       if (validAction.length) {
         await this.executeFinishAction(validAction,this.lastResponse)
       }
@@ -2658,7 +2660,8 @@ notificationController.prototype.executeFinishAction = async function (actionInd
   // }else{
   //   note = chatAIUtils.getFocusNote()
   // }
-  var actions = ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","addChildNote","clearExcerpt","setExcerpt","snipasteHTML","addBrotherNote","appendBlankComment","appendTitle","appendExcerpt","snipasteText","markdown2Mindmap"];
+  var actions = ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","addChildNote","clearExcerpt","setExcerpt","snipasteHTML","addBrotherNote","appendBlankComment","appendTitle","appendExcerpt","snipasteText","markdown2Mindmap","openChat","enableExcerptMarkdown","disableExcerptMarkdown"];
+  chatAIUtils.log("executeFinishAction", actionIndices.map(index=>actions[index]).join(", "))
   MNUtil.undoGrouping(()=>{
     actionIndices.forEach(async (index)=>{
       let action = actions[index]
@@ -2668,11 +2671,11 @@ notificationController.prototype.executeFinishAction = async function (actionInd
         await this.executeAction(action, text,false)
       }
     })
-  
   })
   await MNUtil.delay(0.5)
   if (shouldClose) {
-    this.hide()
+    await this.hide()
+    await MNUtil.delay(0.5)
   }
   return
   } catch (error) {
@@ -2853,6 +2856,14 @@ try {
       return
     }
     switch (action) {
+      case "enableExcerptMarkdown":
+        note.excerptTextMarkdown = true
+        MNUtil.showHUD("✅ Excerpt markdown is enabled")
+        break;
+      case "disableExcerptMarkdown":
+        note.excerptTextMarkdown = false
+        MNUtil.showHUD("❌ Excerpt markdown is disabled")
+        break;
       case "copyCardURL":
         MNUtil.copy(note.noteURL)
         this.showHUD("Link is copied")
@@ -3533,6 +3544,80 @@ notificationController.prototype.userSelectAddNote = async function (content,for
 try {
     // MNUtil.copy(format)
     let note = this.currentNote()
+    if (!note) {//当前无选中卡片
+      //先判断是否要从文本创建摘录
+      if (MNUtil.currentSelection.onSelection) {
+        note = MNNote.fromSelection().realGroupNoteForTopicId()
+        if (format === "json") {
+          this.showHUD("➕ Create Question note from document")
+          let title = content.title
+          let description = content.description+"\n\n"+chatAIUtils.getChoicesHTML(content.choices)
+          chatAIUtils.applyEditByConfig([{title:title,excerptText:description,excerptTextMarkdown:true}],note)
+          note.focusInMindMap(0.5)
+          return
+        }
+        content = content.replace(/\\n/g,"\n")
+        let selectingText = await this.getWebviewSelection()
+        if (!selectingText && (Date.now()-this.selection.time < 5000)) {
+          selectingText = this.selection.text
+        }
+        // let selectingText = await this.getWebviewContent()
+        if (selectingText) {
+          content = content+"\n\n"+selectingText
+        }
+        if (format === "markdown" && /^#/.test(content.trim())) {
+            this.showHUD("➕ Create note from document: "+content)
+            let contents = content.split("\n")
+            let newTitle = contents[0].replace(/^#\s?/g,"")
+            let contentRemain = contents.slice(1).join("\n").trim()
+            chatAIUtils.applyEditByConfig([{title:newTitle,excerptText:contentRemain,excerptTextMarkdown:true}],note)
+            note.focusInMindMap(0.5)
+            return
+        }
+        chatAIUtils.applyEditByConfig([{excerptText:content,excerptTextMarkdown:true}],note)
+        note.focusInMindMap(0.5)
+        return
+      }else if (MNNote.currentChildMap) {//尝试在子脑图下创建笔记
+        note = MNNote.currentChildMap
+      }else{//直接在主脑图创建卡片
+        if (format === "json") {
+          this.showHUD("➕ Create Question note")
+          let title = content.title
+          let description = content.description+"\n\n"+chatAIUtils.getChoicesHTML(content.choices)
+          MNUtil.undoGrouping(()=>{
+            let note = MNNote.new({title:title,excerptText:description,excerptTextMarkdown:true})
+            note.focusInMindMap(0.5)
+          })
+          return
+        }
+        content = content.replace(/\\n/g,"\n")
+        let selectingText = await this.getWebviewSelection()
+        if (!selectingText && (Date.now()-this.selection.time < 5000)) {
+          selectingText = this.selection.text
+        }
+        // let selectingText = await this.getWebviewContent()
+        if (selectingText) {
+          content = content+"\n\n"+selectingText
+        }
+        if (format === "markdown" && /^#/.test(content.trim())) {
+            this.showHUD("➕ Create note: "+content)
+            let contents = content.split("\n")
+            let newTitle = contents[0].replace(/^#\s?/g,"")
+            let contentRemain = contents.slice(1).join("\n").trim()
+            MNUtil.undoGrouping(()=>{
+              let note = MNNote.new({title:newTitle,excerptText:contentRemain,excerptTextMarkdown:true})
+              note.focusInMindMap(0.5)
+            })
+            return
+        }
+        MNUtil.undoGrouping(()=>{
+          let note = MNNote.new({excerptText:content,excerptTextMarkdown:true})
+          note.focusInMindMap(0.5)
+        })
+        // MNUtil.confirm("🤖 MN ChatAI", "Note unavailable, please select a note first\n\n请先选择一个笔记/卡片")
+        return false
+      }
+    }
     if (format === "json") {
       this.showHUD("➕ Add Question note")
       let title = content.title

@@ -721,7 +721,8 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
     //   return
     // }
     if (selected === "chatglm") {
-      toolbarUtils.chatAI()
+      let des = toolbarConfig.getDescriptionById("chatglm")
+      self.toolbarController.customActionByDes(button,des)
       return
     }
 

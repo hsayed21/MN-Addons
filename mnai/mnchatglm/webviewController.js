@@ -206,6 +206,8 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController <N
     menu.addMenuItem("✴️  Claude", selector,'Claude',source =='Claude')
     menu.addMenuItem("✨  Gemini", selector,'Gemini',source =='Gemini')
     menu.addMenuItem("🔍  Metaso", selector,'Metaso',source =='Metaso')
+    menu.addMenuItem("🔀  OpenRouter", selector,'OpenRouter',source =='OpenRouter')
+    menu.addMenuItem("🐮  Qiniu", selector,'Qiniu',source =='Qiniu')
     menu.addMenuItem("🎨  Custom", selector,'Custom',source =='Custom')
     menu.show()
   },
@@ -677,11 +679,12 @@ try {
     menu.addMenuItem("🆓 Copy Text", selector,4,currentAction.includes(4))
     menu.addMenuItem("🆓 Snipaste HTML", selector,10,currentAction.includes(10))
     menu.addMenuItem("🆓 Snipaste Text", selector,15,currentAction.includes(15))
+    menu.addMenuItem("🆓 Switch to Chat Mode", selector,17,currentAction.includes(17))
+    menu.addMenuItem("🆓 Enable Excerpt Markdown", selector,18,currentAction.includes(18))
+    menu.addMenuItem("🆓 Disable Excerpt Markdown", selector,19,currentAction.includes(19))
     menu.addMenuItem("🆓 Close", selector,5,currentAction.includes(5))
     menu.addMenuItem("❌ None", selector,-1,currentAction.length === 0)
     menu.addMenuItem("➡️ Toolbar actions:", "chooseToolbarActions:",button)
-
-    menu.width = 250
     menu.show()
   },
   setAction(param) {
@@ -693,7 +696,7 @@ try {
         currentAction = []
         break;
       case 100:
-        currentAction = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]//增加函数后要在这里加一条，不然显示不出来
+        currentAction = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]//增加函数后要在这里加一条，不然显示不出来
         break
       default:
         if (currentAction.includes(param)) {
@@ -1699,7 +1702,6 @@ ${self.knowledgeInput.text}
           self.openURL("https://www.bigmodel.cn/invite?icode=6m37FNrh1xwvptSaD261cmczbXFgPRGIalpycrEwJ28%3D")
         }
         break;
-        break;
       case "PPIO":
         confirm = await MNUtil.confirm("MN ChatAI", "是否已注册PPIO？",["未注册","已注册"])
         if (confirm) {
@@ -1707,6 +1709,18 @@ ${self.knowledgeInput.text}
         }else{
           self.openURL("https://ppio.com/user/register?invited_by=4QHT31")
         }
+        break;
+      case "OpenRouter":
+        self.openURL("https://openrouter.ai/settings/keys")
+        break;
+      case "Qiniu":
+        confirm = await MNUtil.confirm("MN ChatAI", "是否已注册七牛云？",["未注册","已注册"])
+        if (confirm) {
+          self.openURL("https://s.qiniu.com/3A7reu")
+        }else{
+          self.openURL("https://portal.qiniu.com/ai-inference/api-key?from=home-resource-card")
+        }
+        break;
         break;
       default:
         self.showHUD("Unsupported source: "+chatAIConfig.config.source)
@@ -1835,8 +1849,8 @@ ${self.knowledgeInput.text}
         chatAIConfig.config.customModel = self.customModelInput.text
         break;
       default:
-        chatAIUtils.addErrorLog("Unspported source: "+chatAIConfig.config.source, "saveConfig")
-        return
+        // chatAIUtils.addErrorLog("Unspported source: "+chatAIConfig.config.source, "saveConfig")
+        break;
     }
     chatAIConfig.save('MNChatglm_config')
     MNUtil.showHUD("Save Config for ["+chatAIConfig.config.source+"]")
@@ -2423,8 +2437,9 @@ ${config}
   try {
     Menu.dismissCurrentMenu()
     if (source === "File") {
-      let filePath = chatAIConfig.mainPath+"/chatAIConfig.json"
-      MNUtil.writeJSON(filePath,chatAIConfig.getAllConfig())
+      let dateNow = Date.now()
+      let filePath = chatAIConfig.mainPath+"/chatAIConfig_"+dateNow+".json"
+      MNUtil.writeJSON(filePath,chatAIConfig.getAllConfig(true))
       MNUtil.saveFile(filePath,["public.json"])
       return;
     }
@@ -4141,6 +4156,8 @@ chatglmController.prototype.setModel = function (source) {
     case "SiliconFlow":
     case "ModelScope":
     case "PPIO":
+    case "Qiniu":
+    case "OpenRouter":
     case "Volcengine":
     case "Github":
     case "Metaso":
@@ -4179,6 +4196,8 @@ chatglmController.prototype.setModel = function (source) {
     case "SiliconFlow":
     case "ModelScope":
     case "PPIO":
+    case "Qiniu":
+    case "OpenRouter":
     case "Volcengine":
     case "Github":
     case "Metaso":
@@ -4873,6 +4892,8 @@ try {
     case "SiliconFlow":
     case "ModelScope":
     case "PPIO":
+    case "Qiniu":
+    case "OpenRouter":
     case "Github":
     case "Metaso":
     case "Qwen":

@@ -161,7 +161,7 @@ class toolbarUtils {
   static previousNoteId
   static errorLog = []
   static version
-  
+  static chatAIOutputCache = ""
   static currentNoteId
   static currentSelection
   static isSubscribe = false
@@ -443,7 +443,7 @@ class toolbarUtils {
         menuItems = ["followButton"]
         break;
       case "chatAI":
-        menuItems = ["target","prompt","user","system","numberOfPrompts"]
+        menuItems = ["target","prompt","user","system","numberOfPrompts","waitForResponse","hideMessage"]
         break;
       default:
         break;
@@ -497,6 +497,8 @@ class toolbarUtils {
       case "sendToMindmapForNewNote":
       case "usingCommand":
       case "audioAutoPlay":
+      case "waitForResponse":
+      case "hideMessage":
         config[item] = true
         break;
       case "wordThreshold":
@@ -793,6 +795,17 @@ try {
     MNUtil.showHUD('标题已复制')
     return true
   }
+  static async getChatAIOutput() {
+    if (typeof chatAIUtils === "undefined") {
+      MNUtil.showHUD("Install MN ChatAI First!")
+      return ""
+    }
+    let text = await chatAIUtils.getCurrentResponse()
+    if (text && text.trim()) {
+      this.chatAIOutputCache = text.trim()
+    }
+    return this.chatAIOutputCache
+  }
 
   static async copy(des) {
     try {
@@ -808,12 +821,7 @@ try {
           }
           break
         case "chatAIOutput":
-          if (typeof chatAIUtils === "undefined") {
-            MNUtil.showHUD("Install MN ChatAI First!")
-            element = ""
-          }else{
-            element = await chatAIUtils.notifyController.getTextForAction()
-          }
+          element = await this.getChatAIOutput()
           break;
         case "selectionText":
           if (MNUtil.currentSelection.onSelection) {
@@ -1319,7 +1327,7 @@ try {
       config.currentDocAttach = editorUtils.getAttachContentByMD5(MNUtil.currentDocmd5)
     }
     if (hasChatAIOutput && chatAIUtils) {
-      config.chatAIOutput = await chatAIUtils.notifyController.getTextForAction()
+      config.chatAIOutput = await this.getChatAIOutput()
     }
     if (toolbarSandbox.hasGlobalVar()) {
       config.globalVar = toolbarSandbox.getGlobalVarObject()
@@ -1376,26 +1384,31 @@ try {
    */
   static getNotesByRange(range){
     if (range === undefined) {
+      //默认只返回选中的单卡片
       return [MNNote.getFocusNote()]
+    }
+    let validRanges = ["currentNotes","childNotes","descendants","descendantNotes"]
+    if (!validRanges.includes(range)) {
+      MNUtil.showHUD("Invalid range: "+range)
+      return []
+    }
+    let focusNotes = MNNote.getFocusNotes()
+    if (focusNotes.length === 0) {
+      MNUtil.showHUD("No notes found")
+      return []
     }
     switch (range) {
       case "currentNotes":
-        return MNNote.getFocusNotes()
+        return focusNotes
       case "childNotes":
         let childNotes = []
-        MNNote.getFocusNotes().map(note=>{
+        focusNotes.map(note=>{
           childNotes = childNotes.concat(note.childNotes)
         })
         return childNotes
       case "descendants":
       case "descendantNotes"://所有后代节点
         let descendantNotes = []
-        // let descendantNotes = []
-        let focusNotes = MNNote.getFocusNotes()
-        if (focusNotes.length === 0) {
-          MNUtil.showHUD("No notes found")
-          return []
-        }
         let topLevelNotes = this.buildHierarchy(focusNotes).map(o=>MNNote.new(o.id))
         // let notesWithoutDescendants = focusNotes.filter(note=>!note.hasDescendantNodes)
         topLevelNotes.map(note=>{
@@ -2127,8 +2140,8 @@ try {
     if (hasCurrentDocAttach && editorUtils) {
       config.currentDocAttach = editorUtils.getAttachContentByMD5(MNUtil.currentDocmd5)
     }
-    if (hasChatAIOutput && this.chatAIOutput) {
-      config.chatAIOutput = this.chatAIOutput
+    if (hasChatAIOutput && this.chatAIOutputCache) {
+      config.chatAIOutput = this.chatAIOutputCache
     }
     if (toolbarSandbox.hasGlobalVar()) {
       config.globalVar = toolbarSandbox.getGlobalVarObject()
@@ -2539,7 +2552,7 @@ try {
           MNUtil.showHUD("Install MN ChatAI First!")
           return
         }
-        markdown = await chatAIUtils.notifyController.getTextForAction()
+        markdown = await this.getChatAIOutput()
         break;
       default:
         break;
@@ -3077,14 +3090,27 @@ try {
    * @param {UIButton|undefined} button 
    * @returns 
    */
-  static chatAI(des,button){
+  static async chatAI(des,button){
+    if (!des || !Object.keys(des).length) {
+      MNUtil.postNotification("customChat",{})
+      return
+    }
+    this.chatAIOutputCache = ""
+    let option = {}
     switch (des.target) {
       case "openFloat":
         MNUtil.postNotification("chatAIOpenFloat", {beginFrame:button.convertRectToView(button.bounds,MNUtil.studyView)})
         return;
       case "currentPrompt":
-        MNUtil.postNotification("customChat",{})
-        return;
+        // if (des.waitForResponse) {
+        //   let res = await chatAIUtils.ask({})
+        //   if (res && res.trim()) {
+        //     this.chatAIOutputCache = res.trim()
+        //   }
+        // }else{
+        //   MNUtil.postNotification("customChat",{})
+        // }
+        break;
       case "stopOutput":
         if (typeof chatAIUtils === "undefined") {
           return;
@@ -3102,25 +3128,50 @@ try {
       default:
         break;
     }
-    if (!des || !Object.keys(des).length) {
-      MNUtil.postNotification("customChat",{})
-      return
-    }
+
 
     if (des.prompt) {
-      MNUtil.postNotification("customChat",{prompt:des.prompt})
-      return
+      option.prompt = des.prompt
+      // if (des.waitForResponse) {
+      //   let res = await chatAIUtils.ask({prompt:des.prompt})
+      //   if (res && res.trim()) {
+      //     this.chatAIOutputCache = res.trim()
+      //   }
+      // }else{
+      //   MNUtil.postNotification("customChat",{prompt:des.prompt})
+      // }
+      // return
     }
     if(des.user){
       let question = {user:des.user}
       if (des.system) {
         question.system = des.system
       }
-      MNUtil.postNotification("customChat",question)
-      // MNUtil.showHUD("Not supported yet...")
-      return;
+      option = question
+      // if (des.waitForResponse) {
+      //   let res = await chatAIUtils.ask(question)
+      //   if (res && res.trim()) {
+      //     this.chatAIOutputCache = res.trim()
+      //   }
+      // }else{
+      //   MNUtil.postNotification("customChat",question)
+      // }
+      // return;
     }
-    MNUtil.postNotification("customChat",{})
+    if ("hideMessage" in des) {
+      option.showHUD = !des.hideMessage
+    }
+    //留到最后统一处理
+    if (des.waitForResponse) {
+      let res = await chatAIUtils.ask(option)
+      if (res && res.trim()) {
+        this.chatAIOutputCache = res.trim()
+      }
+    }else{
+      //只发出通知，不等待响应完成
+      MNUtil.postNotification("customChat",option)
+    }
+    return
     // MNUtil.showHUD("No valid argument!")
   }
   /**
@@ -5998,7 +6049,7 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
       return
     }
     if (typeof chatAIUtils !== "undefined") {
-      this.chatAIOutput = await chatAIUtils.notifyController.getTextForAction()
+      await this.getChatAIOutput()
     }
     let focusNote = MNNote.getFocusNote()
     let targetNotes = []
@@ -6432,6 +6483,10 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         }
         let targetMode = des.targetMode ?? "toggle"
         targetNotes = this.getNotesByRange(des.range ?? "currentNotes")
+        if (targetNotes.length === 0) {
+          MNUtil.showHUD("No notes found")
+          break;
+        }
         MNUtil.undoGrouping(()=>{
           targetNotes.forEach(note=>{
             switch (targetMode) {
@@ -6464,7 +6519,7 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         await MNUtil.delay(0.1)
         break;
       case "chatAI":
-        this.chatAI(des,button)
+        await this.chatAI(des,button)
         await MNUtil.delay(0.1)
         break
       case "search":
@@ -7793,10 +7848,10 @@ static template(action) {
   let config = {action:action}
   switch (action) {
     case "cloneAndMerge":
-      config.target = toolbarUtils.version.version+"app://note/xxxx"
+      config.target = MNUtil.appVersion().version+"app://note/xxxx"
       break
     case "link":
-      config.target = toolbarUtils.version.version+"app://note/xxxx"
+      config.target = MNUtil.appVersion().version+"app://note/xxxx"
       config.type = "Both"
       break
     case "clearContent":
@@ -7816,7 +7871,7 @@ static template(action) {
       config.target = "title"
       break
     case "showInFloatWindow":
-      config.target = toolbarUtils.version+"app://note/xxxx"
+      config.target = MNUtil.appVersion().version+"app://note/xxxx"
       break
     case "addChildNote":
       config.title = "title"
@@ -8063,7 +8118,12 @@ static getDescriptionById(actionKey){
   if (actionKey in toolbarConfig.actions) {
     des = toolbarConfig.actions[actionKey].description
   }else{
-    des = toolbarConfig.getActions()[actionKey].description
+    let defaultActions = toolbarConfig.getActions()
+    if (actionKey in defaultActions) {
+      des = defaultActions[actionKey].description
+    }else{
+      return undefined
+    }
   }
   if (MNUtil.isValidJSON(des)) {
     let desObject = JSON.parse(des)

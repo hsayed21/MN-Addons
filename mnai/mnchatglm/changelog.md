@@ -64,6 +64,26 @@ editNote工具支持传入指定noteId，可以实现同时编辑多个卡片
 
 改进同步功能，支持导出配置到文件
 修复一些同步的bug
+
+改进editNote的一些bug
+
+改进cards系列变量的内容提供
+editNote支持setMarkdownStatus，用于控制摘录的markdown渲染
+支持将历史记录导出为URL，支持从URL导入历史记录
+改进未选中卡片下的卡片创建逻辑
+统一代码块渲染的按钮UI
+
+action增加Switch to Chat Mode, Enable Excerpt Markdown和Disable Excerpt Markdown
+导出配置到文件时会附带聊天记录
+从文件中恢复配置时会检测并询问是否导入聊天记录
+导出的配置文件名会带上时间戳
+改进chatAIUtils.ask的兼容性
+新增OpenRouter源
+修复OpenRouter的一个bug
+
+修复markdown列表缩进错误的问题
+支持千牛云
+
 killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app"
 
 pgrep -x "MarginNote 4" > /dev/null && (killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app") || open "/Applications/MarginNote 4.app"

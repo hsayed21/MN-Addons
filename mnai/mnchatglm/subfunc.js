@@ -352,7 +352,7 @@ function codeBlockReplacer(lang,format,code){
       let url = `userselect://choice?content=${encodedContent}`
       code = renderKaTeXFormulas(code)
       // code = md2html(code)
-      return `\n<div><a href="${url}" style="display: block; padding: 10px 12px; margin-top: 10px; background: #e3eefc; color: #1565c0; border-radius: 8px; text-decoration: none; border: 2px solid transparent; border-color: #90caf9; font-size: 15px; cursor: pointer; box-sizing: border-box;">
+      return `\n<div><a href="${url}" style="display: block; padding: 10px 12px; margin-top: 10px; background: #e3eefc; color: #1565c0; border-radius: 16px; text-decoration: none; border: 2px solid transparent; border-color: #90caf9; font-size: 15px; cursor: pointer; box-sizing: border-box;">
 ${code.trim()}
 </a></div>`
     }
@@ -365,8 +365,12 @@ ${code.trim()}
         url = `userselect://addnote?content=${encodedContent}&format=markdown`
         code = md2html(code)
       }
-      return `\n<div><a href="${url}" style="display: block; padding: 10px 12px; margin-top: 10px; background:rgb(230, 255, 239); color:#237427; border-radius: 8px; text-decoration: none; border: 2px solid transparent; border-color:#01b76e; font-size: 15px; cursor: pointer; box-sizing: border-box;">
-<div style="font-weight: bold;margin-bottom: 5px;font-size: 18px;">➕点击创建笔记：</div>
+      let newNoteButtonBackgroundColor = "rgba(221, 255, 213, 0.8)"
+      let newNoteButtonBorderColor = "rgba(80, 181, 92, 0.8)"
+      let newNoteButtonHTML = `<div style="display: inline-block; font-weight: 600; width: 120px; min-width: 120px; font-size: 14px; text-align: center; padding: 8px 5px; background: ${newNoteButtonBackgroundColor}; border-radius: 12px; border: 1px solid ${newNoteButtonBorderColor};">➕ 点击创建笔记</div>`
+
+      return `\n<div><a href="${url}" style="display: block; padding: 5px 5px; margin-top: 10px; margin-left: 3px; margin-right: 3px; background:rgb(230, 255, 239); color:#237427; border-radius: 16px; text-decoration: none; border: 2px solid transparent; border-color:#01b76e; font-size: 15px; cursor: pointer; box-sizing: border-box;">
+<div style="text-align: right; margin-top: 1px; margin-bottom: 2px;">${newNoteButtonHTML}</div>
 ${code.trim()}
 </a></div>`
   }
@@ -376,8 +380,11 @@ ${code.trim()}
         url = `userselect://addnote?content=${encodedContent}&format=markdown`
         code = md2html(code)
       }
-      return `\n<div><a href="${url}" style="display: block; padding: 10px 12px; margin-top: 10px; background:rgb(230, 255, 239); color:#237427; border-radius: 8px; text-decoration: none; border: 2px solid transparent; border-color:#01b76e; font-size: 15px; cursor: pointer; box-sizing: border-box;">
-<div style="font-weight: bold;margin-bottom: 5px;font-size: 18px;">➕点击添加卡片评论：</div>
+      let newNoteButtonBackgroundColor = "rgba(213, 233, 255, 0.8)"
+      let newNoteButtonBorderColor = "rgba(192, 217, 255, 0.47)"
+      let newNoteButtonHTML = `<div style="display: inline-block; font-weight: 600; width: 120px; min-width: 120px; font-size: 14px; text-align: center; padding: 8px 5px; background: ${newNoteButtonBackgroundColor}; border-radius: 12px; border: 1px solid ${newNoteButtonBorderColor};">➕ 点击添加评论</div>`
+      return `\n<div><a href="${url}" style="display: block; padding: 10px 12px; margin-top: 10px; margin-left: 3px; margin-right: 3px; background:rgb(230, 255, 239); color:#237427; border-radius: 16px; text-decoration: none; border: 2px solid transparent; border-color:#01b76e; font-size: 15px; cursor: pointer; box-sizing: border-box;">
+<div style="text-align: right; margin-top: 1px; margin-bottom: 2px;">${newNoteButtonHTML}</div>
 ${code.trim()}
 </a></div>`
   }
@@ -392,7 +399,7 @@ function codeBlockReplacerNotEnding(lang,format,code){
       let url = `userselect://choice?content=${encodedContent}`
       code = renderKaTeXFormulas(code)
       // code = md2html(code)
-      return `\n<div><a href="${url}" style="display: block; padding: 10px 12px; margin-top: 10px; background: #e3eefc; color: #1565c0; border-radius: 8px; text-decoration: none; border: 2px solid transparent; border-color: #90caf9; font-size: 15px; cursor: pointer; box-sizing: border-box;">
+      return `\n<div><a href="${url}" style="display: block; padding: 10px 12px; margin-top: 10px; background: #e3eefc; color: #1565c0; border-radius: 16px; text-decoration: none; border: 2px solid transparent; border-color: #90caf9; font-size: 15px; cursor: pointer; box-sizing: border-box;">
 ${code.trim()}
 </a></div>`
     }
@@ -405,8 +412,11 @@ ${code.trim()}
         url = `userselect://addnote?content=${encodedContent}&format=markdown`
         code = md2html(code)
       }
-      return `\n<div><a href="${url}" style="display: block; padding: 10px 12px; margin-top: 10px; background:rgb(230, 255, 239); color:#237427; border-radius: 8px; text-decoration: none; border: 2px solid transparent; border-color:#01b76e; font-size: 15px; cursor: pointer; box-sizing: border-box;">
-<div style="font-weight: bold;margin-bottom: 5px;font-size: 18px;">➕点击创建笔记：</div>
+      let newNoteButtonBackgroundColor = "rgba(221, 255, 213, 0.8)"
+      let newNoteButtonBorderColor = "rgba(80, 181, 92, 0.8)"
+      let newNoteButtonHTML = `<div style="display: inline-block; font-weight: 600; width: 120px; min-width: 120px; font-size: 14px; text-align: center; padding: 8px 5px; background: ${newNoteButtonBackgroundColor}; border-radius: 12px; border: 1px solid ${newNoteButtonBorderColor};">➕ 点击创建笔记</div>`
+      return `\n<div><a href="${url}" style="display: block; padding: 5px 5px; margin-top: 10px; margin-left: 3px; margin-right: 3px; background:rgb(230, 255, 239); color:#237427; border-radius: 16px; text-decoration: none; border: 2px solid transparent; border-color:#01b76e; font-size: 15px; cursor: pointer; box-sizing: border-box;">
+<div  style="text-align: right; margin-top: 1px; margin-bottom: 2px;">${newNoteButtonHTML}</div>
 ${code.trim()}
 </a></div>`
   }
@@ -416,8 +426,11 @@ ${code.trim()}
         url = `userselect://addnote?content=${encodedContent}&format=markdown`
         code = md2html(code)
       }
-      return `\n<div><a href="${url}" style="display: block; padding: 10px 12px; margin-top: 10px; background:rgb(230, 255, 239); color:#237427; border-radius: 8px; text-decoration: none; border: 2px solid transparent; border-color:#01b76e; font-size: 15px; cursor: pointer; box-sizing: border-box;">
-<div style="font-weight: bold;margin-bottom: 5px;font-size: 18px;">➕点击添加卡片评论：</div>
+      let newNoteButtonBackgroundColor = "rgba(213, 233, 255, 0.8)"
+      let newNoteButtonBorderColor = "rgba(192, 217, 255, 0.47)"
+      let newNoteButtonHTML = `<div style="display: inline-block; font-weight: 600; width: 120px; min-width: 120px; font-size: 14px; text-align: center; padding: 8px 5px; background: ${newNoteButtonBackgroundColor}; border-radius: 12px; border: 1px solid ${newNoteButtonBorderColor};">➕ 点击添加评论</div>`
+      return `\n<div><a href="${url}" style="display: block; padding: 10px 12px; margin-top: 10px; margin-left: 3px; margin-right: 3px; background:rgb(230, 255, 239); color:#237427; border-radius: 16px; text-decoration: none; border: 2px solid transparent; border-color:#01b76e; font-size: 15px; cursor: pointer; box-sizing: border-box;">
+<div style="text-align: right; margin-top: 1px; margin-bottom: 2px;">${newNoteButtonHTML}</div>
 ${code.trim()}
 </a></div>`
   }

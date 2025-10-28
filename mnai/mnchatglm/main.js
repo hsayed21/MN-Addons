@@ -561,10 +561,9 @@ JSB.newAddon = function (mainPath) {
               }
               if (promptConfig.func && promptConfig.func.length > 0) {
                 let funcNames = promptConfig.func.map(funcIndex=>{
-                  let toolName = chatAITool.toolNames[funcIndex]
-      
-                  return chatAITool.toolConfig[toolName].toolTitle})
-                  
+                  let toolConfig = chatAITool.getToolConfig(funcIndex)
+                  return toolConfig.toolTitle
+                })
                 .join("\n")
                 contentToShow += "\n\n➖➖ Tools ➖➖\n"+funcNames
               }

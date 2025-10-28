@@ -387,7 +387,11 @@ class MNNote{
    * @returns {string[]} An array of unique titles associated with the current note.
    */
   get titles() {
-    return MNUtil.unique(this.note.noteTitle?.split(/\s*[;；]\s*/) ?? [], true)
+    let titles = this.note.noteTitle?.split(/\s*[;；]\s*/) ?? []
+    if (titles.length > 0) {
+      return MNUtil.unique(titles, true)
+    }
+    return []
   }
   /**
    * Sets the titles associated with the current note.
@@ -397,6 +401,11 @@ class MNNote{
    * @param {string[]} titles - The array of titles to set for the current note.
    */
   set titles(titles) {
+    if (typeof titles === "string") {
+      //如果提供的不是数组，则与set title方法一致
+      this.note.noteTitle = titles
+      return
+    }
     const newTitle = MNUtil.unique(titles, true).join("; ")
     if (this.note.excerptText === this.note.noteTitle) {
       this.note.noteTitle = newTitle
@@ -405,6 +414,88 @@ class MNNote{
       this.note.noteTitle = newTitle
     }
   }
+
+  /**
+   * 卡片标题，但不包括markdown标题
+   * @returns {string}
+   */
+  get title() {
+    let titles = this.titlesWithoutMarkdownSource
+    if (!titles || titles.length === 0) {
+      return ""
+    }
+    return titles.join("; ")
+  }
+  /**
+   *
+   * @param {string} title
+   * @returns
+   */
+  set title(title) {
+    this.note.noteTitle = title
+  }
+  /**
+   * 这里不去除markdown标题，保证兼容性
+   * @returns {string}
+   */
+  get noteTitle() {
+    return this.note.noteTitle ?? ""
+  }
+  /**
+   *
+   * @param {string} title
+   * @returns
+   */
+  set noteTitle(title) {
+    this.note.noteTitle = title
+  }
+  /**
+   * 当卡片的内容为markdown时，其markdown标题会被添加进卡片标题，格式为{{title}}，这里需要将其提取出来
+   * @returns {string[]}
+   */
+  get titlesFromMarkdown(){
+  try {
+
+    let titles = this.titles
+    if (!titles || titles.length === 0) {
+      return []
+    }
+    return titles.filter(t=>{
+      if (/{{.*}}/.test(t)) {
+        return true
+      }
+      return false
+    })
+    
+  } catch (error) {
+    MNNote.addErrorLog(error, "titlesFromMarkdown", this.noteId)
+    return []
+  }
+  }
+  /**
+   * 当卡片的内容为markdown时，其markdown标题会被添加进卡片标题，格式为{{title}}，这里需要将其删除
+   * @returns {string[]}
+   */
+  get titlesWithoutMarkdownSource(){
+  try {
+
+    let titles = this.titles
+    if (!titles || titles.length === 0) {
+      return []
+    }
+    return titles.filter(t=>{
+      if (/{{.*}}/.test(t)) {
+        return false
+      }
+      return true
+    })
+    
+  } catch (error) {
+    MNNote.addErrorLog(error, "titlesWithoutMarkdownSource", this.noteId)
+    return []
+  }
+  }
+
   get isOCR() {
     if (this.excerptPic) {
       if (MNUtil.isBlankNote(this)) {
@@ -422,20 +513,6 @@ class MNNote{
     }
     return textFirst
   }
-  get title() {
-    return this.note.noteTitle ?? ""
-  }
-  get noteTitle() {
-    return this.note.noteTitle ?? ""
-  }
-  /**
-   *
-   * @param {string} title
-   * @returns
-   */
-  set title(title) {
-    this.note.noteTitle = title
-  }
   /**
    * set textFirst
    * @param {boolean} on
@@ -443,14 +520,6 @@ class MNNote{
    */
   set textFirst(on){
     this.note.textFirst = on
-  }
-  /**
-   *
-   * @param {string} title
-   * @returns
-   */
-  set noteTitle(title) {
-    this.note.noteTitle = title
   }
   get excerptText(){
     return this.note.excerptText
@@ -934,18 +1003,107 @@ class MNNote{
   allNoteText(){
     return this.note.allNoteText()
   }
+  /**
+   * 与title的set方法一致，但会返回自身，便于链式调用
+   * @param {string} title 
+   * @returns {MNNote}
+   */
+  setTitle(title){
+    this.noteTitle = title
+    return this
+  }
+  /**
+   * 与titles的set方法一致，但会返回自身，便于链式调用
+   * @param {string[]} titles 
+   * @returns {MNNote}
+   */
+  setTtiles(titles){
+    this.titles = titles
+    return this
+  }
+  /**
+   * 更新标题，从markdown中提取标题
+   * @param {string|string[]} title
+   * @returns {MNNote}
+   */
+  setTitleAndUpdateFromMarkdown(title){
+    let titles = Array.isArray(title) ? title : title.split(";").map(t=>t.trim())
+    let headingNames = MNUtil.headingNamesFromMarkdown(this.allNoteText())
+    if (headingNames.length) {
+      //去重
+      let newTitles = headingNames.filter(h=>!titles.includes(h))
+      this.noteTitle = title+";"+newTitles.map(h=>"{{"+h+"}}").join(";")
+      return this
+    }else{
+      //直接更新标题
+      this.noteTitle = title
+      return this
+    }
+  }
+  /**
+   * 更新标题，从markdown中提取标题
+   * @returns {MNNote}
+   */
+  updateTitleFromMarkdown(){
+    let titles = this.titlesWithoutMarkdownSource
+    let headingNames = MNUtil.headingNamesFromMarkdown(this._getMDContent())
+    if (headingNames.length) {
+      //去重
+      let newTitles = headingNames.filter(h=>!titles.includes(h))
+      this.noteTitle = this.title+";"+newTitles.map(h=>"{{"+h+"}}").join(";")
+      return this
+    }else{
+      //不需要更新标题
+      return this
+    }
+  }
+  /**
+   * 只提取markdown格式的内容，如markdown正文和markdown评论
+   * @returns {string}
+   */
+  _getMDContent(){
+    let allContent = []
+    if (this.excerptText && this.excerptTextMarkdown) {
+      allContent.push(this.excerptText)
+    }
+    let comments = this.comments
+    if (!comments || comments.length === 0) {
+      return allContent.join("\n\n")
+    }
+    for (let i = 0; i < comments.length; i++) {
+      const comment = comments[i];
+      switch (comment.type) {
+        case "TextNote":
+          if (comment.markdown) {
+            allContent.push(comment.text)
+          }
+          break;
+        case "LinkNote":
+          //目前默认为markdown文字
+          if (comment.q_hpic  && comment.q_hpic.paint) {
+            let imageData = MNUtil.getMediaByHash(comment.q_hpic.paint)
+            if (MNUtil.isEmptyImage(imageData)) {
+              if (comment.q_htext) {
+                allContent.push(comment.q_htext)
+              }
+            }
+          }else{
+            allContent.push(comment.q_htext)
+          }
+          break
+        default:
+          break;
+      }
+    }
+    return allContent.join("\n\n")
+  }
 
-  async getMDContent(withBase64 = false){
+  getMDContent(withBase64 = false){
     let note = this.realGroupNoteForTopicId()
 try {
-  let title = (note.noteTitle && note.noteTitle.trim()) ? "# "+note.noteTitle.trim() : ""
-  if (title.trim()) {
-    title = title.split(";").filter(t=>{
-      if (/{{.*}}/.test(t)) {
-        return false
-      }
-      return true
-    }).join(";")
+  let title = this.title.trim()
+  if (title.trim() && !title.startsWith("#")) {
+    title = "# "+title.trim()
   }
   let textFirst = note.textFirst
   let excerptText

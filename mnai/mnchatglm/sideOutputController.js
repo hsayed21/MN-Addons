@@ -164,8 +164,14 @@ try {
     let menu = new Menu(button,self)
     menu.rowHeight = 35
     menu.preferredPosition = 2
-    menu.addMenuItem('📤  Export history', 'exportHistory:')
-    menu.addMenuItem('📥  Import history', 'importHistory:')
+    menu.addMenuItem('📤  Export history to file', 'exportHistory:','file')
+    if (chatAIUtils.isActivated()) {
+      menu.addMenuItem('📤  Export history to ChatID', 'exportHistory:','chatId')
+    }
+    menu.addMenuItem('📥  Import history from file', 'importHistory:','file')
+    if (chatAIUtils.isActivated()) {
+      menu.addMenuItem('📥  Import history from ChatID', 'importHistory:','chatId')
+    }
     menu.addMenuItem('🔄  Reload history', 'reloadHistory:')
     // menu.addMenuItem('🔄  Reload webview', 'reloadWebview:')
     menu.show()
@@ -179,24 +185,86 @@ try {
     let self = getSideOutputController()
     self.toggleNavEv()
   },
-  exportHistory: function (params) {
+  exportHistory: async function (params) {
     let self = getSideOutputController()
+    try {
+
     self.checkPopover()
+    Menu.dismissCurrentMenu()
     let dataPath = subscriptionUtils.extensionPath+"/data/chatData.json"
-    // let data = chatAIConfig.getChatData()
-    MNUtil.saveFile(dataPath, ["public.json"])
-    // MNUtil.copyJSON(data)
+    switch (params) {
+      case "file":
+        MNUtil.saveFile(dataPath, ["public.json"])
+        break;
+      case "chatId":
+        if (!chatAIUtils.isActivated()) {
+          return;
+        }
+        if (!chatAIUtils.checkSubscribe(true,true,false)) {
+          return;
+        }
+        let confirm = await MNUtil.confirm("🤖 MN ChatAI","Export history to Cloud?\n是否将历史记录加密后上传到云端?")
+        if (!confirm) {
+          return;
+        }
+        self.waitHUD("Exporting history...")
+        let text = MNUtil.readText(dataPath)
+        let res = await chatAIConfig.uploadConfigWithEncryptionToAlist(text)
+        if (res.success) {
+          MNUtil.copy(res.id)
+          MNUtil.stopHUD()
+          MNUtil.confirm("🤖 MN ChatAI","Export success! ChatID copied to clipboard.\n导出成功！ChatID已复制到剪贴板.\n\n"+res.id)
+        }else{
+          self.showHUD("Export failed: "+res.error)
+        }
+        break;
+      default:
+        break;
+    }
+      
+      
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "exportHistory")
+    }
   },
   importHistory: async function (params) {
     let self = getSideOutputController()
     self.checkPopover()
-    let dataPath = await MNUtil.importFile(["public.json"])
-    MNUtil.showHUD("📥 Import history")
-    let data= MNUtil.readJSON(dataPath)
+    Menu.dismissCurrentMenu()
+    let data = undefined
+    switch (params) {
+      case "file":
+        let dataPath = await MNUtil.importFile(["public.json"])
+        self.waitHUD("📥 Import history")
+        data = MNUtil.readJSON(dataPath)
+        break;
+      case "chatId":
+        if (!chatAIUtils.isActivated()) {
+          return;
+        }
+        if (!chatAIUtils.checkSubscribe(true,true,false)) {
+          return;
+        }
+        let res = await MNUtil.userInput("🤖 MN ChatAI","Please enter the ChatId of the encrypted history file\n\n请输入加密后的历史记录Id")
+        if (!res.input) {
+          return;
+        }
+        let id = res.input
+        self.waitHUD("📥 Downloading history...")
+        data = await chatAIConfig.readEncryptedConfigFrom123(id)
+        if (!data) {
+          self.showHUD("Invalid history file!")
+          return
+        }
+        self.waitHUD("📥 Importing history...")
+        break;
+    }
     if ("chats" in data && "chatIdxs" in data && "folder" in data && "activeChatIdx" in data) {
       self.activeChatIdx = data.activeChatIdx
       chatAIConfig.exportChatData(data)
       self.importData()
+      self.waitHUD("📥 Import success!")
+      MNUtil.stopHUD(0.5)
     }else{
       MNUtil.showHUD("Invalid history file!")
     }
@@ -1478,6 +1546,8 @@ try {
     case "SiliconFlow":
     case "ModelScope":
     case "PPIO":
+    case "Qiniu":
+    case "OpenRouter":
     case "Volcengine":
     case "Github":
     case "Metaso":
@@ -2310,50 +2380,6 @@ sideOutputController.prototype.codifyToolCall = function (funcName,arguments) {
         }
       })
       return preFix+toolMessages.join("")+")\n"
-    // case "setTitle":
-    //   if (arguments.title) {
-    //     return `${funcName}("${MNUtil.mergeWhitespace(arguments.title)}")\n`
-    //   }
-    // case "addComment":
-    //   if (arguments.comment) {
-    //     return `${funcName}("${arguments.comment.trim()}")\n`
-    //   }
-    // case "addTag":
-    //   if (arguments.tag) {
-    //     return `${funcName}("${MNUtil.mergeWhitespace(arguments.tag)}")\n`
-    //   }
-    // case "copyMarkdownLink":
-    //   if (arguments.title) {
-    //     return `${funcName}("${MNUtil.mergeWhitespace(arguments.title)}")\n`
-    //   }
-    // case "copyCardURL":
-    //   return `${funcName}()\n`
-    // case "copyText":
-    //   if (arguments.text) {
-    //     return `${funcName}("${MNUtil.mergeWhitespace(arguments.text)}")\n`
-    //   }
-    // case "close":
-    //   return `${funcName}()\n`
-    // case "clearExcerpt":
-    //   return `${funcName}()\n`
-    // case "setExcerpt":
-    //   if (arguments.excerpt) {
-    //     return `${funcName}("${arguments.excerpt.trim()}")\n`
-    //   }
-    // case "addChildNote":
-    //   let pre = `${funcName}(\n`
-    //   if (arguments.title) {
-    //     pre = pre+`"${MNUtil.mergeWhitespace(arguments.title)}"`
-    //     if (arguments.content) {
-    //       pre = pre+",\n"
-    //     }
-    //   }
-    //   if (arguments.content) {
-    //     pre = pre+`"${arguments.content.trim()}"`
-    //   }
-    //   pre = pre+`\n)\n`
-    //   return pre
-    //   return `${funcName}(\n"${MNUtil.mergeWhitespace(arguments.title)}",\n"${MNUtil.mergeWhitespace(arguments.content)}\n")\n`
     default:
       return chatAITool.getToolByName(funcName).codifyToolCall(arguments)
       break;
@@ -2800,8 +2826,9 @@ sideOutputController.prototype.clearCache = async function () {
   this.chatRunJavaScript(`clearCache()`)
 }
 /**
+ * 默认是从chatData.json中导入聊天数据
  * @this {sideOutputController}
- * @param {string} message 
+ * @param {Object} newChatData//额外的聊天数据，会被合并进已有的聊天数据中
  */
 sideOutputController.prototype.importData = function (newChatData) {
 try {
@@ -3485,6 +3512,80 @@ sideOutputController.prototype.userSelectAddNote = async function (content,forma
 try {
 
     let note = chatAIUtils.getFocusNote()
+    if (!note) {//当前无选中卡片
+      //先判断是否要从文本创建摘录
+      if (MNUtil.currentSelection.onSelection) {
+        note = MNNote.fromSelection().realGroupNoteForTopicId()
+        if (format === "json") {
+          this.showHUD("➕ Create Question note from document")
+          let title = content.title
+          let description = content.description+"\n\n"+chatAIUtils.getChoicesHTML(content.choices)
+          chatAIUtils.applyEditByConfig([{title:title,excerptText:description,excerptTextMarkdown:true}],note)
+          note.focusInMindMap(0.5)
+          return
+        }
+        content = content.replace(/\\n/g,"\n")
+        let selectingText = await this.getWebviewSelection()
+        if (!selectingText && (Date.now()-this.selection.time < 5000)) {
+          selectingText = this.selection.text
+        }
+        // let selectingText = await this.getWebviewContent()
+        if (selectingText) {
+          content = content+"\n\n"+selectingText
+        }
+        if (format === "markdown" && /^#/.test(content.trim())) {
+            this.showHUD("➕ Add note: "+content)
+            let contents = content.split("\n")
+            let newTitle = contents[0].replace(/^#\s?/g,"")
+            let contentRemain = contents.slice(1).join("\n").trim()
+            chatAIUtils.applyEditByConfig([{title:newTitle,excerptText:contentRemain,excerptTextMarkdown:true}],note)
+            note.focusInMindMap(0.5)
+            return
+        }
+        chatAIUtils.applyEditByConfig([{excerptText:content,excerptTextMarkdown:true}],note)
+        note.focusInMindMap(0.5)
+        return
+      }else if (MNNote.currentChildMap) {//尝试在子脑图下创建笔记
+        note = MNNote.currentChildMap
+      }else{//直接在主脑图创建卡片
+        if (format === "json") {
+          this.showHUD("➕ Add Question note")
+          let title = content.title
+          let description = content.description+"\n\n"+chatAIUtils.getChoicesHTML(content.choices)
+          MNUtil.undoGrouping(()=>{
+            let note = MNNote.new({title:title,excerptText:description,excerptTextMarkdown:true})
+            note.focusInMindMap(0.5)
+          })
+          return
+        }
+        content = content.replace(/\\n/g,"\n")
+        let selectingText = await this.getWebviewSelection()
+        if (!selectingText && (Date.now()-this.selection.time < 5000)) {
+          selectingText = this.selection.text
+        }
+        // let selectingText = await this.getWebviewContent()
+        if (selectingText) {
+          content = content+"\n\n"+selectingText
+        }
+        if (format === "markdown" && /^#/.test(content.trim())) {
+            this.showHUD("➕ Add note: "+content)
+            let contents = content.split("\n")
+            let newTitle = contents[0].replace(/^#\s?/g,"")
+            let contentRemain = contents.slice(1).join("\n").trim()
+            MNUtil.undoGrouping(()=>{
+              let note = MNNote.new({title:newTitle,excerptText:contentRemain,excerptTextMarkdown:true})
+              note.focusInMindMap(0.5)
+            })
+            return
+        }
+        MNUtil.undoGrouping(()=>{
+          let note = MNNote.new({excerptText:content,excerptTextMarkdown:true})
+          note.focusInMindMap(0.5)
+        })
+        // MNUtil.confirm("🤖 MN ChatAI", "Note unavailable, please select a note first\n\n请先选择一个笔记/卡片")
+        return false
+      }
+    }
     if (format === "json") {
       this.showHUD("➕ Add Question note")
       // chatAIUtils.log("content", content)
