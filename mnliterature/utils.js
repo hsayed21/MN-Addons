@@ -119,11 +119,11 @@ class literatureUtils {
 
   /**
    * 确保视图在正确的父视图中
-   * 
+   *
    * 这个方法解决了一个常见问题：
    * 插件视图可能因为各种原因（窗口切换、内存管理等）从父视图中移除
    * 在显示视图前，必须确保它在正确的容器中
-   * 
+   *
    * @param {UIView} view - 需要确保的视图对象
    */
   static ensureView(view){
@@ -133,6 +133,328 @@ class literatureUtils {
       view.hidden = true
       // 然后添加到 studyView 中
       MNUtil.studyView.addSubview(view)
+    }
+  }
+
+  // ==================== 作者名称处理函数 ====================
+
+  /**
+   * 判断字符串的语言类型
+   * @param {string} input - 输入字符串
+   * @returns {string} "Chinese" 或 "English"
+   */
+  static languageOfString(input) {
+    const chineseRegex = /[\u4e00-\u9fa5]/;
+    if (chineseRegex.test(input)) {
+      return "Chinese";
+    } else {
+      return "English";
+    }
+  }
+
+  /**
+   * 将字符串首字母大写
+   * @param {string} string - 输入字符串
+   * @returns {string} 首字母大写的字符串
+   */
+  static camelizeString(string) {
+    return string[0].toUpperCase() + string.slice(1);
+  }
+
+  /**
+   * 生成英文名称的各种变体
+   * @param {string} name - 英文名称
+   * @returns {Object} 包含各种名称变体的对象
+   */
+  static getAbbreviationsOfEnglishName(name) {
+    const namePartsArr = name.split(" ");
+    const namePartsNum = namePartsArr.length;
+    const Name = {};
+
+    if (namePartsNum < 2) {
+      Name.original = name;
+      return Name;
+    }
+
+    const firstPart = namePartsArr[0];
+    const lastPart = namePartsArr[namePartsNum - 1];
+
+    if (namePartsNum === 2) {
+      // 例：Kangwei Xia
+      Name.original = name;
+      Name.reverse = lastPart + ", " + firstPart; // Xia, Kangwei
+      Name.abbreviateFirstpart = firstPart[0] + ". " + lastPart; // K. Xia
+      Name.abbreviateFirstpartAndReverseAddComma = lastPart + ", " + firstPart[0] + "."; // Xia, K.
+    } else if (namePartsNum === 3) {
+      // 例：Louis de Branges
+      const middlePart = namePartsArr[1];
+      Name.original = name;
+      Name.removeMiddlepart = firstPart + " " + lastPart; // Louis Branges
+      Name.abbreviateFirstpart = firstPart[0] + ". " + middlePart + " " + lastPart; // L. de Branges
+      Name.abbreviateFirstpartAndReverseAddComma = middlePart + " " + lastPart + ", " + firstPart[0] + "."; // de Branges, L.
+      Name.abbreviateFirstpartAndRemoveMiddlepart = firstPart[0] + ". " + lastPart; // L. Branges
+    } else {
+      // 4个及以上部分，只生成基础变体
+      Name.original = name;
+    }
+
+    return Name;
+  }
+
+  /**
+   * 生成名称的所有可能变体（简化版）
+   * @param {string} nameInput - 输入名称
+   * @returns {Array<string>} 名称变体数组
+   */
+  static generateNameVariants(nameInput) {
+    const languageOfName = this.languageOfString(nameInput);
+    const variants = new Set([nameInput]); // 原始名称始终包含
+
+    if (languageOfName === "English") {
+      // 处理英文名称
+      const nameObj = this.getAbbreviationsOfEnglishName(nameInput);
+      Object.values(nameObj).forEach(variant => {
+        if (variant && typeof variant === 'string') {
+          variants.add(variant);
+        }
+      });
+    } else {
+      // 中文名称：由于没有 pinyin 库，只能返回原名
+      // 用户需要手动添加拼音变体
+      variants.add(nameInput);
+    }
+
+    return Array.from(variants);
+  }
+
+  /**
+   * 智能选择最佳显示名称（基于文化背景）
+   * @param {Set|Array} variants - 名称变体集合
+   * @returns {string} 最佳显示名称
+   */
+  static selectBestDisplayName(variants) {
+    if (!variants || (variants.size === 0 && variants.length === 0)) return '';
+
+    const variantArray = Array.isArray(variants) ? variants : Array.from(variants);
+    if (variantArray.length === 1) return variantArray[0];
+
+    // 检测是否为中国作者（任意变体包含中文字符）
+    const hasChinese = variantArray.some(name => /[\u4e00-\u9fa5]/.test(name));
+
+    if (hasChinese) {
+      // 中国作者：拼音 > 中文 > 其他
+      return variantArray.sort((a, b) => {
+        const aIsChinese = /[\u4e00-\u9fa5]/.test(a);
+        const bIsChinese = /[\u4e00-\u9fa5]/.test(b);
+        const aIsPinyin = !aIsChinese && !/\./.test(a) && /[a-zA-Z]/.test(a);
+        const bIsPinyin = !bIsChinese && !/\./.test(b) && /[a-zA-Z]/.test(b);
+
+        // 拼音优先
+        if (aIsPinyin && !bIsPinyin) return -1;
+        if (!aIsPinyin && bIsPinyin) return 1;
+
+        // 然后是中文
+        if (!aIsPinyin && !bIsPinyin) {
+          if (aIsChinese && !bIsChinese) return -1;
+          if (!aIsChinese && bIsChinese) return 1;
+        }
+
+        // 同类别：更长的优先
+        return b.length - a.length;
+      })[0];
+    } else {
+      // 外国作者：最完整（无点号，更长）
+      return variantArray.sort((a, b) => {
+        const aHasDots = /\./.test(a);
+        const bHasDots = /\./.test(b);
+        if (aHasDots !== bHasDots) return aHasDots ? 1 : -1;
+        return b.replace(/[\s.,]/g, '').length - a.replace(/[\s.,]/g, '').length;
+      })[0];
+    }
+  }
+
+  /**
+   * 计算两个字符串的相似度（Levenshtein 距离算法）
+   * @param {string} str1 - 第一个字符串
+   * @param {string} str2 - 第二个字符串
+   * @returns {number} 相似度 (0-1)，1 表示完全相同
+   */
+  static calculateSimilarity(str1, str2) {
+    if (str1 === str2) return 1;
+    if (!str1 || !str2) return 0;
+
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+
+    // Levenshtein 距离
+    const longerLength = longer.length;
+    if (longerLength === 0) return 1.0;
+
+    const costs = new Array();
+    for (let i = 0; i <= shorter.length; i++) {
+      let lastValue = i;
+      for (let j = 0; j <= longerLength; j++) {
+        if (i === 0) {
+          costs[j] = j;
+        } else if (j > 0) {
+          let newValue = costs[j - 1];
+          if (shorter.charAt(i - 1) !== longer.charAt(j - 1)) {
+            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+          }
+          costs[j - 1] = lastValue;
+          lastValue = newValue;
+        }
+      }
+      if (i > 0) costs[longerLength] = lastValue;
+    }
+
+    return (longerLength - costs[longerLength]) / longerLength;
+  }
+
+  /**
+   * 查找与指定作者相似的其他作者
+   * @param {string} authorName - 要检查的作者名称
+   * @param {Array} allAuthors - 所有作者列表
+   * @param {number} threshold - 相似度阈值 (0-1)
+   * @returns {Array} 相似作者列表 [{name, similarity}]
+   */
+  static findSimilarAuthors(authorName, allAuthors, threshold = 0.75) {
+    const similarAuthors = [];
+
+    allAuthors.forEach(author => {
+      if (author.name === authorName) return; // 跳过自己
+
+      // 检查名称本身的相似度
+      const nameSimilarity = this.calculateSimilarity(
+        authorName.toLowerCase(),
+        author.name.toLowerCase()
+      );
+
+      if (nameSimilarity >= threshold) {
+        similarAuthors.push({
+          name: author.name,
+          similarity: nameSimilarity,
+          reason: '名称相似'
+        });
+        return;
+      }
+
+      // 检查是否与对方的任何变体匹配
+      if (author.nameVariants && author.nameVariants.size > 0) {
+        for (const variant of author.nameVariants) {
+          const variantSimilarity = this.calculateSimilarity(
+            authorName.toLowerCase(),
+            variant.toLowerCase()
+          );
+          if (variantSimilarity >= threshold) {
+            similarAuthors.push({
+              name: author.name,
+              similarity: variantSimilarity,
+              reason: `与变体 "${variant}" 相似`
+            });
+            break;
+          }
+        }
+      }
+    });
+
+    // 按相似度降序排序
+    return similarAuthors.sort((a, b) => b.similarity - a.similarity);
+  }
+
+  /**
+   * 合并多个作者为一个
+   * @param {Object} primaryAuthor - 主作者对象（保留其元数据）
+   * @param {Array} authorsToMerge - 要合并的其他作者对象数组
+   * @returns {Object} 合并后的作者对象
+   */
+  static mergeAuthors(primaryAuthor, authorsToMerge) {
+    try {
+      // 合并所有名称变体
+      const mergedVariants = new Set(primaryAuthor.nameVariants || [primaryAuthor.name]);
+
+      authorsToMerge.forEach(author => {
+        // 添加作者名称本身
+        mergedVariants.add(author.name);
+
+        // 添加该作者的所有变体
+        if (author.nameVariants) {
+          if (author.nameVariants instanceof Set) {
+            author.nameVariants.forEach(v => mergedVariants.add(v));
+          } else if (Array.isArray(author.nameVariants)) {
+            author.nameVariants.forEach(v => mergedVariants.add(v));
+          }
+        }
+
+        // 合并文献列表
+        if (author.literatures && Array.isArray(author.literatures)) {
+          primaryAuthor.literatures = primaryAuthor.literatures || [];
+          primaryAuthor.literatures.push(...author.literatures);
+        }
+
+        // 合并统计数据
+        primaryAuthor.count += author.count || 0;
+        if (author.years && Array.isArray(author.years)) {
+          primaryAuthor.years = primaryAuthor.years || [];
+          primaryAuthor.years.push(...author.years);
+        }
+
+        // 合并年份分布
+        if (author.yearDistribution && author.yearDistribution instanceof Map) {
+          primaryAuthor.yearDistribution = primaryAuthor.yearDistribution || new Map();
+          author.yearDistribution.forEach((count, year) => {
+            const existingCount = primaryAuthor.yearDistribution.get(year) || 0;
+            primaryAuthor.yearDistribution.set(year, existingCount + count);
+          });
+        }
+
+        // 合并关键词
+        if (author.keywords && author.keywords instanceof Map) {
+          primaryAuthor.keywords = primaryAuthor.keywords || new Map();
+          author.keywords.forEach((count, keyword) => {
+            const existingCount = primaryAuthor.keywords.get(keyword) || 0;
+            primaryAuthor.keywords.set(keyword, existingCount + count);
+          });
+        }
+
+        // 合并期刊
+        if (author.journals && author.journals instanceof Map) {
+          primaryAuthor.journals = primaryAuthor.journals || new Map();
+          author.journals.forEach((count, journal) => {
+            const existingCount = primaryAuthor.journals.get(journal) || 0;
+            primaryAuthor.journals.set(journal, existingCount + count);
+          });
+        }
+
+        // 合并合作者
+        if (author.coauthors && author.coauthors instanceof Map) {
+          primaryAuthor.coauthors = primaryAuthor.coauthors || new Map();
+          author.coauthors.forEach((count, coauthor) => {
+            const existingCount = primaryAuthor.coauthors.get(coauthor) || 0;
+            primaryAuthor.coauthors.set(coauthor, existingCount + count);
+          });
+        }
+      });
+
+      // 更新合并后的名称变体
+      primaryAuthor.nameVariants = mergedVariants;
+
+      // 重新计算最佳显示名称
+      primaryAuthor.displayName = this.selectBestDisplayName(mergedVariants);
+
+      // 重新计算年份范围
+      if (primaryAuthor.years && primaryAuthor.years.length > 0) {
+        primaryAuthor.yearStart = Math.min(...primaryAuthor.years);
+        primaryAuthor.yearEnd = Math.max(...primaryAuthor.years);
+        primaryAuthor.yearRange = primaryAuthor.yearStart === primaryAuthor.yearEnd
+          ? `${primaryAuthor.yearStart}`
+          : `${primaryAuthor.yearStart}-${primaryAuthor.yearEnd}`;
+      }
+
+      return primaryAuthor;
+    } catch (error) {
+      this.addErrorLog(error, "mergeAuthors", { primaryAuthor, authorsToMerge });
+      throw error;
     }
   }
 }

@@ -804,6 +804,53 @@
       transform: scale(0.95);
     }
 
+    /* 作者工作单位显示 */
+    .author-affiliation {
+      font-size: 13px;
+      color: #667eea;
+      margin-top: 4px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    /* 基本信息编辑区域 */
+    .author-basic-info {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(102, 126, 234, 0.03);
+      border-radius: 8px;
+    }
+
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .info-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #5b6a80;
+      min-width: 80px;
+    }
+
+    .info-value {
+      font-size: 13px;
+      color: #2c3e50;
+      flex: 1;
+      min-width: 0;
+      word-break: break-word;
+    }
+
+    .info-value.empty {
+      color: var(--muted);
+      font-style: italic;
+      opacity: 0.6;
+    }
+
     /* 作者卡片详情区域 */
     .author-card-details {
       max-height: 0;
@@ -1590,12 +1637,704 @@
       }
     }
 
+    /* ========== 多来源分级信息样式 ========== */
+    .journal-multi-tiers {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .tier-source-item {
+      padding: 12px;
+      background: rgba(102, 126, 234, 0.03);
+      border-radius: 8px;
+      border-left: 3px solid rgba(102, 126, 234, 0.3);
+      transition: all 0.2s ease;
+    }
+
+    .tier-source-item.primary {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+      border-left-color: #667eea;
+      border-left-width: 4px;
+    }
+
+    .tier-source-item:hover {
+      background: rgba(102, 126, 234, 0.08);
+      transform: translateX(2px);
+    }
+
+    .tier-source-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .tier-source-name {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tier-source-icon {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    .tier-source-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+
+    .primary-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    }
+
+    .tier-source-weight {
+      font-size: 12px;
+      font-weight: 600;
+      color: #667eea;
+      padding: 2px 8px;
+      background: rgba(102, 126, 234, 0.1);
+      border-radius: 12px;
+    }
+
+    .tier-source-tier {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tier-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    .tier-desc {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .tier-score {
+      font-size: 11px;
+      font-weight: 600;
+      color: #667eea;
+      padding: 2px 6px;
+      background: rgba(102, 126, 234, 0.1);
+      border-radius: 8px;
+    }
+
+    .tier-summary {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+      border-radius: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .tier-summary-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+      min-width: 80px;
+    }
+
+    .tier-summary-item.highlight {
+      background: rgba(102, 126, 234, 0.1);
+      padding: 8px;
+      border-radius: 6px;
+    }
+
+    .tier-summary-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tier-summary-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #667eea;
+    }
+
+    .tier-summary-item.highlight .tier-summary-value {
+      font-size: 20px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
     /* ========== 高亮样式 ========== */
     mark.highlight {
       background: rgba(255, 230, 120, 0.9);
       color: #111;
       padding: 0 2px;
       border-radius: 2px;
+    }
+
+    /* ========== 现代模态弹窗系统 ========== */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      width: 90%;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      transform: scale(0.9);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .modal-overlay.show .modal-container {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #e6e9ef;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #2c3e50;
+      margin: 0;
+    }
+
+    .modal-subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.05);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: #5b6a80;
+      transition: all 0.2s ease;
+    }
+
+    .modal-close:hover {
+      background: rgba(0, 0, 0, 0.1);
+      transform: scale(1.1);
+    }
+
+    .modal-close:active {
+      transform: scale(0.95);
+    }
+
+    .modal-body {
+      padding: 24px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex: 1;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .modal-body::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .modal-body::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
+    }
+
+    .modal-body::-webkit-scrollbar-thumb {
+      background: rgba(102, 126, 234, 0.3);
+      border-radius: 4px;
+    }
+
+    .modal-body::-webkit-scrollbar-thumb:hover {
+      background: rgba(102, 126, 234, 0.5);
+    }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid #e6e9ef;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+
+    /* 卡片列表样式 */
+    .card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .option-card {
+      padding: 16px;
+      background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+      border-radius: 12px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .option-card:hover {
+      border-color: rgba(102, 126, 234, 0.3);
+      transform: translateX(4px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    }
+
+    .option-card:active {
+      transform: translateX(2px);
+    }
+
+    .option-card.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .option-card.disabled:hover {
+      border-color: transparent;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .option-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .option-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .option-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin-bottom: 4px;
+    }
+
+    .option-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .option-badge {
+      padding: 4px 10px;
+      background: rgba(102, 126, 234, 0.1);
+      color: #667eea;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .option-badge.primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    /* 表单样式 */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #5b6a80;
+      margin-bottom: 8px;
+    }
+
+    .form-label .required {
+      color: #ff6b6b;
+      margin-left: 2px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 2px solid #e6e9ef;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .form-input:focus {
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-input::placeholder {
+      color: #b0b5c3;
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    /* 滑块输入 */
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .form-slider {
+      flex: 1;
+      height: 6px;
+      background: #e6e9ef;
+      border-radius: 3px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .form-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+      transition: transform 0.2s ease;
+    }
+
+    .form-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    .form-slider::-webkit-slider-thumb:active {
+      transform: scale(1.05);
+    }
+
+    .slider-value {
+      min-width: 60px;
+      text-align: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: #667eea;
+      padding: 4px 12px;
+      background: rgba(102, 126, 234, 0.1);
+      border-radius: 8px;
+    }
+
+    /* 分级选择网格 */
+    .tier-selector-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .tier-option {
+      padding: 16px;
+      background: white;
+      border: 2px solid #e6e9ef;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+      position: relative;
+    }
+
+    .tier-option:hover {
+      border-color: #667eea;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    }
+
+    .tier-option.selected {
+      background: linear-gradient(135deg, #f0f3ff, #ffffff);
+      border-color: #667eea;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+    }
+
+    .tier-option.selected::before {
+      content: '✓';
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 20px;
+      height: 20px;
+      background: #667eea;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .tier-option-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .tier-option-desc {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .tier-option-score {
+      font-size: 11px;
+      color: #667eea;
+      font-weight: 600;
+      margin-top: 6px;
+    }
+
+    /* 按钮样式 */
+    .modal-button {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .modal-button.primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .modal-button.primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+    }
+
+    .modal-button.primary:active {
+      transform: translateY(0);
+    }
+
+    .modal-button.secondary {
+      background: white;
+      color: #5b6a80;
+      border: 2px solid #e6e9ef;
+    }
+
+    .modal-button.secondary:hover {
+      border-color: #667eea;
+      color: #667eea;
+    }
+
+    .modal-button.danger {
+      background: #ff6b6b;
+      color: white;
+    }
+
+    .modal-button.danger:hover {
+      background: #ff5252;
+    }
+
+    /* ==================== 动态标签输入组件样式 ==================== */
+
+    .tag-input-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tag-input-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: slideIn 0.2s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .tag-input-field {
+      flex: 1;
+      padding: 10px;
+      border: 2px solid #e6e9ef;
+      border-radius: 8px;
+      background: #fff;
+      color: #2c3e50;
+      font-size: 14px;
+      transition: border-color 0.2s ease;
+    }
+
+    .tag-input-field:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .tag-remove-btn {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: #ff6b6b;
+      color: white;
+      font-size: 20px;
+      font-weight: bold;
+      line-height: 1;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tag-remove-btn:hover {
+      background: #ff5252;
+      transform: scale(1.1);
+    }
+
+    .tag-remove-btn:active {
+      transform: scale(0.95);
+    }
+
+    .tag-add-btn {
+      padding: 8px 14px;
+      border: 1px dashed #a0aec0;
+      border-radius: 6px;
+      background: white;
+      color: #4a5568;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tag-add-btn:hover {
+      border-color: #4299e1;
+      color: #4299e1;
+      background: rgba(66, 153, 225, 0.05);
+    }
+
+    .tag-add-btn:active {
+      transform: scale(0.98);
+    }
+
+    /* ==================== 学术链接样式 ==================== */
+
+    .academic-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .academic-link {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+    }
+
+    .academic-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .academic-link:active {
+      transform: translateY(0);
     }
   </style>
 </head>
@@ -1722,7 +2461,30 @@
       // 当前选中的期刊
       selectedJournal: null,
       // 当前展开的期刊（悬浮显示）
-      expandedJournal: null
+      expandedJournal: null,
+
+      // ========== 多分级来源系统 ==========
+      // 分级来源定义 Map: sourceKey -> { name, shortName, weight, enabled, builtin, tiers }
+      tierSources: new Map([
+        ['mathJournalTiers', {
+          name: '数学领域高质量科技期刊分级目录（2024年版）',
+          shortName: '数学分级',
+          weight: 0.5,  // 权重（0-1）
+          enabled: true,
+          builtin: true,  // 内置来源，不可删除
+          description: '中国科协发布的数学领域权威期刊分级',
+          tiers: {
+            'T1': { score: 100, name: 'T1', color: '#FFD700', description: '顶级期刊' },
+            'T2': { score: 80, name: 'T2', color: '#E8E8E8', description: '优秀期刊' },
+            'T3': { score: 60, name: 'T3', color: '#CD7F32', description: '良好期刊' }
+          }
+        }]
+      ]),
+      // 期刊的多来源分级 Map: journalName -> { sourceKey: tierKey }
+      // 例如: "ANNALS OF MATHEMATICS" -> { mathJournalTiers: "T1", fudan: "A+", user: "核心" }
+      journalMultiTiers: new Map(),
+      // 用户自定义分级来源（用于扩展 tierSources）
+      userTierSources: new Map()
     };
 
     // DOM 元素引用
@@ -1782,6 +2544,86 @@
       notifyReady: function() {
         console.log('Bridge.notifyReady 被调用');
         postBridge('htmlReady');
+      },
+
+      /**
+       * 接收作者工作单位更新确认 (Native → JS)
+       * @param {Object} data - 更新结果
+       * @param {string} data.authorName - 作者姓名
+       * @param {string} data.affiliation - 工作单位
+       * @param {boolean} data.success - 是否成功
+       * @param {string} data.error - 错误信息（如果失败）
+       * @description Native 在完成卡片更新后调用此方法通知 JS
+       */
+      onAuthorAffiliationUpdated: function(data) {
+        console.log('Bridge.onAuthorAffiliationUpdated 被调用', data);
+
+        if (data && data.success) {
+          // 更新成功，更新 state 中的数据
+          const author = state.authors.get(data.authorName);
+          if (author) {
+            author.affiliation = data.affiliation;
+          }
+
+          showToast(`✅ 已保存「${data.authorName}」的工作单位`);
+
+          // 重新渲染作者列表
+          if (state.currentView === 'author') {
+            renderAuthors();
+          }
+        } else {
+          showToast(`❌ 保存失败: ${data.error || '未知错误'}`);
+        }
+      },
+
+      /**
+       * 接收作者工作单位数据 (Native → JS)
+       * @param {Object} data - 作者工作单位数据
+       * @param {string} data.authorName - 作者姓名
+       * @param {string} data.affiliation - 工作单位
+       * @description Native 在加载卡片数据后调用此方法传递给 JS
+       */
+      onAuthorAffiliationLoaded: function(data) {
+        console.log('Bridge.onAuthorAffiliationLoaded 被调用', data);
+
+        if (data && data.authorName) {
+          // 更新 state 中的数据
+          const author = state.authors.get(data.authorName);
+          if (author) {
+            author.affiliation = data.affiliation || '';
+          }
+
+          // 同时更新 sessionStorage
+          updateAuthorAffiliation(data.authorName, data.affiliation || '');
+        }
+      },
+
+      /**
+       * 批量接收作者工作单位数据 (Native → JS)
+       * @param {Object} data - 批量作者数据
+       * @param {Array} data.authors - 作者数组
+       * @param {string} data.authors[].name - 作者姓名
+       * @param {string} data.authors[].affiliation - 工作单位
+       * @description Native 在初始化时调用此方法批量传递作者数据
+       */
+      onAuthorsDataLoaded: function(data) {
+        console.log('Bridge.onAuthorsDataLoaded 被调用', data);
+
+        if (data && Array.isArray(data.authors)) {
+          data.authors.forEach(authorData => {
+            const author = state.authors.get(authorData.name);
+            if (author) {
+              author.affiliation = authorData.affiliation || '';
+            }
+          });
+
+          showToast(`已加载 ${data.authors.length} 位作者的工作单位信息`);
+
+          // 重新渲染作者列表
+          if (state.currentView === 'author') {
+            renderAuthors();
+          }
+        }
       }
     };
 
@@ -1872,6 +2714,7 @@
       return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
+
     /**
      * 将字符串转换为 Title Case
      */
@@ -1939,6 +2782,1095 @@
       if (!name) return '';
       const titleCased = name.toTitleCase();
       return highlightText(titleCased, query);
+    }
+
+    // ==================== 作者数据管理函数 ====================
+
+    /**
+     * 更新作者工作单位（临时存储到 sessionStorage）
+     * @param {string} authorName - 作者姓名
+     * @param {string} affiliation - 工作单位
+     * @description 将作者的工作单位信息保存到 sessionStorage
+     *              关闭或刷新页面后数据会消失
+     *              需要通过 saveAuthorAffiliationToMN 同步到 MarginNote 才能永久保存
+     */
+    function updateAuthorAffiliation(authorName, affiliation) {
+      if (!authorName) return;
+
+      // 保存到 sessionStorage
+      const key = `author_affiliation_${authorName}`;
+      if (affiliation && affiliation.trim()) {
+        sessionStorage.setItem(key, affiliation.trim());
+      } else {
+        sessionStorage.removeItem(key);
+      }
+
+      // 同时更新 state.authors
+      const author = state.authors.get(authorName);
+      if (author) {
+        author.affiliation = affiliation ? affiliation.trim() : '';
+      }
+    }
+
+    /**
+     * 获取作者工作单位（从 sessionStorage）
+     * @param {string} authorName - 作者姓名
+     * @returns {string} 工作单位信息，如果不存在返回空字符串
+     * @description 从 sessionStorage 读取作者的工作单位
+     *              优先返回 sessionStorage 中的值（最新编辑）
+     */
+    function getAuthorAffiliation(authorName) {
+      if (!authorName) return '';
+
+      const key = `author_affiliation_${authorName}`;
+      return sessionStorage.getItem(key) || '';
+    }
+
+    /**
+     * 保存作者工作单位到 MarginNote 卡片（通过 Bridge）
+     * @param {string} authorName - 作者姓名
+     * @param {string} affiliation - 工作单位
+     * @description 通过 Bridge 将工作单位保存到 MarginNote 对应的作者卡片
+     *              保存后数据会永久存在，下次索引时会更新到 JSON
+     *              URL Scheme: mnliterature://updateAuthorAffiliation?name=xxx&affiliation=xxx
+     *
+     * 【第二阶段实现】
+     * 实现步骤：
+     * 1. 调用 postBridge('updateAuthorAffiliation', { name, affiliation })
+     * 2. Native 端查找或创建作者卡片
+     * 3. 在卡片的 metadata 或评论中保存 affiliation
+     * 4. 更新 JSON 索引
+     * 5. 通过 Bridge.onAuthorAffiliationUpdated 回调通知结果
+     */
+    function saveAuthorAffiliationToMN(authorName, affiliation) {
+      // 第二阶段实现：Native 持久化
+      // postBridge('updateAuthorAffiliation', { name: authorName, affiliation: affiliation });
+      console.log('[第二阶段] saveAuthorAffiliationToMN:', authorName, affiliation);
+    }
+
+    /**
+     * 从 MarginNote 卡片加载作者工作单位（通过 Bridge）
+     * @param {string} authorName - 作者姓名
+     * @returns {Promise<string>} 工作单位信息
+     * @description 通过 Bridge 从 MarginNote 读取作者卡片的工作单位
+     *              用于在页面加载时获取最新的持久化数据
+     *              URL Scheme: mnliterature://getAuthorAffiliation?name=xxx
+     *
+     * 【第二阶段实现】
+     * 实现步骤：
+     * 1. 调用 postBridge('getAuthorAffiliation', { name })
+     * 2. Native 端查找作者卡片
+     * 3. 读取卡片的 metadata 或评论中的 affiliation
+     * 4. 通过 Bridge.onAuthorAffiliationLoaded 回调返回数据
+     * 5. 等待回调并返回 Promise
+     */
+    async function loadAuthorAffiliationFromMN(authorName) {
+      // 第二阶段实现：从 Native 加载持久化数据
+      // return new Promise((resolve) => {
+      //   postBridge('getAuthorAffiliation', { name: authorName });
+      //   // 等待 Bridge.onAuthorAffiliationLoaded 回调
+      // });
+      console.log('[第二阶段] loadAuthorAffiliationFromMN:', authorName);
+      return '';
+    }
+
+    /**
+     * 显示编辑工作单位对话框
+     * @param {string} authorName - 作者姓名
+     * @description 弹出模态对话框让用户编辑作者的工作单位
+     *              编辑完成后会：
+     *              1. 更新 state.authors 中的数据
+     *              2. 保存到 sessionStorage（临时）
+     *              3. 通过 Bridge 保存到 MarginNote（永久）
+     *              4. 重新渲染界面
+     */
+    async function showEditAffiliationDialog(authorName) {
+      if (!authorName) return;
+
+      // 1. 获取当前工作单位
+      const author = state.authors.get(authorName);
+      if (!author) {
+        showToast('❌ 未找到作者信息');
+        return;
+      }
+
+      const currentAffiliation = author.affiliation || '';
+
+      // 2. 使用 createModal 创建对话框
+      const modal = createModal({
+        title: '编辑工作单位',
+        subtitle: authorName,
+        width: '500px',
+        closeOnOverlay: true
+      });
+
+      // 3. 创建表单内容
+      const formHTML = `
+        <div class="affiliation-form" style="padding: 10px 0;">
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-primary);">
+              作者姓名
+            </label>
+            <input
+              type="text"
+              readonly
+              value="${escapeHtml(authorName)}"
+              style="width: 100%; padding: 10px; border: 1px solid var(--border);
+                     border-radius: 6px; background: var(--bg-secondary);
+                     color: var(--text-secondary); font-size: 14px;"
+            >
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-primary);">
+              工作单位
+            </label>
+            <textarea
+              id="affiliation-input"
+              rows="3"
+              placeholder="请输入工作单位，例如：清华大学数学系"
+              style="width: 100%; padding: 10px; border: 1px solid var(--border);
+                     border-radius: 6px; background: var(--bg-primary);
+                     color: var(--text-primary); font-size: 14px; resize: vertical;
+                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;"
+            >${escapeHtml(currentAffiliation)}</textarea>
+          </div>
+
+          <div style="padding: 12px; background: var(--bg-secondary); border-radius: 6px;
+                      font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+            💡 <strong>提示：</strong>当前版本数据保存在浏览器临时存储中，刷新页面后会丢失。
+            完整的持久化功能将在后续版本中实现。
+          </div>
+        </div>
+      `;
+
+      modal.setContent(formHTML);
+
+      // 4. 添加保存按钮
+      modal.addButton('取消', 'modal-button-secondary', () => {
+        modal.hide();
+      });
+
+      modal.addButton('保存', 'modal-button-primary', () => {
+        // 获取输入值
+        const input = document.getElementById('affiliation-input');
+        const newAffiliation = input ? input.value.trim() : '';
+
+        // 更新数据
+        updateAuthorAffiliation(authorName, newAffiliation);
+
+        // 显示提示
+        showToast(`✅ 已保存「${authorName}」的工作单位`);
+
+        // 重新渲染作者列表
+        if (state.currentView === 'author') {
+          renderAuthors();
+        }
+
+        // 关闭对话框
+        modal.hide();
+      });
+
+      // 5. 显示对话框
+      modal.show();
+
+      // 6. 自动聚焦到输入框
+      setTimeout(() => {
+        const input = document.getElementById('affiliation-input');
+        if (input) {
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
+        }
+      }, 100);
+    }
+
+    // ==================== 动态标签输入辅助函数 ====================
+
+    /**
+     * 渲染动态标签输入组件
+     * @param {string} fieldId - 字段ID
+     * @param {string} label - 字段标签
+     * @param {Array<string>} values - 当前值数组
+     * @param {string} placeholder - 占位符文本
+     * @returns {string} HTML 字符串
+     */
+    function renderDynamicTagsInput(fieldId, label, values = [], placeholder = '请输入') {
+      const valuesHtml = values.map((value, index) => `
+        <div class="tag-input-item" data-field="${fieldId}" data-index="${index}">
+          <input
+            type="text"
+            class="tag-input-field"
+            value="${escapeHtml(value)}"
+            placeholder="${placeholder}"
+          />
+          <button
+            type="button"
+            class="tag-remove-btn"
+            onclick="removeTagItem('${fieldId}', ${index})"
+            title="删除"
+          >×</button>
+        </div>
+      `).join('');
+
+      return `
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+            ${label}
+          </label>
+          <div class="tag-input-container" id="${fieldId}-container">
+            ${valuesHtml}
+          </div>
+          <button
+            type="button"
+            class="tag-add-btn"
+            onclick="addTagItem('${fieldId}', '${placeholder}')"
+            style="margin-top: 8px; padding: 6px 12px; border: 1px dashed #a0aec0;
+                   border-radius: 6px; background: white; color: #4a5568; font-size: 12px;
+                   cursor: pointer; transition: all 0.2s;"
+            onmouseover="this.style.borderColor='#4299e1'; this.style.color='#4299e1';"
+            onmouseout="this.style.borderColor='#a0aec0'; this.style.color='#4a5568';"
+          >+ 添加${label}</button>
+        </div>
+      `;
+    }
+
+    /**
+     * 添加标签项（全局函数，供 HTML onclick 调用）
+     * @param {string} fieldId - 字段ID
+     * @param {string} placeholder - 占位符
+     */
+    window.addTagItem = function(fieldId, placeholder) {
+      const container = document.getElementById(`${fieldId}-container`);
+      if (!container) return;
+
+      const currentItems = container.querySelectorAll('.tag-input-item');
+      const newIndex = currentItems.length;
+
+      const newItem = document.createElement('div');
+      newItem.className = 'tag-input-item';
+      newItem.setAttribute('data-field', fieldId);
+      newItem.setAttribute('data-index', newIndex);
+      newItem.innerHTML = `
+        <input
+          type="text"
+          class="tag-input-field"
+          value=""
+          placeholder="${placeholder}"
+        />
+        <button
+          type="button"
+          class="tag-remove-btn"
+          onclick="removeTagItem('${fieldId}', ${newIndex})"
+          title="删除"
+        >×</button>
+      `;
+
+      container.appendChild(newItem);
+
+      // 聚焦到新输入框
+      const input = newItem.querySelector('input');
+      if (input) input.focus();
+    };
+
+    /**
+     * 删除标签项（全局函数，供 HTML onclick 调用）
+     * @param {string} fieldId - 字段ID
+     * @param {number} index - 索引
+     */
+    window.removeTagItem = function(fieldId, index) {
+      const container = document.getElementById(`${fieldId}-container`);
+      if (!container) return;
+
+      const item = container.querySelector(`.tag-input-item[data-field="${fieldId}"][data-index="${index}"]`);
+      if (item) {
+        item.remove();
+        // 重新编号剩余项
+        const items = container.querySelectorAll('.tag-input-item');
+        items.forEach((item, idx) => {
+          item.setAttribute('data-index', idx);
+          const removeBtn = item.querySelector('.tag-remove-btn');
+          if (removeBtn) {
+            removeBtn.setAttribute('onclick', `removeTagItem('${fieldId}', ${idx})`);
+          }
+        });
+      }
+    };
+
+    /**
+     * 收集标签值（全局函数）
+     * @param {string} fieldId - 字段ID
+     * @returns {Array<string>} 值数组
+     */
+    window.collectTagValues = function(fieldId) {
+      const container = document.getElementById(`${fieldId}-container`);
+      if (!container) return [];
+
+      const inputs = container.querySelectorAll('.tag-input-field');
+      const values = Array.from(inputs)
+        .map(input => input.value.trim())
+        .filter(value => value.length > 0);
+
+      return values;
+    };
+
+    /**
+     * 添加名称变体（全局函数）
+     */
+    window.addNameVariant = function() {
+      const input = document.getElementById('edit-newVariant');
+      if (!input) return;
+
+      const newVariant = input.value.trim();
+      if (!newVariant) {
+        showToast('❌ 请输入名称变体');
+        return;
+      }
+
+      // 获取当前作者（从模态框的 subtitle 获取）
+      const modal = document.querySelector('.modal-subtitle');
+      if (!modal) return;
+      const authorName = modal.textContent.trim();
+      const author = state.authors.get(authorName);
+      if (!author) return;
+
+      // 检查是否已存在
+      if (author.nameVariants.has(newVariant)) {
+        showToast('⚠️ 该变体已存在');
+        return;
+      }
+
+      // 添加新变体
+      author.nameVariants.add(newVariant);
+
+      // 重新渲染变体显示区域
+      const variantsContainer = input.closest('div').previousElementSibling;
+      if (variantsContainer) {
+        variantsContainer.innerHTML = Array.from(author.nameVariants).map(variant => `
+          <span style="display: inline-block; padding: 6px 12px;
+                       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                       color: white; border-radius: 16px; font-size: 13px;
+                       box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);">
+            ${escapeHtml(variant)}
+            ${variant !== authorName ? `
+              <span onclick="removeNameVariant('${escapeHtml(variant)}')"
+                    style="margin-left: 6px; cursor: pointer; opacity: 0.8;
+                           font-weight: bold; transition: opacity 0.2s;"
+                    onmouseover="this.style.opacity='1'"
+                    onmouseout="this.style.opacity='0.8'">
+                ×
+              </span>
+            ` : ''}
+          </span>
+        `).join('');
+      }
+
+      // 清空输入框
+      input.value = '';
+      showToast('✅ 已添加名称变体');
+    };
+
+    /**
+     * 删除名称变体（全局函数）
+     * @param {string} variant - 要删除的变体
+     */
+    window.removeNameVariant = function(variant) {
+      // 获取当前作者
+      const modal = document.querySelector('.modal-subtitle');
+      if (!modal) return;
+      const authorName = modal.textContent.trim();
+      const author = state.authors.get(authorName);
+      if (!author) return;
+
+      // 不能删除原始名称
+      if (variant === authorName) {
+        showToast('❌ 不能删除原始名称');
+        return;
+      }
+
+      // 删除变体
+      author.nameVariants.delete(variant);
+
+      // 重新渲染变体显示区域
+      const variantsContainer = document.querySelector('.modal-content').querySelector('div[style*="flex-wrap"]');
+      if (variantsContainer) {
+        variantsContainer.innerHTML = Array.from(author.nameVariants).map(v => `
+          <span style="display: inline-block; padding: 6px 12px;
+                       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                       color: white; border-radius: 16px; font-size: 13px;
+                       box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);">
+            ${escapeHtml(v)}
+            ${v !== authorName ? `
+              <span onclick="removeNameVariant('${escapeHtml(v)}')"
+                    style="margin-left: 6px; cursor: pointer; opacity: 0.8;
+                           font-weight: bold; transition: opacity 0.2s;"
+                    onmouseover="this.style.opacity='1'"
+                    onmouseout="this.style.opacity='0.8'">
+                ×
+              </span>
+            ` : ''}
+          </span>
+        `).join('');
+      }
+
+      showToast('✅ 已删除名称变体');
+    };
+
+    /**
+     * 显示编辑作者信息对话框（统一编辑所有字段）
+     * @param {string} authorName - 作者姓名
+     * @description 统一编辑作者的所有元数据字段
+     */
+    async function editAuthorInfo(authorName) {
+      if (!authorName) return;
+
+      // 1. 获取作者数据
+      const author = state.authors.get(authorName);
+      if (!author) {
+        showToast('❌ 未找到作者信息');
+        return;
+      }
+
+      // 2. 使用 createModal 创建对话框
+      const modal = createModal({
+        title: '编辑作者信息',
+        subtitle: authorName,
+        width: '600px',
+        closeOnOverlay: true
+      });
+
+      // 3. 创建表单内容
+      const formHTML = `
+        <div class="author-info-form" style="padding: 10px 0;">
+          <!-- 作者姓名（只读） -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              作者姓名
+            </label>
+            <input
+              type="text"
+              readonly
+              value="${escapeHtml(authorName)}"
+              style="width: 100%; padding: 10px; border: 1px solid #e6e9ef;
+                     border-radius: 8px; background: #f7f9fc;
+                     color: #5b6a80; font-size: 14px;"
+            >
+          </div>
+
+          <!-- 显示名称（智能选择） -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              显示名称
+              <span style="font-size: 11px; color: #999; font-weight: normal;">（可选：自定义显示名称，留空则自动选择）</span>
+            </label>
+            <input
+              type="text"
+              id="edit-displayName"
+              placeholder="留空则根据名称变体自动智能选择"
+              value="${escapeHtml(author.displayName !== author.name ? (author.displayName || '') : '')}"
+              style="width: 100%; padding: 10px; border: 2px solid #e6e9ef;
+                     border-radius: 8px; background: #fff;
+                     color: #2c3e50; font-size: 14px;
+                     transition: border-color 0.2s ease;"
+              onfocus="this.style.borderColor='#667eea'"
+              onblur="this.style.borderColor='#e6e9ef'"
+            >
+          </div>
+
+          <!-- 名称变体 -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              名称变体
+              <span style="font-size: 11px; color: #999; font-weight: normal;">（如：李白、Bai Li、Bai L.）</span>
+            </label>
+            <!-- 显示现有变体 -->
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; padding: 10px;
+                        background: #f7f9fc; border-radius: 8px; min-height: 40px;">
+              ${Array.from(author.nameVariants || [authorName]).map(variant => `
+                <span style="display: inline-block; padding: 6px 12px;
+                             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                             color: white; border-radius: 16px; font-size: 13px;
+                             box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);">
+                  ${escapeHtml(variant)}
+                  ${variant !== authorName ? `
+                    <span onclick="removeNameVariant('${escapeHtml(variant)}')"
+                          style="margin-left: 6px; cursor: pointer; opacity: 0.8;
+                                 font-weight: bold; transition: opacity 0.2s;"
+                          onmouseover="this.style.opacity='1'"
+                          onmouseout="this.style.opacity='0.8'">
+                      ×
+                    </span>
+                  ` : ''}
+                </span>
+              `).join('')}
+            </div>
+            <!-- 添加新变体 -->
+            <div style="display: flex; gap: 8px;">
+              <input
+                type="text"
+                id="edit-newVariant"
+                placeholder="输入新的名称变体（如拼音、英文名等）"
+                style="flex: 1; padding: 10px; border: 2px solid #e6e9ef;
+                       border-radius: 8px; background: #fff;
+                       color: #2c3e50; font-size: 14px;
+                       transition: border-color 0.2s ease;"
+                onfocus="this.style.borderColor='#667eea'"
+                onblur="this.style.borderColor='#e6e9ef'"
+                onkeypress="if(event.key==='Enter'){event.preventDefault();addNameVariant();}"
+              >
+              <button
+                onclick="addNameVariant()"
+                style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                       color: white; border: none; border-radius: 8px;
+                       font-size: 14px; font-weight: 600; cursor: pointer;
+                       transition: all 0.2s ease; white-space: nowrap;
+                       box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);"
+                onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 8px rgba(102, 126, 234, 0.3)'"
+                onmouseout="this.style.transform='';this.style.boxShadow='0 2px 4px rgba(102, 126, 234, 0.2)'"
+              >
+                + 添加
+              </button>
+            </div>
+          </div>
+
+          <!-- 工作单位 -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              工作单位
+            </label>
+            <textarea
+              id="edit-affiliation"
+              rows="2"
+              placeholder="例如：清华大学数学系"
+              style="width: 100%; padding: 10px; border: 2px solid #e6e9ef;
+                     border-radius: 8px; background: #fff;
+                     color: #2c3e50; font-size: 14px; resize: vertical;
+                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                     transition: border-color 0.2s ease;"
+              onfocus="this.style.borderColor='#667eea'"
+              onblur="this.style.borderColor='#e6e9ef'"
+            >${escapeHtml(author.affiliation || '')}</textarea>
+          </div>
+
+          <!-- 职位（下拉选择） -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              职位
+            </label>
+            <select
+              id="edit-role"
+              style="width: 100%; padding: 10px; border: 2px solid #e6e9ef;
+                     border-radius: 8px; background: #fff;
+                     color: #2c3e50; font-size: 14px;
+                     transition: border-color 0.2s ease;"
+              onfocus="this.style.borderColor='#667eea'"
+              onblur="this.style.borderColor='#e6e9ef'"
+            >
+              <option value="">请选择职位</option>
+              <option value="教授" ${author.role === '教授' ? 'selected' : ''}>教授</option>
+              <option value="副教授" ${author.role === '副教授' ? 'selected' : ''}>副教授</option>
+              <option value="讲师" ${author.role === '讲师' ? 'selected' : ''}>讲师</option>
+              <option value="助理教授" ${author.role === '助理教授' ? 'selected' : ''}>助理教授</option>
+              <option value="研究员" ${author.role === '研究员' ? 'selected' : ''}>研究员</option>
+              <option value="副研究员" ${author.role === '副研究员' ? 'selected' : ''}>副研究员</option>
+              <option value="助理研究员" ${author.role === '助理研究员' ? 'selected' : ''}>助理研究员</option>
+              <option value="博士后" ${author.role === '博士后' ? 'selected' : ''}>博士后</option>
+              <option value="博士生" ${author.role === '博士生' ? 'selected' : ''}>博士生</option>
+              <option value="硕士生" ${author.role === '硕士生' ? 'selected' : ''}>硕士生</option>
+              <option value="本科生" ${author.role === '本科生' ? 'selected' : ''}>本科生</option>
+              <option value="其他" ${author.role === '其他' ? 'selected' : ''}>其他</option>
+            </select>
+          </div>
+
+          <!-- 邮箱 -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              邮箱
+            </label>
+            <input
+              type="email"
+              id="edit-email"
+              placeholder="例如：author@university.edu"
+              value="${escapeHtml(author.email || '')}"
+              style="width: 100%; padding: 10px; border: 2px solid #e6e9ef;
+                     border-radius: 8px; background: #fff;
+                     color: #2c3e50; font-size: 14px;
+                     transition: border-color 0.2s ease;"
+              onfocus="this.style.borderColor='#667eea'"
+              onblur="this.style.borderColor='#e6e9ef'"
+            >
+          </div>
+
+          <!-- 个人主页 -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              个人主页
+            </label>
+            <input
+              type="url"
+              id="edit-homepage"
+              placeholder="例如：https://www.university.edu/~author"
+              value="${escapeHtml(author.homepage || '')}"
+              style="width: 100%; padding: 10px; border: 2px solid #e6e9ef;
+                     border-radius: 8px; background: #fff;
+                     color: #2c3e50; font-size: 14px;
+                     transition: border-color 0.2s ease;"
+              onfocus="this.style.borderColor='#667eea'"
+              onblur="this.style.borderColor='#e6e9ef'"
+            >
+          </div>
+
+          <!-- ORCID -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              ORCID
+            </label>
+            <input
+              type="text"
+              id="edit-orcid"
+              placeholder="例如：0000-0002-1234-5678"
+              value="${escapeHtml(author.orcid || '')}"
+              style="width: 100%; padding: 10px; border: 2px solid #e6e9ef;
+                     border-radius: 8px; background: #fff;
+                     color: #2c3e50; font-size: 14px;
+                     transition: border-color 0.2s ease;"
+              onfocus="this.style.borderColor='#667eea'"
+              onblur="this.style.borderColor='#e6e9ef'"
+            >
+            <div style="font-size: 12px; color: #667eea; margin-top: 6px;">
+              💡 ORCID 格式：xxxx-xxxx-xxxx-xxxx
+            </div>
+          </div>
+
+          <!-- 备注 -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              备注
+            </label>
+            <textarea
+              id="edit-notes"
+              rows="3"
+              placeholder="添加关于该作者的任何额外信息..."
+              style="width: 100%; padding: 10px; border: 2px solid #e6e9ef;
+                     border-radius: 8px; background: #fff;
+                     color: #2c3e50; font-size: 14px; resize: vertical;
+                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                     transition: border-color 0.2s ease;"
+              onfocus="this.style.borderColor='#667eea'"
+              onblur="this.style.borderColor='#e6e9ef'"
+            >${escapeHtml(author.notes || '')}</textarea>
+          </div>
+
+          <!-- ==================== 学术基本信息 ==================== -->
+
+          <!-- 研究方向（动态标签） -->
+          ${renderDynamicTagsInput('edit-researchFields', '研究方向', author.researchFields || [], '例如：机器学习')}
+
+          <!-- 最高学历（下拉选择） -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              最高学历
+            </label>
+            <select
+              id="edit-degree"
+              style="width: 100%; padding: 10px; border: 2px solid #e6e9ef;
+                     border-radius: 8px; background: #fff;
+                     color: #2c3e50; font-size: 14px;
+                     transition: border-color 0.2s ease;"
+              onfocus="this.style.borderColor='#667eea'"
+              onblur="this.style.borderColor='#e6e9ef'"
+            >
+              <option value="">请选择学历</option>
+              <option value="博士" ${author.degree === '博士' ? 'selected' : ''}>博士</option>
+              <option value="硕士" ${author.degree === '硕士' ? 'selected' : ''}>硕士</option>
+              <option value="学士" ${author.degree === '学士' ? 'selected' : ''}>学士</option>
+              <option value="其他" ${author.degree === '其他' ? 'selected' : ''}>其他</option>
+            </select>
+          </div>
+
+          <!-- 毕业/工作机构 -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              毕业/工作机构
+            </label>
+            <input
+              type="text"
+              id="edit-institution"
+              placeholder="例如：清华大学"
+              value="${escapeHtml(author.institution || '')}"
+              style="width: 100%; padding: 10px; border: 2px solid #e6e9ef;
+                     border-radius: 8px; background: #fff;
+                     color: #2c3e50; font-size: 14px;
+                     transition: border-color 0.2s ease;"
+              onfocus="this.style.borderColor='#667eea'"
+              onblur="this.style.borderColor='#e6e9ef'"
+            >
+          </div>
+
+          <!-- 学术职称（下拉选择） -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              学术职称
+            </label>
+            <select
+              id="edit-academicTitle"
+              style="width: 100%; padding: 10px; border: 2px solid #e6e9ef;
+                     border-radius: 8px; background: #fff;
+                     color: #2c3e50; font-size: 14px;
+                     transition: border-color 0.2s ease;"
+              onfocus="this.style.borderColor='#667eea'"
+              onblur="this.style.borderColor='#e6e9ef'"
+            >
+              <option value="">请选择职称</option>
+              <option value="院士" ${author.academicTitle === '院士' ? 'selected' : ''}>院士</option>
+              <option value="资深教授" ${author.academicTitle === '资深教授' ? 'selected' : ''}>资深教授</option>
+              <option value="特聘教授" ${author.academicTitle === '特聘教授' ? 'selected' : ''}>特聘教授</option>
+              <option value="教授" ${author.academicTitle === '教授' ? 'selected' : ''}>教授</option>
+              <option value="副教授" ${author.academicTitle === '副教授' ? 'selected' : ''}>副教授</option>
+              <option value="讲师" ${author.academicTitle === '讲师' ? 'selected' : ''}>讲师</option>
+              <option value="助理教授" ${author.academicTitle === '助理教授' ? 'selected' : ''}>助理教授</option>
+              <option value="研究员" ${author.academicTitle === '研究员' ? 'selected' : ''}>研究员</option>
+              <option value="副研究员" ${author.academicTitle === '副研究员' ? 'selected' : ''}>副研究员</option>
+              <option value="助理研究员" ${author.academicTitle === '助理研究员' ? 'selected' : ''}>助理研究员</option>
+              <option value="其他" ${author.academicTitle === '其他' ? 'selected' : ''}>其他</option>
+            </select>
+          </div>
+
+          <!-- ==================== 学术主页链接 ==================== -->
+
+          <!-- Google Scholar -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              Google Scholar
+            </label>
+            <input
+              type="url"
+              id="edit-googleScholar"
+              placeholder="例如：https://scholar.google.com/citations?user=xxx"
+              value="${escapeHtml(author.googleScholar || '')}"
+              style="width: 100%; padding: 10px; border: 2px solid #e6e9ef;
+                     border-radius: 8px; background: #fff;
+                     color: #2c3e50; font-size: 14px;
+                     transition: border-color 0.2s ease;"
+              onfocus="this.style.borderColor='#667eea'"
+              onblur="this.style.borderColor='#e6e9ef'"
+            >
+          </div>
+
+          <!-- ResearchGate -->
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 13px;">
+              ResearchGate
+            </label>
+            <input
+              type="url"
+              id="edit-researchGate"
+              placeholder="例如：https://www.researchgate.net/profile/xxx"
+              value="${escapeHtml(author.researchGate || '')}"
+              style="width: 100%; padding: 10px; border: 2px solid #e6e9ef;
+                     border-radius: 8px; background: #fff;
+                     color: #2c3e50; font-size: 14px;
+                     transition: border-color 0.2s ease;"
+              onfocus="this.style.borderColor='#667eea'"
+              onblur="this.style.borderColor='#e6e9ef'"
+            >
+          </div>
+
+          <!-- ==================== 荣誉与项目 ==================== -->
+
+          <!-- 获奖情况（动态标签） -->
+          ${renderDynamicTagsInput('edit-awards', '获奖情况', author.awards || [], '例如：国家自然科学奖')}
+
+          <!-- 主持项目（动态标签） -->
+          ${renderDynamicTagsInput('edit-projects', '主持项目', author.projects || [], '例如：国家重点研发计划')}
+
+          <!-- 提示信息 -->
+          <div style="padding: 12px; background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+                      border-radius: 8px; font-size: 13px; color: #5b6a80; line-height: 1.6;
+                      border-left: 4px solid #667eea;">
+            💡 <strong>提示：</strong>当前版本数据保存在浏览器临时存储中，刷新页面后会丢失。
+            完整的持久化功能将在后续版本中实现。
+          </div>
+        </div>
+      `;
+
+      modal.setContent(formHTML);
+
+      // 4. 添加按钮
+      modal.addButton('取消', 'secondary', () => {
+        modal.hide();
+      });
+
+      modal.addButton('保存', 'primary', () => {
+        // 获取所有输入值
+        const affiliation = document.getElementById('edit-affiliation')?.value.trim() || '';
+        const role = document.getElementById('edit-role')?.value.trim() || '';
+        const email = document.getElementById('edit-email')?.value.trim() || '';
+        const homepage = document.getElementById('edit-homepage')?.value.trim() || '';
+        const orcid = document.getElementById('edit-orcid')?.value.trim() || '';
+        const notes = document.getElementById('edit-notes')?.value.trim() || '';
+
+        // 获取新字段的值
+        const researchFields = collectTagValues('edit-researchFields');
+        const degree = document.getElementById('edit-degree')?.value.trim() || '';
+        const institution = document.getElementById('edit-institution')?.value.trim() || '';
+        const academicTitle = document.getElementById('edit-academicTitle')?.value.trim() || '';
+        const googleScholar = document.getElementById('edit-googleScholar')?.value.trim() || '';
+        const researchGate = document.getElementById('edit-researchGate')?.value.trim() || '';
+        const awards = collectTagValues('edit-awards');
+        const projects = collectTagValues('edit-projects');
+
+        // 获取名称相关字段
+        const customDisplayName = document.getElementById('edit-displayName')?.value.trim() || '';
+        // nameVariants 已经在 author 对象中实时更新了（通过 addNameVariant/removeNameVariant）
+        // 如果用户输入了自定义显示名称，使用它；否则使用智能选择
+        const displayName = customDisplayName || literatureUtils.selectBestDisplayName(author.nameVariants);
+
+        // ORCID 格式验证
+        if (orcid && !/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(orcid)) {
+          showToast('❌ ORCID 格式不正确，应为：xxxx-xxxx-xxxx-xxxx');
+          return;
+        }
+
+        // 更新 state.authors 中的数据
+        author.affiliation = affiliation;
+        author.role = role;
+        author.email = email;
+        author.homepage = homepage;
+        author.orcid = orcid;
+        author.notes = notes;
+
+        // 更新新字段
+        author.researchFields = researchFields;
+        author.degree = degree;
+        author.institution = institution;
+        author.academicTitle = academicTitle;
+        author.googleScholar = googleScholar;
+        author.researchGate = researchGate;
+        author.awards = awards;
+        author.projects = projects;
+
+        // 更新名称相关字段
+        author.displayName = displayName;
+        // nameVariants 已经通过 addNameVariant/removeNameVariant 实时更新了
+
+        // 保存到 sessionStorage（为每个字段单独存储）
+        const keyPrefix = `author_${authorName}_`;
+        sessionStorage.setItem(keyPrefix + 'affiliation', affiliation);
+        sessionStorage.setItem(keyPrefix + 'role', role);
+        sessionStorage.setItem(keyPrefix + 'email', email);
+        sessionStorage.setItem(keyPrefix + 'homepage', homepage);
+        sessionStorage.setItem(keyPrefix + 'orcid', orcid);
+        sessionStorage.setItem(keyPrefix + 'notes', notes);
+
+        // 保存新字段（数组类型需要 JSON.stringify）
+        sessionStorage.setItem(keyPrefix + 'researchFields', JSON.stringify(researchFields));
+        sessionStorage.setItem(keyPrefix + 'degree', degree);
+        sessionStorage.setItem(keyPrefix + 'institution', institution);
+        sessionStorage.setItem(keyPrefix + 'academicTitle', academicTitle);
+        sessionStorage.setItem(keyPrefix + 'googleScholar', googleScholar);
+        sessionStorage.setItem(keyPrefix + 'researchGate', researchGate);
+        sessionStorage.setItem(keyPrefix + 'awards', JSON.stringify(awards));
+        sessionStorage.setItem(keyPrefix + 'projects', JSON.stringify(projects));
+
+        // 保存名称相关字段
+        sessionStorage.setItem(keyPrefix + 'displayName', displayName);
+        sessionStorage.setItem(keyPrefix + 'nameVariants', JSON.stringify(Array.from(author.nameVariants)));
+
+        // 显示提示
+        showToast(`✅ 已保存「${authorName}」的信息`);
+
+        // 重新渲染作者列表
+        if (state.currentView === 'author') {
+          renderAuthors();
+        }
+
+        // 关闭对话框
+        modal.hide();
+      });
+
+      // 5. 显示对话框
+      modal.show();
+
+      // 6. 自动聚焦到第一个输入框
+      setTimeout(() => {
+        const firstInput = document.getElementById('edit-affiliation');
+        if (firstInput) {
+          firstInput.focus();
+          firstInput.setSelectionRange(firstInput.value.length, firstInput.value.length);
+        }
+      }, 100);
+    }
+
+    /**
+     * 批量从 JSON 加载作者工作单位
+     * @param {Object} literatureData - 文献数据对象（包含 authors 信息）
+     * @description 在 Bridge.loadLiteratures 中调用
+     *              从 JSON 索引中加载所有作者的工作单位信息
+     *              更新到 state.authors 中
+     *
+     * 【第二阶段实现】
+     * 实现步骤：
+     * 1. 检查 literatureData.authors 是否存在
+     * 2. 遍历 authors 数组，提取 name 和 affiliation
+     * 3. 更新 state.authors 中对应的作者数据
+     * 4. 优先级：sessionStorage > JSON（已编辑但未持久化的数据优先）
+     *
+     * JSON 数据格式示例：
+     * {
+     *   "authors": [
+     *     { "name": "张三", "affiliation": "清华大学", "count": 5 },
+     *     { "name": "李四", "affiliation": "北京大学", "count": 3 }
+     *   ]
+     * }
+     */
+    function loadAuthorsAffiliationFromJSON(literatureData) {
+      // 第二阶段实现：从 JSON 批量加载
+      // if (literatureData && literatureData.authors) {
+      //   literatureData.authors.forEach(authorData => {
+      //     const author = state.authors.get(authorData.name);
+      //     if (author && !getAuthorAffiliation(authorData.name)) {
+      //       author.affiliation = authorData.affiliation || '';
+      //     }
+      //   });
+      // }
+      console.log('[第二阶段] loadAuthorsAffiliationFromJSON:', literatureData);
+    }
+
+    /**
+     * 初始化作者数据（合并 sessionStorage 和 JSON 数据）
+     * @description 页面加载时调用，合并临时数据和持久化数据
+     *              优先级：sessionStorage > JSON
+     */
+    function initializeAuthorData() {
+      if (!state.authors || state.authors.size === 0) return;
+
+      // 遍历所有作者，从 sessionStorage 恢复所有字段
+      state.authors.forEach((author, authorName) => {
+        const keyPrefix = `author_${authorName}_`;
+
+        // 加载 affiliation（工作单位）
+        const savedAffiliation = sessionStorage.getItem(keyPrefix + 'affiliation');
+        if (savedAffiliation) {
+          author.affiliation = savedAffiliation;
+        }
+
+        // 加载 role（职位）
+        const savedRole = sessionStorage.getItem(keyPrefix + 'role');
+        if (savedRole) {
+          author.role = savedRole;
+        }
+
+        // 加载 email（邮箱）
+        const savedEmail = sessionStorage.getItem(keyPrefix + 'email');
+        if (savedEmail) {
+          author.email = savedEmail;
+        }
+
+        // 加载 homepage（个人主页）
+        const savedHomepage = sessionStorage.getItem(keyPrefix + 'homepage');
+        if (savedHomepage) {
+          author.homepage = savedHomepage;
+        }
+
+        // 加载 orcid（ORCID）
+        const savedOrcid = sessionStorage.getItem(keyPrefix + 'orcid');
+        if (savedOrcid) {
+          author.orcid = savedOrcid;
+        }
+
+        // 加载 notes（备注）
+        const savedNotes = sessionStorage.getItem(keyPrefix + 'notes');
+        if (savedNotes) {
+          author.notes = savedNotes;
+        }
+
+        // ==================== 加载新字段 ====================
+
+        // 加载 researchFields（研究方向 - 数组）
+        const savedResearchFields = sessionStorage.getItem(keyPrefix + 'researchFields');
+        if (savedResearchFields) {
+          try {
+            author.researchFields = JSON.parse(savedResearchFields);
+          } catch (e) {
+            console.warn(`解析 researchFields 失败: ${authorName}`, e);
+            author.researchFields = [];
+          }
+        }
+
+        // 加载 degree（最高学历）
+        const savedDegree = sessionStorage.getItem(keyPrefix + 'degree');
+        if (savedDegree) {
+          author.degree = savedDegree;
+        }
+
+        // 加载 institution（毕业/工作机构）
+        const savedInstitution = sessionStorage.getItem(keyPrefix + 'institution');
+        if (savedInstitution) {
+          author.institution = savedInstitution;
+        }
+
+        // 加载 academicTitle（学术职称）
+        const savedAcademicTitle = sessionStorage.getItem(keyPrefix + 'academicTitle');
+        if (savedAcademicTitle) {
+          author.academicTitle = savedAcademicTitle;
+        }
+
+        // 加载 googleScholar（Google Scholar）
+        const savedGoogleScholar = sessionStorage.getItem(keyPrefix + 'googleScholar');
+        if (savedGoogleScholar) {
+          author.googleScholar = savedGoogleScholar;
+        }
+
+        // 加载 researchGate（ResearchGate）
+        const savedResearchGate = sessionStorage.getItem(keyPrefix + 'researchGate');
+        if (savedResearchGate) {
+          author.researchGate = savedResearchGate;
+        }
+
+        // 加载 awards（获奖情况 - 数组）
+        const savedAwards = sessionStorage.getItem(keyPrefix + 'awards');
+        if (savedAwards) {
+          try {
+            author.awards = JSON.parse(savedAwards);
+          } catch (e) {
+            console.warn(`解析 awards 失败: ${authorName}`, e);
+            author.awards = [];
+          }
+        }
+
+        // 加载 projects（主持项目 - 数组）
+        const savedProjects = sessionStorage.getItem(keyPrefix + 'projects');
+        if (savedProjects) {
+          try {
+            author.projects = JSON.parse(savedProjects);
+          } catch (e) {
+            console.warn(`解析 projects 失败: ${authorName}`, e);
+            author.projects = [];
+          }
+        }
+
+        // ==================== 加载名称相关字段 ====================
+
+        // 加载 displayName（显示名称）
+        const savedDisplayName = sessionStorage.getItem(keyPrefix + 'displayName');
+        if (savedDisplayName) {
+          author.displayName = savedDisplayName;
+        }
+
+        // 加载 nameVariants（名称变体集合）
+        const savedNameVariants = sessionStorage.getItem(keyPrefix + 'nameVariants');
+        if (savedNameVariants) {
+          try {
+            const variantsArray = JSON.parse(savedNameVariants);
+            author.nameVariants = new Set(variantsArray);
+          } catch (e) {
+            console.warn(`解析 nameVariants 失败: ${authorName}`, e);
+            author.nameVariants = new Set([authorName]);
+          }
+        }
+      });
+
+      console.log(`✅ 已初始化 ${state.authors.size} 个作者的数据`);
     }
 
     // ==================== 期刊分级数据 ====================
@@ -2157,11 +4089,11 @@
     }
 
     /**
-     * 查询期刊分级
+     * 从内置数据库查询期刊分级（仅用于 mathJournalTiers）
      * @param {string} journalName - 期刊名称
      * @returns {string|null} 分级 (T1/T2/T3) 或 null
      */
-    function getJournalTier(journalName) {
+    function queryBuiltinTier(journalName) {
       if (!journalName) return null;
 
       const normalized = normalizeJournalName(journalName);
@@ -2190,31 +4122,130 @@
     }
 
     /**
-     * 将分级转换为自动评分
-     * @param {string|null} tier - 分级
+     * 查询期刊的所有来源分级
+     * @param {string} journalName - 期刊名称
+     * @returns {Object} 分级对象 { sourceKey: tierKey }
+     */
+    function getJournalMultiTiers(journalName) {
+      if (!journalName) return {};
+
+      const tiers = {};
+
+      // 1. 查询用户设置的分级
+      if (state.journalMultiTiers.has(journalName)) {
+        Object.assign(tiers, state.journalMultiTiers.get(journalName));
+      }
+
+      // 2. 如果没有用户设置，查询内置分级
+      if (!tiers.mathJournalTiers) {
+        const builtinTier = queryBuiltinTier(journalName);
+        if (builtinTier) {
+          tiers.mathJournalTiers = builtinTier;
+        }
+      }
+
+      return tiers;
+    }
+
+    /**
+     * 获取期刊的主要分级（用于显示）
+     * @param {string} journalName - 期刊名称
+     * @returns {Object|null} { sourceKey, tierKey, source } 或 null
+     */
+    function getJournalPrimaryTier(journalName) {
+      const multiTiers = getJournalMultiTiers(journalName);
+
+      // 按权重排序，返回权重最高的分级
+      let primaryTier = null;
+      let maxWeight = 0;
+
+      for (const [sourceKey, tierKey] of Object.entries(multiTiers)) {
+        const source = state.tierSources.get(sourceKey);
+        if (source && source.enabled && source.weight > maxWeight) {
+          maxWeight = source.weight;
+          primaryTier = {
+            sourceKey,
+            tierKey,
+            source
+          };
+        }
+      }
+
+      return primaryTier;
+    }
+
+    /**
+     * 兼容旧代码的函数（保持向后兼容）
+     * @param {string} journalName - 期刊名称
+     * @returns {string|null} 分级 (T1/T2/T3) 或 null
+     */
+    function getJournalTier(journalName) {
+      const primary = getJournalPrimaryTier(journalName);
+      return primary ? primary.tierKey : null;
+    }
+
+    /**
+     * 将分级转换为评分（查询分级来源定义）
+     * @param {string} sourceKey - 来源 key
+     * @param {string} tierKey - 分级 key
      * @returns {number} 评分
      */
-    function tierToScore(tier) {
-      const scoreMap = {
-        'T1': 100,
-        'T2': 80,
-        'T3': 60
-      };
-      return scoreMap[tier] || 50;  // 未分级默认50分
+    function tierToScore(sourceKey, tierKey) {
+      const source = state.tierSources.get(sourceKey);
+      if (source && source.tiers && source.tiers[tierKey]) {
+        return source.tiers[tierKey].score;
+      }
+      return 50;  // 默认50分
+    }
+
+    /**
+     * 计算期刊的多来源加权自动评分
+     * @param {string} journalName - 期刊名称
+     * @returns {number} 加权自动评分 (0-100)
+     */
+    function calculateMultiSourceAutoScore(journalName) {
+      const multiTiers = getJournalMultiTiers(journalName);
+
+      let totalScore = 0;
+      let totalWeight = 0;
+
+      // 遍历所有来源的分级
+      for (const [sourceKey, tierKey] of Object.entries(multiTiers)) {
+        const source = state.tierSources.get(sourceKey);
+
+        // 只计算启用的来源
+        if (source && source.enabled) {
+          const score = tierToScore(sourceKey, tierKey);
+          totalScore += score * source.weight;
+          totalWeight += source.weight;
+        }
+      }
+
+      // 如果没有任何来源，返回默认分数
+      if (totalWeight === 0) {
+        return 50;
+      }
+
+      // 归一化权重（确保总权重为1）
+      return totalScore / totalWeight;
     }
 
     /**
      * 计算期刊最终得分
-     * @param {number} autoScore - 自动评分 (0-100)
+     * @param {string} journalName - 期刊名称
      * @param {number} manualStars - 用户打星 (0-5)
      * @returns {number} 最终得分
      */
-    function calculateJournalScore(autoScore, manualStars) {
+    function calculateJournalScore(journalName, manualStars) {
+      // 计算多来源加权自动评分
+      const autoScore = calculateMultiSourceAutoScore(journalName);
+
       if (manualStars > 0) {
         // 用户打星后：用户评分占 60%，自动评分占 40%
         const userScore = (manualStars / 5) * 100;
         return autoScore * 0.4 + userScore * 0.6;
       }
+
       // 无用户评分时使用自动评分
       return autoScore;
     }
@@ -2355,6 +4386,98 @@
     }
 
     /**
+     * 保存分级来源定义到 localStorage
+     */
+    function saveTierSourcesData() {
+      try {
+        const sourcesData = {};
+
+        // 只保存用户自定义的分级来源（内置来源不需要保存）
+        state.tierSources.forEach((source, key) => {
+          if (!source.builtin) {
+            sourcesData[key] = source;
+          }
+        });
+
+        // 同时保存分级来源的权重设置（包括内置来源的权重修改）
+        const weightsData = {};
+        state.tierSources.forEach((source, key) => {
+          weightsData[key] = {
+            weight: source.weight,
+            enabled: source.enabled
+          };
+        });
+
+        localStorage.setItem('mnliterature_tier_sources', JSON.stringify(sourcesData));
+        localStorage.setItem('mnliterature_tier_weights', JSON.stringify(weightsData));
+      } catch (error) {
+        console.error('保存分级来源数据失败:', error);
+      }
+    }
+
+    /**
+     * 从 localStorage 加载分级来源定义
+     */
+    function loadTierSourcesData() {
+      try {
+        // 1. 加载用户自定义的分级来源
+        const sourcesData = localStorage.getItem('mnliterature_tier_sources');
+        if (sourcesData) {
+          const sources = JSON.parse(sourcesData);
+          Object.entries(sources).forEach(([key, source]) => {
+            state.tierSources.set(key, source);
+          });
+        }
+
+        // 2. 加载权重设置，应用到所有来源
+        const weightsData = localStorage.getItem('mnliterature_tier_weights');
+        if (weightsData) {
+          const weights = JSON.parse(weightsData);
+          Object.entries(weights).forEach(([key, config]) => {
+            const source = state.tierSources.get(key);
+            if (source) {
+              source.weight = config.weight;
+              source.enabled = config.enabled;
+            }
+          });
+        }
+      } catch (error) {
+        console.error('加载分级来源数据失败:', error);
+      }
+    }
+
+    /**
+     * 保存期刊多来源分级数据到 localStorage
+     */
+    function saveJournalMultiTiersData() {
+      try {
+        const multiTiersData = {};
+        state.journalMultiTiers.forEach((tiers, journalName) => {
+          multiTiersData[journalName] = tiers;
+        });
+        localStorage.setItem('mnliterature_journal_multi_tiers', JSON.stringify(multiTiersData));
+      } catch (error) {
+        console.error('保存期刊多来源分级数据失败:', error);
+      }
+    }
+
+    /**
+     * 从 localStorage 加载期刊多来源分级数据
+     */
+    function loadJournalMultiTiersData() {
+      try {
+        const saved = localStorage.getItem('mnliterature_journal_multi_tiers');
+        if (saved) {
+          const multiTiersData = JSON.parse(saved);
+          state.journalMultiTiers = new Map(Object.entries(multiTiersData));
+        }
+      } catch (error) {
+        console.error('加载期刊多来源分级数据失败:', error);
+        state.journalMultiTiers = new Map();
+      }
+    }
+
+    /**
      * 切换期刊打星
      * @param {string} journalName - 期刊名称
      * @param {number} stars - 星级 (0-5, 0表示清除)
@@ -2367,15 +4490,115 @@
       }
       saveJournalStarData();
 
-      // 重新计算该期刊的最终得分
+      // 重新计算该期刊的最终得分（使用新的计算方法）
       const journal = state.journals.get(journalName);
       if (journal) {
         journal.manualStars = stars;
-        journal.finalScore = calculateJournalScore(journal.autoScore, stars);
+        journal.finalScore = calculateJournalScore(journalName, stars);
       }
 
       // 重新排序并更新显示
       applyFilters();
+    }
+
+    /**
+     * 设置期刊的分级（单个来源）
+     * @param {string} journalName - 期刊名称
+     * @param {string} sourceKey - 来源 key
+     * @param {string} tierKey - 分级 key（null 表示删除该来源的分级）
+     */
+    function setJournalTier(journalName, sourceKey, tierKey) {
+      // 获取或创建该期刊的分级对象
+      let tiers = state.journalMultiTiers.get(journalName);
+      if (!tiers) {
+        tiers = {};
+        state.journalMultiTiers.set(journalName, tiers);
+      }
+
+      // 设置或删除分级
+      if (tierKey) {
+        tiers[sourceKey] = tierKey;
+      } else {
+        delete tiers[sourceKey];
+      }
+
+      // 保存数据
+      saveJournalMultiTiersData();
+
+      // 更新期刊数据
+      const journal = state.journals.get(journalName);
+      if (journal) {
+        // 更新主要分级
+        const primaryTier = getJournalPrimaryTier(journalName);
+        journal.tier = primaryTier ? primaryTier.tierKey : null;
+        journal.tierSource = primaryTier ? primaryTier.sourceKey : null;
+
+        // 更新所有来源分级
+        journal.multiTiers = getJournalMultiTiers(journalName);
+
+        // 重新计算评分
+        journal.autoScore = calculateMultiSourceAutoScore(journalName);
+        journal.finalScore = calculateJournalScore(journalName, journal.manualStars);
+      }
+
+      // 重新排序并更新显示
+      applyFilters();
+    }
+
+    /**
+     * 添加或更新分级来源
+     * @param {string} key - 来源 key
+     * @param {Object} sourceData - 来源数据
+     */
+    function addOrUpdateTierSource(key, sourceData) {
+      state.tierSources.set(key, sourceData);
+      saveTierSourcesData();
+
+      // 重新计算所有期刊的评分
+      state.journals.forEach((journal, journalName) => {
+        journal.autoScore = calculateMultiSourceAutoScore(journalName);
+        journal.finalScore = calculateJournalScore(journalName, journal.manualStars);
+      });
+
+      applyFilters();
+    }
+
+    /**
+     * 删除分级来源
+     * @param {string} key - 来源 key
+     */
+    function deleteTierSource(key) {
+      const source = state.tierSources.get(key);
+
+      // 不允许删除内置来源
+      if (source && source.builtin) {
+        showToast("不能删除内置分级来源");
+        return false;
+      }
+
+      state.tierSources.delete(key);
+      saveTierSourcesData();
+
+      // 清理所有期刊中该来源的分级
+      state.journalMultiTiers.forEach((tiers, journalName) => {
+        if (tiers[key]) {
+          delete tiers[key];
+        }
+      });
+      saveJournalMultiTiersData();
+
+      // 重新计算所有期刊的评分
+      state.journals.forEach((journal, journalName) => {
+        const primaryTier = getJournalPrimaryTier(journalName);
+        journal.tier = primaryTier ? primaryTier.tierKey : null;
+        journal.tierSource = primaryTier ? primaryTier.sourceKey : null;
+        journal.multiTiers = getJournalMultiTiers(journalName);
+        journal.autoScore = calculateMultiSourceAutoScore(journalName);
+        journal.finalScore = calculateJournalScore(journalName, journal.manualStars);
+      });
+
+      applyFilters();
+      return true;
     }
 
     /**
@@ -2432,6 +4655,29 @@
             // 初始化作者数据
             state.authors.set(name, {
               name: name,
+              displayName: name,             // 显示名称（智能选择的最佳变体）
+              nameVariants: new Set([name]), // 名称变体集合
+              affiliation: '',               // 工作单位
+              role: '',                      // 职位/角色
+              email: '',                     // 邮箱
+              homepage: '',                  // 个人主页
+              orcid: '',                     // ORCID
+              notes: '',                     // 备注
+
+              // 学术基本信息
+              researchFields: [],            // 研究方向
+              degree: '',                    // 最高学历
+              institution: '',               // 毕业/工作机构
+              academicTitle: '',             // 学术职称
+
+              // 学术主页链接
+              googleScholar: '',             // Google Scholar
+              researchGate: '',              // ResearchGate
+
+              // 荣誉与项目
+              awards: [],                    // 获奖情况
+              projects: [],                  // 主持项目
+
               count: 0,
               years: [],
               literatures: [],
@@ -2543,23 +4789,34 @@
         const name = journalName.trim();
 
         if (!state.journals.has(name)) {
-          // 获取期刊分级
-          const tier = getJournalTier(name);
-          const autoScore = tierToScore(tier);
+          // 获取期刊的主要分级（用于显示）
+          const primaryTier = getJournalPrimaryTier(name);
+
+          // 获取期刊的所有来源分级
+          const multiTiers = getJournalMultiTiers(name);
+
+          // 计算多来源加权自动评分
+          const autoScore = calculateMultiSourceAutoScore(name);
 
           // 获取用户打星
           const manualStars = state.journalStarRatings.get(name) || 0;
 
           // 计算最终得分
-          const finalScore = calculateJournalScore(autoScore, manualStars);
+          const finalScore = calculateJournalScore(name, manualStars);
 
           // 初始化期刊数据
           state.journals.set(name, {
             name: name,
-            tier: tier,
+            // 主要分级（用于显示徽章）
+            tier: primaryTier ? primaryTier.tierKey : null,
+            tierSource: primaryTier ? primaryTier.sourceKey : null,
+            // 所有来源的分级
+            multiTiers: multiTiers,
+            // 评分数据
             autoScore: autoScore,
             manualStars: manualStars,
             finalScore: finalScore,
+            // 统计数据
             count: 0,
             literatures: [],
             years: [],
@@ -2659,6 +4916,9 @@
 
       // 提取作者信息
       extractAuthors();
+
+      // 初始化作者数据（从 sessionStorage 恢复工作单位）
+      initializeAuthorData();
 
       // 提取期刊信息
       extractJournals();
@@ -3095,8 +5355,9 @@
               <div class="author-card-header">
                 <div class="author-avatar">${initial}</div>
                 <div class="author-info">
-                  <div class="author-name">${highlightText(author.name, state.searchQuery)}</div>
-                  <div class="author-role">研究者</div>
+                  <div class="author-name">${highlightText(author.displayName || author.name, state.searchQuery)}</div>
+                  <div class="author-role">${author.role || '未设置职位'}</div>
+                  ${author.affiliation ? `<div class="author-affiliation">${escapeHtml(author.affiliation)}</div>` : ''}
                 </div>
               </div>
 
@@ -3118,6 +5379,112 @@
 
               <!-- 详情区域（展开时显示） -->
               <div class="author-card-details">
+                <!-- 基本信息 -->
+                <div class="detail-section">
+                  <h4>👤 基本信息</h4>
+                  <div class="author-basic-info">
+                    <div class="info-item">
+                      <span class="info-label">姓名：</span>
+                      <span class="info-value">${escapeHtml(author.displayName || author.name)}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">工作单位：</span>
+                      <span class="info-value ${author.affiliation ? '' : 'empty'}">${author.affiliation || '未设置'}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">职位：</span>
+                      <span class="info-value ${author.role ? '' : 'empty'}">${author.role || '未设置'}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">邮箱：</span>
+                      <span class="info-value ${author.email ? '' : 'empty'}">${author.email || '未设置'}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">个人主页：</span>
+                      <span class="info-value ${author.homepage ? '' : 'empty'}">${author.homepage || '未设置'}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">ORCID：</span>
+                      <span class="info-value ${author.orcid ? '' : 'empty'}">${author.orcid || '未设置'}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">备注：</span>
+                      <span class="info-value ${author.notes ? '' : 'empty'}">${author.notes || '未设置'}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">最高学历：</span>
+                      <span class="info-value ${author.degree ? '' : 'empty'}">${author.degree || '未设置'}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">毕业/工作机构：</span>
+                      <span class="info-value ${author.institution ? '' : 'empty'}">${author.institution || '未设置'}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">学术职称：</span>
+                      <span class="info-value ${author.academicTitle ? '' : 'empty'}">${author.academicTitle || '未设置'}</span>
+                    </div>
+                    <button class="btn" data-action="edit-author-info" data-author="${escapeHtml(author.name)}" style="margin-top: 12px; width: 100%;">✏️ 编辑作者信息</button>
+                  </div>
+                </div>
+
+                <!-- 研究方向 -->
+                ${author.researchFields && author.researchFields.length > 0 ? `
+                <div class="detail-section">
+                  <h4>🔬 研究方向</h4>
+                  <div class="author-keywords">
+                    ${author.researchFields.map(field =>
+                      `<span class="keyword-tag" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 12px; border-radius: 6px; margin: 4px; display: inline-block; font-size: 13px;">${escapeHtml(field)}</span>`
+                    ).join('')}
+                  </div>
+                </div>
+                ` : ''}
+
+                <!-- 学术主页 -->
+                ${(author.googleScholar || author.researchGate) ? `
+                <div class="detail-section">
+                  <h4>🔗 学术主页</h4>
+                  <div class="academic-links">
+                    ${author.googleScholar ? `
+                      <a href="${escapeHtml(author.googleScholar)}" target="_blank" class="academic-link" style="display: inline-flex; align-items: center; padding: 8px 14px; margin: 4px; background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); color: white; text-decoration: none; border-radius: 8px; font-size: 13px; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                        🎓 Google Scholar
+                      </a>
+                    ` : ''}
+                    ${author.researchGate ? `
+                      <a href="${escapeHtml(author.researchGate)}" target="_blank" class="academic-link" style="display: inline-flex; align-items: center; padding: 8px 14px; margin: 4px; background: linear-gradient(135deg, #00d0b1 0%, #00a896 100%); color: white; text-decoration: none; border-radius: 8px; font-size: 13px; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                        🔬 ResearchGate
+                      </a>
+                    ` : ''}
+                  </div>
+                </div>
+                ` : ''}
+
+                <!-- 荣誉与项目 -->
+                ${(author.awards && author.awards.length > 0) || (author.projects && author.projects.length > 0) ? `
+                <div class="detail-section">
+                  <h4>🏆 荣誉与项目</h4>
+                  ${author.awards && author.awards.length > 0 ? `
+                    <div style="margin-bottom: 12px;">
+                      <div style="font-weight: 600; color: #4a5568; margin-bottom: 6px; font-size: 13px;">🏅 获奖情况：</div>
+                      <div style="padding-left: 12px;">
+                        ${author.awards.map(award =>
+                          `<div style="margin-bottom: 4px; color: #5b6a80; font-size: 13px;">• ${escapeHtml(award)}</div>`
+                        ).join('')}
+                      </div>
+                    </div>
+                  ` : ''}
+                  ${author.projects && author.projects.length > 0 ? `
+                    <div>
+                      <div style="font-weight: 600; color: #4a5568; margin-bottom: 6px; font-size: 13px;">📋 主持项目：</div>
+                      <div style="padding-left: 12px;">
+                        ${author.projects.map(project =>
+                          `<div style="margin-bottom: 4px; color: #5b6a80; font-size: 13px;">• ${escapeHtml(project)}</div>`
+                        ).join('')}
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+                ` : ''}
+
                 <!-- 研究趋势 -->
                 <div class="detail-section">
                   <h4>📈 研究趋势</h4>
@@ -3274,6 +5641,13 @@
 
           <!-- 详情区域（展开时显示） -->
           <div class="journal-card-details">
+            <!-- 多来源分级信息 -->
+            <div class="detail-section">
+              <h4>📊 分级信息</h4>
+              ${renderJournalMultiTiers(journal)}
+              <button class="btn" data-action="manage-journal-tiers" style="margin-top: 12px; width: 100%;">⚙️ 管理分级</button>
+            </div>
+
             <!-- 年份分布 -->
             <div class="detail-section">
               <h4>📈 年份分布</h4>
@@ -3367,6 +5741,741 @@
           </div>
         </div>
       `).join('');
+    }
+
+    /**
+     * 渲染期刊的多来源分级信息
+     * @param {Object} journal - 期刊对象
+     * @returns {string} HTML
+     */
+    function renderJournalMultiTiers(journal) {
+      if (!journal.multiTiers || Object.keys(journal.multiTiers).length === 0) {
+        return `
+          <div style="padding: 12px; background: rgba(102, 126, 234, 0.05); border-radius: 8px; text-align: center;">
+            <p style="color: var(--muted); font-size: 13px; margin: 0;">暂无分级信息</p>
+            <p style="color: var(--muted); font-size: 12px; margin-top: 4px;">点击下方按钮设置分级</p>
+          </div>
+        `;
+      }
+
+      let html = '<div class="journal-multi-tiers">';
+
+      // 遍历所有分级来源
+      for (const [sourceKey, tierKey] of Object.entries(journal.multiTiers)) {
+        const source = state.tierSources.get(sourceKey);
+        if (!source) continue;
+
+        const isPrimary = journal.tierSource === sourceKey;
+        const tierInfo = source.tiers[tierKey];
+        const tierColor = tierInfo ? tierInfo.color : '#B0B0B0';
+        const weight = Math.round(source.weight * 100);
+
+        html += `
+          <div class="tier-source-item ${isPrimary ? 'primary' : ''}">
+            <div class="tier-source-header">
+              <div class="tier-source-name">
+                <span class="tier-source-icon">${source.builtin ? '🔒' : '👤'}</span>
+                <span class="tier-source-title">${source.shortName || source.name}</span>
+                ${isPrimary ? '<span class="primary-badge">主要</span>' : ''}
+              </div>
+              <div class="tier-source-weight">${weight}%</div>
+            </div>
+            <div class="tier-source-tier">
+              <span class="tier-badge" style="background: ${tierColor}; color: ${tierKey === 'T2' ? '#2c3e50' : '#fff'};">
+                ${tierKey}
+              </span>
+              ${tierInfo ? `<span class="tier-desc">${tierInfo.description || ''}</span>` : ''}
+              <span class="tier-score">+${tierToScore(sourceKey, tierKey).toFixed(1)}分</span>
+            </div>
+          </div>
+        `;
+      }
+
+      html += '</div>';
+
+      // 添加综合评分说明
+      html += `
+        <div class="tier-summary">
+          <div class="tier-summary-item">
+            <span class="tier-summary-label">自动评分</span>
+            <span class="tier-summary-value">${journal.autoScore.toFixed(1)}</span>
+          </div>
+          ${journal.manualStars > 0 ? `
+            <div class="tier-summary-item">
+              <span class="tier-summary-label">用户评分</span>
+              <span class="tier-summary-value">${((journal.manualStars / 5) * 100).toFixed(1)}</span>
+            </div>
+          ` : ''}
+          <div class="tier-summary-item highlight">
+            <span class="tier-summary-label">最终得分</span>
+            <span class="tier-summary-value">${journal.finalScore.toFixed(1)}</span>
+          </div>
+        </div>
+      `;
+
+      return html;
+    }
+
+    // ==================== 现代模态弹窗组件 ====================
+
+    /**
+     * 创建模态弹窗
+     * @param {Object} options - 配置选项
+     * @returns {Object} 模态弹窗实例
+     */
+    function createModal(options = {}) {
+      const {
+        title = '标题',
+        subtitle = '',
+        width = '600px',
+        closeOnOverlay = true
+      } = options;
+
+      // 创建模态弹窗 DOM
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+
+      const container = document.createElement('div');
+      container.className = 'modal-container';
+      if (width !== '600px') {
+        container.style.maxWidth = width;
+      }
+
+      const header = document.createElement('div');
+      header.className = 'modal-header';
+      header.innerHTML = `
+        <div>
+          <h3 class="modal-title">${escapeHtml(title)}</h3>
+          ${subtitle ? `<div class="modal-subtitle">${escapeHtml(subtitle)}</div>` : ''}
+        </div>
+        <button class="modal-close">×</button>
+      `;
+
+      const body = document.createElement('div');
+      body.className = 'modal-body';
+
+      const footer = document.createElement('div');
+      footer.className = 'modal-footer';
+      footer.style.display = 'none';
+
+      container.appendChild(header);
+      container.appendChild(body);
+      container.appendChild(footer);
+      overlay.appendChild(container);
+
+      // 事件处理
+      const closeBtn = header.querySelector('.modal-close');
+      closeBtn.addEventListener('click', () => modal.hide());
+
+      if (closeOnOverlay) {
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) {
+            modal.hide();
+          }
+        });
+      }
+
+      // ESC 键关闭
+      const handleEsc = (e) => {
+        if (e.key === 'Escape' && overlay.classList.contains('show')) {
+          modal.hide();
+        }
+      };
+
+      // 模态弹窗实例
+      const modal = {
+        show() {
+          document.body.appendChild(overlay);
+          setTimeout(() => overlay.classList.add('show'), 10);
+          document.addEventListener('keydown', handleEsc);
+          return this;
+        },
+
+        hide() {
+          overlay.classList.remove('show');
+          setTimeout(() => {
+            if (overlay.parentNode) {
+              overlay.parentNode.removeChild(overlay);
+            }
+            document.removeEventListener('keydown', handleEsc);
+          }, 300);
+          return this;
+        },
+
+        setContent(html) {
+          body.innerHTML = html;
+          return this;
+        },
+
+        setTitle(newTitle, newSubtitle = '') {
+          const titleEl = header.querySelector('.modal-title');
+          const subtitleEl = header.querySelector('.modal-subtitle');
+          titleEl.textContent = newTitle;
+          if (newSubtitle) {
+            if (subtitleEl) {
+              subtitleEl.textContent = newSubtitle;
+            } else {
+              titleEl.insertAdjacentHTML('afterend', `<div class="modal-subtitle">${escapeHtml(newSubtitle)}</div>`);
+            }
+          } else if (subtitleEl) {
+            subtitleEl.remove();
+          }
+          return this;
+        },
+
+        addButton(text, className, onClick) {
+          footer.style.display = 'flex';
+          const button = document.createElement('button');
+          button.className = `modal-button ${className}`;
+          button.textContent = text;
+          button.addEventListener('click', onClick);
+          footer.appendChild(button);
+          return this;
+        },
+
+        clearButtons() {
+          footer.innerHTML = '';
+          footer.style.display = 'none';
+          return this;
+        },
+
+        getBody() {
+          return body;
+        },
+
+        getOverlay() {
+          return overlay;
+        }
+      };
+
+      return modal;
+    }
+
+    /**
+     * 渲染来源卡片列表
+     * @param {Array} sources - 来源数组
+     * @param {Object} journal - 期刊对象
+     * @returns {string} HTML
+     */
+    function renderSourceCards(sources, journal) {
+      return sources.map(source => {
+        const currentTier = journal.multiTiers[source.key] || '未设置';
+        const icon = source.builtin ? '🔒' : '👤';
+        const isPrimary = journal.tierSource === source.key;
+
+        return `
+          <div class="option-card" data-action="select-source" data-source-key="${source.key}">
+            <div class="option-icon">${icon}</div>
+            <div class="option-content">
+              <div class="option-title">${escapeHtml(source.shortName || source.name)}</div>
+              <div class="option-desc">当前分级：${currentTier}</div>
+            </div>
+            ${isPrimary ? '<div class="option-badge primary">主要</div>' : `<div class="option-badge">${Math.round(source.weight * 100)}%</div>`}
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**
+     * 渲染分级选择网格
+     * @param {Object} tiers - 分级定义
+     * @param {string} currentTier - 当前分级
+     * @returns {string} HTML
+     */
+    function renderTierOptions(tiers, currentTier, sourceKey) {
+      const tierKeys = Object.keys(tiers);
+      return `
+        <div class="tier-selector-grid">
+          ${tierKeys.map(tierKey => {
+            const tier = tiers[tierKey];
+            const isSelected = currentTier === tierKey;
+            return `
+              <div class="tier-option ${isSelected ? 'selected' : ''}"
+                   data-action="select-tier"
+                   data-tier="${tierKey}">
+                <div class="tier-option-badge" style="background: ${tier.color}; color: ${tierKey === 'T2' ? '#2c3e50' : '#fff'};">
+                  ${tierKey}
+                </div>
+                <div class="tier-option-desc">${tier.description || ''}</div>
+                <div class="tier-option-score">+${tierToScore(sourceKey, tierKey).toFixed(1)}分</div>
+              </div>
+            `;
+          }).join('')}
+          <div class="tier-option" data-action="clear-tier">
+            <div class="tier-option-badge" style="background: #ccc; color: #666;">
+              🗑️
+            </div>
+            <div class="tier-option-desc">清除分级</div>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * 显示期刊分级管理对话框（现代版）
+     * @param {string} journalName - 期刊名称
+     */
+    async function showJournalTierManager(journalName) {
+      const journal = state.journals.get(journalName);
+      if (!journal) {
+        showToast("未找到该期刊");
+        return;
+      }
+
+      // 构建可用的分级来源列表
+      const sources = Array.from(state.tierSources.entries()).map(([key, value]) => ({ key, ...value }));
+      if (sources.length === 0) {
+        showToast("暂无可用的分级来源");
+        return;
+      }
+
+      // 创建主模态弹窗
+      const modal = createModal({
+        title: '管理期刊分级',
+        subtitle: journal.name.length > 50 ? journal.name.substring(0, 50) + '...' : journal.name,
+        width: '700px'
+      });
+
+      // 渲染主菜单内容
+      function renderMainMenu() {
+        const html = `
+          <div class="card-list">
+            ${renderSourceCards(sources, journal)}
+            <div class="option-card" data-action="manage-sources">
+              <div class="option-icon">⚙️</div>
+              <div class="option-content">
+                <div class="option-title">管理分级来源</div>
+                <div class="option-desc">添加、编辑或删除分级来源</div>
+              </div>
+            </div>
+            <div class="option-card" data-action="clear-all">
+              <div class="option-icon">🗑️</div>
+              <div class="option-content">
+                <div class="option-title">清除所有分级</div>
+                <div class="option-desc">移除该期刊的所有分级标记</div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        modal.setContent(html);
+
+        // 事件委托：处理卡片点击
+        const body = modal.getBody();
+        body.onclick = (e) => {
+          const card = e.target.closest('.option-card');
+          if (!card) return;
+
+          const action = card.dataset.action;
+          const sourceKey = card.dataset.sourceKey;
+
+          if (action === 'select-source') {
+            // 选择分级来源
+            const source = sources.find(s => s.key === sourceKey);
+            if (source) {
+              showTierSelector(source);
+            }
+          } else if (action === 'manage-sources') {
+            // 管理分级来源
+            modal.hide();
+            showTierSourceManager(() => {
+              // 返回时重新打开期刊分级管理
+              showJournalTierManager(journalName);
+            });
+          } else if (action === 'clear-all') {
+            // 清除所有分级
+            clearAllTiers();
+            modal.hide();
+          }
+        };
+      }
+
+      // 显示分级选择器
+      function showTierSelector(source) {
+        const currentTier = journal.multiTiers[source.key];
+
+        // 创建分级选择模态弹窗
+        const tierModal = createModal({
+          title: source.shortName || source.name,
+          subtitle: `为「${journal.name.substring(0, 30)}${journal.name.length > 30 ? '...' : ''}」设置分级`,
+          width: '650px'
+        });
+
+        const html = renderTierOptions(source.tiers, currentTier, source.key);
+        tierModal.setContent(html);
+
+        // 添加返回按钮
+        tierModal.addButton('返回', 'secondary', () => {
+          tierModal.hide();
+          setTimeout(() => modal.show(), 300);
+        });
+
+        // 事件委托：处理分级选择
+        const body = tierModal.getBody();
+        body.onclick = (e) => {
+          const tierOption = e.target.closest('.tier-option');
+          if (!tierOption) return;
+
+          const action = tierOption.dataset.action;
+          const tier = tierOption.dataset.tier;
+
+          if (action === 'clear-tier') {
+            // 清除该来源分级
+            setJournalTier(journalName, source.key, null);
+            showToast("✅ 已清除分级");
+            renderJournals();
+            tierModal.hide();
+            setTimeout(() => modal.show(), 300);
+          } else if (action === 'select-tier' && tier) {
+            // 选择分级
+            setJournalTier(journalName, source.key, tier);
+            showToast(`✅ 已设置为 ${tier}`);
+            renderJournals();
+            tierModal.hide();
+            setTimeout(() => modal.show(), 300);
+          }
+        };
+
+        // 隐藏主菜单，显示分级选择
+        modal.hide();
+        setTimeout(() => tierModal.show(), 300);
+      }
+
+      // 清除所有分级
+      function clearAllTiers() {
+        if (confirm(`确定要清除期刊「${journal.name}」的所有分级吗？`)) {
+          sources.forEach(source => {
+            setJournalTier(journalName, source.key, null);
+          });
+          showToast("✅ 已清除所有分级");
+          renderJournals();
+        }
+      }
+
+      // 渲染并显示主菜单
+      renderMainMenu();
+      modal.show();
+    }
+
+    /**
+     * 显示分级来源管理界面
+     * @param {Function} returnCallback - 返回回调函数
+     */
+    async function showTierSourceManager(returnCallback) {
+      // 创建主模态弹窗
+      const modal = createModal({
+        title: '管理分级来源',
+        subtitle: '添加、编辑或删除期刊分级来源',
+        width: '700px'
+      });
+
+      // 渲染主菜单
+      function renderMainMenu() {
+        const sources = Array.from(state.tierSources.entries()).map(([key, value]) => ({ key, ...value }));
+
+        // 渲染所有来源为卡片
+        const sourceCards = sources.map(s => {
+          const icon = s.builtin ? '🔒' : '👤';
+          const status = s.enabled ? '✅' : '❌';
+          const weight = Math.round(s.weight * 100);
+          const lockTag = s.builtin ? '<div class="option-badge">内置</div>' : '';
+
+          return `
+            <div class="option-card" data-action="edit-source" data-source-key="${s.key}">
+              <div class="option-icon">${icon}</div>
+              <div class="option-content">
+                <div class="option-title">${status} ${escapeHtml(s.shortName || s.name)}</div>
+                <div class="option-desc">${s.enabled ? '已启用' : '已禁用'} · 权重 ${weight}%</div>
+              </div>
+              ${lockTag}
+            </div>
+          `;
+        }).join('');
+
+        const html = `
+          <div class="card-list">
+            ${sourceCards}
+            <div class="option-card" data-action="add-new">
+              <div class="option-icon">➕</div>
+              <div class="option-content">
+                <div class="option-title">添加新来源</div>
+                <div class="option-desc">创建自定义期刊分级来源</div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        modal.setContent(html);
+
+        // 添加返回/关闭按钮
+        modal.clearButtons();
+        if (returnCallback) {
+          modal.addButton('返回', 'secondary', () => {
+            modal.hide();
+            setTimeout(() => returnCallback(), 300);
+          });
+        } else {
+          modal.addButton('关闭', 'secondary', () => modal.hide());
+        }
+
+        // 事件委托：处理卡片点击
+        const body = modal.getBody();
+        body.onclick = (e) => {
+          const card = e.target.closest('.option-card');
+          if (!card) return;
+
+          const action = card.dataset.action;
+          const sourceKey = card.dataset.sourceKey;
+
+          if (action === 'edit-source') {
+            const source = sources.find(s => s.key === sourceKey);
+            if (source) {
+              showEditSourceModal(source);
+            }
+          } else if (action === 'add-new') {
+            showAddSourceForm();
+          }
+        };
+      }
+
+      // 显示编辑来源模态框
+      function showEditSourceModal(source) {
+        const icon = source.builtin ? '🔒' : '👤';
+        const weight = Math.round(source.weight * 100);
+
+        const editModal = createModal({
+          title: `${icon} ${source.shortName || source.name}`,
+          subtitle: source.builtin ? '内置分级来源（不可删除）' : '自定义分级来源',
+          width: '600px'
+        });
+
+        // 构建编辑表单
+        const html = `
+          <div class="form-group">
+            <label class="form-label">显示名称</label>
+            <input type="text" class="form-input" id="editSourceName"
+                   value="${escapeHtml(source.shortName || source.name)}"
+                   placeholder="输入简短的显示名称">
+            <div class="form-hint">显示在界面上的简称，如：数学分级、复旦分区</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">权重设置</label>
+            <div class="slider-group">
+              <input type="range" class="form-slider" id="editSourceWeight"
+                     min="0" max="100" value="${weight}">
+              <div class="slider-value" id="editWeightDisplay">${weight}%</div>
+            </div>
+            <div class="form-hint">权重决定该来源在最终评分中的影响比例，建议内置来源50%，其他来源合计50%</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">启用状态</label>
+            <div class="option-card" data-action="toggle-enabled" style="cursor: pointer;">
+              <div class="option-icon">${source.enabled ? '✅' : '❌'}</div>
+              <div class="option-content">
+                <div class="option-title">${source.enabled ? '已启用' : '已禁用'}</div>
+                <div class="option-desc">点击切换启用/禁用状态</div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        editModal.setContent(html);
+
+        // 添加按钮
+        editModal.addButton('返回', 'secondary', () => {
+          editModal.hide();
+          setTimeout(() => modal.show(), 300);
+        });
+
+        editModal.addButton('保存', 'primary', () => {
+          const newName = document.getElementById('editSourceName').value.trim();
+          const newWeight = parseInt(document.getElementById('editSourceWeight').value);
+
+          if (!newName) {
+            showToast('❌ 名称不能为空');
+            return;
+          }
+
+          source.shortName = newName;
+          source.weight = newWeight / 100;
+          addOrUpdateTierSource(source.key, source);
+          showToast('✅ 已保存更改');
+          renderJournals();
+
+          editModal.hide();
+          setTimeout(() => {
+            renderMainMenu();
+            modal.show();
+          }, 300);
+        });
+
+        if (!source.builtin) {
+          editModal.addButton('删除', 'danger', () => {
+            if (confirm(`确定要删除分级来源"${source.shortName || source.name}"吗？\n这将清除所有使用此来源的期刊分级。`)) {
+              const success = deleteTierSource(source.key);
+              if (success) {
+                showToast('✅ 已删除');
+                renderJournals();
+                editModal.hide();
+                setTimeout(() => {
+                  renderMainMenu();
+                  modal.show();
+                }, 300);
+              }
+            }
+          });
+        }
+
+        // 实时更新权重显示
+        const body = editModal.getBody();
+        const weightSlider = body.querySelector('#editSourceWeight');
+        const weightDisplay = body.querySelector('#editWeightDisplay');
+
+        weightSlider.addEventListener('input', (e) => {
+          weightDisplay.textContent = `${e.target.value}%`;
+        });
+
+        // 切换启用状态
+        body.onclick = (e) => {
+          const toggleCard = e.target.closest('[data-action="toggle-enabled"]');
+          if (toggleCard) {
+            source.enabled = !source.enabled;
+            addOrUpdateTierSource(source.key, source);
+            showToast(source.enabled ? '✅ 已启用' : '❌ 已禁用');
+            renderJournals();
+
+            // 更新显示
+            const iconEl = toggleCard.querySelector('.option-icon');
+            const titleEl = toggleCard.querySelector('.option-title');
+            iconEl.textContent = source.enabled ? '✅' : '❌';
+            titleEl.textContent = source.enabled ? '已启用' : '已禁用';
+          }
+        };
+
+        // 隐藏主菜单，显示编辑界面
+        modal.hide();
+        setTimeout(() => editModal.show(), 300);
+      }
+
+      // 显示添加来源表单
+      function showAddSourceForm() {
+        const addModal = createModal({
+          title: '添加分级来源',
+          subtitle: '创建自定义期刊分级来源',
+          width: '600px'
+        });
+
+        const html = `
+          <div class="form-group">
+            <label class="form-label">来源名称 <span class="required">*</span></label>
+            <input type="text" class="form-input" id="addSourceName"
+                   placeholder="如：复旦分区、中科院分区、JCR分区">
+            <div class="form-hint">完整的分级来源名称</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">显示简称 <span class="required">*</span></label>
+            <input type="text" class="form-input" id="addSourceShortName"
+                   placeholder="如：复旦、中科院、JCR">
+            <div class="form-hint">显示在界面上的简短名称</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">权重设置</label>
+            <div class="slider-group">
+              <input type="range" class="form-slider" id="addSourceWeight"
+                     min="0" max="100" value="30">
+              <div class="slider-value" id="addWeightDisplay">30%</div>
+            </div>
+            <div class="form-hint">建议：内置分级50%，其他来源合计50%</div>
+          </div>
+        `;
+
+        addModal.setContent(html);
+
+        // 添加按钮
+        addModal.addButton('取消', 'secondary', () => {
+          addModal.hide();
+          setTimeout(() => modal.show(), 300);
+        });
+
+        addModal.addButton('创建', 'primary', () => {
+          const name = document.getElementById('addSourceName').value.trim();
+          const shortName = document.getElementById('addSourceShortName').value.trim();
+          const weight = parseInt(document.getElementById('addSourceWeight').value);
+
+          // 验证
+          if (!name) {
+            showToast('❌ 请输入来源名称');
+            return;
+          }
+          if (!shortName) {
+            showToast('❌ 请输入显示简称');
+            return;
+          }
+
+          // 生成唯一 key
+          const key = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+          // 创建新来源
+          const newSource = {
+            name: name,
+            shortName: shortName,
+            weight: weight / 100,
+            enabled: true,
+            builtin: false,
+            description: '用户自定义分级来源',
+            tiers: {
+              'A+': { score: 100, name: 'A+', color: '#FFD700', description: '顶级' },
+              'A': { score: 90, name: 'A', color: '#FFA500', description: '优秀' },
+              'B': { score: 75, name: 'B', color: '#4CAF50', description: '良好' },
+              'C': { score: 60, name: 'C', color: '#2196F3', description: '一般' },
+              'D': { score: 40, name: 'D', color: '#9E9E9E', description: '较差' }
+            }
+          };
+
+          // 保存
+          addOrUpdateTierSource(key, newSource);
+          showToast(`✅ 已添加分级来源"${shortName}"`);
+          renderJournals();
+
+          addModal.hide();
+          setTimeout(() => {
+            renderMainMenu();
+            modal.show();
+          }, 300);
+        });
+
+        // 实时更新权重显示
+        const body = addModal.getBody();
+        const weightSlider = body.querySelector('#addSourceWeight');
+        const weightDisplay = body.querySelector('#addWeightDisplay');
+
+        weightSlider.addEventListener('input', (e) => {
+          weightDisplay.textContent = `${e.target.value}%`;
+        });
+
+        // 自动填充简称
+        const nameInput = body.querySelector('#addSourceName');
+        const shortNameInput = body.querySelector('#addSourceShortName');
+
+        nameInput.addEventListener('blur', () => {
+          if (!shortNameInput.value && nameInput.value) {
+            // 简单提取：取前2-4个字符
+            shortNameInput.value = nameInput.value.substring(0, 4);
+          }
+        });
+
+        // 隐藏主菜单，显示添加表单
+        modal.hide();
+        setTimeout(() => addModal.show(), 300);
+      }
+
+      // 渲染并显示主菜单
+      renderMainMenu();
+      modal.show();
     }
 
     /**
@@ -3565,6 +6674,12 @@
       // 加载期刊数据
       loadJournalStarData();
 
+      // 加载分级来源数据
+      loadTierSourcesData();
+
+      // 加载期刊多来源分级数据
+      loadJournalMultiTiersData();
+
       // 事件监听
       dom.searchInput.addEventListener('input', handleSearchInput);
       dom.toggleFiltersBtn.addEventListener('click', handleFilterToggle);
@@ -3595,6 +6710,28 @@
           state.expandedAuthor = null;
           hideBackdrop();
           renderLiteratures();
+          return;
+        }
+
+        // 处理"编辑工作单位"按钮
+        const editAffiliationBtn = e.target.closest('[data-action="edit-affiliation"]');
+        if (editAffiliationBtn) {
+          e.stopPropagation();
+          const authorName = editAffiliationBtn.dataset.author;
+          if (authorName) {
+            showEditAffiliationDialog(authorName);
+          }
+          return;
+        }
+
+        // 处理"编辑作者信息"按钮
+        const editAuthorInfoBtn = e.target.closest('[data-action="edit-author-info"]');
+        if (editAuthorInfoBtn) {
+          e.stopPropagation();
+          const authorName = editAuthorInfoBtn.dataset.author;
+          if (authorName) {
+            editAuthorInfo(authorName);
+          }
           return;
         }
 
@@ -3707,6 +6844,16 @@
           state.expandedJournal = null;
           hideBackdrop();
           renderLiteratures();
+          return;
+        }
+
+        // 处理"管理分级"按钮
+        const manageTiersBtn = e.target.closest('[data-action="manage-journal-tiers"]');
+        if (manageTiersBtn) {
+          e.stopPropagation();
+          const journalCard = manageTiersBtn.closest('.journal-card');
+          const journalName = journalCard.dataset.journal;
+          showJournalTierManager(journalName);
           return;
         }
 
