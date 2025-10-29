@@ -343,7 +343,7 @@ JSB.newAddon = function(mainPath){
           // return 
         }
 
-        if (KnowledgeBaseTemplate.getNoteType(note) == "命题" && self.excerptOCRMode > 0 && KnowledgeBaseTemplate.getNoteType(note.parentNote) == "归类") {
+        if (KnowledgeBaseTemplate.getNoteType(note, true) == "命题" && self.excerptOCRMode > 0 && KnowledgeBaseTemplate.getNoteType(note.parentNote) == "归类") {
           let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(note)
           KnowledgeBaseTemplate.changeTitle(processedNote, true)
           KnowledgeBaseTemplate.changeNoteColor(processedNote, true)

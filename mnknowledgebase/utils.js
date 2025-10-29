@@ -3451,6 +3451,7 @@ class KnowledgeBaseTemplate {
           // 还剩摘录区
           KnowledgeBaseUtils.log("合并摘录区", "renewKnowledgeNotes")
           this.retainFieldContentByName(sourceNote, "摘录")
+          sourceNote.title = ""
           sourceNote.mergeInto(targetNote);
           this.autoMoveNewContentToField(targetNote, "摘录", true, false);
         } else {
@@ -3460,6 +3461,7 @@ class KnowledgeBaseTemplate {
 
         // 10. 刷新目标卡片
         targetNote.refresh();
+        targetNote.focusInMindMap(0.4)
       });
 
       MNUtil.showHUD("✅ 知识卡片合并完成");
@@ -7863,6 +7865,7 @@ class KnowledgeBaseTemplate {
     let typeArr = ["定义", "命题", "例子", "反例", "思想方法", "问题"]
     let titlesArray = []
     let contentInTitle
+    let childNotes = note.childNotes
     switch (this.getNoteType(note)) {
       case "归类":
         contentInTitle = titleParts.content
@@ -8082,6 +8085,9 @@ class KnowledgeBaseTemplate {
                   KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                   lastNote = newClassificationNote
                 })
+                if (childNotes.length == 1 && this.getNoteType(childNotes[0]) !== "归类") {  // 不是归类卡片的最后一张，自动移动到新的归类卡片下方
+                  lastNote.addChild(childNotes[0])
+                }
                 if (focusLastNote) {
                   lastNote.focusInMindMap(0.3)
                 }
