@@ -1488,6 +1488,174 @@ JSB.newAddon = function(mainPath){
     }
   }
 
+  // ============================================
+  // AI 助手功能 - 与 MNAI 插件集成
+  // ============================================
+
+  /**
+   * 基于知识库上下文向 AI 提问
+   * @param {string} question - 用户的问题
+   * @param {Array} contextCards - 上下文卡片数组（最多 5 张）
+   * @returns {Promise<string|null>} AI 的响应文本，失败返回 null
+   */
+  MNKnowledgeBaseClass.prototype.askAIWithContext = async function(question, contextCards) {
+    try {
+      KnowledgeBaseUtils.log("========================================")
+      KnowledgeBaseUtils.log("【Native】askAIWithContext 方法被调用")
+      KnowledgeBaseUtils.log("【Native】📝 问题: " + question)
+      KnowledgeBaseUtils.log("【Native】📚 卡片数: " + (contextCards ? contextCards.length : 0))
+
+      if (contextCards && contextCards.length > 0) {
+        KnowledgeBaseUtils.log("【Native】📋 上下文卡片列表:")
+        contextCards.forEach((card, idx) => {
+          KnowledgeBaseUtils.log(`【Native】  ${idx + 1}. [${card.type || '无类型'}] ${card.title}`)
+        })
+      }
+
+      // 1. 检查 MNAI 插件是否可用
+      KnowledgeBaseUtils.log("【Native】🔍 检查 chatAIUtils 是否存在...")
+      const chatAIUtilsExists = typeof chatAIUtils !== 'undefined'
+      KnowledgeBaseUtils.log("【Native】chatAIUtils 存在: " + chatAIUtilsExists)
+
+      if (!chatAIUtilsExists) {
+        KnowledgeBaseUtils.log("【Native】❌ chatAIUtils 未定义，MNAI 插件可能未安装或未启动")
+        MNUtil.showHUD("❌ 请先安装并打开 MNAI 插件");
+        return null;
+      }
+
+      KnowledgeBaseUtils.log("【Native】✅ chatAIUtils 可用")
+
+      // 检查 notifyController
+      const hasNotifyController = chatAIUtils.notifyController !== undefined
+      KnowledgeBaseUtils.log("【Native】notifyController 存在: " + hasNotifyController)
+
+      if (hasNotifyController) {
+        const hasLastResponse = chatAIUtils.notifyController.lastResponse !== undefined
+        const hasCheckAutoClose = typeof chatAIUtils.notifyController.checkAutoClose === 'function'
+        KnowledgeBaseUtils.log("【Native】lastResponse 属性存在: " + hasLastResponse)
+        KnowledgeBaseUtils.log("【Native】checkAutoClose 方法存在: " + hasCheckAutoClose)
+      }
+
+      // 2. 构建包含知识库上下文的完整提示词
+      KnowledgeBaseUtils.log("【Native】⏳ 开始构建上下文...")
+      const context = this.buildContextFromCards(contextCards || []);
+      KnowledgeBaseUtils.log("【Native】上下文长度: " + context.length + " 字符")
+
+      const fullPrompt = context
+        ? `基于以下知识库内容回答问题：\n\n${context}\n\n问题：${question}`
+        : question;
+
+      KnowledgeBaseUtils.log("【Native】完整提示词长度: " + fullPrompt.length + " 字符")
+      KnowledgeBaseUtils.log("【Native】提示词前100字符: " + fullPrompt.substring(0, 100))
+
+      // 3. 发送通知到 MNAI 插件
+      KnowledgeBaseUtils.log("【Native】⏳ 准备发送 postNotification...")
+      KnowledgeBaseUtils.log("【Native】通知名称: customChat")
+
+      MNUtil.postNotification("customChat", { user: fullPrompt });
+      KnowledgeBaseUtils.log("【Native】✅ postNotification 执行完成")
+
+      // 4. 等待初始延迟
+      KnowledgeBaseUtils.log("【Native】⏳ 等待初始延迟 0.5 秒...")
+      await MNUtil.delay(0.5);
+      KnowledgeBaseUtils.log("【Native】✅ 初始延迟完成，开始轮询...")
+
+      // 5. 轮询获取响应（最多 30 秒，60 次尝试 × 0.5 秒）
+      for (let i = 0; i < 60; i++) {
+        // 每 10 次打印一次进度
+        if (i % 10 === 0) {
+          KnowledgeBaseUtils.log(`【Native】⏳ 轮询第 ${i + 1} 次 / 60`)
+        }
+
+        // 检查 lastResponse
+        const hasResponse = chatAIUtils?.notifyController?.lastResponse
+        if (hasResponse) {
+          KnowledgeBaseUtils.log("【Native】✅ 在第 " + (i + 1) + " 次轮询中发现 lastResponse!")
+          const result = chatAIUtils.notifyController.lastResponse;
+          KnowledgeBaseUtils.log("【Native】响应长度: " + result.length + " 字符")
+          KnowledgeBaseUtils.log("【Native】响应前100字符: " + result.substring(0, 100))
+
+          // 清空响应，避免下次重复读取
+          chatAIUtils.notifyController.lastResponse = "";
+          KnowledgeBaseUtils.log("【Native】✅ 已清空 lastResponse")
+
+          // 触发 MNAI 的自动关闭检查
+          if (chatAIUtils.notifyController.checkAutoClose) {
+            KnowledgeBaseUtils.log("【Native】⏳ 调用 checkAutoClose...")
+            chatAIUtils.notifyController.checkAutoClose(true, 0.5);
+            KnowledgeBaseUtils.log("【Native】✅ checkAutoClose 完成")
+          } else {
+            KnowledgeBaseUtils.log("【Native】⚠️ checkAutoClose 方法不存在")
+          }
+
+          KnowledgeBaseUtils.log("【Native】✅ 成功返回 AI 响应")
+          return result;
+        }
+
+        // 每 0.5 秒检查一次
+        await MNUtil.delay(0.5);
+      }
+
+      // 6. 超时处理
+      KnowledgeBaseUtils.log("【Native】❌ 轮询 60 次后超时（30 秒）")
+      KnowledgeBaseUtils.log("【Native】最终 chatAIUtils 状态:")
+      KnowledgeBaseUtils.log("【Native】  chatAIUtils 存在: " + (typeof chatAIUtils !== 'undefined'))
+      if (typeof chatAIUtils !== 'undefined') {
+        KnowledgeBaseUtils.log("【Native】  notifyController 存在: " + (chatAIUtils.notifyController !== undefined))
+        if (chatAIUtils.notifyController) {
+          KnowledgeBaseUtils.log("【Native】  lastResponse 值: " + (chatAIUtils.notifyController.lastResponse || "(空)"))
+        }
+      }
+
+      MNUtil.showHUD("⏱️ AI 响应超时，请稍后重试");
+      return null;
+
+    } catch (error) {
+      KnowledgeBaseUtils.log("【Native】❌ 发生异常: " + error.message)
+      KnowledgeBaseUtils.log("【Native】❌ 错误堆栈: " + error.stack)
+
+      MNUtil.showHUD("AI 调用失败: " + error.message);
+      KnowledgeBaseUtils.addErrorLog(error, "askAIWithContext");
+      return null;
+    }
+  }
+
+  /**
+   * 将卡片数组转换为结构化的上下文文本
+   * @param {Array} cards - 卡片对象数组，每个对象包含 {id, title, type, searchText}
+   * @returns {string} 格式化的 Markdown 文本
+   */
+  MNKnowledgeBaseClass.prototype.buildContextFromCards = function(cards) {
+    if (!cards || cards.length === 0) {
+      return "";
+    }
+
+    // 限制最多 5 张卡片，避免上下文过长
+    const limitedCards = cards.slice(0, 5);
+
+    let context = "【知识库相关内容】\n\n";
+
+    limitedCards.forEach((card, index) => {
+      context += `${index + 1}. **${card.title || "(无标题)"}**\n`;
+
+      if (card.type) {
+        context += `   - 类型：${card.type}\n`;
+      }
+
+      if (card.searchText) {
+        // 截取搜索文本的前 300 个字符，避免过长
+        const preview = card.searchText.length > 300
+          ? card.searchText.substring(0, 300) + "..."
+          : card.searchText;
+        context += `   - 内容：${preview}\n`;
+      }
+
+      context += "\n";
+    });
+
+    return context;
+  }
+
 
   // 返回定义的插件类，MarginNote 会自动实例化这个类
   return MNKnowledgeBaseClass;
