@@ -17715,11 +17715,11 @@ class KnowledgeBaseNetwork {
       pattern: "C_ϕ",
       replacement: "Cᵩ",
     },
-     // {
-    //   pattern: "",
-    //   replacement: "",
-    //   description: ""
-    // },
+    {
+      pattern: "lim‾",
+      replacement: "limsup",
+      description: ""
+    },
      // {
     //   pattern: "",
     //   replacement: "",

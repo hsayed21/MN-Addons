@@ -407,6 +407,7 @@ JSB.newAddon = function(mainPath){
           self.tableItem('    ⚙️ OCR 概念提取 模型', 'excerptOCRModelSettingForMode3:', button),
           self.tableItem('-------------------------------',''),
           self.tableItem('🤖   测试 AI', 'testAI:'),
+          self.tableItem('🎯   AI 推荐卡片', 'askAIForRelevantCards:'),
         ];
 
         // 显示菜单
@@ -423,6 +424,10 @@ JSB.newAddon = function(mainPath){
           source:"MNKnowledgeBase: toggleAddon",
         })
       }
+    },
+
+    askAIForRelevantCards: async function() {
+      self.askAIForRelevantCards()
     },
 
     testAI: async function() {
@@ -1097,6 +1102,464 @@ JSB.newAddon = function(mainPath){
     } catch (error) {
       KnowledgeBaseUtils.addErrorLog(error, "testAI")
       MNUtil.showHUD("❌ 调用失败: " + error.message)
+    }
+  }
+
+  /**
+   * 从问题中提取关键词（简单分词 + 停用词过滤）
+   * @param {string} question - 用户输入的问题
+   * @returns {Array<string>} 关键词数组
+   */
+  MNKnowledgeBaseClass.prototype.extractKeywords = function(question) {
+    // 停用词列表（中文常见停用词）
+    const stopwords = new Set([
+      '的', '是', '在', '了', '和', '与', '或', '有', '对', '为', '以',
+      '及', '等', '中', '也', '就', '都', '而', '要', '可以', '这', '那',
+      '什么', '怎么', '如何', '哪', '谁', '吗', '呢', '吧', '啊', '呀'
+    ]);
+
+    // 简单分词：按空格、标点分割
+    const words = question
+      .replace(/[，。！？；：、""''（）【】《》\s]+/g, ' ')
+      .split(' ')
+      .map(w => w.trim())
+      .filter(w => w.length > 0 && !stopwords.has(w));
+
+    return words;
+  }
+
+  /**
+   * 根据关键词搜索候选卡片（基于标题匹配）
+   * 使用渐进式搜索：优先返回全部匹配的卡片，如果结果不足则降级搜索
+   * @param {Array<string>} keywords - 关键词数组
+   * @returns {Promise<Array>} 候选卡片数组，包含 {id, title, type, score}
+   */
+  MNKnowledgeBaseClass.prototype.searchCardsByKeywords = async function(keywords) {
+    try {
+      // 加载知识库索引数据
+      let allCards = [];
+      let manifestPath = MNUtil.dbFolder + "/data/kb-search-index-manifest.json";
+      let manifest = MNUtil.readJSON(manifestPath);
+
+      if (manifest && manifest.parts) {
+        // 加载所有分片
+        for (const partInfo of manifest.parts) {
+          let partPath = MNUtil.dbFolder + "/data/" + partInfo.filename;
+          let partData = MNUtil.readJSON(partPath);
+          if (partData && partData.data) {
+            allCards = allCards.concat(partData.data);
+          }
+        }
+      }
+
+      // 加载增量索引
+      let incrementalPath = MNUtil.dbFolder + "/data/kb-incremental-index.json";
+      if (MNUtil.isfileExists(incrementalPath)) {
+        let incrementalData = MNUtil.readJSON(incrementalPath);
+        if (incrementalData && incrementalData.cards) {
+          const existingIds = new Set(allCards.map(card => card.id));
+          for (const card of incrementalData.cards) {
+            if (!existingIds.has(card.id)) {
+              allCards.push(card);
+            }
+          }
+        }
+      }
+
+      if (allCards.length === 0) {
+        return [];
+      }
+
+      // 渐进式搜索：逐步降低匹配要求直到找到足够的结果
+      const minResultCount = 5;  // 每轮至少需要 5 张卡片
+      const maxResultCount = 20; // 最多返回 20 张卡片
+
+      // 定义搜索轮次（从严格到宽松）
+      const searchRounds = [
+        { name: "全部匹配", minMatch: keywords.length },
+        { name: "2/3 匹配", minMatch: Math.ceil(keywords.length * 2 / 3) },
+        { name: "1/2 匹配", minMatch: Math.ceil(keywords.length * 1 / 2) },
+        { name: "任意匹配", minMatch: 1 }
+      ];
+
+      // 按关键词匹配并评分
+      const allResults = [];
+      for (const card of allCards) {
+        const title = (card.title || "").toLowerCase();
+        let matchCount = 0;
+
+        // 计算匹配的关键词数量
+        for (const keyword of keywords) {
+          if (title.includes(keyword.toLowerCase())) {
+            matchCount++;
+          }
+        }
+
+        // 至少匹配一个关键词才加入候选
+        if (matchCount > 0) {
+          allResults.push({
+            id: card.id,
+            title: card.title,
+            type: card.type,
+            matchCount: matchCount,
+            score: matchCount * 10 + (card.score || 0)  // 匹配数量 × 10 + 原始评分
+          });
+        }
+      }
+
+      // 按评分排序（评分越高越相关）
+      allResults.sort((a, b) => b.score - a.score);
+
+      // 渐进式搜索：从严格到宽松
+      for (const round of searchRounds) {
+        // 过滤符合当前轮次要求的卡片
+        const roundResults = allResults.filter(card => card.matchCount >= round.minMatch);
+
+        if (roundResults.length >= minResultCount) {
+          // 找到足够的结果，返回 top 20
+          const finalResults = roundResults.slice(0, maxResultCount);
+          KnowledgeBaseUtils.log(
+            `搜索成功（${round.name}）：找到 ${roundResults.length} 张卡片，返回前 ${finalResults.length} 张`,
+            "searchCardsByKeywords"
+          );
+          return finalResults;
+        }
+      }
+
+      // 如果所有轮次都没有找到足够的结果，返回所有匹配的卡片
+      const finalResults = allResults.slice(0, maxResultCount);
+      KnowledgeBaseUtils.log(
+        `搜索完成：共找到 ${allResults.length} 张卡片，返回前 ${finalResults.length} 张`,
+        "searchCardsByKeywords"
+      );
+      return finalResults;
+
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "searchCardsByKeywords");
+      return [];
+    }
+  }
+
+  /**
+   * 构建 AI 提示词（包含原始问题和卡片标题）
+   * @param {string} question - 用户的原始问题
+   * @param {Array} candidateCards - 候选卡片数组
+   * @returns {string} AI 提示词
+   */
+  MNKnowledgeBaseClass.prototype.buildAIPromptForCardRecommendation = function(question, candidateCards) {
+    let prompt = "# 任务\n";
+    prompt += "请分析以下候选卡片，找出与用户问题最相关的卡片。\n\n";
+
+    prompt += "# 用户的原始问题\n";
+    prompt += `"${question}"\n\n`;
+
+    prompt += "# 候选卡片列表\n";
+    candidateCards.forEach((card, index) => {
+      prompt += `${index + 1}. [ID: ${card.id}] ${card.title}`;
+      if (card.type) {
+        prompt += ` (类型: ${card.type})`;
+      }
+      prompt += "\n";
+    });
+
+    prompt += "\n# 输出要求\n";
+    prompt += "请返回最相关的 5-8 张卡片的 ID，用逗号分隔。\n";
+    prompt += "分析时请重点关注卡片标题与原始问题的**语义相关性**，而不仅仅是关键词匹配。\n";
+    prompt += "格式示例：card-1001, card-1005, card-1012\n\n";
+    prompt += "推荐的卡片 ID：";
+
+    return prompt;
+  }
+
+  /**
+   * 从 AI 响应中解析卡片 ID 列表
+   * @param {string} response - AI 响应文本
+   * @returns {Array<string>} 卡片 ID 数组
+   */
+  MNKnowledgeBaseClass.prototype.parseCardIdsFromAIResponse = function(response) {
+    try {
+      // 尝试提取 ID 列表（支持多种格式）
+      const idPattern = /\b[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\b/gi;
+      const matches = response.match(idPattern);
+
+      if (matches && matches.length > 0) {
+        // 去重并返回
+        return [...new Set(matches)];
+      }
+
+      // 备用：尝试按逗号分割
+      const parts = response.split(/[,，\s]+/).map(s => s.trim()).filter(s => s.length > 0);
+      return parts.slice(0, 10);  // 最多返回 10 个
+
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "parseCardIdsFromAIResponse");
+      return [];
+    }
+  }
+
+  /**
+   * 在 search.html 中展示 AI 推荐的卡片
+   * @param {Array<string>} cardIds - 推荐的卡片 ID 数组
+   * @param {string} question - 用户问题
+   */
+  MNKnowledgeBaseClass.prototype.showRecommendedCardsInWebView = async function(cardIds, question) {
+    try {
+      // 1. 打开 WebView
+      await this.openSearchWebView();
+
+      // 2. 轮询等待数据加载完成（增强检查：包括 DOM 渲染）
+      const maxWaitTime = 10000;  // 增加到 10 秒
+      const checkInterval = 300;   // 增加到 300ms
+      let elapsedTime = 0;
+      let dataReady = false;
+
+      KnowledgeBaseUtils.log("等待数据加载和 DOM 渲染完成...", "showRecommendedCardsInWebView");
+
+      while (elapsedTime < maxWaitTime) {
+        const checkScript = `
+          (function() {
+            // 检查数据是否已加载
+            if (window.state && window.state.cards && window.state.cards.length > 0) {
+              // 进一步检查 DOM 是否已渲染
+              const cardElements = document.querySelectorAll('.card[data-id]');
+              if (cardElements.length > 0) {
+                return "ready";
+              }
+              return "rendering";  // 数据已加载但 DOM 未渲染
+            }
+            return "loading";
+          })();
+        `;
+
+        try {
+          const status = await KnowledgeBaseUtils.webViewController.runJavaScript(checkScript);
+
+          if (status === "ready") {
+            dataReady = true;
+            KnowledgeBaseUtils.log(`数据加载和 DOM 渲染完成（耗时 ${elapsedTime}ms）`, "showRecommendedCardsInWebView");
+            break;
+          } else if (status === "rendering") {
+            KnowledgeBaseUtils.log(`数据已加载，等待 DOM 渲染...（${elapsedTime}ms）`, "showRecommendedCardsInWebView");
+          }
+        } catch (e) {
+          // WebView 可能还没完全初始化，继续等待
+        }
+
+        await MNUtil.delay(checkInterval / 1000);
+        elapsedTime += checkInterval;
+      }
+
+      if (!dataReady) {
+        MNUtil.showHUD("⚠️ 数据加载超时");
+        KnowledgeBaseUtils.log("数据加载超时", "showRecommendedCardsInWebView");
+        return;
+      }
+
+      // 3. 准备阶段：清除过滤器，显示所有卡片
+      KnowledgeBaseUtils.log("准备阶段：清除过滤器...", "showRecommendedCardsInWebView");
+
+      const prepareScript = `
+        (function() {
+          try {
+            // 清空搜索框
+            const searchInput = document.querySelector('#searchInput');
+            if (searchInput) {
+              searchInput.value = '';
+            }
+
+            // 清除所有过滤器
+            if (window.state) {
+              window.state.activePresets && window.state.activePresets.clear();
+              window.state.activeNegativePresets && window.state.activeNegativePresets.clear();
+            }
+
+            // 触发搜索以显示所有卡片
+            if (typeof scheduleSearch === 'function') {
+              scheduleSearch({ triggerNative: false });
+            }
+
+            return { success: true };
+          } catch (e) {
+            return { error: e.message };
+          }
+        })();
+      `;
+
+      const prepareResult = await KnowledgeBaseUtils.webViewController.runJavaScript(prepareScript);
+
+      if (prepareResult.error) {
+        KnowledgeBaseUtils.log("准备阶段失败: " + prepareResult.error, "showRecommendedCardsInWebView");
+      } else {
+        KnowledgeBaseUtils.log("准备阶段完成", "showRecommendedCardsInWebView");
+      }
+
+      // 等待 DOM 更新（搜索结果渲染需要时间）
+      await MNUtil.delay(0.5);
+
+      // 4. 高亮推荐的卡片（增强调试信息）
+      const highlightScript = `
+        (function() {
+          try {
+            // 检查数据是否加载
+            if (!window.state || !window.state.cards || window.state.cards.length === 0) {
+              return { error: "数据未加载", highlightedCount: 0 };
+            }
+
+            const recommendedIds = ${JSON.stringify(cardIds)};
+            let highlightedCount = 0;
+            let notFoundIds = [];
+
+            // 调试信息
+            let debugInfo = {
+              totalCardsInState: window.state.cards.length,
+              totalCardElementsInDOM: document.querySelectorAll('.card[data-id]').length,
+              recommendedIdsCount: recommendedIds.length,
+              idSearchDetails: []  // 每个 ID 的查找详情
+            };
+
+            // 先清除旧的高亮
+            document.querySelectorAll('.card.selected').forEach(card => {
+              card.classList.remove('selected');
+            });
+
+            // 高亮新卡片
+            recommendedIds.forEach(id => {
+              // 检查 ID 是否在 state.cards 中
+              const cardInState = window.state.cards.find(c => c.id === id);
+              const cardElement = document.querySelector('.card[data-id="' + id + '"]');
+
+              debugInfo.idSearchDetails.push({
+                id: id,
+                inState: !!cardInState,
+                inDOM: !!cardElement
+              });
+
+              if (cardElement) {
+                cardElement.classList.add('selected');
+                highlightedCount++;
+
+                // 滚动到第一张
+                if (highlightedCount === 1) {
+                  cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              } else {
+                notFoundIds.push(id);
+              }
+            });
+
+            return {
+              success: true,
+              highlightedCount: highlightedCount,
+              notFoundIds: notFoundIds,
+              debugInfo: debugInfo
+            };
+          } catch (e) {
+            return { error: e.message, highlightedCount: 0 };
+          }
+        })();
+      `;
+
+      const result = await KnowledgeBaseUtils.webViewController.runJavaScript(highlightScript);
+
+      // 输出详细的调试信息
+      if (result.debugInfo) {
+        KnowledgeBaseUtils.log(
+          `调试信息:\n` +
+          `  - 数据中卡片数: ${result.debugInfo.totalCardsInState}\n` +
+          `  - DOM 中卡片数: ${result.debugInfo.totalCardElementsInDOM}\n` +
+          `  - 推荐卡片数: ${result.debugInfo.recommendedIdsCount}\n` +
+          `  - ID 查找详情: ${JSON.stringify(result.debugInfo.idSearchDetails, null, 2)}`,
+          "showRecommendedCardsInWebView"
+        );
+      }
+
+      if (result.error) {
+        MNUtil.showHUD("❌ 高亮失败: " + result.error);
+      } else if (result.highlightedCount > 0) {
+        MNUtil.showHUD(`✅ 已高亮 ${result.highlightedCount} 张推荐卡片`);
+
+        // 如果有卡片未找到，记录详细日志
+        if (result.notFoundIds && result.notFoundIds.length > 0) {
+          KnowledgeBaseUtils.log(
+            `有 ${result.notFoundIds.length} 张卡片未找到:\n${result.notFoundIds.join("\n")}`,
+            "showRecommendedCardsInWebView"
+          );
+        }
+      } else {
+        MNUtil.showHUD("⚠️ 未找到推荐的卡片");
+        KnowledgeBaseUtils.log("所有推荐的卡片都未找到，请检查调试信息", "showRecommendedCardsInWebView");
+      }
+
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "showRecommendedCardsInWebView");
+      MNUtil.showHUD("展示推荐卡片失败");
+    }
+  }
+
+  /**
+   * AI 推荐相关卡片（RAG 模式）
+   *
+   * 功能流程：
+   * 1. 获取用户问题
+   * 2. 提取关键词并搜索候选卡片
+   * 3. 将候选卡片的标题发送给 AI 分析
+   * 4. AI 返回最相关的卡片 ID
+   * 5. 在 search.html 中可视化展示推荐卡片
+   */
+  MNKnowledgeBaseClass.prototype.askAIForRelevantCards = async function() {
+    try {
+      this.checkPopover();
+
+      // 1. 获取用户问题
+      let question = await MNUtil.input("请输入您的问题", "");
+      if (!question || question.button !== 1 || !question.input || question.input.trim() === "") {
+        return;
+      }
+      const userQuestion = question.input.trim();
+
+      // 2. 提取关键词（简单分词）
+      const keywords = this.extractKeywords(userQuestion);
+      KnowledgeBaseUtils.log("提取的关键词: " + keywords.join(", "), "askAIForRelevantCards");
+
+      // 3. 在知识库中搜索候选卡片（基于标题）
+      MNUtil.showHUD("正在搜索知识库...");
+      const candidateCards = await this.searchCardsByKeywords(keywords);
+
+      if (candidateCards.length === 0) {
+        MNUtil.showHUD("未找到相关卡片");
+        return;
+      }
+
+      KnowledgeBaseUtils.log(`找到 ${candidateCards.length} 张候选卡片`, "askAIForRelevantCards");
+
+      // 4. 构建 AI 提示词（只包含卡片ID和标题）
+      const prompt = this.buildAIPromptForCardRecommendation(userQuestion, candidateCards);
+
+      // 5. 调用 AI 获取推荐的卡片 ID
+      MNUtil.showHUD("正在分析相关性...");
+      const aiResponse = await KnowledgeBaseNetwork.callMNAIWithNotification(prompt);
+
+      if (!aiResponse) {
+        MNUtil.showHUD("AI 分析失败");
+        return;
+      }
+
+      // 6. 解析 AI 返回的卡片 ID 列表
+      const recommendedCardIds = this.parseCardIdsFromAIResponse(aiResponse);
+
+      if (recommendedCardIds.length === 0) {
+        MNUtil.showHUD("AI 未找到相关卡片");
+        return;
+      }
+
+      KnowledgeBaseUtils.log("AI 推荐的卡片 ID: " + recommendedCardIds.join(", "), "askAIForRelevantCards");
+
+      // 7. 在 search.html 中展示推荐的卡片
+      await this.showRecommendedCardsInWebView(recommendedCardIds, userQuestion);
+
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "askAIForRelevantCards");
+      MNUtil.showHUD("AI 推荐失败: " + error.message);
     }
   }
 
