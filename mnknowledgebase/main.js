@@ -405,6 +405,8 @@ JSB.newAddon = function(mainPath){
           self.tableItem('    ⚙️ Unicode OCR 模型', 'excerptOCRModelSettingForMode1:', button),
           self.tableItem('    ⚙️ Markdown OCR 模型', 'excerptOCRModelSettingForMode2:', button),
           self.tableItem('    ⚙️ OCR 概念提取 模型', 'excerptOCRModelSettingForMode3:', button),
+          self.tableItem('-------------------------------',''),
+          self.tableItem('🤖   测试 AI', 'testAI:'),
         ];
 
         // 显示菜单
@@ -421,6 +423,10 @@ JSB.newAddon = function(mainPath){
           source:"MNKnowledgeBase: toggleAddon",
         })
       }
+    },
+
+    testAI: async function() {
+      self.testAI()
     },
 
     excerptOCRModelSetting: function(button) {
@@ -1043,6 +1049,54 @@ JSB.newAddon = function(mainPath){
       selector: selector,  // 点击后要调用的方法名
       param: param,        // 传递给方法的参数
       checked: checked     // 是否显示勾选状态
+    }
+  }
+
+  /**
+   * 测试 AI 功能
+   *
+   * 功能流程：
+   * 1. 获取用户输入的问题
+   * 2. 调用 MNAI 插件进行处理
+   * 3. 将结果添加到当前焦点卡片的评论中，如果没有焦点卡片则复制到剪贴板
+   *
+   * @requires MNAI 插件必须已安装并运行
+   */
+  MNKnowledgeBaseClass.prototype.testAI = async function() {
+    try {
+      this.checkPopover() // 关闭菜单
+
+      // 1. 获取用户输入
+      let question = await MNUtil.input("请输入问题","")
+
+      if (!question || question.button !== 1 || !question.input || question.input.trim() === "") {
+        return;
+      }
+
+      // 2. 调用 MNAI 并等待结果
+      const output = await KnowledgeBaseNetwork.callMNAIWithNotification(question.input)
+
+      // 3. 处理结果
+      if (output) {
+        KnowledgeBaseUtils.log("AI 结果: " + output)
+
+        const focusNote = MNNote.getFocusNote()
+        if (focusNote) {
+          MNUtil.undoGrouping(() => {
+            focusNote.appendMarkdownComment(output)
+          })
+          MNUtil.showHUD("✅ 已添加到卡片评论")
+        } else {
+          // 如果没有焦点卡片，复制结果到剪贴板
+          MNUtil.copy(output)
+          MNUtil.showHUD("✅ 已复制到剪贴板")
+        }
+      } else {
+        MNUtil.showHUD("❌ 未获取到 AI 结果")
+      }
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "testAI")
+      MNUtil.showHUD("❌ 调用失败: " + error.message)
     }
   }
 
