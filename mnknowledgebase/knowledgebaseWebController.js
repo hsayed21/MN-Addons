@@ -414,6 +414,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
             return 
           }
           focusNote.title = ""
+          KnowledgeBaseTemplate.retainFieldContentByName(focusNote, "摘录区");
           focusNote.mergeInto(targetNote);
           KnowledgeBaseTemplate.autoMoveNewContentToField(targetNote, "摘录");
           success = true

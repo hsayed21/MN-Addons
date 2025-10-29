@@ -12,6 +12,10 @@ const kbSearchConfig = {
    */
   synonymGroups: [
     {
+      "words": ["||", "‖"],
+      "partialReplacement": true,
+    },
+    {
       "words": ["表示为", "表示成", "写成", "写为"],
       "partialReplacement": false,
     },
@@ -20885,6 +20889,7 @@ class Pangu {
     newText = newText.replace(/\]\s*([A-Za-z])/g, "] $1")
     // 去掉 ∈ 前面的空格
     newText = newText.replace(/\s*∈\s*/g, "∈")
+    newText = newText.replace(/||/g, "‖")
 
 
     // 处理标点符号

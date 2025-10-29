@@ -5738,6 +5738,7 @@ function registerAllCustomActions() {
       MNUtil.undoGrouping(()=>{
         try {
           KnowledgeBaseTemplate.convertClassificationNoteToDefinitionNote(focusNote);
+          KnowledgeBaseTemplate.addToReview(focusNote);
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -5788,6 +5789,7 @@ function registerAllCustomActions() {
       let classificationNote = await KnowledgeBaseTemplate.addTemplate(focusNote);
       KnowledgeBaseTemplate.convertClassificationNoteToDefinitionNote(classificationNote);
       classificationNote.focusInMindMap(0.4)
+      KnowledgeBaseTemplate.addToReview(classificationNote);
     } catch (error) {
       MNUtil.showHUD("addDefinitionNoteAsParentNote: " + error.message);
     }
