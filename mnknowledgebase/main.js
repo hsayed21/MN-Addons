@@ -61,7 +61,6 @@ JSB.newAddon = function(mainPath){
         MNUtil.addObserver(self, 'onTextDidEndEditing:', 'UITextViewTextDidEndEditingNotification')
 
         self.toggled = false
-        self.excerptOCRMode = KnowledgeBaseConfig.config.excerptOCRMode || 0  // 摘录 OCR 模式：0=关闭, 1=直接OCR, 2=Markdown格式, 3=概念提取
         self.preExcerptMode = false  // 预摘录模式
         self.classMode = false
         MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
@@ -305,8 +304,8 @@ JSB.newAddon = function(mainPath){
         const noteId = sender.userInfo.noteid
         const note = MNNote.new(noteId)
         if (!note) return
-        if (self.excerptOCRMode > 0) {
-          let OCRResult = await KnowledgeBaseNetwork.OCRToTitle(note, self.excerptOCRMode, self.preExcerptMode)
+        if (KnowledgeBaseConfig.config.excerptOCRMode > 0) {
+          let OCRResult = await KnowledgeBaseNetwork.OCRToTitle(note, KnowledgeBaseConfig.config.excerptOCRMode, self.preExcerptMode)
           if (OCRResult) {
             IntermediateKnowledgeIndexer.addToIncrementalIndex(note)
           }
@@ -343,7 +342,7 @@ JSB.newAddon = function(mainPath){
           // return 
         }
 
-        if (KnowledgeBaseTemplate.getNoteType(note, true) == "命题" && self.excerptOCRMode > 0) {
+        if (KnowledgeBaseTemplate.getNoteType(note, true) == "命题" && KnowledgeBaseConfig.config.excerptOCRMode > 0) {
           let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(note)
           let brotherIndex = processedNote.indexInBrotherNotes
           let targetParentNote = processedNote.indexInBrotherNotes>0 ? (
@@ -367,7 +366,7 @@ JSB.newAddon = function(mainPath){
           KnowledgeBaseUtils.log("未能一键制卡", "onProcessNewExcerpt", 
             {
               type: KnowledgeBaseTemplate.getNoteType(note, true)||"No?" + KnowledgeBaseTemplate.getNoteType(note),
-              excerptOCRMode: self.excerptOCRMode,
+              excerptOCRMode: KnowledgeBaseConfig.config.excerptOCRMode,
               parentType: KnowledgeBaseTemplate.getNoteType(note.parentNote)
             }
           )
@@ -413,11 +412,12 @@ JSB.newAddon = function(mainPath){
           // === 中间知识库管理 ===
           self.tableItem('📝   索引中间知识库', 'updateIntermediateKnowledgeIndex:'),
           self.tableItem('-------------------------------',''),
-          // === 通用搜索（支持自定义类型）===
+          // === 可视化工具 ===
           self.tableItem('🌐   可视化搜索', 'openSearchWebView:'),
+          self.tableItem('💬   评论管理器', 'openCommentManager:'),
           self.tableItem('-------------------------------',''),
-          self.tableItem('🤖  模式',''),
-          self.tableItem('    🤖 摘录自动 OCR', 'excerptOCRModeSetting:', button, !self.excerptOCRMode==0),
+          self.tableItem('🤖  模式','closeOCRMode'),
+          self.tableItem('    🤖 摘录自动 OCR', 'excerptOCRModeSetting:', button, !KnowledgeBaseConfig.config.excerptOCRMode==0),
           self.tableItem('    🤖 预摘录卡片', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
           self.tableItem('    🤖 卡片预处理', 'preProcessModeToggled:', undefined, KnowledgeBaseConfig.config.preProcessMode),
           self.tableItem('    🤖 上课', 'classModeToggled:', undefined, self.classMode),
@@ -456,6 +456,17 @@ JSB.newAddon = function(mainPath){
       self.testAI()
     },
 
+    closeOCRMode: function() {
+      self.checkPopover()
+      KnowledgeBaseConfig.config.excerptOCRMode = 0
+      KnowledgeBaseConfig.save()
+      MNUtil.showHUD("已关闭摘录 OCR 模式", 1)
+    },
+
+    openCommentManager: async function() {
+      self.openCommentManager()
+    },
+
     excerptOCRModelSetting: function(button) {
       try {
         self.checkPopover()
@@ -491,7 +502,7 @@ JSB.newAddon = function(mainPath){
         self.checkPopover()
         const modeNames = ['❌ 关闭', '📝 直接OCR', '🔤 Markdown格式', '🎯 概念提取']
         let commandTable = modeNames.map((name, index) =>
-          self.tableItem(name, 'setExcerptOCRMode:', index, self.excerptOCRMode === index)
+          self.tableItem(name, 'setExcerptOCRMode:', index, KnowledgeBaseConfig.config.excerptOCRMode === index)
         )
         self.popoverController = MNUtil.getPopoverAndPresent(
           button,
@@ -507,7 +518,6 @@ JSB.newAddon = function(mainPath){
     setExcerptOCRMode: function(mode) {
       try {
         self.checkPopover()
-        self.excerptOCRMode = mode
         KnowledgeBaseConfig.config.excerptOCRMode = mode
         KnowledgeBaseConfig.save()
         const modeNames = ['关闭', '直接OCR', 'Markdown格式', '概念提取']
@@ -2239,7 +2249,7 @@ JSB.newAddon = function(mainPath){
   /**
    * 打开评论管理器
    *
-   * @param {MNNote} note - 要管理评论的卡片
+   * @param {MNNote} note - 要管理评论的卡片（可选，不传则使用当前焦点卡片）
    *
    * @description
    * 此函数打开可视化评论管理器界面，支持：
@@ -2250,49 +2260,80 @@ JSB.newAddon = function(mainPath){
    *
    * @example
    * this.openCommentManager(note);
+   * this.openCommentManager();  // 使用当前焦点卡片
    */
-  MNKnowledgeBaseClass.prototype.openCommentManager = function(note) {
+  MNKnowledgeBaseClass.prototype.openCommentManager = async function(note) {
     try {
-      if (!note) {
-        MNUtil.showHUD("未找到卡片");
-        return;
+      KnowledgeBaseUtils.log("开始", "openCommentManager")
+
+      // 1. 获取目标卡片（参数或当前焦点卡片）
+      const targetNote = note || MNNote.getFocusNote()
+      if (!targetNote) {
+        MNUtil.showHUD("请先选中一个卡片")
+        KnowledgeBaseUtils.log("未找到目标卡片", "openCommentManager")
+        return
       }
 
-      KnowledgeBaseUtils.log("打开评论管理器", "openCommentManager", {
-        noteId: note.noteId,
-        noteTitle: note.noteTitle
-      });
-
-      // 1. 准备数据
-      const commentData = this.prepareCommentDataForManager(note);
-      if (!commentData) {
-        MNUtil.showHUD("准备数据失败");
-        return;
-      }
+      KnowledgeBaseUtils.log("目标卡片: " + targetNote.noteTitle, "openCommentManager")
 
       // 2. 保存当前操作的卡片引用（供 Bridge 使用）
-      self.currentManagedNote = note;
-      self.currentCommentData = commentData;
+      self.currentManagedNote = targetNote
+      KnowledgeBaseUtils.log("已保存 currentManagedNote", "openCommentManager")
 
-      // 3. 创建或显示 WebView
-      // TODO: 暂时使用 MNUtil.showHUD 提示，完整实现需要 WebViewController
-      MNUtil.showHUD("评论管理器开发中...\n数据已准备就绪");
+      // 3. 确保控制器已初始化
+      KnowledgeBaseUtils.checkWebViewController()
+      const controller = KnowledgeBaseUtils.webViewController
 
-      // 临时：打印数据到日志供调试
-      KnowledgeBaseUtils.log("评论数据已准备", "openCommentManager", {
-        commentsCount: commentData.comments.length,
-        fieldsCount: commentData.fields.length,
-        fields: commentData.fields.map(f => f.name)
-      });
+      KnowledgeBaseUtils.log("控制器状态", "openCommentManager", {
+        hidden: controller.view.hidden,
+        onAnimate: controller.onAnimate,
+        currentHTMLType: controller.currentHTMLType
+      })
 
-      // TODO: 完整实现
-      // - 创建/获取 commentManagerWebController
-      // - 加载 comment-manager.html
-      // - 通过 Bridge 传递数据
+      // 4. 检查当前 HTML 类型，如果不是 comment-manager 则需要重新加载
+      const needReload = controller.currentHTMLType !== 'comment-manager'
+
+      // 5. 如果已显示且不在动画中，且是正确的 HTML
+      if (!controller.view.hidden && !controller.onAnimate && !needReload) {
+        KnowledgeBaseUtils.log("已显示，bring to front", "openCommentManager")
+        MNUtil.studyView.bringSubviewToFront(controller.view)
+
+        // 加载新卡片的数据
+        await controller.loadCommentData(targetNote.noteId)
+        KnowledgeBaseUtils.log("数据已刷新", "openCommentManager")
+        return
+      }
+
+      // 6. 如果正在动画中，等待动画完成后重新调用
+      if (controller.onAnimate) {
+        KnowledgeBaseUtils.log("正在动画中，延迟 0.5s 后重试", "openCommentManager")
+        await MNUtil.delay(0.5)
+        return this.openCommentManager(targetNote)
+      }
+
+      KnowledgeBaseUtils.log("首次打开或切换 HTML", "openCommentManager", {needReload})
+
+      // 7. 加载 comment-manager.html
+      MNUtil.showHUD("正在加载评论管理器,请稍候...")
+      controller.loadCommentManagerHTML()
+      KnowledgeBaseUtils.log("loadCommentManagerHTML 调用完成", "openCommentManager")
+
+      // 8. 显示窗口
+      await controller.show(
+        null,
+        { x: 50, y: 50, width: 720, height: 720 }  // 评论管理器使用较小的窗口
+      )
+      KnowledgeBaseUtils.log("窗口显示完成", "openCommentManager")
+
+      // 9. 等待 WebView 加载完成后加载数据
+      await MNUtil.delay(0.5)
+      await controller.loadCommentData(targetNote.noteId)
+      KnowledgeBaseUtils.log("数据已发送到 HTML 端", "openCommentManager")
 
     } catch (error) {
-      KnowledgeBaseUtils.addErrorLog(error, "openCommentManager");
-      MNUtil.showHUD("打开评论管理器失败: " + error.message);
+      KnowledgeBaseUtils.log("发生异常: " + error.message, "openCommentManager")
+      MNUtil.showHUD("打开评论管理器失败: " + error.message)
+      KnowledgeBaseUtils.addErrorLog(error, "openCommentManager")
     }
   }
 
