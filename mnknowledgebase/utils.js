@@ -1624,11 +1624,20 @@ class KnowledgeBaseTemplate {
    * 支持清理旧链接：当卡片移动位置导致父卡片改变时，会自动删除与旧父卡片的链接
    */
   static linkParentNote(note, force = true) {
+    KnowledgeBaseUtils.log("开始执行 linkParentNote", "linkParentNote", {
+      noteId: note.noteId,
+      noteType: this.getNoteType(note),
+      force: force
+    })
+
     /**
      * 不处理的类型
      */
     let excludingTypes = ["思路", "总结", "研究进展"];
     if (excludingTypes.includes(this.getNoteType(note))) {
+      KnowledgeBaseUtils.log("跳过不处理的类型", "linkParentNote", {
+        noteType: this.getNoteType(note)
+      })
       return; // 不处理
     }
 
@@ -1639,10 +1648,10 @@ class KnowledgeBaseTemplate {
       let ifParentNoteInNoteTargetFieldToBottom = false // 父卡片在 note 中的链接最终要到的是否是字段的底部
       let noteInParentNoteTargetField // note 在父卡片中的链接最终要到的字段
       let ifNoteInParentNoteTargetFieldToBottom = false // note 在父卡片中的链接最终要到的是否是字段的底部
-      
+
       // 用于实际链接操作的父卡片变量
       let actualParentNote = parentNote
-      
+
       switch (this.getNoteType(note)) {
         case "归类":
           if (this.getNoteType(parentNote) !== "归类") {
@@ -1665,18 +1674,29 @@ class KnowledgeBaseTemplate {
             parentNoteInNoteTargetField = "所属"
             ifParentNoteInNoteTargetFieldToBottom = false
             noteInParentNoteTargetField = "包含"
-            ifNoteInParentNoteTargetFieldToBottom = true 
+            ifNoteInParentNoteTargetFieldToBottom = true
           }
           break;
         default:
           // 对于非归类卡片，使用第一个归类父卡片
+          KnowledgeBaseUtils.log("开始查找归类父卡片", "linkParentNote", {
+            noteId: note.noteId
+          })
+
           let classificationParentNote = this.getFirstClassificationParentNote(note);
+
+          KnowledgeBaseUtils.log("完成查找归类父卡片", "linkParentNote", {
+            noteId: note.noteId,
+            found: !!classificationParentNote,
+            classificationParentNoteId: classificationParentNote?.noteId
+          })
+
           if (classificationParentNote) {
             actualParentNote = classificationParentNote
             parentNoteInNoteTargetField = "相关链接"
             ifParentNoteInNoteTargetFieldToBottom = false
             noteInParentNoteTargetField = "包含"
-            ifNoteInParentNoteTargetFieldToBottom = true 
+            ifNoteInParentNoteTargetFieldToBottom = true
           } else {
             // 如果没有找到归类父卡片，直接返回，不处理
             return
@@ -1688,7 +1708,16 @@ class KnowledgeBaseTemplate {
         /**
          * 清理旧链接：删除与其他父卡片的链接
          */
+        KnowledgeBaseUtils.log("开始 cleanupOldParentLinks", "linkParentNote", {
+          noteId: note.noteId,
+          actualParentNoteId: actualParentNote.noteId
+        })
+
         this.cleanupOldParentLinks(note, actualParentNote)
+
+        KnowledgeBaseUtils.log("完成 cleanupOldParentLinks", "linkParentNote", {
+          noteId: note.noteId
+        })
       }
 
       /**
@@ -1696,51 +1725,101 @@ class KnowledgeBaseTemplate {
        */
       let parentNoteInNoteIndex = this.getNoteIndexInAnotherNote(actualParentNote, note)
       let noteInParentNoteIndex = this.getNoteIndexInAnotherNote(note, actualParentNote)
-      
+
+      KnowledgeBaseUtils.log("查找链接索引完成", "linkParentNote", {
+        noteId: note.noteId,
+        parentNoteInNoteIndex: parentNoteInNoteIndex,
+        noteInParentNoteIndex: noteInParentNoteIndex
+      })
+
       // 如果没有链接，先添加链接
       if (parentNoteInNoteIndex == -1) {
         note.appendNoteLink(actualParentNote, "To")
         // 重新获取索引（因为添加了链接）
         parentNoteInNoteIndex = this.getNoteIndexInAnotherNote(actualParentNote, note)
+
+        KnowledgeBaseUtils.log("添加父卡片链接到 note", "linkParentNote", {
+          noteId: note.noteId,
+          newIndex: parentNoteInNoteIndex
+        })
       }
       if (noteInParentNoteIndex == -1) {
         actualParentNote.appendNoteLink(note, "To")
         // 重新获取索引（因为添加了链接）
         noteInParentNoteIndex = this.getNoteIndexInAnotherNote(note, actualParentNote)
+
+        KnowledgeBaseUtils.log("添加 note 链接到父卡片", "linkParentNote", {
+          noteId: note.noteId,
+          newIndex: noteInParentNoteIndex
+        })
       }
 
       KnowledgeBaseUtils.log(`linkParentNote: parentNoteInNoteIndex=${parentNoteInNoteIndex}, noteInParentNoteIndex=${noteInParentNoteIndex}`, "linkParentNote", {linkParentNote:this.ifLinkParentNote(note)})
 
       // 最后进行移动（确保索引是最新的）
       if (parentNoteInNoteIndex !== -1 && parentNoteInNoteTargetField) {
+        KnowledgeBaseUtils.log("开始移动父卡片链接到目标字段", "linkParentNote", {
+          noteId: note.noteId,
+          targetField: parentNoteInNoteTargetField,
+          index: parentNoteInNoteIndex
+        })
+
         this.moveCommentsArrToField(note, [parentNoteInNoteIndex], parentNoteInNoteTargetField, ifParentNoteInNoteTargetFieldToBottom)
+
+        KnowledgeBaseUtils.log("完成移动父卡片链接", "linkParentNote", {
+          noteId: note.noteId
+        })
       }
       if (noteInParentNoteIndex !== -1 && noteInParentNoteTargetField) {
+        KnowledgeBaseUtils.log("开始移动 note 链接到父卡片目标字段", "linkParentNote", {
+          noteId: note.noteId,
+          targetField: noteInParentNoteTargetField,
+          index: noteInParentNoteIndex
+        })
+
         this.moveCommentsArrToField(actualParentNote, [noteInParentNoteIndex], noteInParentNoteTargetField, ifNoteInParentNoteTargetFieldToBottom)
+
+        KnowledgeBaseUtils.log("完成移动 note 链接到父卡片", "linkParentNote", {
+          noteId: note.noteId
+        })
       }
+
+      KnowledgeBaseUtils.log("linkParentNote 执行完成", "linkParentNote", {
+        noteId: note.noteId
+      })
     }
   }
 
   /**
    * 清理旧的父卡片链接
-   * 
+   *
    * 删除当前卡片和其他父卡片之间的相互链接（保留与当前父卡片的链接）
-   * 
+   *
    * TODO: 待优化！
    * @param {MNNote} note - 当前卡片
    * @param {MNNote} currentParentNote - 当前的父卡片，不会被删除
    */
   static cleanupOldParentLinks(note, currentParentNote) {
+    KnowledgeBaseUtils.log("开始执行 cleanupOldParentLinks", "cleanupOldParentLinks", {
+      noteId: note.noteId,
+      currentParentNoteId: currentParentNote.noteId
+    })
+
     // 获取当前卡片中的所有链接
     let noteCommentsObj = this.parseNoteComments(note)
     let linksInNote = noteCommentsObj.linksObjArr
-    
+
+    KnowledgeBaseUtils.log("完成 parseNoteComments", "cleanupOldParentLinks", {
+      noteId: note.noteId,
+      totalLinks: linksInNote.length
+    })
+
     // 性能优化：先过滤出可能需要清理的链接
     // 跳过在"应用"字段下的链接，因为它们不太可能是父卡片链接
     let htmlCommentsObjArr = noteCommentsObj.htmlCommentsObjArr
     // let potentialParentLinks = htmlCommentsObjArr.find(htmlObj => ["相关链接", "相关链接："].includes(htmlObj.text)).excludingFieldBlockIndexArr
     let applicationFieldObj = null
-    
+
     // 查找"应用"字段
     for (let i = 0; i < htmlCommentsObjArr.length; i++) {
       if (htmlCommentsObjArr[i].text === "应用" || htmlCommentsObjArr[i].text === "应用：") {
@@ -1748,7 +1827,7 @@ class KnowledgeBaseTemplate {
         break
       }
     }
-    
+
     // 过滤链接：排除"应用"字段下的链接
     let potentialParentLinks = linksInNote
     if (applicationFieldObj) {
@@ -1758,21 +1837,40 @@ class KnowledgeBaseTemplate {
         return !applicationFieldRange.includes(linkObj.index)
       })
     }
-    
+
+    KnowledgeBaseUtils.log("完成过滤应用字段链接", "cleanupOldParentLinks", {
+      noteId: note.noteId,
+      beforeFilter: linksInNote.length,
+      afterFilter: potentialParentLinks.length
+    })
+
     // 如果过滤后没有链接需要检查，直接返回
     if (potentialParentLinks.length === 0) {
+      KnowledgeBaseUtils.log("没有链接需要检查，提前返回", "cleanupOldParentLinks", {
+        noteId: note.noteId
+      })
       return
     }
-    
+
     // 性能优化：如果链接太多，只处理前20个
     const MAX_LINKS_TO_CHECK = 20
     if (potentialParentLinks.length > MAX_LINKS_TO_CHECK) {
       potentialParentLinks = potentialParentLinks.slice(0, MAX_LINKS_TO_CHECK)
+
+      KnowledgeBaseUtils.log("链接数超过限制，仅处理前20个", "cleanupOldParentLinks", {
+        noteId: note.noteId,
+        limitedTo: MAX_LINKS_TO_CHECK
+      })
     }
-    
+
     // 收集需要删除的旧父卡片链接（先收集，后删除，避免索引混乱）
     let oldParentNotesToCleanup = []
-    
+
+    KnowledgeBaseUtils.log("开始遍历链接检查", "cleanupOldParentLinks", {
+      noteId: note.noteId,
+      linksToCheck: potentialParentLinks.length
+    })
+
     potentialParentLinks.forEach(linkObj => {
       try {
         // 从链接 URL 中提取 noteId
@@ -1781,34 +1879,34 @@ class KnowledgeBaseTemplate {
           // 检查这个链接是否指向一个可能的父卡片
           let targetNote = MNNote.new(targetNoteId, false) // 不弹出警告
           if (!targetNote) return
-          
+
           // 保护规则：
           // 1. 排除当前要链接的父卡片
           if (currentParentNote && targetNoteId === currentParentNote.noteId) {
             return
           }
-          
+
           // 2. 保护直接的父子关系（即使不是归类卡片）
           if (note.parentNote && targetNoteId === note.parentNote.noteId) {
             return // 保留与直接父卡片的链接
           }
-          
+
           // 3. 保护子卡片到当前卡片的链接
           if (targetNote.parentNote && targetNote.parentNote.noteId === note.noteId) {
             return // 保留与直接子卡片的链接
           }
-          
+
           // 只有当目标卡片是潜在的父卡片时，才考虑清理
           if (this.isPotentialParentNote(targetNote, note)) {
             // 4. 重要保护：检查链接是否在 linkParentNote 使用的特定字段下
             // 只清理那些通过 linkParentNote 创建的链接（在"所属"、"包含"、"相关链接"字段下）
             let isInParentNoteField = this.isLinkInParentNoteFields(linkObj.index, noteCommentsObj)
-            
+
             if (!isInParentNoteField) {
               // 如果链接不在 linkParentNote 的特定字段下，说明可能是用户手动创建的
               return // 不清理这个链接
             }
-            
+
             // 额外检查：如果对方也有链接回来，且也不在特定字段下，这是用户创建的双向链接
             let targetHasLinkBack = false
             let targetLinkInParentField = false
@@ -1819,7 +1917,7 @@ class KnowledgeBaseTemplate {
                 let linkId = link.link.match(/marginnote[34]app:\/\/note\/([^\/]+)/)?.[1]
                 return linkId === note.noteId
               })
-              
+
               if (targetLinkObj) {
                 targetHasLinkBack = true
                 targetLinkInParentField = this.isLinkInParentNoteFields(targetLinkObj.index, targetNoteCommentsObj)
@@ -1827,12 +1925,12 @@ class KnowledgeBaseTemplate {
             } catch (e) {
               // 忽略错误
             }
-            
+
             // 如果双方都有链接但都不在特定字段下，保护这个双向链接
             if (targetHasLinkBack && !targetLinkInParentField) {
               return // 不清理这个链接
             }
-            
+
             // 只有在特定字段下的链接才会被清理
             oldParentNotesToCleanup.push({
               targetNote: targetNote,
@@ -1845,21 +1943,35 @@ class KnowledgeBaseTemplate {
         // 忽略解析错误，继续处理其他链接
       }
     })
-    
+
+    KnowledgeBaseUtils.log("完成收集待清理链接", "cleanupOldParentLinks", {
+      noteId: note.noteId,
+      cleanupCount: oldParentNotesToCleanup.length
+    })
+
     // 执行清理：删除双向链接
     if (oldParentNotesToCleanup.length > 0) {
       oldParentNotesToCleanup.forEach(cleanup => {
         try {
           // 删除当前卡片中指向旧父卡片的链接（按文本删除，避免索引问题）
           this.removeCommentsByText(note, cleanup.linkText)
-          
+
           // 删除旧父卡片中指向当前卡片的链接
           this.removeLinkToNote(cleanup.targetNote, note.noteId)
         } catch (error) {
           // 忽略错误，继续处理
         }
       })
+
+      KnowledgeBaseUtils.log("完成执行清理", "cleanupOldParentLinks", {
+        noteId: note.noteId,
+        cleanedCount: oldParentNotesToCleanup.length
+      })
     }
+
+    KnowledgeBaseUtils.log("cleanupOldParentLinks 执行完成", "cleanupOldParentLinks", {
+      noteId: note.noteId
+    })
   }
 
   /**
@@ -2617,15 +2729,30 @@ class KnowledgeBaseTemplate {
    * 处理旧卡片
    */
   static renewNote(note) {
+    KnowledgeBaseUtils.log("开始执行 renewNote", "renewNote", {
+      noteId: note.noteId,
+      noteTitle: note.noteTitle,
+      isOldTemplate: this.isOldTemplateCard(note)
+    })
+
     // 首先判断并处理旧模板卡片
     if (this.isOldTemplateCard(note)) {
       let newNote = this.processOldTemplateCard(note);
       this.changeTitle(newNote)
+      KnowledgeBaseUtils.log("完成处理旧模板卡片", "renewNote", {
+        step: "processOldTemplateCard",
+        newNoteId: newNote.noteId
+      })
       return newNote
     }
-    
+
     let newNote = this.toNoExcerptVersion(note)
-    
+    KnowledgeBaseUtils.log("完成 toNoExcerptVersion ⭐", "renewNote", {
+      step: "toNoExcerptVersion",
+      newNoteId: newNote.noteId,
+      commentsCount: newNote.comments.length
+    })
+
     // 处理链接相关问题
     // this.convertLinksToNewVersion(note)
     // this.cleanupBrokenLinks(note)
@@ -2634,33 +2761,67 @@ class KnowledgeBaseTemplate {
     // note.cleanupBrokenLinks()
     // note.fixMergeProblematicLinks()
     this.renewLinks(newNote)
-    
+    KnowledgeBaseUtils.log("完成 renewLinks ⭐", "renewNote", {
+      step: "renewLinks",
+      noteId: newNote.noteId
+    })
+
     // 处理空的"关键词："字段
     this.processEmptyKeywordField(newNote)
-    
+    KnowledgeBaseUtils.log("完成 processEmptyKeywordField", "renewNote", {
+      step: "processEmptyKeywordField",
+      noteId: newNote.noteId
+    })
+
     // 处理不同类型转换时的第一个字段替换
     this.replaceFirstFieldIfNeeded(newNote)
+    KnowledgeBaseUtils.log("完成 replaceFirstFieldIfNeeded", "renewNote", {
+      step: "replaceFirstFieldIfNeeded",
+      noteId: newNote.noteId
+    })
 
-    // 去掉一些评论，比如“- ”
+    // 去掉一些评论，比如"- "
     this.removeUnnecessaryComments(newNote)
+    KnowledgeBaseUtils.log("完成 removeUnnecessaryComments", "renewNote", {
+      step: "removeUnnecessaryComments",
+      noteId: newNote.noteId
+    })
 
-    // 检测是否包含“应用”字段，但“应用”字段不是最后一个字段，如果不是最后一个字段，则将其移动到最后
+    // 检测是否包含"应用"字段，但"应用"字段不是最后一个字段，如果不是最后一个字段，则将其移动到最后
     this.moveApplicationFieldToEnd(newNote)
-    
+    KnowledgeBaseUtils.log("完成 moveApplicationFieldToEnd", "renewNote", {
+      step: "moveApplicationFieldToEnd",
+      noteId: newNote.noteId
+    })
+
     switch (this.getNoteType(newNote)) {
       case "归类":
         /**
-         * 去掉归类卡片的标题中的“xx”：“yy” 里的 xx
+         * 去掉归类卡片的标题中的"xx"："yy" 里的 xx
          */
         let titleParts = this.parseNoteTitle(newNote);
-        if (/^“[^”]*”：“[^”]*”\s*相关[^“]*$/.test(newNote.title)) {
-          newNote.title = `“${titleParts.content}”相关${titleParts.type}`;
+        if (/^"[^"]*"："[^"]*"\s*相关[^"]*$/.test(newNote.title)) {
+          newNote.title = `"${titleParts.content}"相关${titleParts.type}`;
         }
+        KnowledgeBaseUtils.log("完成归类卡片标题处理", "renewNote", {
+          step: "classificationTitleProcessing",
+          noteId: newNote.noteId,
+          newTitle: newNote.title
+        })
         break;
       case "定义":
         this.moveRelatedConceptsToRelatedThoughts(newNote);
+        KnowledgeBaseUtils.log("完成 moveRelatedConceptsToRelatedThoughts", "renewNote", {
+          step: "moveRelatedConceptsToRelatedThoughts",
+          noteId: newNote.noteId
+        })
         break;
     }
+
+    KnowledgeBaseUtils.log("renewNote 执行完成", "renewNote", {
+      noteId: newNote.noteId,
+      finalCommentsCount: newNote.comments.length
+    })
 
     return newNote
   }
@@ -3353,15 +3514,35 @@ class KnowledgeBaseTemplate {
    * 获取第一个归类卡片的父爷卡片
    */
   static getFirstClassificationParentNote(note) {
+    KnowledgeBaseUtils.log("开始执行 getFirstClassificationParentNote", "getFirstClassificationParentNote", {
+      noteId: note.noteId,
+      noteTitle: note.noteTitle
+    })
+
     let parentNote = note.parentNote;
+    let depth = 0;
+
     while (parentNote) {
+      depth++;
       // 直接调用 getNoteType，不传递 depth
       // 因为这是在遍历父节点链，不是递归调用
       if (this.getNoteType(parentNote) === "归类") {
+        KnowledgeBaseUtils.log("找到归类父卡片", "getFirstClassificationParentNote", {
+          noteId: note.noteId,
+          classificationParentNoteId: parentNote.noteId,
+          classificationParentNoteTitle: parentNote.noteTitle,
+          traversalDepth: depth
+        })
         return parentNote;
       }
       parentNote = parentNote.parentNote;
     }
+
+    KnowledgeBaseUtils.log("未找到归类父卡片", "getFirstClassificationParentNote", {
+      noteId: note.noteId,
+      traversalDepth: depth
+    })
+
     return null;
   }
 
@@ -14877,32 +15058,97 @@ class KnowledgeBaseTemplate {
    * 卡片的预处理
    */
   static processNote(note) {
+    KnowledgeBaseUtils.log("开始执行 processNote", "processNote", {
+      noteId: note.noteId,
+      noteTitle: note.noteTitle,
+      isOldTemplate: this.isOldTemplateCard(note),
+      ifTemplateMerged: this.ifTemplateMerged(note)
+    })
+
     if (this.isOldTemplateCard(note)) {
-      // MNUtil.showHUD("旧卡片")
-      // KnowledgeBaseUtils.log("开始处理旧卡片", "processNote");
+      // 分支 A：旧模板卡片
+      KnowledgeBaseUtils.log("进入旧模板卡片分支", "processNote", {
+        noteId: note.noteId
+      })
+
       let newNote = this.renewNote(note)
+      KnowledgeBaseUtils.log("完成 renewNote（旧模板）", "processNote", {
+        step: "renewNote",
+        noteId: note.noteId,
+        newNoteId: newNote.noteId
+      })
+
       this.changeTitle(newNote)
+      KnowledgeBaseUtils.log("完成 changeTitle（旧模板）", "processNote", {
+        step: "changeTitle",
+        noteId: newNote.noteId
+      })
+
       this.changeNoteColor(newNote)
+      KnowledgeBaseUtils.log("完成 changeNoteColor（旧模板）", "processNote", {
+        step: "changeNoteColor",
+        noteId: newNote.noteId
+      })
+
       return newNote
     } else {
       if (this.ifTemplateMerged(note)) {
-        // MNUtil.showHUD("模板！")
-        // KnowledgeBaseUtils.log("开始处理已合并模板的卡片", "processNote");
+        // 分支 B：已合并模板（重点瓶颈分支）
+        KnowledgeBaseUtils.log("进入已合并模板分支", "processNote", {
+          noteId: note.noteId
+        })
+
         this.renewNote(note)
+        KnowledgeBaseUtils.log("完成 renewNote（已合并模板）", "processNote", {
+          step: "renewNote",
+          noteId: note.noteId
+        })
+
         this.changeTitle(note)
+        KnowledgeBaseUtils.log("完成 changeTitle（已合并模板）", "processNote", {
+          step: "changeTitle",
+          noteId: note.noteId
+        })
+
         this.changeNoteColor(note)
+        KnowledgeBaseUtils.log("完成 changeNoteColor（已合并模板）", "processNote", {
+          step: "changeNoteColor",
+          noteId: note.noteId
+        })
+
         this.linkParentNote(note)
+        KnowledgeBaseUtils.log("完成 linkParentNote（已合并模板）⭐", "processNote", {
+          step: "linkParentNote",
+          noteId: note.noteId
+        })
+
         this.autoMoveNewContent(note) // 自动移动新内容到对应字段
+        KnowledgeBaseUtils.log("完成 autoMoveNewContent（已合并模板）", "processNote", {
+          step: "autoMoveNewContent",
+          noteId: note.noteId
+        })
+
         return note
       } else {
-        // MNUtil.showHUD("不是模板")
-        // KnowledgeBaseUtils.log("开始处理未合并模板的新卡片", "processNote");
+        // 分支 C：新卡片
+        KnowledgeBaseUtils.log("进入新卡片分支", "processNote", {
+          noteId: note.noteId
+        })
+
         this.changeTitle(note)
         this.changeNoteColor(note)
         note.convertLinksToNewVersion()
         note.cleanupBrokenLinks()
         note.fixMergeProblematicLinks()
-        return this.toNoExcerptVersion(note)
+
+        let result = this.toNoExcerptVersion(note)
+        KnowledgeBaseUtils.log("完成 toNoExcerptVersion（新卡片）", "processNote", {
+          step: "toNoExcerptVersion",
+          noteId: note.noteId,
+          resultNoteId: result.noteId
+        })
+
+        return result
       }
     }
   }
