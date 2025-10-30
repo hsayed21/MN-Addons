@@ -2,211 +2,420 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# MNKnowledgeBase 插件开发指南
+# MNKnowledgeBase Plugin Development Guide
 
-- 严禁自己不确定的情况下乱用 API！一但是以前没出现过的用法，要到 `../` 中自行查找是否合理！
-- 使用 API 前严格确定 API 所处的类！不要乱写
- 
-## 项目概述
+## Project Overview
 
-MNKnowledgeBase 是一个 MarginNote 4 知识库管理插件，专注于学术知识的结构化管理。
+MNKnowledgeBase is a MarginNote 4 plugin focused on academic knowledge management with structured card classification, indexing, and intelligent search capabilities.
 
-### 核心功能
-- **知识卡片分类管理**：支持定义、命题、例子、反例、问题等多种卡片类型
-- **模板化制卡**：基于预定义模板快速创建知识卡片
-- **智能链接处理**：自动识别和处理 MarginNote 内部链接
-- **JSON 数据持久化**：支持知识库数据的导入导出
+### Core Capabilities
+- **Knowledge Card Classification**: 20+ card types (定义, 命题, 例子, 反例, 问题, etc.)
+- **Template-Based Card Creation**: Pre-defined templates for rapid card creation
+- **Full-Text Indexing**: Supports partitioned indexing with synonym expansion
+- **Visual Search Interface**: WebView-based search UI with real-time filtering
+- **AI Integration**: RAG-based card recommendation via MNAI plugin
+- **OCR Processing**: Automatic OCR for excerpts with multiple modes
 
-## 项目结构
+## Project Structure
 
 ```
 mnknowledgebase/
-├── mnaddon.json       # 插件配置清单
-├── main.js           # 插件主入口（280行）
-├── utils.js          # 工具类库（15,864行）
-└── logo.png          # 插件图标
+├── mnaddon.json                 # Plugin manifest
+├── main.js                      # Plugin entry point (2082 lines)
+├── utils.js                     # Core utilities (21,700+ lines)
+├── knowledgebaseWebController.js # WebView controller
+├── search.html                  # Visual search interface
+├── comment-manager.html         # Comment management UI
+└── logo.png                     # Plugin icon
 ```
 
-## 开发与构建
+## Architecture Overview
 
-### 打包插件
+### 1. Core Class Hierarchy (utils.js)
+
+The plugin follows a modular class-based architecture:
+
+#### **KnowledgeBaseTemplate** (Line 701)
+- Manages card type definitions and templates
+- Handles card creation, linking, and content processing
+- Core methods:
+  - `makeCard()` / `makeNote()`: Card creation workflows
+  - `mergeTemplate()`: Template merging
+  - `handleDefinitionPropositionLinks()`: Auto-linking logic
+  - `getNoteType()` / `getTypeFromInputText()`: Type detection
+  - `changeTitle()`: Title formatting with prefixes
+
+#### **KnowledgeBaseIndexer** (Line 15276)
+- Main knowledge base indexing (with partitioning support)
+- Synonym expansion via `SynonymManager`
+- Exclusion filtering via `ExclusionManager`
+- Key methods:
+  - `buildSearchIndex()`: Build partitioned index
+  - `loadIndexManifest()` / `loadIndexPart()`: Load index data
+  - `expandSearchQuery()`: Synonym expansion
+
+#### **IntermediateKnowledgeIndexer** (Line 17197)
+- Indexes intermediate knowledge base (未制卡/预备知识)
+- Separate from main knowledge base
+- Supports incremental indexing
+- Methods mirror `KnowledgeBaseIndexer` API
+
+#### **KnowledgeBaseSearcher** (Line 16085)
+- Search engine with advanced query parsing
+- Supports AND/OR/exact phrase queries
+- Scoring and ranking algorithms
+- Methods:
+  - `parseSearchQuery()`: Parse search syntax
+  - `matchesQuery()`: Match card against query
+  - `showSearchDialog()`: Native search UI
+
+#### **KnowledgeBaseUtils** (Line 17912)
+- Shared utilities and helpers
+- WebView controller management
+- Error logging and debugging
+- Methods:
+  - `checkWebViewController()`: Lazy initialization
+  - `addErrorLog()`: Error tracking
+
+#### **KnowledgeBaseNetwork** (Line 17963)
+- Network operations and external integrations
+- AI plugin communication (MNAI)
+- OCR services
+- Methods:
+  - `callMNAIWithNotification()`: AI communication
+  - `OCRToTitle()`: OCR processing
+
+#### **KnowledgeBaseConfig** (Line 19496)
+- Plugin configuration management
+- Persists settings to disk
+- Configuration keys:
+  - `excerptOCRMode`: OCR mode (0-3)
+  - `classificationMode`: Auto-classification
+  - `preProcessMode`: Card preprocessing
+  - `excerptOCRModel`: OCR model selection
+
+#### **KnowledgeBaseClassUtils** (Line 21415)
+- Classification mode utilities
+- Handles auto-classification workflows
+- Integration with text editing lifecycle
+
+### 2. Plugin Entry Point (main.js)
+
+The plugin extends `JSExtension` with lifecycle methods:
+
+#### **Lifecycle Hooks**
+- `sceneWillConnect()`: Window initialization
+- `sceneDidDisconnect()`: Cleanup observers
+- `notebookWillOpen()` / `notebookWillClose()`: Notebook events
+- `documentDidOpen()` / `documentWillClose()`: Document events
+
+#### **Text Editing Lifecycle** (Critical for Card Detection)
+- `onTextDidBeginEditing()`: Detects new card creation
+  - Uses 3-element test: no title, no excerpt, no comments
+  - Sets `self.newNoteCreatedFromMindMap`
+- `onTextDidEndEditing()`: Processes new card
+  - Auto-classification if enabled
+  - Auto-linking to parent/classification nodes
+
+#### **Main Menu** (`toggleAddon()`)
+- 🔄 索引知识库
+- 📝 索引中间知识库
+- 🌐 可视化搜索
+- 🤖 Mode toggles (OCR, 预摘录, 归类, 上课)
+- ⚙️ OCR model settings
+- 🎯 AI 推荐卡片
+
+#### **Plugin Communication** (`onAddonBroadcast()`)
+Protocol: `marginnote4app://addon/mnknowledgebase?action=<ACTION>`
+Supported actions:
+- `openSearchWebView`: Open visual search interface
+
+### 3. WebView Architecture (knowledgebaseWebController.js)
+
+Custom UIViewController managing search interface:
+
+#### **Components**
+- `webView`: Main UIWebView for search.html
+- `moveButton`: Drag to reposition
+- `closeButton`: Hide interface
+- `resizeButton`: Resize window
+
+#### **Bridge Methods** (JavaScript ↔ Native)
+- `Bridge.loadSearchIndex(data)`: Load index data into frontend
+- `Bridge.showAIRecommendations(cardIds)`: Display AI recommendations
+- `Bridge.focusCard(noteId)`: Focus card in MindMap
+- `Bridge.copyCardUrl(noteId)`: Copy MarginNote URL
+- `Bridge.copyMarkdownLink(title, noteId)`: Copy MD link
+
+#### **Data Loading Flow**
+1. `openSearchWebView()` → Show WebView
+2. `loadSearchDataToWebView()` → Merge main + intermediate index
+3. Frontend receives data via `Bridge.loadSearchIndex()`
+4. User searches → Frontend filters → Display results
+
+### 4. Visual Search Interface (search.html)
+
+Vue.js-based reactive search UI:
+
+#### **Features**
+- Real-time search with debouncing
+- Type filtering (pill buttons)
+- Paginated results (50 per page)
+- Card selection and actions
+- AI recommendation panel (bottom)
+
+#### **Search Modes**
+- **Quick presets**: Common card types
+- **Advanced filtering**: AND/OR/exact phrase
+- **AI recommendations**: RAG-based suggestions
+
+#### **Actions**
+- 🎯 定位到卡片 (Focus in MindMap)
+- 📋 复制 URL
+- 🔗 复制 Markdown 链接
+- 💬 查看评论 (Comment Manager)
+
+## Development Workflows
+
+### Building the Plugin
 ```bash
-# 在父目录下执行
-mnaddon4 build
+# In parent directory
+mnaddon4 build mnknowledgebase
 
-# 或使用 mnaddon-package agent（推荐）
+# Or use mnaddon-packager agent (recommended)
+# Output: mnknowledgebase_v0_XX.mnaddon
 ```
 
-### 解包插件
+### Unpacking for Development
 ```bash
-mnaddon4 unpack mnknowledgebase_v0_1_实现JSON的读取.mnaddon
+mnaddon4 unpack mnknowledgebase_vX_Y.mnaddon
 ```
 
-### 插件安装路径
-`/Users/xiakangwei/Library/Containers/QReader.MarginNoteApp/Data/Library/MarginNote Extensions/`
+### Installation Path
+```
+/Users/xiakangwei/Library/Containers/QReader.MarginNoteApp/Data/Library/MarginNote Extensions/
+```
 
-## 核心代码架构
+### Testing Workflow
+1. Make changes to `main.js` or `utils.js`
+2. Build plugin with `mnaddon4 build mnknowledgebase`
+3. Restart MarginNote to load new version
+4. Check logs in `log.json` for errors
 
-### 1. 插件入口（main.js）
+## Key Technical Patterns
 
-#### 生命周期方法
-- `sceneWillConnect`：窗口初始化，注册弹出菜单观察者
-- `sceneDidDisconnect`：窗口关闭时清理
-- `notebookWillOpen/Close`：笔记本打开/关闭事件
-- `documentDidOpen/Close`：文档打开/关闭事件
+### 1. Card Type System
 
-#### 主要功能入口
-- `toggleAddon`：插件图标点击响应，显示功能菜单
-- `openKnowledgeBaseLibrary`：打开文献数据库
-- `updateSearchIndex`：更新搜索索引
-- `searchInKB`：显示快速搜索对话框
-- `shareIndexFile`：分享索引文件（新增）
-- `shareSearchResults`：分享搜索结果（新增）
-- `onPopupMenuOnNote`：笔记弹出菜单处理
-
-### 2. 知识库模板系统（utils.js - KnowledgeBaseTemplate）
-
-#### 卡片类型定义
+Card types are defined in `KnowledgeBaseTemplate.types`:
 ```javascript
-static types = {
-  定义: { refName, prefixName, englishName, templateNoteId, colorIndex, fields },
-  命题: { ... },
-  例子: { ... },
-  反例: { ... },
-  问题: { ... },
-  思想方法: { ... },
-  // 等等 20+ 种类型
+{
+  refName: "定义",           // Internal reference name
+  prefixName: "定义",        // Prefix in title
+  englishName: "Definition", // English name
+  templateNoteId: "...",     // Template card ID
+  colorIndex: 2,             // Color code
+  fields: [                  // Field structure
+    { name: "关键词", logical: "keyword" },
+    { name: "陈述", logical: "statement" },
+    // ...
+  ]
 }
 ```
 
-#### 核心功能方法
+### 2. Search Index Structure
 
-##### 制卡相关
-- `makeCard(note, addToReview, reviewEverytime, focusInMindMap)`：标准制卡流程
-- `makeNote(note, ...)`：创建知识笔记
-- `templateMergedCardMake(note)`：模板化合并卡片制作
-
-##### 链接管理
-- `handleDefinitionPropositionLinks(note)`：处理定义-命题链接
-- `extractMarginNoteLinksFromComments(note, indexArr)`：提取评论中的链接
-- `processExtractedMarginNoteLinks(note, marginNoteLinks)`：处理提取的链接
-- `linkParentNote(note)`：链接父节点
-
-##### 内容处理
-- `keepOnlyExcerpt(note)`：仅保留摘录
-- `removeTitlePrefix(note)`：移除标题前缀
-- `autoMoveNewContent(note)`：自动移动新内容
-- `renewExcerptInParentNoteByFocusNote(focusNote)`：更新父节点摘录
-
-##### 辅助功能
-- `addToReview(note, reviewEverytime)`：添加到复习
-- `getTypeFromInputText(userInputText)`：从用户输入识别类型
-- `getNoteTypeByColor(colorIndex)`：通过颜色获取类型
-
-#### 模板卡片 ID 映射
+Partitioned index for scalability:
 ```javascript
-// 粗读根目录 ID
-static roughReadingRootNoteIds = {
-  "定义": "38ACB470-803E-4EE8-B7DD-1BF4722AB0FE",
-  "命题": "D6F7EA72-DDD1-495B-8DF5-5E2559C5A982",
-  // ...
+// Manifest file: kb-search-index-manifest.json
+{
+  metadata: {
+    totalCards: 5000,
+    totalParts: 5,
+    updateTime: 1234567890
+  },
+  parts: [
+    { filename: "kb-search-index-part-1.json", cardCount: 1000 },
+    // ...
+  ]
 }
 
-// HTML 评论模板 ID
-static singleHtmlCommentTemplateNoteIds = {
-  "证明": "749B2770-77A9-4D3D-9F6F-8B2EE21615AB",
-  // ...
+// Each part: kb-search-index-part-X.json
+{
+  data: [
+    {
+      id: "noteId",
+      title: "卡片标题",
+      type: "定义",
+      searchText: "标题 + 字段内容",
+      score: 50
+    },
+    // ...
+  ]
 }
 ```
 
-## 关键技术要点
+### 3. Incremental Indexing
 
-### MNUtil 框架使用
-- 已集成完整的 MNUtils 框架（utils.js）
-- 无需单独初始化，直接使用 MNUtil API
-- 使用 `MNUtil.undoGrouping` 包装批量操作
-- 使用 `MNUtil.showHUD` 显示提示信息
-
-### 数据持久化
-- 使用 `MNUtil.dbFolder` 作为数据存储目录
-- 通过 `MNUtil.writeJSON/readJSON` 处理 JSON 数据
-- 文件路径：`MNUtil.dbFolder + "/data/kb-test.json"`
-
-### 错误处理
-- 所有主要功能都包装在 try-catch 中
-- 错误通过 `MNUtil.showHUD` 显示
-- 使用 `MNLog.error` 记录错误日志
-
-## 开发注意事项
-
-### 重要原则
-1. **不要随意修改模板卡片 ID**：这些 ID 对应实际的 MarginNote 卡片
-2. **保持向后兼容**：修改 `types` 结构时考虑已有数据
-3. **谨慎处理链接**：MarginNote 链接格式特殊，需要正确解析
-4. **批量操作优化**：使用 `MNUtil.undoGrouping` 提升性能
-
-### 调试技巧
+New cards are added to incremental index:
 ```javascript
-// 查看当前焦点卡片
-let note = MNNote.getFocusNote()
-MNUtil.copy(note)  // 复制到剪贴板查看
+// kb-incremental-index.json
+{
+  cards: [/* new cards */],
+  metadata: { lastUpdate: timestamp }
+}
 
-// JSON 测试
-MNUtil.writeJSON(MNUtil.dbFolder + "/debug.json", data)
-let data = MNUtil.readJSON(MNUtil.dbFolder + "/debug.json")
+// Merged during search/display
+allCards = [...mainIndex, ...incrementalIndex]
 ```
 
-### 常见问题
+### 4. AI Integration Pattern
 
-1. **插件不生效**：检查 mnaddon.json 中的版本要求
-2. **功能菜单不显示**：确认 `MNUtil.studyMode !== 3`（非复习模式）
-3. **链接处理失败**：验证链接格式是否为 `marginnote4app://...`
+RAG-based card recommendation:
+```javascript
+// 1. Extract keywords from question
+keywords = extractKeywords(userQuestion)
 
-## 文件分享功能（v0.3 新增）
+// 2. Search knowledge base for candidates
+candidates = searchCardsByKeywords(keywords)
 
-### 功能说明
-插件现在支持将索引文件和搜索结果通过系统分享功能导出，特别适合 iPad 用户。
+// 3. Send to MNAI for relevance analysis
+prompt = buildAIPromptForCardRecommendation(question, candidates)
+response = await callMNAIWithNotification(prompt)
 
-### 使用方法
+// 4. Parse AI response and display
+cardIds = parseCardIdsFromAIResponse(response)
+showRecommendedCardsInWebView(cardIds)
+```
 
-#### 1. 分享索引文件
-- 点击插件图标
-- 选择 "📤 分享索引文件"
-- 系统弹出分享菜单
-- 选择分享方式：
-  - **隔空投送**：直接发送到 Mac
-  - **存储到文件**：保存到文件 App
-  - **邮件**：作为附件发送
-  - **其他应用**：分享到支持的应用
+### 5. Observer Pattern Usage
 
-#### 2. 分享搜索结果
-- 进行快速搜索
-- 在搜索结果列表底部选择 "📤 分享搜索结果"
-- 选择分享方式（同上）
+The plugin uses MarginNote's observer system extensively:
+```javascript
+// Register observers
+MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
+MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
+MNUtil.addObserver(self, 'onAddonBroadcast:', 'AddonBroadcast')
 
-### 文件格式
-- 索引文件：`kb-search-index-[时间戳].json`
-- 搜索结果：`search-results-[关键词]-[时间戳].json`
+// Clean up on disconnect
+MNUtil.removeObservers(self, [
+  'AddonBroadcast',
+  'ProcessNewExcerpt',
+  'PopupMenuOnNote'
+])
+```
 
-### 技术实现
-- 使用 iOS 原生 `UIActivityViewController`
-- 临时文件存储在 `MNUtil.tempFolder`
-- 支持 iPad 和 iPhone 的不同界面适配
+## Important Constraints
 
-## 扩展开发
+### API Usage
+- **严禁自己不确定的情况下乱用 API！**
+- 必须在 `../mnutils/` 中查找确认 API 存在
+- 使用前严格确定 API 所处的类
 
-### 添加新的卡片类型
-1. 在 `KnowledgeBaseTemplate.types` 中添加类型定义
-2. 设置对应的 `templateNoteId`（需要在 MarginNote 中创建）
-3. 定义 `fields` 数组（字段列表）
-4. 在 `keywordTypeMapping` 中添加关键词映射
+### MNUtils Framework
+- Already integrated in `utils.js`
+- No separate initialization needed
+- Use `MNUtil.undoGrouping()` for batch operations
+- Use `MNUtil.showHUD()` for user feedback
 
-### 集成外部数据源
-- 利用 JSON 读写功能
-- 可扩展支持 CSV、XML 等格式
-- 考虑使用 `MNUtil.request` 进行网络请求
+### Data Persistence
+- Storage path: `MNUtil.dbFolder + "/data/"`
+- Use `MNUtil.writeJSON()` / `MNUtil.readJSON()`
+- Index files use partitioning for scalability
 
-### 与其他插件协作
-- 通过 MarginNote 链接传递数据
-- 使用共享的笔记本或文档
-- 利用 `MNUtil.db` 存储共享配置
+### Error Handling
+- All main functions wrapped in try-catch
+- Errors logged via `KnowledgeBaseUtils.addErrorLog()`
+- User-facing errors via `MNUtil.showHUD()`
+- Debug logs written to `log.json`
+
+## Common Tasks
+
+### Adding a New Card Type
+1. Add type definition to `KnowledgeBaseTemplate.types`
+2. Create template card in MarginNote
+3. Add template ID to `roughReadingRootNoteIds` or `singleHtmlCommentTemplateNoteIds`
+4. Update `keywordTypeMapping` for auto-detection
+5. Test with `getTypeFromInputText()`
+
+### Modifying Search Behavior
+1. Edit synonym groups in `kbSearchConfig.synonymGroups`
+2. Update exclusion words in `kbSearchConfig.exclusionGroups`
+3. Rebuild index with "🔄 索引知识库"
+4. Test search in visual interface
+
+### Customizing AI Prompts
+1. Modify `buildAIPromptForCardRecommendation()` in main.js
+2. Adjust `buildContextFromCards()` for context formatting
+3. Update `parseCardIdsFromAIResponse()` for response parsing
+
+### Debugging WebView Issues
+1. Enable logging in `knowledgebaseWebController.js`
+2. Check `self.webViewLoaded` flag
+3. Use `MNLog.log()` for lifecycle tracking
+4. Inspect `Bridge` methods in browser console (if accessible)
+
+## Known Issues and Workarounds
+
+### Issue: WebView Data Not Refreshing
+**Solution**: Use `refreshAllData()` method to force reload
+```javascript
+await controller.refreshAllData()
+```
+
+### Issue: Cards Not Found in AI Recommendations
+**Cause**: Index might be stale
+**Solution**: Rebuild index before AI recommendations
+
+### Issue: Observer Not Firing
+**Cause**: Wrong window context
+**Solution**: Always check `self.window === MNUtil.currentWindow`
+
+## Integration Points
+
+### With MNAI Plugin
+- Uses `customChat` notification
+- Polls `chatAIUtils.notifyController.lastResponse`
+- Auto-closes notification controller after response
+
+### With MNUtils Framework
+- Extends `MNNote`, `MNComment`, `MNDocument` classes
+- Uses `MNUtil.studyView` for WebView attachment
+- Leverages `MNUtil.parseURL()` for protocol handling
+
+### With Other Plugins
+- Supports plugin communication via URL protocol
+- Example: `marginnote4app://addon/mnknowledgebase?action=openSearchWebView`
+
+## Performance Considerations
+
+### Index Partitioning
+- Main index split into 5MB chunks
+- Incremental index for new cards
+- Merged in-memory during search
+
+### Search Optimization
+- Synonym expansion pre-computed
+- Exclusion filtering post-search
+- Scoring uses weighted term frequency
+
+### WebView Lifecycle
+- Lazy initialization on first use
+- HTML loaded once, data refreshed via Bridge
+- Hidden (not destroyed) when closed for faster reopen
+
+## Version History Notes
+
+Current version: **0.27**
+
+Recent major changes:
+- Added AI recommendation system (v0.25+)
+- Implemented partitioned indexing (v0.20+)
+- Added visual search interface (v0.15+)
+- Integrated OCR modes (v0.10+)
+- Initial release with basic indexing (v0.1)
+
+## Additional Resources
+
+- Parent directory CLAUDE.md for general MN plugin development
+- `../mnutils/MNUtils_API_Guide.md` for API reference
+- MarginNote plugin system documentation in parent directory
