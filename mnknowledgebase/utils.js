@@ -3549,7 +3549,7 @@ class KnowledgeBaseTemplate {
   /**
    * 【非摘录版本】初始状态合并模板卡片后自动移动卡片的内容
    */
-  static mergeTemplateAndAutoMoveNoteContent(note) {
+  static mergeTemplateAndAutoMoveNoteContent(note, direcly) {
     // 特殊处理：如果只有一条评论且是手写类型，直接合并模板不移动内容
     if (note.MNComments.length === 1) {
       let commentType = note.MNComments[0].type;
@@ -3566,7 +3566,7 @@ class KnowledgeBaseTemplate {
     const typeWhitelist = []; // 暂时为空，后续可以添加需要排除的卡片类型
     
     // 获取卡片类型
-    let noteType = this.getNoteType(note);
+    let noteType = this.getNoteType(note, direcly);
     
     // 检查是否为特殊情况：只有合并图片和链接
     let isSpecialCase = false;
@@ -4336,7 +4336,7 @@ class KnowledgeBaseTemplate {
       }
     }
 
-    if (!noteType && !direcly) {
+    if (!noteType && direcly) {
       // 如果还是获取不到的话，就尝试用颜色判断
       noteType = this.getNoteTypeByColor(note.colorIndex);
     }

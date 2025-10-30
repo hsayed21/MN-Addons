@@ -343,12 +343,34 @@ JSB.newAddon = function(mainPath){
           // return 
         }
 
-        if (KnowledgeBaseTemplate.getNoteType(note, true) == "命题" && self.excerptOCRMode > 0 && KnowledgeBaseTemplate.getNoteType(note.parentNote) == "归类") {
+        if (KnowledgeBaseTemplate.getNoteType(note, true) == "命题" && self.excerptOCRMode > 0) {
           let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(note)
-          KnowledgeBaseTemplate.changeTitle(processedNote, true)
-          KnowledgeBaseTemplate.changeNoteColor(processedNote, true)
-          KnowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(processedNote)
+          let brotherIndex = processedNote.indexInBrotherNotes
+          let targetParentNote = processedNote.indexInBrotherNotes>0 ? (
+            KnowledgeBaseTemplate.getNoteType(processedNote.parentNote.childNotes[brotherIndex - 1]) == "归类"?processedNote.parentNote.childNotes[brotherIndex - 1]: processedNote.parentNote
+          ): processedNote.parentNote;
+          if (KnowledgeBaseTemplate.getNoteType(targetParentNote) == "归类") {
+            processedNote.moveTo(targetParentNote)
+            KnowledgeBaseTemplate.changeTitle(processedNote, true)
+            KnowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(processedNote, true)
+          } else {
+            KnowledgeBaseUtils.log("目标卡片不是归类卡片", "onProcessNewExcerpt",
+              {
+                type: KnowledgeBaseTemplate.getNoteType(targetParentNote, true)||"No?" + KnowledgeBaseTemplate.getNoteType(targetParentNote),
+                title: targetParentNote.noteTitle
+              }
+            )
+            KnowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(processedNote, true)
+          }
           processedNote.focusInMindMap(0.3)
+        } else {
+          KnowledgeBaseUtils.log("未能一键制卡", "onProcessNewExcerpt", 
+            {
+              type: KnowledgeBaseTemplate.getNoteType(note, true)||"No?" + KnowledgeBaseTemplate.getNoteType(note),
+              excerptOCRMode: self.excerptOCRMode,
+              parentType: KnowledgeBaseTemplate.getNoteType(note.parentNote)
+            }
+          )
         }
       } catch (error) {
         KnowledgeBaseUtils.addErrorLog(error, "onProcessNewExcerpt")
@@ -2073,6 +2095,205 @@ JSB.newAddon = function(mainPath){
     });
 
     return context;
+  }
+
+  /**
+   * 为评论管理器准备数据
+   *
+   * @param {MNNote} note - 要处理的卡片
+   * @returns {Object} 包含完整评论数据、字段信息和摘录区信息的对象
+   *
+   * @description
+   * 此函数为可视化评论管理器准备所有必要的数据，包括：
+   * 1. 所有评论的详细数据（含 Base64 图片）
+   * 2. 字段结构信息（含插入索引）
+   * 3. 摘录区信息
+   *
+   * @example
+   * const data = this.prepareCommentDataForManager(note);
+   * // 返回格式：
+   * // {
+   * //   noteId: "xxx",
+   * //   noteTitle: "卡片标题",
+   * //   comments: [{index, type, text, imageBase64, ...}],
+   * //   fields: [{name, topInsertIndex, bottomInsertIndex, ...}],
+   * //   excerptArea: {name, insertIndex}
+   * // }
+   */
+  MNKnowledgeBaseClass.prototype.prepareCommentDataForManager = function(note) {
+    try {
+      KnowledgeBaseUtils.log("开始准备评论数据", "prepareCommentDataForManager", {
+        noteId: note.noteId,
+        noteTitle: note.noteTitle
+      });
+
+      // 1. 解析卡片的字段结构
+      const parsedComments = KnowledgeBaseTemplate.parseNoteComments(note);
+
+      // 2. 准备评论数据
+      const commentsData = [];
+      note.comments.forEach((rawComment, index) => {
+        // 使用 MNComments 获取细分类型（已在 MNNote 中处理）
+        const mnComment = note.MNComments[index];
+        if (!mnComment) return;
+
+        const commentData = {
+          index: index,
+          type: rawComment.type  // 原始类型（TextNote/HtmlNote/PaintNote/LinkNote/AudioNote）
+        };
+
+        // 处理不同类型的评论
+        if (rawComment.type === "TextNote") {
+          commentData.text = rawComment.text || "";
+        } else if (rawComment.type === "HtmlNote") {
+          commentData.text = rawComment.text || "";
+          commentData.htmlText = rawComment.text;
+        } else if (rawComment.type === "PaintNote" && rawComment.paint) {
+          // 获取图片 Base64 数据
+          try {
+            const imageData = MNUtil.getMediaByHash(rawComment.paint);
+            if (imageData) {
+              commentData.imageBase64 = imageData.base64Encoding();
+            } else {
+              KnowledgeBaseUtils.log("图片数据为空", "prepareCommentDataForManager", {index});
+            }
+          } catch (error) {
+            KnowledgeBaseUtils.log("获取图片失败", "prepareCommentDataForManager", {
+              index,
+              error: error.message
+            });
+          }
+        } else if (rawComment.type === "LinkNote") {
+          commentData.text = rawComment.text || "";
+          // 尝试获取链接目标卡片的标题
+          try {
+            const linkedNote = MNNote.new(rawComment.note);
+            if (linkedNote) {
+              commentData.linkedNoteTitle = linkedNote.noteTitle || "(无标题)";
+            }
+          } catch (error) {
+            KnowledgeBaseUtils.log("获取链接卡片标题失败", "prepareCommentDataForManager", {
+              index,
+              error: error.message
+            });
+          }
+        } else if (rawComment.type === "AudioNote") {
+          commentData.text = rawComment.text || "(音频评论)";
+        }
+
+        commentsData.push(commentData);
+      });
+
+      // 3. 准备字段摘要数组
+      const fieldsData = parsedComments.htmlCommentsObjArr.map(fieldObj => {
+        // 提取字段名称：去除 HTML 标签和冒号
+        const fieldName = fieldObj.text.replace(/<\/?[^>]+>/g, '').replace(/[：:]/g, '').trim();
+
+        return {
+          name: fieldName,  // 纯文本字段名
+          text: fieldObj.text,  // 原始 HTML 文本
+          index: fieldObj.index,
+          topInsertIndex: fieldObj.excludingFieldBlockIndexArr.length > 0
+            ? fieldObj.excludingFieldBlockIndexArr[0]
+            : fieldObj.index + 1,  // 字段下方第一个位置
+          bottomInsertIndex: fieldObj.excludingFieldBlockIndexArr.length > 0
+            ? fieldObj.excludingFieldBlockIndexArr[fieldObj.excludingFieldBlockIndexArr.length - 1] + 1
+            : fieldObj.index + 1,  // 字段下方最后一个位置的下一个位置
+          includingFieldBlockIndexArr: fieldObj.includingFieldBlockIndexArr,
+          excludingFieldBlockIndexArr: fieldObj.excludingFieldBlockIndexArr
+        };
+      });
+
+      // 4. 准备摘录区信息
+      const excerptArea = {
+        name: "摘录区",
+        insertIndex: parsedComments.htmlCommentsObjArr.length > 0
+          ? parsedComments.htmlCommentsObjArr[0].index  // 第一个字段之前
+          : note.comments.length  // 如果没有字段，则是卡片最底端
+      };
+
+      // 5. 构建完整数据
+      const fullData = {
+        noteId: note.noteId,
+        noteTitle: note.noteTitle || "(无标题)",
+        comments: commentsData,
+        fields: fieldsData,
+        excerptArea: excerptArea
+      };
+
+      KnowledgeBaseUtils.log("评论数据准备完成", "prepareCommentDataForManager", {
+        noteId: note.noteId,
+        commentsCount: commentsData.length,
+        fieldsCount: fieldsData.length
+      });
+
+      return fullData;
+
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "prepareCommentDataForManager");
+      MNUtil.showHUD("准备评论数据失败: " + error.message);
+      return null;
+    }
+  }
+
+  /**
+   * 打开评论管理器
+   *
+   * @param {MNNote} note - 要管理评论的卡片
+   *
+   * @description
+   * 此函数打开可视化评论管理器界面，支持：
+   * 1. 查看所有评论（含图片、手写等）
+   * 2. 选择评论
+   * 3. 移动评论到字段
+   * 4. 提取和删除评论
+   *
+   * @example
+   * this.openCommentManager(note);
+   */
+  MNKnowledgeBaseClass.prototype.openCommentManager = function(note) {
+    try {
+      if (!note) {
+        MNUtil.showHUD("未找到卡片");
+        return;
+      }
+
+      KnowledgeBaseUtils.log("打开评论管理器", "openCommentManager", {
+        noteId: note.noteId,
+        noteTitle: note.noteTitle
+      });
+
+      // 1. 准备数据
+      const commentData = this.prepareCommentDataForManager(note);
+      if (!commentData) {
+        MNUtil.showHUD("准备数据失败");
+        return;
+      }
+
+      // 2. 保存当前操作的卡片引用（供 Bridge 使用）
+      self.currentManagedNote = note;
+      self.currentCommentData = commentData;
+
+      // 3. 创建或显示 WebView
+      // TODO: 暂时使用 MNUtil.showHUD 提示，完整实现需要 WebViewController
+      MNUtil.showHUD("评论管理器开发中...\n数据已准备就绪");
+
+      // 临时：打印数据到日志供调试
+      KnowledgeBaseUtils.log("评论数据已准备", "openCommentManager", {
+        commentsCount: commentData.comments.length,
+        fieldsCount: commentData.fields.length,
+        fields: commentData.fields.map(f => f.name)
+      });
+
+      // TODO: 完整实现
+      // - 创建/获取 commentManagerWebController
+      // - 加载 comment-manager.html
+      // - 通过 Bridge 传递数据
+
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "openCommentManager");
+      MNUtil.showHUD("打开评论管理器失败: " + error.message);
+    }
   }
 
 
