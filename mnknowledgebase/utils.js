@@ -702,12 +702,41 @@ class KnowledgeBaseTemplate {
    */
   static makeCard(note, addToReview = true, reviewEverytime = true) {
     try {
+      KnowledgeBaseUtils.log("开始执行 makeCard", "makeCard", {
+        noteId: note.noteId,
+        noteTitle: note.noteTitle
+      })
+
       this.renewNote(note) // 处理旧卡片
+      KnowledgeBaseUtils.log("完成 renewNote", "makeCard", {
+        step: "renewNote",
+        noteId: note.noteId
+      })
+
       this.mergeTemplateAndAutoMoveNoteContent(note) // 合并模板卡片并自动移动内容
+      KnowledgeBaseUtils.log("完成 mergeTemplateAndAutoMoveNoteContent", "makeCard", {
+        step: "mergeTemplateAndAutoMoveNoteContent",
+        noteId: note.noteId
+      })
+
       this.templateMergedCardMake(note)
+      KnowledgeBaseUtils.log("完成 templateMergedCardMake", "makeCard", {
+        step: "templateMergedCardMake",
+        noteId: note.noteId
+      })
+
       if (addToReview) {
         this.addToReview(note, reviewEverytime) // 加入复习
+        KnowledgeBaseUtils.log("完成 addToReview", "makeCard", {
+          step: "addToReview",
+          noteId: note.noteId,
+          reviewEverytime: reviewEverytime
+        })
       }
+
+      KnowledgeBaseUtils.log("makeCard 执行完成", "makeCard", {
+        noteId: note.noteId
+      })
     } catch (error) {
       KnowledgeBaseUtils.addErrorLog(error, "makeCard")
     }
@@ -715,19 +744,67 @@ class KnowledgeBaseTemplate {
 
   /**
    * 已合并模板的卡片制卡
-   * 
+   *
    * 暂不在这处理复习
-   * @param note 
+   * @param note
    */
   static templateMergedCardMake(note) {
+    KnowledgeBaseUtils.log("开始执行 templateMergedCardMake", "templateMergedCardMake", {
+      noteId: note.noteId,
+      noteTitle: note.noteTitle
+    })
+
     this.changeTitle(note) // 修改卡片标题
+    KnowledgeBaseUtils.log("完成 changeTitle", "templateMergedCardMake", {
+      step: "changeTitle",
+      noteId: note.noteId
+    })
+
     this.changeNoteColor(note) // 修改卡片颜色
+    KnowledgeBaseUtils.log("完成 changeNoteColor", "templateMergedCardMake", {
+      step: "changeNoteColor",
+      noteId: note.noteId
+    })
+
     this.linkParentNote(note) // 链接广义的父卡片（可能是链接归类卡片）
+    KnowledgeBaseUtils.log("完成 linkParentNote", "templateMergedCardMake", {
+      step: "linkParentNote",
+      noteId: note.noteId
+    })
+
     this.autoMoveNewContent(note) // 自动移动新内容到对应字段
+    KnowledgeBaseUtils.log("完成 autoMoveNewContent", "templateMergedCardMake", {
+      step: "autoMoveNewContent",
+      noteId: note.noteId
+    })
+
     this.moveTaskCardLinksToRelatedField(note) // 移动任务卡片链接到"相关链接"字段
+    KnowledgeBaseUtils.log("完成 moveTaskCardLinksToRelatedField", "templateMergedCardMake", {
+      step: "moveTaskCardLinksToRelatedField",
+      noteId: note.noteId
+    })
+
     this.moveSummaryLinksToTop(note) // 移动总结链接到卡片最上方
+    KnowledgeBaseUtils.log("完成 moveSummaryLinksToTop", "templateMergedCardMake", {
+      step: "moveSummaryLinksToTop",
+      noteId: note.noteId
+    })
+
     this.handleDefinitionPropositionLinks(note) // 处理定义-命题/例子之间的链接
+    KnowledgeBaseUtils.log("完成 handleDefinitionPropositionLinks", "templateMergedCardMake", {
+      step: "handleDefinitionPropositionLinks",
+      noteId: note.noteId
+    })
+
     this.refreshNotes(note) // 刷新卡片
+    KnowledgeBaseUtils.log("完成 refreshNotes", "templateMergedCardMake", {
+      step: "refreshNotes",
+      noteId: note.noteId
+    })
+
+    KnowledgeBaseUtils.log("templateMergedCardMake 执行完成", "templateMergedCardMake", {
+      noteId: note.noteId
+    })
   }
 
   /**
@@ -807,40 +884,111 @@ class KnowledgeBaseTemplate {
    */
   static makeNote(note, addToReview = true, reviewEverytime = true) {
     try {
+      KnowledgeBaseUtils.log("开始执行 makeNote", "makeNote", {
+        noteId: note.noteId,
+        noteTitle: note.noteTitle,
+        classificationMode: KnowledgeBaseConfig.config.classificationMode,
+        preProcessMode: KnowledgeBaseConfig.config.preProcessMode
+      })
+
       if (KnowledgeBaseConfig.config.classificationMode) {
         // 归类模式：快速创建归类卡片
+        KnowledgeBaseUtils.log("进入归类模式", "makeNote", {
+          noteId: note.noteId
+        })
+
         this.changeTitle(note, true)
+        KnowledgeBaseUtils.log("归类模式：完成 changeTitle", "makeNote", {
+          noteId: note.noteId
+        })
+
         this.changeNoteColor(note, true)
+        KnowledgeBaseUtils.log("归类模式：完成 changeNoteColor", "makeNote", {
+          noteId: note.noteId
+        })
+
         this.mergeTemplateAndAutoMoveNoteContent(note)
+        KnowledgeBaseUtils.log("归类模式：完成 mergeTemplateAndAutoMoveNoteContent", "makeNote", {
+          noteId: note.noteId
+        })
+
         if (this.ifLinkParentNote(note)) {
           this.linkParentNote(note, false) // 链接广义的父卡片（可能是链接归类卡片）此时主要考虑同时属于多张父卡片的情形
+          KnowledgeBaseUtils.log("归类模式：完成 linkParentNote", "makeNote", {
+            noteId: note.noteId
+          })
         }
-        return 
+
+        KnowledgeBaseUtils.log("归类模式执行完成", "makeNote", {
+          noteId: note.noteId
+        })
+        return
       }
+
       // 检查是否启用预处理模式
       if (KnowledgeBaseConfig.config.preProcessMode) {
         // 预处理模式：简化的制卡流程
-        // KnowledgeBaseUtils.log("预处理模式制卡", "makeNote");
-        MNUtil.undoGrouping(()=>{
+        KnowledgeBaseUtils.log("进入预处理模式", "makeNote", {
+          noteId: note.noteId
+        })
+
+        MNUtil.undoGrouping(() => {
           let processedNote = this.processNote(note)
+          KnowledgeBaseUtils.log("预处理模式：完成 processNote", "makeNote", {
+            noteId: note.noteId,
+            processedNoteId: processedNote.noteId,
+            noteType: this.getNoteType(processedNote)
+          })
+
           switch (this.getNoteType(processedNote)) {
             case "定义":
               this.makeCard(processedNote, true, true)
-              // KnowledgeBaseUtils.log("预处理模式：makeCard 了", "makeNote");
+              KnowledgeBaseUtils.log("预处理模式：完成 makeCard（定义）", "makeNote", {
+                noteId: processedNote.noteId
+              })
               break;
           }
+
           processedNote.focusInMindMap(0.4)
+          KnowledgeBaseUtils.log("预处理模式：完成 focusInMindMap", "makeNote", {
+            noteId: processedNote.noteId
+          })
         })
-        return 
+
+        KnowledgeBaseUtils.log("预处理模式执行完成", "makeNote", {
+          noteId: note.noteId
+        })
+        return
       }
-      
+
 
       // 正常模式：完整制卡流程
-      // KnowledgeBaseUtils.log("正常模式制卡", "makeNote");
-      MNUtil.undoGrouping(()=>{
+      KnowledgeBaseUtils.log("进入正常模式", "makeNote", {
+        noteId: note.noteId
+      })
+
+      MNUtil.undoGrouping(() => {
         let processedNote = this.processNote(note)
+        KnowledgeBaseUtils.log("正常模式：完成 processNote", "makeNote", {
+          noteId: note.noteId,
+          processedNoteId: processedNote.noteId
+        })
+
         this.makeCard(processedNote, addToReview, reviewEverytime)
+        KnowledgeBaseUtils.log("正常模式：完成 makeCard", "makeNote", {
+          noteId: processedNote.noteId,
+          addToReview: addToReview,
+          reviewEverytime: reviewEverytime
+        })
+
         processedNote.focusInMindMap(0.4)
+        KnowledgeBaseUtils.log("正常模式：完成 focusInMindMap", "makeNote", {
+          noteId: processedNote.noteId
+        })
+      })
+
+      KnowledgeBaseUtils.log("正常模式执行完成", "makeNote", {
+        noteId: note.noteId
       })
     } catch (error) {
       MNUtil.showHUD(`❌ 制卡失败: ${error.message}`);
