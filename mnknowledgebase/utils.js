@@ -582,6 +582,118 @@ const kbTemplateConfig = {
   }
 };
 
+
+/**
+ * OCR 后处理配置
+ * 用于修正 AI OCR 的常见错误输出
+ */
+const kbOCRConfig = {
+  /**
+   * OCR 结果后处理正则替换规则
+   * ⭐ 这是用户经常手动维护的核心配置之一
+   */
+  postProcessingRules: [
+    {
+      pattern: /\^∞/g,
+      replacement: '∞',
+      description: '移除积分/求和上限中不必要的 ^'
+    },
+    {
+      pattern: /\s*φ|Φ\s*/g,
+      replacement: 'ϕ',
+      description: '统一 phi 字符为直立形式 (U+03D5)'
+    },
+    {
+      pattern: /∑/g,
+      replacement: 'Σ',
+      description: '求和符号用小的'
+    },
+    {
+      pattern: /\s*(⊂|∪|∩|⊆|⊇|∈|∉|⊄|⊅)\s*/g,
+      replacement: '$1',
+      description: '去掉集合运算符两边的空格'
+    },
+    {
+      pattern: /\s*(≤|≥|≠|≈|≡|∝|∼|≃|≅|≈)\s*/g,
+      replacement: '$1',
+      description: '去掉比较运算符两边的空格'
+    },
+    {
+      pattern: "\s*，|,\s*",
+      replacement: ", ",
+      description: ""
+    },
+    {
+      pattern: "\s*:\s*",
+      replacement: ": ",
+      description: ""
+    },
+    {
+      pattern: "\{?(∂𝔻)\}?",
+      replacement: "𝕋",
+    },
+
+    // === 定理编号处理规则（按复杂度从高到低排列）===
+    // 1. 处理带名称+内容的完整格式（最优先）
+    {
+      pattern: /^(Theorem|Lemma|Corollary|Proposition|Definition|Example)\s+\d+(?:\.\d+)*\s*\(([^)]+)\)[:.:]?\s*(.+)/i,
+      replacement: '$3; $2',
+      description: '移除英文定理编号，将括号名称移到末尾'
+    },
+    {
+      pattern: /^(定理|引理|推论|命题|定义|例子)\s*\d+(?:\.\d+)*\s*[（(]([^)）]+)[)）][:.:]?\s*(.+)/,
+      replacement: '$3; $2',
+      description: '移除中文定理编号，将括号名称移到末尾'
+    },
+
+    // 2. 处理仅有名称无内容的格式
+    {
+      pattern: /^(Theorem|Lemma|Corollary|Proposition|Definition|Example)\s+\d+(?:\.\d+)*\s*\(([^)]+)\)[:.:]?\s*$/i,
+      replacement: '$2',
+      description: '仅保留英文定理名称（无后续内容）'
+    },
+    {
+      pattern: /^(定理|引理|推论|命题|定义|例子)\s*\d+(?:\.\d+)*\s*[（(]([^)）]+)[)）][:.:]?\s*$/,
+      replacement: '$2',
+      description: '仅保留中文定理名称（无后续内容）'
+    },
+
+    // 3. 移除纯编号（兜底规则）
+    {
+      pattern: /^(定理|引理|推论|命题|例子|例|反例|注释|注|练习|习题|问题|题)\s*\d+(?:\.\d+)*[:.:]?\s*/,
+      replacement: '',
+      description: '移除中文定理类纯编号'
+    },
+    {
+      pattern: /^(Theorem|Lemma|Corollary|Proposition|Example|Counterexample|Remark|Exercise|Problem)\s+\d+(?:\.\d+)*[:.:]?\s*/i,
+      replacement: '',
+      description: '移除英文定理类纯编号'
+    },
+    {
+      pattern: "C_ϕ",
+      replacement: "Cᵩ",
+    },
+    {
+      pattern: "lim‾",
+      replacement: "limsup",
+      description: ""
+    },
+    {
+      pattern: "如果",
+      replacement: "若",
+    },
+    {
+      pattern: "那么",
+      replacement: "则",
+    },
+    // {
+    //   pattern: "",
+    //   replacement: "",
+    //   description: ""
+    // },
+  ]
+};
+
 // ============================================
 // 📦 类定义区（使用上面的配置）
 // ============================================
@@ -17780,105 +17892,8 @@ class KnowledgeBaseNetwork {
 
   /**
    * OCR 结果后处理正则替换规则
-   * 用于修正 AI OCR 的常见错误输出
    */
-  static OCRPostProcessingRules = [
-    {
-      pattern: /\^∞/g,
-      replacement: '∞',
-      description: '移除积分/求和上限中不必要的 ^'
-    },
-    {
-      pattern: /\s*φ|Φ\s*/g,
-      replacement: 'ϕ',
-      description: '统一 phi 字符为直立形式 (U+03D5)'
-    },
-    {
-      pattern: /∑/g,
-      replacement: 'Σ',
-      description: '求和符号用小的'
-    },
-    {
-      pattern: /\s*(⊂|∪|∩|⊆|⊇|∈|∉|⊄|⊅)\s*/g,
-      replacement: '$1',
-      description: '去掉集合运算符两边的空格'
-    },
-    {
-      pattern: /\s*(≤|≥|≠|≈|≡|∝|∼|≃|≅|≈)\s*/g,
-      replacement: '$1',
-      description: '去掉比较运算符两边的空格'
-    },
-    {
-      pattern: "\s*，|,\s*",
-      replacement: ", ",
-      description: ""
-    },
-    {
-      pattern: "\s*:\s*",
-      replacement: ": ",
-      description: ""
-    },
-    {
-      pattern: "\{?(∂𝔻)\}?",
-      replacement: "𝕋",
-    },
-
-    // === 定理编号处理规则（按复杂度从高到低排列）===
-    // 1. 处理带名称+内容的完整格式（最优先）
-    {
-      pattern: /(Theorem|Lemma|Corollary|Proposition|Definition|Example)\s+\d+(\.\d+)?\s*\(([^)]+)\)[:.:]?\s*(.+)/gi,
-      replacement: '$4; $3',
-      description: '移除英文定理编号，将括号名称移到末尾'
-    },
-    {
-      pattern: /(定理|引理|推论|命题|定义|例子)\s*\d+(\.\d+)?\s*[（(]([^)）]+)[)）][:.:]?\s*(.+)/g,
-      replacement: '$4; $3',
-      description: '移除中文定理编号，将括号名称移到末尾'
-    },
-
-    // 2. 处理仅有名称无内容的格式
-    {
-      pattern: /(Theorem|Lemma|Corollary|Proposition|Definition|Example)\s+\d+(\.\d+)?\s*\(([^)]+)\)[:.:]?\s*$/gi,
-      replacement: '$3',
-      description: '仅保留英文定理名称（无后续内容）'
-    },
-    {
-      pattern: /(定理|引理|推论|命题|定义|例子)\s*\d+(\.\d+)?\s*[（(]([^)）]+)[)）][:.:]?\s*$/g,
-      replacement: '$3',
-      description: '仅保留中文定理名称（无后续内容）'
-    },
-
-    // 3. 移除纯编号（兜底规则）
-    {
-      pattern: /(定理|引理|推论|命题|例子|例|反例|注释|注|练习|习题|问题|题)\s*\d+(\.\d+)?[:.:]?\s*/g,
-      replacement: '',
-      description: '移除中文定理类纯编号'
-    },
-    {
-      pattern: /(Theorem|Lemma|Corollary|Proposition|Example|Counterexample|Remark|Exercise|Problem)\s+\d+(\.\d+)?[:.:]?\s*/gi,
-      replacement: '',
-      description: '移除英文定理类纯编号'
-    },
-    {
-      pattern: "C_ϕ",
-      replacement: "Cᵩ",
-    },
-    {
-      pattern: "lim‾",
-      replacement: "limsup",
-      description: ""
-    },
-     // {
-    //   pattern: "",
-    //   replacement: "",
-    //   description: ""
-    // },
-     // {
-    //   pattern: "",
-    //   replacement: "",
-    //   description: ""
-    // },
-  ]
+  static OCRPostProcessingRules = kbOCRConfig.postProcessingRules;
 
   /**
    * 对 OCR 结果进行后处理
@@ -21139,7 +21154,7 @@ class Pangu {
     newText = newText.replace(/\]\s*([A-Za-z])/g, "] $1")
     // 去掉 ∈ 前面的空格
     newText = newText.replace(/\s*∈\s*/g, "∈")
-    newText = newText.replace(/||/g, "‖")
+    newText = newText.replace(/\|\|/g, "‖")
 
 
     // 处理标点符号
