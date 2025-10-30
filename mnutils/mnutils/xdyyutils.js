@@ -202,15 +202,19 @@ MNNote.prototype.fixMergeProblematicLinks = function() {
  * 注意：和 MN 自己的合并不同，this 的标题会处理为评论，而不是添加到 targetNote 的标题
  */
 MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
+  const mergeStartTime = Date.now();
   MNUtil.log("=".repeat(30));
   MNUtil.log("🔄 执行 mergeInto");
   MNUtil.log(`📍 源卡片: ${this.noteTitle || "无标题"} | ID: ${this.noteId} | URL: ${this.noteURL}`);
   MNUtil.log(`📍 目标卡片: ${targetNote.noteTitle || "无标题"} | ID: ${targetNote.noteId} | URL: ${targetNote.noteURL}`);
 
   // 合并之前先更新链接
+  const linkUpdateStartTime = Date.now();
   this.convertLinksToNewVersion()
   this.cleanupBrokenLinks()
   this.fixMergeProblematicLinks()
+  const linkUpdateTime = Date.now() - linkUpdateStartTime;
+  MNUtil.log(`🔗 链接更新完成: ${linkUpdateTime}ms`);
 
   // 记录所有已处理的卡片，避免重复处理
   let processedNoteIds = new Set();
@@ -218,8 +222,10 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
 
   // 记录源卡片的链接情况
   MNUtil.log("🔗 处理源卡片的 linkComment:");
+  const linkCommentsStartTime = Date.now();
 
   // 处理所有 linkComment（不再限制必须是双向链接）
+  let linkCommentCount = 0;
   oldComments.forEach((comment, index) => {
     if (comment.type == "linkComment") {  // 移除 LinkIfDouble 限制，处理所有链接
       let linkedNoteId = comment.text.toNoteId();
@@ -230,6 +236,7 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
 
       let linkedNote = MNNote.new(linkedNoteId, false);  // false 避免卡片不存在时弹窗
       MNUtil.log(`  链接到: ${linkedNote?.noteTitle || "未知"} | ID: ${linkedNoteId}`);
+      linkCommentCount++;
 
       if (linkedNote) {
         // 检查链接卡片中的 markdown
@@ -254,8 +261,12 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
       }
     }
   })
+  const linkCommentsTime = Date.now() - linkCommentsStartTime;
+  MNUtil.log(`🔗 linkComment 处理完成: ${linkCommentsTime}ms (处理了 ${linkCommentCount} 个链接)`);
 
   // 处理 A 中 markdownComment 类型评论的行内链接
+  const markdownLinksStartTime = Date.now();
+  let markdownLinkCount = 0;
   oldComments.forEach((comment, index) => {
     if (comment.type === "markdownComment") {
       // 提取所有 Markdown 格式的链接
@@ -268,6 +279,7 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
         // 检查是否是有效的 MarginNote 链接
         if (linkURL.ifValidNoteURL()) {
           let linkedNoteId = linkURL.toNoteId();
+          markdownLinkCount++;
 
           // 跳过已处理的卡片（避免重复处理）
           if (processedNoteIds.has(linkedNoteId)) continue;
@@ -288,6 +300,11 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
       }
     }
   })
+  const markdownLinksTime = Date.now() - markdownLinksStartTime;
+  MNUtil.log(`📝 markdownComment 链接处理完成: ${markdownLinksTime}ms (处理了 ${markdownLinkCount} 个链接)`);
+
+  // 处理标题
+  const titleStartTime = Date.now();
 
   if (this.title) {
     targetNote.appendMarkdownComment(
@@ -300,10 +317,13 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
   if (this.comments[0] && this.comments[0].text && (this.comments[0].text == targetNote.noteURL)) {
     this.removeCommentByIndex(0)
   }
-
+  const titleTime = Date.now() - titleStartTime;
+  MNUtil.log(`📄 标题处理完成: ${titleTime}ms`);
 
   // 在合并前，先移除目标卡片中对源卡片的所有引用
+  const cleanupStartTime = Date.now();
   // 处理目标卡片的 markdownComment 中的行内链接
+  let removedInlineLinksCount = 0;
   targetNote.MNComments.forEach((comment, index) => {
     if (comment.type === "markdownComment") {
       let text = comment.text;
@@ -314,10 +334,11 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
         let markdownLinkRegex = new RegExp(`\\[[^\\]]*\\]\\(${this.noteURL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)`, 'g');
         let newText = text.replace(markdownLinkRegex, '');
 
-        // 如果替换后文本发生变化，更新评论
+        // 如果替换后文本��生变化，更新评论
         if (newText !== text) {
           comment.text = newText;
           MNUtil.log(`🔗 已移除目标卡片中对源卡片的行内链接`);
+          removedInlineLinksCount++;
         }
       }
     }
@@ -325,16 +346,23 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
 
   // 处理目标卡片的 linkComment（链接评论）
   let targetLinkIndices = targetNote.getLinkCommentsIndexArr(this.noteURL);
+  const removedLinkCommentsCount = targetLinkIndices.length;
   // 从后往前删除，避免索引变化问题
   for (let i = targetLinkIndices.length - 1; i >= 0; i--) {
     targetNote.removeCommentByIndex(targetLinkIndices[i]);
     MNUtil.log(`🔗 已移除目标卡片中对源卡片的链接评论`);
   }
+  const cleanupTime = Date.now() - cleanupStartTime;
+  MNUtil.log(`🧹 清理目标卡片引用完成: ${cleanupTime}ms (移除了 ${removedInlineLinksCount} 个行内链接, ${removedLinkCommentsCount} 个链接评论)`);
 
   // 合并到目标卡片
+  const mergeStartTime = Date.now();
   targetNote.merge(this)
+  const mergeTime = Date.now() - mergeStartTime;
+  MNUtil.log(`🔀 merge 操作完成: ${mergeTime}ms`);
 
   // 最后更新一下合并后的链接
+  const finalUpdateStartTime = Date.now();
   let targetNoteComments = targetNote.MNComments
   for (let i = 0; i < targetNoteComments.length; i++) {
     let targetNotecomment = targetNoteComments[i]
@@ -342,6 +370,18 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
       targetNotecomment.text = targetNotecomment.text
     }
   }
+  const finalUpdateTime = Date.now() - finalUpdateStartTime;
+  MNUtil.log(`🔄 最终链接更新完成: ${finalUpdateTime}ms`);
+
+  const totalMergeTime = Date.now() - mergeStartTime;
+  MNUtil.log(`✅ mergeInto 总耗时: ${totalMergeTime}ms`);
+  MNUtil.log(`   - 链接更新: ${linkUpdateTime}ms`);
+  MNUtil.log(`   - linkComment处理: ${linkCommentsTime}ms (${linkCommentCount}个)`);
+  MNUtil.log(`   - markdownComment处理: ${markdownLinksTime}ms (${markdownLinkCount}个)`);
+  MNUtil.log(`   - 标题处理: ${titleTime}ms`);
+  MNUtil.log(`   - 清理引用: ${cleanupTime}ms`);
+  MNUtil.log(`   - merge��作: ${mergeTime}ms`);
+  MNUtil.log(`   - 最终更新: ${finalUpdateTime}ms`);
 }
 /**
  * 夏大鱼羊 MNNote 扩展 - End
