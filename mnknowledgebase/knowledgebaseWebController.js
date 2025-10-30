@@ -125,8 +125,9 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
 
     // 🆕 新增：如果窗口已经显示，立即刷新数据
     // 这解决了首次打开时数据不刷新的问题
-    if (!self.view.hidden) {
-      MNUtil.log("窗口已显示，立即刷新数据")
+    // 只对搜索界面执行自动刷新，评论管理器由 openCommentManager 独立控制
+    if (!self.view.hidden && self.currentHTMLType === 'search') {
+      MNUtil.log("搜索界面已显示，立即刷新数据")
       MNUtil.delay(0.1).then(async () => {
         await self.refreshAllData()
       })
@@ -344,11 +345,43 @@ knowledgebaseWebController.prototype.loadHTMLFile = function() {
     MNUtil.log("NSURLRequest 创建成功")
 
     this.webView.loadRequest(request)
+    this.currentHTMLType = 'search'  // 标记当前加载的 HTML 类型
+    this.webViewLoaded = false  // 重置加载标志
     MNUtil.log("loadRequest 调用成功,等待加载完成...")
   } catch (error) {
     MNUtil.showHUD("加载 HTML 失败: " + error)
     MNUtil.log("加载 HTML 错误: " + error)
     MNUtil.copyJSON(error)
+  }
+}
+
+/**
+ * 加载评论管理器 HTML 文件
+ */
+knowledgebaseWebController.prototype.loadCommentManagerHTML = function() {
+  try {
+    KnowledgeBaseUtils.log("开始加载", "loadCommentManagerHTML")
+    let htmlPath = KnowledgeBaseConfig.mainPath + "/comment-manager.html"
+    KnowledgeBaseUtils.log("HTML 路径: " + htmlPath, "loadCommentManagerHTML")
+
+    // 检查文件是否存在
+    if (!MNUtil.isfileExists(htmlPath)) {
+      KnowledgeBaseUtils.log("HTML 文件不存在", "loadCommentManagerHTML")
+      MNUtil.showHUD("HTML 文件不存在: " + htmlPath)
+      return
+    }
+
+    let htmlURL = NSURL.fileURLWithPath(htmlPath)
+    let request = NSURLRequest.requestWithURL(htmlURL)
+
+    this.webView.loadRequest(request)
+    this.currentHTMLType = 'comment-manager'  // 标记当前加载的 HTML 类型
+    this.webViewLoaded = false  // 重置加载标志
+    KnowledgeBaseUtils.log("loadRequest 调用成功，等待加载完成", "loadCommentManagerHTML")
+  } catch (error) {
+    MNUtil.showHUD("加载评论管理器 HTML 失败: " + error)
+    KnowledgeBaseUtils.log("加载失败: " + error, "loadCommentManagerHTML")
+    KnowledgeBaseUtils.addErrorLog(error, "loadCommentManagerHTML")
   }
 }
 
@@ -810,13 +843,14 @@ knowledgebaseWebController.prototype.show = async function(beginFrame, endFrame)
     MNLog.log("【show()】动画完成，触发 bringSubviewToFront")
     MNUtil.studyView.bringSubviewToFront(this.view)
 
-    // 显示完成后自动刷新数据（确保 WebView 已加载）
-    if (this.webViewLoaded) {
-      MNLog.log("【show()】WebView 已加载，开始自动刷新数据")
+    // 显示完成后自动刷新数据（仅限搜索界面）
+    // 评论管理器由 openCommentManager 独立控制数据加载
+    if (this.webViewLoaded && this.currentHTMLType === 'search') {
+      MNLog.log("【show()】搜索界面已加载，开始自动刷新数据")
       await this.refreshAllData()
       MNLog.log("【show()】refreshAllData 完成")
     } else {
-      MNLog.log("【show()】WebView 尚未加载，跳过自动刷新")
+      MNLog.log("【show()】非搜索界面或 WebView 尚未加载，跳过自动刷新")
     }
   })
   
@@ -865,6 +899,7 @@ knowledgebaseWebController.prototype.init = function() {
   this.onAnimate = false
   this.lastTapTime = 0
   this.moveDate = 0
+  this.currentHTMLType = null  // 'search' 或 'comment-manager'
 
   if (!this.lastFrame) {
     this.lastFrame = this.view.frame
@@ -1203,8 +1238,15 @@ knowledgebaseWebController.prototype.refreshAllData = async function() {
  */
 knowledgebaseWebController.prototype.loadCommentData = async function(noteId) {
   try {
-    MNUtil.log("=== loadCommentData 开始执行 ===", "Bridge")
-    MNUtil.log("noteId: " + noteId, "Bridge")
+    KnowledgeBaseUtils.log("开始执行", "loadCommentData")
+    KnowledgeBaseUtils.log("noteId: " + noteId, "loadCommentData")
+
+    // 清理旧的定时器，防止快速切换卡片时累积多个调用
+    if (this.viewTimer) {
+      this.viewTimer.invalidate()
+      this.viewTimer = undefined
+      KnowledgeBaseUtils.log("已清理旧的定时器", "loadCommentData")
+    }
 
     // 获取卡片
     const note = MNNote.new(noteId)
@@ -1219,21 +1261,21 @@ knowledgebaseWebController.prototype.loadCommentData = async function(noteId) {
       const commentData = global.MNKnowledgeBaseInstance.prepareCommentDataForManager(note)
 
       if (commentData) {
-        // 将数据发送到 HTML 端
+        // 将数据发送到 HTML 端（改为即时执行，避免延迟累积）
         const dataJson = JSON.stringify(commentData)
         const script = `loadDataFromNative(${dataJson})`
-        await this.runJavaScript(script, 0.1)
+        await this.runJavaScript(script)  // 不再使用延迟
 
-        MNUtil.log("评论数据已发送到 HTML 端", "Bridge")
+        KnowledgeBaseUtils.log("评论数据已发送到 HTML 端", "loadCommentData")
       } else {
         MNUtil.showHUD("准备评论数据失败")
       }
     } else {
-      MNUtil.log("错误: MNKnowledgeBaseInstance 或 prepareCommentDataForManager 方法不存在", "Bridge")
+      KnowledgeBaseUtils.log("错误: MNKnowledgeBaseInstance 或 prepareCommentDataForManager 方法不存在", "loadCommentData")
       MNUtil.showHUD("插件实例未就绪")
     }
   } catch (error) {
-    MNUtil.log("loadCommentData 发生错误: " + error, "Bridge")
+    KnowledgeBaseUtils.log("发生错误: " + error.message, "loadCommentData")
     MNUtil.showHUD("加载评论数据失败: " + error)
     KnowledgeBaseUtils.addErrorLog(error, "loadCommentData")
   }
@@ -1248,11 +1290,11 @@ knowledgebaseWebController.prototype.loadCommentData = async function(noteId) {
  */
 knowledgebaseWebController.prototype.moveCommentsToField = async function(noteId, indexArr, fieldName, toBottom) {
   try {
-    MNUtil.log("=== moveCommentsToField 开始执行 ===", "Bridge")
-    MNUtil.log("noteId: " + noteId, "Bridge")
-    MNUtil.log("indexArr: " + JSON.stringify(indexArr), "Bridge")
-    MNUtil.log("fieldName: " + fieldName, "Bridge")
-    MNUtil.log("toBottom: " + toBottom, "Bridge")
+    KnowledgeBaseUtils.log("开始执行", "moveCommentsToField")
+    KnowledgeBaseUtils.log("noteId: " + noteId, "moveCommentsToField")
+    KnowledgeBaseUtils.log("indexArr: " + JSON.stringify(indexArr), "moveCommentsToField")
+    KnowledgeBaseUtils.log("fieldName: " + fieldName, "moveCommentsToField")
+    KnowledgeBaseUtils.log("toBottom: " + toBottom, "moveCommentsToField")
 
     // 获取卡片
     const note = MNNote.new(noteId)
@@ -1267,10 +1309,10 @@ knowledgebaseWebController.prototype.moveCommentsToField = async function(noteId
         KnowledgeBaseTemplate.moveCommentsArrToField(note, indexArr, fieldName, toBottom)
         note.refresh()
         MNUtil.showHUD(`成功移动 ${indexArr.length} 项评论到 ${fieldName}`)
-        MNUtil.log("评论移动成功", "Bridge")
+        KnowledgeBaseUtils.log("评论移动成功", "moveCommentsToField")
       } catch (error) {
         MNUtil.showHUD("移动失败: " + error.message)
-        MNUtil.log("移动评论失败: " + error, "Bridge")
+        KnowledgeBaseUtils.log("移动评论失败: " + error, "moveCommentsToField")
         throw error
       }
     })
@@ -1279,7 +1321,7 @@ knowledgebaseWebController.prototype.moveCommentsToField = async function(noteId
     await this.loadCommentData(noteId)
 
   } catch (error) {
-    MNUtil.log("moveCommentsToField 发生错误: " + error, "Bridge")
+    KnowledgeBaseUtils.log("发生错误: " + error.message, "moveCommentsToField")
     MNUtil.showHUD("移动评论失败: " + error)
     KnowledgeBaseUtils.addErrorLog(error, "moveCommentsToField")
   }
@@ -1293,10 +1335,10 @@ knowledgebaseWebController.prototype.moveCommentsToField = async function(noteId
  */
 knowledgebaseWebController.prototype.moveComments = async function(noteId, indexArr, targetIndex) {
   try {
-    MNUtil.log("=== moveComments 开始执行 ===", "Bridge")
-    MNUtil.log("noteId: " + noteId, "Bridge")
-    MNUtil.log("indexArr: " + JSON.stringify(indexArr), "Bridge")
-    MNUtil.log("targetIndex: " + targetIndex, "Bridge")
+    KnowledgeBaseUtils.log("开始执行", "moveComments")
+    KnowledgeBaseUtils.log("noteId: " + noteId, "moveComments")
+    KnowledgeBaseUtils.log("indexArr: " + JSON.stringify(indexArr), "moveComments")
+    KnowledgeBaseUtils.log("targetIndex: " + targetIndex, "moveComments")
 
     // 获取卡片
     const note = MNNote.new(noteId)
@@ -1311,10 +1353,10 @@ knowledgebaseWebController.prototype.moveComments = async function(noteId, index
         note.moveCommentsByIndexArr(indexArr, targetIndex)
         note.refresh()
         MNUtil.showHUD(`成功移动 ${indexArr.length} 项评论`)
-        MNUtil.log("评论移动成功", "Bridge")
+        KnowledgeBaseUtils.log("评论移动成功", "moveComments")
       } catch (error) {
         MNUtil.showHUD("移动失败: " + error.message)
-        MNUtil.log("移动评论失败: " + error, "Bridge")
+        KnowledgeBaseUtils.log("移动评论失败: " + error.message, "moveComments")
         throw error
       }
     })
@@ -1323,7 +1365,7 @@ knowledgebaseWebController.prototype.moveComments = async function(noteId, index
     await this.loadCommentData(noteId)
 
   } catch (error) {
-    MNUtil.log("moveComments 发生错误: " + error, "Bridge")
+    KnowledgeBaseUtils.log("发生错误: " + error.message, "moveComments")
     MNUtil.showHUD("移动评论失败: " + error)
     KnowledgeBaseUtils.addErrorLog(error, "moveComments")
   }
@@ -1336,9 +1378,9 @@ knowledgebaseWebController.prototype.moveComments = async function(noteId, index
  */
 knowledgebaseWebController.prototype.deleteComments = async function(noteId, indexArr) {
   try {
-    MNUtil.log("=== deleteComments 开始执行 ===", "Bridge")
-    MNUtil.log("noteId: " + noteId, "Bridge")
-    MNUtil.log("indexArr: " + JSON.stringify(indexArr), "Bridge")
+    KnowledgeBaseUtils.log("开始执行", "deleteComments")
+    KnowledgeBaseUtils.log("noteId: " + noteId, "deleteComments")
+    KnowledgeBaseUtils.log("indexArr: " + JSON.stringify(indexArr), "deleteComments")
 
     // 获取卡片
     const note = MNNote.new(noteId)
@@ -1353,10 +1395,10 @@ knowledgebaseWebController.prototype.deleteComments = async function(noteId, ind
         note.removeCommentsByIndexArr(indexArr)
         note.refresh()
         MNUtil.showHUD(`成功删除 ${indexArr.length} 项评论`)
-        MNUtil.log("评论删除成功", "Bridge")
+        KnowledgeBaseUtils.log("评论删除成功", "deleteComments")
       } catch (error) {
         MNUtil.showHUD("删除失败: " + error.message)
-        MNUtil.log("删除评论失败: " + error, "Bridge")
+        KnowledgeBaseUtils.log("删除评论失败: " + error.message, "deleteComments")
         throw error
       }
     })
@@ -1365,7 +1407,7 @@ knowledgebaseWebController.prototype.deleteComments = async function(noteId, ind
     await this.loadCommentData(noteId)
 
   } catch (error) {
-    MNUtil.log("deleteComments 发生错误: " + error, "Bridge")
+    KnowledgeBaseUtils.log("发生错误: " + error.message, "deleteComments")
     MNUtil.showHUD("删除评论失败: " + error)
     KnowledgeBaseUtils.addErrorLog(error, "deleteComments")
   }

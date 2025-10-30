@@ -2074,11 +2074,17 @@
     function handleInsertPointClick(targetIndex) {
       const selectedIndices = Array.from(state.selectedIndices).sort((a, b) => a - b);
 
-      // 执行移动操作（这里暂时模拟，实际需要调用 MN API）
-      console.log('移动评论:', selectedIndices, '到位置:', targetIndex);
+      // 执行移动操作（调用 Native Bridge）
+      if (!state.noteId) {
+        showToast('错误：缺少卡片 ID');
+        return;
+      }
 
-      // 显示成功提示
-      showToast(`已将 ${selectedIndices.length} 条评论移动到 index ${targetIndex}`);
+      // 调用 Bridge 方法移动评论到指定索引
+      Bridge.moveComments(state.noteId, selectedIndices, targetIndex);
+
+      // 显示操作提示
+      showToast(`正在移动 ${selectedIndices.length} 条评论...`);
 
       // 退出移动模式
       exitMoveMode();
@@ -2086,8 +2092,7 @@
       // 清空选择
       clearSelection();
 
-      // TODO: 实际移动后需要重新加载数据并刷新界面
-      // 这里需要调用 MN 的 moveCommentsByIndexArr API
+      // 注意：Native 端会在操作完成后自动调用 Bridge.loadCommentData() 刷新数据
     }
 
     // ========================================
@@ -2217,14 +2222,22 @@
     // ========================================
     function confirmDelete(indices) {
       if (confirm(`确定要删除 ${indices.length} 条评论吗？\n\n此操作不可撤销！`)) {
-        const actionData = {
-          action: 'delete',
-          selectedIndices: indices
-        };
+        // 执行删除操作（调用 Native Bridge）
+        if (!state.noteId) {
+          showToast('错误：缺少卡片 ID');
+          return;
+        }
 
-        console.log('执行删除:', actionData);
-        showToast(`已删除 ${indices.length} 条评论`);
+        // 调用 Bridge 方法删除评论
+        Bridge.deleteComments(state.noteId, indices);
+
+        // 显示操作提示
+        showToast(`正在删除 ${indices.length} 条评论...`);
+
+        // 清空选择
         clearSelection();
+
+        // 注意：Native 端会在操作完成后自动调用 Bridge.loadCommentData() 刷新数据
       }
     }
 
@@ -2267,6 +2280,142 @@
       div.innerHTML = html;
       return div.textContent || div.innerText || '';
     }
+
+    // ========================================
+    // URL Scheme 生成工具函数
+    // ========================================
+
+    /**
+     * 生成 MarginNote URL Scheme
+     * @param {string} scheme - URL scheme (e.g., 'mnknowledgebase')
+     * @param {string} path - URL path (e.g., 'moveCommentsToField')
+     * @param {Object} params - Query parameters
+     * @returns {string} 完整的 URL Scheme
+     */
+    function generateUrlScheme(scheme, path, params) {
+      let url = `${scheme}://${path || ''}`;
+      const keys = Object.keys(params || {});
+      if (keys.length > 0) {
+        const query = keys.map((key) => {
+          const value = params[key];
+          const serialised = typeof value === 'object' ? JSON.stringify(value) : value;
+          return `${encodeURIComponent(key)}=${encodeURIComponent(serialised)}`;
+        }).join('&');
+        url += query ? `?${query}` : '';
+      }
+      return url;
+    }
+
+    // ========================================
+    // Bridge 对象 - Native 与 JavaScript 通信桥梁
+    // ========================================
+
+    /**
+     * Bridge 对象提供 Native 调用 JavaScript 的接口
+     *
+     * 调用方式（Native 端）：
+     * const script = `window.Bridge.loadCommentData(${JSON.stringify(data)})`
+     * await this.runJavaScript(script)
+     */
+    window.Bridge = {
+      /**
+       * 从 Native 端加载评论数据
+       * @param {Object} data - 评论数据对象
+       */
+      loadCommentData: function(data) {
+        try {
+          loadDataFromNative(data);
+        } catch (error) {
+          console.error('Bridge.loadCommentData 失败:', error);
+          this.logToNative('Bridge.loadCommentData 失败: ' + error.message);
+        }
+      },
+
+      /**
+       * 移动评论到指定字段
+       * @param {string} noteId - 卡片 ID
+       * @param {Array<number>} indexArr - 评论索引数组
+       * @param {string} fieldName - 目标字段名
+       * @param {boolean} toBottom - 是否移动到字段底部
+       */
+      moveCommentsToField: function(noteId, indexArr, fieldName, toBottom) {
+        try {
+          const url = generateUrlScheme('mnknowledgebase', 'moveCommentsToField', {
+            id: noteId,
+            indexArr: JSON.stringify(indexArr),
+            fieldName: fieldName,
+            toBottom: toBottom
+          });
+          window.location.href = url;
+        } catch (error) {
+          console.error('Bridge.moveCommentsToField 失败:', error);
+          showToast('移动失败: ' + error.message);
+        }
+      },
+
+      /**
+       * 移动评论到指定索引位置
+       * @param {string} noteId - 卡片 ID
+       * @param {Array<number>} indexArr - 评论索引数组
+       * @param {number} targetIndex - 目标索引位置
+       */
+      moveComments: function(noteId, indexArr, targetIndex) {
+        try {
+          const url = generateUrlScheme('mnknowledgebase', 'moveComments', {
+            id: noteId,
+            indexArr: JSON.stringify(indexArr),
+            targetIndex: targetIndex
+          });
+          window.location.href = url;
+        } catch (error) {
+          console.error('Bridge.moveComments 失败:', error);
+          showToast('移动失败: ' + error.message);
+        }
+      },
+
+      /**
+       * 删除评论
+       * @param {string} noteId - 卡片 ID
+       * @param {Array<number>} indexArr - 评论索引数组
+       */
+      deleteComments: function(noteId, indexArr) {
+        try {
+          const url = generateUrlScheme('mnknowledgebase', 'deleteComments', {
+            id: noteId,
+            indexArr: JSON.stringify(indexArr)
+          });
+          window.location.href = url;
+        } catch (error) {
+          console.error('Bridge.deleteComments 失败:', error);
+          showToast('删除失败: ' + error.message);
+        }
+      },
+
+      /**
+       * 发送日志到 Native 端
+       * @param {string} message - 日志消息
+       */
+      logToNative: function(message) {
+        try {
+          const url = generateUrlScheme('mnknowledgebase', 'htmlLog', {
+            message: message
+          });
+          window.location.href = url;
+        } catch (error) {
+          console.error('Bridge.logToNative 失败:', error);
+        }
+      }
+    };
+
+    // 页面加载时发送就绪信号
+    window.addEventListener('load', () => {
+      try {
+        const url = generateUrlScheme('mnknowledgebase', 'ready', {});
+        window.location.href = url;
+      } catch (error) {
+        console.error('发送就绪信号失败:', error);
+      }
+    });
 
     // ========================================
     // 启动
