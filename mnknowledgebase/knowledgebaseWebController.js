@@ -511,6 +511,46 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         MNLog.log(message)
         break
 
+      // ========================================
+      // 评论管理器 Bridge 方法
+      // ========================================
+
+      case "loadCommentData":
+        // 加载指定卡片的评论数据
+        await this.loadCommentData(config.params.noteId)
+        success = true
+        break
+
+      case "moveCommentsToField":
+        // 移动评论到字段
+        await this.moveCommentsToField(
+          config.params.noteId,
+          config.params.indexArr,
+          config.params.fieldName,
+          config.params.toBottom
+        )
+        success = true
+        break
+
+      case "moveComments":
+        // 移动评论到指定索引
+        await this.moveComments(
+          config.params.noteId,
+          config.params.indexArr,
+          config.params.targetIndex
+        )
+        success = true
+        break
+
+      case "deleteComments":
+        // 删除评论
+        await this.deleteComments(
+          config.params.noteId,
+          config.params.indexArr
+        )
+        success = true
+        break
+
       default:
         MNUtil.showHUD("未知动作: " + config.host)
     }
@@ -1150,6 +1190,184 @@ knowledgebaseWebController.prototype.refreshAllData = async function() {
     MNUtil.log("refreshAllData 发生错误: " + error)
     MNUtil.showHUD("刷新数据失败: " + error)
     KnowledgeBaseUtils.addErrorLog(error, "refreshAllData")
+  }
+}
+
+// ========================================
+// 评论管理器 Bridge 方法实现
+// ========================================
+
+/**
+ * 加载指定卡片的评论数据
+ * @param {string} noteId - 卡片ID
+ */
+knowledgebaseWebController.prototype.loadCommentData = async function(noteId) {
+  try {
+    MNUtil.log("=== loadCommentData 开始执行 ===", "Bridge")
+    MNUtil.log("noteId: " + noteId, "Bridge")
+
+    // 获取卡片
+    const note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    // 调用 main.js 中的数据准备方法
+    if (typeof global.MNKnowledgeBaseInstance !== 'undefined' &&
+        global.MNKnowledgeBaseInstance.prepareCommentDataForManager) {
+      const commentData = global.MNKnowledgeBaseInstance.prepareCommentDataForManager(note)
+
+      if (commentData) {
+        // 将数据发送到 HTML 端
+        const dataJson = JSON.stringify(commentData)
+        const script = `loadDataFromNative(${dataJson})`
+        await this.runJavaScript(script, 0.1)
+
+        MNUtil.log("评论数据已发送到 HTML 端", "Bridge")
+      } else {
+        MNUtil.showHUD("准备评论数据失败")
+      }
+    } else {
+      MNUtil.log("错误: MNKnowledgeBaseInstance 或 prepareCommentDataForManager 方法不存在", "Bridge")
+      MNUtil.showHUD("插件实例未就绪")
+    }
+  } catch (error) {
+    MNUtil.log("loadCommentData 发生错误: " + error, "Bridge")
+    MNUtil.showHUD("加载评论数据失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "loadCommentData")
+  }
+}
+
+/**
+ * 移动评论到字段
+ * @param {string} noteId - 卡片ID
+ * @param {Array} indexArr - 要移动的评论索引数组
+ * @param {string} fieldName - 目标字段名称
+ * @param {boolean} toBottom - 是否移动到字段底部
+ */
+knowledgebaseWebController.prototype.moveCommentsToField = async function(noteId, indexArr, fieldName, toBottom) {
+  try {
+    MNUtil.log("=== moveCommentsToField 开始执行 ===", "Bridge")
+    MNUtil.log("noteId: " + noteId, "Bridge")
+    MNUtil.log("indexArr: " + JSON.stringify(indexArr), "Bridge")
+    MNUtil.log("fieldName: " + fieldName, "Bridge")
+    MNUtil.log("toBottom: " + toBottom, "Bridge")
+
+    // 获取卡片
+    const note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    // 调用移动方法
+    MNUtil.undoGrouping(() => {
+      try {
+        KnowledgeBaseTemplate.moveCommentsArrToField(note, indexArr, fieldName, toBottom)
+        note.refresh()
+        MNUtil.showHUD(`成功移动 ${indexArr.length} 项评论到 ${fieldName}`)
+        MNUtil.log("评论移动成功", "Bridge")
+      } catch (error) {
+        MNUtil.showHUD("移动失败: " + error.message)
+        MNUtil.log("移动评论失败: " + error, "Bridge")
+        throw error
+      }
+    })
+
+    // 刷新数据
+    await this.loadCommentData(noteId)
+
+  } catch (error) {
+    MNUtil.log("moveCommentsToField 发生错误: " + error, "Bridge")
+    MNUtil.showHUD("移动评论失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "moveCommentsToField")
+  }
+}
+
+/**
+ * 移动评论到指定索引位置
+ * @param {string} noteId - 卡片ID
+ * @param {Array} indexArr - 要移动的评论索引数组
+ * @param {number} targetIndex - 目标索引位置
+ */
+knowledgebaseWebController.prototype.moveComments = async function(noteId, indexArr, targetIndex) {
+  try {
+    MNUtil.log("=== moveComments 开始执行 ===", "Bridge")
+    MNUtil.log("noteId: " + noteId, "Bridge")
+    MNUtil.log("indexArr: " + JSON.stringify(indexArr), "Bridge")
+    MNUtil.log("targetIndex: " + targetIndex, "Bridge")
+
+    // 获取卡片
+    const note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    // 调用移动方法
+    MNUtil.undoGrouping(() => {
+      try {
+        note.moveCommentsByIndexArr(indexArr, targetIndex)
+        note.refresh()
+        MNUtil.showHUD(`成功移动 ${indexArr.length} 项评论`)
+        MNUtil.log("评论移动成功", "Bridge")
+      } catch (error) {
+        MNUtil.showHUD("移动失败: " + error.message)
+        MNUtil.log("移动评论失败: " + error, "Bridge")
+        throw error
+      }
+    })
+
+    // 刷新数据
+    await this.loadCommentData(noteId)
+
+  } catch (error) {
+    MNUtil.log("moveComments 发生错误: " + error, "Bridge")
+    MNUtil.showHUD("移动评论失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "moveComments")
+  }
+}
+
+/**
+ * 删除评论
+ * @param {string} noteId - 卡片ID
+ * @param {Array} indexArr - 要删除的评论索引数组
+ */
+knowledgebaseWebController.prototype.deleteComments = async function(noteId, indexArr) {
+  try {
+    MNUtil.log("=== deleteComments 开始执行 ===", "Bridge")
+    MNUtil.log("noteId: " + noteId, "Bridge")
+    MNUtil.log("indexArr: " + JSON.stringify(indexArr), "Bridge")
+
+    // 获取卡片
+    const note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    // 调用删除方法
+    MNUtil.undoGrouping(() => {
+      try {
+        note.removeCommentsByIndexArr(indexArr)
+        note.refresh()
+        MNUtil.showHUD(`成功删除 ${indexArr.length} 项评论`)
+        MNUtil.log("评论删除成功", "Bridge")
+      } catch (error) {
+        MNUtil.showHUD("删除失败: " + error.message)
+        MNUtil.log("删除评论失败: " + error, "Bridge")
+        throw error
+      }
+    })
+
+    // 刷新数据
+    await this.loadCommentData(noteId)
+
+  } catch (error) {
+    MNUtil.log("deleteComments 发生错误: " + error, "Bridge")
+    MNUtil.showHUD("删除评论失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "deleteComments")
   }
 }
 
