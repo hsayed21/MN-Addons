@@ -1298,201 +1298,103 @@ JSB.newAddon = function(mainPath){
   }
 
   /**
-   * 在 search.html 中展示 AI 推荐的卡片
+   * 在 search.html 中展示 AI 推荐的卡片（简化版）
+   *
+   * 架构说明：
+   * - 不再尝试在主搜索结果中高亮卡片（受分页限制）
+   * - 改为使用独立的底部推荐面板展示
+   * - 面板会自动查找完整卡片数据并渲染
+   *
    * @param {Array<string>} cardIds - 推荐的卡片 ID 数组
-   * @param {string} question - 用户问题
    */
-  MNKnowledgeBaseClass.prototype.showRecommendedCardsInWebView = async function(cardIds, question) {
+  MNKnowledgeBaseClass.prototype.showRecommendedCardsInWebView = async function(cardIds) {
     try {
       // 1. 打开 WebView
       await this.openSearchWebView();
 
-      // 2. 轮询等待数据加载完成（增强检查：包括 DOM 渲染）
-      const maxWaitTime = 10000;  // 增加到 10 秒
-      const checkInterval = 300;   // 增加到 300ms
-      let elapsedTime = 0;
-      let dataReady = false;
+      // 2. 强制刷新数据（解决数据陈旧问题）
+      MNUtil.showHUD("正在刷新数据...");
+      await MNUtil.delay(0.3); // 确保 WebView 完全显示
 
-      KnowledgeBaseUtils.log("等待数据加载和 DOM 渲染完成...", "showRecommendedCardsInWebView");
+      const controller = KnowledgeBaseUtils.webViewController;
+      if (controller && controller.webViewLoaded) {
+        await controller.refreshAllData();
+      }
+
+      // 3. 等待数据加载完成并验证卡片存在（最多10秒）
+      const maxWaitTime = 10000;
+      const checkInterval = 300;
+      let elapsedTime = 0;
 
       while (elapsedTime < maxWaitTime) {
         const checkScript = `
           (function() {
-            // 检查数据是否已加载
-            if (window.state && window.state.cards && window.state.cards.length > 0) {
-              // 进一步检查 DOM 是否已渲染
-              const cardElements = document.querySelectorAll('.card[data-id]');
-              if (cardElements.length > 0) {
-                return "ready";
-              }
-              return "rendering";  // 数据已加载但 DOM 未渲染
+            if (!window.state || !window.state.cards || window.state.cards.length === 0) {
+              return "loading";
             }
-            return "loading";
+
+            // 检查推荐的卡片是否在当前数据集中
+            const cardIds = ${JSON.stringify(cardIds)};
+            const existingIds = window.state.cards.map(c => c.id);
+            const foundCount = cardIds.filter(id => existingIds.includes(id)).length;
+
+            if (foundCount === 0) {
+              return "cards_not_found";
+            }
+
+            return "ready";
           })();
         `;
 
         try {
-          const status = await KnowledgeBaseUtils.webViewController.runJavaScript(checkScript);
+          const status = await controller.runJavaScript(checkScript);
 
           if (status === "ready") {
-            dataReady = true;
-            KnowledgeBaseUtils.log(`数据加载和 DOM 渲染完成（耗时 ${elapsedTime}ms）`, "showRecommendedCardsInWebView");
             break;
-          } else if (status === "rendering") {
-            KnowledgeBaseUtils.log(`数据已加载，等待 DOM 渲染...（${elapsedTime}ms）`, "showRecommendedCardsInWebView");
+          } else if (status === "cards_not_found") {
+            MNUtil.showHUD("⚠️ 推荐的卡片不在当前索引中");
+            return;
           }
         } catch (e) {
-          // WebView 可能还没完全初始化，继续等待
+          // 继续等待
         }
 
         await MNUtil.delay(checkInterval / 1000);
         elapsedTime += checkInterval;
       }
 
-      if (!dataReady) {
+      if (elapsedTime >= maxWaitTime) {
         MNUtil.showHUD("⚠️ 数据加载超时");
-        KnowledgeBaseUtils.log("数据加载超时", "showRecommendedCardsInWebView");
         return;
       }
 
-      // 3. 准备阶段：清除过滤器，显示所有卡片
-      KnowledgeBaseUtils.log("准备阶段：清除过滤器...", "showRecommendedCardsInWebView");
-
-      const prepareScript = `
+      // 3. 调用 Bridge 方法显示推荐卡片
+      const showScript = `
         (function() {
           try {
-            // 清空搜索框
-            const searchInput = document.querySelector('#searchInput');
-            if (searchInput) {
-              searchInput.value = '';
+            if (window.Bridge && typeof window.Bridge.showAIRecommendations === 'function') {
+              window.Bridge.showAIRecommendations(${JSON.stringify(cardIds)});
+              return { success: true };
+            } else {
+              return { error: 'Bridge.showAIRecommendations 方法不存在' };
             }
-
-            // 清除所有过滤器
-            if (window.state) {
-              window.state.activePresets && window.state.activePresets.clear();
-              window.state.activeNegativePresets && window.state.activeNegativePresets.clear();
-            }
-
-            // 触发搜索以显示所有卡片
-            if (typeof scheduleSearch === 'function') {
-              scheduleSearch({ triggerNative: false });
-            }
-
-            return { success: true };
           } catch (e) {
             return { error: e.message };
           }
         })();
       `;
 
-      const prepareResult = await KnowledgeBaseUtils.webViewController.runJavaScript(prepareScript);
-
-      if (prepareResult.error) {
-        KnowledgeBaseUtils.log("准备阶段失败: " + prepareResult.error, "showRecommendedCardsInWebView");
-      } else {
-        KnowledgeBaseUtils.log("准备阶段完成", "showRecommendedCardsInWebView");
-      }
-
-      // 等待 DOM 更新（搜索结果渲染需要时间）
-      await MNUtil.delay(0.5);
-
-      // 4. 高亮推荐的卡片（增强调试信息）
-      const highlightScript = `
-        (function() {
-          try {
-            // 检查数据是否加载
-            if (!window.state || !window.state.cards || window.state.cards.length === 0) {
-              return { error: "数据未加载", highlightedCount: 0 };
-            }
-
-            const recommendedIds = ${JSON.stringify(cardIds)};
-            let highlightedCount = 0;
-            let notFoundIds = [];
-
-            // 调试信息
-            let debugInfo = {
-              totalCardsInState: window.state.cards.length,
-              totalCardElementsInDOM: document.querySelectorAll('.card[data-id]').length,
-              recommendedIdsCount: recommendedIds.length,
-              idSearchDetails: []  // 每个 ID 的查找详情
-            };
-
-            // 先清除旧的高亮
-            document.querySelectorAll('.card.selected').forEach(card => {
-              card.classList.remove('selected');
-            });
-
-            // 高亮新卡片
-            recommendedIds.forEach(id => {
-              // 检查 ID 是否在 state.cards 中
-              const cardInState = window.state.cards.find(c => c.id === id);
-              const cardElement = document.querySelector('.card[data-id="' + id + '"]');
-
-              debugInfo.idSearchDetails.push({
-                id: id,
-                inState: !!cardInState,
-                inDOM: !!cardElement
-              });
-
-              if (cardElement) {
-                cardElement.classList.add('selected');
-                highlightedCount++;
-
-                // 滚动到第一张
-                if (highlightedCount === 1) {
-                  cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-              } else {
-                notFoundIds.push(id);
-              }
-            });
-
-            return {
-              success: true,
-              highlightedCount: highlightedCount,
-              notFoundIds: notFoundIds,
-              debugInfo: debugInfo
-            };
-          } catch (e) {
-            return { error: e.message, highlightedCount: 0 };
-          }
-        })();
-      `;
-
-      const result = await KnowledgeBaseUtils.webViewController.runJavaScript(highlightScript);
-
-      // 输出详细的调试信息
-      if (result.debugInfo) {
-        KnowledgeBaseUtils.log(
-          `调试信息:\n` +
-          `  - 数据中卡片数: ${result.debugInfo.totalCardsInState}\n` +
-          `  - DOM 中卡片数: ${result.debugInfo.totalCardElementsInDOM}\n` +
-          `  - 推荐卡片数: ${result.debugInfo.recommendedIdsCount}\n` +
-          `  - ID 查找详情: ${JSON.stringify(result.debugInfo.idSearchDetails, null, 2)}`,
-          "showRecommendedCardsInWebView"
-        );
-      }
+      const result = await KnowledgeBaseUtils.webViewController.runJavaScript(showScript);
 
       if (result.error) {
-        MNUtil.showHUD("❌ 高亮失败: " + result.error);
-      } else if (result.highlightedCount > 0) {
-        MNUtil.showHUD(`✅ 已高亮 ${result.highlightedCount} 张推荐卡片`);
-
-        // 如果有卡片未找到，记录详细日志
-        if (result.notFoundIds && result.notFoundIds.length > 0) {
-          KnowledgeBaseUtils.log(
-            `有 ${result.notFoundIds.length} 张卡片未找到:\n${result.notFoundIds.join("\n")}`,
-            "showRecommendedCardsInWebView"
-          );
-        }
+        MNUtil.showHUD("❌ " + result.error);
       } else {
-        MNUtil.showHUD("⚠️ 未找到推荐的卡片");
-        KnowledgeBaseUtils.log("所有推荐的卡片都未找到，请检查调试信息", "showRecommendedCardsInWebView");
+        MNUtil.showHUD(`✅ 已展示 ${cardIds.length} 张推荐卡片`);
       }
 
     } catch (error) {
       KnowledgeBaseUtils.addErrorLog(error, "showRecommendedCardsInWebView");
-      MNUtil.showHUD("展示推荐卡片失败");
+      MNUtil.showHUD("❌ 展示推荐卡片失败");
     }
   }
 
@@ -1555,7 +1457,7 @@ JSB.newAddon = function(mainPath){
       KnowledgeBaseUtils.log("AI 推荐的卡片 ID: " + recommendedCardIds.join(", "), "askAIForRelevantCards");
 
       // 7. 在 search.html 中展示推荐的卡片
-      await this.showRecommendedCardsInWebView(recommendedCardIds, userQuestion);
+      await this.showRecommendedCardsInWebView(recommendedCardIds);
 
     } catch (error) {
       KnowledgeBaseUtils.addErrorLog(error, "askAIForRelevantCards");
