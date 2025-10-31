@@ -1762,21 +1762,21 @@ class KnowledgeBaseTemplate {
       // 使用缓存版本获取类型，避免重复计算
       const parentType = this.getCachedNoteType(parentNote, cache);
       if (parentType === "归类") {
-        KnowledgeBaseUtils.log("找到归类父卡片（优化版）", "getFirstClassificationParentNoteOptimized", {
-          noteId: note.noteId,
-          classificationParentNoteId: parentNote.noteId,
-          classificationParentNoteTitle: parentNote.noteTitle,
-          traversalDepth: depth
-        });
+        // KnowledgeBaseUtils.log("找到归类父卡片（优化版）", "getFirstClassificationParentNoteOptimized", {
+        //   noteId: note.noteId,
+        //   classificationParentNoteId: parentNote.noteId,
+        //   classificationParentNoteTitle: parentNote.noteTitle,
+        //   traversalDepth: depth
+        // });
         return parentNote;
       }
       parentNote = parentNote.parentNote;
     }
 
-    KnowledgeBaseUtils.log("未找到归类父卡片（优化版）", "getFirstClassificationParentNoteOptimized", {
-      noteId: note.noteId,
-      traversalDepth: depth
-    });
+    // KnowledgeBaseUtils.log("未找到归类父卡片（优化版）", "getFirstClassificationParentNoteOptimized", {
+    //   noteId: note.noteId,
+    //   traversalDepth: depth
+    // });
 
     return null;
   }
@@ -1836,21 +1836,21 @@ class KnowledgeBaseTemplate {
     // 一次性获取并缓存当前卡片类型
     const noteType = this.getCachedNoteType(note, cache);
 
-    KnowledgeBaseUtils.log("开始执行 linkParentNote（优化版）", "linkParentNote", {
-      noteId: note.noteId,
-      noteType: noteType,
-      force: force,
-      accumulate: accumulate
-    })
+    // KnowledgeBaseUtils.log("开始执行 linkParentNote（优化版）", "linkParentNote", {
+    //   noteId: note.noteId,
+    //   noteType: noteType,
+    //   force: force,
+    //   accumulate: accumulate
+    // })
 
     /**
      * 不处理的类型
      */
     const excludingTypes = ["思路", "总结", "研究进展"];
     if (excludingTypes.includes(noteType)) {
-      KnowledgeBaseUtils.log("跳过不处理的类型", "linkParentNote", {
-        noteType: noteType
-      })
+      // KnowledgeBaseUtils.log("跳过不处理的类型", "linkParentNote", {
+      //   noteType: noteType
+      // })
       return; // 不处理
     }
 
@@ -1895,17 +1895,17 @@ class KnowledgeBaseTemplate {
           break;
         default:
           // 对于非归类卡片，使用第一个归类父卡片（使用缓存版本）
-          KnowledgeBaseUtils.log("开始查找归类父卡片（使用缓存）", "linkParentNote", {
-            noteId: note.noteId
-          })
+          // KnowledgeBaseUtils.log("开始查找归类父卡片（使用缓存）", "linkParentNote", {
+          //   noteId: note.noteId
+          // })
 
           const classificationParentNote = this.getCachedClassificationParent(note, cache);
 
-          KnowledgeBaseUtils.log("完成查找归类父卡片", "linkParentNote", {
-            noteId: note.noteId,
-            found: !!classificationParentNote,
-            classificationParentNoteId: classificationParentNote?.noteId
-          })
+          // KnowledgeBaseUtils.log("完成查找归类父卡片", "linkParentNote", {
+          //   noteId: note.noteId,
+          //   found: !!classificationParentNote,
+          //   classificationParentNoteId: classificationParentNote?.noteId
+          // })
 
           if (classificationParentNote) {
             actualParentNote = classificationParentNote;
@@ -1925,20 +1925,20 @@ class KnowledgeBaseTemplate {
         /**
          * 清理旧链接：删除与其他父卡片的链接
          */
-        KnowledgeBaseUtils.log("开始 cleanupOldParentLinks（非累次叠加）", "linkParentNote", {
-          noteId: note.noteId,
-          actualParentNoteId: actualParentNote.noteId
-        })
+        // KnowledgeBaseUtils.log("开始 cleanupOldParentLinks（非累次叠加）", "linkParentNote", {
+        //   noteId: note.noteId,
+        //   actualParentNoteId: actualParentNote.noteId
+        // })
 
         this.cleanupOldParentLinks(note, actualParentNote, cache);
 
-        KnowledgeBaseUtils.log("完成 cleanupOldParentLinks", "linkParentNote", {
-          noteId: note.noteId
-        })
+        // KnowledgeBaseUtils.log("完成 cleanupOldParentLinks", "linkParentNote", {
+        //   noteId: note.noteId
+        // })
       } else if (accumulate) {
-        KnowledgeBaseUtils.log("累次叠加模式：跳过清理旧链接", "linkParentNote", {
-          noteId: note.noteId
-        })
+        // KnowledgeBaseUtils.log("累次叠加模式：跳过清理旧链接", "linkParentNote", {
+        //   noteId: note.noteId
+        // })
       }
 
       /**
@@ -1947,11 +1947,11 @@ class KnowledgeBaseTemplate {
       let parentNoteInNoteIndex = this.getNoteIndexInAnotherNote(actualParentNote, note)
       let noteInParentNoteIndex = this.getNoteIndexInAnotherNote(note, actualParentNote)
 
-      KnowledgeBaseUtils.log("查找链接索引完成", "linkParentNote", {
-        noteId: note.noteId,
-        parentNoteInNoteIndex: parentNoteInNoteIndex,
-        noteInParentNoteIndex: noteInParentNoteIndex
-      })
+      // KnowledgeBaseUtils.log("查找链接索引完成", "linkParentNote", {
+      //   noteId: note.noteId,
+      //   parentNoteInNoteIndex: parentNoteInNoteIndex,
+      //   noteInParentNoteIndex: noteInParentNoteIndex
+      // })
 
       // 如果没有链接，先添加链接
       if (parentNoteInNoteIndex == -1) {
@@ -1959,55 +1959,55 @@ class KnowledgeBaseTemplate {
         // 重新获取索引（因为添加了链接）
         parentNoteInNoteIndex = this.getNoteIndexInAnotherNote(actualParentNote, note)
 
-        KnowledgeBaseUtils.log("添加父卡片链接到 note", "linkParentNote", {
-          noteId: note.noteId,
-          newIndex: parentNoteInNoteIndex
-        })
+        // KnowledgeBaseUtils.log("添加父卡片链接到 note", "linkParentNote", {
+        //   noteId: note.noteId,
+        //   newIndex: parentNoteInNoteIndex
+        // })
       }
       if (noteInParentNoteIndex == -1) {
         actualParentNote.appendNoteLink(note, "To")
         // 重新获取索引（因为添加了链接）
         noteInParentNoteIndex = this.getNoteIndexInAnotherNote(note, actualParentNote)
 
-        KnowledgeBaseUtils.log("添加 note 链接到父卡片", "linkParentNote", {
-          noteId: note.noteId,
-          newIndex: noteInParentNoteIndex
-        })
+        // KnowledgeBaseUtils.log("添加 note 链接到父卡片", "linkParentNote", {
+        //   noteId: note.noteId,
+        //   newIndex: noteInParentNoteIndex
+        // })
       }
 
-      KnowledgeBaseUtils.log(`linkParentNote: parentNoteInNoteIndex=${parentNoteInNoteIndex}, noteInParentNoteIndex=${noteInParentNoteIndex}`, "linkParentNote", {linkParentNote:this.ifLinkParentNote(note)})
+      // KnowledgeBaseUtils.log(`linkParentNote: parentNoteInNoteIndex=${parentNoteInNoteIndex}, noteInParentNoteIndex=${noteInParentNoteIndex}`, "linkParentNote", {linkParentNote:this.ifLinkParentNote(note)})
 
       // 最后进行移动（确保索引是最新的）
       if (parentNoteInNoteIndex !== -1 && parentNoteInNoteTargetField) {
-        KnowledgeBaseUtils.log("开始移动父卡片链接到目标字段", "linkParentNote", {
-          noteId: note.noteId,
-          targetField: parentNoteInNoteTargetField,
-          index: parentNoteInNoteIndex
-        })
+        // KnowledgeBaseUtils.log("开始移动父卡片链接到目标字段", "linkParentNote", {
+        //   noteId: note.noteId,
+        //   targetField: parentNoteInNoteTargetField,
+        //   index: parentNoteInNoteIndex
+        // })
 
         this.moveCommentsArrToField(note, [parentNoteInNoteIndex], parentNoteInNoteTargetField, ifParentNoteInNoteTargetFieldToBottom)
 
-        KnowledgeBaseUtils.log("完成移动父卡片链接", "linkParentNote", {
-          noteId: note.noteId
-        })
+        // KnowledgeBaseUtils.log("完成移动父卡片链接", "linkParentNote", {
+        //   noteId: note.noteId
+        // })
       }
       if (noteInParentNoteIndex !== -1 && noteInParentNoteTargetField) {
-        KnowledgeBaseUtils.log("开始移动 note 链接到父卡片目标字段", "linkParentNote", {
-          noteId: note.noteId,
-          targetField: noteInParentNoteTargetField,
-          index: noteInParentNoteIndex
-        })
+        // KnowledgeBaseUtils.log("开始移动 note 链接到父卡片目标字段", "linkParentNote", {
+        //   noteId: note.noteId,
+        //   targetField: noteInParentNoteTargetField,
+        //   index: noteInParentNoteIndex
+        // })
 
         this.moveCommentsArrToField(actualParentNote, [noteInParentNoteIndex], noteInParentNoteTargetField, ifNoteInParentNoteTargetFieldToBottom)
 
-        KnowledgeBaseUtils.log("完成移动 note 链接到父卡片", "linkParentNote", {
-          noteId: note.noteId
-        })
+        // KnowledgeBaseUtils.log("完成移动 note 链接到父卡片", "linkParentNote", {
+        //   noteId: note.noteId
+        // })
       }
 
-      KnowledgeBaseUtils.log("linkParentNote 执行完成", "linkParentNote", {
-        noteId: note.noteId
-      })
+      // KnowledgeBaseUtils.log("linkParentNote 执行完成", "linkParentNote", {
+      //   noteId: note.noteId
+      // })
     }
   }
 
@@ -2021,11 +2021,11 @@ class KnowledgeBaseTemplate {
    * @param {Object} cache - 缓存对象（可选）
    */
   static cleanupOldParentLinks(note, currentParentNote, cache = null) {
-    KnowledgeBaseUtils.log("开始执行 cleanupOldParentLinks（简化优化版）", "cleanupOldParentLinks", {
-      noteId: note.noteId,
-      currentParentNoteId: currentParentNote?.noteId,
-      hasCache: !!cache
-    });
+    // KnowledgeBaseUtils.log("开始执行 cleanupOldParentLinks（简化优化版）", "cleanupOldParentLinks", {
+    //   noteId: note.noteId,
+    //   currentParentNoteId: currentParentNote?.noteId,
+    //   hasCache: !!cache
+    // });
 
     // 1. 获取卡片类型
     const noteType = cache ?
@@ -2039,36 +2039,36 @@ class KnowledgeBaseTemplate {
       ? ["所属", "相关链接"]      // 归类卡片：保护"包含"字段
       : ["相关链接"];             // 其他卡片：只清理"相关链接"
 
-    KnowledgeBaseUtils.log("确定要清理的字段", "cleanupOldParentLinks", {
-      noteId: note.noteId,
-      noteType: noteType,
-      targetFields: targetFields
-    });
+    // KnowledgeBaseUtils.log("确定要清理的字段", "cleanupOldParentLinks", {
+    //   noteId: note.noteId,
+    //   noteType: noteType,
+    //   targetFields: targetFields
+    // });
 
     // 1. 使用缓存版本解析评论
     const commentsObj = cache ?
       this.getCachedParsedComments(note, cache) :
       this.parseNoteComments(note);
 
-    KnowledgeBaseUtils.log("完成解析评论", "cleanupOldParentLinks", {
-      noteId: note.noteId,
-      totalLinks: commentsObj.linksObjArr.length
-    });
+    // KnowledgeBaseUtils.log("完成解析评论", "cleanupOldParentLinks", {
+    //   noteId: note.noteId,
+    //   totalLinks: commentsObj.linksObjArr.length
+    // });
 
     // 2. 获取目标字段下的所有链接
     const linksInTargetFields = this.getLinksInFields(commentsObj, targetFields);
 
     if (linksInTargetFields.length === 0) {
-      KnowledgeBaseUtils.log("目标字段下没有链接，提前返回", "cleanupOldParentLinks", {
-        noteId: note.noteId
-      });
+      // KnowledgeBaseUtils.log("目标字段下没有链接，提前返回", "cleanupOldParentLinks", {
+      //   noteId: note.noteId
+      // });
       return;
     }
 
-    KnowledgeBaseUtils.log("找到目标字段下的链接", "cleanupOldParentLinks", {
-      noteId: note.noteId,
-      linkCount: linksInTargetFields.length
-    });
+    // KnowledgeBaseUtils.log("找到目标字段下的链接", "cleanupOldParentLinks", {
+    //   noteId: note.noteId,
+    //   linkCount: linksInTargetFields.length
+    // });
 
     // 3. 收集需要删除的旧父卡片链接
     const linksToRemove = [];
@@ -2100,24 +2100,24 @@ class KnowledgeBaseTemplate {
             linkText: linkObj.link
           });
 
-          KnowledgeBaseUtils.log("标记待删除链接", "cleanupOldParentLinks", {
-            noteId: note.noteId,
-            targetNoteId: targetNoteId,
-            targetType: targetType
-          });
+          // KnowledgeBaseUtils.log("标记待删除链接", "cleanupOldParentLinks", {
+          //   noteId: note.noteId,
+          //   targetNoteId: targetNoteId,
+          //   targetType: targetType
+          // });
         }
       } catch (error) {
         // 忽略解析错误，继续处理其他链接
-        KnowledgeBaseUtils.log("解析链接时出错", "cleanupOldParentLinks", {
-          error: error.message
-        });
+        // KnowledgeBaseUtils.log("解析链接时出错", "cleanupOldParentLinks", {
+        //   error: error.message
+        // });
       }
     }
 
-    KnowledgeBaseUtils.log("完成收集待清理链接", "cleanupOldParentLinks", {
-      noteId: note.noteId,
-      totalToRemove: linksToRemove.length
-    });
+    // KnowledgeBaseUtils.log("完成收集待清理链接", "cleanupOldParentLinks", {
+    //   noteId: note.noteId,
+    //   totalToRemove: linksToRemove.length
+    // });
 
     // 4. 执行清理：删除双向链接
     if (linksToRemove.length > 0) {
@@ -2129,31 +2129,31 @@ class KnowledgeBaseTemplate {
           // 删除旧父卡片中指向当前卡片的链接
           this.removeLinkToNote(removal.targetNote, note.noteId);
 
-          KnowledgeBaseUtils.log("成功删除双向链接", "cleanupOldParentLinks", {
-            noteId: note.noteId,
-            removedTargetId: removal.targetNote.noteId
-          });
+          // KnowledgeBaseUtils.log("成功删除双向链接", "cleanupOldParentLinks", {
+          //   noteId: note.noteId,
+          //   removedTargetId: removal.targetNote.noteId
+          // });
         } catch (error) {
           // 忽略错误，继续处理下一个
-          KnowledgeBaseUtils.log("删除链接时出错", "cleanupOldParentLinks", {
-            error: error.message
-          });
+          // KnowledgeBaseUtils.log("删除链接时出错", "cleanupOldParentLinks", {
+          //   error: error.message
+          // });
         }
       }
 
-      KnowledgeBaseUtils.log("完成执行清理", "cleanupOldParentLinks", {
-        noteId: note.noteId,
-        cleanedCount: linksToRemove.length
-      });
+      // KnowledgeBaseUtils.log("完成执行清理", "cleanupOldParentLinks", {
+      //   noteId: note.noteId,
+      //   cleanedCount: linksToRemove.length
+      // });
     } else {
-      KnowledgeBaseUtils.log("没有需要清理的链接", "cleanupOldParentLinks", {
-        noteId: note.noteId
-      });
+      // KnowledgeBaseUtils.log("没有需要清理的链接", "cleanupOldParentLinks", {
+      //   noteId: note.noteId
+      // });
     }
 
-    KnowledgeBaseUtils.log("cleanupOldParentLinks 执行完成", "cleanupOldParentLinks", {
-      noteId: note.noteId
-    });
+    // KnowledgeBaseUtils.log("cleanupOldParentLinks 执行完成", "cleanupOldParentLinks", {
+    //   noteId: note.noteId
+    // });
   }
 
   /**
@@ -2911,29 +2911,29 @@ class KnowledgeBaseTemplate {
    * 处理旧卡片
    */
   static renewNote(note) {
-    KnowledgeBaseUtils.log("开始执行 renewNote", "renewNote", {
-      noteId: note.noteId,
-      noteTitle: note.noteTitle,
-      isOldTemplate: this.isOldTemplateCard(note)
-    })
+    // KnowledgeBaseUtils.log("开始执行 renewNote", "renewNote", {
+    //   noteId: note.noteId,
+    //   noteTitle: note.noteTitle,
+    //   isOldTemplate: this.isOldTemplateCard(note)
+    // })
 
     // 首先判断并处理旧模板卡片
     if (this.isOldTemplateCard(note)) {
       let newNote = this.processOldTemplateCard(note);
       this.changeTitle(newNote)
-      KnowledgeBaseUtils.log("完成处理旧模板卡片", "renewNote", {
-        step: "processOldTemplateCard",
-        newNoteId: newNote.noteId
-      })
+      // KnowledgeBaseUtils.log("完成处理旧模板卡片", "renewNote", {
+      //   step: "processOldTemplateCard",
+      //   newNoteId: newNote.noteId
+      // })
       return newNote
     }
 
     let newNote = this.toNoExcerptVersion(note)
-    KnowledgeBaseUtils.log("完成 toNoExcerptVersion ⭐", "renewNote", {
-      step: "toNoExcerptVersion",
-      newNoteId: newNote.noteId,
-      commentsCount: newNote.comments.length
-    })
+    // KnowledgeBaseUtils.log("完成 toNoExcerptVersion ⭐", "renewNote", {
+    //   step: "toNoExcerptVersion",
+    //   newNoteId: newNote.noteId,
+    //   commentsCount: newNote.comments.length
+    // })
 
     // 处理链接相关问题
     // this.convertLinksToNewVersion(note)
@@ -2943,38 +2943,38 @@ class KnowledgeBaseTemplate {
     // note.cleanupBrokenLinks()
     // note.fixMergeProblematicLinks()
     this.renewLinks(newNote)
-    KnowledgeBaseUtils.log("完成 renewLinks ⭐", "renewNote", {
-      step: "renewLinks",
-      noteId: newNote.noteId
-    })
+    // KnowledgeBaseUtils.log("完成 renewLinks ⭐", "renewNote", {
+    //   step: "renewLinks",
+    //   noteId: newNote.noteId
+    // })
 
     // 处理空的"关键词："字段
     this.processEmptyKeywordField(newNote)
-    KnowledgeBaseUtils.log("完成 processEmptyKeywordField", "renewNote", {
-      step: "processEmptyKeywordField",
-      noteId: newNote.noteId
-    })
+    // KnowledgeBaseUtils.log("完成 processEmptyKeywordField", "renewNote", {
+    //   step: "processEmptyKeywordField",
+    //   noteId: newNote.noteId
+    // })
 
     // 处理不同类型转换时的第一个字段替换
     this.replaceFirstFieldIfNeeded(newNote)
-    KnowledgeBaseUtils.log("完成 replaceFirstFieldIfNeeded", "renewNote", {
-      step: "replaceFirstFieldIfNeeded",
-      noteId: newNote.noteId
-    })
+    // KnowledgeBaseUtils.log("完成 replaceFirstFieldIfNeeded", "renewNote", {
+    //   step: "replaceFirstFieldIfNeeded",
+    //   noteId: newNote.noteId
+    // })
 
     // 去掉一些评论，比如"- "
     this.removeUnnecessaryComments(newNote)
-    KnowledgeBaseUtils.log("完成 removeUnnecessaryComments", "renewNote", {
-      step: "removeUnnecessaryComments",
-      noteId: newNote.noteId
-    })
+    // KnowledgeBaseUtils.log("完成 removeUnnecessaryComments", "renewNote", {
+    //   step: "removeUnnecessaryComments",
+    //   noteId: newNote.noteId
+    // })
 
     // 检测是否包含"应用"字段，但"应用"字段不是最后一个字段，如果不是最后一个字段，则将其移动到最后
     this.moveApplicationFieldToEnd(newNote)
-    KnowledgeBaseUtils.log("完成 moveApplicationFieldToEnd", "renewNote", {
-      step: "moveApplicationFieldToEnd",
-      noteId: newNote.noteId
-    })
+    // KnowledgeBaseUtils.log("完成 moveApplicationFieldToEnd", "renewNote", {
+    //   step: "moveApplicationFieldToEnd",
+    //   noteId: newNote.noteId
+    // })
 
     switch (this.getNoteType(newNote)) {
       case "归类":
@@ -2985,25 +2985,25 @@ class KnowledgeBaseTemplate {
         if (/^"[^"]*"："[^"]*"\s*相关[^"]*$/.test(newNote.title)) {
           newNote.title = `"${titleParts.content}"相关${titleParts.type}`;
         }
-        KnowledgeBaseUtils.log("完成归类卡片标题处理", "renewNote", {
-          step: "classificationTitleProcessing",
-          noteId: newNote.noteId,
-          newTitle: newNote.title
-        })
+        // KnowledgeBaseUtils.log("完成归类卡片标题处理", "renewNote", {
+        //   step: "classificationTitleProcessing",
+        //   noteId: newNote.noteId,
+        //   newTitle: newNote.title
+        // })
         break;
       case "定义":
         this.moveRelatedConceptsToRelatedThoughts(newNote);
-        KnowledgeBaseUtils.log("完成 moveRelatedConceptsToRelatedThoughts", "renewNote", {
-          step: "moveRelatedConceptsToRelatedThoughts",
-          noteId: newNote.noteId
-        })
+        // KnowledgeBaseUtils.log("完成 moveRelatedConceptsToRelatedThoughts", "renewNote", {
+        //   step: "moveRelatedConceptsToRelatedThoughts",
+        //   noteId: newNote.noteId
+        // })
         break;
     }
 
-    KnowledgeBaseUtils.log("renewNote 执行完成", "renewNote", {
-      noteId: newNote.noteId,
-      finalCommentsCount: newNote.comments.length
-    })
+    // KnowledgeBaseUtils.log("renewNote 执行完成", "renewNote", {
+    //   noteId: newNote.noteId,
+    //   finalCommentsCount: newNote.comments.length
+    // })
 
     return newNote
   }
@@ -3276,10 +3276,10 @@ class KnowledgeBaseTemplate {
 
     // 🚀 性能优化：修改标题后清除类型缓存，因为标题改变可能导致类型判断改变
     this.noteTypeCache.delete(note);
-    KnowledgeBaseUtils.log("清除卡片类型缓存", "changeTitle", {
-      noteId: note.noteId,
-      noteTitle: note.noteTitle
-    })
+    // KnowledgeBaseUtils.log("清除卡片类型缓存", "changeTitle", {
+    //   noteId: note.noteId,
+    //   noteTitle: note.noteTitle
+    // })
   }
 
   /**
@@ -3703,18 +3703,18 @@ class KnowledgeBaseTemplate {
    * 获取第一个归类卡片的父爷卡片
    */
   static getFirstClassificationParentNote(note) {
-    KnowledgeBaseUtils.log("开始执行 getFirstClassificationParentNote", "getFirstClassificationParentNote", {
-      noteId: note.noteId,
-      noteTitle: note.noteTitle
-    })
+    // KnowledgeBaseUtils.log("开始执行 getFirstClassificationParentNote", "getFirstClassificationParentNote", {
+    //   noteId: note.noteId,
+    //   noteTitle: note.noteTitle
+    // })
 
     // 🚀 性能优化：检查缓存
     if (this.classificationParentCache.has(note)) {
       const cached = this.classificationParentCache.get(note);
-      KnowledgeBaseUtils.log("使用缓存的归类父卡片", "getFirstClassificationParentNote", {
-        noteId: note.noteId,
-        cached: cached ? cached.noteId : null
-      })
+      // KnowledgeBaseUtils.log("使用缓存的归类父卡片", "getFirstClassificationParentNote", {
+      //   noteId: note.noteId,
+      //   cached: cached ? cached.noteId : null
+      // })
       return cached;
     }
 
@@ -3726,12 +3726,12 @@ class KnowledgeBaseTemplate {
       // 直接调用 getNoteType，不传递 depth
       // 因为这是在遍历父节点链，不是递归调用
       if (this.getNoteType(parentNote) === "归类") {
-        KnowledgeBaseUtils.log("找到归类父卡片", "getFirstClassificationParentNote", {
-          noteId: note.noteId,
-          classificationParentNoteId: parentNote.noteId,
-          classificationParentNoteTitle: parentNote.noteTitle,
-          traversalDepth: depth
-        })
+        // KnowledgeBaseUtils.log("找到归类父卡片", "getFirstClassificationParentNote", {
+        //   noteId: note.noteId,
+        //   classificationParentNoteId: parentNote.noteId,
+        //   classificationParentNoteTitle: parentNote.noteTitle,
+        //   traversalDepth: depth
+        // })
 
         // 🚀 性能优化：存入缓存
         this.classificationParentCache.set(note, parentNote);
@@ -3741,10 +3741,10 @@ class KnowledgeBaseTemplate {
       parentNote = parentNote.parentNote;
     }
 
-    KnowledgeBaseUtils.log("未找到归类父卡片", "getFirstClassificationParentNote", {
-      noteId: note.noteId,
-      traversalDepth: depth
-    })
+    // KnowledgeBaseUtils.log("未找到归类父卡片", "getFirstClassificationParentNote", {
+    //   noteId: note.noteId,
+    //   traversalDepth: depth
+    // })
 
     // 🚀 性能优化：缓存 null 结果（避免重复查找）
     this.classificationParentCache.set(note, null);
@@ -15282,82 +15282,82 @@ class KnowledgeBaseTemplate {
    * 卡片的预处理
    */
   static processNote(note) {
-    KnowledgeBaseUtils.log("开始执行 processNote", "processNote", {
-      noteId: note.noteId,
-      noteTitle: note.noteTitle,
-      isOldTemplate: this.isOldTemplateCard(note),
-      ifTemplateMerged: this.ifTemplateMerged(note)
-    })
+    // KnowledgeBaseUtils.log("开始执行 processNote", "processNote", {
+    //   noteId: note.noteId,
+    //   noteTitle: note.noteTitle,
+    //   isOldTemplate: this.isOldTemplateCard(note),
+    //   ifTemplateMerged: this.ifTemplateMerged(note)
+    // })
 
     if (this.isOldTemplateCard(note)) {
       // 分支 A：旧模板卡片
-      KnowledgeBaseUtils.log("进入旧模板卡片分支", "processNote", {
-        noteId: note.noteId
-      })
+      // KnowledgeBaseUtils.log("进入旧模板卡片分支", "processNote", {
+      //   noteId: note.noteId
+      // })
 
       let newNote = this.renewNote(note)
-      KnowledgeBaseUtils.log("完成 renewNote（旧模板）", "processNote", {
-        step: "renewNote",
-        noteId: note.noteId,
-        newNoteId: newNote.noteId
-      })
+      // KnowledgeBaseUtils.log("完成 renewNote（旧模板）", "processNote", {
+      //   step: "renewNote",
+      //   noteId: note.noteId,
+      //   newNoteId: newNote.noteId
+      // })
 
       this.changeTitle(newNote)
-      KnowledgeBaseUtils.log("完成 changeTitle（旧模板）", "processNote", {
-        step: "changeTitle",
-        noteId: newNote.noteId
-      })
+      // KnowledgeBaseUtils.log("完成 changeTitle（旧模板）", "processNote", {
+      //   step: "changeTitle",
+      //   noteId: newNote.noteId
+      // })
 
       this.changeNoteColor(newNote)
-      KnowledgeBaseUtils.log("完成 changeNoteColor（旧模板）", "processNote", {
-        step: "changeNoteColor",
-        noteId: newNote.noteId
-      })
+      // KnowledgeBaseUtils.log("完成 changeNoteColor（旧模板）", "processNote", {
+      //   step: "changeNoteColor",
+      //   noteId: newNote.noteId
+      // })
 
       return newNote
     } else {
       if (this.ifTemplateMerged(note)) {
         // 分支 B：已合并模板（重点瓶颈分支）
-        KnowledgeBaseUtils.log("进入已合并模板分支", "processNote", {
-          noteId: note.noteId
-        })
+        // KnowledgeBaseUtils.log("进入已合并模板分支", "processNote", {
+        //   noteId: note.noteId
+        // })
 
         this.renewNote(note)
-        KnowledgeBaseUtils.log("完成 renewNote（已合并模板）", "processNote", {
-          step: "renewNote",
-          noteId: note.noteId
-        })
+        // KnowledgeBaseUtils.log("完成 renewNote（已合并模板）", "processNote", {
+        //   step: "renewNote",
+        //   noteId: note.noteId
+        // })
 
         this.changeTitle(note)
-        KnowledgeBaseUtils.log("完成 changeTitle（已合并模板）", "processNote", {
-          step: "changeTitle",
-          noteId: note.noteId
-        })
+        // KnowledgeBaseUtils.log("完成 changeTitle（已合并模板）", "processNote", {
+        //   step: "changeTitle",
+        //   noteId: note.noteId
+        // })
 
         this.changeNoteColor(note)
-        KnowledgeBaseUtils.log("完成 changeNoteColor（已合并模板）", "processNote", {
-          step: "changeNoteColor",
-          noteId: note.noteId
-        })
+        // KnowledgeBaseUtils.log("完成 changeNoteColor（已合并模板）", "processNote", {
+        //   step: "changeNoteColor",
+        //   noteId: note.noteId
+        // })
 
         this.linkParentNote(note)
-        KnowledgeBaseUtils.log("完成 linkParentNote（已合并模板）⭐", "processNote", {
-          step: "linkParentNote",
-          noteId: note.noteId
-        })
+        // KnowledgeBaseUtils.log("完成 linkParentNote（已合并模板）⭐", "processNote", {
+        //   step: "linkParentNote",
+        //   noteId: note.noteId
+        // })
 
         this.autoMoveNewContent(note) // 自动移动新内容到对应字段
-        KnowledgeBaseUtils.log("完成 autoMoveNewContent（已合并模板）", "processNote", {
-          step: "autoMoveNewContent",
-          noteId: note.noteId
-        })
+        // KnowledgeBaseUtils.log("完成 autoMoveNewContent（已合并模板）", "processNote", {
+        //   step: "autoMoveNewContent",
+        //   noteId: note.noteId
+        // })
 
         return note
       } else {
         // 分支 C：新卡片
-        KnowledgeBaseUtils.log("进入新卡片分支", "processNote", {
-          noteId: note.noteId
-        })
+        // KnowledgeBaseUtils.log("进入新卡片分支", "processNote", {
+        //   noteId: note.noteId
+        // })
 
         this.changeTitle(note)
         this.changeNoteColor(note)
@@ -15366,11 +15366,11 @@ class KnowledgeBaseTemplate {
         note.fixMergeProblematicLinks()
 
         let result = this.toNoExcerptVersion(note)
-        KnowledgeBaseUtils.log("完成 toNoExcerptVersion（新卡片）", "processNote", {
-          step: "toNoExcerptVersion",
-          noteId: note.noteId,
-          resultNoteId: result.noteId
-        })
+        // KnowledgeBaseUtils.log("完成 toNoExcerptVersion（新卡片）", "processNote", {
+        //   step: "toNoExcerptVersion",
+        //   noteId: note.noteId,
+        //   resultNoteId: result.noteId
+        // })
 
         return result
       }
