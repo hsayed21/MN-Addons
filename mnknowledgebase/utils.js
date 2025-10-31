@@ -725,6 +725,18 @@ class KnowledgeBaseTemplate {
   static inlineLinkPhrases = kbTemplateConfig.inlineLinkPhrases;
 
   /**
+   * 卡片类型缓存 - 用于优化 getNoteType 性能
+   * 使用 WeakMap 避免内存泄漏
+   */
+  static noteTypeCache = new WeakMap();
+
+  /**
+   * 归类父卡片缓存 - 用于优化 getFirstClassificationParentNote 性能
+   * 使用 WeakMap 避免内存泄漏
+   */
+  static classificationParentCache = new WeakMap();
+
+  /**
    * 根据用户输入文本智能识别卡片类型
    * @param {string} userInputText - 用户输入的文本
    * @returns {string|null} - 识别出的类型，未匹配时返回null
@@ -1001,112 +1013,149 @@ class KnowledgeBaseTemplate {
    */
   static makeNote(note, addToReview = true, reviewEverytime = true) {
     try {
-      // KnowledgeBaseUtils.log("开始执行 makeNote", "makeNote", {
-      //   noteId: note.noteId,
-      //   noteTitle: note.noteTitle,
-      //   classificationMode: KnowledgeBaseConfig.config.classificationMode,
-      //   preProcessMode: KnowledgeBaseConfig.config.preProcessMode
-      // })
+      const startTime = Date.now();
+      KnowledgeBaseUtils.log("开始执行 makeNote", "makeNote", {
+        noteId: note.noteId,
+        noteTitle: note.noteTitle,
+        classificationMode: KnowledgeBaseConfig.config.classificationMode,
+        preProcessMode: KnowledgeBaseConfig.config.preProcessMode,
+        timestamp: startTime
+      })
 
       if (KnowledgeBaseConfig.config.classificationMode) {
         // 归类模式：快速创建归类卡片
-        // KnowledgeBaseUtils.log("进入归类模式", "makeNote", {
-        //   noteId: note.noteId
-        // })
+        const classificationStartTime = Date.now();
+        KnowledgeBaseUtils.log("进入归类模式", "makeNote", {
+          noteId: note.noteId,
+          elapsedMs: Date.now() - startTime
+        })
 
-        this.changeTitle(note, true)
-        // KnowledgeBaseUtils.log("归类模式：完成 changeTitle", "makeNote", {
-        //   noteId: note.noteId
-        // })
+        // 🚀 性能优化：提前获取类型，后续方法会从缓存获取，避免重复查找
+        const noteType = this.getNoteType(note);
+        KnowledgeBaseUtils.log("归类模式：获取卡片类型", "makeNote", {
+          noteId: note.noteId,
+          noteType: noteType
+        })
 
+        this.changeTitle(note, true, noteType)  // 传递类型，避免内部重新查找
+        KnowledgeBaseUtils.log("归类模式：完成 changeTitle", "makeNote", {
+          noteId: note.noteId,
+          stepDurationMs: Date.now() - classificationStartTime
+        })
+
+        const colorStartTime = Date.now();
         this.changeNoteColor(note, true)
-        // KnowledgeBaseUtils.log("归类模式：完成 changeNoteColor", "makeNote", {
-        //   noteId: note.noteId
-        // })
+        KnowledgeBaseUtils.log("归类模式：完成 changeNoteColor", "makeNote", {
+          noteId: note.noteId,
+          stepDurationMs: Date.now() - colorStartTime
+        })
 
+        const mergeStartTime = Date.now();
         this.mergeTemplateAndAutoMoveNoteContent(note)
-        // KnowledgeBaseUtils.log("归类模式：完成 mergeTemplateAndAutoMoveNoteContent", "makeNote", {
-        //   noteId: note.noteId
-        // })
+        KnowledgeBaseUtils.log("归类模式：完成 mergeTemplateAndAutoMoveNoteContent", "makeNote", {
+          noteId: note.noteId,
+          stepDurationMs: Date.now() - mergeStartTime
+        })
 
         if (this.ifLinkParentNote(note)) {
+          const linkStartTime = Date.now();
           this.linkParentNote(note, false) // 链接广义的父卡片（可能是链接归类卡片）此时主要考虑同时属于多张父卡片的情形
-          // KnowledgeBaseUtils.log("归类模式：完成 linkParentNote", "makeNote", {
-          //   noteId: note.noteId
-          // })
+          KnowledgeBaseUtils.log("归类模式：完成 linkParentNote", "makeNote", {
+            noteId: note.noteId,
+            stepDurationMs: Date.now() - linkStartTime
+          })
         }
 
-        // KnowledgeBaseUtils.log("归类模式执行完成", "makeNote", {
-        //   noteId: note.noteId
-        // })
+        KnowledgeBaseUtils.log("归类模式执行完成", "makeNote", {
+          noteId: note.noteId,
+          totalDurationMs: Date.now() - startTime
+        })
         return
       }
 
       // 检查是否启用预处理模式
       if (KnowledgeBaseConfig.config.preProcessMode) {
         // 预处理模式：简化的制卡流程
-        // KnowledgeBaseUtils.log("进入预处理模式", "makeNote", {
-        //   noteId: note.noteId
-        // })
+        const preProcessStartTime = Date.now();
+        KnowledgeBaseUtils.log("进入预处理模式", "makeNote", {
+          noteId: note.noteId,
+          elapsedMs: Date.now() - startTime
+        })
 
         MNUtil.undoGrouping(() => {
+          const processStartTime = Date.now();
           let processedNote = this.processNote(note)
-          // KnowledgeBaseUtils.log("预处理模式：完成 processNote", "makeNote", {
-          //   noteId: note.noteId,
-          //   processedNoteId: processedNote.noteId,
-          //   noteType: this.getNoteType(processedNote)
-          // })
+          KnowledgeBaseUtils.log("预处理模式：完成 processNote", "makeNote", {
+            noteId: note.noteId,
+            processedNoteId: processedNote.noteId,
+            noteType: this.getNoteType(processedNote),
+            stepDurationMs: Date.now() - processStartTime
+          })
 
-          switch (this.getNoteType(processedNote)) {
+          switch (this.getNoteType(processedNote, directly)) {
             case "定义":
+              const makeCardStartTime = Date.now();
               this.makeCard(processedNote, true, true)
-              // KnowledgeBaseUtils.log("预处理模式：完成 makeCard（定义）", "makeNote", {
-              //   noteId: processedNote.noteId
-              // })
+              KnowledgeBaseUtils.log("预处理模式：完成 makeCard（定义）", "makeNote", {
+                noteId: processedNote.noteId,
+                stepDurationMs: Date.now() - makeCardStartTime
+              })
+              break;
+            default:
+              this.changeTitle(processedNote, true)
+              this.mergeTemplateAndAutoMoveNoteContent(processedNote)
               break;
           }
 
-          processedNote.focusInMindMap(0.4)
-          // KnowledgeBaseUtils.log("预处理模式：完成 focusInMindMap", "makeNote", {
-          //   noteId: processedNote.noteId
-          // })
+          processedNote.focusInMindMap(0.3)
+          KnowledgeBaseUtils.log("预处理模式：完成 focusInMindMap", "makeNote", {
+            noteId: processedNote.noteId
+          })
         })
 
-        // KnowledgeBaseUtils.log("预处理模式执行完成", "makeNote", {
-        //   noteId: note.noteId
-        // })
+        KnowledgeBaseUtils.log("预处理模式执行完成", "makeNote", {
+          noteId: note.noteId,
+          totalDurationMs: Date.now() - startTime
+        })
         return
       }
 
 
       // 正常模式：完整制卡流程
-      // KnowledgeBaseUtils.log("进入正常模式", "makeNote", {
-      //   noteId: note.noteId
-      // })
-
-      MNUtil.undoGrouping(() => {
-        let processedNote = this.processNote(note)
-        // KnowledgeBaseUtils.log("正常模式：完成 processNote", "makeNote", {
-        //   noteId: note.noteId,
-        //   processedNoteId: processedNote.noteId
-        // })
-
-        this.makeCard(processedNote, addToReview, reviewEverytime)
-        // KnowledgeBaseUtils.log("正常模式：完成 makeCard", "makeNote", {
-        //   noteId: processedNote.noteId,
-        //   addToReview: addToReview,
-        //   reviewEverytime: reviewEverytime
-        // })
-
-        processedNote.focusInMindMap(0.4)
-        // KnowledgeBaseUtils.log("正常模式：完成 focusInMindMap", "makeNote", {
-        //   noteId: processedNote.noteId
-        // })
+      const normalModeStartTime = Date.now();
+      KnowledgeBaseUtils.log("进入正常模式", "makeNote", {
+        noteId: note.noteId,
+        elapsedMs: Date.now() - startTime
       })
 
-      // KnowledgeBaseUtils.log("正常模式执行完成", "makeNote", {
-      //   noteId: note.noteId
-      // })
+      MNUtil.undoGrouping(() => {
+        const processStartTime = Date.now();
+        let processedNote = this.processNote(note)
+        KnowledgeBaseUtils.log("正常模式：完成 processNote", "makeNote", {
+          noteId: note.noteId,
+          processedNoteId: processedNote.noteId,
+          stepDurationMs: Date.now() - processStartTime
+        })
+
+        const makeCardStartTime = Date.now();
+        this.makeCard(processedNote, addToReview, reviewEverytime)
+        KnowledgeBaseUtils.log("正常模式：完成 makeCard", "makeNote", {
+          noteId: processedNote.noteId,
+          addToReview: addToReview,
+          reviewEverytime: reviewEverytime,
+          stepDurationMs: Date.now() - makeCardStartTime
+        })
+
+        processedNote.focusInMindMap(0.4)
+        KnowledgeBaseUtils.log("正常模式：完成 focusInMindMap", "makeNote", {
+          noteId: processedNote.noteId
+        })
+      })
+
+      KnowledgeBaseUtils.log("正常模式执行完成", "makeNote", {
+        noteId: note.noteId,
+        totalDurationMs: Date.now() - startTime
+      })
     } catch (error) {
       MNUtil.showHUD(`❌ 制卡失败: ${error.message}`);
       KnowledgeBaseUtils.addErrorLog(error, "makeNote")
@@ -3209,6 +3258,13 @@ class KnowledgeBaseTemplate {
     note.title = Pangu.spacing(note.title)
 
     KnowledgeBaseIndexer.addToIncrementalIndex(note)
+
+    // 🚀 性能优化：修改标题后清除类型缓存，因为标题改变可能导致类型判断改变
+    this.noteTypeCache.delete(note);
+    KnowledgeBaseUtils.log("清除卡片类型缓存", "changeTitle", {
+      noteId: note.noteId,
+      noteTitle: note.noteTitle
+    })
   }
 
   /**
@@ -3637,6 +3693,16 @@ class KnowledgeBaseTemplate {
       noteTitle: note.noteTitle
     })
 
+    // 🚀 性能优化：检查缓存
+    if (this.classificationParentCache.has(note)) {
+      const cached = this.classificationParentCache.get(note);
+      KnowledgeBaseUtils.log("使用缓存的归类父卡片", "getFirstClassificationParentNote", {
+        noteId: note.noteId,
+        cached: cached ? cached.noteId : null
+      })
+      return cached;
+    }
+
     let parentNote = note.parentNote;
     let depth = 0;
 
@@ -3651,6 +3717,10 @@ class KnowledgeBaseTemplate {
           classificationParentNoteTitle: parentNote.noteTitle,
           traversalDepth: depth
         })
+
+        // 🚀 性能优化：存入缓存
+        this.classificationParentCache.set(note, parentNote);
+
         return parentNote;
       }
       parentNote = parentNote.parentNote;
@@ -3661,13 +3731,16 @@ class KnowledgeBaseTemplate {
       traversalDepth: depth
     })
 
+    // 🚀 性能优化：缓存 null 结果（避免重复查找）
+    this.classificationParentCache.set(note, null);
+
     return null;
   }
 
   /**
    * 【非摘录版本】初始状态合并模板卡片后自动移动卡片的内容
    */
-  static mergeTemplateAndAutoMoveNoteContent(note, direcly) {
+  static mergeTemplateAndAutoMoveNoteContent(note, directly) {
     // 特殊处理：如果只有一条评论且是手写类型，直接合并模板不移动内容
     if (note.MNComments.length === 1) {
       let commentType = note.MNComments[0].type;
@@ -3684,7 +3757,7 @@ class KnowledgeBaseTemplate {
     const typeWhitelist = []; // 暂时为空，后续可以添加需要排除的卡片类型
     
     // 获取卡片类型
-    let noteType = this.getNoteType(note, direcly);
+    let noteType = this.getNoteType(note, directly);
     
     // 检查是否为特殊情况：只有合并图片和链接
     let isSpecialCase = false;
@@ -4399,14 +4472,23 @@ class KnowledgeBaseTemplate {
    * 获取卡片类型
    *
    * @param {MNNote} note - 要判断类型的卡片
-   * @param {boolean} direcly - 是否只基于卡片自身标题判断（不向上查找）
+   * @param {boolean} directly - 是否只基于卡片自身标题判断（不向上查找）
    * @returns {string|undefined} 卡片类型
    */
-  static getNoteType(note, direcly = false) {
+  static getNoteType(note, directly = false) {
     // 防御性检查
     if (!note) {
       KnowledgeBaseUtils.log(`返回 undefined 原因：无卡片`, "getNoteType");
       return undefined;
+    }
+
+    // 🚀 性能优化：检查缓存（仅在非 directly 模式下使用缓存）
+    if (!directly && this.noteTypeCache.has(note)) {
+      const cached = this.noteTypeCache.get(note);
+      // 检查缓存是否还有效（标题未变）
+      if (cached && cached.title === (note.title || "")) {
+        return cached.type;
+      }
     }
 
     let noteType = null;
@@ -4437,7 +4519,7 @@ class KnowledgeBaseTemplate {
           matchResult = match[1].trim();
         }
       }
-      if (!matchResult && !direcly) {
+      if (!matchResult && !directly) {
         // 从标题判断不了的话，就从卡片的归类卡片来判断
         let classificationNote = this.getFirstClassificationParentNote(note);
         if (classificationNote) {
@@ -4454,10 +4536,19 @@ class KnowledgeBaseTemplate {
       }
     }
 
-    if (!noteType && direcly) {
+    if (!noteType && directly) {
       // 如果还是获取不到的话，就尝试用颜色判断
       noteType = this.getNoteTypeByColor(note.colorIndex);
     }
+
+    // 🚀 性能优化：存入缓存（仅在非 directly 模式下缓存）
+    if (!directly && noteType) {
+      this.noteTypeCache.set(note, {
+        title: note.title || "",
+        type: noteType
+      });
+    }
+
     return noteType || undefined;
   }
 

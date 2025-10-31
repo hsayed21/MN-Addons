@@ -299,59 +299,149 @@ JSB.newAddon = function(mainPath){
        * 2. 调用 MNOCR 插件进行 OCR 到标题，方便后续索引
        */
       if (typeof MNUtil === 'undefined') return
-      if (self.window !== MNUtil.currentWindow) return; 
+      if (self.window !== MNUtil.currentWindow) return;
       try {
+        const startTime = Date.now();
         const noteId = sender.userInfo.noteid
         const note = MNNote.new(noteId)
         if (!note) return
+
+        KnowledgeBaseUtils.log("开始执行 onProcessNewExcerpt", "onProcessNewExcerpt", {
+          noteId: noteId,
+          excerptOCRMode: KnowledgeBaseConfig.config.excerptOCRMode,
+          classificationMode: KnowledgeBaseConfig.config.classificationMode,
+          preExcerptMode: self.preExcerptMode,
+          classMode: self.classMode,
+          timestamp: startTime
+        })
+
         if (KnowledgeBaseConfig.config.excerptOCRMode > 0) {
+          const ocrStartTime = Date.now();
+          KnowledgeBaseUtils.log("开始 OCR 处理", "onProcessNewExcerpt", {
+            noteId: noteId,
+            mode: KnowledgeBaseConfig.config.excerptOCRMode,
+            preExcerptMode: self.preExcerptMode
+          })
+
           let OCRResult = await KnowledgeBaseNetwork.OCRToTitle(note, KnowledgeBaseConfig.config.excerptOCRMode, self.preExcerptMode)
+
+          KnowledgeBaseUtils.log("OCR 处理完成", "onProcessNewExcerpt", {
+            noteId: noteId,
+            success: !!OCRResult,
+            durationMs: Date.now() - ocrStartTime
+          })
+
           if (OCRResult) {
             IntermediateKnowledgeIndexer.addToIncrementalIndex(note)
+            KnowledgeBaseUtils.log("已添加到增量索引", "onProcessNewExcerpt", { noteId: noteId })
           }
         }
+
         if (KnowledgeBaseConfig.config.classificationMode) {  // 归类模式
-          MNUtil.undoGrouping(()=>{
-              KnowledgeBaseClassUtils.makeNoteAfterProcessNewExcerpt(note, false)
+          KnowledgeBaseUtils.log("进入归类模式", "onProcessNewExcerpt", {
+            noteId: noteId,
+            elapsedMs: Date.now() - startTime
           })
-          return 
+
+          MNUtil.undoGrouping(()=>{
+            const classificationStartTime = Date.now();
+            KnowledgeBaseClassUtils.makeNoteAfterProcessNewExcerpt(note, false)
+            KnowledgeBaseUtils.log("归类模式处理完成", "onProcessNewExcerpt", {
+              noteId: noteId,
+              durationMs: Date.now() - classificationStartTime
+            })
+          })
+
+          KnowledgeBaseUtils.log("归类模式执行完成", "onProcessNewExcerpt", {
+            noteId: noteId,
+            totalDurationMs: Date.now() - startTime
+          })
+          return
         }
+
         if (self.preExcerptMode && self.preExcerptRootNote) {
           // 预摘录模式：自动移动到预备知识库
+          KnowledgeBaseUtils.log("进入预摘录模式", "onProcessNewExcerpt", {
+            noteId: noteId,
+            elapsedMs: Date.now() - startTime
+          })
+
           MNUtil.undoGrouping(()=>{
+            const preExcerptStartTime = Date.now();
             self.preExcerptRootNote.addChild(note)
             KnowledgeBaseTemplate.toNoExcerptVersion(note)
+            KnowledgeBaseUtils.log("预摘录模式处理完成", "onProcessNewExcerpt", {
+              noteId: noteId,
+              durationMs: Date.now() - preExcerptStartTime
+            })
           })
-          return 
+
+          KnowledgeBaseUtils.log("预摘录模式执行完成", "onProcessNewExcerpt", {
+            noteId: noteId,
+            totalDurationMs: Date.now() - startTime
+          })
+          return
         }
 
         if (self.classMode && self.classTodayNote) {
+          KnowledgeBaseUtils.log("进入上课模式", "onProcessNewExcerpt", {
+            noteId: noteId,
+            noteColor: note.colorIndex,
+            elapsedMs: Date.now() - startTime
+          })
+
           MNUtil.undoGrouping(()=>{
+            const classModeStartTime = Date.now();
             switch (note.colorIndex) {
               case 2:  // 定义
-                self.classTodayDefClassificationNote.addChild(note) 
+                self.classTodayDefClassificationNote.addChild(note)
+                KnowledgeBaseUtils.log("上课模式：添加到定义分类", "onProcessNewExcerpt", { noteId: noteId })
                 break;
               case 10: // 命题
                 self.classTodayThmClassificationNote.addChild(note)
+                KnowledgeBaseUtils.log("上课模式：添加到命题分类", "onProcessNewExcerpt", { noteId: noteId })
                 break;
               default:
                 self.classTodayNote.addChild(note)
+                KnowledgeBaseUtils.log("上课模式：添加到今日卡片", "onProcessNewExcerpt", { noteId: noteId })
                 break;
             }
+            KnowledgeBaseUtils.log("上课模式处理完成", "onProcessNewExcerpt", {
+              noteId: noteId,
+              durationMs: Date.now() - classModeStartTime
+            })
           })
-          // return 
+          // return
         }
 
         if (KnowledgeBaseTemplate.getNoteType(note, true) == "命题" && KnowledgeBaseConfig.config.excerptOCRMode > 0) {
+          KnowledgeBaseUtils.log("检测到命题卡片，开始处理", "onProcessNewExcerpt", {
+            noteId: noteId,
+            noteType: "命题",
+            elapsedMs: Date.now() - startTime
+          })
+
+          const propositionStartTime = Date.now();
           let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(note)
           let brotherIndex = processedNote.indexInBrotherNotes
           let targetParentNote = processedNote.indexInBrotherNotes>0 ? (
             KnowledgeBaseTemplate.getNoteType(processedNote.parentNote.childNotes[brotherIndex - 1]) == "归类"?processedNote.parentNote.childNotes[brotherIndex - 1]: processedNote.parentNote
           ): processedNote.parentNote;
-          if (KnowledgeBaseTemplate.getNoteType(targetParentNote) == "归类") {
+
+          KnowledgeBaseUtils.log("目标父卡片", "onProcessNewExcerpt", {
+            noteId: processedNote.noteId,
+            targetParentType: KnowledgeBaseTemplate.getNoteType(targetParentNote),
+            targetParentTitle: targetParentNote.noteTitle
+          })
+
+          if (KnowledgeBaseTemplate.getNoteType(targetParentNote) == "归类"  && KnowledgeBaseTemplate.parseNoteTitle(targetParentNote).type == "命题") {
             processedNote.moveTo(targetParentNote)
             KnowledgeBaseTemplate.changeTitle(processedNote, true)
             KnowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(processedNote, true)
+            KnowledgeBaseUtils.log("命题处理完成（归类父卡片）", "onProcessNewExcerpt", {
+              noteId: processedNote.noteId,
+              durationMs: Date.now() - propositionStartTime
+            })
           } else {
             KnowledgeBaseUtils.log("目标卡片不是归类卡片", "onProcessNewExcerpt",
               {
@@ -360,10 +450,19 @@ JSB.newAddon = function(mainPath){
               }
             )
             KnowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(processedNote, true)
+            KnowledgeBaseUtils.log("命题处理完成（非归类父卡片）", "onProcessNewExcerpt", {
+              noteId: processedNote.noteId,
+              durationMs: Date.now() - propositionStartTime
+            })
           }
           processedNote.focusInMindMap(0.3)
+
+          KnowledgeBaseUtils.log("命题处理流程完成", "onProcessNewExcerpt", {
+            noteId: processedNote.noteId,
+            totalDurationMs: Date.now() - startTime
+          })
         } else {
-          KnowledgeBaseUtils.log("未能一键制卡", "onProcessNewExcerpt", 
+          KnowledgeBaseUtils.log("未能一键制卡", "onProcessNewExcerpt",
             {
               type: KnowledgeBaseTemplate.getNoteType(note, true)||"No?" + KnowledgeBaseTemplate.getNoteType(note),
               excerptOCRMode: KnowledgeBaseConfig.config.excerptOCRMode,
@@ -371,6 +470,11 @@ JSB.newAddon = function(mainPath){
             }
           )
         }
+
+        KnowledgeBaseUtils.log("onProcessNewExcerpt 执行完成", "onProcessNewExcerpt", {
+          noteId: noteId,
+          totalDurationMs: Date.now() - startTime
+        })
       } catch (error) {
         KnowledgeBaseUtils.addErrorLog(error, "onProcessNewExcerpt")
       }
@@ -428,8 +532,8 @@ JSB.newAddon = function(mainPath){
           self.tableItem('    ⚙️ Markdown OCR 模型', 'excerptOCRModelSettingForMode2:', button),
           self.tableItem('    ⚙️ OCR 概念提取 模型', 'excerptOCRModelSettingForMode3:', button),
           self.tableItem('-------------------------------',''),
-          self.tableItem('🤖   测试 AI', 'testAI:'),
-          self.tableItem('🎯   AI 推荐卡片', 'askAIForRelevantCards:'),
+          // self.tableItem('🤖   测试 AI', 'testAI:'),
+          // self.tableItem('🎯   AI 推荐卡片', 'askAIForRelevantCards:'),
         ];
 
         // 显示菜单
@@ -2140,55 +2244,111 @@ JSB.newAddon = function(mainPath){
       // 1. 解析卡片的字段结构
       const parsedComments = KnowledgeBaseTemplate.parseNoteComments(note);
 
-      // 2. 准备评论数据
+      // 2. 准备评论数据（参考 mnsnipaste 的实现）
       const commentsData = [];
       note.comments.forEach((rawComment, index) => {
-        // 使用 MNComments 获取细分类型（已在 MNNote 中处理）
-        const mnComment = note.MNComments[index];
-        if (!mnComment) return;
-
         const commentData = {
           index: index,
-          type: rawComment.type  // 原始类型（TextNote/HtmlNote/PaintNote/LinkNote/AudioNote）
+          originalType: rawComment.type  // 保留原始类型（5种基础类型）
         };
 
-        // 处理不同类型的评论
-        if (rawComment.type === "TextNote") {
-          commentData.text = rawComment.text || "";
-        } else if (rawComment.type === "HtmlNote") {
-          commentData.text = rawComment.text || "";
-          commentData.htmlText = rawComment.text;
-        } else if (rawComment.type === "PaintNote" && rawComment.paint) {
-          // 获取图片 Base64 数据
-          try {
-            const imageData = MNUtil.getMediaByHash(rawComment.paint);
-            if (imageData) {
-              commentData.imageBase64 = imageData.base64Encoding();
-            } else {
-              KnowledgeBaseUtils.log("图片数据为空", "prepareCommentDataForManager", {index});
-            }
-          } catch (error) {
-            KnowledgeBaseUtils.log("获取图片失败", "prepareCommentDataForManager", {
-              index,
-              error: error.message
-            });
+        // 根据类型添加必要字段（参考 mnsnipaste webviewController.js:1913-1959）
+        try {
+          switch (rawComment.type) {
+            case "TextNote":
+              commentData.text = rawComment.text || "";
+              commentData.markdown = rawComment.markdown;
+
+              // 检查是否是链接到其他笔记的特殊情况
+              if (/^marginnote\dapp:\/\//.test(commentData.text)) {
+                const noteid = commentData.text.split("note/")[1];
+                if (noteid) {
+                  try {
+                    const linkedNote = MNNote.new(noteid);
+                    if (linkedNote) {
+                      commentData.linkedNoteTitle = linkedNote.noteTitle || "(无标题)";
+                    }
+                  } catch (e) {
+                    KnowledgeBaseUtils.log("获取链接笔记失败", "prepareCommentDataForManager", {
+                      index, noteid, error: e.message
+                    });
+                  }
+                }
+              }
+              break;
+
+            case "PaintNote":
+              // 手写/图片评论
+              if (rawComment.paint) {
+                try {
+                  const imageData = MNUtil.getMediaByHash(rawComment.paint);
+                  if (imageData) {
+                    commentData.imageBase64 = imageData.base64Encoding();  // 纯 Base64 字符串
+                  } else {
+                    KnowledgeBaseUtils.log("图片数据为空", "prepareCommentDataForManager", {index});
+                  }
+                } catch (error) {
+                  KnowledgeBaseUtils.log("获取图片失败", "prepareCommentDataForManager", {
+                    index, error: error.message
+                  });
+                }
+              }
+              break;
+
+            case "HtmlNote":
+              commentData.text = rawComment.text || "";
+              commentData.htmlText = rawComment.html || rawComment.text;
+              break;
+
+            case "LinkNote":
+              // 合并评论：可能包含文本或图片
+              if (rawComment.q_htext) {
+                commentData.text = rawComment.q_htext;
+              }
+
+              if (rawComment.q_hpic && rawComment.q_hpic.paint) {
+                try {
+                  const imageData = MNUtil.getMediaByHash(rawComment.q_hpic.paint);
+                  if (imageData) {
+                    commentData.imageBase64 = imageData.base64Encoding();
+                  }
+                } catch (error) {
+                  KnowledgeBaseUtils.log("获取合并图片失败", "prepareCommentDataForManager", {
+                    index, error: error.message
+                  });
+                }
+              }
+
+              // 存储 textFirst 标志（用于判断优先显示文本还是图片）
+              commentData.textFirst = note.textFirst;
+
+              // 尝试获取链接目标卡片的标题（如果是链接评论）
+              if (rawComment.note) {
+                try {
+                  const linkedNote = MNNote.new(rawComment.note);
+                  if (linkedNote) {
+                    commentData.linkedNoteTitle = linkedNote.noteTitle || "(无标题)";
+                  }
+                } catch (error) {
+                  KnowledgeBaseUtils.log("获取链接卡片标题失败", "prepareCommentDataForManager", {
+                    index, error: error.message
+                  });
+                }
+              }
+              break;
+
+            case "AudioNote":
+              // 音频评论（暂不处理）
+              commentData.text = "(音频评论)";
+              break;
+
+            default:
+              commentData.text = rawComment.text || "";
           }
-        } else if (rawComment.type === "LinkNote") {
-          commentData.text = rawComment.text || "";
-          // 尝试获取链接目标卡片的标题
-          try {
-            const linkedNote = MNNote.new(rawComment.note);
-            if (linkedNote) {
-              commentData.linkedNoteTitle = linkedNote.noteTitle || "(无标题)";
-            }
-          } catch (error) {
-            KnowledgeBaseUtils.log("获取链接卡片标题失败", "prepareCommentDataForManager", {
-              index,
-              error: error.message
-            });
-          }
-        } else if (rawComment.type === "AudioNote") {
-          commentData.text = rawComment.text || "(音频评论)";
+        } catch (error) {
+          KnowledgeBaseUtils.log("处理评论数据失败", "prepareCommentDataForManager", {
+            index, type: rawComment.type, error: error.message
+          });
         }
 
         commentsData.push(commentData);
