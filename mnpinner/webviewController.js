@@ -1,12 +1,25 @@
 /**
  * 文献管理视图控制器（精简版）
- * 
+ *
  * 保留 main.js 实际使用的功能：
  * - WebView 管理
  * - 关闭按钮和拖动手势
  * - 显示/隐藏动画
  * - WebView 与 JavaScript 交互
  */
+
+// UI 布局常量
+const UI_CONSTANTS = {
+  PAGE_ROW_HEIGHT: 55,        // 页面行高度
+  CARD_ROW_HEIGHT: 55,        // 卡片行高度
+  BUTTON_WIDTH: 35,           // 按钮宽度
+  BUTTON_HEIGHT: 30,          // 按钮高度
+  TAB_SPACING: 5,             // 标签间距
+  EDGE_SNAP_DISTANCE: 40,     // 边缘吸附距离
+  MIN_WIDTH: 180,             // 最小宽度
+  MIN_HEIGHT: 150             // 最小高度
+}
+
 let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSURLConnectionDelegate, UIWebViewDelegate>', {
   /**
    * 视图加载完成的生命周期方法
@@ -132,13 +145,13 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     
     // 照抄 mnbrowser 的边缘检测逻辑（1983-2033）
     if (!self.miniMode) {
-      // 非 mini 模式：靠近边缘 40px 内触发吸附
-      if (locationToMN.x < 40) {
-        self.toMinimode(MNUtil.genFrame(0, locationToMN.y, 40, 40), self.lastFrame)
+      // 非 mini 模式：靠近边缘触发吸附
+      if (locationToMN.x < UI_CONSTANTS.EDGE_SNAP_DISTANCE) {
+        self.toMinimode(MNUtil.genFrame(0, locationToMN.y, UI_CONSTANTS.EDGE_SNAP_DISTANCE, UI_CONSTANTS.EDGE_SNAP_DISTANCE), self.lastFrame)
         return
       }
-      if (locationToMN.x > studyFrame.width - 40) {
-        self.toMinimode(MNUtil.genFrame(studyFrame.width - 40, locationToMN.y, 40, 40), self.lastFrame)
+      if (locationToMN.x > studyFrame.width - UI_CONSTANTS.EDGE_SNAP_DISTANCE) {
+        self.toMinimode(MNUtil.genFrame(studyFrame.width - UI_CONSTANTS.EDGE_SNAP_DISTANCE, locationToMN.y, UI_CONSTANTS.EDGE_SNAP_DISTANCE, UI_CONSTANTS.EDGE_SNAP_DISTANCE), self.lastFrame)
         return
       }
     } else {
@@ -212,11 +225,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         frame.height = self.originalFrame.height + locationDiff.y
         
         // 最小尺寸限制
-        if (frame.width <= 180) {  // 提升最小宽度，确保按钮不会溢出
-          frame.width = 180
+        if (frame.width <= UI_CONSTANTS.MIN_WIDTH) {
+          frame.width = UI_CONSTANTS.MIN_WIDTH
         }
-        if (frame.height <= 150) {
-          frame.height = 150
+        if (frame.height <= UI_CONSTANTS.MIN_HEIGHT) {
+          frame.height = UI_CONSTANTS.MIN_HEIGHT
         }
         
         // 确保调整大小后不超出屏幕右边界
@@ -341,6 +354,10 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
   dailyTaskTabTapped: function(button) {
     self.switchView("dailyTaskView")
+  },
+
+  pagesTabTapped: function(button) {
+    self.switchView("pagesView")
   },
 
   // === 分区视图的事件处理方法 ===
@@ -879,6 +896,7 @@ pinnerController.prototype.settingViewLayout = function () {
     this.midwayView.frame = MNUtil.genFrame(0, 0,width, height-65)
     this.toOrganizeView.frame = MNUtil.genFrame(0, 0,width, height-65)
     this.dailyTaskView.frame = MNUtil.genFrame(0, 0,width, height-65)
+    this.pagesView.frame = MNUtil.genFrame(0, 0,width, height-65)
 
     let settingFrame = this.settingView.bounds
     settingFrame.x = 0
@@ -887,25 +905,30 @@ pinnerController.prototype.settingViewLayout = function () {
     settingFrame.width = settingFrame.width-45
     this.tabView.frame = settingFrame
 
-    // 布局 tab 按钮
+    // 布局 tab 按钮（使用 ScrollView，支持自动滚动）
     let tabX = 10
     if (this.focusTabButton) {
       this.focusTabButton.frame = {x: tabX, y: 2, width: this.focusTabButton.width, height: 26}
-      tabX += this.focusTabButton.width + 5
+      tabX += this.focusTabButton.width + UI_CONSTANTS.TAB_SPACING
     }
     if (this.midwayTabButton) {
       this.midwayTabButton.frame = {x: tabX, y: 2, width: this.midwayTabButton.width, height: 26}
-      tabX += this.midwayTabButton.width + 5
+      tabX += this.midwayTabButton.width + UI_CONSTANTS.TAB_SPACING
     }
     if (this.toOrganizeTabButton) {
       this.toOrganizeTabButton.frame = {x: tabX, y: 2, width: this.toOrganizeTabButton.width, height: 26}
-      tabX += this.toOrganizeTabButton.width + 5
+      tabX += this.toOrganizeTabButton.width + UI_CONSTANTS.TAB_SPACING
     }
     if (this.dailyTaskTabButton) {
       this.dailyTaskTabButton.frame = {x: tabX, y: 2, width: this.dailyTaskTabButton.width, height: 26}
-      tabX += this.dailyTaskTabButton.width + 5
+      tabX += this.dailyTaskTabButton.width + UI_CONSTANTS.TAB_SPACING
+    }
+    if (this.pagesTabButton) {
+      this.pagesTabButton.frame = {x: tabX, y: 2, width: this.pagesTabButton.width, height: 26}
+      tabX += this.pagesTabButton.width + UI_CONSTANTS.TAB_SPACING
     }
 
+    // 设置内容大小（超出 frame 时自动启用滚动）
     this.tabView.contentSize = {width: tabX + 10, height: 30}
 
     // 布局关闭按钮
@@ -930,6 +953,9 @@ pinnerController.prototype.settingViewLayout = function () {
     if (!this.dailyTaskView.hidden) {
       this.layoutSectionView("dailyTask")
     }
+    if (!this.pagesView.hidden) {
+      this.layoutSectionView("pages")
+    }
   } catch (error) {
     pinnerUtils.addErrorLog(error, "settingViewLayout")
   }
@@ -947,6 +973,9 @@ pinnerController.prototype.refreshLayout = function () {
   }
   if (!this.dailyTaskView.hidden) {
     this.layoutSectionView("dailyTask")
+  }
+  if (!this.pagesView.hidden) {
+    this.layoutSectionView("pages")
   }
 }
 pinnerController.prototype.createSettingView = function () {
@@ -999,6 +1028,15 @@ pinnerController.prototype.createSettingView = function () {
     size = this.dailyTaskTabButton.sizeThatFits({width:120,height:100})
     this.dailyTaskTabButton.width = size.width+15
 
+    this.createButton("pagesTabButton","pagesTabTapped:","tabView")
+    this.pagesTabButton.layer.cornerRadius = radius;
+    this.pagesTabButton.isSelected = false
+    MNButton.setConfig(this.pagesTabButton,
+      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"Pages",font:17,bold:true}
+    )
+    size = this.pagesTabButton.sizeThatFits({width:120,height:100})
+    this.pagesTabButton.width = size.width+15
+
     // === 创建各个分页===
     this.createView("focusView","settingView","#9bb2d6",0)
     this.focusView.hidden = false  // 默认显示第一个视图
@@ -1011,6 +1049,9 @@ pinnerController.prototype.createSettingView = function () {
 
     this.createView("dailyTaskView","settingView","#9bb2d6",0)
     this.dailyTaskView.hidden = true  // 隐藏其他视图
+
+    this.createView("pagesView","settingView","#9bb2d6",0)
+    this.pagesView.hidden = true  // 隐藏其他视图
 
     // === 为每个分区创建子视图 ===
     this.createSectionViews()
@@ -1078,13 +1119,14 @@ pinnerController.prototype.createScrollview = function (superview="view", color=
   return scrollview
 }
 pinnerController.prototype.switchView = function (targetView) {
-  let allViews = ["focusView", "midwayView", "toOrganizeView", "dailyTaskView"]
-  let allButtons = ["focusTabButton","midwayTabButton","toOrganizeTabButton","dailyTaskTabButton"]
+  let allViews = ["focusView", "midwayView", "toOrganizeView", "dailyTaskView", "pagesView"]
+  let allButtons = ["focusTabButton","midwayTabButton","toOrganizeTabButton","dailyTaskTabButton","pagesTabButton"]
   let sectionMap = {
     "focusView": "focus",
     "midwayView": "midway",
     "toOrganizeView": "toOrganize",
-    "dailyTaskView": "dailyTask"
+    "dailyTaskView": "dailyTask",
+    "pagesView": "pages"
   }
 
   allViews.forEach((k, index) => {
@@ -1120,6 +1162,10 @@ pinnerController.prototype.refreshView = function (targetView) {
         MNUtil.log("refresh dailyTaskView")
         this.refreshSectionCards("dailyTask")
         break;
+      case "pagesView":
+        MNUtil.log("refresh pagesView")
+        this.refreshPageCards()
+        break;
       default:
         break;
     }
@@ -1132,7 +1178,7 @@ pinnerController.prototype.refreshView = function (targetView) {
  */
 pinnerController.prototype.createSectionViews = function() {
   // 为每个分区创建相同的结构
-  ["focus", "midway", "toOrganize", "dailyTask"].forEach(section => {
+  ["focus", "midway", "toOrganize", "dailyTask", "pages"].forEach(section => {
     let viewName = section + "View"
 
     // 创建顶部按钮的滚动容器
@@ -1146,7 +1192,7 @@ pinnerController.prototype.createSectionViews = function() {
 
     // 创建清空按钮
     let clearButton = UIButton.buttonWithType(0)
-    clearButton.addTargetActionForControlEvents(this, "clearCards:", 1 << 6)
+    clearButton.addTargetActionForControlEvents(this, section === "pages" ? "clearPages:" : "clearCards:", 1 << 6)
     clearButton.section = section  // 保存分区信息
     buttonScrollView.addSubview(clearButton)
     MNButton.setConfig(clearButton, {
@@ -1156,7 +1202,7 @@ pinnerController.prototype.createSectionViews = function() {
 
     // 创建刷新按钮
     let refreshButton = UIButton.buttonWithType(0)
-    refreshButton.addTargetActionForControlEvents(this, "refreshCards:", 1 << 6)
+    refreshButton.addTargetActionForControlEvents(this, section === "pages" ? "refreshPages:" : "refreshCards:", 1 << 6)
     refreshButton.section = section  // 保存分区信息
     buttonScrollView.addSubview(refreshButton)
     MNButton.setConfig(refreshButton, {
@@ -1225,7 +1271,7 @@ pinnerController.prototype.refreshSectionCards = function(section) {
       let cardRow = this.createCardRow(card, index, scrollWidth - 20, section)
       scrollView.addSubview(cardRow)
       this[cardRowsKey].push(cardRow)
-      yOffset += 55
+      yOffset += UI_CONSTANTS.CARD_ROW_HEIGHT
     })
 
     // 设置滚动区域
@@ -1281,7 +1327,7 @@ pinnerController.prototype.layoutSectionView = function(section) {
 pinnerController.prototype.createCardRow = function(card, index, width, section) {
   // 创建卡片行容器
   let rowView = UIView.new()
-  rowView.frame = {x: 10, y: 10 + index * 55, width: width, height: 45}
+  rowView.frame = {x: 10, y: 10 + index * UI_CONSTANTS.CARD_ROW_HEIGHT, width: width, height: 45}
   rowView.backgroundColor = MNUtil.hexColorAlpha("#ffffff", 0.95)
   rowView.layer.cornerRadius = 8
   rowView.layer.borderWidth = 1
@@ -1337,7 +1383,7 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   // 定位按钮
   let focusButton = UIButton.buttonWithType(0)
   focusButton.setTitleForState("📍", 0)
-  focusButton.frame = {x: 75, y: 7, width: 30, height: 30}
+  focusButton.frame = {x: 75, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
   focusButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
   focusButton.layer.cornerRadius = 5
   focusButton.tag = index
@@ -1374,6 +1420,347 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   rowView.addSubview(deleteButton)
 
   return rowView
+}
+
+// ========== Pages 分区相关方法 ==========
+
+/**
+ * 刷新页面列表
+ */
+pinnerController.prototype.refreshPageCards = function() {
+  try {
+    let cardRowsKey = "pagesCardRows"
+    let scrollViewKey = "pagesCardScrollView"
+
+    // 初始化卡片行数组
+    if (!this[cardRowsKey]) {
+      this[cardRowsKey] = []
+    }
+
+    // 从 pinnerConfig 获取数据
+    let pages = pinnerConfig.getPagePins() || []
+
+    // 清空现有卡片
+    this[cardRowsKey].forEach(view => {
+      view.removeFromSuperview()
+    })
+    this[cardRowsKey] = []
+
+    // 检查滚动视图是否存在
+    let scrollView = this[scrollViewKey]
+    if (!scrollView) return
+
+    // 如果没有页面，显示提示
+    if (pages.length === 0) {
+      let emptyLabel = UIButton.buttonWithType(0)
+      emptyLabel.setTitleForState("暂无固定的页面", 0)
+      emptyLabel.titleLabel.font = UIFont.systemFontOfSize(14)
+      emptyLabel.frame = {x: 10, y: 10, width: scrollView.frame.width - 20, height: 40}
+      emptyLabel.enabled = false
+      emptyLabel.setTitleColorForState(MNUtil.hexColorAlpha("#999999", 1.0), 0)
+      scrollView.addSubview(emptyLabel)
+      this[cardRowsKey].push(emptyLabel)
+      scrollView.contentSize = {width: 0, height: 100}
+      return
+    }
+
+    // 添加页面行
+    let yOffset = 10
+    let scrollWidth = scrollView.frame.width
+
+    pages.forEach((page, index) => {
+      let pageRow = this.createPageRow(page, index, scrollWidth - 20)
+      scrollView.addSubview(pageRow)
+      this[cardRowsKey].push(pageRow)
+      yOffset += UI_CONSTANTS.PAGE_ROW_HEIGHT
+    })
+
+    // 设置滚动区域
+    scrollView.contentSize = {width: 0, height: yOffset + 10}
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "refreshPageCards")
+    MNUtil.showHUD("刷新页面列表失败")
+  }
+}
+
+/**
+ * 创建单个页面行视图
+ */
+pinnerController.prototype.createPageRow = function(page, index, width) {
+  // 创建页面行容器
+  let rowView = UIView.new()
+  rowView.frame = {x: 10, y: 10 + index * UI_CONSTANTS.PAGE_ROW_HEIGHT, width: width, height: 45}
+  rowView.backgroundColor = MNUtil.hexColorAlpha("#ffffff", 0.95)
+  rowView.layer.cornerRadius = 8
+  rowView.layer.borderWidth = 1
+  rowView.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6", 0.3)
+
+  // 保存页面信息
+  rowView.docMd5 = page.docMd5
+  rowView.pageIndex = page.pageIndex
+
+  // 获取页面总数
+  let totalPages = pinnerConfig.getPagePins().length
+
+  // 上移按钮
+  let moveUpButton = UIButton.buttonWithType(0)
+  moveUpButton.setTitleForState("⬆️", 0)
+  moveUpButton.frame = {x: 5, y: 7, width: 30, height: 30}
+  moveUpButton.layer.cornerRadius = 5
+  moveUpButton.tag = index
+  moveUpButton.docMd5 = page.docMd5
+  moveUpButton.pageIndex = page.pageIndex
+  moveUpButton.addTargetActionForControlEvents(this, "movePageUp:", 1 << 6)
+  if (index === 0) {
+    moveUpButton.enabled = false
+    moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
+  } else {
+    moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+  }
+  rowView.addSubview(moveUpButton)
+
+  // 下移按钮
+  let moveDownButton = UIButton.buttonWithType(0)
+  moveDownButton.setTitleForState("⬇️", 0)
+  moveDownButton.frame = {x: 40, y: 7, width: 30, height: 30}
+  moveDownButton.layer.cornerRadius = 5
+  moveDownButton.tag = index
+  moveDownButton.docMd5 = page.docMd5
+  moveDownButton.pageIndex = page.pageIndex
+  moveDownButton.addTargetActionForControlEvents(this, "movePageDown:", 1 << 6)
+  if (index === totalPages - 1) {
+    moveDownButton.enabled = false
+    moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
+  } else {
+    moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+  }
+  rowView.addSubview(moveDownButton)
+
+  // 定位按钮（跳转到页面）
+  let focusButton = UIButton.buttonWithType(0)
+  focusButton.setTitleForState("📍", 0)
+  focusButton.frame = {x: 75, y: 7, width: 30, height: 30}
+  focusButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+  focusButton.layer.cornerRadius = 5
+  focusButton.tag = index
+  focusButton.docMd5 = page.docMd5
+  focusButton.pageIndex = page.pageIndex
+  focusButton.addTargetActionForControlEvents(this, "jumpToPage:", 1 << 6)
+  rowView.addSubview(focusButton)
+
+  // 添加标题
+  let titleButton = UIButton.buttonWithType(0)
+  titleButton.setTitleForState(`${page.title || "未命名页面"}`, 0)
+  titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
+  titleButton.frame = {x: 110, y: 5, width: width - 160, height: 35}
+  titleButton.addTargetActionForControlEvents(this, "pageItemTapped:", 1 << 6)
+  titleButton.docMd5 = page.docMd5
+  titleButton.pageIndex = page.pageIndex
+  titleButton.pageTitle = page.title
+  // 设置颜色表示可点击
+  titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#007AFF", 1.0), 0)
+  titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#0051D5", 1.0), 1)
+  titleButton.contentHorizontalAlignment = 1  // 左对齐
+  rowView.addSubview(titleButton)
+
+  // 删除按钮
+  let deleteButton = UIButton.buttonWithType(0)
+  deleteButton.setTitleForState("🗑", 0)
+  deleteButton.frame = {x: width - 40, y: 7, width: 30, height: 30}
+  deleteButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 0.8)
+  deleteButton.layer.cornerRadius = 5
+  deleteButton.tag = index
+  deleteButton.docMd5 = page.docMd5
+  deleteButton.pageIndex = page.pageIndex
+  deleteButton.addTargetActionForControlEvents(this, "deletePage:", 1 << 6)
+  rowView.addSubview(deleteButton)
+
+  return rowView
+}
+
+/**
+ * 跳转到文档页面
+ */
+pinnerController.prototype.jumpToPage = function(button) {
+  try {
+    let docMd5 = button.docMd5
+    let pageIndex = button.pageIndex
+
+    if (!docMd5 || pageIndex === undefined) {
+      MNUtil.showHUD("页面信息无效")
+      return
+    }
+
+    // 获取文档信息
+    let docInfo = pinnerConfig.getDocInfo(docMd5)
+    if (!docInfo.doc) {
+      MNUtil.showHUD("文档不存在")
+      return
+    }
+
+    // 打开文档
+    MNUtil.openDoc(docMd5)
+
+    // 延迟跳转到指定页
+    MNUtil.delay(0.3, () => {
+      let docController = MNUtil.currentDocController
+      if (docController && docController.docMd5 === docMd5) {
+        docController.setPageAtIndex(pageIndex)
+        MNUtil.showHUD(`已跳转到第 ${pageIndex + 1} 页`)
+      }
+    })
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "jumpToPage")
+    MNUtil.showHUD("跳转失败")
+  }
+}
+
+/**
+ * 页面项点击（显示操作菜单）
+ */
+pinnerController.prototype.pageItemTapped = function(button) {
+  try {
+    let docMd5 = button.docMd5
+    let pageIndex = button.pageIndex
+
+    // 创建菜单
+    let menu = MNUtil.genMenu()
+    menu.addMenuItem('📍 跳转到页面', 'jumpToPage:', button)
+    menu.addMenuItem('✏️ 重命名', 'renamePage:', button)
+    menu.addMenuItem('📝 编辑备注', 'editPageNote:', button)
+    menu.showInView(button)
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "pageItemTapped")
+  }
+}
+
+/**
+ * 重命名页面
+ */
+pinnerController.prototype.renamePage = async function(button) {
+  try {
+    let docMd5 = button.docMd5
+    let pageIndex = button.pageIndex
+    let currentTitle = button.pageTitle || ""
+
+    let newTitle = await MNUtil.prompt("重命名", "", currentTitle)
+    if (newTitle && newTitle !== currentTitle) {
+      pinnerConfig.updatePagePinTitle(docMd5, pageIndex, newTitle)
+      this.refreshPageCards()
+      MNUtil.showHUD("已重命名")
+    }
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "renamePage")
+  }
+}
+
+/**
+ * 编辑页面备注
+ */
+pinnerController.prototype.editPageNote = async function(button) {
+  try {
+    let docMd5 = button.docMd5
+    let pageIndex = button.pageIndex
+
+    // 获取当前备注
+    let pages = pinnerConfig.getPagePins()
+    let page = pages.find(p => p.docMd5 === docMd5 && p.pageIndex === pageIndex)
+    let currentNote = page ? page.note || "" : ""
+
+    let newNote = await MNUtil.prompt("编辑备注", "", currentNote)
+    if (newNote !== null && newNote !== currentNote) {
+      pinnerConfig.updatePagePinNote(docMd5, pageIndex, newNote)
+      MNUtil.showHUD("已更新备注")
+    }
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "editPageNote")
+  }
+}
+
+/**
+ * 删除页面
+ */
+pinnerController.prototype.deletePage = function(button) {
+  try {
+    let docMd5 = button.docMd5
+    let pageIndex = button.pageIndex
+
+    pinnerConfig.removePagePin(docMd5, pageIndex)
+    this.refreshPageCards()
+    MNUtil.showHUD("已删除")
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "deletePage")
+  }
+}
+
+/**
+ * 上移页面
+ */
+pinnerController.prototype.movePageUp = function(button) {
+  try {
+    let oldIndex = button.tag
+    let newIndex = oldIndex - 1
+
+    if (newIndex >= 0) {
+      pinnerConfig.movePagePin(oldIndex, newIndex)
+      // refreshPageCards 会在 movePagePin 中自动调用
+    }
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "movePageUp")
+  }
+}
+
+/**
+ * 下移页面
+ */
+pinnerController.prototype.movePageDown = function(button) {
+  try {
+    let oldIndex = button.tag
+    let newIndex = oldIndex + 1
+
+    let totalPages = pinnerConfig.getPagePins().length
+    if (newIndex < totalPages) {
+      pinnerConfig.movePagePin(oldIndex, newIndex)
+      // refreshPageCards 会在 movePagePin 中自动调用
+    }
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "movePageDown")
+  }
+}
+
+/**
+ * 刷新页面按钮
+ */
+pinnerController.prototype.refreshPages = function(button) {
+  this.refreshPageCards()
+  MNUtil.showHUD("已刷新")
+}
+
+/**
+ * 清空页面
+ */
+pinnerController.prototype.clearPages = async function(button) {
+  try {
+    let confirm = await MNUtil.confirm("清空 Pages 分区的所有页面？", "")
+    if (!confirm) return
+
+    pinnerConfig.sections.pages = []
+    pinnerConfig.save()
+
+    this.refreshPageCards()
+    MNUtil.showHUD("已清空 Pages")
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "clearPages")
+  }
 }
 
 

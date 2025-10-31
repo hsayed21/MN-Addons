@@ -155,7 +155,8 @@ class pinnerConfig {
       focus: [],
       midway: [],
       toOrganize: [],  // 新增：待整理
-      dailyTask: []    // 新增：日拱一卒
+      dailyTask: [],   // 新增：日拱一卒
+      pages: []        // 新增：文档页面
     }
   }
   
@@ -841,8 +842,211 @@ class pinnerConfig {
       'focus': 'Focus',
       'midway': '中间知识',
       'toOrganize': '待整理',
-      'dailyTask': '日拱一卒'
+      'dailyTask': '日拱一卒',
+      'pages': 'Pages'
     }
     return displayNames[section] || section
+  }
+
+  // ========== 页面 Pin 操作方法 ==========
+
+  /**
+   * 确保 pages 数组存在（防御性编程）
+   * @private
+   */
+  static ensurePagesArray() {
+    if (!this.sections.pages) {
+      this.sections.pages = []
+    }
+  }
+
+  /**
+   * 获取文档信息（包含文档对象和页码范围）
+   * @param {string} docMd5 - 文档 MD5
+   * @returns {{doc: Object|null, pageCount: number, lastPageIndex: number}} 文档信息对象
+   */
+  static getDocInfo(docMd5) {
+    let doc = MNUtil.getDocById(docMd5)
+    if (!doc) {
+      return { doc: null, pageCount: 0, lastPageIndex: -1 }
+    }
+    let pageCount = doc.pageCount
+    let lastPageIndex = pageCount - 1
+    return { doc, pageCount, lastPageIndex }
+  }
+
+  /**
+   * 添加文档页面到 Pages 分区
+   * @param {string} docMd5 - 文档 MD5
+   * @param {number} pageIndex - 页码（从 0 开始）
+   * @param {string} title - 自定义标题（可选）
+   * @param {string} note - 备注（可选）
+   * @returns {boolean} 是否添加成功
+   */
+  static addPagePin(docMd5, pageIndex, title, note) {
+    try {
+      this.ensurePagesArray()
+      let pages = this.sections.pages
+
+      // 检查是否已存在（相同文档+页码）
+      if (pages.find(p => p.docMd5 === docMd5 && p.pageIndex === pageIndex)) {
+        MNUtil.showHUD("该页面已存在")
+        return false
+      }
+
+      // 获取文档信息
+      let docInfo = this.getDocInfo(docMd5)
+      if (!docInfo.doc) {
+        MNUtil.showHUD("文档不存在")
+        return false
+      }
+
+      let defaultTitle = `${docInfo.doc.pathFile.lastPathComponent} - 第${pageIndex + 1}页`
+
+      // 创建新的页面 pin
+      let newPagePin = {
+        docMd5: docMd5,
+        pageIndex: pageIndex,
+        title: title || defaultTitle,
+        note: note || "",
+        pinnedAt: Date.now()
+      }
+
+      // 添加到列表开头（最新的在最上面）
+      pages.unshift(newPagePin)
+
+      // 保存
+      this.save()
+
+      pinnerUtils.log(`Added page pin: ${newPagePin.title}`, "pinnerConfig:addPagePin")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:addPagePin")
+      return false
+    }
+  }
+
+  /**
+   * 删除页面 Pin
+   * @param {string} docMd5 - 文档 MD5
+   * @param {number} pageIndex - 页码
+   * @returns {boolean} 是否删除成功
+   */
+  static removePagePin(docMd5, pageIndex) {
+    try {
+      this.ensurePagesArray()
+      let pages = this.sections.pages
+      let index = pages.findIndex(p => p.docMd5 === docMd5 && p.pageIndex === pageIndex)
+
+      if (index === -1) {
+        return false
+      }
+
+      pages.splice(index, 1)
+      this.save()
+
+      pinnerUtils.log(`Removed page pin: ${docMd5} page ${pageIndex}`, "pinnerConfig:removePagePin")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:removePagePin")
+      return false
+    }
+  }
+
+  /**
+   * 更新页面 Pin 的标题
+   * @param {string} docMd5 - 文档 MD5
+   * @param {number} pageIndex - 页码
+   * @param {string} newTitle - 新标题
+   * @returns {boolean} 是否更新成功
+   */
+  static updatePagePinTitle(docMd5, pageIndex, newTitle) {
+    try {
+      this.ensurePagesArray()
+      let pages = this.sections.pages
+      let pagePin = pages.find(p => p.docMd5 === docMd5 && p.pageIndex === pageIndex)
+
+      if (!pagePin) return false
+
+      pagePin.title = newTitle
+      this.save()
+
+      pinnerUtils.log(`Updated page pin title: ${newTitle}`, "pinnerConfig:updatePagePinTitle")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:updatePagePinTitle")
+      return false
+    }
+  }
+
+  /**
+   * 更新页面 Pin 的备注
+   * @param {string} docMd5 - 文档 MD5
+   * @param {number} pageIndex - 页码
+   * @param {string} newNote - 新备注
+   * @returns {boolean} 是否更新成功
+   */
+  static updatePagePinNote(docMd5, pageIndex, newNote) {
+    try {
+      this.ensurePagesArray()
+      let pages = this.sections.pages
+      let pagePin = pages.find(p => p.docMd5 === docMd5 && p.pageIndex === pageIndex)
+
+      if (!pagePin) return false
+
+      pagePin.note = newNote
+      this.save()
+
+      pinnerUtils.log(`Updated page pin note`, "pinnerConfig:updatePagePinNote")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:updatePagePinNote")
+      return false
+    }
+  }
+
+  /**
+   * 获取所有页面 Pins
+   * @returns {Array} 页面 pins 数组
+   */
+  static getPagePins() {
+    this.ensurePagesArray()
+    return this.sections.pages
+  }
+
+  /**
+   * 移动页面 Pin 的顺序
+   * @param {number} oldIndex - 原位置
+   * @param {number} newIndex - 新位置
+   * @returns {boolean} 是否移动成功
+   */
+  static movePagePin(oldIndex, newIndex) {
+    try {
+      this.ensurePagesArray()
+      let pages = this.sections.pages
+
+      if (oldIndex < 0 || oldIndex >= pages.length ||
+          newIndex < 0 || newIndex >= pages.length) {
+        return false
+      }
+
+      let [item] = pages.splice(oldIndex, 1)
+      pages.splice(newIndex, 0, item)
+
+      this.save()
+
+      if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
+        pinnerUtils.pinnerController.refreshView("pagesView")
+      }
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:movePagePin")
+      return false
+    }
   }
 }

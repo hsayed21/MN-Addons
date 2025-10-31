@@ -5475,6 +5475,27 @@ function registerAllCustomActions() {
     });
   })
 
+  global.registerCustomAction("pinCurrentPageToPages", async function(context) {
+    // 获取当前文档和页码
+    let docController = MNUtil.currentDocController
+    if (!docController) {
+      MNUtil.showHUD("请先打开一个文档");
+      return;
+    }
+
+    let docMd5 = docController.docMd5
+    let pageIndex = docController.currPageIndex  // 当前页面索引（从0开始）
+    let docName = docController.document.pathFile.lastPathComponent
+
+    // 生成默认标题
+    let defaultTitle = `${docName} - 第${pageIndex + 1}页`
+
+    // 发送通知到 mnpinner
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=pinPage&docMd5=${encodeURIComponent(docMd5)}&pageIndex=${pageIndex}&title=${encodeURIComponent(defaultTitle)}`
+    });
+  })
+
   global.registerCustomAction("focusLastChildNote", async function(context) {
     const { focusNote } = context;
       if (focusNote) {

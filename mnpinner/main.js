@@ -253,6 +253,12 @@ JSB.newAddon = function(mainPath){
    *    @param {string|number} position - 位置（必需）
    *                                      可选值："top"、"bottom"、具体索引数字
    *
+   * 7. pinPage - 添加文档页面到 Pages 分区
+   *    @param {string} docMd5 - 文档MD5（必需，需要URL编码）
+   *    @param {number} pageIndex - 页码，从0开始（必需）
+   *    @param {string} title - 自定义标题（可选，需要URL编码，默认为"文档名 - 第X页"）
+   *    @param {string} note - 备注（可选，需要URL编码）
+   *
    * 使用示例：
    *
    * // 添加卡片到focus分区顶部
@@ -266,6 +272,9 @@ JSB.newAddon = function(mainPath){
    *
    * // 兼容旧版本的临时置顶
    * marginnote4app://addon/mnpinner?action=temporarilyPin&id=NOTE111&title=临时卡片
+   *
+   * // 添加文档页面到 Pages 分区
+   * marginnote4app://addon/mnpinner?action=pinPage&docMd5=ABC123DEF456&pageIndex=5&title=重要章节&note=需要复习的内容
    *
    * 注意事项：
    * 1. 所有包含中文或特殊字符的参数必须使用 encodeURIComponent 进行URL编码
@@ -351,6 +360,49 @@ JSB.newAddon = function(mainPath){
                 let posSectionName = pinnerConfig.getSectionDisplayName(posSection)
                 let posText = posPosition === "top" ? "顶部" : (posPosition === "bottom" ? "底部" : `位置${posPosition}`)
                 MNUtil.showHUD(`已添加到${posSectionName}${posText}: ${posTitle}`)
+              }
+              break;
+
+            case "pinPage":  // 添加文档页面到 Pages 分区
+              try {
+                let docMd5 = decodeURIComponent(config.params.docMd5 || config.params.docmd5 || "")
+                let pageIndex = parseInt(config.params.pageIndex || config.params.pageindex || "0")
+                let pageTitle = config.params.title ? decodeURIComponent(config.params.title) : ""
+                let pageNoteText = config.params.note ? decodeURIComponent(config.params.note) : ""
+
+                // 验证 docMd5 参数
+                if (!docMd5) {
+                  MNUtil.showHUD("缺少docMd5参数")
+                  break
+                }
+
+                // 验证页码是否为有效数字
+                if (isNaN(pageIndex) || pageIndex < 0) {
+                  MNUtil.showHUD("页码无效")
+                  break
+                }
+
+                // 验证文档和页码范围
+                let docInfo = pinnerConfig.getDocInfo(docMd5)
+                if (!docInfo.doc) {
+                  MNUtil.showHUD("文档不存在")
+                  break
+                }
+                if (pageIndex > docInfo.lastPageIndex) {
+                  MNUtil.showHUD(`页码超出范围(0-${docInfo.lastPageIndex})`)
+                  break
+                }
+
+                // 添加页面
+                if (pinnerConfig.addPagePin(docMd5, pageIndex, pageTitle, pageNoteText)) {
+                  if (pinnerUtils.pinnerController) {
+                    pinnerUtils.pinnerController.refreshView("pagesView")
+                  }
+                  MNUtil.showHUD(`已添加到 Pages: ${pageTitle || `第${pageIndex+1}页`}`)
+                }
+              } catch (error) {
+                pinnerUtils.addErrorLog(error, "onAddonBroadcast:pinPage")
+                MNUtil.showHUD("添加页面失败: " + error.message)
               }
               break;
 

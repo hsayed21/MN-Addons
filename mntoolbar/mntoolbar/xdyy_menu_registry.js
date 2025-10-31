@@ -999,6 +999,11 @@ function registerAllMenuTemplates() {
           action: "temporarilyPinFocusNoteWithTitle",
           menuTitle: "✏️ 自定义标题后添加",
         },
+        "---",
+        {
+          action: "pinCurrentPageToPages",
+          menuTitle: "📄 Pin 当前文档页面",
+        },
         {
           action: "showPinBoard",
           menuTitle: "📋 打开 Pin 卡片库",
