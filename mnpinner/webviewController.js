@@ -411,7 +411,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     try {
       // ✅ 如果是 pages 分区，转发到 deletePage
       if (button.section === "pages") {
-        pinnerUtils.log("检测到 pages 分区，转发到 deletePage", "deleteCard")
         return self.deletePage(button)
       }
 
@@ -420,7 +419,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       if (!noteId) {
         MNUtil.showHUD("无法获取卡片ID")
-        pinnerUtils.log("此时的 Button: " + JSON.stringify(button), "deleteCard")
         return
       }
 
@@ -449,14 +447,12 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     try {
       // ✅ 如果是 pages 分区，转发到 jumpToPage
       if (button.section === "pages") {
-        pinnerUtils.log("检测到 pages 分区，转发到 jumpToPage", "focusCardTapped")
         return self.jumpToPage(button)
       }
 
       let noteId = button.noteId
       if (!noteId) {
         MNUtil.showHUD("无法获取卡片ID")
-        pinnerUtils.log("此时的 Button: " + JSON.stringify(button), "focusCardTapped")
         return
       }
 
@@ -956,7 +952,194 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       pinnerUtils.addErrorLog(error, "updatePageProgress")
       MNUtil.showHUD("更新失败: " + error.message)
     }
-  }
+  },
+
+  /**
+   * Pin 当前页面到 Pages 分区
+   */
+  pinCurrentPage: function(button) {
+    try {
+      // 获取当前文档控制器
+      let docController = MNUtil.currentDocController
+      if (!docController) {
+        MNUtil.showHUD("当前没有打开的文档")
+        return
+      }
+
+      // 获取当前文档的 MD5
+      let docMd5 = docController.document.docMd5
+      if (!docMd5) {
+        MNUtil.showHUD("无法获取当前文档信息")
+        return
+      }
+
+      // 获取当前页面索引
+      let pageIndex = docController.currPageIndex
+      if (pageIndex === undefined || pageIndex === null) {
+        MNUtil.showHUD("无法获取当前页码")
+        return
+      }
+
+      // 添加到 pages 分区（使用 undefined 让其自动生成标题）
+      let success = pinnerConfig.addPagePin(docMd5, pageIndex, undefined, undefined)
+
+      if (success) {
+        MNUtil.showHUD(`已 Pin 第 ${pageIndex + 1} 页`)
+        // 刷新 pages 视图
+        self.refreshPageCards()
+      } else {
+        MNUtil.showHUD("该页面已存在")
+      }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinCurrentPage")
+      MNUtil.showHUD("Pin 失败: " + error.message)
+    }
+  },
+
+  /**
+   * 清空 Pages 分区
+   */
+  clearPages: async function(button) {
+    try {
+      let confirm = await MNUtil.confirm("清空 Pages 分区的所有页面？", "")
+      if (!confirm) return
+
+      pinnerConfig.sections.pages = []
+      pinnerConfig.save()
+
+      self.refreshPageCards()
+      MNUtil.showHUD("已清空 Pages")
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "clearPages")
+      MNUtil.showHUD("清空失败")
+    }
+  },
+
+  /**
+   * 跳转到文档页面（参考 mnsnipaste 的文档定位实现）
+   */
+  jumpToPage: async function(button) {
+    try {
+      // 使用 tag 获取索引，然后从数据源获取页面数据
+      let index = button.tag
+      let pages = pinnerConfig.getPagePins()
+      let page = pages[index]
+
+      // 验证页面数据
+      if (!page) {
+        MNUtil.showHUD("页面不存在")
+        return
+      }
+
+      let docMd5 = page.docMd5
+      let pageIndex = page.pageIndex
+
+      // 验证文档存在
+      let docInfo = pinnerConfig.getDocInfo(docMd5)
+      if (!docInfo.doc) {
+        MNUtil.showHUD("文档不存在")
+        return
+      }
+
+      // 验证页码范围
+      if (pageIndex < 0 || pageIndex > docInfo.lastPageIndex) {
+        MNUtil.showHUD(`页码超出范围(0-${docInfo.lastPageIndex})`)
+        return
+      }
+
+      // 打开文档（如果不是当前文档）
+      if (docMd5 !== MNUtil.currentDocMd5) {
+        MNUtil.openDoc(docMd5)
+
+        // 确保文档视图可见（参考 mnsnipaste 的实现）
+        if (MNUtil.docMapSplitMode === 0) {
+          MNUtil.docMapSplitMode = 1  // 从纯脑图切换到分割模式
+        }
+
+        // 等待文档加载（优化：参考 mnsnipaste 使用 0.01 秒）
+        await MNUtil.delay(0.01)
+      }
+
+      // 跳转到指定页面
+      let docController = MNUtil.currentDocController
+      if (!docController) {
+        MNUtil.showHUD("无法获取文档控制器")
+        return
+      }
+
+      if (docController.currPageIndex !== pageIndex) {
+        docController.setPageAtIndex(pageIndex)
+      }
+
+      MNUtil.showHUD(`已跳转到第 ${pageIndex + 1} 页`)
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "jumpToPage")
+      MNUtil.showHUD("跳转失败: " + error.message)
+    }
+  },
+  /**
+   * 删除页面
+   */
+  deletePage: async function(button) {
+    try {
+      // 使用 tag 获取索引，然后从数据源获取页面数据
+      let index = button.tag
+      let pages = pinnerConfig.getPagePins()
+      let page = pages[index]
+
+      if (!page) {
+        MNUtil.showHUD("页面不存在")
+        return
+      }
+
+      pinnerConfig.removePagePin(page.docMd5, page.pageIndex)
+      self.refreshPageCards()
+      MNUtil.showHUD("已删除")
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "deletePage")
+    }
+  },
+
+  /**
+   * 上移页面
+   */
+  movePageUp: async function(button) {
+    try {
+      let oldIndex = button.tag
+      let newIndex = oldIndex - 1
+
+      if (newIndex >= 0) {
+        pinnerConfig.movePagePin(oldIndex, newIndex)
+        // refreshPageCards 会在 movePagePin 中自动调用
+      }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "movePageUp")
+    }
+  },
+
+  /**
+   * 下移页面
+   */
+  movePageDown: async function(button) {
+    try {
+      let oldIndex = button.tag
+      let newIndex = oldIndex + 1
+
+      let totalPages = pinnerConfig.getPagePins().length
+      if (newIndex < totalPages) {
+        pinnerConfig.movePagePin(oldIndex, newIndex)
+        // refreshPageCards 会在 movePagePin 中自动调用
+      }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "movePageDown")
+    }
+  },
 });
 
 // ========== 原型方法 ==========
@@ -1474,15 +1657,28 @@ pinnerController.prototype.createSectionViews = function() {
     })
     this[section + "ClearButton"] = clearButton
 
-    // 创建刷新按钮
-    let refreshButton = UIButton.buttonWithType(0)
-    refreshButton.addTargetActionForControlEvents(this, section === "pages" ? "refreshPages:" : "refreshCards:", 1 << 6)
-    refreshButton.section = section  // 保存分区信息
-    buttonScrollView.addSubview(refreshButton)
-    MNButton.setConfig(refreshButton, {
-      color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "🔄 刷新", radius: 10, font: 15
-    })
-    this[section + "RefreshButton"] = refreshButton
+    // 为 pages 分区创建 Pin 按钮，其他分区创建刷新按钮
+    if (section === "pages") {
+      // 创建 Pin 按钮
+      let pinButton = UIButton.buttonWithType(0)
+      pinButton.addTargetActionForControlEvents(this, "pinCurrentPage:", 1 << 6)
+      pinButton.section = section
+      buttonScrollView.addSubview(pinButton)
+      MNButton.setConfig(pinButton, {
+        color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "📌 Pin", radius: 10, font: 15
+      })
+      this[section + "PinButton"] = pinButton
+    } else {
+      // 创建刷新按钮
+      let refreshButton = UIButton.buttonWithType(0)
+      refreshButton.addTargetActionForControlEvents(this, "refreshCards:", 1 << 6)
+      refreshButton.section = section
+      buttonScrollView.addSubview(refreshButton)
+      MNButton.setConfig(refreshButton, {
+        color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "🔄 刷新", radius: 10, font: 15
+      })
+      this[section + "RefreshButton"] = refreshButton
+    }
 
     // 创建卡片滚动视图
     let cardScrollView = this.createScrollview(viewName, "#f5f5f5", 0.9)
@@ -1568,7 +1764,8 @@ pinnerController.prototype.layoutSectionView = function(section) {
   let scrollViewKey = section + "CardScrollView"
   let buttonScrollViewKey = section + "ButtonScrollView"
   let clearButtonKey = section + "ClearButton"
-  let refreshButtonKey = section + "RefreshButton"
+  // pages 分区使用 PinButton，其他分区使用 RefreshButton
+  let secondButtonKey = section === "pages" ? section + "PinButton" : section + "RefreshButton"
 
   if (!this[scrollViewKey]) return
 
@@ -1584,8 +1781,8 @@ pinnerController.prototype.layoutSectionView = function(section) {
     if (this[clearButtonKey]) {
       this[clearButtonKey].frame = {x: 0, y: 0, width: 70, height: 32}
     }
-    if (this[refreshButtonKey]) {
-      this[refreshButtonKey].frame = {x: 75, y: 0, width: 70, height: 32}
+    if (this[secondButtonKey]) {
+      this[secondButtonKey].frame = {x: 75, y: 0, width: 70, height: 32}
     }
   }
 
@@ -1855,157 +2052,6 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   rowView.addSubview(deleteButton)
 
   return rowView
-}
-
-/**
- * 跳转到文档页面（参考 mnsnipaste 的文档定位实现）
- */
-pinnerController.prototype.jumpToPage = async function(button) {
-  try {
-    // 使用 tag 获取索引，然后从数据源获取页面数据
-    let index = button.tag
-    let pages = pinnerConfig.getPagePins()
-    let page = pages[index]
-
-    // 验证页面数据
-    if (!page) {
-      MNUtil.showHUD("页面不存在")
-      return
-    }
-
-    let docMd5 = page.docMd5
-    let pageIndex = page.pageIndex
-
-    // 验证文档存在
-    let docInfo = pinnerConfig.getDocInfo(docMd5)
-    if (!docInfo.doc) {
-      MNUtil.showHUD("文档不存在")
-      return
-    }
-
-    // 验证页码范围
-    if (pageIndex < 0 || pageIndex > docInfo.lastPageIndex) {
-      MNUtil.showHUD(`页码超出范围(0-${docInfo.lastPageIndex})`)
-      return
-    }
-
-    // 打开文档（如果不是当前文档）
-    if (docMd5 !== MNUtil.currentDocMd5) {
-      MNUtil.openDoc(docMd5)
-
-      // 确保文档视图可见（参考 mnsnipaste 的实现）
-      if (MNUtil.docMapSplitMode === 0) {
-        MNUtil.docMapSplitMode = 1  // 从纯脑图切换到分割模式
-      }
-
-      // 等待文档加载（优化：参考 mnsnipaste 使用 0.01 秒）
-      await MNUtil.delay(0.01)
-    }
-
-    // 跳转到指定页面
-    let docController = MNUtil.currentDocController
-    if (!docController) {
-      MNUtil.showHUD("无法获取文档控制器")
-      return
-    }
-
-    if (docController.currPageIndex !== pageIndex) {
-      docController.setPageAtIndex(pageIndex)
-    }
-
-    MNUtil.showHUD(`已跳转到第 ${pageIndex + 1} 页`)
-
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "jumpToPage")
-    MNUtil.showHUD("跳转失败: " + error.message)
-  }
-}
-/**
- * 删除页面
- */
-pinnerController.prototype.deletePage = function(button) {
-  try {
-    // 使用 tag 获取索引，然后从数据源获取页面数据
-    let index = button.tag
-    let pages = pinnerConfig.getPagePins()
-    let page = pages[index]
-
-    if (!page) {
-      MNUtil.showHUD("页面不存在")
-      return
-    }
-
-    pinnerConfig.removePagePin(page.docMd5, page.pageIndex)
-    this.refreshPageCards()
-    MNUtil.showHUD("已删除")
-
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "deletePage")
-  }
-}
-
-/**
- * 上移页面
- */
-pinnerController.prototype.movePageUp = function(button) {
-  try {
-    let oldIndex = button.tag
-    let newIndex = oldIndex - 1
-
-    if (newIndex >= 0) {
-      pinnerConfig.movePagePin(oldIndex, newIndex)
-      // refreshPageCards 会在 movePagePin 中自动调用
-    }
-
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "movePageUp")
-  }
-}
-
-/**
- * 下移页面
- */
-pinnerController.prototype.movePageDown = function(button) {
-  try {
-    let oldIndex = button.tag
-    let newIndex = oldIndex + 1
-
-    let totalPages = pinnerConfig.getPagePins().length
-    if (newIndex < totalPages) {
-      pinnerConfig.movePagePin(oldIndex, newIndex)
-      // refreshPageCards 会在 movePagePin 中自动调用
-    }
-
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "movePageDown")
-  }
-}
-
-/**
- * 刷新页面按钮
- */
-pinnerController.prototype.refreshPages = function(button) {
-  this.refreshPageCards()
-  MNUtil.showHUD("已刷新")
-}
-
-/**
- * 清空页面
- */
-pinnerController.prototype.clearPages = async function(button) {
-  try {
-    let confirm = await MNUtil.confirm("清空 Pages 分区的所有页面？", "")
-    if (!confirm) return
-
-    pinnerConfig.sections.pages = []
-    pinnerConfig.save()
-
-    this.refreshPageCards()
-    MNUtil.showHUD("已清空 Pages")
-
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "clearPages")
-  }
 }
 
 
