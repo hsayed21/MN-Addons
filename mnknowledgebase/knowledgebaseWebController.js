@@ -567,21 +567,71 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
 
       case "moveComments":
         // 移动评论到指定索引
-        await this.moveComments(
-          config.params.noteId,
-          config.params.indexArr,
-          config.params.targetIndex
-        )
-        success = true
+        KnowledgeBaseUtils.log("收到 moveComments 请求", "executeAction")
+        KnowledgeBaseUtils.log("原始参数", "executeAction", config.params)
+
+        try {
+          // 解析参数（注意：HTML 发送的是 id，不是 noteId）
+          const moveNoteId = config.params.id
+          const moveIndexArr = JSON.parse(config.params.indexArr)
+          const moveTargetIndex = parseInt(config.params.targetIndex)
+
+          KnowledgeBaseUtils.log("解析后参数", "executeAction", {
+            moveNoteId,
+            moveIndexArr,
+            moveTargetIndex
+          })
+
+          await this.moveComments(moveNoteId, moveIndexArr, moveTargetIndex)
+          success = true
+        } catch (error) {
+          KnowledgeBaseUtils.log("moveComments 失败: " + error.message, "executeAction")
+          MNUtil.showHUD("移动失败: " + error.message)
+        }
         break
 
       case "deleteComments":
         // 删除评论
-        await this.deleteComments(
-          config.params.noteId,
-          config.params.indexArr
-        )
-        success = true
+        KnowledgeBaseUtils.log("收到 deleteComments 请求", "executeAction")
+        KnowledgeBaseUtils.log("原始参数", "executeAction", config.params)
+
+        try {
+          const deleteNoteId = config.params.id
+          const deleteIndexArr = JSON.parse(config.params.indexArr)
+
+          KnowledgeBaseUtils.log("解析后参数", "executeAction", {
+            deleteNoteId,
+            deleteIndexArr
+          })
+
+          await this.deleteComments(deleteNoteId, deleteIndexArr)
+          success = true
+        } catch (error) {
+          KnowledgeBaseUtils.log("deleteComments 失败: " + error.message, "executeAction")
+          MNUtil.showHUD("删除失败: " + error.message)
+        }
+        break
+
+      case "extractComments":
+        // 提取评论创建子卡片
+        KnowledgeBaseUtils.log("收到 extractComments 请求", "executeAction")
+        KnowledgeBaseUtils.log("原始参数", "executeAction", config.params)
+
+        try {
+          const extractNoteId = config.params.id
+          const extractIndexArr = JSON.parse(config.params.indexArr)
+
+          KnowledgeBaseUtils.log("解析后参数", "executeAction", {
+            extractNoteId,
+            extractIndexArr
+          })
+
+          await this.extractComments(extractNoteId, extractIndexArr)
+          success = true
+        } catch (error) {
+          KnowledgeBaseUtils.log("extractComments 失败: " + error.message, "executeAction")
+          MNUtil.showHUD("提取失败: " + error.message)
+        }
         break
 
       default:
@@ -1336,27 +1386,34 @@ knowledgebaseWebController.prototype.moveCommentsToField = async function(noteId
 knowledgebaseWebController.prototype.moveComments = async function(noteId, indexArr, targetIndex) {
   try {
     KnowledgeBaseUtils.log("开始执行", "moveComments")
-    KnowledgeBaseUtils.log("noteId: " + noteId, "moveComments")
-    KnowledgeBaseUtils.log("indexArr: " + JSON.stringify(indexArr), "moveComments")
-    KnowledgeBaseUtils.log("targetIndex: " + targetIndex, "moveComments")
+    KnowledgeBaseUtils.log("参数", "moveComments", {
+      noteId,
+      indexArr,
+      targetIndex,
+      indexArrType: typeof indexArr,
+      targetIndexType: typeof targetIndex
+    })
 
     // 获取卡片
     const note = MNNote.new(noteId)
     if (!note) {
+      KnowledgeBaseUtils.log("未找到卡片", "moveComments", { noteId })
       MNUtil.showHUD("未找到卡片")
       return
     }
 
-    // 调用移动方法
+    KnowledgeBaseUtils.log("找到卡片", "moveComments", { noteTitle: note.noteTitle })
+
+    // 调用真实 API（参考 utils.js:6958-6968）
     MNUtil.undoGrouping(() => {
       try {
         note.moveCommentsByIndexArr(indexArr, targetIndex)
         note.refresh()
         MNUtil.showHUD(`成功移动 ${indexArr.length} 项评论`)
-        KnowledgeBaseUtils.log("评论移动成功", "moveComments")
+        KnowledgeBaseUtils.log("移动成功", "moveComments")
       } catch (error) {
         MNUtil.showHUD("移动失败: " + error.message)
-        KnowledgeBaseUtils.log("移动评论失败: " + error.message, "moveComments")
+        KnowledgeBaseUtils.log("移动失败", "moveComments", { error: error.message })
         throw error
       }
     })
@@ -1365,7 +1422,7 @@ knowledgebaseWebController.prototype.moveComments = async function(noteId, index
     await this.loadCommentData(noteId)
 
   } catch (error) {
-    KnowledgeBaseUtils.log("发生错误: " + error.message, "moveComments")
+    KnowledgeBaseUtils.log("发生错误", "moveComments", { error: error.message })
     MNUtil.showHUD("移动评论失败: " + error)
     KnowledgeBaseUtils.addErrorLog(error, "moveComments")
   }
@@ -1379,26 +1436,32 @@ knowledgebaseWebController.prototype.moveComments = async function(noteId, index
 knowledgebaseWebController.prototype.deleteComments = async function(noteId, indexArr) {
   try {
     KnowledgeBaseUtils.log("开始执行", "deleteComments")
-    KnowledgeBaseUtils.log("noteId: " + noteId, "deleteComments")
-    KnowledgeBaseUtils.log("indexArr: " + JSON.stringify(indexArr), "deleteComments")
+    KnowledgeBaseUtils.log("参数", "deleteComments", {
+      noteId,
+      indexArr,
+      indexArrType: typeof indexArr
+    })
 
     // 获取卡片
     const note = MNNote.new(noteId)
     if (!note) {
+      KnowledgeBaseUtils.log("未找到卡片", "deleteComments", { noteId })
       MNUtil.showHUD("未找到卡片")
       return
     }
 
-    // 调用删除方法
+    KnowledgeBaseUtils.log("找到卡片", "deleteComments", { noteTitle: note.noteTitle })
+
+    // 调用真实 API（参考 utils.js:7077-7090）
     MNUtil.undoGrouping(() => {
       try {
         note.removeCommentsByIndexArr(indexArr)
         note.refresh()
         MNUtil.showHUD(`成功删除 ${indexArr.length} 项评论`)
-        KnowledgeBaseUtils.log("评论删除成功", "deleteComments")
+        KnowledgeBaseUtils.log("删除成功", "deleteComments")
       } catch (error) {
         MNUtil.showHUD("删除失败: " + error.message)
-        KnowledgeBaseUtils.log("删除评论失败: " + error.message, "deleteComments")
+        KnowledgeBaseUtils.log("删除失败", "deleteComments", { error: error.message })
         throw error
       }
     })
@@ -1407,9 +1470,102 @@ knowledgebaseWebController.prototype.deleteComments = async function(noteId, ind
     await this.loadCommentData(noteId)
 
   } catch (error) {
-    KnowledgeBaseUtils.log("发生错误: " + error.message, "deleteComments")
+    KnowledgeBaseUtils.log("发生错误", "deleteComments", { error: error.message })
     MNUtil.showHUD("删除评论失败: " + error)
     KnowledgeBaseUtils.addErrorLog(error, "deleteComments")
+  }
+}
+
+/**
+ * 提取评论创建子卡片（参考 utils.js:7096-7160）
+ * @param {string} noteId - 卡片ID
+ * @param {Array} indexArr - 要提取的评论索引数组
+ */
+knowledgebaseWebController.prototype.extractComments = async function(noteId, indexArr) {
+  try {
+    KnowledgeBaseUtils.log("开始执行", "extractComments")
+    KnowledgeBaseUtils.log("参数", "extractComments", {
+      noteId,
+      indexArr,
+      indexArrType: typeof indexArr
+    })
+
+    // 获取卡片
+    const note = MNNote.new(noteId)
+    if (!note) {
+      KnowledgeBaseUtils.log("未找到卡片", "extractComments", { noteId })
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    KnowledgeBaseUtils.log("找到卡片", "extractComments", { noteTitle: note.noteTitle })
+
+    let extractResultNote
+
+    // 调用真实 API（参考 utils.js:7096-7160）
+    MNUtil.undoGrouping(() => {
+      try {
+        extractResultNote = KnowledgeBaseTemplate.extractComments(note, indexArr)
+
+        // 刷新显示
+        extractResultNote.refresh()
+        note.refresh()
+
+        MNUtil.showHUD(`成功提取 ${indexArr.length} 项评论为新卡片`)
+        KnowledgeBaseUtils.log("提取成功", "extractComments")
+
+        // 在脑图中聚焦新创建的卡片
+        MNUtil.focusNoteInMindMapById(extractResultNote.noteId, 0.5)
+
+      } catch (error) {
+        MNUtil.showHUD("提取失败: " + error.message)
+        KnowledgeBaseUtils.log("提取失败", "extractComments", { error: error.message })
+        throw error
+      }
+    })
+
+    // 询问是否删除原评论（简化版，不询问制卡）
+    if (extractResultNote) {
+      await MNUtil.delay(0.5)
+
+      // 使用简单的确认对话框
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        "提取完成",
+        `已成功提取 ${indexArr.length} 项评论到新卡片。\n\n是否从原卡片中删除这些评论？`,
+        0,
+        "保留原评论",
+        ["删除原评论"],
+        (alert, buttonIndex) => {
+          if (buttonIndex === 1) {
+            // 用户选择删除原评论
+            MNUtil.undoGrouping(() => {
+              try {
+                // 先清理被提取内容中链接对应卡片的反向链接
+                KnowledgeBaseTemplate.cleanupExtractedContentLinks(note, indexArr)
+
+                // 删除原评论
+                note.removeCommentsByIndexArr(indexArr)
+                note.refresh()
+
+                MNUtil.showHUD("已删除原卡片中的评论")
+                KnowledgeBaseUtils.log("已删除原评论", "extractComments")
+              } catch (error) {
+                MNUtil.showHUD("删除原评论失败: " + error.message)
+                KnowledgeBaseUtils.log("删除原评论失败", "extractComments", { error: error.message })
+              }
+            })
+          }
+
+          // 刷新数据（无论是否删除都需要刷新）
+          this.loadCommentData(noteId)
+        }
+      )
+    }
+
+  } catch (error) {
+    KnowledgeBaseUtils.log("发生错误", "extractComments", { error: error.message })
+    MNUtil.showHUD("提取评论失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "extractComments")
   }
 }
 

@@ -1315,7 +1315,7 @@
 
     /**
      * 将原始评论类型转换为细分类型
-     * 参考：mnutils/mnnote.js - MNComment.getCommentType()
+     * 参考 mnsnipaste 的实现（简化版）
      *
      * @param {Object} comment - 包含 originalType 的评论对象
      * @returns {string} 细分后的评论类型
@@ -1323,98 +1323,122 @@
     function detectDetailedType(comment) {
       const originalType = comment.originalType;
 
-      // TextNote 系列
-      if (originalType === "TextNote") {
-        if (!comment.text || comment.text.trim() === "") {
-          return "blankTextComment";
-        }
-        // 简化判断，实际可根据内容特征进一步细分
-        return "textComment";
-      }
+      switch (originalType) {
+        case "TextNote":
+          // 空文本
+          if (!comment.text || comment.text.trim() === "") {
+            return "blankTextComment";
+          }
 
-      // HtmlNote
-      if (originalType === "HtmlNote") {
-        return "HtmlComment";
-      }
+          // 特殊：链接到其他笔记
+          if (/^marginnote\dapp:\/\//.test(comment.text)) {
+            return "linkToNote";
+          }
 
-      // LinkNote（合并摘录）
-      if (originalType === "LinkNote") {
-        // 根据是否有图片判断
-        if (comment.imageBase64) {
-          // 进一步判断是否包含手写
-          // 实际实现中可通过额外字段标识
-          return "mergedImageComment";
-        }
-        return "linkComment";
-      }
+          // 普通文本
+          return "textComment";
 
-      // PaintNote（图片/手写）
-      if (originalType === "PaintNote") {
-        if (!comment.imageBase64) {
-          return "blankImageComment";
-        }
-        // 简化判断：默认为图片评论
-        // 实际可通过额外字段区分 imageComment vs drawingComment
-        return "imageComment";
-      }
+        case "PaintNote":
+          // 图片评论（包括手写，统一处理）
+          return comment.imageBase64 ? "imageComment" : "blankImageComment";
 
-      // AudioNote
-      if (originalType === "AudioNote") {
-        return "audioComment";
-      }
+        case "HtmlNote":
+          return "HtmlComment";
 
-      // 默认
-      return "textComment";
+        case "LinkNote":
+          // 合并评论：优先判断是否有图片
+          if (comment.imageBase64) {
+            return "mergedImageComment";
+          }
+          // 纯链接评论（没有图片也没有文本）
+          return "linkComment";
+
+        case "AudioNote":
+          return "audioComment";
+
+        default:
+          return "textComment";
+      }
     }
 
     // ========================================
     // 字段识别功能
     // ========================================
+    /**
+     * 解析卡片评论，识别字段结构
+     * 参考 utils.js 的 parseNoteComments() 函数实现
+     *
+     * @returns {Array} 字段数组，每个字段包含：
+     *   - name: 字段名称
+     *   - index: 字段标题的评论索引
+     *   - startIndex: 字段内容起始索引（不包含字段标题）
+     *   - endIndex: 字段内容结束索引
+     *   - comments: 字段下的评论数组
+     */
     function parseFieldsFromComments() {
       const fields = [];
-      let currentField = {
-        name: '默认',  // 第一个字段前的评论都属于"默认"字段
-        startIndex: 0,
-        endIndex: -1,
-        comments: []
-      };
+      const htmlCommentIndices = [];
 
+      // 第一步：收集所有 HtmlComment 的索引和内容
       state.comments.forEach((comment, index) => {
-        // 检查是否是 HTML 评论字段标题
         if (comment.type === 'HtmlComment') {
-          const match = comment.htmlText?.match(/^<h\d+>(.+)：<\/h\d+>$/) ||
-                        comment.text?.match(/^(.+)：$/);
+          // 优先使用 htmlText，并去除 HTML 标签
+          let fieldName = comment.htmlText || comment.text || 'HTML字段';
+          fieldName = stripHtml(fieldName);
 
-          if (match) {
-            // 这是一个字段标题
-            const fieldName = match[1];
+          htmlCommentIndices.push({
+            index: index,
+            name: fieldName
+          });
+        }
+      });
 
-            // 保存上一个字段
-            if (currentField.comments.length > 0) {
-              currentField.endIndex = index - 1;
-              fields.push({ ...currentField });
-            }
+      // 如果没有字段，所有评论属于"默认"字段
+      if (htmlCommentIndices.length === 0) {
+        if (state.comments.length > 0) {
+          fields.push({
+            name: '默认',
+            index: -1,
+            startIndex: 0,
+            endIndex: state.comments.length - 1,
+            comments: state.comments
+          });
+        }
+        return fields;
+      }
 
-            // 开始新字段
-            currentField = {
-              name: fieldName,
-              startIndex: index + 1,  // 字段内容从下一条评论开始
-              endIndex: -1,
-              comments: []
-            };
+      // 第二步：计算每个字段的范围
+      for (let i = 0; i < htmlCommentIndices.length; i++) {
+        const currentField = htmlCommentIndices[i];
+        const fieldComments = [];
+        let startIndex, endIndex;
 
-            return;  // 字段标题本身不加入评论列表
+        if (i === htmlCommentIndices.length - 1) {
+          // 最后一个字段：从当前字段的下一条到评论末尾
+          startIndex = currentField.index + 1;
+          endIndex = state.comments.length - 1;
+        } else {
+          // 中间字段：从当前字段的下一条到下一个字段之前
+          const nextField = htmlCommentIndices[i + 1];
+          startIndex = currentField.index + 1;
+          endIndex = nextField.index - 1;
+        }
+
+        // 收集字段内的评论
+        for (let j = startIndex; j <= endIndex; j++) {
+          if (j >= 0 && j < state.comments.length) {
+            fieldComments.push(state.comments[j]);
           }
         }
 
-        // 普通评论，加入当前字段
-        currentField.comments.push(comment);
-      });
-
-      // 保存最后一个字段
-      if (currentField.comments.length > 0) {
-        currentField.endIndex = state.comments.length - 1;
-        fields.push(currentField);
+        // 添加字段（即使没有内容也要添加，用户需要移动评论到空字段）
+        fields.push({
+          name: currentField.name,
+          index: currentField.index,
+          startIndex: startIndex,
+          endIndex: endIndex,
+          comments: fieldComments
+        });
       }
 
       return fields;
@@ -1513,13 +1537,20 @@
           contentHTML = createImageCardContent(comment);
           break;
         case 'linkComment':
+        case 'linkToNote':  // 新增：链接到其他笔记
           contentHTML = createLinkCardContent(comment);
+          break;
+        case 'mergedImageComment':  // 新增：合并评论
+          contentHTML = createMergedCardContent(comment);
           break;
         case 'drawingComment':
           contentHTML = createDrawingCardContent(comment);
           break;
         case 'HtmlComment':
           contentHTML = createHtmlCardContent(comment);
+          break;
+        case 'audioComment':  // 新增：音频评论
+          contentHTML = createAudioCardContent(comment);
           break;
         default:
           contentHTML = createTextCardContent(comment);
@@ -1595,6 +1626,11 @@
     function createImageCardContent(comment) {
       const typeInfo = getTypeInfo('imageComment');
 
+      // 添加 data URI 前缀（参考 mnsnipaste 的实现）
+      const imageSrc = comment.imageBase64
+        ? `data:image/jpeg;base64,${comment.imageBase64}`
+        : '';
+
       return `
         <div class="comment-header">
           <input type="checkbox" class="comment-checkbox">
@@ -1604,13 +1640,34 @@
         </div>
         <div class="comment-content">
           <div class="comment-preview">
-            ${comment.imageBase64 ? `<img src="${comment.imageBase64}" class="thumbnail" alt="图片评论" onerror="this.parentElement.innerHTML='图片加载失败'">` : '图片数据缺失'}
+            ${imageSrc ? `<img src="${imageSrc}" class="thumbnail" alt="图片评论" onerror="this.parentElement.innerHTML='图片加载失败'">` : '图片数据缺失'}
           </div>
         </div>
       `;
     }
 
     function createLinkCardContent(comment) {
+      // 处理链接到其他笔记的特殊情况
+      if (comment.type === "linkToNote") {
+        return `
+          <div class="comment-header">
+            <input type="checkbox" class="comment-checkbox">
+            <span class="comment-icon">🔗</span>
+            <span class="comment-index">${comment.index}</span>
+            <span class="comment-type-label">链接笔记</span>
+          </div>
+          <div class="comment-content">
+            <div class="comment-preview">
+              <div class="link-target">
+                <span class="link-arrow">→</span>
+                <span>链接到：${escapeHtml(comment.linkedNoteTitle || '未知卡片')}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 普通链接评论（合并摘录）
       const typeInfo = getTypeInfo('linkComment');
 
       return `
@@ -1634,6 +1691,11 @@
     function createDrawingCardContent(comment) {
       const typeInfo = getTypeInfo('drawingComment');
 
+      // 添加 data URI 前缀
+      const imageSrc = comment.imageBase64
+        ? `data:image/jpeg;base64,${comment.imageBase64}`
+        : '';
+
       return `
         <div class="comment-header">
           <input type="checkbox" class="comment-checkbox">
@@ -1643,7 +1705,7 @@
         </div>
         <div class="comment-content">
           <div class="comment-preview">
-            ${comment.imageBase64 ? `<img src="${comment.imageBase64}" class="thumbnail" alt="手写内容" onerror="this.parentElement.innerHTML='手写内容加载失败'">` : '手写数据缺失'}
+            ${imageSrc ? `<img src="${imageSrc}" class="thumbnail" alt="手写内容" onerror="this.parentElement.innerHTML='手写内容加载失败'">` : '手写数据缺失'}
           </div>
         </div>
       `;
@@ -1670,6 +1732,61 @@
       `;
     }
 
+    function createMergedCardContent(comment) {
+      const typeInfo = getTypeInfo('mergedImageComment');
+
+      // 参考 mnsnipaste 的实现：优先显示文本，如果没有文本则显示图片
+      let content = '';
+      if (comment.text) {
+        const needExpand = comment.text.length > 100;
+        content = `
+          <div class="comment-preview ${needExpand ? 'collapsed' : ''}">
+            ${escapeHtml(comment.text)}
+          </div>
+          ${needExpand ? '<button class="expand-btn">展开</button>' : ''}
+        `;
+      } else if (comment.imageBase64) {
+        const imageSrc = `data:image/jpeg;base64,${comment.imageBase64}`;
+        content = `
+          <div class="comment-preview">
+            <img src="${imageSrc}" class="thumbnail" alt="合并内容">
+          </div>
+        `;
+      } else {
+        content = '<div class="comment-preview">（空内容）</div>';
+      }
+
+      return `
+        <div class="comment-header">
+          <input type="checkbox" class="comment-checkbox">
+          <span class="comment-icon">${typeInfo.icon}</span>
+          <span class="comment-index">${comment.index}</span>
+          <span class="comment-type-label">${typeInfo.label}</span>
+        </div>
+        <div class="comment-content">
+          ${content}
+        </div>
+      `;
+    }
+
+    function createAudioCardContent(comment) {
+      const typeInfo = getTypeInfo('audioComment');
+
+      return `
+        <div class="comment-header">
+          <input type="checkbox" class="comment-checkbox">
+          <span class="comment-icon">${typeInfo.icon}</span>
+          <span class="comment-index">${comment.index}</span>
+          <span class="comment-type-label">${typeInfo.label}</span>
+        </div>
+        <div class="comment-content">
+          <div class="comment-preview">
+            ${escapeHtml(comment.text || '(音频评论)')}
+          </div>
+        </div>
+      `;
+    }
+
     // ========================================
     // 辅助函数：获取类型信息
     // ========================================
@@ -1678,8 +1795,13 @@
         'textComment': { icon: '📝', label: '文本' },
         'imageComment': { icon: '🖼️', label: '图片' },
         'linkComment': { icon: '🔗', label: '双向链接' },
+        'linkToNote': { icon: '🔗', label: '链接笔记' },  // 新增
+        'mergedImageComment': { icon: '📦', label: '合并内容' },  // 新增
         'drawingComment': { icon: '✍️', label: '手写' },
-        'HtmlComment': { icon: '📄', label: 'HTML' }
+        'HtmlComment': { icon: '📄', label: 'HTML' },
+        'audioComment': { icon: '🎵', label: '音频' },  // 新增
+        'blankTextComment': { icon: '⬜', label: '空文本' },  // 新增
+        'blankImageComment': { icon: '⬜', label: '空图片' }  // 新增
       };
 
       return typeMap[type] || { icon: '💬', label: '评论' };
@@ -2025,12 +2147,19 @@
 
       fields.forEach(field => {
         const fieldCommentsContainer = document.querySelector(
-          `.field-group[data-field="${field.name}"] .field-comments, .field-group .field-comments`
+          `.field-group[data-field="${field.name}"] .field-comments`
         );
 
         if (!fieldCommentsContainer) return;
 
         const commentCards = Array.from(fieldCommentsContainer.querySelectorAll('.comment-card'));
+
+        // 处理空字段：直接添加一个插入点
+        if (commentCards.length === 0) {
+          const insertPoint = createInsertPoint(field.startIndex, field.name, '空字段');
+          fieldCommentsContainer.appendChild(insertPoint);
+          return;
+        }
 
         // 在每两条评论之间添加插入点
         commentCards.forEach((card, idx) => {
@@ -2110,10 +2239,11 @@
     }
 
     function renderTargetOptions() {
+      const fields = parseFieldsFromComments();
       const options = [
         { value: 'top', icon: '🔝', label: '卡片最顶端' },
         { value: 'excerpt', icon: '📦', label: '摘录区' },
-        ...state.fields.map(f => ({ value: f.name, icon: '📦', label: f.name }))
+        ...fields.map(f => ({ value: f.name, icon: '📦', label: f.name }))
       ];
 
       let html = '';
@@ -2206,13 +2336,13 @@
     // ========================================
     function confirmExtract(indices) {
       if (confirm(`确定要提取 ${indices.length} 条评论吗？\n\n提取后会创建新的子卡片。`)) {
-        const actionData = {
-          action: 'extract',
-          selectedIndices: indices
-        };
+        // 调用 Bridge 方法
+        Bridge.extractComments(state.noteId, indices);
 
-        console.log('执行提取:', actionData);
-        showToast(`已提取 ${indices.length} 条评论`);
+        // 显示操作提示
+        showToast(`正在提取 ${indices.length} 条评论...`);
+
+        // 清空选择
         clearSelection();
       }
     }
@@ -2388,6 +2518,24 @@
         } catch (error) {
           console.error('Bridge.deleteComments 失败:', error);
           showToast('删除失败: ' + error.message);
+        }
+      },
+
+      /**
+       * 提取评论创建子卡片
+       * @param {string} noteId - 卡片 ID
+       * @param {Array<number>} indexArr - 评论索引数组
+       */
+      extractComments: function(noteId, indexArr) {
+        try {
+          const url = generateUrlScheme('mnknowledgebase', 'extractComments', {
+            id: noteId,
+            indexArr: JSON.stringify(indexArr)
+          });
+          window.location.href = url;
+        } catch (error) {
+          console.error('Bridge.extractComments 失败:', error);
+          showToast('提取失败: ' + error.message);
         }
       },
 
