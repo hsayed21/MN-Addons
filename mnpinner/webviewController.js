@@ -393,6 +393,12 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   deleteCard: function(button) {
     try {
+      // ✅ 如果是 pages 分区，转发到 deletePage
+      if (button.section === "pages") {
+        pinnerUtils.log("检测到 pages 分区，转发到 deletePage", "deleteCard")
+        return self.deletePage(button)
+      }
+
       let noteId = button.noteId
       let section = button.section || self.currentSection
 
@@ -425,6 +431,12 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   focusCardTapped: function(button) {
     try {
+      // ✅ 如果是 pages 分区，转发到 jumpToPage
+      if (button.section === "pages") {
+        pinnerUtils.log("检测到 pages 分区，转发到 jumpToPage", "focusCardTapped")
+        return self.jumpToPage(button)
+      }
+
       let noteId = button.noteId
       if (!noteId) {
         MNUtil.showHUD("无法获取卡片ID")
@@ -1469,7 +1481,7 @@ pinnerController.prototype.refreshPageCards = function() {
     let scrollWidth = scrollView.frame.width
 
     pages.forEach((page, index) => {
-      let pageRow = this.createPageRow(page, index, scrollWidth - 20)
+      let pageRow = this.createPageRow(page, index, scrollWidth - 20, "pages")  // ✅ 传入 section 参数
       scrollView.addSubview(pageRow)
       this[cardRowsKey].push(pageRow)
       yOffset += UI_CONSTANTS.PAGE_ROW_HEIGHT
@@ -1487,7 +1499,20 @@ pinnerController.prototype.refreshPageCards = function() {
 /**
  * 创建单个页面行视图
  */
-pinnerController.prototype.createPageRow = function(page, index, width) {
+pinnerController.prototype.createPageRow = function(page, index, width, section = "pages") {
+  // 🔍 调试日志：记录创建页面行时的数据
+  pinnerUtils.log({
+    step: "创建页面行",
+    index: index,
+    indexType: typeof index,
+    docMd5: page.docMd5,
+    pageIndex: page.pageIndex,
+    pageTitle: page.title,
+    section: section,  // 记录section
+    hasDocMd5: !!page.docMd5,
+    hasPageIndex: page.pageIndex !== undefined
+  }, "createPageRow")
+
   // 创建页面行容器
   let rowView = UIView.new()
   rowView.frame = {x: 10, y: 10 + index * UI_CONSTANTS.PAGE_ROW_HEIGHT, width: width, height: 45}
@@ -1499,6 +1524,7 @@ pinnerController.prototype.createPageRow = function(page, index, width) {
   // 保存页面信息
   rowView.docMd5 = page.docMd5
   rowView.pageIndex = page.pageIndex
+  rowView.section = section  // ✅ 添加 section 属性
 
   // 获取页面总数
   let totalPages = pinnerConfig.getPagePins().length
@@ -1546,6 +1572,7 @@ pinnerController.prototype.createPageRow = function(page, index, width) {
   focusButton.tag = index
   focusButton.docMd5 = page.docMd5
   focusButton.pageIndex = page.pageIndex
+  focusButton.section = section  // ✅ 添加 section 属性
   focusButton.addTargetActionForControlEvents(this, "jumpToPage:", 1 << 6)
   rowView.addSubview(focusButton)
 
@@ -1573,6 +1600,7 @@ pinnerController.prototype.createPageRow = function(page, index, width) {
   deleteButton.tag = index
   deleteButton.docMd5 = page.docMd5
   deleteButton.pageIndex = page.pageIndex
+  deleteButton.section = section  // ✅ 添加 section 属性
   deleteButton.addTargetActionForControlEvents(this, "deletePage:", 1 << 6)
   rowView.addSubview(deleteButton)
 
@@ -1580,40 +1608,100 @@ pinnerController.prototype.createPageRow = function(page, index, width) {
 }
 
 /**
- * 跳转到文档页面
+ * 跳转到文档页面（参考 mnsnipaste 的文档定位实现）
  */
-pinnerController.prototype.jumpToPage = function(button) {
+pinnerController.prototype.jumpToPage = async function(button) {
   try {
-    let docMd5 = button.docMd5
-    let pageIndex = button.pageIndex
+    // 使用 tag 获取索引，然后从数据源获取页面数据
+    let index = button.tag
+    let pages = pinnerConfig.getPagePins()
+    let page = pages[index]
 
-    if (!docMd5 || pageIndex === undefined) {
-      MNUtil.showHUD("页面信息无效")
+    // 🔍 调试日志：记录按钮和数据传递情况
+    pinnerUtils.log({
+      step: "开始跳转",
+      buttonTag: index,
+      buttonTagType: typeof index,
+      totalPages: pages.length,
+      pageExists: !!page,
+      buttonDocMd5: button.docMd5,  // 检查按钮自定义属性
+      buttonPageIndex: button.pageIndex
+    }, "jumpToPage:start")
+
+    // 1. 验证页面数据
+    if (!page) {
+      MNUtil.showHUD("页面不存在")
+      pinnerUtils.log({
+        error: "页面不存在",
+        index: index,
+        totalPages: pages.length
+      }, "jumpToPage:error")
       return
     }
 
-    // 获取文档信息
+    let docMd5 = page.docMd5
+    let pageIndex = page.pageIndex
+
+    // 🔍 调试日志：记录页面数据
+    pinnerUtils.log({
+      step: "获取页面数据",
+      docMd5: docMd5,
+      pageIndex: pageIndex,
+      pageTitle: page.title,
+      hasDocMd5: !!docMd5,
+      hasPageIndex: pageIndex !== undefined
+    }, "jumpToPage:pageData")
+
+    // 2. 验证文档存在
     let docInfo = pinnerConfig.getDocInfo(docMd5)
     if (!docInfo.doc) {
       MNUtil.showHUD("文档不存在")
       return
     }
 
-    // 打开文档
-    MNUtil.openDoc(docMd5)
+    // 3. 验证页码范围
+    if (pageIndex < 0 || pageIndex > docInfo.lastPageIndex) {
+      MNUtil.showHUD(`页码超出范围(0-${docInfo.lastPageIndex})`)
+      return
+    }
 
-    // 延迟跳转到指定页
-    MNUtil.delay(0.3, () => {
-      let docController = MNUtil.currentDocController
-      if (docController && docController.docMd5 === docMd5) {
-        docController.setPageAtIndex(pageIndex)
-        MNUtil.showHUD(`已跳转到第 ${pageIndex + 1} 页`)
+    // 4. 打开文档（如果不是当前文档）
+    if (docMd5 !== MNUtil.currentDocMd5) {
+      MNUtil.openDoc(docMd5)
+
+      // 5. 确保文档视图可见（参考 mnsnipaste 的实现）
+      if (MNUtil.docMapSplitMode === 0) {
+        MNUtil.docMapSplitMode = 1  // 从纯脑图切换到分割模式
       }
-    })
+
+      // 6. 等待文档加载（优化：参考 mnsnipaste 使用 0.01 秒）
+      await MNUtil.delay(0.01)
+    }
+
+    // 7. 跳转到指定页面
+    let docController = MNUtil.currentDocController
+    if (!docController) {
+      MNUtil.showHUD("无法获取文档控制器")
+      pinnerUtils.log("currentDocController is null", "jumpToPage:error")
+      return
+    }
+
+    if (docController.currPageIndex !== pageIndex) {
+      docController.setPageAtIndex(pageIndex)
+    }
+
+    MNUtil.showHUD(`已跳转到第 ${pageIndex + 1} 页`)
+
+    // 🔍 调试日志：记录成功跳转
+    pinnerUtils.log({
+      step: "跳转成功",
+      finalDocMd5: MNUtil.currentDocMd5,
+      finalPageIndex: docController.currPageIndex
+    }, "jumpToPage:success")
 
   } catch (error) {
     pinnerUtils.addErrorLog(error, "jumpToPage")
-    MNUtil.showHUD("跳转失败")
+    MNUtil.showHUD("跳转失败: " + error.message)
   }
 }
 
@@ -1622,14 +1710,27 @@ pinnerController.prototype.jumpToPage = function(button) {
  */
 pinnerController.prototype.pageItemTapped = function(button) {
   try {
-    let docMd5 = button.docMd5
-    let pageIndex = button.pageIndex
+    // 使用 tag 获取索引，然后从数据源获取页面数据
+    let index = button.tag
+    let pages = pinnerConfig.getPagePins()
+    let page = pages[index]
+
+    if (!page) {
+      MNUtil.showHUD("页面不存在")
+      return
+    }
+
+    // 创建参数对象传递给菜单项
+    let param = {
+      index: index,
+      page: page
+    }
 
     // 创建菜单
     let menu = MNUtil.genMenu()
-    menu.addMenuItem('📍 跳转到页面', 'jumpToPage:', button)
-    menu.addMenuItem('✏️ 重命名', 'renamePage:', button)
-    menu.addMenuItem('📝 编辑备注', 'editPageNote:', button)
+    menu.addMenuItem('📍 跳转到页面', 'jumpToPageFromMenu:', param)
+    menu.addMenuItem('✏️ 重命名', 'renamePage:', param)
+    menu.addMenuItem('📝 编辑备注', 'editPageNote:', param)
     menu.showInView(button)
 
   } catch (error) {
@@ -1638,17 +1739,81 @@ pinnerController.prototype.pageItemTapped = function(button) {
 }
 
 /**
+ * 从菜单跳转到页面（因为菜单传参方式不同，需要单独的方法）
+ */
+pinnerController.prototype.jumpToPageFromMenu = async function(param) {
+  try {
+    let page = param.page
+
+    if (!page) {
+      MNUtil.showHUD("页面不存在")
+      return
+    }
+
+    let docMd5 = page.docMd5
+    let pageIndex = page.pageIndex
+
+    // 验证文档存在
+    let docInfo = pinnerConfig.getDocInfo(docMd5)
+    if (!docInfo.doc) {
+      MNUtil.showHUD("文档不存在")
+      return
+    }
+
+    // 验证页码范围
+    if (pageIndex < 0 || pageIndex > docInfo.lastPageIndex) {
+      MNUtil.showHUD(`页码超出范围(0-${docInfo.lastPageIndex})`)
+      return
+    }
+
+    // 打开文档（如果不是当前文档）
+    if (docMd5 !== MNUtil.currentDocMd5) {
+      MNUtil.openDoc(docMd5)
+
+      // 确保文档视图可见
+      if (MNUtil.docMapSplitMode === 0) {
+        MNUtil.docMapSplitMode = 1
+      }
+
+      await MNUtil.delay(0.1)
+    }
+
+    // 跳转到指定页面
+    let docController = MNUtil.currentDocController
+    if (!docController) {
+      MNUtil.showHUD("无法获取文档控制器")
+      return
+    }
+
+    if (docController.currPageIndex !== pageIndex) {
+      docController.setPageAtIndex(pageIndex)
+    }
+
+    MNUtil.showHUD(`已跳转到第 ${pageIndex + 1} 页`)
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "jumpToPageFromMenu")
+    MNUtil.showHUD("跳转失败: " + error.message)
+  }
+}
+
+/**
  * 重命名页面
  */
-pinnerController.prototype.renamePage = async function(button) {
+pinnerController.prototype.renamePage = async function(param) {
   try {
-    let docMd5 = button.docMd5
-    let pageIndex = button.pageIndex
-    let currentTitle = button.pageTitle || ""
+    let page = param.page
+
+    if (!page) {
+      MNUtil.showHUD("页面不存在")
+      return
+    }
+
+    let currentTitle = page.title || ""
 
     let newTitle = await MNUtil.prompt("重命名", "", currentTitle)
     if (newTitle && newTitle !== currentTitle) {
-      pinnerConfig.updatePagePinTitle(docMd5, pageIndex, newTitle)
+      pinnerConfig.updatePagePinTitle(page.docMd5, page.pageIndex, newTitle)
       this.refreshPageCards()
       MNUtil.showHUD("已重命名")
     }
@@ -1661,19 +1826,20 @@ pinnerController.prototype.renamePage = async function(button) {
 /**
  * 编辑页面备注
  */
-pinnerController.prototype.editPageNote = async function(button) {
+pinnerController.prototype.editPageNote = async function(param) {
   try {
-    let docMd5 = button.docMd5
-    let pageIndex = button.pageIndex
+    let page = param.page
 
-    // 获取当前备注
-    let pages = pinnerConfig.getPagePins()
-    let page = pages.find(p => p.docMd5 === docMd5 && p.pageIndex === pageIndex)
-    let currentNote = page ? page.note || "" : ""
+    if (!page) {
+      MNUtil.showHUD("页面不存在")
+      return
+    }
+
+    let currentNote = page.note || ""
 
     let newNote = await MNUtil.prompt("编辑备注", "", currentNote)
     if (newNote !== null && newNote !== currentNote) {
-      pinnerConfig.updatePagePinNote(docMd5, pageIndex, newNote)
+      pinnerConfig.updatePagePinNote(page.docMd5, page.pageIndex, newNote)
       MNUtil.showHUD("已更新备注")
     }
 
@@ -1687,12 +1853,47 @@ pinnerController.prototype.editPageNote = async function(button) {
  */
 pinnerController.prototype.deletePage = function(button) {
   try {
-    let docMd5 = button.docMd5
-    let pageIndex = button.pageIndex
+    // 使用 tag 获取索引，然后从数据源获取页面数据
+    let index = button.tag
+    let pages = pinnerConfig.getPagePins()
+    let page = pages[index]
 
-    pinnerConfig.removePagePin(docMd5, pageIndex)
+    // 🔍 调试日志：记录删除操作的数据传递情况
+    pinnerUtils.log({
+      step: "开始删除",
+      buttonTag: index,
+      buttonTagType: typeof index,
+      totalPages: pages.length,
+      pageExists: !!page,
+      buttonDocMd5: button.docMd5,  // 检查按钮自定义属性
+      buttonPageIndex: button.pageIndex
+    }, "deletePage:start")
+
+    if (!page) {
+      MNUtil.showHUD("页面不存在")
+      pinnerUtils.log({
+        error: "页面不存在",
+        index: index,
+        totalPages: pages.length
+      }, "deletePage:error")
+      return
+    }
+
+    // 🔍 调试日志：记录即将删除的页面数据
+    pinnerUtils.log({
+      step: "准备删除",
+      docMd5: page.docMd5,
+      pageIndex: page.pageIndex,
+      pageTitle: page.title,
+      hasDocMd5: !!page.docMd5,
+      hasPageIndex: page.pageIndex !== undefined
+    }, "deletePage:pageData")
+
+    pinnerConfig.removePagePin(page.docMd5, page.pageIndex)
     this.refreshPageCards()
     MNUtil.showHUD("已删除")
+
+    pinnerUtils.log("删除成功", "deletePage:success")
 
   } catch (error) {
     pinnerUtils.addErrorLog(error, "deletePage")
