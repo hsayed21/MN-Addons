@@ -449,7 +449,7 @@ JSB.newAddon = function(mainPath){
                 title: targetParentNote.noteTitle
               }
             )
-            KnowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(processedNote, true)
+            // KnowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(processedNote, true)
             KnowledgeBaseUtils.log("命题处理完成（非归类父卡片）", "onProcessNewExcerpt", {
               noteId: processedNote.noteId,
               durationMs: Date.now() - propositionStartTime

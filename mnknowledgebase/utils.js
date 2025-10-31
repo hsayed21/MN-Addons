@@ -691,11 +691,18 @@ const kbOCRConfig = {
       replacement: "",
       description: "移除文本末尾的标点符号和空格"
     },
-    // {
-    //   pattern: "",
-    //   replacement: "",
-    //   description: ""
-    // },
+    {
+      pattern: "可证明|证明|可知",
+      replacement: "则",
+    },
+    {
+      pattern: "",
+      replacement: "",
+    },
+    {
+      pattern: "",
+      replacement: "",
+    },
   ]
 };
 
