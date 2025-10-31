@@ -1010,6 +1010,50 @@ class pinnerConfig {
   }
 
   /**
+   * 更新页面 Pin 的页码（用于更新阅读进度）
+   * @param {string} docMd5 - 文档 MD5
+   * @param {number} oldPageIndex - 原页码
+   * @param {number} newPageIndex - 新页码
+   * @returns {object} 返回 {success: boolean, message: string}
+   */
+  static updatePagePinPageIndex(docMd5, oldPageIndex, newPageIndex) {
+    try {
+      this.ensurePagesArray()
+      let pages = this.sections.pages
+      let pagePin = pages.find(p => p.docMd5 === docMd5 && p.pageIndex === oldPageIndex)
+
+      if (!pagePin) {
+        return { success: false, message: "未找到对应的页面 Pin" }
+      }
+
+      if (oldPageIndex === newPageIndex) {
+        return { success: false, message: "页码未改变，无需更新" }
+      }
+
+      // 检查新页码是否在有效范围内
+      let docInfo = this.getDocInfo(docMd5)
+      if (!docInfo.doc) {
+        return { success: false, message: "文档不存在" }
+      }
+      if (newPageIndex < 0 || newPageIndex > docInfo.lastPageIndex) {
+        return { success: false, message: `页码超出范围（0-${docInfo.lastPageIndex}）` }
+      }
+
+      // 更新页码，保留标题和备注
+      pagePin.pageIndex = newPageIndex
+      pagePin.pinnedAt = Date.now()
+      this.save()
+
+      pinnerUtils.log(`Updated page pin pageIndex: ${oldPageIndex} -> ${newPageIndex}`, "pinnerConfig:updatePagePinPageIndex")
+      return { success: true, message: `已更新到第${newPageIndex + 1}页` }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:updatePagePinPageIndex")
+      return { success: false, message: `更新失败: ${error.message}` }
+    }
+  }
+
+  /**
    * 获取所有页面 Pins
    * @returns {Array} 页面 pins 数组
    */
