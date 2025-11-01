@@ -435,6 +435,55 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
+   * 创建空白占位卡片
+   */
+  createBlankCard: async function(button) {
+    try {
+      let section = button.section || self.currentSection
+
+      // 弹出输入框让用户输入标题
+      let result = await MNUtil.userInput(
+        "创建空白卡片",
+        "请输入卡片标题",
+        ["取消", "确定"]
+      )
+
+      if (result.button === 0) return  // 点击取消
+
+      let title = result.input
+      if (!title || title.trim() === "") {
+        MNUtil.showHUD("标题不能为空")
+        return
+      }
+
+      // 创建空白 pin 数据
+      let blankPin = {
+        noteId: "BLANK_" + Date.now(),  // 特殊前缀标识
+        title: title.trim()
+      }
+
+      // 直接操作 sections 数据（因为空白卡片没有真实的 noteId）
+      if (!pinnerConfig.sections[section]) {
+        pinnerConfig.sections[section] = []
+      }
+
+      // 添加到顶部
+      pinnerConfig.sections[section].unshift(blankPin)
+
+      // 保存数据
+      pinnerConfig.save()
+
+      // 刷新界面
+      self.refreshSectionCards(section)
+      MNUtil.showHUD("已添加空白卡片")
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "createBlankCard")
+      MNUtil.showHUD("创建失败: " + error.message)
+    }
+  },
+
+  /**
    * 删除单个卡片
    */
   deleteCard: function(button) {
@@ -481,21 +530,69 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       }
 
       let noteId = button.noteId
+      let section = button.section || self.currentSection
+
       if (!noteId) {
         MNUtil.showHUD("无法获取卡片ID")
         return
       }
 
-      // 使用 MNNote 跳转到卡片
-      let note = MNNote.new(noteId)
-      if (note) {
-        note.focusInMindMap()
-        // MNUtil.showHUD("已跳转到卡片")
+      // 检测是否为空白卡片
+      if (noteId.startsWith("BLANK_")) {
+        // 获取当前 focusNote 作为父节点
+        let focusNote = MNNote.getFocusNote()
 
-        // 隐藏面板（可选）
-        // self.hide()
+        if (!focusNote) {
+          MNUtil.showHUD("请选中一个卡片作为父节点")
+          return
+        }
+
+        // 获取空白卡片的标题
+        let pins = pinnerConfig.sections[section]
+        if (!pins) {
+          MNUtil.showHUD("找不到空白卡片数据")
+          return
+        }
+
+        let blankPin = pins.find(p => p.noteId === noteId)
+        if (!blankPin) {
+          MNUtil.showHUD("找不到空白卡片数据")
+          return
+        }
+
+        // 创建真实子卡片
+        let newNote = focusNote.createChildNote({
+          title: blankPin.title
+        })
+
+        // 聚焦到新卡片
+        newNote.focusInMindMap(0.3)
+
+        if (newNote) {
+          // 更新 pin 数据，替换为真实 ID
+          let success = pinnerConfig.updatePinId(section, noteId, newNote.noteId)
+
+          if (success) {
+            // 刷新界面
+            self.refreshSectionCards(section)
+          } else {
+            MNUtil.showHUD("更新卡片数据失败")
+          }
+        } else {
+          MNUtil.showHUD("创建卡片失败")
+        }
       } else {
-        MNUtil.showHUD("找不到该卡片")
+        // 原有逻辑：直接定位到真实卡片
+        let note = MNNote.new(noteId)
+        if (note) {
+          note.focusInMindMap()
+          // MNUtil.showHUD("已跳转到卡片")
+
+          // 隐藏面板（可选）
+          // self.hide()
+        } else {
+          MNUtil.showHUD("找不到该卡片")
+        }
       }
     } catch (error) {
       pinnerUtils.addErrorLog(error, "focusCardTapped")
@@ -544,9 +641,9 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         return
       }
 
-      // 获取所有分区，排除当前分区
+      // 获取所有分区，排除当前分区和 pages 分区（pages 存储的是文档页面，不是卡片）
       let sections = pinnerConfig.getSectionNames()
-      let targetSections = sections.filter(s => s !== currentSection)
+      let targetSections = sections.filter(s => s !== currentSection && s !== 'pages')
 
       if (targetSections.length === 0) {
         MNUtil.showHUD("没有可转移的分区")
@@ -601,43 +698,41 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   /**
    * 重命名卡片
    */
-  renameCard: function(button) {
+  renameCard: async function(button) {
     try {
       self.checkPopover()  // 关闭菜单
 
       let noteId = button.noteId
       let section = button.section || self.currentSection
 
-      if (noteId) {
-        // 显示输入对话框
-        UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-          "修改卡片标题",
-          "请输入新的标题：",
-          2,  // alertViewStyle: 2 = 文本输入框
-          "确定",
-          ["取消"],
-          (alertView, buttonIndex) => {
-            if (buttonIndex === 0) {  // 确定按钮
-              let newTitle = alertView.textFieldAtIndex(0).text
-
-              // 验证输入
-              if (!newTitle || newTitle.trim() === "") {
-                MNUtil.showHUD("标题不能为空")
-                return
-              }
-
-              // 更新数据
-              if (pinnerConfig.updatePinTitle(noteId, newTitle.trim(), section)) {
-                // 刷新视图
-                self.refreshSectionCards(section)
-                MNUtil.showHUD("标题已更新")
-              } else {
-                MNUtil.showHUD("更新失败")
-              }
-            }
-          }
-        )
+      if (!noteId) {
+        MNUtil.showHUD("无法获取卡片ID")
+        return
       }
+
+      // 显示输入对话框
+      let result = await MNUtil.userInput(
+        "修改卡片标题",
+        "请输入新的标题：",
+        ["取消", "确定"]
+      )
+
+      if (result.button === 0) return  // 取消
+
+      let newTitle = result.input
+      if (!newTitle || newTitle.trim() === "") {
+        MNUtil.showHUD("标题不能为空")
+        return
+      }
+
+      // 更新数据
+      if (pinnerConfig.updatePinTitle(noteId, newTitle.trim(), section)) {
+        self.refreshSectionCards(section)
+        MNUtil.showHUD("标题已更新")
+      } else {
+        MNUtil.showHUD("更新失败")
+      }
+
     } catch (error) {
       pinnerUtils.addErrorLog(error, "renameCard")
       MNUtil.showHUD("更新标题失败: " + error)
@@ -1744,6 +1839,18 @@ pinnerController.prototype.createSectionViews = function() {
     })
     this[section + "PinButton"] = pinButton
 
+    // 创建 Add 按钮（除了 pages 分区）
+    if (section !== "pages") {
+      let addButton = UIButton.buttonWithType(0)
+      addButton.addTargetActionForControlEvents(this, "createBlankCard:", 1 << 6)
+      addButton.section = section
+      buttonScrollView.addSubview(addButton)
+      MNButton.setConfig(addButton, {
+        color: "#61afef", alpha: 0.8, opacity: 1.0, title: "➕ Add", radius: 10, font: 15
+      })
+      this[section + "AddButton"] = addButton
+    }
+
     // 创建卡片滚动视图
     let cardScrollView = this.createScrollview(viewName, "#f5f5f5", 0.9)
     cardScrollView.layer.cornerRadius = 12
@@ -1830,6 +1937,7 @@ pinnerController.prototype.layoutSectionView = function(section) {
   let clearButtonKey = section + "ClearButton"
   // 所有分区都使用 PinButton
   let secondButtonKey = section + "PinButton"
+  let addButtonKey = section + "AddButton"
 
   if (!this[scrollViewKey]) return
 
@@ -1839,14 +1947,21 @@ pinnerController.prototype.layoutSectionView = function(section) {
 
   // 设置按钮滚动容器
   if (this[buttonScrollViewKey]) {
-    this[buttonScrollViewKey].frame = {x: 10, y: 10, width: Math.min(width - 20, 160), height: 32}
-    this[buttonScrollViewKey].contentSize = {width: 160, height: 32}
+    // pages 分区只有 2 个按钮，其他分区有 3 个按钮
+    let buttonCount = section === "pages" ? 2 : 3
+    let containerWidth = buttonCount === 3 ? 240 : 160
+
+    this[buttonScrollViewKey].frame = {x: 10, y: 10, width: Math.min(width - 20, containerWidth), height: 32}
+    this[buttonScrollViewKey].contentSize = {width: containerWidth, height: 32}
 
     if (this[clearButtonKey]) {
       this[clearButtonKey].frame = {x: 0, y: 0, width: 70, height: 32}
     }
     if (this[secondButtonKey]) {
       this[secondButtonKey].frame = {x: 75, y: 0, width: 70, height: 32}
+    }
+    if (this[addButtonKey]) {
+      this[addButtonKey].frame = {x: 150, y: 0, width: 70, height: 32}
     }
   }
 

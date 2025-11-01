@@ -708,7 +708,44 @@ class pinnerConfig {
       return false
     }
   }
-  
+
+  /**
+   * 更新 Pin 的 noteId（用于将空白卡片转换为真实卡片）
+   * @param {string} section - 分区名称
+   * @param {string} oldNoteId - 旧的 noteId（空白卡片 ID）
+   * @param {string} newNoteId - 新的 noteId（真实卡片 ID）
+   * @returns {boolean} - 是否更新成功
+   */
+  static updatePinId(section, oldNoteId, newNoteId) {
+    try {
+      if (!this.sections[section]) {
+        pinnerUtils.addErrorLog(`Invalid section: ${section}`, "pinnerConfig:updatePinId")
+        return false
+      }
+
+      let pins = this.sections[section]
+      let pin = pins.find(p => p.noteId === oldNoteId)
+
+      if (!pin) {
+        pinnerUtils.addErrorLog(`Pin not found: ${oldNoteId}`, "pinnerConfig:updatePinId")
+        return false
+      }
+
+      // 更新 noteId
+      pin.noteId = newNoteId
+
+      // 保存
+      this.save()
+
+      pinnerUtils.log(`Updated pin ID from ${oldNoteId} to ${newNoteId} in ${section}`, "pinnerConfig:updatePinId")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:updatePinId")
+      return false
+    }
+  }
+
   /**
    * 清空分区
    * @param {string} section - 分区名称
