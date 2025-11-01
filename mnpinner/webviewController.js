@@ -511,6 +511,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     try {
       // 创建菜单选项
       let commandTable = [
+        self.tableItem("🔄 更新为当前卡片", "updatePinToFocusNote:", button),
         self.tableItem("✏️  修改标题", "renameCard:", button),
         self.tableItem("↔️  转移到...", "showTransferMenu:", button)
       ]
@@ -640,6 +641,52 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     } catch (error) {
       pinnerUtils.addErrorLog(error, "renameCard")
       MNUtil.showHUD("更新标题失败: " + error)
+    }
+  },
+
+  /**
+   * 更新 Pin 为当前聚焦的卡片
+   */
+  updatePinToFocusNote: function(button) {
+    try {
+      self.checkPopover()  // 关闭菜单
+
+      // 获取当前聚焦的卡片
+      let focusNote = MNNote.getFocusNote()
+      if (!focusNote) {
+        MNUtil.showHUD("请先选择一个卡片")
+        return
+      }
+
+      let oldNoteId = button.noteId
+      let newNoteId = focusNote.noteId
+      let section = button.section || self.currentSection
+
+      if (!oldNoteId || !section) {
+        MNUtil.showHUD("无法获取卡片信息")
+        return
+      }
+
+      // 检查是否是同一个卡片
+      if (oldNoteId === newNoteId) {
+        MNUtil.showHUD("已经是当前卡片")
+        return
+      }
+
+      // 调用数据更新方法
+      let result = pinnerConfig.updatePinNoteId(section, oldNoteId, newNoteId)
+
+      // 显示结果
+      MNUtil.showHUD(result.message)
+
+      // 如果成功，刷新视图
+      if (result.success) {
+        self.refreshSectionCards(section)
+      }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "updatePinToFocusNote")
+      MNUtil.showHUD("更新失败: " + error.message)
     }
   },
 
@@ -970,13 +1017,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       )
 
       // 显示结果
-      if (result.success) {
-        MNUtil.showHUD(result.message)
-        // 刷新 pages 视图
-        self.refreshPages()
-      } else {
-        MNUtil.showHUD(result.message)
-      }
+      MNUtil.showHUD(result.message)
 
     } catch (error) {
       pinnerUtils.addErrorLog(error, "updatePageProgress")

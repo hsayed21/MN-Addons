@@ -827,6 +827,45 @@ class pinnerConfig {
   }
 
   /**
+   * 更新 Pin 的 noteId（保持标题不变）
+   * @param {string} section - 分区名称
+   * @param {string} oldNoteId - 原卡片ID
+   * @param {string} newNoteId - 新卡片ID
+   * @returns {{success: boolean, message: string}} 返回操作结果
+   */
+  static updatePinNoteId(section, oldNoteId, newNoteId) {
+    try {
+      if (!this.sections[section]) {
+        return { success: false, message: "无效的分区" }
+      }
+
+      let pins = this.sections[section]
+
+      // 检查新卡片是否已在分区中
+      if (pins.find(p => p.noteId === newNoteId)) {
+        return { success: false, message: "新卡片已在该分区中" }
+      }
+
+      // 查找要更新的 pin
+      let pin = pins.find(p => p.noteId === oldNoteId)
+      if (!pin) {
+        return { success: false, message: "找不到要更新的卡片" }
+      }
+
+      // 只更新 noteId，保持 title 不变
+      pin.noteId = newNoteId
+      this.save()
+
+      pinnerUtils.log(`Updated pin noteId in ${section}: ${oldNoteId} -> ${newNoteId}`, "pinnerConfig:updatePinNoteId")
+      return { success: true, message: "已更新为当前卡片" }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:updatePinNoteId")
+      return { success: false, message: `更新失败: ${error.message}` }
+    }
+  }
+
+  /**
    * 获取所有分区名称
    */
   static getSectionNames() {
