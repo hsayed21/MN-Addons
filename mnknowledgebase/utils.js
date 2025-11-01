@@ -4495,9 +4495,10 @@ class KnowledgeBaseTemplate {
    *
    * @param {MNNote} note - 要判断类型的卡片
    * @param {boolean} directly - 是否只基于卡片自身标题判断（不向上查找）
+   * @param {boolean} bycolor - directly = true 时是否通过颜色判断（仅在直接判断失败时使用）
    * @returns {string|undefined} 卡片类型
    */
-  static getNoteType(note, directly = false) {
+  static getNoteType(note, directly = false, bycolor = true) {
     // 防御性检查
     if (!note) {
       KnowledgeBaseUtils.log(`返回 undefined 原因：无卡片`, "getNoteType");
@@ -4560,7 +4561,9 @@ class KnowledgeBaseTemplate {
 
     if (!noteType && directly) {
       // 如果还是获取不到的话，就尝试用颜色判断
-      noteType = this.getNoteTypeByColor(note.colorIndex);
+      if (bycolor) {
+        noteType = this.getNoteTypeByColor(note.colorIndex);
+      }
     }
 
     // 🚀 性能优化：存入缓存（仅在非 directly 模式下缓存）
