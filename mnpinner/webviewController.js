@@ -398,10 +398,40 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     }
   },
 
-  refreshCards: function(button) {
-    let section = button.section || self.currentSection
-    self.refreshSectionCards(section)
-    MNUtil.showHUD("已刷新")
+  /**
+   * Pin 当前聚焦的卡片到指定分区
+   */
+  pinFocusNote: function(button) {
+    try {
+      let section = button.section || self.currentSection
+
+      // 获取当前聚焦的卡片
+      let focusNote = MNNote.getFocusNote()
+
+      if (!focusNote) {
+        MNUtil.showHUD("请先选择一个卡片")
+        return
+      }
+
+      // 获取卡片信息
+      let noteId = focusNote.noteId
+      let title = focusNote.noteTitle || "未命名卡片"
+
+      // 添加到指定分区（默认添加到顶部）
+      let success = pinnerConfig.addPinAtPosition(noteId, title, section, "top")
+
+      if (success) {
+        MNUtil.showHUD(`已 Pin 到 ${pinnerConfig.getSectionDisplayName(section)}`)
+        // 刷新视图
+        self.refreshSectionCards(section)
+      } else {
+        MNUtil.showHUD("该卡片已存在")
+      }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinFocusNote")
+      MNUtil.showHUD("Pin 失败: " + error.message)
+    }
   },
 
   /**
@@ -1657,28 +1687,21 @@ pinnerController.prototype.createSectionViews = function() {
     })
     this[section + "ClearButton"] = clearButton
 
-    // 为 pages 分区创建 Pin 按钮，其他分区创建刷新按钮
+    // 所有分区都创建 Pin 按钮
+    let pinButton = UIButton.buttonWithType(0)
     if (section === "pages") {
-      // 创建 Pin 按钮
-      let pinButton = UIButton.buttonWithType(0)
+      // Pages 分区：Pin 当前页面
       pinButton.addTargetActionForControlEvents(this, "pinCurrentPage:", 1 << 6)
-      pinButton.section = section
-      buttonScrollView.addSubview(pinButton)
-      MNButton.setConfig(pinButton, {
-        color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "📌 Pin", radius: 10, font: 15
-      })
-      this[section + "PinButton"] = pinButton
     } else {
-      // 创建刷新按钮
-      let refreshButton = UIButton.buttonWithType(0)
-      refreshButton.addTargetActionForControlEvents(this, "refreshCards:", 1 << 6)
-      refreshButton.section = section
-      buttonScrollView.addSubview(refreshButton)
-      MNButton.setConfig(refreshButton, {
-        color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "🔄 刷新", radius: 10, font: 15
-      })
-      this[section + "RefreshButton"] = refreshButton
+      // 其他分区：Pin 当前 focusNote
+      pinButton.addTargetActionForControlEvents(this, "pinFocusNote:", 1 << 6)
     }
+    pinButton.section = section
+    buttonScrollView.addSubview(pinButton)
+    MNButton.setConfig(pinButton, {
+      color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "📌 Pin", radius: 10, font: 15
+    })
+    this[section + "PinButton"] = pinButton
 
     // 创建卡片滚动视图
     let cardScrollView = this.createScrollview(viewName, "#f5f5f5", 0.9)
@@ -1764,8 +1787,8 @@ pinnerController.prototype.layoutSectionView = function(section) {
   let scrollViewKey = section + "CardScrollView"
   let buttonScrollViewKey = section + "ButtonScrollView"
   let clearButtonKey = section + "ClearButton"
-  // pages 分区使用 PinButton，其他分区使用 RefreshButton
-  let secondButtonKey = section === "pages" ? section + "PinButton" : section + "RefreshButton"
+  // 所有分区都使用 PinButton
+  let secondButtonKey = section + "PinButton"
 
   if (!this[scrollViewKey]) return
 
