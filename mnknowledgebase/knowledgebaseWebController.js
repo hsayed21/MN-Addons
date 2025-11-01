@@ -328,6 +328,13 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
 knowledgebaseWebController.prototype.loadHTMLFile = function() {
   try {
     MNUtil.log("=== loadHTMLFile 开始 ===")
+
+    // 如果当前已经是 search 类型且已加载，直接返回
+    if (this.currentHTMLType === 'search' && this.webViewLoaded) {
+      MNUtil.log("【优化】search.html 已加载，跳过重复加载")
+      return
+    }
+
     let htmlPath = KnowledgeBaseConfig.mainPath + "/search.html"
     MNUtil.log("HTML 路径: " + htmlPath)
 
@@ -361,6 +368,13 @@ knowledgebaseWebController.prototype.loadHTMLFile = function() {
 knowledgebaseWebController.prototype.loadCommentManagerHTML = function() {
   try {
     KnowledgeBaseUtils.log("开始加载", "loadCommentManagerHTML")
+
+    // 如果当前已经是 comment-manager 类型且已加载，直接返回
+    if (this.currentHTMLType === 'comment-manager' && this.webViewLoaded) {
+      KnowledgeBaseUtils.log("【优化】comment-manager.html 已加载，跳过重复加载", "loadCommentManagerHTML")
+      return
+    }
+
     let htmlPath = KnowledgeBaseConfig.mainPath + "/comment-manager.html"
     KnowledgeBaseUtils.log("HTML 路径: " + htmlPath, "loadCommentManagerHTML")
 

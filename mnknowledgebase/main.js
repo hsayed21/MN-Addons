@@ -1987,13 +1987,11 @@ JSB.newAddon = function(mainPath){
       const controller = KnowledgeBaseUtils.webViewController
       MNLog.log("【检查点2】view.hidden=" + controller.view.hidden + ", onAnimate=" + controller.onAnimate)
 
-      // 如果已显示且不在动画中,直接置于前台
-      if (!controller.view.hidden && !controller.onAnimate) {
-        MNLog.log("【进入分支】已显示且不在动画中 - bring to front")
-        MNUtil.studyView.bringSubviewToFront(controller.view)
-        MNLog.log("【返回】从已显示分支返回")
-        return
-      }
+      // 检查是否需要重新加载 HTML
+      const needReload = controller.currentHTMLType !== 'search' || !controller.webViewLoaded
+      MNLog.log("【HTML类型检查】currentHTMLType=" + controller.currentHTMLType +
+                ", webViewLoaded=" + controller.webViewLoaded +
+                ", needReload=" + needReload)
 
       // 如果正在动画中,等待动画完成后重新调用
       if (controller.onAnimate) {
@@ -2003,36 +2001,30 @@ JSB.newAddon = function(mainPath){
         return this.openSearchWebView()
       }
 
-      MNLog.log("【进入分支】首次打开流程")
-
-      // 根据 WebView 加载状态决定处理方式
-      if (!controller.webViewLoaded) {
-        // WebView 未加载:加载 HTML 并显示窗口
-        MNLog.log("【加载HTML】webViewLoaded=false，开始加载")
-        MNUtil.showHUD("正在加载搜索界面,请稍候...")
-        controller.loadHTMLFile()
-        MNLog.log("【加载HTML】loadHTMLFile 调用完成")
-
-        // 显示窗口
-        MNLog.log("【显示窗口】调用 show() 方法")
+      // 如果 HTML 已正确加载，直接显示窗口（无需重新加载）
+      if (!needReload) {
+        MNLog.log("【优化分支】search.html 已加载，直接显示窗口")
         await controller.show(
           null,
           { x: 50, y: 50, width: 800, height: 800 }
         )
-        MNLog.log("【显示完成】show() 方法返回")
-
-      } else {
-        // WebView 已加载:直接显示窗口
-        MNLog.log("【跳过HTML】webViewLoaded=true，HTML 已加载")
-
-        // 显示窗口
-        MNLog.log("【显示窗口】调用 show() 方法")
-        await controller.show(
-          null,
-          { x: 50, y: 50, width: 800, height: 800 }
-        )
-        MNLog.log("【显示完成】show() 方法返回")
+        MNLog.log("【显示完成】窗口已显示")
+        return
       }
+
+      // 需要重新加载 HTML
+      MNLog.log("【加载分支】需要重新加载 HTML")
+      MNUtil.showHUD("正在加载搜索界面,请稍候...")
+      controller.loadHTMLFile()
+      MNLog.log("【加载HTML】loadHTMLFile 调用完成")
+
+      // 显示窗口
+      MNLog.log("【显示窗口】调用 show() 方法")
+      await controller.show(
+        null,
+        { x: 50, y: 50, width: 800, height: 800 }
+      )
+      MNLog.log("【显示完成】show() 方法返回")
 
       MNLog.log("【openSearchWebView 结束】成功")
 
@@ -2450,30 +2442,35 @@ JSB.newAddon = function(mainPath){
         currentHTMLType: controller.currentHTMLType
       })
 
-      // 4. 检查当前 HTML 类型，如果不是 comment-manager 则需要重新加载
-      const needReload = controller.currentHTMLType !== 'comment-manager'
+      // 4. 检查是否需要重新加载 HTML
+      const needReload = controller.currentHTMLType !== 'comment-manager' || !controller.webViewLoaded
+      KnowledgeBaseUtils.log("HTML类型检查", "openCommentManager", {
+        currentHTMLType: controller.currentHTMLType,
+        webViewLoaded: controller.webViewLoaded,
+        needReload: needReload
+      })
 
-      // 5. 如果已显示且不在动画中，且是正确的 HTML
-      if (!controller.view.hidden && !controller.onAnimate && !needReload) {
-        KnowledgeBaseUtils.log("已显示，bring to front", "openCommentManager")
-        MNUtil.studyView.bringSubviewToFront(controller.view)
-
-        // 加载新卡片的数据
-        await controller.loadCommentData(targetNote.noteId)
-        KnowledgeBaseUtils.log("数据已刷新", "openCommentManager")
-        return
-      }
-
-      // 6. 如果正在动画中，等待动画完成后重新调用
+      // 5. 如果正在动画中，等待动画完成后重新调用
       if (controller.onAnimate) {
         KnowledgeBaseUtils.log("正在动画中，延迟 0.5s 后重试", "openCommentManager")
         await MNUtil.delay(0.5)
         return this.openCommentManager(targetNote)
       }
 
-      KnowledgeBaseUtils.log("首次打开或切换 HTML", "openCommentManager", {needReload})
+      // 6. 如果 HTML 已正确加载，直接显示窗口并加载数据
+      if (!needReload) {
+        KnowledgeBaseUtils.log("【优化分支】comment-manager.html 已加载，直接显示窗口", "openCommentManager")
+        await controller.show(
+          null,
+          { x: 50, y: 50, width: 720, height: 720 }
+        )
+        await controller.loadCommentData(targetNote.noteId)
+        KnowledgeBaseUtils.log("数据已刷新", "openCommentManager")
+        return
+      }
 
-      // 7. 加载 comment-manager.html
+      // 7. 需要重新加载 HTML
+      KnowledgeBaseUtils.log("【加载分支】需要重新加载 HTML", "openCommentManager")
       MNUtil.showHUD("正在加载评论管理器,请稍候...")
       controller.loadCommentManagerHTML()
       KnowledgeBaseUtils.log("loadCommentManagerHTML 调用完成", "openCommentManager")
@@ -2481,7 +2478,7 @@ JSB.newAddon = function(mainPath){
       // 8. 显示窗口
       await controller.show(
         null,
-        { x: 50, y: 50, width: 720, height: 720 }  // 评论管理器使用较小的窗口
+        { x: 50, y: 50, width: 720, height: 720 }
       )
       KnowledgeBaseUtils.log("窗口显示完成", "openCommentManager")
 
