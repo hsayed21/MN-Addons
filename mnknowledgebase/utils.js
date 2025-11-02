@@ -10,7 +10,16 @@ const kbSearchConfig = {
    * 同义词组配置（用于搜索扩展）
    * ⭐ 这是用户经常手动维护的核心配置之一
    */
+
+  // {
+  //     "words": ["", ""],
+  //     "partialReplacement": true,
+  //   },
   synonymGroups: [
+    {
+      "words": ["两两不同", "两两不等", "互不相等", "各不相同", "各不相等", "互异", "两两不一样"],
+      "partialReplacement":  false,
+    },
     {
       "words": ["||", "‖"],
       "partialReplacement": true,
@@ -2102,6 +2111,16 @@ class KnowledgeBaseTemplate {
 
         // 只清理指向归类卡片的链接
         if (targetType === "归类") {
+          // 检查目标卡片是否是当前卡片的子卡片
+          // 如果是子卡片，不应该清理这个链接（例如：定义卡片 A 有归类子卡片 B）
+          if (targetNote.parentNote && targetNote.parentNote.noteId === note.noteId) {
+            // KnowledgeBaseUtils.log("跳过清理子卡片链接", "cleanupOldParentLinks", {
+            //   noteId: note.noteId,
+            //   childNoteId: targetNoteId
+            // });
+            continue;
+          }
+
           linksToRemove.push({
             targetNote: targetNote,
             linkText: linkObj.link
