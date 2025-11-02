@@ -489,41 +489,161 @@ class pinnerConfig {
     try {
       // 更新最后同步时间
       this.config.lastSyncTime = Date.now()
-      
+
       let data = JSON.stringify(this.getAllConfig(), null, 2)
       let fileData = NSString.stringWithString(data).dataUsingEncoding(4)
-      let fileName = "MNPinner_export_" + new Date().toISOString().slice(0,10) + ".json"
+      let fileName = "MNPinner_" + new Date().toISOString().slice(0,10) + ".json"
       let filePath = MNUtil.tempPath + "/" + fileName
-      
+
       fileData.writeToFileAtomically(filePath, false)
       MNUtil.saveFile(filePath, "public.json")
-      
-      MNUtil.showHUD("Exported to file")
-      
+
+      MNUtil.showHUD("✅ 已导出到文件")
+
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:exportToFile")
     }
   }
-  
+
   /**
    * 从文件导入配置
    */
-  static importFromFile() {
+  static async importFromFile() {
     try {
-      MNUtil.importFile("public.json", (filePath) => {
-        if (!filePath) {
-          MNUtil.showHUD("No file selected")
-          return
-        }
-        
-        let fileData = NSData.dataWithContentsOfFile(filePath)
-        let jsonString = NSString.alloc().initWithDataEncoding(fileData, 4)
-        let data = JSON.parse(jsonString)
-        
-        this.importConfig(data)  // 使用 importConfig 而不是 importData
+      return new Promise((resolve) => {
+        MNUtil.importFile("public.json", (filePath) => {
+          if (!filePath) {
+            MNUtil.showHUD("未选择文件")
+            resolve(false)
+            return
+          }
+
+          try {
+            let fileData = NSData.dataWithContentsOfFile(filePath)
+            let jsonString = NSString.alloc().initWithDataEncoding(fileData, 4)
+            let data = JSON.parse(jsonString)
+
+            let success = this.importConfig(data)
+            resolve(success)
+          } catch (error) {
+            pinnerUtils.addErrorLog(error, "pinnerConfig:importFromFile:parseJSON")
+            MNUtil.showHUD("文件格式错误")
+            resolve(false)
+          }
+        })
       })
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:importFromFile")
+      return false
+    }
+  }
+
+  /**
+   * 导出配置到剪贴板
+   */
+  static exportToClipboard() {
+    try {
+      let data = this.getAllConfig()
+      MNUtil.copyJSON(data)
+      MNUtil.showHUD("✅ 已复制到剪贴板")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:exportToClipboard")
+    }
+  }
+
+  /**
+   * 从剪贴板导入配置
+   */
+  static importFromClipboard() {
+    try {
+      let jsonText = MNUtil.clipboardText
+      if (!jsonText) {
+        MNUtil.showHUD("剪贴板为空")
+        return false
+      }
+
+      let data = JSON.parse(jsonText)
+      return this.importConfig(data)
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:importFromClipboard")
+      MNUtil.showHUD("剪贴板数据格式错误")
+      return false
+    }
+  }
+
+  /**
+   * 导出配置到当前卡片
+   */
+  static exportToCurrentNote() {
+    try {
+      let focusNote = MNNote.getFocusNote()
+      if (!focusNote) {
+        MNUtil.showHUD("请先选中一张卡片")
+        return
+      }
+
+      let data = this.getAllConfig()
+      MNUtil.undoGrouping(() => {
+        focusNote.noteTitle = "MNPinner_Config"
+        focusNote.excerptText = "```JSON\n" + JSON.stringify(data, null, 2) + "\n```"
+        focusNote.excerptTextMarkdown = true
+      })
+      MNUtil.showHUD("✅ 已导出到当前卡片")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:exportToCurrentNote")
+    }
+  }
+
+  /**
+   * 从当前卡片导入配置
+   */
+  static importFromCurrentNote() {
+    try {
+      let focusNote = MNNote.getFocusNote()
+      if (!focusNote) {
+        MNUtil.showHUD("请先选中一张卡片")
+        return false
+      }
+
+      if (focusNote.noteTitle !== "MNPinner_Config") {
+        MNUtil.showHUD("请选中标题为 'MNPinner_Config' 的卡片")
+        return false
+      }
+
+      let data = this.extractJSONFromMarkdown(focusNote.excerptText)
+      if (!data) {
+        MNUtil.showHUD("无法解析 JSON 数据")
+        return false
+      }
+
+      return this.importConfig(data)
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:importFromCurrentNote")
+      return false
+    }
+  }
+
+  /**
+   * 从 Markdown 中提取 JSON
+   * @param {string} markdown - Markdown 文本
+   * @returns {Object|undefined} 解析后的 JSON 对象
+   */
+  static extractJSONFromMarkdown(markdown) {
+    try {
+      // 使用正则表达式匹配被 ```JSON``` 包裹的内容
+      const regex = /```JSON([\s\S]*?)```/g;
+      const matches = regex.exec(markdown);
+
+      // 提取匹配结果中的 JSON 字符串部分，并去掉多余的空格和换行符
+      if (matches && matches[1]) {
+        const jsonString = matches[1].trim();
+        return JSON.parse(jsonString);
+      } else {
+        return undefined;
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:extractJSONFromMarkdown")
+      return undefined
     }
   }
 
