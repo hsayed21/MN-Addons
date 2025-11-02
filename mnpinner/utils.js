@@ -234,6 +234,36 @@ class pinnerConfig {
         }
       }
 
+      // 数据迁移：为现有 Card 数据添加 type 字段
+      let needMigration = false
+      for (let section in this.sections) {
+        // pages 分区单独处理
+        if (section === "pages") {
+          this.sections[section] = this.sections[section].map(pin => {
+            if (!pin.type) {
+              needMigration = true
+              return this.createPagePin(pin.docMd5, pin.pageIndex, pin.title, pin.note)
+            }
+            return pin
+          })
+          continue
+        }
+
+        // 其他分区（Card 类型）
+        this.sections[section] = this.sections[section].map(pin => {
+          if (!pin.type) {
+            needMigration = true
+            return this.createCardPin(pin.noteId, pin.title)
+          }
+          return pin
+        })
+      }
+
+      if (needMigration) {
+        this.save()
+        pinnerUtils.log("Migrated pins to new format with type field", "pinnerConfig:init")
+      }
+
       // 加载图片资源
       this.closeImage = this.mainPath + "/close.png"
       this.resizeImage = this.mainPath + "/resize.png"
