@@ -496,8 +496,108 @@ class pinnerConfig {
       pinnerUtils.addErrorLog(error, "pinnerConfig:importFromFile")
     }
   }
-  
+
   // ========== Pin 操作方法 ==========
+
+  /**
+   * 创建 Card 类型的 Pin 数据
+   * @param {string} noteId - 卡片ID
+   * @param {string} title - 卡片标题
+   * @returns {Object} Pin 数据对象
+   */
+  static createCardPin(noteId, title) {
+    return {
+      type: "card",
+      noteId: noteId,
+      title: title || "未命名卡片"
+    }
+  }
+
+  /**
+   * 创建 Page 类型的 Pin 数据
+   * @param {string} docMd5 - 文档 MD5
+   * @param {number} pageIndex - 页码（从 0 开始）
+   * @param {string} title - 自定义标题
+   * @param {string} note - 备注
+   * @returns {Object} Pin 数据对象
+   */
+  static createPagePin(docMd5, pageIndex, title, note) {
+    return {
+      type: "page",
+      docMd5: docMd5,
+      pageIndex: pageIndex,
+      title: title || `第${pageIndex + 1}页`,
+      note: note || "",
+      pinnedAt: Date.now()
+    }
+  }
+
+  /**
+   * 统一的 Pin 添加方法（支持 Card 和 Page 类型）
+   * @param {Object} pinData - Pin 数据对象（必须包含 type 字段）
+   * @param {string} section - 分区名称
+   * @param {string|number} position - 位置：'top', 'bottom' 或具体索引
+   * @returns {boolean} 是否添加成功
+   */
+  static addPin(pinData, section = "midway", position = "bottom") {
+    try {
+      if (!this.sections[section]) {
+        pinnerUtils.addErrorLog("Invalid section: " + section, "pinnerConfig:addPin")
+        return false
+      }
+
+      if (!pinData.type) {
+        pinnerUtils.addErrorLog("Pin data must have a type field", "pinnerConfig:addPin")
+        return false
+      }
+
+      let pins = this.sections[section]
+
+      // 根据 type 进行去重检查
+      let isDuplicate = false
+      if (pinData.type === "card") {
+        isDuplicate = pins.find(p => p.type === "card" && p.noteId === pinData.noteId)
+      } else if (pinData.type === "page") {
+        isDuplicate = pins.find(p =>
+          p.type === "page" &&
+          p.docMd5 === pinData.docMd5 &&
+          p.pageIndex === pinData.pageIndex
+        )
+      }
+
+      if (isDuplicate) {
+        MNUtil.showHUD("已存在")
+        return false
+      }
+
+      // 根据 position 参数插入到指定位置
+      if (position === "top") {
+        pins.unshift(pinData)  // 插入到开头
+      } else if (position === "bottom") {
+        pins.push(pinData)  // 插入到末尾
+      } else if (typeof position === "number" || !isNaN(Number(position))) {
+        let index = Number(position)
+        // 确保索引在有效范围内
+        if (index < 0) index = 0
+        if (index > pins.length) index = pins.length
+        pins.splice(index, 0, pinData)  // 插入到指定位置
+      } else {
+        // 无效的 position 参数，默认添加到末尾
+        pins.push(pinData)
+      }
+
+      // 保存
+      this.save()
+
+      let typeName = pinData.type === "card" ? "卡片" : "页面"
+      pinnerUtils.log(`Added ${pinData.type} pin at position ${position} to ${section}: ${pinData.title}`, "pinnerConfig:addPin")
+      return true
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:addPin")
+      return false
+    }
+  }
 
   /**
    * 在指定位置添加卡片
@@ -528,22 +628,19 @@ class pinnerConfig {
       if (!note) { return }
       let parsedTitle = KnowledgeBaseTemplate.parseNoteTitle(note)
       switch (KnowledgeBaseTemplate.getNoteType(note)) {
-        case "定义": 
-        case "命题": 
+        case "定义":
+        case "命题":
         case "例子":
         case "反例":
         case "问题":
-          newPin = {
-            noteId: noteId,
-            title: parsedTitle.type + ": " + KnowledgeBaseTemplate.getFirstTitleLinkWord(note) || "未命名卡片"
-          }
+          newPin = this.createCardPin(
+            noteId,
+            parsedTitle.type + ": " + KnowledgeBaseTemplate.getFirstTitleLinkWord(note) || "未命名卡片"
+          )
           break;
         default:
-          // 添加新的 pin
-          newPin = {
-            noteId: noteId,
-            title: title || "未命名卡片"
-          }
+          // 使用工厂方法创建 Card Pin
+          newPin = this.createCardPin(noteId, title)
           break;
       }
 
