@@ -1288,6 +1288,7 @@ class pinnerConfig {
 
       // 创建新的页面 pin
       let newPagePin = {
+        type: "page",
         docMd5: docMd5,
         pageIndex: pageIndex,
         title: title || defaultTitle,
@@ -1351,7 +1352,7 @@ class pinnerConfig {
       // 如果指定了分区
       if (section && this.sections[section]) {
         let pins = this.sections[section]
-        let pagePin = pins.find(p => p.type === "page" && p.docMd5 === docMd5 && p.pageIndex === pageIndex)
+        let pagePin = pins.find(p => (!p.type || p.type === "page") && p.docMd5 === docMd5 && p.pageIndex === pageIndex)
 
         if (!pagePin) return false
 
@@ -1365,7 +1366,7 @@ class pinnerConfig {
       // 没有指定分区，在所有分区中查找
       for (let sec in this.sections) {
         let pins = this.sections[sec]
-        let pagePin = pins.find(p => p.type === "page" && p.docMd5 === docMd5 && p.pageIndex === pageIndex)
+        let pagePin = pins.find(p => (!p.type || p.type === "page") && p.docMd5 === docMd5 && p.pageIndex === pageIndex)
 
         if (pagePin) {
           pagePin.title = newTitle
@@ -1415,38 +1416,70 @@ class pinnerConfig {
    * @param {string} docMd5 - 文档 MD5
    * @param {number} oldPageIndex - 原页码
    * @param {number} newPageIndex - 新页码
+   * @param {string} section - 分区名称（可选，不指定则在所有分区中查找）
    * @returns {object} 返回 {success: boolean, message: string}
    */
-  static updatePagePinPageIndex(docMd5, oldPageIndex, newPageIndex) {
+  static updatePagePinPageIndex(docMd5, oldPageIndex, newPageIndex, section) {
     try {
-      this.ensurePagesArray()
-      let pages = this.sections.pages
-      let pagePin = pages.find(p => p.type === "page" && p.docMd5 === docMd5 && p.pageIndex === oldPageIndex)
+      // 如果指定了分区
+      if (section && this.sections[section]) {
+        let pins = this.sections[section]
+        let pagePin = pins.find(p => (!p.type || p.type === "page") && p.docMd5 === docMd5 && p.pageIndex === oldPageIndex)
 
-      if (!pagePin) {
-        return { success: false, message: "未找到对应的页面 Pin" }
+        if (!pagePin) {
+          return { success: false, message: "未找到对应的页面 Pin" }
+        }
+
+        if (oldPageIndex === newPageIndex) {
+          return { success: false, message: "页码未改变，无需更新" }
+        }
+
+        // 检查新页码是否在有效范围内
+        let docInfo = this.getDocInfo(docMd5)
+        if (!docInfo.doc) {
+          return { success: false, message: "文档不存在" }
+        }
+        if (newPageIndex < 0 || newPageIndex > docInfo.lastPageIndex) {
+          return { success: false, message: `页码超出范围（0-${docInfo.lastPageIndex}）` }
+        }
+
+        // 更新页码
+        pagePin.pageIndex = newPageIndex
+        pagePin.pinnedAt = Date.now()
+        this.save()
+
+        pinnerUtils.log(`Updated page pin pageIndex in ${section}: ${oldPageIndex} -> ${newPageIndex}`, "pinnerConfig:updatePagePinPageIndex")
+        return { success: true, message: `已更新到第${newPageIndex + 1}页` }
       }
 
-      if (oldPageIndex === newPageIndex) {
-        return { success: false, message: "页码未改变，无需更新" }
+      // 没有指定分区，在所有分区中查找
+      for (let sec in this.sections) {
+        let pins = this.sections[sec]
+        let pagePin = pins.find(p => (!p.type || p.type === "page") && p.docMd5 === docMd5 && p.pageIndex === oldPageIndex)
+
+        if (pagePin) {
+          if (oldPageIndex === newPageIndex) {
+            return { success: false, message: "页码未改变，无需更新" }
+          }
+
+          let docInfo = this.getDocInfo(docMd5)
+          if (!docInfo.doc) {
+            return { success: false, message: "文档不存在" }
+          }
+          if (newPageIndex < 0 || newPageIndex > docInfo.lastPageIndex) {
+            return { success: false, message: `页码超出范围（0-${docInfo.lastPageIndex}）` }
+          }
+
+          pagePin.pageIndex = newPageIndex
+          pagePin.pinnedAt = Date.now()
+          this.save()
+
+          pinnerUtils.log(`Updated page pin pageIndex in ${sec}: ${oldPageIndex} -> ${newPageIndex}`, "pinnerConfig:updatePagePinPageIndex")
+          return { success: true, message: `已更新到第${newPageIndex + 1}页` }
+        }
       }
 
-      // 检查新页码是否在有效范围内
-      let docInfo = this.getDocInfo(docMd5)
-      if (!docInfo.doc) {
-        return { success: false, message: "文档不存在" }
-      }
-      if (newPageIndex < 0 || newPageIndex > docInfo.lastPageIndex) {
-        return { success: false, message: `页码超出范围（0-${docInfo.lastPageIndex}）` }
-      }
-
-      // 更新页码，保留标题和备注
-      pagePin.pageIndex = newPageIndex
-      pagePin.pinnedAt = Date.now()
-      this.save()
-
-      pinnerUtils.log(`Updated page pin pageIndex: ${oldPageIndex} -> ${newPageIndex}`, "pinnerConfig:updatePagePinPageIndex")
-      return { success: true, message: `已更新到第${newPageIndex + 1}页` }
+      return { success: false, message: "未找到对应的页面 Pin" }
 
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:updatePagePinPageIndex")

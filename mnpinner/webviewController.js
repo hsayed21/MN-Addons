@@ -1268,7 +1268,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       let result = pinnerConfig.updatePagePinPageIndex(
         page.docMd5,
         page.pageIndex,
-        currentPageIndex
+        currentPageIndex,
+        param.section || "pages"
       )
 
       // 显示结果
@@ -1435,39 +1436,54 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   /**
    * 上移页面
    */
-  movePageUp: async function(button) {
+  movePageUp: function(button) {
     try {
-      let oldIndex = button.tag
-      let newIndex = oldIndex - 1
+      let index = button.tag
+      let section = button.section || "pages"
+      let pins = pinnerConfig.getPins(section)
 
-      if (newIndex >= 0) {
-        pinnerConfig.movePagePin(oldIndex, newIndex)
-        self.refreshPageCards()  // ✅ 添加手动刷新
+      if (index > 0) {
+        pinnerConfig.movePin(index, index - 1, section)
+
+        // 根据分区刷新对应视图
+        if (section === "pages") {
+          self.refreshPageCards()
+        } else {
+          self.refreshSectionCards(section)
+        }
+
         MNUtil.showHUD("已上移")
       }
-
     } catch (error) {
       pinnerUtils.addErrorLog(error, "movePageUp")
+      MNUtil.showHUD("上移失败")
     }
   },
 
   /**
    * 下移页面
    */
-  movePageDown: async function(button) {
+  movePageDown: function(button) {
     try {
-      let oldIndex = button.tag
-      let newIndex = oldIndex + 1
+      let index = button.tag
+      let section = button.section || "pages"
+      let pins = pinnerConfig.getPins(section)
 
-      let totalPages = pinnerConfig.getPagePins().length
-      if (newIndex < totalPages) {
-        pinnerConfig.movePagePin(oldIndex, newIndex)
-        self.refreshPageCards()  // ✅ 添加手动刷新
+      if (index < pins.length - 1) {
+        pinnerConfig.movePin(index, index + 1, section)
+
+        // 根据分区刷新对应视图
+        if (section === "pages") {
+          self.refreshPageCards()
+        } else {
+          self.refreshSectionCards(section)
+        }
+
         MNUtil.showHUD("已下移")
       }
-
     } catch (error) {
       pinnerUtils.addErrorLog(error, "movePageDown")
+      MNUtil.showHUD("下移失败")
     }
   },
 });
