@@ -1958,21 +1958,27 @@ pinnerController.prototype.createSectionViews = function() {
     })
     this[section + "ClearButton"] = clearButton
 
-    // 所有分区都创建 Pin 按钮
-    let pinButton = UIButton.buttonWithType(0)
-    if (section === "pages") {
-      // Pages 分区：Pin 当前页面
-      pinButton.addTargetActionForControlEvents(this, "pinCurrentPage:", 1 << 6)
-    } else {
-      // 其他分区：Pin 当前 focusNote
-      pinButton.addTargetActionForControlEvents(this, "pinCurrentCard:", 1 << 6)
+    // 创建 Pin 卡片按钮（除 pages 分区外）
+    if (section !== "pages") {
+      let pinCardButton = UIButton.buttonWithType(0)
+      pinCardButton.addTargetActionForControlEvents(this, "pinCurrentCard:", 1 << 6)
+      pinCardButton.section = section
+      buttonScrollView.addSubview(pinCardButton)
+      MNButton.setConfig(pinCardButton, {
+        color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "📌 Pin 卡片", radius: 10, font: 15
+      })
+      this[section + "PinCardButton"] = pinCardButton
     }
-    pinButton.section = section
-    buttonScrollView.addSubview(pinButton)
-    MNButton.setConfig(pinButton, {
-      color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "📌 Pin", radius: 10, font: 15
+
+    // 创建 Pin 页面按钮（所有分区）
+    let pinPageButton = UIButton.buttonWithType(0)
+    pinPageButton.addTargetActionForControlEvents(this, "pinCurrentPageToSection:", 1 << 6)
+    pinPageButton.section = section
+    buttonScrollView.addSubview(pinPageButton)
+    MNButton.setConfig(pinPageButton, {
+      color: "#61afef", alpha: 0.8, opacity: 1.0, title: "📄 Pin 页面", radius: 10, font: 15
     })
-    this[section + "PinButton"] = pinButton
+    this[section + "PinPageButton"] = pinPageButton
 
     // 创建 Add 按钮（除了 pages 分区）
     if (section !== "pages") {
@@ -2070,8 +2076,6 @@ pinnerController.prototype.layoutSectionView = function(section) {
   let scrollViewKey = section + "CardScrollView"
   let buttonScrollViewKey = section + "ButtonScrollView"
   let clearButtonKey = section + "ClearButton"
-  // 所有分区都使用 PinButton
-  let secondButtonKey = section + "PinButton"
   let addButtonKey = section + "AddButton"
 
   if (!this[scrollViewKey]) return
@@ -2082,21 +2086,38 @@ pinnerController.prototype.layoutSectionView = function(section) {
 
   // 设置按钮滚动容器
   if (this[buttonScrollViewKey]) {
-    // pages 分区只有 2 个按钮，其他分区有 3 个按钮
-    let buttonCount = section === "pages" ? 2 : 3
-    let containerWidth = buttonCount === 3 ? 240 : 160
+    // 计算按钮数量和容器宽度
+    // pages 分区: 清空 + Pin 页面 = 2 个按钮, 宽度 160
+    // 其他分区: 清空(70) + Pin卡片(90) + Pin页面(90) + Add(70) = 4 个按钮, 总宽度 335
+    let buttonCount = section === "pages" ? 2 : 4
+    let containerWidth = buttonCount === 4 ? 340 : 160
 
     this[buttonScrollViewKey].frame = {x: 10, y: 10, width: Math.min(width - 20, containerWidth), height: 32}
     this[buttonScrollViewKey].contentSize = {width: containerWidth, height: 32}
 
+    // 布局清空按钮
     if (this[clearButtonKey]) {
       this[clearButtonKey].frame = {x: 0, y: 0, width: 70, height: 32}
     }
-    if (this[secondButtonKey]) {
-      this[secondButtonKey].frame = {x: 75, y: 0, width: 70, height: 32}
+
+    // 布局 Pin 卡片按钮（非 pages 分区）
+    let pinCardButtonKey = section + "PinCardButton"
+    if (this[pinCardButtonKey]) {
+      this[pinCardButtonKey].frame = {x: 75, y: 0, width: 90, height: 32}
     }
+
+    // 布局 Pin 页面按钮
+    let pinPageButtonKey = section + "PinPageButton"
+    if (this[pinPageButtonKey]) {
+      // pages 分区: Pin 页面在第 2 个位置 (x=75)
+      // 其他分区: Pin 页面在第 3 个位置 (x=170)
+      let xPos = section === "pages" ? 75 : 170
+      this[pinPageButtonKey].frame = {x: xPos, y: 0, width: 90, height: 32}
+    }
+
+    // 布局 Add 按钮（非 pages 分区）
     if (this[addButtonKey]) {
-      this[addButtonKey].frame = {x: 150, y: 0, width: 70, height: 32}
+      this[addButtonKey].frame = {x: 265, y: 0, width: 70, height: 32}
     }
   }
 
