@@ -1965,7 +1965,7 @@ pinnerController.prototype.createSectionViews = function() {
       pinButton.addTargetActionForControlEvents(this, "pinCurrentPage:", 1 << 6)
     } else {
       // 其他分区：Pin 当前 focusNote
-      pinButton.addTargetActionForControlEvents(this, "pinFocusNote:", 1 << 6)
+      pinButton.addTargetActionForControlEvents(this, "pinCurrentCard:", 1 << 6)
     }
     pinButton.section = section
     buttonScrollView.addSubview(pinButton)

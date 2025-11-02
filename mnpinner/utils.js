@@ -490,12 +490,11 @@ class pinnerConfig {
       // 更新最后同步时间
       this.config.lastSyncTime = Date.now()
 
-      let data = JSON.stringify(this.getAllConfig(), null, 2)
-      let fileData = NSString.stringWithString(data).dataUsingEncoding(4)
       let fileName = "MNPinner_" + new Date().toISOString().slice(0,10) + ".json"
       let filePath = MNUtil.tempPath + "/" + fileName
 
-      fileData.writeToFileAtomically(filePath, false)
+      // 使用 MNUtil.writeJSON 写文件（与 mnchatglm 实现一致）
+      MNUtil.writeJSON(filePath, this.getAllConfig())
       MNUtil.saveFile(filePath, "public.json")
 
       MNUtil.showHUD("✅ 已导出到文件")
@@ -1401,7 +1400,7 @@ class pinnerConfig {
     try {
       this.ensurePagesArray()
       let pages = this.sections.pages
-      let pagePin = pages.find(p => p.docMd5 === docMd5 && p.pageIndex === oldPageIndex)
+      let pagePin = pages.find(p => p.type === "page" && p.docMd5 === docMd5 && p.pageIndex === oldPageIndex)
 
       if (!pagePin) {
         return { success: false, message: "未找到对应的页面 Pin" }
