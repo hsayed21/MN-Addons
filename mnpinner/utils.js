@@ -972,9 +972,10 @@ class pinnerConfig {
 
       this.save()
 
-      if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
-        pinnerUtils.pinnerController.refreshView(section + "View")
-      }
+      // ✅ 移除自动刷新，让调用方（UI 层）控制刷新
+      // if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
+      //   pinnerUtils.pinnerController.refreshView(section + "View")
+      // }
       return true
 
     } catch (error) {
@@ -1007,6 +1008,11 @@ class pinnerConfig {
 
       // 更新 noteId
       pin.noteId = newNoteId
+
+      // 确保 pin 有 type 字段（防御性编程，兼容旧数据）
+      if (!pin.type) {
+        pin.type = "card"
+      }
 
       // 保存
       this.save()
@@ -1317,21 +1323,39 @@ class pinnerConfig {
    * @param {string} docMd5 - 文档 MD5
    * @param {number} pageIndex - 页码
    * @param {string} newTitle - 新标题
+   * @param {string} section - 分区名称（可选，不指定则在所有分区中查找）
    * @returns {boolean} 是否更新成功
    */
-  static updatePagePinTitle(docMd5, pageIndex, newTitle) {
+  static updatePagePinTitle(docMd5, pageIndex, newTitle, section) {
     try {
-      this.ensurePagesArray()
-      let pages = this.sections.pages
-      let pagePin = pages.find(p => p.docMd5 === docMd5 && p.pageIndex === pageIndex)
+      // 如果指定了分区
+      if (section && this.sections[section]) {
+        let pins = this.sections[section]
+        let pagePin = pins.find(p => p.type === "page" && p.docMd5 === docMd5 && p.pageIndex === pageIndex)
 
-      if (!pagePin) return false
+        if (!pagePin) return false
 
-      pagePin.title = newTitle
-      this.save()
+        pagePin.title = newTitle
+        this.save()
 
-      pinnerUtils.log(`Updated page pin title: ${newTitle}`, "pinnerConfig:updatePagePinTitle")
-      return true
+        pinnerUtils.log(`Updated page pin title in ${section}: ${newTitle}`, "pinnerConfig:updatePagePinTitle")
+        return true
+      }
+
+      // 没有指定分区，在所有分区中查找
+      for (let sec in this.sections) {
+        let pins = this.sections[sec]
+        let pagePin = pins.find(p => p.type === "page" && p.docMd5 === docMd5 && p.pageIndex === pageIndex)
+
+        if (pagePin) {
+          pagePin.title = newTitle
+          this.save()
+          pinnerUtils.log(`Updated page pin title in ${sec}: ${newTitle}`, "pinnerConfig:updatePagePinTitle")
+          return true
+        }
+      }
+
+      return false
 
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:updatePagePinTitle")
@@ -1440,9 +1464,10 @@ class pinnerConfig {
 
       this.save()
 
-      if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
-        pinnerUtils.pinnerController.refreshView("pagesView")
-      }
+      // ✅ 移除自动刷新，让调用方（UI 层）控制刷新
+      // if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
+      //   pinnerUtils.pinnerController.refreshView("pagesView")
+      // }
       return true
 
     } catch (error) {
