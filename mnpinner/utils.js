@@ -878,23 +878,50 @@ class pinnerConfig {
       return false
     }
   }
-  
+
   /**
-   * 删除 Pin
-   * @param {string} noteId - 笔记ID
+   * 在 Pin 数组中查找 Pin 的索引
+   * @private
+   * @param {Array} pins - Pin 数组
+   * @param {Object} pin - 要查找的 Pin 对象
+   * @returns {number} 索引，未找到返回 -1
+   */
+  static findPinIndex(pins, pin) {
+    if (pin.type === "card") {
+      return pins.findIndex(p => p.type === "card" && p.noteId === pin.noteId)
+    } else if (pin.type === "page") {
+      return pins.findIndex(p =>
+        p.type === "page" &&
+        p.docMd5 === pin.docMd5 &&
+        p.pageIndex === pin.pageIndex
+      )
+    }
+    // 兼容没有 type 字段的旧数据（默认为 card）
+    return pins.findIndex(p => p.noteId === pin.noteId)
+  }
+
+  /**
+   * 删除 Pin（支持 Card 和 Page 类型）
+   * @param {Object|string} pinOrId - Pin 对象或 noteId（兼容旧版）
    * @param {string} section - 分区名称
    */
-  static removePin(noteId, section) {
+  static removePin(pinOrId, section) {
     try {
+      // 兼容旧版：如果传入的是字符串，视为 noteId（Card 类型）
+      let pin = pinOrId
+      if (typeof pinOrId === 'string') {
+        pin = { type: "card", noteId: pinOrId }
+      }
+
       // 如果没有指定分区，在所有分区中查找并删除
       if (!section) {
         for (let sec in this.sections) {
           let pins = this.sections[sec]
-          let index = pins.findIndex(p => p.noteId === noteId)
+          let index = this.findPinIndex(pins, pin)
           if (index !== -1) {
             pins.splice(index, 1)
             this.save()
-            pinnerUtils.log(`Removed pin from ${sec}`, "pinnerConfig:removePin")
+            pinnerUtils.log(`Removed ${pin.type} pin from ${sec}`, "pinnerConfig:removePin")
             return true
           }
         }
@@ -905,7 +932,7 @@ class pinnerConfig {
       if (!this.sections[section]) return false
 
       let pins = this.sections[section]
-      let index = pins.findIndex(p => p.noteId === noteId)
+      let index = this.findPinIndex(pins, pin)
 
       if (index === -1) {
         return false
@@ -914,7 +941,7 @@ class pinnerConfig {
       pins.splice(index, 1)
       this.save()
 
-      pinnerUtils.log(`Removed pin from ${section}`, "pinnerConfig:removePin")
+      pinnerUtils.log(`Removed ${pin.type} pin from ${section}`, "pinnerConfig:removePin")
       return true
 
     } catch (error) {
@@ -1029,37 +1056,44 @@ class pinnerConfig {
   }
 
   /**
-   * 转移卡片到其他分区
-   * @param {string} noteId - 笔记ID
+   * 转移 Pin 到其他分区（支持 Card 和 Page 类型）
+   * @param {Object|string} pinOrId - Pin 对象或 noteId（兼容旧版）
    * @param {string} fromSection - 源分区
    * @param {string} toSection - 目标分区
    */
-  static transferPin(noteId, fromSection, toSection) {
+  static transferPin(pinOrId, fromSection, toSection) {
     try {
       if (!this.sections[fromSection] || !this.sections[toSection]) {
         pinnerUtils.addErrorLog("Invalid section", "pinnerConfig:transferPin")
         return false
       }
 
+      // 兼容旧版：如果传入的是字符串，视为 noteId（Card 类型）
+      let pin = pinOrId
+      if (typeof pinOrId === 'string') {
+        pin = { type: "card", noteId: pinOrId }
+      }
+
       let fromPins = this.sections[fromSection]
       let toPins = this.sections[toSection]
 
-      let index = fromPins.findIndex(p => p.noteId === noteId)
+      let index = this.findPinIndex(fromPins, pin)
       if (index === -1) return false
 
       // 检查目标分区是否已存在
-      if (toPins.find(p => p.noteId === noteId)) {
-        MNUtil.showHUD("目标分区已存在该卡片")
+      if (this.findPinIndex(toPins, pin) !== -1) {
+        MNUtil.showHUD("目标分区已存在")
         return false
       }
 
-      // 执行转移
-      let [pin] = fromPins.splice(index, 1)
-      toPins.push(pin)
+      // 执行转移（使用实际的 pin 对象）
+      let actualPin = fromPins[index]
+      fromPins.splice(index, 1)
+      toPins.push(actualPin)
 
       this.save()
 
-      let toSectionName = toSection === 'focus' ? 'Focus' : '中间知识'
+      let toSectionName = pinnerConfig.getSectionDisplayName(toSection)
       MNUtil.showHUD(`已转移到 ${toSectionName}`)
       return true
 
