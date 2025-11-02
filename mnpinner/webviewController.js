@@ -347,15 +347,112 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       
       // 正常模式下显示功能菜单
       let commandTable = [
-        {title:'🔧  菜单栏待丰富中', object:self, selector:'', param:""},
+        {title:'📤  导出配置', object:self, selector:'exportConfigTapped:', param:button},
+        {title:'📥  导入配置', object:self, selector:'importConfigTapped:', param:button},
       ];
-      self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable, 200, 1)
+      self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable, 200, 2)
     } catch (error) {
       pinnerUtils.addErrorLog(error, "moveButtonTapped")
       MNUtil.showHUD("操作失败")
     }
   },
-  
+
+  /**
+   * 导出配置 - 二级菜单
+   */
+  exportConfigTapped: function(button) {
+    try {
+      let commandTable = [
+        {title:'📋   导出到剪贴板', object:self, selector:'exportConfig:', param:"clipboard"},
+        {title:'📁   导出到文件', object:self, selector:'exportConfig:', param:"file"},
+        {title:'📝   导出到当前卡片', object:self, selector:'exportConfig:', param:"currentNote"},
+      ];
+      self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable, 250, 2)
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "exportConfigTapped")
+      MNUtil.showHUD("操作失败")
+    }
+  },
+
+  /**
+   * 执行导出配置
+   */
+  exportConfig: function(param) {
+    try {
+      // 关闭 popover
+      if (self.popoverController) {
+        self.popoverController.dismissPopoverAnimated(true)
+        self.popoverController = null
+      }
+
+      switch (param) {
+        case "clipboard":
+          pinnerConfig.exportToClipboard()
+          break;
+        case "file":
+          pinnerConfig.exportToFile()
+          break;
+        case "currentNote":
+          pinnerConfig.exportToCurrentNote()
+          break;
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "exportConfig")
+      MNUtil.showHUD("导出失败")
+    }
+  },
+
+  /**
+   * 导入配置 - 二级菜单
+   */
+  importConfigTapped: function(button) {
+    try {
+      let commandTable = [
+        {title:'📋   从剪贴板导入', object:self, selector:'importConfig:', param:"clipboard"},
+        {title:'📁   从文件导入', object:self, selector:'importConfig:', param:"file"},
+        {title:'📝   从当前卡片导入', object:self, selector:'importConfig:', param:"currentNote"},
+      ];
+      self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable, 250, 2)
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "importConfigTapped")
+      MNUtil.showHUD("操作失败")
+    }
+  },
+
+  /**
+   * 执行导入配置
+   */
+  importConfig: async function(param) {
+    try {
+      // 关闭 popover
+      if (self.popoverController) {
+        self.popoverController.dismissPopoverAnimated(true)
+        self.popoverController = null
+      }
+
+      let success = false
+      switch (param) {
+        case "clipboard":
+          success = pinnerConfig.importFromClipboard()
+          break;
+        case "file":
+          success = await pinnerConfig.importFromFile()
+          break;
+        case "currentNote":
+          success = pinnerConfig.importFromCurrentNote()
+          break;
+      }
+
+      // 导入成功后刷新 UI
+      if (success && !self.view.hidden) {
+        self.refreshCurrentView()
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "importConfig")
+      MNUtil.showHUD("导入失败")
+    }
+  },
+
   focusTabTapped: function(button) {
     self.switchView("focusView")
   },
@@ -399,11 +496,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
-   * Pin 当前聚焦的卡片到指定分区
+   * Pin 当前卡片到指定分区
    */
-  pinFocusNote: function(button) {
+  pinCurrentCard: function(param) {
     try {
-      let section = button.section || self.currentSection
+      let section = param.section || self.currentSection
 
       // 获取当前聚焦的卡片
       let focusNote = MNNote.getFocusNote()
@@ -417,20 +514,57 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       let noteId = focusNote.noteId
       let title = focusNote.noteTitle || "未命名卡片"
 
-      // 添加到指定分区（默认添加到顶部）
-      let success = pinnerConfig.addPinAtPosition(noteId, title, section, "top")
+      // 使用工厂方法创建 Card Pin，然后使用统一的 addPin 方法
+      let cardPin = pinnerConfig.createCardPin(noteId, title)
+      let success = pinnerConfig.addPin(cardPin, section, "top")
 
       if (success) {
-        MNUtil.showHUD(`已 Pin 到 ${pinnerConfig.getSectionDisplayName(section)}`)
+        MNUtil.showHUD(`已 Pin 卡片到 ${pinnerConfig.getSectionDisplayName(section)}`)
         // 刷新视图
         self.refreshSectionCards(section)
-      } else {
-        MNUtil.showHUD("该卡片已存在")
       }
 
     } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinFocusNote")
-      MNUtil.showHUD("Pin 失败: " + error.message)
+      pinnerUtils.addErrorLog(error, "pinCurrentCard")
+      MNUtil.showHUD("Pin 卡片失败: " + error.message)
+    }
+  },
+
+  /**
+   * Pin 当前页面到指定分区
+   */
+  pinCurrentPageToSection: function(param) {
+    try {
+      let section = param.section || self.currentSection
+
+      // 获取当前文档控制器
+      let docController = MNUtil.currentDocController
+      if (!docController) {
+        MNUtil.showHUD("当前没有打开的文档")
+        return
+      }
+
+      // 获取当前文档的 MD5 和页码
+      let docMd5 = docController.document.docMd5
+      let pageIndex = docController.currPageIndex
+      let doc = docController.document
+      // 优先使用文件路径，兜底使用文档标题
+      let docName = (doc.pathFile && doc.pathFile.lastPathComponent) || doc.docTitle || "未知文档"
+      let defaultTitle = `${docName} - 第${pageIndex + 1}页`
+
+      // 使用工厂方法创建 Page Pin，然后使用统一的 addPin 方法
+      let pagePin = pinnerConfig.createPagePin(docMd5, pageIndex, defaultTitle, "")
+      let success = pinnerConfig.addPin(pagePin, section, "top")
+
+      if (success) {
+        MNUtil.showHUD(`已 Pin 页面到 ${pinnerConfig.getSectionDisplayName(section)}`)
+        // 刷新视图
+        self.refreshSectionCards(section)
+      }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinCurrentPageToSection")
+      MNUtil.showHUD("Pin 页面失败: " + error.message)
     }
   },
 
@@ -458,6 +592,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       // 创建空白 pin 数据
       let blankPin = {
+        type: "card",  // 添加类型字段，确保与其他卡片数据结构一致
         noteId: "BLANK_" + Date.now(),  // 特殊前缀标识
         title: title.trim()
       }
