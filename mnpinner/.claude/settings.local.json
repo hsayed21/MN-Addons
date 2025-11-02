@@ -13,7 +13,9 @@
       "mcp__serena__find_file",
       "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/**)",
       "mcp__serena__check_onboarding_performed",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__read_text_file"
     ],
     "deny": [],
     "ask": []
