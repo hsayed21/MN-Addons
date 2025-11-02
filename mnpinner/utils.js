@@ -948,6 +948,27 @@ class pinnerConfig {
       return false
     }
   }
+
+  /**
+   * 在 Pin 数组中查找 Pin 的索引
+   * @private
+   * @param {Array} pins - Pin 数组
+   * @param {Object} pin - 要查找的 Pin 对象
+   * @returns {number} 索引，未找到返回 -1
+   */
+  static findPinIndex(pins, pin) {
+    if (pin.type === "card") {
+      return pins.findIndex(p => p.type === "card" && p.noteId === pin.noteId)
+    } else if (pin.type === "page") {
+      return pins.findIndex(p =>
+        p.type === "page" &&
+        p.docMd5 === pin.docMd5 &&
+        p.pageIndex === pin.pageIndex
+      )
+    }
+    // 兼容没有 type 字段的旧数据（默认为 card）
+    return pins.findIndex(p => p.noteId === pin.noteId)
+  }
   
   /**
    * 移动 Pin 顺序

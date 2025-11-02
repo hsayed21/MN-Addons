@@ -619,25 +619,34 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
-   * 删除单个卡片
+   * 删除单个 Pin（支持 Card 和 Page 类型）
    */
   deleteCard: function(button) {
     try {
-      // ✅ 如果是 pages 分区，转发到 deletePage
-      if (button.section === "pages") {
-        return self.deletePage(button)
-      }
-
-      let noteId = button.noteId
       let section = button.section || self.currentSection
 
-      if (!noteId) {
-        MNUtil.showHUD("无法获取卡片ID")
-        return
+      // 根据 pinType 构造 pin 对象
+      let pin
+      if (button.pinType === "page") {
+        pin = {
+          type: "page",
+          docMd5: button.docMd5,
+          pageIndex: button.pageIndex
+        }
+      } else {
+        // type === "card" 或没有 type（兼容旧数据）
+        if (!button.noteId) {
+          MNUtil.showHUD("无法获取卡片ID")
+          return
+        }
+        pin = {
+          type: "card",
+          noteId: button.noteId
+        }
       }
 
-      // 调用数据层删除方法
-      let success = pinnerConfig.removePin(noteId, section)
+      // 调用数据层统一删除方法
+      let success = pinnerConfig.removePin(pin, section)
 
       if (success) {
         // 刷新视图
@@ -653,14 +662,14 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
   
   /**
-   * 单击定位卡片
+   * 单击定位卡片或跳转页面（根据 type 区分）
    *
-   * 目前是脑图定位
+   * 支持 Card 类型（脑图定位）和 Page 类型（文档跳转）
    */
   focusCardTapped: function(button) {
     try {
-      // ✅ 如果是 pages 分区，转发到 jumpToPage
-      if (button.section === "pages") {
+      // ✅ 根据 pinType 字段判断类型
+      if (button.pinType === "page") {
         return self.jumpToPage(button)
       }
 
@@ -1020,20 +1029,24 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   pageItemTapped: function(button) {
     try {
-      // 使用 tag 获取索引，然后从数据源获取页面数据
+      // ✅ 从按钮获取分区和索引信息
+      let section = button.section || "pages"
       let index = button.tag
-      let pages = pinnerConfig.getPagePins()
-      let page = pages[index]
+
+      // ✅ 从正确的分区获取页面数据
+      let pins = pinnerConfig.getPins(section)
+      let page = pins[index]
 
       if (!page) {
         MNUtil.showHUD("页面不存在")
         return
       }
 
-      // 创建参数对象传递给菜单项
+      // 创建参数对象传递给菜单项，包含 section 信息
       let param = {
         index: index,
-        page: page
+        page: page,
+        section: section  // ✅ 添加 section 信息
       }
 
       // 创建菜单选项
@@ -1126,6 +1139,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       self.checkPopover()  // 关闭菜单
 
       let page = param.page
+      let section = param.section || "pages"  // ✅ 获取分区信息
 
       if (!page) {
         MNUtil.showHUD("页面不存在")
@@ -1173,9 +1187,20 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
             // 更新数据并刷新
             if (finalTitle !== currentTitle) {
-              pinnerConfig.updatePagePinTitle(page.docMd5, page.pageIndex, finalTitle)
-              self.refreshPageCards()
-              MNUtil.showHUD("✅ 标题已更新")
+              // ✅ 传入 section 参数并检查返回值
+              let success = pinnerConfig.updatePagePinTitle(page.docMd5, page.pageIndex, finalTitle, section)
+
+              if (success) {
+                // ✅ 根据分区刷新对应的视图
+                if (section === "pages") {
+                  self.refreshPageCards()
+                } else {
+                  self.refreshSectionCards(section)
+                }
+                MNUtil.showHUD("✅ 标题已更新")
+              } else {
+                MNUtil.showHUD("❌ 更新失败")
+              }
             }
 
           } catch (error) {
@@ -1322,64 +1347,66 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    * 跳转到文档页面（参考 mnsnipaste 的文档定位实现）
    */
   jumpToPage: async function(button) {
-    try {
-      // 使用 tag 获取索引，然后从数据源获取页面数据
-      let index = button.tag
-      let pages = pinnerConfig.getPagePins()
-      let page = pages[index]
+    self.checkPopover()  // 关闭菜单
+    self.jumpToPage(button)
+    // try {
+    //   // 使用 tag 获取索引，然后从数据源获取页面数据
+    //   let index = button.tag
+    //   let pages = pinnerConfig.getPagePins()
+    //   let page = pages[index]
 
-      // 验证页面数据
-      if (!page) {
-        MNUtil.showHUD("页面不存在")
-        return
-      }
+    //   // 验证页面数据
+    //   if (!page) {
+    //     MNUtil.showHUD("页面不存在")
+    //     return
+    //   }
 
-      let docMd5 = page.docMd5
-      let pageIndex = page.pageIndex
+    //   let docMd5 = page.docMd5
+    //   let pageIndex = page.pageIndex
 
-      // 验证文档存在
-      let docInfo = pinnerConfig.getDocInfo(docMd5)
-      if (!docInfo.doc) {
-        MNUtil.showHUD("文档不存在")
-        return
-      }
+    //   // 验证文档存在
+    //   let docInfo = pinnerConfig.getDocInfo(docMd5)
+    //   if (!docInfo.doc) {
+    //     MNUtil.showHUD("文档不存在")
+    //     return
+    //   }
 
-      // 验证页码范围
-      if (pageIndex < 0 || pageIndex > docInfo.lastPageIndex) {
-        MNUtil.showHUD(`页码超出范围(0-${docInfo.lastPageIndex})`)
-        return
-      }
+    //   // 验证页码范围
+    //   if (pageIndex < 0 || pageIndex > docInfo.lastPageIndex) {
+    //     MNUtil.showHUD(`页码超出范围(0-${docInfo.lastPageIndex})`)
+    //     return
+    //   }
 
-      // 打开文档（如果不是当前文档）
-      if (docMd5 !== MNUtil.currentDocMd5) {
-        MNUtil.openDoc(docMd5)
+    //   // 打开文档（如果不是当前文档）
+    //   if (docMd5 !== MNUtil.currentDocMd5) {
+    //     MNUtil.openDoc(docMd5)
 
-        // 确保文档视图可见（参考 mnsnipaste 的实现）
-        if (MNUtil.docMapSplitMode === 0) {
-          MNUtil.docMapSplitMode = 1  // 从纯脑图切换到分割模式
-        }
+    //     // 确保文档视图可见（参考 mnsnipaste 的实现）
+    //     if (MNUtil.docMapSplitMode === 0) {
+    //       MNUtil.docMapSplitMode = 1  // 从纯脑图切换到分割模式
+    //     }
 
-        // 等待文档加载（优化：参考 mnsnipaste 使用 0.01 秒）
-        await MNUtil.delay(0.01)
-      }
+    //     // 等待文档加载（优化：参考 mnsnipaste 使用 0.01 秒）
+    //     await MNUtil.delay(0.01)
+    //   }
 
-      // 跳转到指定页面
-      let docController = MNUtil.currentDocController
-      if (!docController) {
-        MNUtil.showHUD("无法获取文档控制器")
-        return
-      }
+    //   // 跳转到指定页面
+    //   let docController = MNUtil.currentDocController
+    //   if (!docController) {
+    //     MNUtil.showHUD("无法获取文档控制器")
+    //     return
+    //   }
 
-      if (docController.currPageIndex !== pageIndex) {
-        docController.setPageAtIndex(pageIndex)
-      }
+    //   if (docController.currPageIndex !== pageIndex) {
+    //     docController.setPageAtIndex(pageIndex)
+    //   }
 
-      MNUtil.showHUD(`已跳转到第 ${pageIndex + 1} 页`)
+    //   MNUtil.showHUD(`已跳转到第 ${pageIndex + 1} 页`)
 
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, "jumpToPage")
-      MNUtil.showHUD("跳转失败: " + error.message)
-    }
+    // } catch (error) {
+    //   pinnerUtils.addErrorLog(error, "jumpToPage")
+    //   MNUtil.showHUD("跳转失败: " + error.message)
+    // }
   },
   /**
    * 删除页面
@@ -1415,7 +1442,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       if (newIndex >= 0) {
         pinnerConfig.movePagePin(oldIndex, newIndex)
-        // refreshPageCards 会在 movePagePin 中自动调用
+        self.refreshPageCards()  // ✅ 添加手动刷新
+        MNUtil.showHUD("已上移")
       }
 
     } catch (error) {
@@ -1434,7 +1462,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       let totalPages = pinnerConfig.getPagePins().length
       if (newIndex < totalPages) {
         pinnerConfig.movePagePin(oldIndex, newIndex)
-        // refreshPageCards 会在 movePagePin 中自动调用
+        self.refreshPageCards()  // ✅ 添加手动刷新
+        MNUtil.showHUD("已下移")
       }
 
     } catch (error) {
@@ -1444,6 +1473,62 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 });
 
 // ========== 原型方法 ==========
+pinnerController.prototype.jumpToPage = async function (button) {
+  try {
+    // ✅ 直接从 button 获取页面数据（支持所有分区）
+    let docMd5 = button.docMd5
+    let pageIndex = button.pageIndex
+
+    // 验证参数存在
+    if (!docMd5 || pageIndex === undefined) {
+      MNUtil.showHUD("缺少页面信息")
+      return
+    }
+
+    // 验证文档存在
+    let docInfo = pinnerConfig.getDocInfo(docMd5)
+    if (!docInfo.doc) {
+      MNUtil.showHUD("文档不存在")
+      return
+    }
+
+    // 验证页码范围
+    if (pageIndex < 0 || pageIndex > docInfo.lastPageIndex) {
+      MNUtil.showHUD(`页码超出范围(0-${docInfo.lastPageIndex})`)
+      return
+    }
+
+    // 打开文档（如果不是当前文档）
+    if (docMd5 !== MNUtil.currentDocMd5) {
+      MNUtil.openDoc(docMd5)
+
+      // 确保文档视图可见（参考 mnsnipaste 的实现）
+      if (MNUtil.docMapSplitMode === 0) {
+        MNUtil.docMapSplitMode = 1  // 从纯脑图切换到分割模式
+      }
+
+      // 等待文档加载（优化：参考 mnsnipaste 使用 0.01 秒）
+      await MNUtil.delay(0.01)
+    }
+
+    // 跳转到指定页面
+    let docController = MNUtil.currentDocController
+    if (!docController) {
+      MNUtil.showHUD("无法获取文档控制器")
+      return
+    }
+
+    if (docController.currPageIndex !== pageIndex) {
+      docController.setPageAtIndex(pageIndex)
+    }
+
+    MNUtil.showHUD(`已跳转到第 ${pageIndex + 1} 页`)
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "jumpToPage")
+    MNUtil.showHUD("跳转失败: " + error.message)
+  }
+}
 
 /**
  * 显示面板（带动画效果）
@@ -1958,19 +2043,17 @@ pinnerController.prototype.createSectionViews = function() {
     })
     this[section + "ClearButton"] = clearButton
 
-    // 创建 Pin 卡片按钮（除 pages 分区外）
-    if (section !== "pages") {
-      let pinCardButton = UIButton.buttonWithType(0)
-      pinCardButton.addTargetActionForControlEvents(this, "pinCurrentCard:", 1 << 6)
-      pinCardButton.section = section
-      buttonScrollView.addSubview(pinCardButton)
-      MNButton.setConfig(pinCardButton, {
-        color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "📌 Pin 卡片", radius: 10, font: 15
-      })
-      this[section + "PinCardButton"] = pinCardButton
-    }
+    // 创建 Pin 卡片按钮
+    let pinCardButton = UIButton.buttonWithType(0)
+    pinCardButton.addTargetActionForControlEvents(this, "pinCurrentCard:", 1 << 6)
+    pinCardButton.section = section
+    buttonScrollView.addSubview(pinCardButton)
+    MNButton.setConfig(pinCardButton, {
+      color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "📌 Pin 卡片", radius: 10, font: 15
+    })
+    this[section + "PinCardButton"] = pinCardButton
 
-    // 创建 Pin 页面按钮（所有分区）
+    // 创建 Pin 页面按钮
     let pinPageButton = UIButton.buttonWithType(0)
     pinPageButton.addTargetActionForControlEvents(this, "pinCurrentPageToSection:", 1 << 6)
     pinPageButton.section = section
@@ -2045,14 +2128,21 @@ pinnerController.prototype.refreshSectionCards = function(section) {
       return
     }
 
-    // 添加卡片行
+    // 添加卡片行（支持混合渲染 Card 和 Page）
     let yOffset = 10
     let scrollWidth = scrollView.frame.width
 
-    cards.forEach((card, index) => {
-      let cardRow = this.createCardRow(card, index, scrollWidth - 20, section)
-      scrollView.addSubview(cardRow)
-      this[cardRowsKey].push(cardRow)
+    cards.forEach((pin, index) => {
+      let row
+      // 根据 type 字段选择渲染方法
+      if (pin.type === "page") {
+        row = this.createPageRow(pin, index, scrollWidth - 20, section)
+      } else {
+        // type === "card" 或没有 type 字段（兼容旧数据，默认为 card）
+        row = this.createCardRow(pin, index, scrollWidth - 20, section)
+      }
+      scrollView.addSubview(row)
+      this[cardRowsKey].push(row)
       yOffset += UI_CONSTANTS.CARD_ROW_HEIGHT
     })
 
@@ -2076,6 +2166,8 @@ pinnerController.prototype.layoutSectionView = function(section) {
   let scrollViewKey = section + "CardScrollView"
   let buttonScrollViewKey = section + "ButtonScrollView"
   let clearButtonKey = section + "ClearButton"
+  let pinCardButtonKey = section + "PinCardButton"
+  let pinPageButtonKey = section + "PinPageButton"
   let addButtonKey = section + "AddButton"
 
   if (!this[scrollViewKey]) return
@@ -2086,38 +2178,25 @@ pinnerController.prototype.layoutSectionView = function(section) {
 
   // 设置按钮滚动容器
   if (this[buttonScrollViewKey]) {
-    // 计算按钮数量和容器宽度
-    // pages 分区: 清空 + Pin 页面 = 2 个按钮, 宽度 160
-    // 其他分区: 清空(70) + Pin卡片(90) + Pin页面(90) + Add(70) = 4 个按钮, 总宽度 335
-    let buttonCount = section === "pages" ? 2 : 4
-    let containerWidth = buttonCount === 4 ? 340 : 160
+    // pages 分区有 3 个按钮（Clear + PinCard + PinPage），其他分区有 4 个按钮（+ Add）
+    let buttonCount = section === "pages" ? 3 : 4
+    let containerWidth = buttonCount === 4 ? 380 : 280
 
     this[buttonScrollViewKey].frame = {x: 10, y: 10, width: Math.min(width - 20, containerWidth), height: 32}
     this[buttonScrollViewKey].contentSize = {width: containerWidth, height: 32}
 
-    // 布局清空按钮
+    // 按钮布局（水平并排）
     if (this[clearButtonKey]) {
       this[clearButtonKey].frame = {x: 0, y: 0, width: 70, height: 32}
     }
-
-    // 布局 Pin 卡片按钮（非 pages 分区）
-    let pinCardButtonKey = section + "PinCardButton"
     if (this[pinCardButtonKey]) {
-      this[pinCardButtonKey].frame = {x: 75, y: 0, width: 90, height: 32}
+      this[pinCardButtonKey].frame = {x: 75, y: 0, width: 95, height: 32}
     }
-
-    // 布局 Pin 页面按钮
-    let pinPageButtonKey = section + "PinPageButton"
     if (this[pinPageButtonKey]) {
-      // pages 分区: Pin 页面在第 2 个位置 (x=75)
-      // 其他分区: Pin 页面在第 3 个位置 (x=170)
-      let xPos = section === "pages" ? 75 : 170
-      this[pinPageButtonKey].frame = {x: xPos, y: 0, width: 90, height: 32}
+      this[pinPageButtonKey].frame = {x: 175, y: 0, width: 95, height: 32}
     }
-
-    // 布局 Add 按钮（非 pages 分区）
     if (this[addButtonKey]) {
-      this[addButtonKey].frame = {x: 265, y: 0, width: 70, height: 32}
+      this[addButtonKey].frame = {x: 275, y: 0, width: 95, height: 32}
     }
   }
 
@@ -2195,12 +2274,13 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   focusButton.tag = index
   focusButton.noteId = card.noteId
   focusButton.section = section
+  focusButton.pinType = card.type || "card"  // 设置 type 字段，兼容旧数据
   focusButton.addTargetActionForControlEvents(this, "focusCardTapped:", 1 << 6)
   rowView.addSubview(focusButton)
 
   // 添加标题
   let titleButton = UIButton.buttonWithType(0)
-  titleButton.setTitleForState(`${card.title || "未命名卡片"}`, 0)
+  titleButton.setTitleForState(`💳 ${card.title || "未命名卡片"}`, 0)
   titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
   titleButton.frame = {x: 110, y: 5, width: width - 160, height: 35}
   titleButton.addTargetActionForControlEvents(this, "cardTapped:", 1 << 6)
@@ -2222,6 +2302,7 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   deleteButton.tag = index
   deleteButton.noteId = card.noteId
   deleteButton.section = section
+  deleteButton.pinType = card.type || "card"  // 设置 type 字段
   deleteButton.addTargetActionForControlEvents(this, "deleteCard:", 1 << 6)
   rowView.addSubview(deleteButton)
 
@@ -2354,12 +2435,13 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   focusButton.docMd5 = page.docMd5
   focusButton.pageIndex = page.pageIndex
   focusButton.section = section  // ✅ 添加 section 属性
-  focusButton.addTargetActionForControlEvents(this, "jumpToPage:", 1 << 6)
+  focusButton.pinType = page.type || "page"  // 设置 type 字段
+  focusButton.addTargetActionForControlEvents(this, "focusCardTapped:", 1 << 6)  // ✅ 统一使用 focusCardTapped
   rowView.addSubview(focusButton)
 
   // 添加标题
   let titleButton = UIButton.buttonWithType(0)
-  titleButton.setTitleForState(`${page.title || "未命名页面"}`, 0)
+  titleButton.setTitleForState(`📄 ${page.title || "未命名页面"}`, 0)
   titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
   titleButton.frame = {x: 110, y: 5, width: width - 160, height: 35}
   titleButton.tag = index  // ✅ 设置 tag 属性，用于 pageItemTapped 获取页面数据
@@ -2367,6 +2449,7 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   titleButton.docMd5 = page.docMd5
   titleButton.pageIndex = page.pageIndex
   titleButton.pageTitle = page.title
+  titleButton.section = section  // ✅ 添加 section 属性，用于确定当前分区
   // 设置颜色表示可点击
   titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#007AFF", 1.0), 0)
   titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#0051D5", 1.0), 1)
@@ -2383,7 +2466,8 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   deleteButton.docMd5 = page.docMd5
   deleteButton.pageIndex = page.pageIndex
   deleteButton.section = section  // ✅ 添加 section 属性
-  deleteButton.addTargetActionForControlEvents(this, "deletePage:", 1 << 6)
+  deleteButton.pinType = page.type || "page"  // 设置 type 字段
+  deleteButton.addTargetActionForControlEvents(this, "deleteCard:", 1 << 6)  // ✅ 统一使用 deleteCard
   rowView.addSubview(deleteButton)
 
   return rowView
