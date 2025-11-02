@@ -15579,9 +15579,10 @@ class KnowledgeBaseIndexer {
    * 构建搜索索引（异步分片版本）
    * @param {Array<string>|MNNote} rootNotes - 根卡片
    * @param {Array<string>} targetTypes - 目标卡片类型数组，如 ["定义", "命题", "归类"]
+   * @param {string} mode - 索引模式: "light" (轻量，默认) 或 "full" (全量，含同义词扩展)
    * @returns {Promise<Object>} 包含metadata的主索引对象
    */
-  static async buildSearchIndex(rootNotes, targetTypes = ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题"]) {
+  static async buildSearchIndex(rootNotes, targetTypes = ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题"], mode = "light") {
     const BATCH_SIZE = 500;  // 降低到 500，更频繁地清理内存
     const TEMP_FILE_PREFIX = "kb-index-temp-";
     const PART_SIZE = 5000;  // 每个最终分片包含 5000 个卡片
@@ -15623,7 +15624,13 @@ class KnowledgeBaseIndexer {
           descendants: descendants
         });
       }
-      
+
+      // 🆕 全量模式启动提示：告知用户同义词扩展会耗时较长
+      if (mode === "full") {
+        MNUtil.showHUD("🔄 全量模式：将进行同义词扩展（耗时较长，请耐心等待）");
+        await MNUtil.delay(2);  // 给用户 2 秒阅读时间
+      }
+
       // 显示初始进度
       this.showProgressHUD(0, totalEstimatedCount, "开始构建索引");
       
@@ -15635,7 +15642,7 @@ class KnowledgeBaseIndexer {
         if (!processedIds.has(rootNote.noteId)) {
           const noteType = KnowledgeBaseTemplate.getNoteType(rootNote);
           if (noteType && targetTypes.includes(noteType)) {
-            const entry = this.buildIndexEntry(rootNote);
+            const entry = this.buildIndexEntry(rootNote, mode);
             if (entry) {
               currentBatch.push(entry);
               validCount++;
@@ -15695,8 +15702,8 @@ class KnowledgeBaseIndexer {
             processedIds.add(noteId);
             continue;
           }
-          
-          const entry = this.buildIndexEntry(mnNote);
+
+          const entry = this.buildIndexEntry(mnNote, mode);
           if (entry) {
             currentBatch.push(entry);
             validCount++;
@@ -15704,11 +15711,15 @@ class KnowledgeBaseIndexer {
           
           processedIds.add(noteId);
           processedCount++;
-          
+
           // 每处理 100 个节点更新一次进度
           if (processedCount % 100 === 0) {
-            this.showProgressHUD(processedCount, totalEstimatedCount, 
-                                `处理中... (${tempFileCount} 个临时文件)`);
+            // 🆕 全量模式提示同义词扩展
+            const message = mode === "full"
+              ? `处理中（含同义词扩展）... (${tempFileCount} 个临时文件)`
+              : `处理中... (${tempFileCount} 个临时文件)`;
+
+            this.showProgressHUD(processedCount, totalEstimatedCount, message);
           }
         }
         
@@ -15732,22 +15743,27 @@ class KnowledgeBaseIndexer {
       }
       
       // 合并临时文件到最终分片
-      MNUtil.showHUD("正在合并索引文件...");
-      await this.mergeTempFilesToParts(manifest);
-      
+      MNUtil.showHUD(`正在合并${mode === "full" ? "全量" : "轻量"}索引文件...`);
+      await this.mergeTempFilesToParts(manifest, mode);
+
       // 清理临时文件
       await this.cleanupTempFiles(manifest.metadata.tempFiles);
-      
+
       // 更新元数据
       manifest.metadata.totalCards = validCount;
-      
+
       // 保存主索引文件
-      await this.saveIndexManifest(manifest);
+      await this.saveIndexManifest(manifest, mode);
 
       // 清空增量索引（全局索引已包含所有卡片）
       this.clearIncrementalIndex();
 
-      MNUtil.showHUD(`索引构建完成：共 ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
+      // 🆕 保存当前构建的索引模式到配置（确保 WebView 能正确加载）
+      KnowledgeBaseConfig.config.searchIndexMode = mode;
+      KnowledgeBaseConfig.save();
+      MNUtil.log(`✅ 已将搜索索引模式设置为: ${mode}`);
+
+      MNUtil.showHUD(`${mode === "full" ? "全量" : "轻量"}索引构建完成：共 ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
 
     } catch (error) {
       // 清理临时文件
@@ -15766,8 +15782,9 @@ class KnowledgeBaseIndexer {
    * 构建单个卡片的索引条目
    * @private
    * @param {MNNote} note - 要建立索引的卡片
+   * @param {string} mode - 索引模式: "light" (轻量) 或 "full" (全量，含同义词扩展)
    */
-  static buildIndexEntry(note) {
+  static buildIndexEntry(note, mode = "light") {
     // 基本防御性检查
     if (!note || !note.noteId) {
       KnowledgeBaseUtils.log(`防御性检查没通过`, "buildIndexEntry");
@@ -15817,8 +15834,13 @@ class KnowledgeBaseIndexer {
         entry.keywords = keywordsContent;
       }
 
-      // 构建搜索文本
+      // 构建搜索文本（基础版本）
       entry.searchText = this.buildSearchText(parsedTitle, noteType, keywordsContent);
+
+      // 🆕 全量模式：扩展同义词
+      if (mode === "full") {
+        entry.searchText = this.expandSearchTextWithSynonyms(entry.searchText);
+      }
 
       // ✅ 过滤掉搜索文本为空或只有类型名的卡片
       // 移除类型名后，如果没有实质性内容，则过滤掉
@@ -15888,6 +15910,55 @@ class KnowledgeBaseIndexer {
     const finalText = `${typeInfo}${searchableContent} ${keywordsForSearch}`.trim().toLowerCase();
 
     return finalText;
+  }
+
+  /**
+   * 扩展搜索文本（索引时预处理同义词）
+   * 用于全量索引模式，在构建索引时预先展开所有同义词
+   *
+   * @param {string} text - 原始搜索文本
+   * @returns {string} 扩展后的搜索文本（包含所有同义词）
+   *
+   * @example
+   * expandSearchTextWithSynonyms("两两不同 集合")
+   * // 返回: "两两不同 两两不等 互不相等 各不相同 集合"
+   */
+  static expandSearchTextWithSynonyms(text) {
+    if (!text || !text.trim()) return text;
+
+    try {
+      const expandedWords = new Set();
+      const groups = SynonymManager.getSynonymGroups();
+
+      // 🆕 新逻辑：使用子串匹配而非精确词匹配
+      // 遍历所有同义词组，检查文本是否包含该组中的任意词
+      groups.forEach(group => {
+        const foundWord = group.words.find(word =>
+          text.toLowerCase().includes(word.toLowerCase())
+        );
+
+        if (foundWord) {
+          // 如果找到匹配，添加该组的所有同义词
+          group.words.forEach(syn => {
+            if (syn && syn.trim()) {
+              expandedWords.add(syn.toLowerCase());
+            }
+          });
+        }
+      });
+
+      // 添加原始文本的所有词（保留原有内容）
+      const originalWords = text.split(/\s+/).filter(w => w.length > 0);
+      originalWords.forEach(word => expandedWords.add(word));
+
+      // 将扩展后的词汇重新组合（使用空格分隔）
+      return Array.from(expandedWords).join(" ");
+
+    } catch (error) {
+      // 扩展失败时返回原文本
+      KnowledgeBaseUtils.addErrorLog(error, "KnowledgeBaseIndexer: expandSearchTextWithSynonyms");
+      return text;
+    }
   }
 
   /**
@@ -16043,53 +16114,73 @@ class KnowledgeBaseIndexer {
   /**
    * 合并临时文件到最终分片
    * @param {Object} manifest - 主索引对象
+   * @param {string} mode - 索引模式: "light" (轻量) 或 "full" (全量)
    */
-  static async mergeTempFilesToParts(manifest) {
-    const PART_SIZE = 5000;
+  static async mergeTempFilesToParts(manifest, mode = "light") {
+    const PART_SIZE = mode === "full" ? 3000 : 5000;  // 全量模式减少分片大小
     let currentPart = [];
     let partNumber = 1;
-    
+
+    // 🆕 获取总文件数，用于进度显示
+    const totalTempFiles = manifest.metadata.tempFiles.length;
+
     try {
-      for (const tempFileName of manifest.metadata.tempFiles) {
+      // 🆕 显示合并阶段初始提示
+      this.showProgressHUD(70, 100, `开始合并 ${totalTempFiles} 个临时文件...`);
+      await MNUtil.delay(0.5);  // 短暂延迟确保 HUD 显示
+
+      for (let i = 0; i < totalTempFiles; i++) {
+        const tempFileName = manifest.metadata.tempFiles[i];
         const tempFilePath = MNUtil.tempFolder + "/" + tempFileName;
-        
+
+        // 🆕 显示详细合并进度（70% - 95% 区间）
+        const mergeProgress = 70 + (i / totalTempFiles) * 25;
+        this.showProgressHUD(
+          Math.round(mergeProgress),
+          100,
+          `合并文件 ${i + 1}/${totalTempFiles}`
+        );
+
         // 读取临时文件
         const tempData = MNUtil.readJSON(tempFilePath);
         if (!tempData || !tempData.data) continue;
-        
+
         // 添加到当前分片
         for (const entry of tempData.data) {
           currentPart.push(entry);
-          
+
           // 检查是否需要保存分片
           if (currentPart.length >= PART_SIZE) {
-            await this.saveIndexPart(currentPart, partNumber);
+            const { filename, sizeMB } = await this.saveIndexPart(currentPart, partNumber, mode);
             manifest.parts.push({
               partNumber: partNumber,
-              filename: `kb-search-index-part-${partNumber}.json`,
-              cardCount: currentPart.length
+              filename: filename,
+              cardCount: currentPart.length,
+              sizeMB: sizeMB  // 记录文件大小
             });
-            
+
             currentPart = [];
             partNumber++;
-            
-            MNUtil.showHUD(`正在生成第 ${partNumber} 个分片...`);
+
+            // 🔧 移除此处的简单 HUD，因为循环开始已显示详细进度条
+            // MNUtil.showHUD(`正在生成第 ${partNumber} 个分片...`);
           }
         }
       }
-      
+
       // 保存最后一个分片
       if (currentPart.length > 0) {
-        await this.saveIndexPart(currentPart, partNumber);
+        const { filename, sizeMB } = await this.saveIndexPart(currentPart, partNumber, mode);
         manifest.parts.push({
           partNumber: partNumber,
-          filename: `kb-search-index-part-${partNumber}.json`,
-          cardCount: currentPart.length
+          filename: filename,
+          cardCount: currentPart.length,
+          sizeMB: sizeMB  // 记录文件大小
         });
       }
-      
+
       manifest.metadata.totalParts = partNumber;
-      
+
     } catch (error) {
       MNLog.error(error, "KnowledgeBaseIndexer: mergeTempFilesToParts");
       throw error;
@@ -16119,20 +16210,33 @@ class KnowledgeBaseIndexer {
   
   /**
    * 保存索引分片
+   * @param {Array} partData - 分片数据
+   * @param {number} partNumber - 分片编号
+   * @param {string} mode - 索引模式: "light" (轻量) 或 "full" (全量)
+   * @returns {Object} - 返回 { filename, sizeMB }
    */
-  static async saveIndexPart(partData, partNumber) {
+  static async saveIndexPart(partData, partNumber, mode = "light") {
     try {
-      const filename = `kb-search-index-part-${partNumber}.json`;
+      const filename = `kb-search-index-${mode}-part-${partNumber}.json`;
       const filepath = MNUtil.dbFolder + "/data/" + filename;
-      
+
       const partContent = {
         partNumber: partNumber,
         data: partData,
-        count: partData.length
+        count: partData.length,
+        mode: mode  // 记录模式
       };
-      
+
+      // 检测文件大小
+      const jsonString = JSON.stringify(partContent);
+      const sizeMB = jsonString.length / (1024 * 1024);
+
+      if (sizeMB > 10) {
+        MNUtil.showHUD(`⚠️ 警告：分片 ${partNumber} 大小 ${sizeMB.toFixed(2)} MB`);
+      }
+
       MNUtil.writeJSON(filepath, partContent);
-      return filename;
+      return { filename, sizeMB };
     } catch (error) {
       MNUtil.showHUD("保存分片失败: " + error.message);
       MNLog.error(error, "KnowledgeBaseIndexer: saveIndexPart");
@@ -16142,10 +16246,16 @@ class KnowledgeBaseIndexer {
   
   /**
    * 保存主索引文件
+   * @param {Object} manifest - 索引清单对象
+   * @param {string} mode - 索引模式: "light" (轻量) 或 "full" (全量)
+   * @returns {string} - 文件路径
    */
-  static async saveIndexManifest(manifest) {
+  static async saveIndexManifest(manifest, mode = "light") {
     try {
-      const filepath = MNUtil.dbFolder + "/data/kb-search-index-manifest.json";
+      const filepath = MNUtil.dbFolder + `/data/kb-search-index-${mode}-manifest.json`;
+      // 在 manifest 中添加模式标记
+      manifest.metadata = manifest.metadata || {};
+      manifest.metadata.mode = mode;
       MNUtil.writeJSON(filepath, manifest);
       return filepath;
     } catch (error) {
@@ -16157,13 +16267,41 @@ class KnowledgeBaseIndexer {
   
   /**
    * 加载主索引文件
+   * @param {string} mode - 索引模式: "light" (轻量) 或 "full" (全量)
+   * @param {boolean} fallbackToLight - 如果 full 模式加载失败，是否降级到 light 模式
+   * @returns {Object|null} - 索引清单对象，加载失败返回 null
    */
-  static loadIndexManifest() {
+  static loadIndexManifest(mode = "light", fallbackToLight = true) {
     try {
-      const filepath = MNUtil.dbFolder + "/data/kb-search-index-manifest.json";
-      return MNUtil.readJSON(filepath);
+      const filepath = MNUtil.dbFolder + `/data/kb-search-index-${mode}-manifest.json`;
+      const manifest = MNUtil.readJSON(filepath);
+
+      if (manifest) {
+        return manifest;
+      }
+
+      // 如果未找到且启用降级
+      if (!manifest && mode === "full" && fallbackToLight) {
+        MNUtil.showHUD("未找到全量索引，使用轻量索引");
+        const lightPath = MNUtil.dbFolder + "/data/kb-search-index-light-manifest.json";
+        return MNUtil.readJSON(lightPath);
+      }
+
+      return null;
     } catch (error) {
-      MNLog.error(error, "KnowledgeBaseIndexer: loadIndexManifest");
+      MNLog.error(error, `KnowledgeBaseIndexer: loadIndexManifest (mode: ${mode})`);
+
+      // 降级逻辑
+      if (mode === "full" && fallbackToLight) {
+        try {
+          MNUtil.showHUD("全量索引加载失败，降级到轻量索引");
+          const lightPath = MNUtil.dbFolder + "/data/kb-search-index-light-manifest.json";
+          return MNUtil.readJSON(lightPath);
+        } catch (fallbackError) {
+          MNLog.error(fallbackError, "KnowledgeBaseIndexer: loadIndexManifest fallback failed");
+        }
+      }
+
       return null;
     }
   }
@@ -17559,8 +17697,10 @@ class IntermediateKnowledgeIndexer {
           processedIds.add(noteId);
           processedCount++;
 
-          if (processedCount % 250 === 0) {
-            MNUtil.showHUD(`处理中间知识... ${processedCount}/${totalEstimatedCount}`);
+          // 🔧 统一为每 100 个节点更新进度（与主知识库保持一致）
+          if (processedCount % 100 === 0) {
+            this.showProgressHUD(processedCount, totalEstimatedCount,
+                                `处理中间知识... (${tempFileCount} 个临时文件)`);
           }
         }
 
@@ -19802,7 +19942,12 @@ class KnowledgeBaseConfig {
 
       // 卡片预处理模式
       preProcessMode: false,  // 是否启用预处理模式（默认关闭）
-      classificationMode: false  // 归类模式
+      classificationMode: false,  // 归类模式
+
+      // 🆕 搜索索引模式配置
+      searchIndexMode: "light",  // 索引模式: "light" (轻量，默认) 或 "full" (全量，含同义词扩展)
+      lastIndexMode: "light",    // 记录上次构建的索引模式
+      autoRebuildOnConfigChange: false  // 配置变更时是否自动提示重建索引
     }
   }
   
@@ -19846,6 +19991,47 @@ class KnowledgeBaseConfig {
   static save() {
     NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, "MNKnowledgeBase_config")
   }
+
+  /**
+   * 获取当前搜索索引模式
+   * @returns {string} "light" 或 "full"
+   */
+  static getSearchIndexMode() {
+    return this.getConfig("searchIndexMode") || "light";
+  }
+
+  /**
+   * 设置搜索索引模式
+   * @param {string} mode - "light" 或 "full"
+   */
+  static setSearchIndexMode(mode) {
+    if (mode !== "light" && mode !== "full") {
+      MNUtil.showHUD("❌ 无效的索引模式，只能是 light 或 full");
+      return;
+    }
+    this.config.searchIndexMode = mode;
+    this.save();
+  }
+
+  /**
+   * 记录上次构建的索引模式
+   * @param {string} mode - "light" 或 "full"
+   */
+  static recordLastIndexMode(mode) {
+    this.config.lastIndexMode = mode;
+    this.save();
+  }
+
+  /**
+   * 检查索引模式是否改变
+   * @returns {boolean} 如果当前配置的模式与上次构建的不同，返回 true
+   */
+  static hasIndexModeChanged() {
+    const currentMode = this.getSearchIndexMode();
+    const lastMode = this.getConfig("lastIndexMode") || "light";
+    return currentMode !== lastMode;
+  }
+
   static remove(key) {
     NSUserDefaults.standardUserDefaults().removeObjectForKey(key)
   }

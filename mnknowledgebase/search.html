@@ -185,6 +185,35 @@
       white-space: nowrap;
     }
 
+    .index-mode-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+
+    .index-mode-badge--full {
+      background: rgba(43, 124, 255, 0.1);
+      color: #2b7cff;
+      border: 1px solid rgba(43, 124, 255, 0.3);
+    }
+
+    .index-mode-badge--light {
+      background: rgba(107, 114, 128, 0.1);
+      color: #6b7280;
+      border: 1px solid rgba(107, 114, 128, 0.3);
+    }
+
+    .index-mode-badge--legacy {
+      background: rgba(245, 158, 11, 0.1);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
     .dataset-toggle {
       display: inline-flex;
       background: var(--toggle-bg);
@@ -1903,6 +1932,7 @@
       </div>
     </div>
     <div class="topbar-actions">
+      <span id="indexModeBadge" class="index-mode-badge"></span>
       <button id="toggleFiltersBtn" class="btn ghost filter-toggle" type="button" aria-expanded="true">收起筛选</button>
       <button id="refreshBtn" class="btn" type="button">🔄 刷新</button>
       <button id="clearBtn" class="btn" type="button">清空</button>
@@ -2153,6 +2183,16 @@
        */
       loadSearchIndex: function(indexData) {
         console.log('Bridge.loadSearchIndex 被调用', indexData);
+
+        // 🆕 保存索引模式信息
+        if (indexData.metadata && indexData.metadata.mode) {
+          state.indexMode = indexData.metadata.mode; // "full", "light", 或 "legacy"
+          console.log('当前索引模式:', state.indexMode);
+          // 更新界面显示
+          if (typeof updateIndexModeBadge === 'function') {
+            updateIndexModeBadge();
+          }
+        }
 
         // 加载排除词组配置
         if (indexData.exclusionGroups) {
@@ -2692,7 +2732,9 @@
         isLoadingMore: false,
         // 排除词相关状态
         exclusionGroups: [],  // 存储排除词组配置
-        activeExclusions: null  // 当前激活的排除词信息
+        activeExclusions: null,  // 当前激活的排除词信息
+        // 索引模式状态
+        indexMode: null  // 当前索引模式："full"（全量）、"light"（轻量）、"legacy"（旧版）
       };
 
       // 暴露到 window 以便调试和原生层访问
@@ -4764,6 +4806,31 @@
 
       function updateSearchCount(count) {
         dom.searchCount.textContent = `${count} 条结果`;
+      }
+
+      function updateIndexModeBadge() {
+        const badge = document.getElementById('indexModeBadge');
+        if (!badge) return;
+
+        // 清除所有模式样式
+        badge.classList.remove('index-mode-badge--full', 'index-mode-badge--light', 'index-mode-badge--legacy');
+
+        if (!state.indexMode) {
+          badge.textContent = '';
+          return;
+        }
+
+        // 根据索引模式设置显示
+        if (state.indexMode === 'full') {
+          badge.textContent = '🔍 全量索引';
+          badge.classList.add('index-mode-badge--full');
+        } else if (state.indexMode === 'light') {
+          badge.textContent = '🔍 轻量索引';
+          badge.classList.add('index-mode-badge--light');
+        } else if (state.indexMode === 'legacy') {
+          badge.textContent = '🔍 旧版索引';
+          badge.classList.add('index-mode-badge--legacy');
+        }
       }
 
       function updateSelectionInfo() {

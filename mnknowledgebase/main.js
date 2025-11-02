@@ -795,7 +795,27 @@ JSB.newAddon = function(mainPath){
         if (self.popoverController) {
           self.popoverController.dismissPopoverAnimated(true);
         }
-        
+
+        // 🆕 显示索引模式选择对话框
+        // UIAlertView.showWithTitleButtonsCallback(
+          
+        //   async (alert, buttonIndex) => {
+            
+        //   }
+        // );
+
+        let result = await MNUtil.userSelect(
+          "选择索引模式",
+          "",
+          ["🚀 轻量索引", "💪 全量索引（含同义词）"]
+        )
+
+        if (result === 0) return; // 取消
+
+        // 确定模式
+        const mode = result === 1 ? "light" : "full";
+        const modeText = mode === "light" ? "轻量" : "全量";
+
         // let focusNote = MNNote.getFocusNote()
         // let rootNote
         // if (focusNote) {
@@ -804,28 +824,31 @@ JSB.newAddon = function(mainPath){
         //   rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
         // }
         let rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
-        
+
         if (!rootNote) {
           MNUtil.showHUD("知识库不存在！");
           return;
         }
-        
+
         // 显示开始提示
-        MNUtil.showHUD("开始构建索引，请稍候...");
-        
+        MNUtil.showHUD(`开始构建${modeText}索引，请稍候...`);
+
         // 延迟执行以确保 UI 更新
         await MNUtil.delay(0.1);
-        
-        // 异步构建索引（内部会显示进度）
-        const manifest = await KnowledgeBaseIndexer.buildSearchIndex([rootNote]);
-        
+
+        // 🆕 异步构建索引（传入 mode 参数）
+        const manifest = await KnowledgeBaseIndexer.buildSearchIndex([rootNote], undefined, mode);
+
+        // 🆕 记录本次构建的模式
+        KnowledgeBaseConfig.recordLastIndexMode(mode);
+
         // 检查结果
         if (manifest && manifest.metadata && manifest.metadata.totalCards > 0) {
-          MNUtil.showHUD(`索引构建成功！共 ${manifest.metadata.totalCards} 张卡片，${manifest.metadata.totalParts} 个分片`);
+          MNUtil.showHUD(`${modeText}索引构建成功！共 ${manifest.metadata.totalCards} 张卡片，${manifest.metadata.totalParts} 个分片`);
         } else {
           MNUtil.showHUD("没有找到可索引的卡片");
         }
-        
+
       } catch (error) {
         MNUtil.showHUD("更新索引失败: " + error.message);
         MNLog.error(error, "MNKnowledgeBase: updateSearchIndex");
@@ -1779,13 +1802,36 @@ JSB.newAddon = function(mainPath){
       // ========== 第1部分：加载主知识库 ==========
       MNUtil.log("=== 开始加载主知识库 ===");
 
-      // 1.1 尝试加载分片索引（新版模式）
-      let manifestPath = MNUtil.dbFolder + "/data/kb-search-index-manifest.json"
-      let manifest = MNUtil.readJSON(manifestPath);
+      let manifest = null;
+      let actualMode = null;
+
+      // 🆕 优先加载全量索引，找不到则加载轻量索引
+      // 优先级：full → light → 旧版单文件 → 报错
+
+      // 1.1 尝试加载全量索引
+      let fullManifestPath = `${MNUtil.dbFolder}/data/kb-search-index-full-manifest.json`;
+      MNUtil.log(`[1/3] 尝试加载全量索引: ${fullManifestPath}`);
+      manifest = MNUtil.readJSON(fullManifestPath);
 
       if (manifest && manifest.parts) {
-        // 分片模式：加载所有分片
-        MNUtil.log("加载主知识库分片索引数据");
+        actualMode = "full";
+        MNUtil.log("✅ 找到全量索引");
+      } else {
+        // 1.2 尝试加载轻量索引
+        let lightManifestPath = `${MNUtil.dbFolder}/data/kb-search-index-light-manifest.json`;
+        MNUtil.log(`[2/3] 全量索引不存在，尝试加载轻量索引: ${lightManifestPath}`);
+        manifest = MNUtil.readJSON(lightManifestPath);
+
+        if (manifest && manifest.parts) {
+          actualMode = "light";
+          MNUtil.log("✅ 找到轻量索引");
+          MNUtil.showHUD("⚠️ 未找到全量索引，已加载轻量索引");
+        }
+      }
+
+      // 1.3 加载分片索引数据
+      if (manifest && manifest.parts) {
+        MNUtil.log(`加载 ${actualMode} 模式分片索引数据（${manifest.parts.length} 个分片）`);
 
         for (const partInfo of manifest.parts) {
           let partPath = MNUtil.dbFolder + "/data/" + partInfo.filename;
@@ -1799,16 +1845,20 @@ JSB.newAddon = function(mainPath){
         metadata = manifest.metadata || {};
 
       } else {
-        // 旧版模式：尝试加载单文件
-        MNUtil.log("尝试加载旧版主知识库单文件索引");
+        // 1.4 尝试加载旧版单文件索引
+        MNUtil.log("[3/3] 分片索引不存在，尝试加载旧版单文件索引");
         let indexPath = MNUtil.dbFolder + "/data/kb-search-index.json"
         let indexData = MNUtil.readJSON(indexPath);
 
         if (!indexData || !indexData.cards) {
-          MNUtil.showHUD("索引未找到，请先更新搜索索引")
+          // 全部加载失败，提示用户构建索引
+          MNUtil.showHUD("❌ 未找到任何索引文件\n请先执行「🔄 索引知识库」");
+          MNUtil.log("错误：未找到任何可用的索引文件（full/light/旧版）");
           return
         }
 
+        MNUtil.log("✅ 找到旧版单文件索引");
+        actualMode = "legacy";
         allCards = indexData.cards;
         metadata = indexData.metadata || {};
       }
@@ -1910,6 +1960,7 @@ JSB.newAddon = function(mainPath){
         metadata: {
           totalCards: allCards.length,
           updateTime: metadata.updateTime || Date.now(),
+          mode: actualMode,  // 🆕 记录实际加载的索引模式（full/light/legacy）
           ...metadata
         }
       };
