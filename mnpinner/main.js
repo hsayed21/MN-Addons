@@ -363,7 +363,7 @@ JSB.newAddon = function(mainPath){
               }
               break;
 
-            case "pinPage":  // 添加文档页面到 Pages 分区
+            case "pinPage":  // 添加文档页面到 Pages 分区（兼容旧版，默认添加到 pages 分区）
               try {
                 let docMd5 = decodeURIComponent(config.params.docMd5 || config.params.docmd5 || "")
                 let pageIndex = parseInt(config.params.pageIndex || config.params.pageindex || "0")
@@ -403,6 +403,91 @@ JSB.newAddon = function(mainPath){
               } catch (error) {
                 pinnerUtils.addErrorLog(error, "onAddonBroadcast:pinPage")
                 MNUtil.showHUD("添加页面失败: " + error.message)
+              }
+              break;
+
+            case "pinCardToSection":  // 添加 Card 到指定分区
+              try {
+                let cardNoteId = decodeURIComponent(config.params.id || config.params.noteId || "")
+                let cardSection = config.params.section || "midway"
+                let cardPosition = config.params.position || "top"
+                let cardTitle = config.params.title ? decodeURIComponent(config.params.title) : ""
+
+                if (!cardNoteId) {
+                  MNUtil.showHUD("缺少卡片ID参数")
+                  break
+                }
+
+                // 获取卡片标题
+                let cardNote = MNNote.new(cardNoteId)
+                if (!cardNote) {
+                  MNUtil.showHUD("卡片不存在")
+                  break
+                }
+
+                let finalTitle = cardTitle || cardNote.noteTitle || "未命名卡片"
+
+                // 使用统一的 addPin 方法
+                let cardPin = pinnerConfig.createCardPin(cardNoteId, finalTitle)
+                if (pinnerConfig.addPin(cardPin, cardSection, cardPosition)) {
+                  if (pinnerUtils.pinnerController) {
+                    pinnerUtils.pinnerController.refreshView(cardSection + "View")
+                  }
+                  let sectionName = pinnerConfig.getSectionDisplayName(cardSection)
+                  MNUtil.showHUD(`已 Pin 卡片到 ${sectionName}: ${finalTitle}`)
+                }
+              } catch (error) {
+                pinnerUtils.addErrorLog(error, "onAddonBroadcast:pinCardToSection")
+                MNUtil.showHUD("Pin 卡片失败: " + error.message)
+              }
+              break;
+
+            case "pinPageToSection":  // 添加 Page 到指定分区
+              try {
+                let pageDocMd5 = decodeURIComponent(config.params.docMd5 || config.params.docmd5 || "")
+                let pagePageIndex = parseInt(config.params.pageIndex || config.params.pageindex || "0")
+                let pageSection = config.params.section || "midway"
+                let pagePosition = config.params.position || "top"
+                let pagePageTitle = config.params.title ? decodeURIComponent(config.params.title) : ""
+                let pageNote = config.params.note ? decodeURIComponent(config.params.note) : ""
+
+                if (!pageDocMd5) {
+                  MNUtil.showHUD("缺少docMd5参数")
+                  break
+                }
+
+                if (isNaN(pagePageIndex) || pagePageIndex < 0) {
+                  MNUtil.showHUD("页码无效")
+                  break
+                }
+
+                // 验证文档和页码范围
+                let pageDocInfo = pinnerConfig.getDocInfo(pageDocMd5)
+                if (!pageDocInfo.doc) {
+                  MNUtil.showHUD("文档不存在")
+                  break
+                }
+                if (pagePageIndex > pageDocInfo.lastPageIndex) {
+                  MNUtil.showHUD(`页码超出范围(0-${pageDocInfo.lastPageIndex})`)
+                  break
+                }
+
+                // 优先使用文件路径，兜底使用文档标题
+                let docName = (pageDocInfo.doc.pathFile && pageDocInfo.doc.pathFile.lastPathComponent) || pageDocInfo.doc.docTitle || "未知文档"
+                let finalPageTitle = pagePageTitle || `${docName} - 第${pagePageIndex + 1}页`
+
+                // 使用统一的 addPin 方法
+                let pagePin = pinnerConfig.createPagePin(pageDocMd5, pagePageIndex, finalPageTitle, pageNote)
+                if (pinnerConfig.addPin(pagePin, pageSection, pagePosition)) {
+                  if (pinnerUtils.pinnerController) {
+                    pinnerUtils.pinnerController.refreshView(pageSection + "View")
+                  }
+                  let sectionName = pinnerConfig.getSectionDisplayName(pageSection)
+                  MNUtil.showHUD(`已 Pin 页面到 ${sectionName}: ${finalPageTitle}`)
+                }
+              } catch (error) {
+                pinnerUtils.addErrorLog(error, "onAddonBroadcast:pinPageToSection")
+                MNUtil.showHUD("Pin 页面失败: " + error.message)
               }
               break;
 
