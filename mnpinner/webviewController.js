@@ -934,6 +934,10 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   moveCardUp: function(button) {
     try {
+      // ⚠️ 立即禁用按钮，防止重复点击
+      if (button.enabled === false) return
+      button.enabled = false
+
       let index = button.tag
       let section = button.section || self.currentSection
       let pins = pinnerConfig.getPins(section)
@@ -956,6 +960,10 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   moveCardDown: function(button) {
     try {
+      // ⚠️ 立即禁用按钮，防止重复点击
+      if (button.enabled === false) return
+      button.enabled = false
+
       let index = button.tag
       let section = button.section || self.currentSection
       let pins = pinnerConfig.getPins(section)
@@ -1438,25 +1446,49 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   movePageUp: function(button) {
     try {
+      // ⚠️ 立即禁用按钮，防止重复点击
+      if (button.enabled === false) {
+        MNLog.log("按钮已禁用，忽略重复点击")
+        return
+      }
+      button.enabled = false
+
+      MNUtil.showHUD("movePageUp 被调用")
+      MNLog.log("=== movePageUp 开始 ===")
+
       let index = button.tag
       let section = button.section || "pages"
       let pins = pinnerConfig.getPins(section)
 
+      MNLog.log(`button.tag = ${index}`)
+      MNLog.log(`button.section = ${button.section}`)
+      MNLog.log(`实际 section = ${section}`)
+      MNLog.log(`pins.length = ${pins.length}`)
+
       if (index > 0) {
-        pinnerConfig.movePin(index, index - 1, section)
+        MNLog.log(`准备移动: ${index} -> ${index - 1}`)
+        let result = pinnerConfig.movePin(index, index - 1, section)
+        MNLog.log(`movePin 返回: ${result}`)
 
         // 根据分区刷新对应视图
         if (section === "pages") {
+          MNLog.log("刷新 pages 视图")
           self.refreshPageCards()
         } else {
+          MNLog.log(`刷新 ${section} 分区视图`)
           self.refreshSectionCards(section)
         }
 
         MNUtil.showHUD("已上移")
+      } else {
+        MNLog.log("index <= 0, 不能上移")
+        MNUtil.showHUD("已经是第一个")
       }
     } catch (error) {
+      MNLog.log(`movePageUp 错误: ${error.message}`)
+      MNUtil.copyJSON(error)
       pinnerUtils.addErrorLog(error, "movePageUp")
-      MNUtil.showHUD("上移失败")
+      MNUtil.showHUD("上移失败: " + error.message)
     }
   },
 
@@ -1465,25 +1497,72 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   movePageDown: function(button) {
     try {
+      // ⚠️ 立即禁用按钮，防止重复点击
+      if (button.enabled === false) {
+        MNLog.log("按钮已禁用，忽略重复点击")
+        return
+      }
+      button.enabled = false
+
+      MNUtil.showHUD("movePageDown 被调用")
+      MNLog.log("=== movePageDown 开始 ===")
+
       let index = button.tag
       let section = button.section || "pages"
       let pins = pinnerConfig.getPins(section)
 
+      MNLog.log(`button.tag = ${index}`)
+      MNLog.log(`button.section = ${button.section}`)
+      MNLog.log(`button.docMd5 = ${button.docMd5}`)
+      MNLog.log(`button.pageIndex = ${button.pageIndex}`)
+      MNLog.log(`实际 section = ${section}`)
+      MNLog.log(`pins.length = ${pins.length}`)
+
+      // 显示移动前的顺序
+      MNLog.log(`移动前的顺序:`)
+      pins.forEach((p, i) => {
+        if (p.docMd5) {
+          MNLog.log(`  [${i}] docMd5=${p.docMd5.substring(0,8)}, pageIndex=${p.pageIndex}`)
+        } else if (p.noteId) {
+          MNLog.log(`  [${i}] noteId=${p.noteId.substring(0,8)}`)
+        }
+      })
+
       if (index < pins.length - 1) {
-        pinnerConfig.movePin(index, index + 1, section)
+        MNLog.log(`准备移动: ${index} -> ${index + 1}`)
+        let result = pinnerConfig.movePin(index, index + 1, section)
+        MNLog.log(`movePin 返回: ${result}`)
+
+        // 显示移动后的顺序
+        let pinsAfter = pinnerConfig.getPins(section)
+        MNLog.log(`移动后的顺序:`)
+        pinsAfter.forEach((p, i) => {
+          if (p.docMd5) {
+            MNLog.log(`  [${i}] docMd5=${p.docMd5.substring(0,8)}, pageIndex=${p.pageIndex}`)
+          } else if (p.noteId) {
+            MNLog.log(`  [${i}] noteId=${p.noteId.substring(0,8)}`)
+          }
+        })
 
         // 根据分区刷新对应视图
         if (section === "pages") {
+          MNLog.log("刷新 pages 视图")
           self.refreshPageCards()
         } else {
+          MNLog.log(`刷新 ${section} 分区视图`)
           self.refreshSectionCards(section)
         }
 
         MNUtil.showHUD("已下移")
+      } else {
+        MNLog.log("index >= pins.length - 1, 不能下移")
+        MNUtil.showHUD("已经是最后一个")
       }
     } catch (error) {
+      MNLog.log(`movePageDown 错误: ${error.message}`)
+      MNUtil.copyJSON(error)
       pinnerUtils.addErrorLog(error, "movePageDown")
-      MNUtil.showHUD("下移失败")
+      MNUtil.showHUD("下移失败: " + error.message)
     }
   },
 });
@@ -2119,8 +2198,11 @@ pinnerController.prototype.refreshSectionCards = function(section) {
 
     // 从 pinnerConfig 获取数据
     let cards = pinnerConfig.getPins(section) || []
+    MNLog.log(`=== refreshSectionCards(${section}) 开始刷新 ===`)
+    MNLog.log(`共有 ${cards.length} 个 pins`)
 
     // 清空现有卡片
+    MNLog.log(`清空 ${this[cardRowsKey].length} 个旧视图`)
     this[cardRowsKey].forEach(view => {
       view.removeFromSuperview()
     })
@@ -2152,7 +2234,7 @@ pinnerController.prototype.refreshSectionCards = function(section) {
       let row
       // 根据 type 字段选择渲染方法
       if (pin.type === "page") {
-        row = this.createPageRow(pin, index, scrollWidth - 20, section)
+        row = this.createPageRow(pin, index, scrollWidth - 20, section, cards.length)
       } else {
         // type === "card" 或没有 type 字段（兼容旧数据，默认为 card）
         row = this.createCardRow(pin, index, scrollWidth - 20, section)
@@ -2342,8 +2424,11 @@ pinnerController.prototype.refreshPageCards = function() {
 
     // 从 pinnerConfig 获取数据
     let pages = pinnerConfig.getPagePins() || []
+    MNLog.log(`=== refreshPageCards 开始刷新 ===`)
+    MNLog.log(`共有 ${pages.length} 个页面`)
 
     // 清空现有卡片
+    MNLog.log(`清空 ${this[cardRowsKey].length} 个旧视图`)
     this[cardRowsKey].forEach(view => {
       view.removeFromSuperview()
     })
@@ -2372,7 +2457,7 @@ pinnerController.prototype.refreshPageCards = function() {
     let scrollWidth = scrollView.frame.width
 
     pages.forEach((page, index) => {
-      let pageRow = this.createPageRow(page, index, scrollWidth - 20, "pages")  // ✅ 传入 section 参数
+      let pageRow = this.createPageRow(page, index, scrollWidth - 20, "pages", pages.length)  // ✅ 传入 section 和 totalCount 参数
       scrollView.addSubview(pageRow)
       this[cardRowsKey].push(pageRow)
       yOffset += UI_CONSTANTS.PAGE_ROW_HEIGHT
@@ -2390,7 +2475,7 @@ pinnerController.prototype.refreshPageCards = function() {
 /**
  * 创建单个页面行视图
  */
-pinnerController.prototype.createPageRow = function(page, index, width, section = "pages") {
+pinnerController.prototype.createPageRow = function(page, index, width, section = "pages", totalCount) {
   // 创建页面行容器
   let rowView = UIView.new()
   rowView.frame = {x: 10, y: 10 + index * UI_CONSTANTS.PAGE_ROW_HEIGHT, width: width, height: 45}
@@ -2404,8 +2489,10 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   rowView.pageIndex = page.pageIndex
   rowView.section = section  // ✅ 添加 section 属性
 
-  // 获取页面总数
-  let totalPages = pinnerConfig.getPagePins().length
+  // 获取总数：如果传入了 totalCount 使用它，否则根据 section 获取
+  let total = totalCount !== undefined ? totalCount : pinnerConfig.getPins(section).length
+  MNLog.log(`createPageRow: index=${index}, section=${section}, totalCount传入=${totalCount}, 实际total=${total}`)
+  MNLog.log(`  创建的是: docMd5=${page.docMd5.substring(0,8)}, pageIndex=${page.pageIndex}`)
 
   // 上移按钮
   let moveUpButton = UIButton.buttonWithType(0)
@@ -2415,7 +2502,12 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   moveUpButton.tag = index
   moveUpButton.docMd5 = page.docMd5
   moveUpButton.pageIndex = page.pageIndex
+  moveUpButton.section = section
   moveUpButton.addTargetActionForControlEvents(this, "movePageUp:", 1 << 6)
+
+  // 验证按钮属性
+  MNLog.log(`创建上移按钮: tag=${moveUpButton.tag}, section=${moveUpButton.section}, docMd5=${moveUpButton.docMd5}`)
+
   if (index === 0) {
     moveUpButton.enabled = false
     moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
@@ -2432,8 +2524,12 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   moveDownButton.tag = index
   moveDownButton.docMd5 = page.docMd5
   moveDownButton.pageIndex = page.pageIndex
+  moveDownButton.section = section
   moveDownButton.addTargetActionForControlEvents(this, "movePageDown:", 1 << 6)
-  if (index === totalPages - 1) {
+
+  // 验证按钮属性
+  MNLog.log(`创建下移按钮: tag=${moveDownButton.tag}, section=${moveDownButton.section}, docMd5=${moveDownButton.docMd5}`)
+  if (index === total - 1) {
     moveDownButton.enabled = false
     moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
   } else {

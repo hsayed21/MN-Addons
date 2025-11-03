@@ -978,27 +978,37 @@ class pinnerConfig {
    */
   static movePin(oldIndex, newIndex, section) {
     try {
-      if (!this.sections[section]) return false
+      MNLog.log("=== movePin 数据层开始 ===")
+      MNLog.log(`参数: oldIndex=${oldIndex}, newIndex=${newIndex}, section=${section}`)
 
-      let pins = this.sections[section]
-
-      if (oldIndex < 0 || oldIndex >= pins.length ||
-          newIndex < 0 || newIndex >= pins.length) {
+      if (!this.sections[section]) {
+        MNLog.log(`错误: section '${section}' 不存在`)
+        MNLog.log(`可用的 sections: ${Object.keys(this.sections).join(', ')}`)
         return false
       }
 
+      let pins = this.sections[section]
+      MNLog.log(`分区 '${section}' 中有 ${pins.length} 个 pins`)
+
+      if (oldIndex < 0 || oldIndex >= pins.length ||
+          newIndex < 0 || newIndex >= pins.length) {
+        MNLog.log(`错误: 索引越界 (oldIndex=${oldIndex}, newIndex=${newIndex}, length=${pins.length})`)
+        return false
+      }
+
+      MNLog.log(`移动前的 pin: ${JSON.stringify(pins[oldIndex])}`)
       let [item] = pins.splice(oldIndex, 1)
       pins.splice(newIndex, 0, item)
+      MNLog.log(`移动后位置 ${newIndex} 的 pin: ${JSON.stringify(pins[newIndex])}`)
 
       this.save()
+      MNLog.log("数据已保存")
 
-      // ✅ 移除自动刷新，让调用方（UI 层）控制刷新
-      // if (pinnerUtils.pinnerController && !pinnerUtils.pinnerController.view.hidden) {
-      //   pinnerUtils.pinnerController.refreshView(section + "View")
-      // }
       return true
 
     } catch (error) {
+      MNLog.log(`movePin 异常: ${error.message}`)
+      MNUtil.copyJSON(error)
       pinnerUtils.addErrorLog(error, "pinnerConfig:movePin")
       return false
     }
