@@ -152,11 +152,18 @@ class pinnerConfig {
   // 默认值通过 getter 返回，避免多窗口共享问题
   static get defaultSections() {
     return {
+      // Pin 视图分区
       focus: [],
       midway: [],
       toOrganize: [],  // 新增：待整理
       dailyTask: [],   // 新增：日拱一卒
-      pages: []        // 新增：文档页面
+      pages: [],       // 新增：文档页面
+
+      // Task 视图分区
+      taskToday: [],
+      taskTomorrow: [],
+      taskThisWeek: [],
+      taskTodo: []
     }
   }
   
@@ -1253,11 +1260,18 @@ class pinnerConfig {
    */
   static getSectionDisplayName(section) {
     const displayNames = {
+      // Pin 视图分区
       'focus': 'Focus',
       'midway': '中间知识',
       'toOrganize': '待整理',
       'dailyTask': '日拱一卒',
-      'pages': 'Pages'
+      'pages': 'Pages',
+
+      // Task 视图分区
+      'taskToday': 'Today',
+      'taskTomorrow': 'Tomorrow',
+      'taskThisWeek': 'This Week',
+      'taskTodo': 'TODO'
     }
     return displayNames[section] || section
   }
