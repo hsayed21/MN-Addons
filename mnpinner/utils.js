@@ -264,6 +264,27 @@ class pinnerConfig {
         pinnerUtils.log("Migrated pins to new format with type field", "pinnerConfig:init")
       }
 
+      // 数据迁移：将 pages 分区的数据迁移到 toOrganize 分区
+      if (this.sections.pages && this.sections.pages.length > 0) {
+        let pagesCount = this.sections.pages.length
+
+        // 将所有 Page 数据转移到待整理分区
+        if (!this.sections.toOrganize) {
+          this.sections.toOrganize = []
+        }
+        this.sections.toOrganize.push(...this.sections.pages)
+
+        // 清空 pages 分区
+        this.sections.pages = []
+
+        // 保存迁移结果
+        this.save()
+
+        // 提示用户
+        MNUtil.showHUD(`已将 ${pagesCount} 个页面卡片迁移到"待整理"分区`)
+        pinnerUtils.log(`Migrated ${pagesCount} pages to toOrganize section`, "pinnerConfig:init")
+      }
+
       // 加载图片资源
       this.closeImage = this.mainPath + "/close.png"
       this.resizeImage = this.mainPath + "/resize.png"

@@ -205,12 +205,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     // MNUtil.studyView.bringSubviewToFront(self.view)
     // 只在非 minimode 时刷新，避免频繁刷新导致手写消失
     if (!self.miniMode && self.currentSection) {
-      // ✅ 修复：pages 视图使用正确的刷新方法
-      if (self.currentSection === "pages") {
-        self.refreshPageCards()
-      } else {
-        self.refreshSectionCards(self.currentSection)
-      }
+      self.refreshSectionCards(self.currentSection)
     }
   },
 
@@ -260,12 +255,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
         // 只在非 minimode 时刷新，避免频繁刷新导致手写消失
         if (!self.miniMode && self.currentSection) {
-          // ✅ 修复：pages 视图使用正确的刷新方法
-          if (self.currentSection === "pages") {
-            self.refreshPageCards()
-          } else {
-            self.refreshSectionCards(self.currentSection)
-          }
+          self.refreshSectionCards(self.currentSection)
         }
       }
     } catch (error) {
@@ -467,10 +457,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
   dailyTaskTabTapped: function(button) {
     self.switchView("dailyTaskView")
-  },
-
-  pagesTabTapped: function(button) {
-    self.switchView("pagesView")
   },
 
   // === 分区视图的事件处理方法 ===
@@ -785,9 +771,9 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         return
       }
 
-      // 获取所有分区，排除当前分区和 pages 分区（pages 存储的是文档页面，不是卡片）
+      // 获取所有分区，排除当前分区
       let sections = pinnerConfig.getSectionNames()
-      let targetSections = sections.filter(s => s !== currentSection && s !== 'pages')
+      let targetSections = sections.filter(s => s !== currentSection)
 
       if (targetSections.length === 0) {
         MNUtil.showHUD("没有可转移的分区")
@@ -1199,12 +1185,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
               let success = pinnerConfig.updatePagePinTitle(page.docMd5, page.pageIndex, finalTitle, section)
 
               if (success) {
-                // ✅ 根据分区刷新对应的视图
-                if (section === "pages") {
-                  self.refreshPageCards()
-                } else {
-                  self.refreshSectionCards(section)
-                }
+                // ✅ 刷新对应的视图
+                self.refreshSectionCards(section)
                 MNUtil.showHUD("✅ 标题已更新")
               } else {
                 MNUtil.showHUD("❌ 更新失败")
@@ -1290,7 +1272,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
-   * Pin 当前页面到 Pages 分区
+   * Pin 当前页面到当前分区
    */
   pinCurrentPage: function(button) {
     try {
@@ -1315,13 +1297,19 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         return
       }
 
-      // 添加到 pages 分区（使用 undefined 让其自动生成标题）
-      let success = pinnerConfig.addPagePin(docMd5, pageIndex, undefined, undefined)
+      // 获取当前分区
+      let section = button.section || self.currentSection
+
+      // 创建 Page Pin 对象
+      let pagePin = pinnerConfig.createPagePin(docMd5, pageIndex)
+
+      // 添加到当前分区
+      let success = pinnerConfig.addPin(pagePin, section)
 
       if (success) {
         MNUtil.showHUD(`已 Pin 第 ${pageIndex + 1} 页`)
-        // 刷新 pages 视图
-        self.refreshPageCards()
+        // 刷新当前分区视图
+        self.refreshSectionCards(section)
       } else {
         MNUtil.showHUD("该页面已存在")
       }
@@ -1343,7 +1331,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       pinnerConfig.sections.pages = []
       pinnerConfig.save()
 
-      self.refreshPageCards()
+      // pages 分区已废弃，刷新当前视图
+      self.refreshSectionCards(self.currentSection)
       MNUtil.showHUD("已清空 Pages")
 
     } catch (error) {
@@ -1433,7 +1422,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       }
 
       pinnerConfig.removePagePin(page.docMd5, page.pageIndex)
-      self.refreshPageCards()
+      // pages 分区已废弃，刷新当前视图
+      self.refreshSectionCards(self.currentSection)
       MNUtil.showHUD("已删除")
 
     } catch (error) {
@@ -1470,14 +1460,9 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         let result = pinnerConfig.movePin(index, index - 1, section)
         MNLog.log(`movePin 返回: ${result}`)
 
-        // 根据分区刷新对应视图
-        if (section === "pages") {
-          MNLog.log("刷新 pages 视图")
-          self.refreshPageCards()
-        } else {
-          MNLog.log(`刷新 ${section} 分区视图`)
-          self.refreshSectionCards(section)
-        }
+        // 刷新分区视图
+        MNLog.log(`刷新 ${section} 分区视图`)
+        self.refreshSectionCards(section)
 
         MNUtil.showHUD("已上移")
       } else {
@@ -1544,14 +1529,9 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
           }
         })
 
-        // 根据分区刷新对应视图
-        if (section === "pages") {
-          MNLog.log("刷新 pages 视图")
-          self.refreshPageCards()
-        } else {
-          MNLog.log(`刷新 ${section} 分区视图`)
-          self.refreshSectionCards(section)
-        }
+        // 刷新分区视图
+        MNLog.log(`刷新 ${section} 分区视图`)
+        self.refreshSectionCards(section)
 
         MNUtil.showHUD("已下移")
       } else {
@@ -1834,7 +1814,6 @@ pinnerController.prototype.settingViewLayout = function () {
     this.midwayView.frame = MNUtil.genFrame(0, 0,width, height-65)
     this.toOrganizeView.frame = MNUtil.genFrame(0, 0,width, height-65)
     this.dailyTaskView.frame = MNUtil.genFrame(0, 0,width, height-65)
-    this.pagesView.frame = MNUtil.genFrame(0, 0,width, height-65)
 
     let settingFrame = this.settingView.bounds
     settingFrame.x = 0
@@ -1860,10 +1839,6 @@ pinnerController.prototype.settingViewLayout = function () {
     if (this.dailyTaskTabButton) {
       this.dailyTaskTabButton.frame = {x: tabX, y: 2, width: this.dailyTaskTabButton.width, height: 26}
       tabX += this.dailyTaskTabButton.width + UI_CONSTANTS.TAB_SPACING
-    }
-    if (this.pagesTabButton) {
-      this.pagesTabButton.frame = {x: tabX, y: 2, width: this.pagesTabButton.width, height: 26}
-      tabX += this.pagesTabButton.width + UI_CONSTANTS.TAB_SPACING
     }
 
     // 设置内容大小（超出 frame 时自动启用滚动）
@@ -1891,9 +1866,6 @@ pinnerController.prototype.settingViewLayout = function () {
     if (!this.dailyTaskView.hidden) {
       this.layoutSectionView("dailyTask")
     }
-    if (!this.pagesView.hidden) {
-      this.layoutSectionView("pages")
-    }
   } catch (error) {
     pinnerUtils.addErrorLog(error, "settingViewLayout")
   }
@@ -1911,9 +1883,6 @@ pinnerController.prototype.refreshLayout = function () {
   }
   if (!this.dailyTaskView.hidden) {
     this.layoutSectionView("dailyTask")
-  }
-  if (!this.pagesView.hidden) {
-    this.layoutSectionView("pages")
   }
 }
 pinnerController.prototype.createSettingView = function () {
@@ -1966,15 +1935,6 @@ pinnerController.prototype.createSettingView = function () {
     size = this.dailyTaskTabButton.sizeThatFits({width:120,height:100})
     this.dailyTaskTabButton.width = size.width+15
 
-    this.createButton("pagesTabButton","pagesTabTapped:","tabView")
-    this.pagesTabButton.layer.cornerRadius = radius;
-    this.pagesTabButton.isSelected = false
-    MNButton.setConfig(this.pagesTabButton,
-      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"Pages",font:17,bold:true}
-    )
-    size = this.pagesTabButton.sizeThatFits({width:120,height:100})
-    this.pagesTabButton.width = size.width+15
-
     // === 创建各个分页===
     this.createView("focusView","settingView","#9bb2d6",0)
     this.focusView.hidden = false  // 默认显示第一个视图
@@ -1987,9 +1947,6 @@ pinnerController.prototype.createSettingView = function () {
 
     this.createView("dailyTaskView","settingView","#9bb2d6",0)
     this.dailyTaskView.hidden = true  // 隐藏其他视图
-
-    this.createView("pagesView","settingView","#9bb2d6",0)
-    this.pagesView.hidden = true  // 隐藏其他视图
 
     // === 为每个分区创建子视图 ===
     this.createSectionViews()
@@ -2057,14 +2014,13 @@ pinnerController.prototype.createScrollview = function (superview="view", color=
   return scrollview
 }
 pinnerController.prototype.switchView = function (targetView) {
-  let allViews = ["focusView", "midwayView", "toOrganizeView", "dailyTaskView", "pagesView"]
-  let allButtons = ["focusTabButton","midwayTabButton","toOrganizeTabButton","dailyTaskTabButton","pagesTabButton"]
+  let allViews = ["focusView", "midwayView", "toOrganizeView", "dailyTaskView"]
+  let allButtons = ["focusTabButton","midwayTabButton","toOrganizeTabButton","dailyTaskTabButton"]
   let sectionMap = {
     "focusView": "focus",
     "midwayView": "midway",
     "toOrganizeView": "toOrganize",
-    "dailyTaskView": "dailyTask",
-    "pagesView": "pages"
+    "dailyTaskView": "dailyTask"
   }
 
   allViews.forEach((k, index) => {
@@ -2100,10 +2056,6 @@ pinnerController.prototype.refreshView = function (targetView) {
         MNUtil.log("refresh dailyTaskView")
         this.refreshSectionCards("dailyTask")
         break;
-      case "pagesView":
-        MNUtil.log("refresh pagesView")
-        this.refreshPageCards()
-        break;
       default:
         break;
     }
@@ -2116,7 +2068,7 @@ pinnerController.prototype.refreshView = function (targetView) {
  */
 pinnerController.prototype.createSectionViews = function() {
   // 为每个分区创建相同的结构
-  ["focus", "midway", "toOrganize", "dailyTask", "pages"].forEach(section => {
+  ["focus", "midway", "toOrganize", "dailyTask"].forEach(section => {
     let viewName = section + "View"
 
     // 创建顶部按钮的滚动容器
@@ -2276,9 +2228,8 @@ pinnerController.prototype.layoutSectionView = function(section) {
 
   // 设置按钮滚动容器
   if (this[buttonScrollViewKey]) {
-    // pages 分区有 3 个按钮（Clear + PinCard + PinPage），其他分区有 4 个按钮（+ Add）
-    let buttonCount = section === "pages" ? 3 : 4
-    let containerWidth = buttonCount === 4 ? 380 : 280
+    // 所有分区都有 4 个按钮（Clear + PinCard + PinPage + Add）
+    let containerWidth = 380
 
     this[buttonScrollViewKey].frame = {x: 10, y: 10, width: Math.min(width - 20, containerWidth), height: 32}
     this[buttonScrollViewKey].contentSize = {width: containerWidth, height: 32}
