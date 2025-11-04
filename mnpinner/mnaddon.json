@@ -2,7 +2,7 @@
   "addonid": "marginnote.extension.mnpinner",
   "author": "Kangwei Xia",
   "title": "MN Pinner",
-  "version": "1.7",
+  "version": "1.8",
   "marginnote_version_min": "3.6.11",
   "cert_key": ""
 }

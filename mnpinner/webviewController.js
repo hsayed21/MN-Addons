@@ -635,30 +635,26 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   deleteCard: function(button) {
     try {
+      // ✅ 通过 tag 获取索引，从数据源回溯完整信息
+      let index = button.tag
       let section = button.section || self.currentSection
 
-      // 根据 pinType 构造 pin 对象
-      let pin
-      if (button.pinType === "page") {
-        pin = {
-          type: "page",
-          docMd5: button.docMd5,
-          pageIndex: button.pageIndex
-        }
-      } else {
-        // type === "card" 或没有 type（兼容旧数据）
-        if (!button.noteId) {
-          MNUtil.showHUD("无法获取卡片ID")
-          return
-        }
-        pin = {
-          type: "card",
-          noteId: button.noteId
-        }
+      // 从 pinnerConfig 获取完整数据
+      let pins = pinnerConfig.getPins(section)
+      if (!pins || pins.length === 0) {
+        MNUtil.showHUD("分区数据为空")
+        return
+      }
+
+      let card = pins[index]
+      if (!card) {
+        MNUtil.showHUD("卡片数据已失效，正在刷新...")
+        self.refreshSectionCards(section)
+        return
       }
 
       // 调用数据层统一删除方法
-      let success = pinnerConfig.removePin(pin, section)
+      let success = pinnerConfig.removePin(card, section)
 
       if (success) {
         // 刷新视图
@@ -680,14 +676,30 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   focusCardTapped: function(button) {
     try {
-      // ✅ 根据 pinType 字段判断类型
-      if (button.pinType === "page") {
-        return self.jumpToPage(button)
-      }
-
-      let noteId = button.noteId
+      // ✅ 通过 tag 获取索引，从数据源回溯完整信息
+      let index = button.tag
       let section = button.section || self.currentSection
 
+      // 从 pinnerConfig 获取完整数据
+      let pins = pinnerConfig.getPins(section)
+      if (!pins || pins.length === 0) {
+        MNUtil.showHUD("分区数据为空")
+        return
+      }
+
+      let card = pins[index]
+      if (!card) {
+        MNUtil.showHUD("卡片数据已失效，正在刷新...")
+        self.refreshSectionCards(section)
+        return
+      }
+
+      // ✅ 根据 type 字段判断类型（从数据源获取）
+      if (card.type === "page") {
+        return self.jumpToPageByData(card)
+      }
+
+      let noteId = card.noteId
       if (!noteId) {
         MNUtil.showHUD("无法获取卡片ID")
         return
@@ -703,22 +715,9 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
           return
         }
 
-        // 获取空白卡片的标题
-        let pins = pinnerConfig.sections[section]
-        if (!pins) {
-          MNUtil.showHUD("找不到空白卡片数据")
-          return
-        }
-
-        let blankPin = pins.find(p => p.noteId === noteId)
-        if (!blankPin) {
-          MNUtil.showHUD("找不到空白卡片数据")
-          return
-        }
-
         // 创建真实子卡片
         let newNote = focusNote.createChildNote({
-          title: blankPin.title
+          title: card.title
         })
 
         // 聚焦到新卡片
@@ -789,11 +788,27 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     try {
       self.checkPopover()  // 关闭当前菜单
 
-      let noteId = button.noteId
+      // ✅ 通过 tag 获取索引，从数据源回溯完整信息
+      let index = button.tag
       let currentSection = button.section || self.currentSection
 
-      if (!noteId || !currentSection) {
-        MNUtil.showHUD("无法获取卡片信息")
+      // 从 pinnerConfig 获取完整数据
+      let pins = pinnerConfig.getPins(currentSection)
+      if (!pins || pins.length === 0) {
+        MNUtil.showHUD("分区数据为空")
+        return
+      }
+
+      let card = pins[index]
+      if (!card) {
+        MNUtil.showHUD("卡片数据已失效，正在刷新...")
+        self.refreshSectionCards(currentSection)
+        return
+      }
+
+      let noteId = card.noteId
+      if (!noteId) {
+        MNUtil.showHUD("无法获取卡片ID")
         return
       }
 
@@ -1600,11 +1615,13 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 });
 
 // ========== 原型方法 ==========
-pinnerController.prototype.jumpToPage = async function (button) {
+/**
+ * ✅ 通过数据对象跳转页面（新方法，支持从 card 对象获取数据）
+ */
+pinnerController.prototype.jumpToPageByData = async function (card) {
   try {
-    // ✅ 直接从 button 获取页面数据（支持所有分区）
-    let docMd5 = button.docMd5
-    let pageIndex = button.pageIndex
+    let docMd5 = card.docMd5
+    let pageIndex = card.pageIndex
 
     // 验证参数存在
     if (!docMd5 || pageIndex === undefined) {
@@ -1650,6 +1667,38 @@ pinnerController.prototype.jumpToPage = async function (button) {
     }
 
     MNUtil.showHUD(`已跳转到第 ${pageIndex + 1} 页`)
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "jumpToPageByData")
+    MNUtil.showHUD("跳转失败: " + error.message)
+  }
+}
+
+/**
+ * ✅ 通过按钮跳转页面（兼容旧方法，通过 tag 回溯数据）
+ */
+pinnerController.prototype.jumpToPage = async function (button) {
+  try {
+    // ✅ 通过 tag 获取索引，从数据源回溯数据
+    let index = button.tag
+    let section = button.section || self.currentSection
+
+    // 从 pinnerConfig 获取完整数据
+    let pins = pinnerConfig.getPins(section)
+    if (!pins || pins.length === 0) {
+      MNUtil.showHUD("分区数据为空")
+      return
+    }
+
+    let card = pins[index]
+    if (!card) {
+      MNUtil.showHUD("页面数据已失效，正在刷新...")
+      self.refreshSectionCards(section)
+      return
+    }
+
+    // 调用新方法
+    return await self.jumpToPageByData(card)
 
   } catch (error) {
     pinnerUtils.addErrorLog(error, "jumpToPage")
@@ -2528,8 +2577,9 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   rowView.layer.borderWidth = 1
   rowView.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6", 0.3)
 
-  // 保存卡片信息
-  rowView.noteId = card.noteId
+  // ✅ 只保存 tag（索引）和 section，避免自定义属性被 GC 清除
+  // tag 是 iOS 原生属性，不会丢失
+  rowView.tag = index
   rowView.section = section
 
   // 获取卡片总数，用于判断是否禁用按钮
@@ -2540,8 +2590,7 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   moveUpButton.setTitleForState("⬆️", 0)
   moveUpButton.frame = {x: 5, y: 7, width: 30, height: 30}
   moveUpButton.layer.cornerRadius = 5
-  moveUpButton.tag = index
-  moveUpButton.noteId = card.noteId
+  moveUpButton.tag = index  // ✅ 只保存索引
   moveUpButton.section = section
   moveUpButton.addTargetActionForControlEvents(this, "moveCardUp:", 1 << 6)
   // 第一个卡片禁用上移
@@ -2560,8 +2609,7 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   moveDownButton.setTitleForState("⬇️", 0)
   moveDownButton.frame = {x: 40, y: 7, width: 30, height: 30}
   moveDownButton.layer.cornerRadius = 5
-  moveDownButton.tag = index
-  moveDownButton.noteId = card.noteId
+  moveDownButton.tag = index  // ✅ 只保存索引
   moveDownButton.section = section
   moveDownButton.addTargetActionForControlEvents(this, "moveCardDown:", 1 << 6)
   // 最后一个卡片禁用下移
@@ -2581,10 +2629,8 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   focusButton.frame = {x: 75, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
   focusButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
   focusButton.layer.cornerRadius = 5
-  focusButton.tag = index
-  focusButton.noteId = card.noteId
+  focusButton.tag = index  // ✅ 只保存索引，点击时通过索引回溯数据
   focusButton.section = section
-  focusButton.pinType = card.type || "card"  // 设置 type 字段，兼容旧数据
   focusButton.addTargetActionForControlEvents(this, "focusCardTapped:", 1 << 6)
   rowView.addSubview(focusButton)
 
@@ -2594,9 +2640,8 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
   titleButton.frame = {x: 110, y: 5, width: width - 160, height: 35}
   titleButton.addTargetActionForControlEvents(this, "cardTapped:", 1 << 6)
-  titleButton.noteId = card.noteId
+  titleButton.tag = index  // ✅ 只保存索引
   titleButton.section = section
-  titleButton.cardTitle = card.title
   // 设置颜色表示可点击
   titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#007AFF", 1.0), 0)
   titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#0051D5", 1.0), 1)
@@ -2609,10 +2654,8 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   deleteButton.frame = {x: width - 40, y: 7, width: 30, height: 30}
   deleteButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 0.8)
   deleteButton.layer.cornerRadius = 5
-  deleteButton.tag = index
-  deleteButton.noteId = card.noteId
+  deleteButton.tag = index  // ✅ 只保存索引
   deleteButton.section = section
-  deleteButton.pinType = card.type || "card"  // 设置 type 字段
   deleteButton.addTargetActionForControlEvents(this, "deleteCard:", 1 << 6)
   rowView.addSubview(deleteButton)
 
@@ -2696,10 +2739,9 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   rowView.layer.borderWidth = 1
   rowView.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6", 0.3)
 
-  // 保存页面信息
-  rowView.docMd5 = page.docMd5
-  rowView.pageIndex = page.pageIndex
-  rowView.section = section  // ✅ 添加 section 属性
+  // ✅ 只保存 tag（索引）和 section，避免自定义属性被 GC 清除
+  rowView.tag = index
+  rowView.section = section
 
   // 获取总数：如果传入了 totalCount 使用它，否则根据 section 获取
   let total = totalCount !== undefined ? totalCount : pinnerConfig.getPins(section).length
@@ -2711,14 +2753,12 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   moveUpButton.setTitleForState("⬆️", 0)
   moveUpButton.frame = {x: 5, y: 7, width: 30, height: 30}
   moveUpButton.layer.cornerRadius = 5
-  moveUpButton.tag = index
-  moveUpButton.docMd5 = page.docMd5
-  moveUpButton.pageIndex = page.pageIndex
+  moveUpButton.tag = index  // ✅ 只保存索引
   moveUpButton.section = section
   moveUpButton.addTargetActionForControlEvents(this, "movePageUp:", 1 << 6)
 
   // 验证按钮属性
-  MNLog.log(`创建上移按钮: tag=${moveUpButton.tag}, section=${moveUpButton.section}, docMd5=${moveUpButton.docMd5}`)
+  MNLog.log(`创建上移按钮: tag=${moveUpButton.tag}, section=${moveUpButton.section}`)
 
   if (index === 0) {
     moveUpButton.enabled = false
@@ -2733,14 +2773,12 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   moveDownButton.setTitleForState("⬇️", 0)
   moveDownButton.frame = {x: 40, y: 7, width: 30, height: 30}
   moveDownButton.layer.cornerRadius = 5
-  moveDownButton.tag = index
-  moveDownButton.docMd5 = page.docMd5
-  moveDownButton.pageIndex = page.pageIndex
+  moveDownButton.tag = index  // ✅ 只保存索引
   moveDownButton.section = section
   moveDownButton.addTargetActionForControlEvents(this, "movePageDown:", 1 << 6)
 
   // 验证按钮属性
-  MNLog.log(`创建下移按钮: tag=${moveDownButton.tag}, section=${moveDownButton.section}, docMd5=${moveDownButton.docMd5}`)
+  MNLog.log(`创建下移按钮: tag=${moveDownButton.tag}, section=${moveDownButton.section}`)
   if (index === total - 1) {
     moveDownButton.enabled = false
     moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
@@ -2755,11 +2793,8 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   focusButton.frame = {x: 75, y: 7, width: 30, height: 30}
   focusButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
   focusButton.layer.cornerRadius = 5
-  focusButton.tag = index
-  focusButton.docMd5 = page.docMd5
-  focusButton.pageIndex = page.pageIndex
-  focusButton.section = section  // ✅ 添加 section 属性
-  focusButton.pinType = page.type || "page"  // 设置 type 字段
+  focusButton.tag = index  // ✅ 只保存索引
+  focusButton.section = section
   focusButton.addTargetActionForControlEvents(this, "focusCardTapped:", 1 << 6)  // ✅ 统一使用 focusCardTapped
   rowView.addSubview(focusButton)
 
@@ -2768,12 +2803,9 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   titleButton.setTitleForState(`📄 ${page.title || "未命名页面"}`, 0)
   titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
   titleButton.frame = {x: 110, y: 5, width: width - 160, height: 35}
-  titleButton.tag = index  // ✅ 设置 tag 属性，用于 pageItemTapped 获取页面数据
+  titleButton.tag = index  // ✅ 只保存索引
+  titleButton.section = section
   titleButton.addTargetActionForControlEvents(this, "pageItemTapped:", 1 << 6)
-  titleButton.docMd5 = page.docMd5
-  titleButton.pageIndex = page.pageIndex
-  titleButton.pageTitle = page.title
-  titleButton.section = section  // ✅ 添加 section 属性，用于确定当前分区
   // 设置颜色表示可点击
   titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#007AFF", 1.0), 0)
   titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#0051D5", 1.0), 1)
@@ -2786,11 +2818,8 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   deleteButton.frame = {x: width - 40, y: 7, width: 30, height: 30}
   deleteButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 0.8)
   deleteButton.layer.cornerRadius = 5
-  deleteButton.tag = index
-  deleteButton.docMd5 = page.docMd5
-  deleteButton.pageIndex = page.pageIndex
-  deleteButton.section = section  // ✅ 添加 section 属性
-  deleteButton.pinType = page.type || "page"  // 设置 type 字段
+  deleteButton.tag = index  // ✅ 只保存索引
+  deleteButton.section = section
   deleteButton.addTargetActionForControlEvents(this, "deleteCard:", 1 << 6)  // ✅ 统一使用 deleteCard
   rowView.addSubview(deleteButton)
 
