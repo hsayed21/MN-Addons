@@ -168,7 +168,7 @@ JSB.newAddon = function(mainPath){
           image: 'logo.png',          // 按钮图标
           object: self,               // 响应对象（this）
           selector: 'toggleAddon:',   // 点击时调用的方法
-          checked: self.toggled       // 是否显示选中状态
+          checked: false              // 不显示选中状态（直接打开面板，无状态切换）
         };
       } else {
         if (pinnerUtils.pinnerController) {
@@ -192,22 +192,9 @@ JSB.newAddon = function(mainPath){
           self.addonBar = button.superview.superview
           pinnerUtils.addonBar = self.addonBar
         }
-        self.toggled = !self.toggled
-        MNUtil.refreshAddonCommands()
 
-        let commandTable = [
-          self.tableItem('🗄️   卡片固定库', 'openPinnerLibrary:'),
-          self.tableItem('📥   导入配置', 'importConfig:'),
-          self.tableItem('📤   导出配置', 'exportConfig:'),
-        ];
-
-        // 显示菜单
-        self.menuPopoverController = MNUtil.getPopoverAndPresent(
-          button,        // 触发按钮
-          commandTable,  // 菜单项
-          200,          // 宽度
-          0             // 箭头方向（0=自动）
-        );
+        // 直接打开面板
+        self.openPinnerLibrary()
       } catch (error) {
         MNUtil.showHUD(error);
         pinnerUtils.addErrorLog(error, "toggleAddon")
@@ -505,43 +492,6 @@ JSB.newAddon = function(mainPath){
       }
     },
 
-    /**
-     * 打开设置面板
-     * 这是整个视图显示流程的入口
-     * @param {UIButton} button - 菜单中的设置按钮
-     */
-    openPinnerLibrary: function(button) {
-      // MNUtil.showHUD("打开设置界面")
-      // 重置插件图标的选中状态
-      self.toggled = false
-      // 刷新插件栏，更新图标状态
-      MNUtil.refreshAddonCommands()
-      self.closeMenu()
-      try {
-        // 这是 iOS 的机制，用于确保键盘正确隐藏
-        MNUtil.delay(0.2).then(()=>{
-          MNUtil.studyView.becomeFirstResponder(); //For dismiss keyboard on iOS
-        })
-        pinnerUtils.ensureView(pinnerUtils.pinnerController.view)
-        
-
-        // 第一次打开时，设置面板的初始位置和大小
-        if (self.isFirst) {
-          // MNUtil.showHUD("First")
-          // 设置面板的位置（同时设置 frame 和 currentFrame）
-          pinnerUtils.setFrame(pinnerUtils.pinnerController, self.firstFrame)
-          pinnerUtils.pinnerController.show(self.firstFrame)
-          self.isFirst = false;
-        } else {
-          // MNUtil.showHUD("Not First")
-          pinnerUtils.pinnerController.show(pinnerUtils.pinnerController.lastFrame)
-        }
-        // 默认显示focus分区
-        pinnerUtils.pinnerController.switchView("focusView")
-      } catch (error) {
-        pinnerUtils.addErrorLog(error, "openSetting")
-      }
-    },
 
     // 生命周期测试
 
@@ -620,19 +570,42 @@ JSB.newAddon = function(mainPath){
     },
   });
 
-  MNPinnerClass.prototype.openPinnerLibrary = function() {
-    if (pinnerUtils.pinnerController.lastFrame) {
-      pinnerUtils.pinnerController.show(pinnerUtils.pinnerController.lastFrame)
-      // 显示默认分区
+  /**
+   * 打开 Pinner 面板
+   * 统一的面板打开方法（原型方法）
+   * @param {UIButton} button - 可选，触发按钮（兼容参数，实际未使用）
+   */
+  MNPinnerClass.prototype.openPinnerLibrary = function(button) {
+    try {
+      // iOS 机制：确保键盘正确隐藏
+      MNUtil.delay(0.2).then(() => {
+        MNUtil.studyView.becomeFirstResponder()
+      })
+
+      // 确保视图已创建
+      pinnerUtils.ensureView(pinnerUtils.pinnerController.view)
+
+      // 第一次打开：使用预设位置
+      if (self.isFirst) {
+        pinnerUtils.setFrame(pinnerUtils.pinnerController, self.firstFrame)
+        pinnerUtils.pinnerController.show(self.firstFrame)
+        self.isFirst = false
+      } else {
+        // 后续打开：恢复上次位置
+        pinnerUtils.pinnerController.show(pinnerUtils.pinnerController.lastFrame)
+      }
+
+      // 默认显示 focus 分区
       pinnerUtils.pinnerController.switchView("focusView")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "openPinnerLibrary")
     }
   }
 
   MNPinnerClass.prototype.init = function(mainPath) {
-    // 插件栏图标的选中状态
-    this.toggled = false
+    // 首次打开标记
     this.isFirst = true
-    this.firstFrame = {x:50, y:50, width:450, height: 200} 
+    this.firstFrame = {x:50, y:50, width:450, height: 200}
     if (!this.initialized) {
       pinnerUtils.init(mainPath)
       pinnerConfig.init(mainPath)
@@ -641,26 +614,10 @@ JSB.newAddon = function(mainPath){
   }
 
   MNPinnerClass.prototype.closeMenu = function() {
-    // 关闭菜单
+    // 关闭菜单（保留兼容性，虽然当前版本不再使用弹出菜单）
     if (this.menuPopoverController) {
       this.menuPopoverController.dismissPopoverAnimated(true);
     }
-  }
-  
-  /**
-   * 导入配置
-   */
-  MNPinnerClass.prototype.importConfig = function() {
-    this.closeMenu()
-    pinnerConfig.importFromFile()
-  }
-  
-  /**
-   * 导出配置
-   */
-  MNPinnerClass.prototype.exportConfig = function() {
-    this.closeMenu()
-    pinnerConfig.exportToFile()
   }
 
   MNPinnerClass.prototype.tableItem = function (title, selector, param = "", checked = false) {
