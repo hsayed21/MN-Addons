@@ -9,12 +9,64 @@ const kbSearchConfig = {
   /**
    * 同义词组配置（用于搜索扩展）
    * ⭐ 这是用户经常手动维护的核心配置之一
+   *
+   * @typedef {Object} SynonymGroup
+   * @property {string[]} words - 同义词列表，组内的词会被视为等价
+   * @property {boolean} [partialReplacement=false] - 是否启用部分替换模式
+   *   - true: 支持字符级别的替换，如 ||x|| ↔ ‖x‖
+   *   - false: 仅支持完整词匹配
+   *   - 示例：{"words": ["||", "‖"], "partialReplacement": true}
+   *     → 搜索 ||x|| 时会扩展为 ‖x‖，反之亦然
+   *
+   * @property {boolean} [patternMode=false] - 是否启用模式匹配模式
+   *   - true: 支持 {{}} 占位符，可以匹配任意内容
+   *   - false: 普通同义词匹配
+   *   - 示例：{"words": ["稠{{}}集", "稠密{{}}集"], "patternMode": true}
+   *     → "稠开集" 会扩展为 "稠密开集"
+   *
+   * @property {boolean} [caseSensitive=false] - 是否大小写敏感
+   *   - true: 严格区分大小写
+   *   - false: 忽略大小写
+   *   - 示例：{"words": ["Span", "span"], "caseSensitive": true}
+   *     → "Span" 和 "span" 会被视为不同的词
+   *
+   * @property {string[]} [contextTriggers] - 上下文触发词
+   *   - 仅在标题包含这些触发词时才启用该同义词组
+   *   - 用于避免误匹配（如"正交"和"正交集"）
+   *   - 示例：{"words": ["元素", "向量"], "contextTriggers": ["内积空间", "Hilbert 空间"]}
+   *     → 只在标题包含"内积空间"或"Hilbert 空间"时才将"元素"和"向量"视为同义词
+   *
+   * @property {string} [contextMode="any"] - 上下文匹配模式
+   *   - "any": 满足任意一个触发词即可
+   *   - "all": 需要满足所有触发词
+   *
+   * @property {string} [id] - 同义词组的唯一标识符（可选，用于调试和管理）
+   * @property {boolean} [enabled=true] - 是否启用该同义词组（可选，默认启用）
+   *
+   * @example
+   * // 基础同义词组（完整词匹配）
+   * {"words": ["两两不同", "两两不等", "互不相等"]}
+   *
+   * @example
+   * // 部分替换模式（字符级别替换）
+   * {"words": ["||", "‖"], "partialReplacement": true}
+   * // 搜索 "||f(x)||" 时会自动扩展为 "‖f(x)‖"
+   *
+   * @example
+   * // 模式匹配模式（占位符替换）
+   * {"words": ["一列{{}}的并", "{{}}的可列并"], "patternMode": true}
+   * // "一列开集的并" 会扩展为 "开集的可列并"
+   *
+   * @example
+   * // 上下文敏感的同义词
+   * {
+   *   "words": ["元素", "向量"],
+   *   "partialReplacement": true,
+   *   "caseSensitive": true,
+   *   "contextTriggers": ["内积空间", "Hilbert 空间"],
+   *   "contextMode": "any"
+   * }
    */
-
-  // {
-  //     "words": ["", ""],
-  //     "partialReplacement": true,
-  //   },
   synonymGroups: [
     {
       "words": ["两两不同", "两两不等", "互不相等", "各不相同", "各不相等", "互异", "两两不一样"],
@@ -11874,8 +11926,10 @@ class KnowledgeBaseTemplate {
               break;
               
             default:
-              // 直接替换
-              variant = variant.replace(word, replacement);
+              // 全局替换所有出现（重要：确保 ||x|| 中的两个 || 都被替换）
+              const escapedWord = this.escapeRegex(word);
+              const globalRegex = new RegExp(escapedWord, 'g');
+              variant = variant.replace(globalRegex, replacement);
           }
           
           if (variant !== keyword) {
@@ -12020,7 +12074,13 @@ class KnowledgeBaseTemplate {
           // 添加组内所有词
           group.words.forEach(word => expandedKeywords.add(word));
         }
-        
+
+        // 局部替换（支持 ||x|| → ‖x‖）
+        if (group.partialReplacement) {
+          const partialVariants = this.generatePartialReplacements(keyword, group);
+          partialVariants.forEach(variant => expandedKeywords.add(variant));
+        }
+
         // 检查模式匹配
         if (group.patternMode) {
           const patternVariants = this.generatePatternVariants(keyword, group);
@@ -15944,6 +16004,16 @@ class KnowledgeBaseIndexer {
               expandedWords.add(syn.toLowerCase());
             }
           });
+
+          // 生成局部替换变体（支持 ||x|| → ‖x‖）
+          if (group.partialReplacement) {
+            const partialVariants = SynonymManager.generatePartialReplacements(text, group);
+            partialVariants.forEach(variant => {
+              if (variant && variant.trim()) {
+                expandedWords.add(variant.toLowerCase());
+              }
+            });
+          }
         }
       });
 
