@@ -2,7 +2,7 @@
     "addonid": "marginnote.extension.mnocr",
     "author": "Feliks",
     "title": "MN OCR",
-    "version": "0.0.4.alpha1022",
+    "version": "0.0.4.alpha1104",
     "marginnote_version_min": "3.7.11",
     "cert_key": ""
 }

@@ -20009,6 +20009,29 @@ class KnowledgeBaseConfig {
     "GPT-5",
     "GPT-5-mini",
     "GPT-5-nano",
+    // 🆕 新增 Qwen 视觉系列
+    "qwen3-vl-plus",
+    "qwen3-omni-flash",
+    "qwen/qwen3-vl-235b-a22b-instruct",
+    "qwen/qwen3-vl-235b-a22b-thinking",
+    // 🆕 新增 Moonshot 完整系列
+    "kimi-latest",
+    "moonshot-v1-8k",
+    "moonshot-v1-32k",
+    "moonshot-v1-128k",
+    "moonshot-v1-8k-vision-preview",
+    "moonshot-v1-32k-vision-preview",
+    "moonshot-v1-128k-vision-preview",
+    "moonshot-v1-auto",
+    // 🆕 新增 Doubao 详细版本
+    "doubao-seed-1-6-thinking-250715",
+    "doubao-seed-1-6-thinking-250615",
+    "doubao-seed-1-6-250615",
+    "doubao-seed-1-6-flash-250715",
+    "doubao-seed-1-6-flash-250615",
+    "doubao-seed-1-6-vision-250815",
+    // 🆕 新增 GLM 高级版本
+    "pro/thudm/glm-4.1v-9b-thinking",
   ];
   // 默认摘录 OCR 模型常量，避免在多个位置重复字面量
   static DEFAULT_EXCERPT_OCR_MODEL = "doubao-seed-1-6";

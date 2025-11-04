@@ -304,6 +304,34 @@ viewWillLayoutSubviews: function() {
       commandTable.push({title:'🤖 Gemini-2.0 Flash',object:self,selector:selector,param:"gemini-2.0-flash",checked:source === "gemini-2.0-flash"})
       commandTable.push({title:'🤖 Gemini-2.5 Flash',object:self,selector:selector,param:"gemini-2.5-flash",checked:source === "gemini-2.5-flash"})
       commandTable.push({title:'🤖 Gemini-2.5 Pro',object:self,selector:selector,param:"gemini-2.5-pro",checked:source === "gemini-2.5-pro"})
+
+      // 🆕 新增 Qwen 视觉系列
+      commandTable.push({title:'🤖 Qwen3-VL Plus',object:self,selector:selector,param:"qwen3-vl-plus",checked:source === "qwen3-vl-plus"})
+      commandTable.push({title:'🤖 Qwen3 Omni Flash',object:self,selector:selector,param:"qwen3-omni-flash",checked:source === "qwen3-omni-flash"})
+      commandTable.push({title:'🤖 Qwen3-VL 235B Instruct',object:self,selector:selector,param:"qwen/qwen3-vl-235b-a22b-instruct",checked:source === "qwen/qwen3-vl-235b-a22b-instruct"})
+      commandTable.push({title:'🤖 Qwen3-VL 235B Thinking',object:self,selector:selector,param:"qwen/qwen3-vl-235b-a22b-thinking",checked:source === "qwen/qwen3-vl-235b-a22b-thinking"})
+
+      // 🆕 新增 Moonshot 完整系列
+      commandTable.push({title:'🤖 Kimi Latest',object:self,selector:selector,param:"kimi-latest",checked:source === "kimi-latest"})
+      commandTable.push({title:'🤖 Moonshot V1 8K',object:self,selector:selector,param:"moonshot-v1-8k",checked:source === "moonshot-v1-8k"})
+      commandTable.push({title:'🤖 Moonshot V1 32K',object:self,selector:selector,param:"moonshot-v1-32k",checked:source === "moonshot-v1-32k"})
+      commandTable.push({title:'🤖 Moonshot V1 128K',object:self,selector:selector,param:"moonshot-v1-128k",checked:source === "moonshot-v1-128k"})
+      commandTable.push({title:'🤖 Moonshot V1 8K Vision',object:self,selector:selector,param:"moonshot-v1-8k-vision-preview",checked:source === "moonshot-v1-8k-vision-preview"})
+      commandTable.push({title:'🤖 Moonshot V1 32K Vision',object:self,selector:selector,param:"moonshot-v1-32k-vision-preview",checked:source === "moonshot-v1-32k-vision-preview"})
+      commandTable.push({title:'🤖 Moonshot V1 128K Vision',object:self,selector:selector,param:"moonshot-v1-128k-vision-preview",checked:source === "moonshot-v1-128k-vision-preview"})
+      commandTable.push({title:'🤖 Moonshot V1 Auto',object:self,selector:selector,param:"moonshot-v1-auto",checked:source === "moonshot-v1-auto"})
+
+      // 🆕 新增 Doubao 详细版本
+      commandTable.push({title:'🤖 Doubao 1.6 Thinking 0715',object:self,selector:selector,param:"doubao-seed-1-6-thinking-250715",checked:source === "doubao-seed-1-6-thinking-250715"})
+      commandTable.push({title:'🤖 Doubao 1.6 Thinking 0615',object:self,selector:selector,param:"doubao-seed-1-6-thinking-250615",checked:source === "doubao-seed-1-6-thinking-250615"})
+      commandTable.push({title:'🤖 Doubao 1.6 0615',object:self,selector:selector,param:"doubao-seed-1-6-250615",checked:source === "doubao-seed-1-6-250615"})
+      commandTable.push({title:'🆓 Doubao 1.6 Flash 0715',object:self,selector:selector,param:"doubao-seed-1-6-flash-250715",checked:source === "doubao-seed-1-6-flash-250715"})
+      commandTable.push({title:'🆓 Doubao 1.6 Flash 0615',object:self,selector:selector,param:"doubao-seed-1-6-flash-250615",checked:source === "doubao-seed-1-6-flash-250615"})
+      commandTable.push({title:'🤖 Doubao 1.6 Vision',object:self,selector:selector,param:"doubao-seed-1-6-vision-250815",checked:source === "doubao-seed-1-6-vision-250815"})
+
+      // 🆕 新增 GLM 高级版本
+      commandTable.push({title:'🤖 GLM-4.1V 9B Thinking',object:self,selector:selector,param:"pro/thudm/glm-4.1v-9b-thinking",checked:source === "pro/thudm/glm-4.1v-9b-thinking"})
+
       // commandTable.push({title:'🤖 Claude-3.5-Haiku',object:self,selector:selector,param:"claude-3-5-haiku-20241022",checked:source === "claude-3-5-haiku-20241022"})
     }
     self.view.popoverController = MNUtil.getPopoverAndPresent(sender,commandTable,350,1)
