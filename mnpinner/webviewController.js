@@ -20,12 +20,6 @@ const UI_CONSTANTS = {
   MIN_HEIGHT: 150             // 最小高度
 }
 
-// 页面标题预设短语
-const PAGE_TITLE_PRESETS = [
-  "Conway 泛函",
-  "Rudin 泛函"
-];
-
 let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSURLConnectionDelegate, UIWebViewDelegate>', {
   /**
    * 视图加载完成的生命周期方法
@@ -345,9 +339,15 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         commandTable.push({title:'🔄  切换到 Pin 视图', object:self, selector:'switchViewMode:', param:"pin"})
       }
 
+      // 添加设置入口
+      commandTable.push({title:'⚙️  偏好设置', object:self, selector:'openSettings:', param:button})
+
       // 添加导出/导入配置选项
       commandTable.push({title:'📤  导出配置', object:self, selector:'exportConfigTapped:', param:button})
       commandTable.push({title:'📥  导入配置', object:self, selector:'importConfigTapped:', param:button})
+
+      // 添加管理预设短语入口
+      commandTable.push({title:'✏️  管理预设短语', object:self, selector:'managePresets:', param:button})
 
       self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable, 200, 1)
     } catch (error) {
@@ -452,6 +452,201 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     }
   },
 
+  // ========== 预设短语管理方法 ==========
+
+  /**
+   * 管理预设短语主菜单
+   */
+  managePresets: function(button) {
+    try {
+      // 关闭当前菜单
+      if (self.popoverController) {
+        self.popoverController.dismissPopoverAnimated(true)
+        self.popoverController = null
+      }
+
+      let presets = pinnerConfig.getPageTitlePresets()
+      let commandTable = [
+        {title:'➕ 添加新预设', object:self, selector:'addPreset:', param:button},
+        {title:'🗑 删除预设', object:self, selector:'deletePreset:', param:button},
+        {title:'✏️ 编辑预设', object:self, selector:'editPreset:', param:button},
+        {title:`📋 当前: ${presets.length} 个预设`, object:null, selector:'', param:null}
+      ]
+
+      self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable, 200, 2)
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "managePresets")
+      MNUtil.showHUD("操作失败")
+    }
+  },
+
+  /**
+   * 添加新预设
+   */
+  addPreset: async function(button) {
+    try {
+      // 关闭菜单
+      self.checkPopover()
+
+      let result = await MNUtil.userInput(
+        "添加预设短语",
+        "请输入新的预设短语",
+        ["取消", "确定"]
+      )
+
+      if (result.button === 0) return  // 取消
+
+      let inputText = result.input.trim()
+      if (!inputText) {
+        MNUtil.showHUD("⚠️ 预设内容不能为空")
+        return
+      }
+
+      // 检查是否已存在
+      let presets = pinnerConfig.getPageTitlePresets()
+      if (presets.includes(inputText)) {
+        MNUtil.showHUD("⚠️ 该预设已存在")
+        return
+      }
+
+      pinnerConfig.addPageTitlePreset(inputText)
+      MNUtil.showHUD("✅ 已添加预设")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "addPreset")
+      MNUtil.showHUD("操作失败")
+    }
+  },
+
+  /**
+   * 删除预设
+   */
+  deletePreset: function(button) {
+    try {
+      // 关闭菜单
+      self.checkPopover()
+
+      let presets = pinnerConfig.getPageTitlePresets()
+      if (presets.length === 0) {
+        MNUtil.showHUD("⚠️ 当前没有预设短语")
+        return
+      }
+
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        "删除预设短语",
+        "选择要删除的预设",
+        0,  // 普通按钮
+        "取消",
+        presets,
+        (alert, buttonIndex) => {
+          try {
+            if (buttonIndex === 0) return  // 取消
+
+            let index = buttonIndex - 1
+            let deletedPreset = presets[index]
+            pinnerConfig.removePageTitlePreset(index)
+            MNUtil.showHUD(`✅ 已删除: ${deletedPreset}`)
+          } catch (error) {
+            pinnerUtils.addErrorLog(error, "deletePreset:callback")
+            MNUtil.showHUD("删除失败")
+          }
+        }
+      )
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "deletePreset")
+      MNUtil.showHUD("操作失败")
+    }
+  },
+
+  /**
+   * 编辑预设
+   */
+  editPreset: function(button) {
+    try {
+      // 关闭菜单
+      self.checkPopover()
+
+      let presets = pinnerConfig.getPageTitlePresets()
+      if (presets.length === 0) {
+        MNUtil.showHUD("⚠️ 当前没有预设短语")
+        return
+      }
+
+      // 第一步：选择要编辑的预设
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        "编辑预设短语",
+        "选择要编辑的预设",
+        0,  // 普通按钮
+        "取消",
+        presets,
+        async (alert, buttonIndex) => {
+          try {
+            if (buttonIndex === 0) return  // 取消
+
+            let index = buttonIndex - 1
+            let currentPreset = presets[index]
+
+            // 第二步：使用 MNUtil.userInput 显示输入框并设置默认值
+            let result = await MNUtil.userInput(
+              "编辑预设短语",
+              `原内容: ${currentPreset}`,
+              ["取消", "确定"],
+              { default: currentPreset }  // ✅ 使用 options.default 设置默认值
+            )
+
+            if (result.button === 0) return  // 取消
+
+            let newText = result.input.trim()
+            if (!newText) {
+              MNUtil.showHUD("⚠️ 预设内容不能为空")
+              return
+            }
+
+            pinnerConfig.updatePageTitlePreset(index, newText)
+            MNUtil.showHUD("✅ 已更新预设")
+          } catch (error) {
+            pinnerUtils.addErrorLog(error, "editPreset:callback")
+            MNUtil.showHUD("操作失败")
+          }
+        }
+      )
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "editPreset")
+      MNUtil.showHUD("操作失败")
+    }
+  },
+
+  /**
+   * 打开设置窗口
+   */
+  openSettings: function(button) {
+    try {
+      // 关闭当前的弹出菜单
+      if (self.popoverController) {
+        self.popoverController.dismissPopoverAnimated(true)
+        self.popoverController = null
+      }
+
+      // 创建或获取设置控制器（挂载到 pinnerUtils 上，类似 pinnerController）
+      if (!pinnerUtils.settingController) {
+        pinnerUtils.settingController = settingController.new()
+      }
+
+      // 使用直接视图管理方式显示设置面板（修复崩溃问题）
+      // 参考 mntoolbar 的实现，不使用 presentViewController
+      let settingFrame = {
+        x: 50,
+        y: 50,
+        width: 380,
+        height: 480
+      }
+      pinnerUtils.settingController.show(settingFrame)
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "openSettings")
+      MNUtil.showHUD("打开设置失败: " + error.message)
+    }
+  },
+
   focusTabTapped: function(button) {
     self.switchView("focusView")
   },
@@ -510,7 +705,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   /**
    * Pin 当前卡片到指定分区
    */
-  pinCurrentCard: function(param) {
+  pinCurrentCard: async function(param) {
     try {
       let section = param.section || self.currentSection
 
@@ -524,7 +719,24 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       // 获取卡片信息
       let noteId = focusNote.noteId
-      let title = focusNote.noteTitle || "未命名卡片"
+      let defaultTitle = focusNote.noteTitle || "未命名卡片"
+      let title = defaultTitle
+
+      // 检查设置：是否总是询问标题
+      let settings = pinnerConfig.settings || pinnerConfig.getDefaultSettings()
+      if (settings.alwaysAskCardTitle) {
+        // 弹出输入框让用户自定义标题
+        let result = await MNUtil.userInput(
+          "自定义卡片标题",
+          "请输入卡片标题",
+          ["取消", "确定"],
+          defaultTitle  // 预填充默认标题
+        )
+
+        if (result.button === 0) return  // 点击取消
+
+        title = result.input.trim() || defaultTitle
+      }
 
       // 使用工厂方法创建 Card Pin，然后使用统一的 addPin 方法
       let cardPin = pinnerConfig.createCardPin(noteId, title)
@@ -545,7 +757,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   /**
    * Pin 当前页面到指定分区
    */
-  pinCurrentPageToSection: function(param) {
+  pinCurrentPageToSection: async function(param) {
     try {
       let section = param.section || self.currentSection
 
@@ -563,9 +775,26 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       // 优先使用文件路径，兜底使用文档标题
       let docName = (doc.pathFile && doc.pathFile.lastPathComponent) || doc.docTitle || "未知文档"
       let defaultTitle = `${docName} - 第${pageIndex + 1}页`
+      let title = defaultTitle
+
+      // 检查设置：是否总是询问标题
+      let settings = pinnerConfig.settings || pinnerConfig.getDefaultSettings()
+      if (settings.alwaysAskPageTitle) {
+        // 弹出输入框让用户自定义标题
+        let result = await MNUtil.userInput(
+          "自定义页面标题",
+          "请输入页面标题",
+          ["取消", "确定"],
+          defaultTitle  // 预填充默认标题
+        )
+
+        if (result.button === 0) return  // 点击取消
+
+        title = result.input.trim() || defaultTitle
+      }
 
       // 使用工厂方法创建 Page Pin，然后使用统一的 addPin 方法
-      let pagePin = pinnerConfig.createPagePin(docMd5, pageIndex, defaultTitle, "")
+      let pagePin = pinnerConfig.createPagePin(docMd5, pageIndex, title, "")
       let success = pinnerConfig.addPin(pagePin, section, "top")
 
       if (success) {
@@ -1261,9 +1490,12 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       let currentTitle = page.title || ""
 
+      // 获取预设短语（从配置中读取）
+      let presets = pinnerConfig.getPageTitlePresets()
+
       // 构建菜单选项：确定按钮 + 预设短语
       let menuOptions = ["✅ 确定"]
-      PAGE_TITLE_PRESETS.forEach(preset => {
+      presets.forEach(preset => {
         menuOptions.push(`📝 ${preset}`)
       })
 
@@ -1287,7 +1519,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
               finalTitle = inputText
             } else {
               // 选择了预设短语
-              const preset = PAGE_TITLE_PRESETS[selectedIndex - 1]
+              const preset = presets[selectedIndex - 1]
               // 拼接逻辑：预设在前，输入在后
               finalTitle = inputText ? `${preset} - ${inputText}` : preset
             }
@@ -1774,7 +2006,18 @@ pinnerController.prototype.show = function (frame) {
     () => {
       this.onAnimate = false  // 重置动画状态
       this.view.layer.borderWidth = 0
-      this.refreshView(pinnerConfig.config.source)  // 刷新视图内容
+
+      // 使用设置的默认视图和分区
+      let settings = pinnerConfig.settings || pinnerConfig.getDefaultSettings()
+
+      // 设置默认视图模式
+      this.currentViewMode = settings.defaultViewMode || "pin"
+
+      // 设置默认分区
+      let defaultSection = settings.defaultSection || "focus"
+
+      // 刷新视图内容
+      this.refreshView(defaultSection)
     }
   )
 }

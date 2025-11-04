@@ -147,7 +147,18 @@ class pinnerConfig {
   // 数据存储 - 不直接初始化，在 init 中赋值
   static sections       // {focus: [], midway: []}
   static config         // {version, modifiedTime, lastSyncTime}
+  static settings       // 设置项 {alwaysAskCardTitle, alwaysAskPageTitle, defaultViewMode, defaultSection}
   static previousConfig // 用于备份上一次的配置
+
+  // 默认设置
+  static getDefaultSettings() {
+    return {
+      alwaysAskCardTitle: false,   // Pin卡片时是否总是询问标题
+      alwaysAskPageTitle: false,   // Pin页面时是否总是询问标题
+      defaultViewMode: "pin",      // 默认视图模式: pin/task
+      defaultSection: "focus"      // 默认打开的分区
+    }
+  }
 
   // 默认值通过 getter 返回，避免多窗口共享问题
   static get defaultSections() {
@@ -189,7 +200,8 @@ class pinnerConfig {
       // 初始化配置
       this.config = {
         version: "1.0.0",
-        source: "focus"  // 默认显示的分区
+        source: "focus",  // 默认显示的分区
+        pageTitlePresets: []  // 页面标题预设短语（默认空列表）
       }
 
       // 尝试读取新格式数据
@@ -313,11 +325,41 @@ class pinnerConfig {
         pinnerUtils.log(`Migrated ${dailyTaskCount} items from dailyTask to taskDailyTask section`, "pinnerConfig:init")
       }
 
+      // 加载设置项
+      let savedSettings = NSUserDefaults.standardUserDefaults().objectForKey("MNPinner_settings")
+      if (savedSettings) {
+        // 合并保存的设置和默认设置（向后兼容）
+        this.settings = Object.assign({}, this.getDefaultSettings(), savedSettings)
+      } else {
+        // 使用默认设置
+        this.settings = this.getDefaultSettings()
+        this.saveSettings()
+      }
+
+      // 加载配置项
+      let savedConfig = NSUserDefaults.standardUserDefaults().objectForKey("MNPinner_config")
+      if (savedConfig) {
+        // 合并已保存的配置（向后兼容新增字段）
+        this.config = Object.assign({}, this.config, savedConfig)
+
+        // 为旧版配置添加新字段
+        let needUpdate = false
+        if (!this.config.pageTitlePresets) {
+          this.config.pageTitlePresets = []
+          needUpdate = true
+        }
+
+        if (needUpdate) {
+          this.save()
+          pinnerUtils.log("Updated config with new fields", "pinnerConfig:init")
+        }
+      }
+
       // 加载图片资源
       this.closeImage = this.mainPath + "/close.png"
       this.resizeImage = this.mainPath + "/resize.png"
 
-      pinnerUtils.log("pinnerConfig initialized with sections", "pinnerConfig:init")
+      pinnerUtils.log("pinnerConfig initialized with sections and settings", "pinnerConfig:init")
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:init")
     }
@@ -428,7 +470,19 @@ class pinnerConfig {
       pinnerUtils.addErrorLog(error, "pinnerConfig:save")
     }
   }
-  
+
+  /**
+   * 保存设置项
+   */
+  static saveSettings() {
+    try {
+      NSUserDefaults.standardUserDefaults().setObjectForKey(this.settings, "MNPinner_settings")
+      pinnerUtils.log("Settings saved", "pinnerConfig:saveSettings")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:saveSettings")
+    }
+  }
+
   /**
    * 导入后保存
    */
@@ -456,7 +510,8 @@ class pinnerConfig {
     return {
       sections: this.sections,
       config: this.config,
-      version: "1.0.0"
+      settings: this.settings,  // 新增设置项
+      version: "1.1.0"  // 版本号升级
     }
   }
   
@@ -506,21 +561,29 @@ class pinnerConfig {
       this.previousConfig = this.getAllConfig()
 
       // 判断版本并导入
-      if (newConfig.version === "1.0.0") {
-        // 新版本格式
+      if (newConfig.version === "1.1.0") {
+        // 最新版本格式（包含settings）
+        this.sections = newConfig.sections || this.defaultSections
+        this.config = newConfig.config || { version: "1.1.0", source: "focus" }
+        this.settings = newConfig.settings || this.getDefaultSettings()
+      } else if (newConfig.version === "1.0.0") {
+        // 1.0.0 版本格式（无settings）
         this.sections = newConfig.sections || this.defaultSections
         this.config = newConfig.config || { version: "1.0.0", source: "focus" }
+        this.settings = this.getDefaultSettings()  // 使用默认设置
       } else {
         // 旧版本格式，执行迁移
         this.sections = {
           focus: [],
           midway: newConfig.temporaryPins || []
         }
-        this.config = { version: "1.0.0", source: "focus" }
+        this.config = { version: "1.1.0", source: "focus" }
+        this.settings = this.getDefaultSettings()
       }
 
       // 保存
       this.save()
+      this.saveSettings()
 
       MNUtil.showHUD("导入成功!")
       return true
@@ -1295,6 +1358,79 @@ class pinnerConfig {
       'taskDailyTask': '日拱一卒'
     }
     return displayNames[section] || section
+  }
+
+  // ========== 页面标题预设管理方法 ==========
+
+  /**
+   * 获取页面标题预设列表
+   * @returns {Array<string>} 预设短语数组
+   */
+  static getPageTitlePresets() {
+    return this.config.pageTitlePresets || []
+  }
+
+  /**
+   * 设置页面标题预设列表（完整替换）
+   * @param {Array<string>} presets - 预设短语数组
+   */
+  static setPageTitlePresets(presets) {
+    this.config.pageTitlePresets = presets
+    this.save()
+  }
+
+  /**
+   * 添加页面标题预设
+   * @param {string} preset - 预设短语
+   */
+  static addPageTitlePreset(preset) {
+    if (!preset || typeof preset !== 'string') {
+      return
+    }
+
+    // 去除首尾空白
+    preset = preset.trim()
+    if (!preset) {
+      return
+    }
+
+    // 去重
+    if (!this.config.pageTitlePresets.includes(preset)) {
+      this.config.pageTitlePresets.push(preset)
+      this.save()
+    }
+  }
+
+  /**
+   * 删除页面标题预设
+   * @param {number} index - 预设索引
+   */
+  static removePageTitlePreset(index) {
+    if (index >= 0 && index < this.config.pageTitlePresets.length) {
+      this.config.pageTitlePresets.splice(index, 1)
+      this.save()
+    }
+  }
+
+  /**
+   * 更新页面标题预设
+   * @param {number} index - 预设索引
+   * @param {string} newPreset - 新的预设短语
+   */
+  static updatePageTitlePreset(index, newPreset) {
+    if (!newPreset || typeof newPreset !== 'string') {
+      return
+    }
+
+    newPreset = newPreset.trim()
+    if (!newPreset) {
+      return
+    }
+
+    if (index >= 0 && index < this.config.pageTitlePresets.length) {
+      this.config.pageTitlePresets[index] = newPreset
+      this.save()
+    }
   }
 
   // ========== 页面 Pin 操作方法 ==========
