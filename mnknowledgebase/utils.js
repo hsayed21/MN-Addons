@@ -69,6 +69,18 @@ const kbSearchConfig = {
    */
   synonymGroups: [
     {
+      "words": ["凸{{}}集", "{{}}凸集"],
+      "patternMode": true
+    },
+    {
+      "words": ["属于{{}}内部", "是{{}}内点"],
+      "patternMode": true
+    },
+    {
+      "words": ["为", "是"],
+      "partialReplacement": true,
+    },
+    {
       "words": ["两两不同", "两两不等", "互不相等", "各不相同", "各不相等", "互异", "两两不一样"],
       "partialReplacement":  false,
     },
@@ -15651,6 +15663,7 @@ class KnowledgeBaseIndexer {
       metadata: {
         version: "3.0",  // 新版本号
         lastUpdated: new Date().toISOString(),
+        updateTime: Math.floor(Date.now() / 1000),  // 🆕 添加秒级时间戳
         totalCards: 0,
         targetTypes: targetTypes,
         partSize: PART_SIZE,
@@ -17670,6 +17683,7 @@ class IntermediateKnowledgeIndexer {
         version: "1.0",
         type: "intermediate", // 标记为中间知识库
         lastUpdated: new Date().toISOString(),
+        updateTime: Math.floor(Date.now() / 1000),  // 🆕 添加秒级时间戳
         totalCards: 0,
         partSize: PART_SIZE,
         totalParts: 0,

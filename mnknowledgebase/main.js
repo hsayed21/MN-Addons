@@ -816,14 +816,14 @@ JSB.newAddon = function(mainPath){
         const mode = result === 1 ? "light" : "full";
         const modeText = mode === "light" ? "轻量" : "全量";
 
-        // let focusNote = MNNote.getFocusNote()
-        // let rootNote
-        // if (focusNote) {
-        //   rootNote = focusNote
-        // } else {
-        //   rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
-        // }
-        let rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
+        let focusNote = MNNote.getFocusNote()
+        let rootNote
+        if (focusNote) {
+          rootNote = focusNote
+        } else {
+          rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
+        }
+        // let rootNote = MNNote.new("marginnote4app://note/B2A5D567-909C-44E8-BC08-B1532D3D0AA1")
 
         if (!rootNote) {
           MNUtil.showHUD("知识库不存在！");
@@ -1805,28 +1805,87 @@ JSB.newAddon = function(mainPath){
       let manifest = null;
       let actualMode = null;
 
-      // 🆕 优先加载全量索引，找不到则加载轻量索引
-      // 优先级：full → light → 旧版单文件 → 报错
+      // 🆕 智能选择：比较时间戳，加载最新的索引
+      let fullManifest = null;
+      let lightManifest = null;
 
-      // 1.1 尝试加载全量索引
+      // 读取全量索引 manifest（如果存在）
       let fullManifestPath = `${MNUtil.dbFolder}/data/kb-search-index-full-manifest.json`;
-      MNUtil.log(`[1/3] 尝试加载全量索引: ${fullManifestPath}`);
-      manifest = MNUtil.readJSON(fullManifestPath);
+      if (MNUtil.isfileExists(fullManifestPath)) {
+        fullManifest = MNUtil.readJSON(fullManifestPath);
+        KnowledgeBaseUtils.log(
+          "📖 找到全量索引",
+          "loadSearchDataToWebView",
+          {
+            updateTime: fullManifest?.metadata?.updateTime,
+            lastUpdated: fullManifest?.metadata?.lastUpdated,
+            totalCards: fullManifest?.metadata?.totalCards
+          }
+        );
+      }
 
-      if (manifest && manifest.parts) {
-        actualMode = "full";
-        MNUtil.log("✅ 找到全量索引");
-      } else {
-        // 1.2 尝试加载轻量索引
-        let lightManifestPath = `${MNUtil.dbFolder}/data/kb-search-index-light-manifest.json`;
-        MNUtil.log(`[2/3] 全量索引不存在，尝试加载轻量索引: ${lightManifestPath}`);
-        manifest = MNUtil.readJSON(lightManifestPath);
+      // 读取轻量索引 manifest（如果存在）
+      let lightManifestPath = `${MNUtil.dbFolder}/data/kb-search-index-light-manifest.json`;
+      if (MNUtil.isfileExists(lightManifestPath)) {
+        lightManifest = MNUtil.readJSON(lightManifestPath);
+        KnowledgeBaseUtils.log(
+          "📖 找到轻量索引",
+          "loadSearchDataToWebView",
+          {
+            updateTime: lightManifest?.metadata?.updateTime,
+            lastUpdated: lightManifest?.metadata?.lastUpdated,
+            totalCards: lightManifest?.metadata?.totalCards
+          }
+        );
+      }
 
-        if (manifest && manifest.parts) {
+      // 智能选择：比较时间戳
+      if (fullManifest && lightManifest) {
+        // 两个都存在，比较时间戳
+        const fullTime = fullManifest.metadata?.updateTime || 0;
+        const lightTime = lightManifest.metadata?.updateTime || 0;
+
+        if (fullTime >= lightTime) {
+          manifest = fullManifest;
+          actualMode = "full";
+          KnowledgeBaseUtils.log(
+            "✅ 选择全量索引",
+            "loadSearchDataToWebView",
+            {updateTime: fullTime}
+          );
+        } else {
+          manifest = lightManifest;
           actualMode = "light";
-          MNUtil.log("✅ 找到轻量索引");
-          MNUtil.showHUD("⚠️ 未找到全量索引，已加载轻量索引");
+          KnowledgeBaseUtils.log(
+            "✅ 选择轻量索引（比全量新）",
+            "loadSearchDataToWebView",
+            {lightTime, fullTime}
+          );
+          MNUtil.showHUD("⚡ 已加载最新的轻量索引");
         }
+      } else if (fullManifest) {
+        // 只有全量索引
+        manifest = fullManifest;
+        actualMode = "full";
+        KnowledgeBaseUtils.log(
+          "✅ 使用全量索引（仅此可用）",
+          "loadSearchDataToWebView"
+        );
+      } else if (lightManifest) {
+        // 只有轻量索引
+        manifest = lightManifest;
+        actualMode = "light";
+        KnowledgeBaseUtils.log(
+          "✅ 使用轻量索引（仅此可用）",
+          "loadSearchDataToWebView"
+        );
+      } else {
+        // 都不存在，后续会尝试 legacy
+        KnowledgeBaseUtils.log(
+          "⚠️ 未找到分片索引",
+          "loadSearchDataToWebView",
+          {message: "将尝试旧版单文件索引"}
+        );
       }
 
       // 1.3 加载分片索引数据
@@ -1843,6 +1902,14 @@ JSB.newAddon = function(mainPath){
         }
 
         metadata = manifest.metadata || {};
+        KnowledgeBaseUtils.log(
+          "📊 主知识库 manifest 已加载",
+          "loadSearchDataToWebView",
+          {
+            mode: actualMode,
+            metadata: metadata
+          }
+        );
 
       } else {
         // 1.4 尝试加载旧版单文件索引
@@ -1966,6 +2033,14 @@ JSB.newAddon = function(mainPath){
       };
 
       MNUtil.log(`=== 数据准备完成：共 ${allCards.length} 张卡片 ===`);
+      KnowledgeBaseUtils.log(
+        "📤 发送数据到前端",
+        "loadSearchDataToWebView",
+        {
+          totalCards: fullIndexData.cards.length,
+          metadata: fullIndexData.metadata
+        }
+      );
 
       // 等待 WebView 加载完成
       await MNUtil.delay(0.5)

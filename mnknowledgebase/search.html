@@ -2184,10 +2184,12 @@
       loadSearchIndex: function(indexData) {
         console.log('Bridge.loadSearchIndex 被调用', indexData);
 
-        // 🆕 保存索引模式信息
-        if (indexData.metadata && indexData.metadata.mode) {
+        // 🆕 保存索引模式信息和完整 metadata
+        if (indexData.metadata) {
+          state.metadata = indexData.metadata; // 保存完整 metadata（包含 updateTime, totalCards 等）
           state.indexMode = indexData.metadata.mode; // "full", "light", 或 "legacy"
           console.log('当前索引模式:', state.indexMode);
+          console.log('索引更新时间:', state.metadata.updateTime);
           // 更新界面显示
           if (typeof updateIndexModeBadge === 'function') {
             updateIndexModeBadge();
@@ -2734,7 +2736,8 @@
         exclusionGroups: [],  // 存储排除词组配置
         activeExclusions: null,  // 当前激活的排除词信息
         // 索引模式状态
-        indexMode: null  // 当前索引模式："full"（全量）、"light"（轻量）、"legacy"（旧版）
+        indexMode: null,  // 当前索引模式："full"（全量）、"light"（轻量）、"legacy"（旧版）
+        metadata: null  // 完整的 metadata 对象（包含 updateTime, totalCards 等）
       };
 
       // 暴露到 window 以便调试和原生层访问
@@ -4808,6 +4811,26 @@
         dom.searchCount.textContent = `${count} 条结果`;
       }
 
+      /**
+       * 格式化时间戳为易读格式
+       * @param {number} timestamp - Unix 时间戳（秒或毫秒）
+       * @returns {string} 格式化后的时间字符串（如 "01-04 14:30"）
+       */
+      function formatUpdateTime(timestamp) {
+        if (!timestamp) return '';
+
+        // 兼容秒级和毫秒级时间戳
+        const ms = timestamp > 10000000000 ? timestamp : timestamp * 1000;
+        const date = new Date(ms);
+
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hour = String(date.getHours()).padStart(2, '0');
+        const minute = String(date.getMinutes()).padStart(2, '0');
+
+        return `${month}-${day} ${hour}:${minute}`;
+      }
+
       function updateIndexModeBadge() {
         const badge = document.getElementById('indexModeBadge');
         if (!badge) return;
@@ -4820,15 +4843,20 @@
           return;
         }
 
+        // 获取更新时间
+        const updateTimeStr = state.metadata?.updateTime
+          ? ` (${formatUpdateTime(state.metadata.updateTime)})`
+          : '';
+
         // 根据索引模式设置显示
         if (state.indexMode === 'full') {
-          badge.textContent = '🔍 全量索引';
+          badge.textContent = `🔍 全量索引${updateTimeStr}`;
           badge.classList.add('index-mode-badge--full');
         } else if (state.indexMode === 'light') {
-          badge.textContent = '🔍 轻量索引';
+          badge.textContent = `🔍 轻量索引${updateTimeStr}`;
           badge.classList.add('index-mode-badge--light');
         } else if (state.indexMode === 'legacy') {
-          badge.textContent = '🔍 旧版索引';
+          badge.textContent = `🔍 旧版索引${updateTimeStr}`;
           badge.classList.add('index-mode-badge--legacy');
         }
       }
