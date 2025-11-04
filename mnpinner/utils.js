@@ -359,6 +359,9 @@ class pinnerConfig {
       this.closeImage = this.mainPath + "/close.png"
       this.resizeImage = this.mainPath + "/resize.png"
 
+      // 初始化自定义视图配置
+      this.ensureCustomConfig()
+
       pinnerUtils.log("pinnerConfig initialized with sections and settings", "pinnerConfig:init")
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:init")
@@ -1789,6 +1792,427 @@ class pinnerConfig {
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:movePagePin")
       return false
+    }
+  }
+
+  // ========== 自定义视图管理方法 ==========
+
+  /**
+   * 确保自定义视图配置存在
+   * @private
+   */
+  static ensureCustomConfig() {
+    if (!this.customSections) {
+      this.customSections = []
+      this.loadCustomSections()
+    }
+  }
+
+  /**
+   * 加载自定义视图配置
+   * @private
+   */
+  static loadCustomSections() {
+    try {
+      let saved = NSUserDefaults.standardUserDefaults().objectForKey("MNPinner_customSections")
+      if (saved && Array.isArray(saved)) {
+        this.customSections = saved
+      } else {
+        this.customSections = []
+      }
+      pinnerUtils.log(`Loaded ${this.customSections.length} custom sections`, "pinnerConfig:loadCustomSections")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:loadCustomSections")
+      this.customSections = []
+    }
+  }
+
+  /**
+   * 保存自定义视图配置
+   * @private
+   */
+  static saveCustomSections() {
+    try {
+      NSUserDefaults.standardUserDefaults().setObjectForKey(this.customSections, "MNPinner_customSections")
+      pinnerUtils.log("Custom sections saved", "pinnerConfig:saveCustomSections")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:saveCustomSections")
+    }
+  }
+
+  /**
+   * 生成唯一的子视图 ID
+   * @private
+   * @returns {string} 唯一 ID
+   */
+  static generateCustomSectionId() {
+    return "custom_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9)
+  }
+
+  /**
+   * 获取所有自定义子视图
+   * @returns {Array} 子视图配置数组 [{id, name, cards}, ...]
+   */
+  static getCustomSections() {
+    this.ensureCustomConfig()
+    return this.customSections
+  }
+
+  /**
+   * 创建新的自定义子视图
+   * @param {string} name - 子视图名称
+   * @returns {{success: boolean, message: string, section: Object|null}} 创建结果
+   */
+  static createCustomSection(name) {
+    try {
+      this.ensureCustomConfig()
+
+      // 验证名称
+      if (!name || typeof name !== 'string') {
+        return { success: false, message: "名称不能为空", section: null }
+      }
+
+      name = name.trim()
+      if (!name) {
+        return { success: false, message: "名称不能为空", section: null }
+      }
+
+      // 检查数量限制（最多 5 个）
+      if (this.customSections.length >= 5) {
+        return { success: false, message: "最多创建 5 个子视图", section: null }
+      }
+
+      // 检查名称重复
+      if (this.customSections.find(s => s.name === name)) {
+        return { success: false, message: "名称已存在", section: null }
+      }
+
+      // 创建新子视图
+      let newSection = {
+        id: this.generateCustomSectionId(),
+        name: name,
+        cards: []
+      }
+
+      this.customSections.push(newSection)
+      this.saveCustomSections()
+
+      pinnerUtils.log(`Created custom section: ${name} (${newSection.id})`, "pinnerConfig:createCustomSection")
+      return { success: true, message: "创建成功", section: newSection }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:createCustomSection")
+      return { success: false, message: `创建失败: ${error.message}`, section: null }
+    }
+  }
+
+  /**
+   * 重命名自定义子视图
+   * @param {string} id - 子视图 ID
+   * @param {string} newName - 新名称
+   * @returns {{success: boolean, message: string}} 重命名结果
+   */
+  static renameCustomSection(id, newName) {
+    try {
+      this.ensureCustomConfig()
+
+      // 验证名称
+      if (!newName || typeof newName !== 'string') {
+        return { success: false, message: "名称不能为空" }
+      }
+
+      newName = newName.trim()
+      if (!newName) {
+        return { success: false, message: "名称不能为空" }
+      }
+
+      // 查找子视图
+      let section = this.customSections.find(s => s.id === id)
+      if (!section) {
+        return { success: false, message: "子视图不存在" }
+      }
+
+      // 检查名称重复（排除自己）
+      if (this.customSections.find(s => s.id !== id && s.name === newName)) {
+        return { success: false, message: "名称已存在" }
+      }
+
+      // 更新名称
+      let oldName = section.name
+      section.name = newName
+      this.saveCustomSections()
+
+      pinnerUtils.log(`Renamed custom section: ${oldName} -> ${newName}`, "pinnerConfig:renameCustomSection")
+      return { success: true, message: "重命名成功" }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:renameCustomSection")
+      return { success: false, message: `重命名失败: ${error.message}` }
+    }
+  }
+
+  /**
+   * 删除自定义子视图
+   * @param {string} id - 子视图 ID
+   * @param {string} transferToId - 卡片转移目标 ID（可选，null 表示直接删除）
+   * @returns {{success: boolean, message: string}} 删除结果
+   */
+  static deleteCustomSection(id, transferToId) {
+    try {
+      this.ensureCustomConfig()
+
+      // 查找要删除的子视图
+      let index = this.customSections.findIndex(s => s.id === id)
+      if (index === -1) {
+        return { success: false, message: "子视图不存在" }
+      }
+
+      let section = this.customSections[index]
+
+      // 处理卡片转移
+      if (section.cards && section.cards.length > 0) {
+        if (transferToId) {
+          // 转移到指定子视图
+          let targetSection = this.customSections.find(s => s.id === transferToId)
+          if (!targetSection) {
+            return { success: false, message: "目标子视图不存在" }
+          }
+
+          // 执行转移（去重）
+          section.cards.forEach(card => {
+            let isDuplicate = targetSection.cards.find(c =>
+              c.type === card.type &&
+              (card.type === "card" ? c.noteId === card.noteId : (c.docMd5 === card.docMd5 && c.pageIndex === card.pageIndex))
+            )
+            if (!isDuplicate) {
+              targetSection.cards.push(card)
+            }
+          })
+
+          pinnerUtils.log(`Transferred ${section.cards.length} cards to ${targetSection.name}`, "pinnerConfig:deleteCustomSection")
+        }
+        // 如果 transferToId 为 null，则直接删除卡片（不转移）
+      }
+
+      // 删除子视图
+      this.customSections.splice(index, 1)
+      this.saveCustomSections()
+
+      pinnerUtils.log(`Deleted custom section: ${section.name}`, "pinnerConfig:deleteCustomSection")
+      return { success: true, message: "删除成功" }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:deleteCustomSection")
+      return { success: false, message: `删除失败: ${error.message}` }
+    }
+  }
+
+  /**
+   * 调整自定义子视图顺序
+   * @param {number} oldIndex - 原位置
+   * @param {number} newIndex - 新位置
+   * @returns {{success: boolean, message: string}} 调整结果
+   */
+  static reorderCustomSections(oldIndex, newIndex) {
+    try {
+      this.ensureCustomConfig()
+
+      if (oldIndex < 0 || oldIndex >= this.customSections.length ||
+          newIndex < 0 || newIndex >= this.customSections.length) {
+        return { success: false, message: "索引越界" }
+      }
+
+      if (oldIndex === newIndex) {
+        return { success: true, message: "顺序未改变" }
+      }
+
+      // 移动子视图
+      let [item] = this.customSections.splice(oldIndex, 1)
+      this.customSections.splice(newIndex, 0, item)
+
+      this.saveCustomSections()
+
+      pinnerUtils.log(`Reordered custom sections: ${oldIndex} -> ${newIndex}`, "pinnerConfig:reorderCustomSections")
+      return { success: true, message: "调整成功" }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:reorderCustomSections")
+      return { success: false, message: `调整失败: ${error.message}` }
+    }
+  }
+
+  /**
+   * 获取自定义子视图的卡片列表
+   * @param {string} sectionId - 子视图 ID
+   * @returns {Array} 卡片数组
+   */
+  static getCustomPins(sectionId) {
+    this.ensureCustomConfig()
+    let section = this.customSections.find(s => s.id === sectionId)
+    return section ? section.cards : []
+  }
+
+  /**
+   * 添加卡片到自定义子视图
+   * @param {string} sectionId - 子视图 ID
+   * @param {Object} pinData - Pin 数据对象
+   * @param {string|number} position - 位置：'top', 'bottom' 或具体索引
+   * @returns {{success: boolean, message: string}} 添加结果
+   */
+  static addCustomPin(sectionId, pinData, position = "bottom") {
+    try {
+      this.ensureCustomConfig()
+
+      // 查找子视图
+      let section = this.customSections.find(s => s.id === sectionId)
+      if (!section) {
+        return { success: false, message: "子视图不存在" }
+      }
+
+      if (!pinData.type) {
+        return { success: false, message: "Pin 数据必须包含 type 字段" }
+      }
+
+      // 检查重复
+      let isDuplicate = false
+      if (pinData.type === "card") {
+        isDuplicate = section.cards.find(p => p.type === "card" && p.noteId === pinData.noteId)
+      } else if (pinData.type === "page") {
+        isDuplicate = section.cards.find(p =>
+          p.type === "page" &&
+          p.docMd5 === pinData.docMd5 &&
+          p.pageIndex === pinData.pageIndex
+        )
+      }
+
+      if (isDuplicate) {
+        return { success: false, message: "卡片已存在" }
+      }
+
+      // 插入卡片
+      if (position === "top") {
+        section.cards.unshift(pinData)
+      } else if (position === "bottom") {
+        section.cards.push(pinData)
+      } else if (typeof position === "number" || !isNaN(Number(position))) {
+        let index = Number(position)
+        if (index < 0) index = 0
+        if (index > section.cards.length) index = section.cards.length
+        section.cards.splice(index, 0, pinData)
+      } else {
+        section.cards.push(pinData)
+      }
+
+      this.saveCustomSections()
+
+      pinnerUtils.log(`Added ${pinData.type} pin to custom section ${section.name}`, "pinnerConfig:addCustomPin")
+      return { success: true, message: "添加成功" }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:addCustomPin")
+      return { success: false, message: `添加失败: ${error.message}` }
+    }
+  }
+
+  /**
+   * 从自定义子视图删除卡片
+   * @param {string} sectionId - 子视图 ID
+   * @param {Object|string} pinOrId - Pin 对象或 noteId
+   * @returns {{success: boolean, message: string}} 删除结果
+   */
+  static removeCustomPin(sectionId, pinOrId) {
+    try {
+      this.ensureCustomConfig()
+
+      // 查找子视图
+      let section = this.customSections.find(s => s.id === sectionId)
+      if (!section) {
+        return { success: false, message: "子视图不存在" }
+      }
+
+      // 兼容旧版：如果传入的是字符串，视为 noteId（Card 类型）
+      let pin = pinOrId
+      if (typeof pinOrId === 'string') {
+        pin = { type: "card", noteId: pinOrId }
+      }
+
+      let index = this.findPinIndex(section.cards, pin)
+      if (index === -1) {
+        return { success: false, message: "卡片不存在" }
+      }
+
+      section.cards.splice(index, 1)
+      this.saveCustomSections()
+
+      pinnerUtils.log(`Removed ${pin.type} pin from custom section ${section.name}`, "pinnerConfig:removeCustomPin")
+      return { success: true, message: "删除成功" }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:removeCustomPin")
+      return { success: false, message: `删除失败: ${error.message}` }
+    }
+  }
+
+  /**
+   * 在自定义子视图中移动卡片顺序
+   * @param {string} sectionId - 子视图 ID
+   * @param {number} oldIndex - 原位置
+   * @param {number} newIndex - 新位置
+   * @returns {{success: boolean, message: string}} 移动结果
+   */
+  static moveCustomPin(sectionId, oldIndex, newIndex) {
+    try {
+      this.ensureCustomConfig()
+
+      // 查找子视图
+      let section = this.customSections.find(s => s.id === sectionId)
+      if (!section) {
+        return { success: false, message: "子视图不存在" }
+      }
+
+      if (oldIndex < 0 || oldIndex >= section.cards.length ||
+          newIndex < 0 || newIndex >= section.cards.length) {
+        return { success: false, message: "索引越界" }
+      }
+
+      let [item] = section.cards.splice(oldIndex, 1)
+      section.cards.splice(newIndex, 0, item)
+
+      this.saveCustomSections()
+
+      pinnerUtils.log(`Moved pin in custom section ${section.name}: ${oldIndex} -> ${newIndex}`, "pinnerConfig:moveCustomPin")
+      return { success: true, message: "移动成功" }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:moveCustomPin")
+      return { success: false, message: `移动失败: ${error.message}` }
+    }
+  }
+
+  /**
+   * 清空自定义子视图的所有卡片
+   * @param {string} sectionId - 子视图 ID
+   * @returns {{success: boolean, message: string}} 清空结果
+   */
+  static clearCustomPins(sectionId) {
+    try {
+      this.ensureCustomConfig()
+
+      // 查找子视图
+      let section = this.customSections.find(s => s.id === sectionId)
+      if (!section) {
+        return { success: false, message: "子视图不存在" }
+      }
+
+      section.cards = []
+      this.saveCustomSections()
+
+      pinnerUtils.log(`Cleared custom section: ${section.name}`, "pinnerConfig:clearCustomPins")
+      return { success: true, message: "清空成功" }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:clearCustomPins")
+      return { success: false, message: `清空失败: ${error.message}` }
     }
   }
 }

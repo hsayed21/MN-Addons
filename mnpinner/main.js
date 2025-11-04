@@ -14,6 +14,8 @@ JSB.newAddon = function(mainPath){
   // 加载视图控制器类定义（iOS UIViewController 的 JavaScript 实现）
   // 此时只是加载类定义，实例会在需要时通过 pinnerController.new() 创建
   JSB.require('webviewController');
+  // 加载设置控制器类定义
+  // JSB.require('settingController');
   // 使用 JSB.defineClass 定义一个继承自 JSExtension 的插件类
   // 格式：'类名 : 父类名'
   let MNPinnerClass = JSB.defineClass('MNPinner : JSExtension', 
