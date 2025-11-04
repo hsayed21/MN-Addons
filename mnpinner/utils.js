@@ -156,14 +156,14 @@ class pinnerConfig {
       focus: [],
       midway: [],
       toOrganize: [],  // 新增：待整理
-      dailyTask: [],   // 新增：日拱一卒
-      pages: [],       // 新增：文档页面
+      pages: [],       // 新增：文档页面（已废弃，保留用于数据迁移）
 
       // Task 视图分区
       taskToday: [],
       taskTomorrow: [],
       taskThisWeek: [],
-      taskTodo: []
+      taskTodo: [],
+      taskDailyTask: []  // 新增：日拱一卒（从 Pin 视图迁移到 Task 视图）
     }
   }
   
@@ -290,6 +290,27 @@ class pinnerConfig {
         // 提示用户
         MNUtil.showHUD(`已将 ${pagesCount} 个页面卡片迁移到"待整理"分区`)
         pinnerUtils.log(`Migrated ${pagesCount} pages to toOrganize section`, "pinnerConfig:init")
+      }
+
+      // 数据迁移：将 dailyTask 分区的数据迁移到 taskDailyTask 分区
+      if (this.sections.dailyTask && this.sections.dailyTask.length > 0) {
+        let dailyTaskCount = this.sections.dailyTask.length
+
+        // 将所有数据转移到 Task 视图的日拱一卒分区
+        if (!this.sections.taskDailyTask) {
+          this.sections.taskDailyTask = []
+        }
+        this.sections.taskDailyTask.push(...this.sections.dailyTask)
+
+        // 清空旧的 dailyTask 分区
+        delete this.sections.dailyTask
+
+        // 保存迁移结果
+        this.save()
+
+        // 提示用户
+        MNUtil.showHUD(`已将 ${dailyTaskCount} 个卡片迁移到 Task 视图的"日拱一卒"分区`)
+        pinnerUtils.log(`Migrated ${dailyTaskCount} items from dailyTask to taskDailyTask section`, "pinnerConfig:init")
       }
 
       // 加载图片资源
@@ -1264,14 +1285,14 @@ class pinnerConfig {
       'focus': 'Focus',
       'midway': '中间知识',
       'toOrganize': '待整理',
-      'dailyTask': '日拱一卒',
       'pages': 'Pages',
 
       // Task 视图分区
       'taskToday': 'Today',
       'taskTomorrow': 'Tomorrow',
       'taskThisWeek': 'This Week',
-      'taskTodo': 'TODO'
+      'taskTodo': 'TODO',
+      'taskDailyTask': '日拱一卒'
     }
     return displayNames[section] || section
   }
