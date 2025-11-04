@@ -1478,7 +1478,48 @@ class pinnerConfig {
   }
 
   /**
+   * 智能更新标题中的页数
+   * 支持多种格式: 第x页, p.x, Page x
+   * @param {string} title - 原标题
+   * @param {number} newPageIndex - 新页码（从0开始）
+   * @returns {string|null} 更新后的标题，如果没有匹配到页数格式则返回 null
+   * @private
+   */
+  static _updateTitlePageNumber(title, newPageIndex) {
+    const displayPageNum = newPageIndex + 1 // 转换为显示页码（从1开始）
+
+    const patterns = [
+      // 中文格式: 第5页, 第 5 页
+      {
+        regex: /第\s*(\d+)\s*页/,
+        format: (n) => `第${n}页`
+      },
+      // 小写p格式: p.5, p.123
+      {
+        regex: /p\.\s*(\d+)/i,
+        format: (n) => `p.${n}`
+      },
+      // Page格式: Page 5, Page 123
+      {
+        regex: /Page\s+(\d+)/i,
+        format: (n) => `Page ${n}`
+      }
+    ]
+
+    for (let pattern of patterns) {
+      if (pattern.regex.test(title)) {
+        return title.replace(pattern.regex, pattern.format(displayPageNum))
+      }
+    }
+
+    return null // 没有匹配到页数格式
+  }
+
+  /**
    * 更新页面 Pin 的页码（用于更新阅读进度）
+   * 智能功能:
+   * - 如果标题中包含页数（第x页/p.x/Page x），则更新页数
+   * - 如果标题中没有页数，则只更新底层 pageIndex
    * @param {string} docMd5 - 文档 MD5
    * @param {number} oldPageIndex - 原页码
    * @param {number} newPageIndex - 新页码
@@ -1512,6 +1553,16 @@ class pinnerConfig {
         // 更新页码
         pagePin.pageIndex = newPageIndex
         pagePin.pinnedAt = Date.now()
+
+        // 智能更新标题中的页数
+        if (pagePin.title) {
+          let newTitle = this._updateTitlePageNumber(pagePin.title, newPageIndex)
+          if (newTitle) {
+            pagePin.title = newTitle
+            pinnerUtils.log(`Updated title: ${pagePin.title}`, "pinnerConfig:updatePagePinPageIndex")
+          }
+        }
+
         this.save()
 
         pinnerUtils.log(`Updated page pin pageIndex in ${section}: ${oldPageIndex} -> ${newPageIndex}`, "pinnerConfig:updatePagePinPageIndex")
@@ -1538,6 +1589,16 @@ class pinnerConfig {
 
           pagePin.pageIndex = newPageIndex
           pagePin.pinnedAt = Date.now()
+
+          // 智能更新标题中的页数
+          if (pagePin.title) {
+            let newTitle = this._updateTitlePageNumber(pagePin.title, newPageIndex)
+            if (newTitle) {
+              pagePin.title = newTitle
+              pinnerUtils.log(`Updated title: ${pagePin.title}`, "pinnerConfig:updatePagePinPageIndex")
+            }
+          }
+
           this.save()
 
           pinnerUtils.log(`Updated page pin pageIndex in ${sec}: ${oldPageIndex} -> ${newPageIndex}`, "pinnerConfig:updatePagePinPageIndex")
