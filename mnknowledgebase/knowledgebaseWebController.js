@@ -493,12 +493,44 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         break;
 
       case 'moveFocusNoteToTargetNoteAsChildAndLocate':
-         MNUtil.undoGrouping(()=>{
+        MNUtil.undoGrouping(()=>{
           if (!focusNote) {
             MNUtil.showHUD("请先选中一个卡片")
-            return 
+            return
           }
           targetNote.addChild(focusNote);
+          focusNote.focusInMindMap(0.5)
+          success = true
+        })
+        break;
+
+      case 'moveFocusNoteToTargetNoteAsChildAndMakeNote':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return
+          }
+          targetNote.addChild(focusNote);
+
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(focusNote)
+          KnowledgeBaseTemplate.makeNote(processedNote, false, false, false)
+
+          success = true
+        })
+        break;
+
+      case 'moveFocusNoteToTargetNoteAsChildAndMakeNoteAndLocate':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return
+          }
+          targetNote.addChild(focusNote);
+
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(focusNote)
+          KnowledgeBaseTemplate.makeNote(processedNote, false, false, true)
+
+          // 定位到 focusNote
           focusNote.focusInMindMap(0.5)
           success = true
         })
@@ -546,6 +578,15 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         MNUtil.showHUD("正在刷新数据...")
         await this.refreshAllData()
         MNUtil.showHUD("数据刷新完成")
+        break;
+      case "reopenSearchView":
+        // 重新打开搜索界面（完整重载）
+        // 将 currentHTMLType 设为 null，强制触发完整的 WebView 重载
+        this.currentHTMLType = null;
+        this.hide();
+        await MNUtil.delay(0.3);
+        await global.MNKnowledgeBaseInstance.openSearchWebView();
+        success = true;
         break;
       case "ready":
         // HTML 初始化完成信号
