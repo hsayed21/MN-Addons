@@ -858,18 +858,6 @@ class FileStorage {
     }
   }
   
-  // 删除文件
-  async deleteFile(filename) {
-    const filePath = `${this.basePath}/${filename}`;
-    const fileManager = NSFileManager.defaultManager();
-    
-    if (fileManager.fileExistsAtPath(filePath)) {
-      return fileManager.removeItemAtPath_error(filePath, null);
-    }
-    
-    return true;
-  }
-  
   // 列出所有文件
   listFiles(extension = null) {
     const fileManager = NSFileManager.defaultManager();

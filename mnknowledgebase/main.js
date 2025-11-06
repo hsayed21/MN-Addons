@@ -1839,9 +1839,28 @@ JSB.newAddon = function(mainPath){
         );
       }
 
-      // 智能选择：比较时间戳
-      if (fullManifest && lightManifest) {
-        // 两个都存在，比较时间戳
+      // 🆕 智能选择：优先使用配置中的模式，再比较时间戳
+      const preferredMode = KnowledgeBaseConfig.config.searchIndexMode || "light";
+
+      // 第一优先级：使用配置中的模式
+      if (preferredMode === "full" && fullManifest) {
+        manifest = fullManifest;
+        actualMode = "full";
+        KnowledgeBaseUtils.log(
+          "✅ 使用全量索引（配置优先）",
+          "loadSearchDataToWebView",
+          {updateTime: fullManifest.metadata?.updateTime}
+        );
+      } else if (preferredMode === "light" && lightManifest) {
+        manifest = lightManifest;
+        actualMode = "light";
+        KnowledgeBaseUtils.log(
+          "✅ 使用轻量索引（配置优先）",
+          "loadSearchDataToWebView",
+          {updateTime: lightManifest.metadata?.updateTime}
+        );
+      } else if (fullManifest && lightManifest) {
+        // 第二优先级：配置模式不可用，比较时间戳
         const fullTime = fullManifest.metadata?.updateTime || 0;
         const lightTime = lightManifest.metadata?.updateTime || 0;
 
@@ -1849,19 +1868,18 @@ JSB.newAddon = function(mainPath){
           manifest = fullManifest;
           actualMode = "full";
           KnowledgeBaseUtils.log(
-            "✅ 选择全量索引",
+            "✅ 使用全量索引（时间戳较新）",
             "loadSearchDataToWebView",
-            {updateTime: fullTime}
+            {fullTime, lightTime}
           );
         } else {
           manifest = lightManifest;
           actualMode = "light";
           KnowledgeBaseUtils.log(
-            "✅ 选择轻量索引（比全量新）",
+            "✅ 使用轻量索引（时间戳较新）",
             "loadSearchDataToWebView",
             {lightTime, fullTime}
           );
-          MNUtil.showHUD("⚡ 已加载最新的轻量索引");
         }
       } else if (fullManifest) {
         // 只有全量索引

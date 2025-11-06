@@ -609,7 +609,7 @@ const kbTemplateConfig = {
    * 用于 mergeTemplateAndAutoMoveNoteContent 和 autoMoveNewContentByType 等函数
    */
   typeDefaultFieldMap: {
-    "定义": "相关思考",
+    "定义": "摘录",
     "命题": "证明",
     "反例": "反例",
     "例子": "证明",
@@ -1091,7 +1091,7 @@ class KnowledgeBaseTemplate {
   /**
    * 一键制卡（支持摘录版本）
    */
-  static makeNote(note, addToReview = true, reviewEverytime = true) {
+  static makeNote(note, addToReview = true, reviewEverytime = true, focus = true) {
     try {
       // const startTime = Date.now();
       // KnowledgeBaseUtils.log("开始执行 makeNote", "makeNote", {
@@ -1187,7 +1187,8 @@ class KnowledgeBaseTemplate {
               break;
           }
 
-          processedNote.focusInMindMap(0.3)
+
+          if (focus) { processedNote.focusInMindMap(0.3) }
           // KnowledgeBaseUtils.log("预处理模式：完成 focusInMindMap", "makeNote", {
           //   noteId: processedNote.noteId
           // })
@@ -1226,7 +1227,7 @@ class KnowledgeBaseTemplate {
         //   stepDurationMs: Date.now() - makeCardStartTime
         // })
 
-        processedNote.focusInMindMap(0.4)
+        if (focus) { processedNote.focusInMindMap(0.4) }
         // KnowledgeBaseUtils.log("正常模式：完成 focusInMindMap", "makeNote", {
         //   noteId: processedNote.noteId
         // })
@@ -15655,10 +15656,13 @@ class KnowledgeBaseIndexer {
    * @returns {Promise<Object>} 包含metadata的主索引对象
    */
   static async buildSearchIndex(rootNotes, targetTypes = ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题"], mode = "light") {
+    // 显示构建提示
+    MNUtil.showHUD(`正在构建${mode === "full" ? "全量" : "轻量"}索引...`);
+
     const BATCH_SIZE = 500;  // 降低到 500，更频繁地清理内存
     const TEMP_FILE_PREFIX = "kb-index-temp-";
     const PART_SIZE = 5000;  // 每个最终分片包含 5000 个卡片
-    
+
     const manifest = {
       metadata: {
         version: "3.0",  // 新版本号
@@ -15879,7 +15883,7 @@ class KnowledgeBaseIndexer {
 
       // ✅ 过滤掉 noteType 为 undefined 的卡片
       if (!noteType) {
-        KnowledgeBaseUtils.log(`跳过无类型卡片: ${note.noteId}`, "buildIndexEntry");
+        // KnowledgeBaseUtils.log(`跳过无类型卡片: ${note.noteId}`, "buildIndexEntry");
         return null;
       }
 
@@ -15919,7 +15923,7 @@ class KnowledgeBaseIndexer {
       // 移除类型名后，如果没有实质性内容，则过滤掉
       const searchTextWithoutType = entry.searchText.replace(new RegExp(`^${noteType}\\s*`, 'i'), '').trim();
       if (!searchTextWithoutType) {
-        KnowledgeBaseUtils.log('移除类型名后，如果没有实质性内容', "KnowledgeBaseIndexer: buildIndexEntry");
+        // KnowledgeBaseUtils.log('移除类型名后，如果没有实质性内容', "KnowledgeBaseIndexer: buildIndexEntry");
         return null;
       }
 
@@ -16020,7 +16024,7 @@ class KnowledgeBaseIndexer {
 
           // 生成局部替换变体（支持 ||x|| → ‖x‖）
           if (group.partialReplacement) {
-            const partialVariants = SynonymManager.generatePartialReplacements(text, group);
+            const partialVariants = KnowledgeBaseTemplate.generatePartialReplacements(text, group);
             partialVariants.forEach(variant => {
               if (variant && variant.trim()) {
                 expandedWords.add(variant.toLowerCase());
@@ -16339,6 +16343,9 @@ class KnowledgeBaseIndexer {
       // 在 manifest 中添加模式标记
       manifest.metadata = manifest.metadata || {};
       manifest.metadata.mode = mode;
+      // 更新时间戳为索引完成时间
+      manifest.metadata.updateTime = Math.floor(Date.now() / 1000);  // 秒级时间戳
+      manifest.metadata.lastUpdated = new Date().toISOString();  // ISO 格式
       MNUtil.writeJSON(filepath, manifest);
       return filepath;
     } catch (error) {
@@ -18221,6 +18228,10 @@ class IntermediateKnowledgeIndexer {
   static async saveIndexManifest(manifest) {
     try {
       const filepath = MNUtil.dbFolder + "/data/intermediate-kb-index-manifest.json";
+      // 更新时间戳为索引完成时间
+      manifest.metadata = manifest.metadata || {};
+      manifest.metadata.updateTime = Math.floor(Date.now() / 1000);  // 秒级时间戳
+      manifest.metadata.lastUpdated = new Date().toISOString();  // ISO 格式
       MNUtil.writeJSON(filepath, manifest);
     } catch (error) {
       MNLog.error(error, "IntermediateKnowledgeIndexer: saveIndexManifest");
