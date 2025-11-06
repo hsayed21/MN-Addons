@@ -1393,6 +1393,62 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
+   * 长按定位按钮 - 在浮窗显示卡片或跳转到页面
+   */
+  onLongPressFocusButton: function(gesture) {
+    try {
+      // 只在手势开始时执行一次
+      if (gesture.state !== 1) return
+
+      let button = gesture.view
+      let index = button.tag
+      let section = button.section || self.currentSection
+
+      // 从 pinnerConfig 获取完整数据
+      let pins = pinnerConfig.getPins(section)
+      if (!pins || pins.length === 0) {
+        MNUtil.showHUD("分区数据为空")
+        return
+      }
+
+      let card = pins[index]
+      if (!card) {
+        MNUtil.showHUD("卡片数据已失效")
+        return
+      }
+
+      // ✅ 处理页面类型 - 长按也跳转到页面（与短按相同）
+      if (card.type === "page") {
+        return self.jumpToPageByData(card)
+      }
+
+      let noteId = card.noteId
+      if (!noteId) {
+        MNUtil.showHUD("无法获取卡片ID")
+        return
+      }
+
+      // 检测空白卡片
+      if (noteId.startsWith("BLANK_")) {
+        MNUtil.showHUD("空白卡片无法在浮窗显示")
+        return
+      }
+
+      // 在浮窗中聚焦卡片
+      let note = MNNote.new(noteId)
+      if (note) {
+        note.focusInFloatMindMap(0.1)  // 0.1秒延迟确保浮窗打开
+        // MNUtil.showHUD("已在浮窗显示")
+      } else {
+        MNUtil.showHUD("找不到该卡片")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "onLongPressFocusButton")
+      MNUtil.showHUD("显示失败")
+    }
+  },
+
+  /**
    * 页面项点击（显示操作菜单）
    */
   pageItemTapped: function(button) {
@@ -3024,6 +3080,8 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   focusButton.tag = index  // ✅ 只保存索引，点击时通过索引回溯数据
   focusButton.section = section
   focusButton.addTargetActionForControlEvents(this, "focusCardTapped:", 1 << 6)
+  // ✅ 添加长按手势 - 在浮窗显示卡片
+  MNButton.addLongPressGesture(focusButton, this, "onLongPressFocusButton:", 0.4)
   rowView.addSubview(focusButton)
 
   // 添加标题
@@ -3188,6 +3246,8 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   focusButton.tag = index  // ✅ 只保存索引
   focusButton.section = section
   focusButton.addTargetActionForControlEvents(this, "focusCardTapped:", 1 << 6)  // ✅ 统一使用 focusCardTapped
+  // ✅ 添加长按手势 - 页面长按也跳转到页面（与短按相同）
+  MNButton.addLongPressGesture(focusButton, this, "onLongPressFocusButton:", 0.5)
   rowView.addSubview(focusButton)
 
   // 添加标题
