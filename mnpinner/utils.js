@@ -135,6 +135,87 @@ class pinnerUtils {
       MNUtil.studyView.addSubview(view)
     }
   }
+
+  /**
+   * 便捷方法：Pin 卡片到指定分区
+   * @param {string} noteId - 卡片ID（必需）
+   * @param {Object} options - 配置选项（可选）
+   *   @param {string} options.section - 分区名称（默认 "focus"）
+   *   @param {string|number} options.position - 位置：'top', 'bottom' 或索引（默认 "top"）
+   *   @param {string} options.title - 卡片标题（默认自动获取卡片的标题）
+   * @returns {boolean} 是否添加成功
+   *
+   * 使用示例：
+   *   pinnerUtils.pinCard(noteId)
+   *   pinnerUtils.pinCard(noteId, { section: "midway" })
+   *   pinnerUtils.pinCard(noteId, { section: "toOrganize", position: "bottom" })
+   *   pinnerUtils.pinCard(noteId, { title: "自定义标题", section: "focus" })
+   */
+  static pinCard(noteId, options = {}) {
+    try {
+      const {
+        section = "focus",
+        position = "top",
+        title = null
+      } = options
+
+      // 如果没有提供标题，尝试获取卡片的标题
+      let finalTitle = title
+      if (!finalTitle) {
+        let note = MNNote.new(noteId)
+        finalTitle = note ? note.noteTitle : "未命名卡片"
+      }
+
+      // 创建 Card Pin 数据
+      let cardPin = pinnerConfig.createCardPin(noteId, finalTitle)
+
+      // 添加到指定分区
+      return pinnerConfig.addPin(cardPin, section, position)
+    } catch (error) {
+      this.addErrorLog(error, "pinnerUtils:pinCard")
+      return false
+    }
+  }
+
+  /**
+   * 便捷方法：Pin 页面到指定分区
+   * @param {string} docMd5 - 文档MD5（必需）
+   * @param {number} pageIndex - 页码（从0开始，必需）
+   * @param {Object} options - 配置选项（可选）
+   *   @param {string} options.section - 分区名称（默认 "focus"）
+   *   @param {string|number} options.position - 位置：'top', 'bottom' 或索引（默认 "top"）
+   *   @param {string} options.title - 自定义标题（默认自动生成 "第 X 页"）
+   *   @param {string} options.note - 备注信息（默认空）
+   * @returns {boolean} 是否添加成功
+   *
+   * 使用示例：
+   *   pinnerUtils.pinPage(docMd5, 5)  // 自动标题 "第 6 页"
+   *   pinnerUtils.pinPage(docMd5, 5, { section: "midway" })
+   *   pinnerUtils.pinPage(docMd5, 5, { title: "重要章节", section: "midway" })
+   *   pinnerUtils.pinPage(docMd5, 5, { section: "toOrganize", position: "bottom", note: "备注" })
+   */
+  static pinPage(docMd5, pageIndex, options = {}) {
+    try {
+      const {
+        section = "focus",
+        position = "top",
+        title = null,
+        note = ""
+      } = options
+
+      // 如果没有提供标题，自动生成 "第 X 页"
+      let finalTitle = title || `第 ${pageIndex + 1} 页`
+
+      // 创建 Page Pin 数据
+      let pagePin = pinnerConfig.createPagePin(docMd5, pageIndex, finalTitle, note)
+
+      // 添加到指定分区
+      return pinnerConfig.addPin(pagePin, section, position)
+    } catch (error) {
+      this.addErrorLog(error, "pinnerUtils:pinPage")
+      return false
+    }
+  }
 }
 
 
