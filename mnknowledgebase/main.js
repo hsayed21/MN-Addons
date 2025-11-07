@@ -62,7 +62,7 @@ JSB.newAddon = function(mainPath){
 
         self.toggled = false
         self.preExcerptMode = false  // 预摘录模式
-        self.classMode = false
+        self.classAutoMoveMode = false
         MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
         MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
       } catch (error) {
@@ -262,7 +262,10 @@ JSB.newAddon = function(mainPath){
           if (KnowledgeBaseConfig.config.classificationMode) {
             KnowledgeBaseClassUtils.createClassificationNoteAfterTextEditingInMindMap(note)
           }
-          if (self.classMode) {
+          if (KnowledgeBaseConfig.config.classAutoPinMode) {
+            pinnerUtils.pinCard(note.noteId, { section: "class"})
+          }
+          if (self.classAutoMoveMode) {
             MNUtil.undoGrouping(()=>{
               switch (note.colorIndex) {
                 case 2:  // 定义
@@ -306,175 +309,180 @@ JSB.newAddon = function(mainPath){
         const note = MNNote.new(noteId)
         if (!note) return
 
-        KnowledgeBaseUtils.log("开始执行 onProcessNewExcerpt", "onProcessNewExcerpt", {
-          noteId: noteId,
-          excerptOCRMode: KnowledgeBaseConfig.config.excerptOCRMode,
-          classificationMode: KnowledgeBaseConfig.config.classificationMode,
-          preExcerptMode: self.preExcerptMode,
-          classMode: self.classMode,
-          timestamp: startTime
-        })
+        // KnowledgeBaseUtils.log("开始执行 onProcessNewExcerpt", "onProcessNewExcerpt", {
+        //   noteId: noteId,
+        //   excerptOCRMode: KnowledgeBaseConfig.config.excerptOCRMode,
+        //   classificationMode: KnowledgeBaseConfig.config.classificationMode,
+        //   preExcerptMode: self.preExcerptMode,
+        //   classAutoMoveMode: self.classAutoMoveMode,
+        //   timestamp: startTime
+        // })
 
         if (KnowledgeBaseConfig.config.excerptOCRMode > 0) {
-          const ocrStartTime = Date.now();
-          KnowledgeBaseUtils.log("开始 OCR 处理", "onProcessNewExcerpt", {
-            noteId: noteId,
-            mode: KnowledgeBaseConfig.config.excerptOCRMode,
-            preExcerptMode: self.preExcerptMode
-          })
+          // const ocrStartTime = Date.now();
+          // KnowledgeBaseUtils.log("开始 OCR 处理", "onProcessNewExcerpt", {
+          //   noteId: noteId,
+          //   mode: KnowledgeBaseConfig.config.excerptOCRMode,
+          //   preExcerptMode: self.preExcerptMode
+          // })
 
           let OCRResult = await KnowledgeBaseNetwork.OCRToTitle(note, KnowledgeBaseConfig.config.excerptOCRMode, self.preExcerptMode)
 
-          KnowledgeBaseUtils.log("OCR 处理完成", "onProcessNewExcerpt", {
-            noteId: noteId,
-            success: !!OCRResult,
-            durationMs: Date.now() - ocrStartTime
-          })
+          // KnowledgeBaseUtils.log("OCR 处理完成", "onProcessNewExcerpt", {
+          //   noteId: noteId,
+          //   success: !!OCRResult,
+          //   durationMs: Date.now() - ocrStartTime
+          // })
 
           if (OCRResult) {
             IntermediateKnowledgeIndexer.addToIncrementalIndex(note)
-            KnowledgeBaseUtils.log("已添加到增量索引", "onProcessNewExcerpt", { noteId: noteId })
+            // KnowledgeBaseUtils.log("已添加到增量索引", "onProcessNewExcerpt", { noteId: noteId })
           }
         }
 
         if (KnowledgeBaseConfig.config.classificationMode) {  // 归类模式
-          KnowledgeBaseUtils.log("进入归类模式", "onProcessNewExcerpt", {
-            noteId: noteId,
-            elapsedMs: Date.now() - startTime
-          })
+          // KnowledgeBaseUtils.log("进入归类模式", "onProcessNewExcerpt", {
+          //   noteId: noteId,
+          //   elapsedMs: Date.now() - startTime
+          // })
 
           MNUtil.undoGrouping(()=>{
-            const classificationStartTime = Date.now();
+            // const classificationStartTime = Date.now();
             KnowledgeBaseClassUtils.makeNoteAfterProcessNewExcerpt(note, false)
-            KnowledgeBaseUtils.log("归类模式处理完成", "onProcessNewExcerpt", {
-              noteId: noteId,
-              durationMs: Date.now() - classificationStartTime
-            })
+            // KnowledgeBaseUtils.log("归类模式处理完成", "onProcessNewExcerpt", {
+            //   noteId: noteId,
+            //   durationMs: Date.now() - classificationStartTime
+            // })
           })
 
-          KnowledgeBaseUtils.log("归类模式执行完成", "onProcessNewExcerpt", {
-            noteId: noteId,
-            totalDurationMs: Date.now() - startTime
-          })
+          // KnowledgeBaseUtils.log("归类模式执行完成", "onProcessNewExcerpt", {
+          //   noteId: noteId,
+          //   totalDurationMs: Date.now() - startTime
+          // })
           return
         }
 
         if (self.preExcerptMode && self.preExcerptRootNote) {
           // 预摘录模式：自动移动到预备知识库
-          KnowledgeBaseUtils.log("进入预摘录模式", "onProcessNewExcerpt", {
-            noteId: noteId,
-            elapsedMs: Date.now() - startTime
-          })
+          // KnowledgeBaseUtils.log("进入预摘录模式", "onProcessNewExcerpt", {
+          //   noteId: noteId,
+          //   elapsedMs: Date.now() - startTime
+          // })
 
           MNUtil.undoGrouping(()=>{
-            const preExcerptStartTime = Date.now();
+            // const preExcerptStartTime = Date.now();
             self.preExcerptRootNote.addChild(note)
             KnowledgeBaseTemplate.toNoExcerptVersion(note)
-            KnowledgeBaseUtils.log("预摘录模式处理完成", "onProcessNewExcerpt", {
-              noteId: noteId,
-              durationMs: Date.now() - preExcerptStartTime
-            })
+            // KnowledgeBaseUtils.log("预摘录模式处理完成", "onProcessNewExcerpt", {
+            //   noteId: noteId,
+            //   durationMs: Date.now() - preExcerptStartTime
+            // })
           })
 
-          KnowledgeBaseUtils.log("预摘录模式执行完成", "onProcessNewExcerpt", {
-            noteId: noteId,
-            totalDurationMs: Date.now() - startTime
-          })
+          // KnowledgeBaseUtils.log("预摘录模式执行完成", "onProcessNewExcerpt", {
+          //   noteId: noteId,
+          //   totalDurationMs: Date.now() - startTime
+          // })
           return
         }
 
-        if (self.classMode && self.classTodayNote) {
-          KnowledgeBaseUtils.log("进入上课模式", "onProcessNewExcerpt", {
-            noteId: noteId,
-            noteColor: note.colorIndex,
-            elapsedMs: Date.now() - startTime
-          })
+        if (self.classAutoMoveMode && self.classTodayNote) {
+          // KnowledgeBaseUtils.log("进入上课模式", "onProcessNewExcerpt", {
+          //   noteId: noteId,
+          //   noteColor: note.colorIndex,
+          //   elapsedMs: Date.now() - startTime
+          // })
 
           MNUtil.undoGrouping(()=>{
-            const classModeStartTime = Date.now();
+            // const classAutoMoveModeStartTime = Date.now();
             switch (note.colorIndex) {
               case 2:  // 定义
                 self.classTodayDefClassificationNote.addChild(note)
-                KnowledgeBaseUtils.log("上课模式：添加到定义分类", "onProcessNewExcerpt", { noteId: noteId })
+                // KnowledgeBaseUtils.log("上课模式：添加到定义分类", "onProcessNewExcerpt", { noteId: noteId })
                 break;
               case 10: // 命题
                 self.classTodayThmClassificationNote.addChild(note)
-                KnowledgeBaseUtils.log("上课模式：添加到命题分类", "onProcessNewExcerpt", { noteId: noteId })
+                // KnowledgeBaseUtils.log("上课模式：添加到命题分类", "onProcessNewExcerpt", { noteId: noteId })
                 break;
               default:
                 self.classTodayNote.addChild(note)
-                KnowledgeBaseUtils.log("上课模式：添加到今日卡片", "onProcessNewExcerpt", { noteId: noteId })
+                // KnowledgeBaseUtils.log("上课模式：添加到今日卡片", "onProcessNewExcerpt", { noteId: noteId })
                 break;
             }
-            KnowledgeBaseUtils.log("上课模式处理完成", "onProcessNewExcerpt", {
-              noteId: noteId,
-              durationMs: Date.now() - classModeStartTime
-            })
+            // KnowledgeBaseUtils.log("上课模式处理完成", "onProcessNewExcerpt", {
+            //   noteId: noteId,
+            //   durationMs: Date.now() - classAutoMoveModeStartTime
+            // })
           })
           // return
         }
 
         if (KnowledgeBaseTemplate.getNoteType(note, true) == "命题" && KnowledgeBaseConfig.config.excerptOCRMode > 0) {
-          KnowledgeBaseUtils.log("检测到命题卡片，开始处理", "onProcessNewExcerpt", {
-            noteId: noteId,
-            noteType: "命题",
-            elapsedMs: Date.now() - startTime
-          })
+          // KnowledgeBaseUtils.log("检测到命题卡片，开始处理", "onProcessNewExcerpt", {
+          //   noteId: noteId,
+          //   noteType: "命题",
+          //   elapsedMs: Date.now() - startTime
+          // })
 
-          const propositionStartTime = Date.now();
+          // const propositionStartTime = Date.now();
           let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(note)
           let brotherIndex = processedNote.indexInBrotherNotes
           let targetParentNote = processedNote.indexInBrotherNotes>0 ? (
             KnowledgeBaseTemplate.getNoteType(processedNote.parentNote.childNotes[brotherIndex - 1]) == "归类"?processedNote.parentNote.childNotes[brotherIndex - 1]: processedNote.parentNote
           ): processedNote.parentNote;
 
-          KnowledgeBaseUtils.log("目标父卡片", "onProcessNewExcerpt", {
-            noteId: processedNote.noteId,
-            targetParentType: KnowledgeBaseTemplate.getNoteType(targetParentNote),
-            targetParentTitle: targetParentNote.noteTitle
-          })
+          // KnowledgeBaseUtils.log("目标父卡片", "onProcessNewExcerpt", {
+          //   noteId: processedNote.noteId,
+          //   targetParentType: KnowledgeBaseTemplate.getNoteType(targetParentNote),
+          //   targetParentTitle: targetParentNote.noteTitle
+          // })
 
           if (KnowledgeBaseTemplate.getNoteType(targetParentNote) == "归类"  && KnowledgeBaseTemplate.parseNoteTitle(targetParentNote).type == "命题") {
             processedNote.moveTo(targetParentNote)
             KnowledgeBaseTemplate.changeTitle(processedNote, true)
             KnowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(processedNote, true)
-            KnowledgeBaseUtils.log("命题处理完成（归类父卡片）", "onProcessNewExcerpt", {
-              noteId: processedNote.noteId,
-              durationMs: Date.now() - propositionStartTime
-            })
-          } else {
-            KnowledgeBaseUtils.log("目标卡片不是归类卡片", "onProcessNewExcerpt",
-              {
-                type: KnowledgeBaseTemplate.getNoteType(targetParentNote, true)||"No?" + KnowledgeBaseTemplate.getNoteType(targetParentNote),
-                title: targetParentNote.noteTitle
-              }
-            )
+            // KnowledgeBaseUtils.log("命题处理完成（归类父卡片）", "onProcessNewExcerpt", {
+            //   noteId: processedNote.noteId,
+            //   durationMs: Date.now() - propositionStartTime
+            // })
+            if (KnowledgeBaseConfig.config.classAutoPinMode) {
+              pinnerUtils.pinCard(processedNote.noteId, { section: "class"})
+            }
+          } 
+          // else {
+            // KnowledgeBaseUtils.log("目标卡片不是归类卡片", "onProcessNewExcerpt",
+            //   {
+            //     type: KnowledgeBaseTemplate.getNoteType(targetParentNote, true)||"No?" + KnowledgeBaseTemplate.getNoteType(targetParentNote),
+            //     title: targetParentNote.noteTitle
+            //   }
+            // )
             // KnowledgeBaseTemplate.mergeTemplateAndAutoMoveNoteContent(processedNote, true)
-            KnowledgeBaseUtils.log("命题处理完成（非归类父卡片）", "onProcessNewExcerpt", {
-              noteId: processedNote.noteId,
-              durationMs: Date.now() - propositionStartTime
-            })
-          }
+            // KnowledgeBaseUtils.log("命题处理完成（非归类父卡片）", "onProcessNewExcerpt", {
+            //   noteId: processedNote.noteId,
+            //   durationMs: Date.now() - propositionStartTime
+            // })
+          // }
           processedNote.focusInMindMap(0.3)
 
-          KnowledgeBaseUtils.log("命题处理流程完成", "onProcessNewExcerpt", {
-            noteId: processedNote.noteId,
-            totalDurationMs: Date.now() - startTime
-          })
-        } else {
-          KnowledgeBaseUtils.log("未能一键制卡", "onProcessNewExcerpt",
-            {
-              type: KnowledgeBaseTemplate.getNoteType(note, true)||"No?" + KnowledgeBaseTemplate.getNoteType(note),
-              excerptOCRMode: KnowledgeBaseConfig.config.excerptOCRMode,
-              parentType: KnowledgeBaseTemplate.getNoteType(note.parentNote)
-            }
-          )
-        }
+          // KnowledgeBaseUtils.log("命题处理流程完成", "onProcessNewExcerpt", {
+          //   noteId: processedNote.noteId,
+          //   totalDurationMs: Date.now() - startTime
+          // })
+        } 
+        // else {
+        //   KnowledgeBaseUtils.log("未能一键制卡", "onProcessNewExcerpt",
+        //     {
+        //       type: KnowledgeBaseTemplate.getNoteType(note, true)||"No?" + KnowledgeBaseTemplate.getNoteType(note),
+        //       excerptOCRMode: KnowledgeBaseConfig.config.excerptOCRMode,
+        //       parentType: KnowledgeBaseTemplate.getNoteType(note.parentNote)
+        //     }
+        //   )
+        // }
 
-        KnowledgeBaseUtils.log("onProcessNewExcerpt 执行完成", "onProcessNewExcerpt", {
-          noteId: noteId,
-          totalDurationMs: Date.now() - startTime
-        })
+        // KnowledgeBaseUtils.log("onProcessNewExcerpt 执行完成", "onProcessNewExcerpt", {
+        //   noteId: noteId,
+        //   totalDurationMs: Date.now() - startTime
+        // })
       } catch (error) {
         KnowledgeBaseUtils.addErrorLog(error, "onProcessNewExcerpt")
       }
@@ -524,7 +532,8 @@ JSB.newAddon = function(mainPath){
           self.tableItem('    🤖 摘录自动 OCR', 'excerptOCRModeSetting:', button, !KnowledgeBaseConfig.config.excerptOCRMode==0),
           self.tableItem('    🤖 预摘录卡片', 'preExcerptModeToggled:', undefined, self.preExcerptMode),
           self.tableItem('    🤖 卡片预处理', 'preProcessModeToggled:', undefined, KnowledgeBaseConfig.config.preProcessMode),
-          self.tableItem('    🤖 上课', 'classModeToggled:', undefined, self.classMode),
+          self.tableItem('    🤖 上课-自动移动', 'classAutoMoveModeToggled:', undefined, self.classAutoMoveMode),
+          self.tableItem('    🤖 上课-自动 Pin', 'classAutoPinModeToggled:', undefined, KnowledgeBaseConfig.config.classAutoPinMode),
           self.tableItem('    🤖 归类', 'classificationModeToggled:', undefined, KnowledgeBaseConfig.config.classificationMode),
           self.tableItem('-------------------------------',''),
           self.tableItem('⚙️  OCR 模型设置', 'excerptOCRModelSetting:', button),
@@ -747,37 +756,44 @@ JSB.newAddon = function(mainPath){
       MNUtil.showHUD(KnowledgeBaseConfig.config.preProcessMode ? "已开启卡片预处理模式" : "已关闭卡片预处理模式", 1)
     },
 
-    classModeToggled: function() {
+    classAutoPinModeToggled: function() {
       self.checkPopover()
-      self.classMode = !self.classMode
-      MNUtil.showHUD(self.classMode ? "已开启上课模式" : "已关闭上课模式", 1)
+      KnowledgeBaseConfig.config.classAutoPinMode = !KnowledgeBaseConfig.config.classAutoPinMode
+      KnowledgeBaseConfig.save()
+      MNUtil.showHUD(KnowledgeBaseConfig.config.classAutoPinMode ? "已开启「上课-自动 Pin」模式" : "已关闭「上课-自动 Pin」模式", 1)
+    },
+
+    classAutoMoveModeToggled: function() {
+      self.checkPopover()
+      self.classAutoMoveMode = !self.classAutoMoveMode
+      MNUtil.showHUD(self.classAutoMoveMode ? "已开启「上课-自动移动」模式" : "已关闭「上课-自动移动」模式", 1)
       self.classTodayNote = self.classDateNotes.find(note => {
         return note.noteTitle.includes(self.todayDateStr)
       })
       if (self.classTodayNote) {
-        KnowledgeBaseUtils.log("有今日上课卡片", "classModeToggled")
+        KnowledgeBaseUtils.log("有今日上课卡片", "classAutoMoveModeToggled")
         self.classTodayDefClassificationNote = self.classTodayNote.childNotes.find(note => {
           return KnowledgeBaseTemplate.getNoteType(note) === "归类" && note.noteTitle.includes(self.todayDateStr) && note.noteTitle.includes("定义")
         })
         if (!self.classTodayDefClassificationNote) {
-          KnowledgeBaseUtils.log("没有今日上课定义归类卡片", "classModeToggled")
+          KnowledgeBaseUtils.log("没有今日上课定义归类卡片", "classAutoMoveModeToggled")
           self.classTodayDefClassificationNote = KnowledgeBaseTemplate.createClassificationNoteAsChildNote(self.classTodayNote, self.todayDateStr, "定义", true, true)
           self.classTodayNote.addChild(self.classTodayDefClassificationNote)
         } else {
-          KnowledgeBaseUtils.log("找到今日上课定义归类卡片", "classModeToggled", self.classTodayDefClassificationNote.noteTitle)
+          KnowledgeBaseUtils.log("找到今日上课定义归类卡片", "classAutoMoveModeToggled", self.classTodayDefClassificationNote.noteTitle)
         }
         self.classTodayThmClassificationNote = self.classTodayNote.childNotes.find(note => {
           return KnowledgeBaseTemplate.getNoteType(note) === "归类" && note.noteTitle.includes(self.todayDateStr) && note.noteTitle.includes("命题")
         })
         if (!self.classTodayThmClassificationNote) {
-          KnowledgeBaseUtils.log("没有今日上课命题归类卡片", "classModeToggled")
+          KnowledgeBaseUtils.log("没有今日上课命题归类卡片", "classAutoMoveModeToggled")
           self.classTodayThmClassificationNote = KnowledgeBaseTemplate.createClassificationNoteAsChildNote(self.classTodayNote, self.todayDateStr, "命题", true, true)
           self.classTodayNote.addChild(self.classTodayThmClassificationNote)
         } else {
-          KnowledgeBaseUtils.log("找到今日上课命题归类卡片", "classModeToggled", self.classTodayThmClassificationNote.noteTitle)
+          KnowledgeBaseUtils.log("找到今日上课命题归类卡片", "classAutoMoveModeToggled", self.classTodayThmClassificationNote.noteTitle)
         }
       } else {
-        KnowledgeBaseUtils.log("没有今日上课卡片", "classModeToggled")
+        KnowledgeBaseUtils.log("没有今日上课卡片", "classAutoMoveModeToggled")
         self.classTodayNote = MNNote.clone("marginnote4app://note/B6F95A90-7565-4479-94E3-CA7BFAE8C58F")
         self.classTodayNote.title = "📥 上课输入 - " + self.todayDateStr
         self.classInputRootNote.addChild(self.classTodayNote)

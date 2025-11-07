@@ -1187,7 +1187,9 @@ class KnowledgeBaseTemplate {
               break;
           }
 
-
+          if (KnowledgeBaseConfig.config.classAutoPinMode) {
+            pinnerUtils.pinCard(processedNote.noteId, { section: "class"})
+          }
           if (focus) { processedNote.focusInMindMap(0.3) }
           // KnowledgeBaseUtils.log("预处理模式：完成 focusInMindMap", "makeNote", {
           //   noteId: processedNote.noteId
@@ -1226,7 +1228,9 @@ class KnowledgeBaseTemplate {
         //   reviewEverytime: reviewEverytime,
         //   stepDurationMs: Date.now() - makeCardStartTime
         // })
-
+        if (KnowledgeBaseConfig.config.classAutoPinMode) {
+          pinnerUtils.pinCard(processedNote.noteId, { section: "class"})
+        }
         if (focus) { processedNote.focusInMindMap(0.4) }
         // KnowledgeBaseUtils.log("正常模式：完成 focusInMindMap", "makeNote", {
         //   noteId: processedNote.noteId
@@ -20151,6 +20155,7 @@ class KnowledgeBaseConfig {
       // 卡片预处理模式
       preProcessMode: false,  // 是否启用预处理模式（默认关闭）
       classificationMode: false,  // 归类模式
+      classAutoPinMode: false,
 
       // 🆕 搜索索引模式配置
       searchIndexMode: "light",  // 索引模式: "light" (轻量，默认) 或 "full" (全量，含同义词扩展)
