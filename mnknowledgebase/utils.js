@@ -12513,29 +12513,49 @@ class KnowledgeBaseTemplate {
           let shouldExclude = false;
           
           if (exclusionInfo.groups.length > 0) {
-            // 优化：直接分析排除词组（与索引构建时的逻辑一致）
+            // ========================================
+            // 🔍 搜索时的排除词匹配逻辑（旧版本实现）
+            // ========================================
+            //
+            // 🔄 兼容性说明：
+            // 这是旧版本的搜索实现，与 search.html 中的新实现逻辑相同。
+            // 同样使用 affectedTriggers 字段判断是否排除。
+            //
+            // 判断流程：
+            // 1. 实时分析卡片的排除词组（与索引构建时逻辑一致）
+            // 2. 遍历用户搜索激活的排除词组（activeGroup）
+            // 3. 检查卡片的排除词组（cardGroup）
+            // 4. 关键检查：用户搜索的触发词是否在卡片的 affectedTriggers 中
+            //
+            // 两个关键字段的区别：
+            // - activeGroup.triggerWords：用户搜索激活的触发词（来自搜索查询）
+            // - cardGroup.affectedTriggers：卡片中被污染的触发词（来自实时分析）
+            //
             const applicableGroups = KnowledgeBaseIndexer.analyzeExclusionGroups(searchText);
-            
+
             if (applicableGroups.length > 0) {
               // 检查是否有激活的排除词组需要排除这张卡片
               for (const activeGroup of exclusionInfo.groups) {
                 for (const cardGroup of applicableGroups) {
+                  // 检查是否为同一个排除词组（通过 ID 或 triggerWords 比对）
                   if (cardGroup.groupId === activeGroup.id) {
-                    // 检查触发词是否在受影响的触发词列表中
-                    const hasAffectedTrigger = activeGroup.triggerWords.some(trigger => 
+                    // 🎯 核心判断：用户搜索的触发词是否在卡片的污染列表中
+                    // 只有当"用户搜索的触发词"在"卡片被污染的触发词"中时，才排除卡片
+                    const hasAffectedTrigger = activeGroup.triggerWords.some(trigger =>
                       cardGroup.affectedTriggers.includes(trigger)
                     );
-                    
+
                     if (hasAffectedTrigger) {
-                      shouldExclude = true;
+                      shouldExclude = true;  // ❌ 应该排除（完全污染）
                       MNUtil.log(`❌ 排除卡片: "${title}" (匹配排除组 "${cardGroup.groupName}")`);
                       break;
                     }
+                    // ✅ 否则保留（部分污染或无污染）
                   }
                 }
                 if (shouldExclude) break;
               }
-              
+
               if (!shouldExclude && applicableGroups.length > 0) {
                 MNUtil.log(`✅ 保留卡片: "${title}" (虽包含排除词但触发词独立存在)`);
               }
@@ -15927,7 +15947,32 @@ class KnowledgeBaseIndexer {
         return null;
       }
 
-      // 添加排除词组信息（用于搜索时过滤）
+      // ========================================
+      // 📦 预处理排除词组信息（性能优化）
+      // ========================================
+      //
+      // 在索引构建阶段，预先分析每张卡片的排除词污染情况，避免搜索时重复计算。
+      //
+      // 为什么需要预处理？
+      // 1. 性能优化：索引构建时计算一次，搜索时直接使用（避免重复分析）
+      // 2. 数据一致性：确保索引和搜索使用相同的排除逻辑
+      // 3. 可追溯性：可在调试时查看每张卡片的排除词信息
+      //
+      // entry.excludedGroups 数据结构：
+      // [
+      //   {
+      //     triggerWords: ["𝔻", "开单位圆盘", "单位圆盘"],  // 完整触发词列表（组识别）
+      //     excludeWords: ["闭单位圆盘"],                  // 卡片包含的排除词
+      //     affectedTriggers: ["单位圆盘"]                // 被污染的触发词（排除依据）
+      //   }
+      // ]
+      //
+      // 搜索时的使用逻辑：
+      // - 用户搜索"单位圆盘"时，激活该排除词组
+      // - 系统检查卡片的 affectedTriggers 是否包含"单位圆盘"
+      // - 如果包含，则排除该卡片（完全污染）
+      // - 如果不包含，则保留该卡片（部分污染或无污染）
+      //
       const applicableGroups = this.analyzeExclusionGroups(entry.searchText);
       if (applicableGroups.length > 0) {
         entry.excludedGroups = applicableGroups;
@@ -16027,7 +16072,9 @@ class KnowledgeBaseIndexer {
             const partialVariants = KnowledgeBaseTemplate.generatePartialReplacements(text, group);
             partialVariants.forEach(variant => {
               if (variant && variant.trim()) {
-                expandedWords.add(variant.toLowerCase());
+                // 将文本变体拆分为单词，逐个添加到集合中（避免完整句子造成重复）
+                const words = variant.split(/\s+/).filter(w => w.length > 0);
+                words.forEach(word => expandedWords.add(word.toLowerCase()));
               }
             });
           }
@@ -16128,10 +16175,48 @@ class KnowledgeBaseIndexer {
   }
 
   /**
-   * 分析文本中适用的排除词组
-   * @param {string} searchText - 要分析的搜索文本
-   * @param {Array} exclusionGroups - 预加载的排除词组（可选）
-   * @returns {Array} 包含适用的排除词组信息
+   * 分析搜索文本中的排除词组，识别"完全污染"和"部分污染"情况
+   *
+   * @description
+   * 该方法扫描卡片的搜索文本，判断是否包含排除词，并区分两种污染情况：
+   *
+   * **完全污染（Complete Pollution）**：
+   * - 卡片文本包含排除词，且触发词在移除排除词后消失
+   * - 示例：卡片包含"闭单位圆盘"，移除后"单位圆盘"不独立存在
+   * - 结果：该卡片应被排除（触发词完全依附于排除词）
+   *
+   * **部分污染（Partial Pollution）**：
+   * - 卡片文本包含排除词，但触发词仍独立存在
+   * - 示例：卡片同时包含"闭单位圆盘"和独立的"单位圆盘"
+   * - 结果：该卡片应保留（触发词有独立出现）
+   *
+   * 返回的对象中包含两个关键字段：
+   * - **triggerWords**: 该排除词组的所有触发词（完整列表，用于组识别）
+   * - **affectedTriggers**: 受到污染的触发词列表（仅包含完全污染的触发词）
+   *
+   * @param {string} searchText - 要分析的搜索文本（小写）
+   * @param {Array} [exclusionGroups=null] - 预加载的排除词组（可选，不传则自动获取）
+   *
+   * @returns {Array<Object>} 适用的排除词组数组，每个对象包含：
+   * @returns {string[]} return[].triggerWords - 该组的所有触发词（完整列表）
+   * @returns {string[]} return[].excludeWords - 匹配到的排除词列表
+   * @returns {string[]} return[].affectedTriggers - 受污染的触发词（完全污染，需排除）
+   *
+   * @example
+   * // 场景1：完全污染
+   * const text1 = "闭单位圆盘的性质";
+   * const result1 = analyzeExclusionGroups(text1);
+   * // result1[0].triggerWords = ["𝔻", "开单位圆盘", "单位圆盘"]
+   * // result1[0].affectedTriggers = ["单位圆盘"]  // 被完全污染
+   *
+   * // 场景2：部分污染（触发词独立存在）
+   * const text2 = "闭单位圆盘是单位圆盘的闭包";
+   * const result2 = analyzeExclusionGroups(text2);
+   * // result2[0].triggerWords = ["𝔻", "开单位圆盘", "单位圆盘"]
+   * // result2[0].affectedTriggers = []  // 触发词独立存在，不排除
+   *
+   * @see shouldExcludeCard - 使用该方法判断是否排除卡片
+   * @see buildIndexEntry - 在索引构建时调用，预处理卡片的排除信息
    */
   static analyzeExclusionGroups(searchText, exclusionGroups = null) {
     const applicableGroups = [];
@@ -16151,26 +16236,31 @@ class KnowledgeBaseIndexer {
       }
 
       if (containsExcludeWord) {
-        // 检查触发词是否独立存在（排除词被替换后）
+        // 🔑 关键逻辑：检查触发词是否独立存在（通过移除排除词来判断）
+        // 例如：文本"闭单位圆盘"，移除"闭"后剩余"单位圆盘"，说明"单位圆盘"被污染
         let tempText = searchText;
         for (const excludeWord of matchedExcludeWords) {
+          // 将排除词替换为占位符，模拟"移除排除词"的效果
           tempText = tempText.replace(new RegExp(excludeWord.toLowerCase(), 'gi'), '###EXCLUDED###');
         }
 
-        // 记录哪些触发词会被这个组影响
+        // 🎯 分析触发词的污染情况
+        // affectedTriggers: 记录被完全污染的触发词（移除排除词后消失）
         const affectedTriggers = [];
         for (const trigger of group.triggerWords) {
-          // 触发词不独立存在，说明会被排除
+          // ❌ 触发词在移除排除词后消失 → 完全污染，需排除
           if (!tempText.includes(trigger.toLowerCase())) {
             affectedTriggers.push(trigger);
           }
+          // ✅ 触发词在移除排除词后仍存在 → 部分污染或独立存在，保留
         }
 
+        // 只有存在完全污染的触发词时，才记录该组
         if (affectedTriggers.length > 0) {
           applicableGroups.push({
-            triggerWords: group.triggerWords,
-            excludeWords: matchedExcludeWords,
-            affectedTriggers: affectedTriggers
+            triggerWords: group.triggerWords,      // 完整触发词列表（用于组识别）
+            excludeWords: matchedExcludeWords,    // 匹配到的排除词
+            affectedTriggers: affectedTriggers    // 受污染的触发词（排除依据）
           });
         }
       }

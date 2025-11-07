@@ -4284,22 +4284,47 @@
           return shouldExcludeCardRealtime(card, activeExclusions);
         }
 
-        // 原有逻辑：使用预处理的 excludedGroups 字段
+        // ========================================
+        // 🔍 搜索时的排除词匹配逻辑（新版本实现）
+        // ========================================
+        //
+        // 判断流程：
+        // 1. 获取激活的排除词组（activeExclusions.groups，来自用户搜索的关键词）
+        // 2. 遍历卡片的预处理排除词组（card.excludedGroups，来自索引构建）
+        // 3. 检查两者是否匹配（通过 groupId 或 triggerWords）
+        // 4. 关键检查：用户搜索的触发词是否在卡片的 affectedTriggers 中
+        //
+        // 为什么需要检查 affectedTriggers？
+        // - 场景1（应排除）：卡片只有"闭单位圆盘"，用户搜索"单位圆盘"
+        //   → affectedTriggers 包含"单位圆盘" → 排除（完全污染）
+        //
+        // - 场景2（应保留）：卡片有"闭单位圆盘是单位圆盘的闭包"，用户搜索"单位圆盘"
+        //   → affectedTriggers 为空 → 保留（触发词独立存在）
+        //
+        // 两个关键字段的区别：
+        // - activeGroup.triggerWords：用户搜索激活的触发词（来自搜索查询）
+        // - cardGroup.affectedTriggers：卡片中被污染的触发词（来自预处理）
+        //
+        // 只有当"用户搜索的触发词"在"卡片被污染的触发词"中时，才排除卡片。
+        //
         for (const activeGroup of activeExclusions.groups) {
           for (const cardGroup of card.excludedGroups) {
+            // 检查是否为同一个排除词组（通过 ID 或 triggerWords 比对）
             if (cardGroup.groupId === activeGroup.id) {
+              // 🎯 核心判断：用户搜索的触发词是否在卡片的污染列表中
               const hasAffectedTrigger = activeGroup.triggerWords.some(trigger =>
                 (cardGroup.affectedTriggers || []).includes(trigger)
               );
 
               if (hasAffectedTrigger) {
-                return true;  // 应该排除
+                return true;  // ❌ 应该排除（完全污染）
               }
+              // ✅ 否则保留（部分污染或无污染）
             }
           }
         }
 
-        return false;
+        return false;  // 不排除
       }
 
       function evaluateCard(card, tokensLower) {

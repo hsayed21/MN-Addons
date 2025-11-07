@@ -2,220 +2,323 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# MNPinner 插件开发指南
+## 项目概述
 
-## 插件概述
+**MN Pinner** 是 MarginNote 4 的浮窗插件，提供卡片和文档页面的置顶管理功能。
 
-MNPinner 是一个 MarginNote 4 卡片置顶系统插件，提供浮动式卡片库功能，让用户能够快速访问重要卡片。
+核心功能：
+- Pin 视图：固定卡片到不同分区（Focus、中间知识、待整理等）
+- Task 视图：任务管理（Today、Tomorrow、This Week、TODO、日拱一卒）
+- 自定义子视图：最多 5 个自定义分区
+- 跨插件通信：URL Scheme 支持
 
-**核心功能**：
-- 临时置顶卡片（已实现）
-- 永久置顶卡片（待开发）
-- 浮动面板支持拖动、调整大小、边缘吸附
-- 与 mntoolbar 插件深度集成
+## 代码架构
 
-## 开发命令
-
-### 构建与打包
-```bash
-# 打包插件
-mnaddon4 build mnpinner
-
-# 解包插件（调试用）
-mnaddon4 unpack mnpinner_v0_10.mnaddon
-```
-
-### 调试
-```javascript
-// 使用 pinnerUtils 的错误日志系统
-pinnerUtils.addErrorLog("错误信息", error);
-
-// 查看日志（会自动复制到剪贴板）
-MNUtil.log(pinnerUtils.errorLogs);
-```
-
-## 架构设计
-
-### 三层架构
+### 核心文件
 
 ```
-main.js (MNPinner)          # 生命周期管理
-    ↓
-utils.js (pinnerConfig)     # 数据持久化
-    ↓
-webviewController.js        # UI 控制器
-(pinnerController)
+mnpinner/
+├── main.js                 # 插件入口和生命周期
+├── utils.js                # 工具类和配置管理
+├── webviewController.js    # 视图控制器（精简版）
+├── mnaddon.json           # 插件配置
+└── logo.png               # 插件图标
 ```
 
-### 关键类职责
+### 关键类
 
-1. **MNPinner** - 插件主类
-   - 管理生命周期（窗口打开/关闭）
-   - 处理插件间通信（AddonBroadcast）
-   - 管理菜单项
+#### 1. pinnerUtils (utils.js)
 
-2. **pinnerConfig** - 数据管理
-   - NSUserDefaults 存储（键：`MNPinner_sections`）
-   - 分区管理（focus, 中间知识）
-   - 置顶卡片 CRUD 操作
-   - 导入/导出配置
+工具类和视图控制器管理
 
-3. **pinnerController** - UI 控制器
-   - 浮动面板管理（显示/隐藏/动画）
-   - 手势处理（拖动/调整大小/长按）
-   - 卡片列表渲染
+重要方法：
+- `init(mainPath)` - 初始化
+- `checkPinnerController()` - 单例创建视图控制器
+- `pinCard(noteId, title, section, position)` - Pin 卡片
+- `pinPage(docMd5, pageIndex, title, section, position, note)` - Pin 页面
 
-### 插件间通信协议
+#### 2. pinnerConfig (utils.js:191-2268)
 
-**接收来自 mntoolbar 的消息**：
-// 消息格式
-`marginnote4app://addon/mnpinner?action=ACTION&id=NOTEID&title=TITLE&section=SECTION`
+数据管理和持久化
 
-// 支持的 action：
-- pin               # 添加卡片到指定分区（section参数可选，默认"midway"）
-- temporarilyPin    # 添加到中间知识（兼容旧版）
-- showPinBoard      # 显示置顶面板
-
-**处理位置**：`main.js:219-277` (onAddonBroadcast)
-
-## 关键实现细节
-
-### 浮动面板系统
-
-**核心特性**：
-1. **可拖动** - 通过顶部移动按钮
-2. **可调整大小** - 右下角调整按钮
-3. **边缘吸附** - 拖动到边缘40px内自动最小化
-4. **动画过渡** - 使用 MNUtil.animate 实现平滑动画
-
-**关键方法**：
-```javascript
-// 显示/隐藏面板
-pinnerController.show(frame)
-pinnerController.hide(frame)
-
-// 最小化模式
-pinnerController.toMinimode(frame)
-pinnerController.fromMinimode()
-```
-
-### 数据结构
-
-**置顶卡片数据**：
+数据结构：
 ```javascript
 {
-  noteId: string,    // 卡片ID
-  title: string,     // 显示标题（可自定义）
-  pinnedAt: number   // 时间戳（未使用）
+  sections: {
+    // Pin 视图
+    focus: [],
+    midway: [],
+    toOrganize: [],
+
+    // Task 视图
+    taskToday: [],
+    taskTomorrow: [],
+    taskThisWeek: [],
+    taskTodo: [],
+    taskDailyTask: []
+  },
+  config: {
+    version: "1.0.0",
+    source: "focus",
+    pageTitlePresets: []
+  },
+  settings: {
+    alwaysAskCardTitle: false,
+    alwaysAskPageTitle: false,
+    defaultViewMode: "pin",
+    defaultSection: "focus"
+  }
 }
 ```
 
-### UI 操作映射
-
-| 操作 | 方法 | 说明 |
-|------|------|------|
-| 📍 聚焦 | `focusOnNote()` | 跳转到脑图中的卡片 |
-| ✏️ 重命名 | `renamePin()` | 修改显示标题 |
-| ⬆️ 上移 | `moveUp()` | 长按移到顶部 |
-| ⬇️ 下移 | `moveDown()` | 长按移到底部 |
-| 🗑 删除 | `removePin()` | 从列表移除 |
-
-## 依赖关系
-
-### MNUtils 框架（必需）
-
-**初始化**：
+Pin 数据类型：
 ```javascript
-MNUtil.init(self.path);  // main.js:39
+// Card Pin
+{
+  type: "card",
+  noteId: "xxx",
+  title: "卡片标题"
+}
+
+// Page Pin
+{
+  type: "page",
+  docMd5: "xxx",
+  pageIndex: 5,
+  title: "第6页",
+  note: "备注",
+  pinnedAt: 1234567890
+}
 ```
 
-**常用 API**：
-- `MNUtil.showHUD()` - 显示提示
-- `MNUtil.animate()` - 动画控制
-- `MNUtil.studyView` - 获取学习视图
-- `MNNote.new(noteId)` - 创建笔记对象
-- `MNButton.setConfig()` - 配置按钮
+核心方法：
+- `createCardPin(noteId, title)` - 创建 Card Pin
+- `createPagePin(docMd5, pageIndex, title, note)` - 创建 Page Pin
+- `addPin(pinData, section, position)` - 添加 Pin
+- `removePin(pinOrId, section)` - 删除 Pin
+- `movePin(oldIndex, newIndex, section)` - 移动顺序
+- `transferPin(pinOrId, fromSection, toSection)` - 转移分区
+- `save(sectionName)` - 保存数据
 
-### iOS UIKit（通过 JSBridge）
+#### 3. pinnerController (webviewController.js)
 
-直接使用的 iOS 组件：
-- UIView, UIButton, UIScrollView
-- UIViewController
-- NSUserDefaults
-- 手势识别器（UIPanGestureRecognizer, UILongPressGestureRecognizer）
+视图控制器（精简版）
 
-## 开发注意事项
+功能：
+- WebView 管理
+- 关闭按钮和拖动手势
+- 显示/隐藏动画
+- JavaScript 交互
 
-### 重要约定
+#### 4. MNPinnerClass (main.js)
 
-1. **禁止使用** `let self = this` - 直接使用全局 `self`
-2. **单例模式** - pinnerController 只创建一次
-3. **错误处理** - 使用 `pinnerUtils.addErrorLog()`
-4. **动画锁** - 使用 `onAnimate` 标志防止动画冲突
+插件主类
 
-### 常见问题与解决方案
+生命周期：
+- `sceneWillConnect()` - 新建窗口
+- `sceneDidDisconnect()` - 关闭窗口
+- `notebookWillOpen(topicid)` - 打开笔记本
+- `notebookWillClose(topicid)` - 关闭笔记本
+- `documentDidOpen(docmd5)` - 打开文档
+- `documentWillClose(docmd5)` - 关闭文档
+- `addonDidConnect()` - 插件首次加载
+- `addonWillDisconnect()` - 插件卸载前
 
-**问题 1：iPad 闪退**
-- 原因：某些静态初始化导致
-- 解决：移除有问题的静态初始化器
+## 跨插件通信
 
-**问题 2：刷新时闪烁**
-- 原因：频繁的 DOM 重建
-- 解决：使用差异更新，仅更新变化部分
+### URL Scheme 格式
 
-**问题 3：边缘吸附不灵敏**
-- 原因：判断距离过小
-- 解决：增加到 40px 判断范围
-
-## 扩展开发指南
-
-### 添加新的置顶类型
-
-1. 在 `pinnerConfig` 中添加新的存储键：
-```javascript
-static get KEY_NEW_PINS() { return "MNPinner_newPins" }
+```
+marginnote4app://addon/mnpinner?action=ACTION&param1=value1&param2=value2
 ```
 
-2. 实现对应的 CRUD 方法：
-```javascript
-static addNewPin(noteId, title) { /* ... */ }
-static removeNewPin(noteId) { /* ... */ }
+### 支持的 Actions
+
+#### 1. pin - 添加卡片（推荐）
+
+参数：
+- `id` (必需) - 卡片 ID（URL 编码）
+- `title` (可选) - 显示标题（URL 编码）
+- `section` (可选) - 分区（默认 "midway"）
+  - 可选值：focus、midway、toOrganize
+- `position` (可选) - 插入位置（默认 "bottom"）
+  - 可选值：top、bottom、数字索引
+
+示例：
+```
+marginnote4app://addon/mnpinner?action=pin&id=NOTE123&title=重要笔记&section=focus&position=top
 ```
 
-3. 在 `pinnerController` 中添加新标签页：
-```javascript
-case 2: // 新类型
-  this.currentTab = 2;
-  this.refreshNewPins();
-  break;
+#### 2. pinCardToSection - 添加 Card 到指定分区
+
+参数：
+- `id` / `noteId` (必需) - 卡片 ID
+- `section` (可选) - 分区（默认 "midway"）
+- `position` (可选) - 位置（默认 "top"）
+- `title` (可选) - 标题
+
+示例：
+```
+marginnote4app://addon/mnpinner?action=pinCardToSection&id=NOTE123&section=focus&position=top
 ```
 
-### 与其他插件集成
+#### 3. pinPageToSection - 添加 Page 到指定分区
 
-发送置顶请求到 mnpinner：
-```javascript
-// 在你的插件中（推荐新方式）
-const url = `marginnote4app://addon/mnpinner?action=pin&id=${noteId}&title=${encodeURIComponent(title)}&section=focus`;
-Application.sharedInstance().openURL(NSURL.URLWithString(url));
+参数：
+- `docMd5` / `docmd5` (必需) - 文档 MD5
+- `pageIndex` / `pageindex` (必需) - 页码（从 0 开始）
+- `section` (可选) - 分区（默认 "midway"）
+- `position` (可选) - 位置（默认 "top"）
+- `title` (可选) - 标题
+- `note` (可选) - 备注
 
-// 兼容旧版（自动添加到中间知识）
-const url = `marginnote4app://addon/mnpinner?action=temporarilyPin&id=${noteId}&title=${encodeURIComponent(title)}`;
-Application.sharedInstance().openURL(NSURL.URLWithString(url));
+示例：
+```
+marginnote4app://addon/mnpinner?action=pinPageToSection&docMd5=ABC123&pageIndex=5&section=focus
 ```
 
-## 版本历史关键更新
+#### 4. moveToTop - 移动到顶部
 
-- **v1.0.0** - 多分区支持（focus/中间知识）、卡片转移功能
-- **v0.10** - 添加卡片顺序调整、长按手势
-- **v0.9** - 修复 iPad 闪退问题
-- **v0.8** - 添加边缘吸附功能
-- **v0.7** - 添加调整大小功能
-- **v0.6** - 基础浮动面板实现
+参数：
+- `id` (必需) - 卡片 ID
+- `section` (必需) - 分区
 
-## 待开发功能
+#### 5. moveToBottom - 移动到底部
 
-1. **搜索功能** - 搜索框已存在但未连接
-2. **更多分区** - 可扩展更多分区类型
-3. **分组管理** - 支持卡片分组
-4. **批量操作** - 多选删除/移动
-5. **WebView 集成** - index.html 未使用
+参数：
+- `id` (必需) - 卡片 ID
+- `section` (必需) - 分区
+
+#### 6. showPinBoard - 显示面板
+
+无参数
+
+### 注意事项
+
+1. URL 编码：中文和特殊字符必须用 `encodeURIComponent` 编码
+2. 参数验证：无效的 section 会返回错误
+3. 去重检查：重复添加相同 ID 会提示"卡片已存在"
+
+## 开发指南
+
+### 添加新卡片到 Focus
+
+```javascript
+let cardPin = pinnerConfig.createCardPin("noteId123", "卡片标题")
+pinnerConfig.addPin(cardPin, "focus", "top")
+
+// 刷新视图
+if (pinnerUtils.pinnerController) {
+  pinnerUtils.pinnerController.refreshView("focusView")
+}
+```
+
+### 添加页面到待整理
+
+```javascript
+let pagePin = pinnerConfig.createPagePin("docMd5", 5, "第6页", "备注")
+pinnerConfig.addPin(pagePin, "toOrganize", "bottom")
+
+// 刷新视图
+if (pinnerUtils.pinnerController) {
+  pinnerUtils.pinnerController.refreshView("toOrganizeView")
+}
+```
+
+### 导出/导入配置
+
+```javascript
+// 导出到文件
+pinnerConfig.exportToFile()
+
+// 从文件导入
+await pinnerConfig.importFromFile()
+
+// 导出到剪贴板
+pinnerConfig.exportToClipboard()
+
+// 从剪贴板导入
+pinnerConfig.importFromClipboard()
+```
+
+## 已知问题
+
+### 1. 崩溃问题（见 ips.md）
+
+问题：UIView 创建时的 bounds 异常
+
+堆栈：
+```
+QuartzCore CA::Layer::set_bounds
+UIKitCore -[UIView _createLayerWithFrame:]
+JavaScriptCore JSC::ObjCCallbackFunctionImpl::call
+```
+
+可能原因：
+- JavaScript 传递的 frame 参数包含无效值（NaN、Infinity）
+- 内存不足
+
+建议修复：
+1. 创建 UIView 前验证 frame 参数
+2. 添加防御性检查
+3. 捕获异常并提供降级方案
+
+### 2. self 和 this 的使用
+
+重要：在 JSB.defineClass 内部严禁使用 `let self = this;`
+
+```javascript
+// 错误
+let self = this;
+
+// 正确
+self.someProperty = value;
+```
+
+### 3. 多窗口支持
+
+- MarginNote 支持多窗口，插件实例独立
+- 数据挂载到 `self` 上区分窗口
+- 视图控制器通过 `pinnerUtils` 单例管理
+
+## 构建和打包
+
+### 打包插件
+
+```bash
+cd /path/to/mnpinner
+mnaddon4 build .
+```
+
+或优先使用 mnaddon-packager agent：
+```
+请打包 mnpinner 插件
+```
+
+### 解包插件
+
+```bash
+mnaddon4 unpack plugin_name.mnaddon
+```
+
+## 调试技巧
+
+```javascript
+// 日志记录
+pinnerUtils.log("消息", "来源")
+
+// 复制对象
+MNUtil.copyJSON(object)
+
+// HUD 提示
+MNUtil.showHUD("提示信息")
+
+// 错误日志
+// 错误自动记录到 pinnerUtils.errorLog 并复制到剪贴板
+```
+
+## 相关文档
+
+- MarginNote 插件开发指南：`../CLAUDE.md`
+- MNUtils API 文档：`../mnutils/MNUtils_API_Guide.md`
+- MNUtils 实现文档：`../mnutils/CLAUDE.md`
