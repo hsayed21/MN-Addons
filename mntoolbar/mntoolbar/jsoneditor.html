@@ -25,7 +25,7 @@ body {
 <body>
   <div id="jsoneditor"></div>
   <script>
-  let actionNames = ['addChildNote','addBrotherNote','addComment','addImageComment','addTags','addMarkdownLink','addWordsToEurdic','bigbang','browserCustomAction','crash','clearContent','clearFormat','cloneAndMerge','cloneAsChildNote','confirm','chatAI','copy','command','export','focus','insertSnippet','importDoc','link','loadImageToExcalidraw','markdown2Mindmap','moveNote','mergeText','moveComment','menu','noteHighlight','ocr','openURL','openWebURL','openWebApp','openInEditor','openSetting','paste','redo','replace','removeComment','removeTags','search','searchInDict','setContent','setColor','setTimer','snipaste','showInFloatWindow','switchTitleOrExcerpt','showMessage','setButtonImage','shortcut','showUtils','triggerButton','toggleView','toggleTextFirst','toggleMarkdown','toggleSidebar','undo','userSelect','userInput','webSearch']
+  let actionNames = ['addChildNote','addBrotherNote','addComment','addImageComment','addTags','addMarkdownLink','addWordsToEurdic','bigbang','browserCustomAction','crash','clearContent','clearFormat','cloneAndMerge','cloneAsChildNote','confirm','chatAI','copy','command','checkCondition','export','focus','insertSnippet','importDoc','link','loadImageToExcalidraw','markdown2Mindmap','moveNote','mergeText','moveComment','menu','noteHighlight','ocr','openURL','openWebURL','openWebApp','openInEditor','openSetting','paste','redo','replace','removeComment','removeTags','search','searchInDict','setContent','setColor','setTimer','snipaste','showInFloatWindow','switchTitleOrExcerpt','showMessage','setButtonImage','shortcut','showUtils','triggerButton','toggleView','toggleTextFirst','toggleMarkdown','toggleSidebar','undo','userSelect','userInput','webSearch']
   function generalActionProperties(params) {
     return {
       "action": {
@@ -51,6 +51,15 @@ body {
       "hideMessage": {
         "type": "boolean",
         "default": false
+      },
+      "onTrue": {
+        "$ref": "action"
+      },
+      "onFalse": {
+        "$ref": "action"
+      },
+      "onFalse": {
+        "$ref": "action"
       },
       "onFinish": {
         "$ref": "action"
@@ -709,6 +718,13 @@ function getSchemaByActionName(actionName) {
     case "openInEditor":
       properties.followButton = booleanType()
       break;
+    case "checkCondition":
+      properties.condition = stringEnum(['isMuiltpleNotesSelected','hasFocusNote','noteColorEquals','noteHasTitle','noteHasComment','noteHasChildNotes','noteTitleStartsWith','noteTitleEndsWith','noteTitleIncludes','noteTitleEquals','clipboardHasText','clipboardTextEquals','clipboardTextIncludes','clipboardTextStartsWith','clipboardTextEndsWith','clipboardHasImage','hasSelection','hasSelectionImage','hasSelectionText','selectionTextEquals','selectionTextIncludes','selectionTextStartsWith','selectionTextEndsWith','textNotEmpty','textEquals','textIncludes','textStartsWith','textEndsWith'])
+      // properties.condition = stringEnum(['noteColorEquals','noteHasTitle','noteHasMarkdown','noteHasHTML','noteHasImage','noteHasLinkToNote','noteHasHttpLink','noteHasTags','noteIsTextFirst','noteHasChildNotes','noteHasParentNote','clipboardHasText','clipboardHasImage','hasSelection','hasSelectionImage','hasSelectionText','textNotEmpty','textEquals','textIncludes','textStartsWith','textEndsWith'])
+      properties.color = numberEnum([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15])
+      properties.textToCheck = stringType()
+      properties.textToMatch = stringType()
+      break;
     case "chatAI":
       properties.target = stringEnum(['menu','openFloat','currentPrompt','stopOutput'])
       properties.prompt = stringType()
@@ -821,6 +837,24 @@ function setSchemaByAction(action) {
             setSchemaByAction(config)
             if ((node.path.length === 1) && "action" in config) {
               switch (config.action) {
+                case "checkCondition":
+                  if (!("condition" in config)) {
+                    config.condition = ""
+                    needSet = true
+                  }
+                  if (!("onTrue" in config)) {
+                    config.onTrue = {
+                      "action": ""
+                    }
+                    needSet = true
+                  }
+                  if (!("onFalse" in config)) {
+                    config.onFalse = {
+                      "action": ""
+                    }
+                    needSet = true
+                  }
+                  break;
                 case "copy":
                   if (!("target" in config)) {
                     config.target = "auto"
@@ -1032,7 +1066,7 @@ function setSchemaByAction(action) {
           //path: array
           // console.log(input);
           if (input === 'field') {
-            return ['textFirst','focusAfterDelay','focusInFloatWindowForAllDocMode','hideMessage','mergeToPreviousNote','annotation','timerMode','minutes','selectTitle','selectItems','userSelect','userInput','find','delay','noteURL','menuWidth','buttonName','subTitle','onConfirm','onCancel','followAutoStyle','followParentColor','menuTitle','name','input','text','target', 'action', 'description','menu', 'source','color','content','title','markdown','command','commands','OCR','fillPattern','asTitle','tags','tag','find','multi','type','index','removeSource','prompt','user','system','trim','replace','merge','linkType','from','to','steps','range','url','engine','targets','onFinish','onLongPress','doubleClick','menuItems','autoClose','parentNote','mainMindMap','method','paste','forceToFocus'];
+            return ['textFirst','focusAfterDelay','focusInFloatWindowForAllDocMode','hideMessage','mergeToPreviousNote','annotation','timerMode','minutes','selectTitle','selectItems','userSelect','userInput','find','delay','noteURL','menuWidth','buttonName','subTitle','onConfirm','onCancel','followAutoStyle','followParentColor','menuTitle','name','input','text','target', 'action', 'description','menu', 'source','color','content','title','markdown','command','commands','OCR','fillPattern','asTitle','tags','tag','find','multi','type','index','removeSource','prompt','user','system','trim','replace','merge','linkType','from','to','steps','range','url','engine','targets','onFinish','onLongPress','doubleClick','menuItems','autoClose','parentNote','mainMindMap','method','paste','forceToFocus','textToCheck','textToMatch','hideForAI'];
           }
           if (input === 'value') {
             let parent = path.at(-1)

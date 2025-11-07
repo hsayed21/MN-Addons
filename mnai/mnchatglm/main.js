@@ -9,6 +9,7 @@ JSB.newAddon = function (mainPath) {
   JSB.require('notificationController')
   JSB.require('dynamicController')
   JSB.require('sideOutputController')
+  JSB.require('katex.min')
   if (typeof jsonrepair === 'undefined') {
     JSB.require('jsonrepair')
   }
@@ -1057,6 +1058,7 @@ ${knowledge}
           chatAIConfig.remove("MNChatglm_fileId")
           chatAIConfig.remove("MNChatglm_dynamicPrompt")
           chatAIConfig.remove("MNChatglm_builtInKeys")
+          chatAIConfig.clearBackUp()
         }
         // } catch (error) {
         //   showHUD(error)

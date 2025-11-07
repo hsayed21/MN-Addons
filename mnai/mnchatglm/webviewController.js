@@ -680,6 +680,7 @@ try {
     menu.addMenuItem("🆓 Snipaste HTML", selector,10,currentAction.includes(10))
     menu.addMenuItem("🆓 Snipaste Text", selector,15,currentAction.includes(15))
     menu.addMenuItem("🆓 Switch to Chat Mode", selector,17,currentAction.includes(17))
+    menu.addMenuItem("🆓 Save to Chat History", selector,20,currentAction.includes(20))
     menu.addMenuItem("🆓 Enable Excerpt Markdown", selector,18,currentAction.includes(18))
     menu.addMenuItem("🆓 Disable Excerpt Markdown", selector,19,currentAction.includes(19))
     menu.addMenuItem("🆓 Close", selector,5,currentAction.includes(5))
@@ -696,7 +697,7 @@ try {
         currentAction = []
         break;
       case 100:
-        currentAction = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]//增加函数后要在这里加一条，不然显示不出来
+        currentAction = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]//增加函数后要在这里加一条，不然显示不出来
         break
       default:
         if (currentAction.includes(param)) {
@@ -2687,7 +2688,7 @@ ${config}
         MNUtil.showHUD("No config for prompt: "+promptKey)
         return
       }
-      if (!chatAIUtils.isVisionModel(config.model)) {
+      if (config.model && !chatAIUtils.isVisionModel(config.model)) {
         let confirm = await MNUtil.confirm("🤖 MN ChatAI", `The current model [${config.model}] does not support image input. Continue? \n\n当前模型 [${config.model}] 不支持图片输入，是否继续？`)
         if (!confirm) {
           return
@@ -3017,6 +3018,9 @@ chatglmController.prototype.getQuestionOnNote = async function(noteid,prompt = c
   }
   if (system) {//有system指令的情况
     systemMessage = await chatAIUtils.render(system,opt)
+    if (typeof systemMessage === "undefined") {
+      return undefined
+    }
     if (chatAIUtils.visionMode || vision) {
       let imageDatas = chatAIUtils.getImagesFromNote(MNNote.new(noteid),true)
       question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(contextMessage, imageDatas)]
@@ -3058,6 +3062,9 @@ chatglmController.prototype.getQuestionOnText = async function(prompt = chatAICo
   // MNUtil.copy(contextMessage)
   if (system) {
     let systemMessage = await chatAIUtils.render(system,opt)
+    if (typeof systemMessage === "undefined") {
+      return undefined
+    }
     if (chatAIUtils.visionMode  || vision) {
       let imageData = MNUtil.getDocImage()
       question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(contextMessage, imageData)]
@@ -4280,7 +4287,7 @@ try {
       break;
     case "advanceView":
       MNUtil.log("refresh advanceView")
-      let locInd = chatAIConfig.config.notifyLoc
+      let locInd = chatAIConfig.getConfig("notifyLoc")
       let locNames = ["Left","Right"]
       MNButton.setTitle(this.windowLocationButton, "Notification: "+locNames[locInd])
       MNButton.setTitle(this.autoThemeButton, "Auto Theme: "+(chatAIConfig.getConfig("autoTheme")?"✅":"❌"))
@@ -5179,5 +5186,6 @@ chatglmController.prototype.restoreSystem = async function (mode = "optimizeSyst
 chatglmController.prototype.contextInput
 /** @type {UITextView} */
 chatglmController.prototype.knowledgeInput
+
 
 

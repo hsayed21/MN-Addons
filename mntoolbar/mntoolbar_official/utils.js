@@ -307,6 +307,9 @@ class toolbarUtils {
       // case "showUtils":
       //   menuItems = ["target"]
       //   break;
+      case "checkCondition":
+        menuItems = ["condition","textToCheck","textToMatch","color","onTrue","onFalse"]
+        break;
       case "loadImageToExcalidraw":
         menuItems = ["method","source"]
         break;
@@ -458,7 +461,7 @@ class toolbarUtils {
       menuItems = menuItems.filter(item=>!keys.includes(item))
       return menuItems.map(item=>prefix+item)
     }else{
-      menuItems = menuItems.concat(["onLongPress","onFinish","description"])
+      menuItems = menuItems.concat(["onLongPress","onFinish","description","hideForAI"])
       menuItems = menuItems.filter(item=>!keys.includes(item))
       return menuItems
     }
@@ -476,6 +479,12 @@ class toolbarUtils {
         break;
       case "onConfirm":
         config.onConfirm = {action:""}
+        break;
+      case "onTrue":
+        config.onTrue = {action:""}
+        break;
+      case "onFalse":
+        config.onFalse = {action:""}
         break;
       case "tags":
         config.tags = []
@@ -499,6 +508,7 @@ class toolbarUtils {
       case "audioAutoPlay":
       case "waitForResponse":
       case "hideMessage":
+      case "hideForAI":
         config[item] = true
         break;
       case "wordThreshold":
@@ -4693,6 +4703,132 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
       })
     })
   }
+  static async checkCondition(des){
+  try {
+    let condition = des.condition
+    let textToCheck = des.textToCheck ?? ""
+    let textToMatch = des.textToMatch ?? ""
+    let focusNote = ("note" in des && MNUtil.noteExists(des.note))?MNNote.new(des.note):MNNote.getFocusNote()
+    let isMatch = false
+    switch (condition) {
+      case "isMuiltpleNotesSelected":
+        let focusNotes = MNNote.getFocusNotes()
+        isMatch = focusNotes.length > 1
+        break;
+      case "hasFocusNote":
+        isMatch = !!MNNote.getFocusNote()
+        break;
+      case "noteColorEquals":
+        let color = des.color
+        isMatch = focusNote.colorIndex === color
+        break;
+      case "noteHasTitle":
+        isMatch = focusNote && focusNote.noteTitle
+        break;
+      case "noteHasComment":
+        isMatch = focusNote && focusNote.comments.length > 0
+        break;
+      case "noteHasChildNotes":
+        isMatch = focusNote && focusNote.childNotes.length > 0
+        break;
+      case "noteTitleStartsWith":
+        isMatch = focusNote && focusNote.noteTitle && focusNote.noteTitle.startsWith(textToMatch)
+      case "noteTitleEndsWith":
+        isMatch = focusNote && focusNote.noteTitle && focusNote.noteTitle.endsWith(textToMatch)
+      case "noteTitleIncludes":
+        isMatch = focusNote && focusNote.noteTitle && focusNote.noteTitle.includes(textToMatch)
+        break;
+      case "noteTitleEquals":
+        isMatch = focusNote && focusNote.noteTitle && focusNote.noteTitle === textToMatch
+        break;
+      case "clipboardHasText":
+        isMatch = MNUtil.clipboardText && MNUtil.clipboardText.trim()
+        break;
+      case "clipboardTextEquals":
+        isMatch = MNUtil.clipboardText && MNUtil.clipboardText.trim() === textToMatch
+        break;
+      case "clipboardTextIncludes":
+        isMatch = MNUtil.clipboardText && MNUtil.clipboardText.trim().includes(textToMatch)
+        break;
+      case "clipboardTextStartsWith":
+        isMatch = MNUtil.clipboardText && MNUtil.clipboardText.trim().startsWith(textToMatch)
+        break;
+      case "clipboardTextEndsWith":
+        isMatch = MNUtil.clipboardText && MNUtil.clipboardText.trim().endsWith(textToMatch)
+        break;
+      case "clipboardHasImage":
+        isMatch = !!MNUtil.clipboardImage
+        break;
+      case "hasSelection":
+        isMatch = MNUtil.currentSelection.onSelection
+        break;
+      case "hasSelectionImage":
+        isMatch = MNUtil.currentSelection.onSelection && !MNUtil.currentSelection.isText
+        break;
+      case "hasSelectionText":
+        isMatch = MNUtil.currentSelection.onSelection && MNUtil.currentSelection.isText
+        break;
+      case "selectionTextEquals":
+        isMatch = MNUtil.currentSelection.text && MNUtil.currentSelection.text.trim() === textToMatch
+        break;
+      case "selectionTextIncludes":
+        isMatch = MNUtil.currentSelection.text && MNUtil.currentSelection.text.trim().includes(textToMatch)
+        break;
+      case "selectionTextStartsWith":
+        isMatch = MNUtil.currentSelection.text && MNUtil.currentSelection.text.trim().startsWith(textToMatch)
+        break;
+      case "selectionTextEndsWith":
+        isMatch = MNUtil.currentSelection.text && MNUtil.currentSelection.text.trim().endsWith(textToMatch)
+        break;
+      case "textNotEmpty":
+        textToCheck = await this.render(textToCheck)
+        isMatch = !!textToCheck.trim()
+        break;
+      case "textEquals":
+        textToCheck = await this.render(textToCheck)
+        isMatch = textToCheck.trim() && textToCheck === textToMatch
+        break;
+      case "textIncludes":
+        textToCheck = await this.render(textToCheck)
+        isMatch = textToCheck.trim() && textToCheck.includes(textToMatch)
+        break;
+      case "textStartsWith":
+        textToCheck = await this.render(textToCheck)
+        isMatch = textToCheck.trim() && textToCheck.startsWith(textToMatch)
+        break;
+      case "textEndsWith":
+        textToCheck = await this.render(textToCheck)
+        isMatch = textToCheck.trim() && textToCheck.endsWith(textToMatch)
+        break;
+      default:
+        break;
+    }
+    if (isMatch) {
+      if ("onTrue" in des) {
+        await this.customActionByDes(des.onTrue)
+      }
+    }else{
+      if ("onFalse" in des) {
+        await this.customActionByDes(des.onFalse)
+      }
+    }
+    return true
+    // let condition = des.condition
+    // let color = des.color
+    // let onTrue = des.onTrue
+    // let onFalse = des.onFalse
+    // let focusNote = MNNote.getFocusNote()
+    // let focusNotes = MNNote.getFocusNotes()
+    // let focusNote = MNNote.getFocusNote()
+    
+  } catch (error) {
+    toolbarUtils.addErrorLog(error, "checkCondition")
+    if ("onError" in des) {
+      await this.customActionByDes(des.onError)
+    }
+    return false
+  }
+  }
   static showUtils(des){
     subscriptionUtils.subscriptionController.show()
     // MNUtil.showHUD("showUtils")
@@ -6061,6 +6197,10 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//è
     toolbarUtils.log(des.action)
     // MNUtil.log(des.action)
     switch (des.action) {
+      case "checkCondition":
+        this.checkCondition(des)
+        await MNUtil.delay(0.1)
+        break;
       case "showUtils":
         this.showUtils(des)
         await MNUtil.delay(0.1)

@@ -71,13 +71,13 @@ class chatAITool{
       if (content.success) {
         let text = "Successfully executed this tool call."
         if (content.response) {
-          text += "\n\nTool Response:\n"+content.response
+          text += "\n\n#####Tool Response#####\n"+content.response
         }
         return {"role":"tool","content":text,"tool_call_id":funcId}
       }else{
         let text = "Failed to execute this tool call."
         if (content.response) {
-          text += "\n\nTool Response:\n"+content.response
+          text += "\n\n#####Tool Response#####\n"+content.response
         }
         return {"role":"tool","content":text,"tool_call_id":funcId}
       }
@@ -95,24 +95,56 @@ class chatAITool{
         args.action.description = "All actions are disabled due to the missing of addon [MN Toolbar]. Please tell user to install MN Toolbar First!"
         return args
       }
-      toolbarConfig.getDefaultActionKeys().map(key=>{
+      let actionKeys = toolbarConfig.getDefaultActionKeys()
+      let actionEnums = []
+      actionKeys.map(key=>{//key就是actionId
+        let hideForAI = false
         let config = toolbarConfig.getAction(key)
         let configToReturn = {
-          name:config.name
+          name:config.name,//动作名，不参与实际运行,
+          actionId:key//动作ID，不参与实际运行,用于指定动作
         }
         if ("description" in config && MNUtil.isValidJSON(config.description)) {
+          //config.description才是每个动作的具体配置
           let des = JSON.parse(config.description)
-          if ("description" in des) {
+          if ("description" in des) {//des.description则是对动作的描述，不参与实际运行
+            //把des.description提升层级（和name同层级），不放在具体的配置中，而是用于描述动作
             configToReturn.description = des.description
             delete des.description
           }
+          if ("onLongPress" in des) {//不需要这个参数
+            delete des.onLongPress
+          }
           configToReturn.config = des
+          if ("hideForAI" in des) {
+            hideForAI = des.hideForAI
+          }
         }
-        actionConfigs[key] = configToReturn
+        if (!hideForAI) {//只有在hideForAI为false时，才将动作加入到actionEnums和actionConfigs中
+          actionEnums.push(key)
+          actionConfigs[key] = configToReturn
+        }
+        //configToReturn包括name,description,config三个部分，其中config是动作的具体配置
       })
       chatAITool.toolbarActionConfigs = actionConfigs
-      args.action.description = `Use the actionId to specify the action to execute. Configuration for each actionId:
+      args.action.enum = actionEnums
+      args.action.description = `Use the actionId to specify the action to execute. Configuration for actions:
 ${JSON.stringify(actionConfigs,undefined,2)}`
+      // chatAIUtils.log("getArgs",{args:args})
+      return args
+    }
+    if (this.name === "executePrompt") {
+      let args = this.args
+      let promptKeys = chatAIConfig.getConfig("promptNames")
+      let promptConfigs = promptKeys.map(key=>{
+        return {
+          promptId:key,
+          name:chatAIConfig.prompts[key].title
+        }
+      })
+      args.prompt.enum = promptKeys
+      args.prompt.description = `Use the promptId to specify the prompt to execute. Configuration for prompts:
+${JSON.stringify(promptConfigs,undefined,2)}`
       return args
     }
     return this.args
@@ -139,13 +171,12 @@ ${JSON.stringify(actionConfigs,undefined,2)}`
     return {"type":"function","function":funcStructure}
   }
   checkArgs(args,funcId){
-    // MNUtil.copy(args)
     let res = {onError:false}
     let args2check = []
     if ("required" in this.config) {
       args2check = this.config.required
     }else{
-      args2check = Object.keys(this.args)
+      args2check = Object.keys(this.args??{})
     }
     if (args2check.length) {//如果有必选参数
       if (!args) {
@@ -238,6 +269,9 @@ ${JSON.stringify(actionConfigs,undefined,2)}`
   switch (funcName) {
     case "executeAction":
       response = await this.executeToolbarAction(func,args)
+      break;
+    case "executePrompt":
+      response = await this.executePrompt(func,args)
       break;
     case "createMindmap":
       response = this.createMindmap(func,args,note)
@@ -366,9 +400,17 @@ ${JSON.stringify(actionConfigs,undefined,2)}`
         try {
           let PDFExtractMode = chatAIConfig.getConfig("PDFExtractMode")
           let currentDocInfo = await chatAIConfig.getFileContent(currentFile,PDFExtractMode === "local")
+          if (!currentDocInfo) {
+            message.response = "Reading document failed"
+            message.success = false
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+            MNUtil.stopHUD()
+            break
+          }
           response.toolMessages = chatAITool.genToolMessage(JSON.stringify(currentDocInfo,undefined,2),func.id)
         } catch (error) {
           response.toolMessages = chatAITool.genToolMessage("Reading document failed",func.id)
+          MNUtil.stopHUD()
           throw error;
         }
         MNUtil.waitHUD("🤖 Reading: "+currentFile.name)
@@ -1630,6 +1672,7 @@ ${JSON.stringify(actionConfigs,undefined,2)}`
     return true
 
   }
+
   async executeToolbarAction(func,args) {
   try {
 
@@ -1655,15 +1698,43 @@ ${JSON.stringify(actionConfigs,undefined,2)}`
       MNUtil.showHUD("Missing action")
       return response
     }
-    MNUtil.log({message:"executeToolbarAction",source:"MN ChatAI",detail:actionDes})
-    await toolbarUtils.customActionByDes(actionDes,undefined,false)
-    while ("onFinish" in actionDes) {
-      let delay = actionDes.delay ?? 0.5
-      actionDes = actionDes.onFinish
-      await MNUtil.delay(delay)
-      await toolbarUtils.customActionByDes(actionDes,undefined,false)
+    MNUtil.log({message:"executeToolbarAction",source:"MN ChatAI",detail:args})
+    //支持通过额外参数替换原动作
+    let extraArgs = chatAITool.getExtraArgs(args)
+    if (Object.keys(extraArgs).length > 0) {
+      for (let key of Object.keys(extraArgs)) {
+        actionDes[key] = extraArgs[key]
+      }
     }
-    message.response = "Toolbar action ["+actionKey+"] is executed successfully"
+    // let argsToIgnore = ["action","onTrue","onFalse","onFinish","onLongPress"]
+    // if ("extraArgs" in args) {
+    //   let keys = Object.keys(args.extraArgs).filter((key)=>!argsToIgnore.includes(key))
+    //   if (keys.length > 0) {
+    //     for (let key of keys) {
+    //       actionDes[key] = args.extraArgs[key]
+    //     }
+    //   }
+    // }else if ("config" in args) {
+    //   let keys = Object.keys(args.config).filter((key)=>!argsToIgnore.includes(key))
+    //   if (keys.length > 0) {
+    //     for (let key of keys) {
+    //       actionDes[key] = args.config[key]
+    //     }
+    //   }
+    // }else{
+    //   let keys = Object.keys(args).filter((key)=>!argsToIgnore.includes(key))
+    //   if (keys.length > 0) {
+    //     for (let key of keys) {
+    //       actionDes[key] = args[key]
+    //     }
+    //   }
+    // }
+    if ("onLongPress" in actionDes) {
+      delete actionDes.onLongPress
+    }
+    MNUtil.log({message:"executeToolbarAction",source:"MN ChatAI",detail:actionDes})
+    await chatAIUtils._executeToolbarAction(actionDes)
+    message.response = "Detail of the successfully executed action ["+actionKey+"] configuration:\n"+JSON.stringify(actionDes,undefined,2)
     message.success = true
     response.toolMessages = chatAITool.genToolMessage(message,func.id)
     // chatAIUtils.log("moveNotes", response)
@@ -1677,6 +1748,30 @@ ${JSON.stringify(actionConfigs,undefined,2)}`
     response.toolMessages = chatAITool.genToolMessage(message,func.id)
     return response
   }
+  }
+  /**
+   * 这里不会真的执行prompt，相当于占位
+   * @param {*} func 
+   * @param {*} args 
+   * @returns 
+   */
+  async executePrompt(func,args) {
+    try {
+      let response = {}
+      let message = {success:true}
+      message.response = "Failed in execute prompt: Can not execute prompt in chat mode, please use the tool in notification mode"
+      // let prompt = args.prompt
+      // let instruction = args.instruction??""
+      // chatAIUtils.ask({promptKey:prompt,instruction:instruction,forceToExecute:true},false)
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      return response
+    } catch (error) {
+      let response = {}
+      let message = {success:false}
+      message.response = "Failed in execute prompt: "+error.message
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      return response
+    }
   }
   async moveNotes (func,args) {
   try {
@@ -2112,8 +2207,6 @@ try {
       // 2. 将多个连续的换行符替换为双换行符
       // 3. 将其它空白符（除了换行符）替换为单个空格
       var tempStr = str.replace(/&nbsp;/g, ' ').replace(/\r/g, '\n').replace(/\n+/g, '\n\n').trim()
-      // chatAIUtils.log("after",tempStr)
-      // var tempStr = str.replace(/\n+/g, '\n').replace(/[\r\t\f\v ]+/g, ' ').trim()
       return tempStr;
   }
 /**
@@ -2160,9 +2253,6 @@ static formatMarkdown(markdownText) {
   // 1. 首先，全局替换所有的 &nbsp; 为标准空格。
   let correctedText = markdownText
       .replace(/&nbsp;/g, ' ')
-      .replace(/\frac/g, '\\frac')
-      .replace(/\x08egin/, "\\begin")
-      .replace(/\right/, "\\right")
       .replace(/\\\[/g, '\n$$$') // Replace display math mode delimiters
       .replace(/\\\]/g, '$$$\n') // Replace display math mode delimiters
       .replace(/(\\\(\s?)|(\s?\\\))/g, '$') // Replace inline math mode opening delimiter;
@@ -2405,10 +2495,42 @@ try {
       if (args.action && args.action in chatAITool.toolbarActionConfigs) {
         let actionName = chatAITool.toolbarActionConfigs[args.action].name
         if (actionName) {
-          return `🔨 ${funcName}("${actionName}")\n`
+          let extraArgs = chatAITool.getExtraArgs(args)
+          if (Object.keys(extraArgs).length > 0) {
+            let extraArgsString = JSON.stringify(extraArgs,undefined,2).replace(/\n/g, '\n  ')
+            return `🔨 executeAction(
+  Name: ${actionName}
+  ExtraArgs: ${extraArgsString}
+)\n`
+          }
+//           if ("extraArgs" in args) {
+//             return `🔨 executeAction(
+//   Name: ${actionName}
+//   ExtraArgs: 
+//   ${JSON.stringify(args.extraArgs,undefined,2).replace(/\n/g, '\n  ')}
+// )\n`
+//           }
+          return `🔨 executeAction(
+  Name: ${actionName}
+)\n`
         }
       }
       return `🔨 ${funcName}("${args.action}")\n`
+    case "executePrompt":
+      if (args.prompt) {
+        let promptKey = args.prompt
+        let prompt = (promptKey in chatAIConfig.getConfig("promptNames"))? chatAIConfig.prompts[args.prompt].title:promptKey
+        if (args.instruction) {
+          return `🔨 ${funcName}(
+  Prompt: ${prompt}
+  Instruction: ${args.instruction}
+)\n`
+        }
+        return `🔨 ${funcName}(
+  Prompt: ${prompt}
+)\n`
+      }
+      return `🔨 ${funcName}()\n`
     case "setTitle":
       if (args.title) {
         return `🔨 ${funcName}("${MNUtil.mergeWhitespace(args.title)}")\n`
@@ -2722,7 +2844,7 @@ genErrorInMissingArguments(arg,funcId) {
   // MNUtil.copy(arg)
   MNUtil.showHUD("Missing arguments: "+arg)
   let response = {
-    toolMessages: chatAITool.genToolMessage("Execution failed! The arguments ["+arg+"] provided is empty!",funcId),
+    toolMessages: chatAITool.genToolMessage("Execution failed! The arguments ["+arg+"] for function "+this.name+" is not provided!",funcId),
     description: "Error in "+this.name+"(): Missing arguments: "+arg+"\n"
   }
   return response
@@ -2730,7 +2852,7 @@ genErrorInMissingArguments(arg,funcId) {
 genErrorInEmptyArguments(arg,funcId) {
   MNUtil.showHUD("Empty content in arguments: "+arg)
   let response = {
-    toolMessages: chatAITool.genToolMessage("Execution failed! The content of arguments ["+arg+"] provided is empty!",funcId),
+    toolMessages: chatAITool.genToolMessage("Execution failed! The content of arguments ["+arg+"] for function "+this.name+" is empty!",funcId),
     description: "Error in "+this.name+"(): Empty content in arguments: "+arg+"\n"
   }
   return response
@@ -2991,6 +3113,33 @@ getFullHTML(args){
     }
 
 }
+  static getExtraArgs(args){
+    let argsToIgnore = ["action","onTrue","onFalse","onFinish","onLongPress"]
+    let extraArgs = {}
+    if ("extraArgs" in args) {
+      let keys = Object.keys(args.extraArgs).filter((key)=>!argsToIgnore.includes(key))
+      if (keys.length > 0) {
+        for (let key of keys) {
+          extraArgs[key] = args.extraArgs[key]
+        }
+      }
+    }else if ("config" in args) {
+      let keys = Object.keys(args.config).filter((key)=>!argsToIgnore.includes(key))
+      if (keys.length > 0) {
+        for (let key of keys) {
+          extraArgs[key] = args.config[key]
+        }
+      }
+    }else{
+      let keys = Object.keys(args).filter((key)=>!argsToIgnore.includes(key))
+      if (keys.length > 0) {
+        for (let key of keys) {
+          extraArgs[key] = args[key]
+        }
+      }
+    }
+    return extraArgs
+  }
   static _toolConfig = undefined
   static get toolConfig(){
     if (this._toolConfig !== undefined) {
@@ -3625,20 +3774,44 @@ IMPORTANT:
         },
         required:["action"],
         description:"this tool is used to process knowledge"
-      }
-    }
-    toolConfig["executeAction"] = {
-      needNote:false,
-      toolTitle: "🔨   Execute Action",
-      args:{
-        action:{
-          type:"string",
-          enum:[],
-          description:"action to execute"
-        }
       },
-      required:["action"],
-      description:"this tool is used to execute an action of addon [MN Toolbar]"
+      "executeAction":{
+        needNote:false,
+        toolTitle: "🔨   Execute Action",
+        args:{
+          action:{
+            type:"string",
+            enum:[],
+            description:"action to execute, provide the actionId to specify the action to execute"
+          },
+          extraArgs:{
+            type:"object",
+            description:"optional, additional arguments to replace the original arguments of the action"
+          }
+        },
+        required:["action"],
+        description: `this tool [executeAction] is used to execute an action of addon [MN Toolbar]. 
+For action, you must provide the actionId to specify the action to execute.
+In addition to the actionId, you can also provide additional arguments to replace the original arguments of the action.
+`
+      },
+      "executePrompt":{
+        needNote:false,
+        toolTitle: "🤖   Execute Prompt",
+        args:{
+          prompt:{
+            type:"string",
+            enum:[],
+            description:"Prompt to execute, provide promptId to specify the prompt to execute"
+          }
+          // instruction:{
+          //   type:"string",
+          //   description:"optional, additional instruction for assistant who will execute the prompt"
+          // }
+        },
+        required:["prompt"],
+        description: `this tool [executePrompt] is used to ask an assistant to execute a prompt. You must provide the promptId to specify the prompt to execute. `
+      }
     }
     // chatAIUtils.log("toolConfig",toolConfig)
     this._toolConfig = toolConfig
@@ -3663,7 +3836,7 @@ IMPORTANT:
     }
   }
   static get toolNames(){
-    return ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","createNote","clearExcerpt","setExcerpt","readDocument","readNotes","webSearch","readParentNote","createMindmap","editNote","generateImage","createHTML","userConfirm","userInput","userSelect","mergeNotes","moveNotes","linkNotes","organizeNotes","searchNotes","createMermaidChart","knowledge","executeAction"]
+    return ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","createNote","clearExcerpt","setExcerpt","readDocument","readNotes","webSearch","readParentNote","createMindmap","editNote","generateImage","createHTML","userConfirm","userInput","userSelect","mergeNotes","moveNotes","linkNotes","organizeNotes","searchNotes","createMermaidChart","knowledge","executeAction","executePrompt"]
   }
   static get toolNumber(){
     return this.toolNames.length
@@ -3673,13 +3846,13 @@ IMPORTANT:
   }
   static get activatedTools(){
     // 还没正式启用新功能，先隐藏新功能
-    // return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,0,1,6,2,3,4,8,9,27,28,5]
-    return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,0,1,6,2,3,4,8,9,27,5]
+    return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,0,1,6,2,3,4,8,9,27,28,29,5]
+    // return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,0,1,6,2,3,4,8,9,27,5]
   }
   static get activatedToolsExceptOld(){
     // 还没正式启用新功能，先隐藏新功能
-    // return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,27,28,5]
-    return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,27,5]
+    return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,27,28,29,5]
+    // return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,27,5]
   }
   static async getChangedTools(currentFunc,index){
     let targetFunc = currentFunc
@@ -4912,6 +5085,9 @@ try {
     if (opt.withContent) {
       chatAIUtils.log("getDocObject withContent", tem)
       let fileInfo = await chatAIConfig.getFileContent(tem,PDFExtractMode === "local")
+      if (!fileInfo) {
+        return undefined
+      }
       // MNUtil.log(typeof fileInfo)
       docConfig.content = fileInfo.content
     }
@@ -5016,7 +5192,11 @@ try {
       if (startPage !== undefined && endPage !== undefined) {
         pageRange = {startPage,endPage}
       }
-      noteConfig.doc = await this.getDocObject(MNUtil.getDocById(note.docMd5),{withContent:noteInfo.hasNoteDoc,pageRange:pageRange}) 
+      let docObject = await this.getDocObject(MNUtil.getDocById(note.docMd5),{withContent:noteInfo.hasNoteDoc,pageRange:pageRange}) 
+      if (!docObject) {
+        return undefined
+      }
+      noteConfig.doc = docObject
       noteConfig.hasDoc = true
     }else{
       noteConfig.hasDoc = false
@@ -5050,77 +5230,6 @@ try {
     }
   }
   
-  /**
-   * 
-   * @param {string} text 
-   * @param {string} userInput 
-   * @returns 
-   */
-  static checkVariableForNote(text,userInput){//提前写好要退化到的变量
-    let OCR_Enabled = chatAIUtils.OCREnhancedMode
-    let hasUserInput = text.includes("{{userInput}}")
-    let hasCards = text.includes("{{cards}}")
-    let hasCardsOCR = text.includes("{{cardsOCR}}")
-    let replaceVarConfig = {}
-    if (OCR_Enabled) {
-      replaceVarConfig.context = `{{textOCR}}`
-      replaceVarConfig.card = `{{cardOCR}}`
-      replaceVarConfig.parentCard = `{{parentCardOCR}}`
-      replaceVarConfig.cards = `{{cardsOCR}}`
-
-      if (hasUserInput && !userInput) {
-        replaceVarConfig.userInput = `{{textOCR}}`
-      }
-      if (hasCards || hasCardsOCR) {
-        if (this.getFocusNotes().length === 1) {
-          replaceVarConfig.cards = `{{cardOCR}}`
-          replaceVarConfig.cardsOCR = `{{cardOCR}}`
-        }
-      }
-    }else{
-      if (hasUserInput && !userInput) {
-        replaceVarConfig.userInput = `{{context}}`
-      }
-      if (hasCards || hasCardsOCR) {
-        if (this.getFocusNotes().length === 1) {
-          replaceVarConfig.cards = `{{card}}`
-          replaceVarConfig.cardsOCR = `{{carsdOCR}}`
-        }
-      }
-    }
-    MNUtil.copy({text: text,replaceVarConfig:replaceVarConfig})
-    return MNUtil.render(text, replaceVarConfig)
-    // return this.replacVar(text, replaceVarConfig)
-  }
-
-  static checkVariableForText(text,userInput){//提前写好要退化到的变量
-    let OCR_Enabled = chatAIUtils.OCREnhancedMode
-    let hasUserInput = text.includes("{{userInput}}")
-    let replaceVarConfig = {}
-    if (OCR_Enabled) {
-      replaceVarConfig.context = `{{textOCR}}`
-      replaceVarConfig.card = `{{textOCR}}`
-      replaceVarConfig.parentCard = `{{textOCR}}`
-      replaceVarConfig.cards = `{{textOCR}}`
-      if (hasUserInput && !userInput) {
-        replaceVarConfig.userInput = `{{textOCR}}`
-      }
-    }else{
-      replaceVarConfig.card = `{{context}}`
-      replaceVarConfig.cards = `{{context}}`
-      replaceVarConfig.parentCard = `{{context}}`
-      if (hasUserInput && !userInput) {
-        replaceVarConfig.userInput = `{{context}}`
-      }
-    }
-    replaceVarConfig.cardOCR = `{{textOCR}}`
-    replaceVarConfig.cardsOCR = `{{textOCR}}`
-    replaceVarConfig.parentCardOCR = `{{textOCR}}`
-    replaceVarConfig.noteDocInfo = `{{currentDocInfo}}`
-    replaceVarConfig.noteDocAttach = `{{currentDocAttach}}`
-    replaceVarConfig.noteDocName = `{{currentDocName}}`
-    return this.replacVar(text, replaceVarConfig)
-  }
   static replacVar(text,varInfo) {
     let vars = Object.keys(varInfo)
     let original = text
@@ -5336,10 +5445,35 @@ try {
   /**
    * 
    * @param {MbBookNote|MNNote} note 
+   * @param {boolean} OCR_enabled 
+   * @returns {Promise<string>}
+   */
+  static async getExcerptText(note,OCR_enabled=false) {
+    let text = ""
+    if (MNUtil.isBlankNote(note)) {//单独处理留白笔记
+      if (note.excerptText) {
+        text = note.excerptText+"\n"
+      }else{
+        text = ""
+      }
+    }else{
+      if (OCR_enabled && note.excerptPic && !note.textFirst) {
+        let image = MNUtil.getMediaByHash(note.excerptPic.paint)
+        text = await chatAINetwork.getTextOCR(image)+"\n"
+        // text = ""
+      }else if (this.noteHasExcerptText(note)) {
+        text = note.excerptText+"\n"
+      }
+    }
+    return text
+  }
+  /**
+   * 
+   * @param {MbBookNote|MNNote} note 
    */
   static async getTextForSearch(note,OCR_enabled=false) {
     let order = chatAIConfig.getConfig("searchOrder")
-    let text
+    let text = ""
     for (let index = 0; index < order.length; index++) {
       const element = order[index];
       switch (element) {
@@ -5349,18 +5483,22 @@ try {
           }
           break;
         case 2:
-          if (MNUtil.isBlankNote(note)) {//单独处理留白笔记
-            text = note.excerptText??""
-          }else{
-            if (OCR_enabled && note.excerptPic && !note.textFirst) {
-              let image = MNUtil.getMediaByHash(note.excerptPic.paint)
-              text = await chatAINetwork.getTextOCR(image)
-              // text = ""
-            }else if (this.noteHasExcerptText(note)) {
-              text = note.excerptText
-            }
+          let notes = note.notes
+          for (let i = 0; i < notes.length; i++) {
+            const n = notes[i];
+            text = text + await this.getExcerptText(n,OCR_enabled)
           }
-
+          // if (MNUtil.isBlankNote(note)) {//单独处理留白笔记
+          //   text = note.excerptText??""
+          // }else{
+          //   if (OCR_enabled && note.excerptPic && !note.textFirst) {
+          //     let image = MNUtil.getMediaByHash(note.excerptPic.paint)
+          //     text = await chatAINetwork.getTextOCR(image)
+          //     // text = ""
+          //   }else if (this.noteHasExcerptText(note)) {
+          //     text = note.excerptText
+          //   }
+          // }
           //如果都不满足，此时text依然为undefined
           break;
         case 3:
@@ -6215,6 +6353,11 @@ static async getInfoForDynamic() {
     });
     return events;
   }
+/**
+ * 
+ * @param {String} str 
+ * @returns {{results:Object[],usage:Object}}
+ */
 static parseDataChunks(str) {
   str = str.replace(/: OPENROUTER PROCESSING/g, '');
 
@@ -6369,6 +6512,33 @@ static parseDataChunks(str) {
         return null; // 如果解析失败，返回 null 或其他默认值
     }
 }
+static multiLetterRegex = /(?<!\\)(\\[a-zA-Z]{2,})/g;
+static singleCharRegex = /(?<!\\)(\\(?:[cvHkdu]|[^a-zA-Z0-9\\]))/g;
+/**
+ * 使用两步替换策略，精准地纠正AI生成的字符串中未正确转义的LaTeX反斜杠。
+ * 这种方法可以有效避免将标准的JavaScript转义序列（如 \n, \b）错误地转义。
+ *
+ * @param {string} text - 包含可能未转义的LaTeX公式的输入字符串。
+ * @returns {string} - 返回修复了反斜杠转义的字符串。
+ */
+static fixLatexEscaping(text) {
+  if (typeof text !== 'string' || !text) {
+    return "";
+  }
+  let correctedText = text;
+  // --- 第 1 步：修复多字母（2个及以上）的单词命令 ---
+  // 正则表达式：匹配一个未转义的 \，后面跟着两个或更多的字母。
+  // [a-zA-Z]{2,} - 匹配至少两个字母。
+  correctedText = correctedText.replace(this.multiLetterRegex, '\\$1');
+  // --- 第 2 步：修复特定的、安全的单字母命令和所有符号命令 ---
+  // 正则表达式：匹配一个未转义的 \，后面跟着...
+  // 1. 白名单中的一个单字母：[cvHkdu] (根据需要增删)
+  // 2. 或 (|) 一个非字母、非数字、非反斜杠的字符：[^a-zA-Z0-9\\]
+  //    我们排除了反斜杠，因为 `\\` 已经是正确的。
+  //    排除了数字，因为像 \1 这样的命令在LaTeX中不常见，且可能与其他格式冲突。
+  correctedText = correctedText.replace(this.singleCharRegex, '\\$1');
+  return correctedText;
+}
 
 static parseTime = []
 static preResults = []
@@ -6379,6 +6549,9 @@ static preResults = []
  */
   static parseResponse(originalText,checkToolCalls) {
   try {
+    if (!originalText) {
+      return undefined
+    }
     // let beginTime = Date.now()
     let response = {}
     // this.parseTime.push(MNUtil.UUID())
@@ -6415,7 +6588,7 @@ static preResults = []
           }else{
             let index = res.tool_calls[0].index ?? 0
             if (!funcs[index]) {
-              funcs[index] = {function:{name:"unknownFunction",arguments:"",index:index}}
+              funcs[index] = {function:{name:"unknownFunction",arguments:"{}"},index:index,type:"function",id:MNUtil.UUID()}
             }
             if (funcs[index].function.arguments) {
               funcs[index].function.arguments = funcs[index].function.arguments+res.tool_calls[0].function.arguments
@@ -6433,10 +6606,11 @@ static preResults = []
       let funcList = []
       // MNUtil.copy(funcs)
       let funcResponses = funcs.map(func=>{
-        let arg = func.function.arguments
+        let arg = func.function.arguments//此时arg是一个json字符串而不是json对象
         // MNUtil.log({message:"funcArgs",detail:arg})
         // MNUtil.copyJSON(JSON.parse("{\"title\": \"排放变化特征分析\"}{\"title\": \"排放变化特征分析\"}"))
         if (arg) {//尝试解析arg为对象
+          arg = this.fixLatexEscaping(arg)//修复LaTeX反斜杠转义错误
           let args = this.getValidJSON(arg.trim())
           if (!args) {
             args = this.getValidJSON(this.safeJsonParse(arg.trim()))
@@ -7502,6 +7676,9 @@ code.hljs {
   static constrain(value, min, max) {
     return Math.min(Math.max(value, min), max);
   }
+  static isSideOutputCreated(){
+    return this.sideOutputController !== undefined
+  }
   static async openSideOutput(){
     if (this.isMN3()) {
       MNUtil.confirm("Only available in MN4+")
@@ -7509,7 +7686,7 @@ code.hljs {
     }
     try {
 
-    if (!this.sideOutputController) {
+    if (!this.isSideOutputCreated()) {
         this.sideOutputController = sideOutputController.new();
         MNUtil.toggleExtensionPanel()
         MNExtensionPanel.show()
@@ -7927,7 +8104,7 @@ static getLineByIndex(str, index) {
    */
   static async getNoteVarInfo(noteid,text,userInput,vision=false,ocr = this.OCREnhancedMode) {
     try {
-    let replaceText= text//this.checkVariableForNote(text, userInput)//提前写好要退化到的变量
+    let replaceText= text
     let vars = this.parseVars(replaceText)
     let noteInfo = vars.noteInfo
     // MNUtil.log({message:"noteInfo",detail:noteInfo})
@@ -7935,6 +8112,9 @@ static getLineByIndex(str, index) {
 
     let mindmapObject = await this.getMindmapObject(vars,ocr)
     let docConfig = await this.getDocObject(MNUtil.currentDoc,{withContent:vars.hasCurrentDocContent})
+    if (!docConfig) {
+      return undefined
+    }
     let noteConfig = undefined
     if (noteInfo.hasNote) {
       noteConfig = await this.getNoteObject(note,{
@@ -8090,7 +8270,7 @@ static async getTextVarInfo(text,userInput,vision=false,ocr=this.OCREnhancedMode
   let noteInfo = vars.noteInfo
   let mindmapObject = await this.getMindmapObject(vars)
     // this.showHUD(userInput+vars.hasUserInput)
-  let replaceText= text//this.checkVariableForText(text, userInput)//提前写好要退化到的变量
+  let replaceText= text
   let noteConfig = undefined
   if (noteInfo.hasNote) {
     noteConfig = await this.getNoteObject(MNNote.getFocusNote(),{
@@ -8098,6 +8278,9 @@ static async getTextVarInfo(text,userInput,vision=false,ocr=this.OCREnhancedMode
     })
   }
   let docConfig = await this.getDocObject(MNUtil.currentDoc,{withContent:vars.hasCurrentDocContent})
+  if (!docConfig) {
+    return undefined
+  }
   let preObject = {
     visionMode:vision,
     currentDoc:docConfig,
@@ -8610,6 +8793,43 @@ static replaceLtInLatexBlocks(markdown) {
         return '$$' + latexContent.replace(/</g, '\\lt') + '$$';
     });
 }
+
+/**
+ * 将字符串中美元符号包裹的 LaTeX 公式替换为 KaTeX 渲染后的 HTML
+ * @param {string} inputStr - 包含可能公式的原始字符串（如 "E=mc^2$，块级公式：$$\int_a^b f(x)dx$$"）
+ * @param {Object} [katexOptions] - KaTeX 渲染配置项（可选，默认：{ throwOnError: false }）
+ * @returns {string} 替换公式后的 HTML 字符串
+ */
+static renderKaTeXFormulas(inputStr, katexOptions = {}) {
+  // 合并默认配置和用户配置（throwOnError 默认关闭，避免生产环境报错）
+  const defaultOptions = { throwOnError: false, errorColor: "#cc0000" };
+  const options = { ...defaultOptions, ...katexOptions };
+
+  // 正则表达式：匹配 $$...$$（块级公式）和 $...$（行内公式）
+  // 注意：使用非贪婪匹配（*?）避免跨多个公式匹配，同时排除转义的 \$（即 \$ 不视为公式分隔符）
+  const formulaRegex = /(?<!\\)\$\$(.*?)(?<!\\)\$\$|(?<!\\)\$(.*?)(?<!\\)\$/gs;
+
+  // 替换匹配到的公式
+  return inputStr.replace(formulaRegex, (match, blockFormula, inlineFormula) => {
+    // 判断是块级公式（$$...$$）还是行内公式（$...$）
+    const isBlock = blockFormula !== undefined;
+    const formulaContent = isBlock ? blockFormula.trim() : inlineFormula.trim();
+
+    try {
+      // 使用 KaTeX 渲染公式为 HTML 字符串
+      return katex.renderToString(formulaContent, {
+        ...options,
+        displayMode: isBlock, // 块级公式设置 displayMode: true
+      });
+    } catch (error) {
+      // 渲染失败时，返回错误提示（保留原始公式内容以便调试）
+      console.error("KaTeX 渲染错误:", error, "公式内容:", formulaContent);
+      return `<span style="color: ${options.errorColor}; background: #ffebee; padding: 2px 4px; border-radius: 2px;">
+        [公式错误: ${formulaContent}]
+      </span>`;
+    }
+  });
+}
 /**
  * 
  * @param {string} code 
@@ -8619,17 +8839,18 @@ static getChoiceBlock(code) {
   // let url = `userselect://choice?content=${encodeURIComponent(code)}`
   let tem = code.split(". ")
   if (tem.length > 1 && tem[0].trim().length === 1) {
+    let choiceWithLatex = this.renderKaTeXFormulas(tem.slice(1).join(". "))
     
   return `<div style="margin-top: 15px;">
   <div style="display: block; padding: 0.8em 0.8em; color: #495057; border-radius: 20px; text-decoration: none; border: 0.1em solid #dee2e6; background: #f1f7fe; cursor: pointer; box-sizing: border-box; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative;">
     <span style="display: inline-block; width: 1.8em; height: 1.8em; background: #2196f3; color: white; border-radius: 50%; text-align: center; line-height: 1.8em; font-weight: 600; margin-right: 0.5em; vertical-align: middle; ">${tem[0]}</span>
-    <span style="vertical-align: middle;">${tem.slice(1).join(". ")}</span>
+    <span style="vertical-align: middle;">${choiceWithLatex}</span>
   </div>
   </div>`
   }
   return `<div style="margin-top: 15px;">
   <div style="display: block; padding: 0.8em 0.8em; color: #495057; border-radius: 20px; text-decoration: none; border: 0.1em solid #dee2e6; background: #f1f7fe; cursor: pointer; box-sizing: border-box; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative;">
-      <span style="vertical-align: middle;">${code}</span>
+      <span style="vertical-align: middle;">${this.renderKaTeXFormulas(code)}</span>
   </div>
   </div>`
 }
@@ -9052,9 +9273,24 @@ static isVisionModel(model) {
     }
   
   }
+  /**
+   * @param {Object} option 
+   * @param {String} option.prompt 
+   * @param {String} option.promptKey 
+   * @param {String} option.instruction 
+   * @param {String} option.forceToExecute 是否强制执行，即无视当前是否有正在执行的prompt 
+   * @param {String} option.user 
+   * @param {String} option.system 
+   * @returns {Promise<boolean>}
+   */
   static async beginAsk(option){
   try {
-
+    let forceToExecute = option.forceToExecute ?? false
+    if (option.promptKey) {
+      this.notifyController.noteid = this.currentNoteId
+      this.notifyController.askWithPrompt(option.promptKey,forceToExecute)
+      return
+    }
     if (option.prompt) {
       let prompt = option.prompt
       let promptKeys = chatAIConfig.config.promptNames
@@ -9064,7 +9300,7 @@ static isVisionModel(model) {
         let firstPrompt = similarPrompts[0]
         let promptKey = this.findKeyByTitle(chatAIConfig.prompts, firstPrompt)
         this.notifyController.noteid = this.currentNoteId
-        this.chatController.ask(promptKey)
+        this.chatController.ask(promptKey,forceToExecute)
       }
       return true
     }else if(option.user){
@@ -9092,6 +9328,9 @@ static isVisionModel(model) {
    * 用轮询的形式尝试兼顾UI和函数返回,无法支持批量调用
    * @param {Object} option 
    * @param {String} option.prompt 
+   * @param {String} option.promptKey 
+   * @param {String} option.instruction 
+   * @param {String} option.forceToExecute 是否强制执行，即无视当前是否有正在执行的prompt 
    * @param {String} option.user 
    * @param {String} option.system 
    * @param {String} option.interval 轮询间隔时间
@@ -9228,6 +9467,15 @@ static applyEditByConfig(editConfigs,note,refresh = true){
     return true
 
   }
+  static async _executeToolbarAction(actionDes,button = undefined) {
+    await toolbarUtils.customActionByDes(actionDes,button,undefined,false)
+    while ("onFinish" in actionDes) {
+      let delay = actionDes.delay ?? 0.5
+      actionDes = actionDes.onFinish
+      await MNUtil.delay(delay)
+      await toolbarUtils.customActionByDes(actionDes,button,undefined,false)
+    }
+  }
 }
 
 class chatAIConfig {
@@ -9321,7 +9569,7 @@ class chatAIConfig {
     toolbar: true,
     model: "gpt-4o-mini",
     chatglmModel:"glm-4-plus",
-    promptNames: Object.keys(this.defaultPrompts),
+    promptNames: Object.keys(this.defaultPrompts),//其实是promptId/promptKey
     currentPrompt: Object.keys(this.defaultPrompts)[0],
     apikey: "",
     modelOnReAsk: -1,
@@ -10294,7 +10542,6 @@ static modelsWithoutVisionPatterns = [
       if (backupConfig && Object.keys(backupConfig).length > 0) {
         return true
       }
-      return true
     }
     return false
   }
@@ -10318,6 +10565,55 @@ static modelsWithoutVisionPatterns = [
     let totalConfig = this.getAllConfig()
     MNUtil.writeJSON(this.backUpFile, totalConfig)
   }
+  static clearBackUp(){
+    MNUtil.log("chatAIConfig.clearBackUp")
+    MNUtil.writeJSON(this.backUpFile, {})
+  }
+/** 
+ * @param {Object} config 
+ * @returns {boolean} true if successful, false otherwise
+ */
+  static addToChatHistory(config){
+    try {
+
+      let newData = {data:config.history}
+      if (config.funcIndices && config.funcIndices.length) {
+        newData.funcIdxs = config.funcIndices
+      }
+      if (config.currentPrompt && config.currentPrompt !== "Dynamic") {
+        newData.name = chatAIConfig.prompts[config.currentPrompt].title
+      }else{
+        let firstUser = config.history.find(item=>item.role === "user")
+        if (typeof firstUser.content === "string") {
+          newData.name = firstUser.content.slice(0,10)
+        }else{
+          newData.name = firstUser.content.find(item=>item.type = "text").text.slice(0,10)
+        }
+      }
+      if (config.temperature !== undefined) {
+        newData.temperature = config.temperature
+      }
+      newData.model = config.currentModel
+      newData.token = config.token
+      newData.id = MNUtil.UUID()
+      let data = this.getChatData()
+      data.chats.push(newData)
+      if (data.chatIdxs.length) {
+        let newIdx = Math.max(...data.chatIdxs)+1
+        data.chatIdxs.push(newIdx)
+        data.activeChatIdx = newIdx
+      }else{
+        data.chatIdxs.push(0)
+        data.activeChatIdx = 0
+      }
+      //保存到chatData.json
+      this.exportChatData(data)
+      return true
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "addToChatHistory")
+      return false
+    }
+  }
   /**
    * 写入聊天数据到本地的chatData.json
    * @param {Object} data 
@@ -10326,6 +10622,77 @@ static modelsWithoutVisionPatterns = [
     this.checkDataDir()
     // MNUtil.copyJSON(data)
     MNUtil.writeJSON(subscriptionUtils.extensionPath+"/data/chatData.json", data)
+  }
+  static convertDate(dateStr){
+    return dateStr ? new Date(dateStr) : null
+  }
+/**
+ * 将 NSFileManager 返回的文件属性对象转换为 Node.js fs.Stats 格式
+ * @param {Object} nsAttrs - NSFileManager 获取的文件属性
+ * @returns {Object} - 模拟 Node.js fs.Stats 的对象
+ */
+  static convertNsAttrsToFsStats(nsAttrs) {
+  // 处理时间：ISO 字符串 → Date 对象
+
+  // 处理权限：NSFilePosixPermissions（十进制）→ Node.js mode（八进制）
+  const mode = nsAttrs.NSFilePosixPermissions ? 
+    `0o${nsAttrs.NSFilePosixPermissions.toString(8)}` : null;
+
+  // 构建模拟的 Stats 对象
+  const stats = {
+    // 核心属性（与 Node.js fs.Stats 对齐）
+    dev: nsAttrs.NSFileSystemNumber || 0,       // 设备 ID（对应 NSFileSystemNumber）
+    ino: nsAttrs.NSFileSystemFileNumber || 0,   // inode 编号（对应 NSFileSystemFileNumber）
+    mode: mode ? parseInt(mode, 8) : 0,         // 权限模式（八进制）
+    nlink: nsAttrs.NSFileReferenceCount || 1,   // 硬链接数（对应 NSFileReferenceCount）
+    uid: nsAttrs.NSFileOwnerAccountID || 0,     // 用户 ID（对应 NSFileOwnerAccountID）
+    gid: nsAttrs.NSFileGroupOwnerAccountID || 0,// 组 ID（对应 NSFileGroupOwnerAccountID）
+    rdev: 0,                                    // 特殊设备 ID（NSFileManager 无直接对应，默认 0）
+    size: nsAttrs.NSFileSize || 0,              // 文件大小（对应 NSFileSize）
+    blksize: 4096,                              // 块大小（NSFileManager 无直接对应，默认 4096）
+    blocks: nsAttrs.NSFileSize ? Math.ceil(nsAttrs.NSFileSize / 4096) : 0, // 块数（计算值）
+    atimeMs: this.convertDate(nsAttrs.NSFileModificationDate)?.getTime() || 0, // 最后访问时间（NSFileManager 无直接对应，暂用修改时间）
+    mtimeMs: this.convertDate(nsAttrs.NSFileModificationDate)?.getTime() || 0, // 最后修改时间（对应 NSFileModificationDate）
+    ctimeMs: this.convertDate(nsAttrs.NSFileCreationDate)?.getTime() || 0,     // 状态改变时间（对应 NSFileCreationDate）
+    birthtimeMs: this.convertDate(nsAttrs.NSFileCreationDate)?.getTime() || 0, // 创建时间（对应 NSFileCreationDate）
+
+    // 时间对象（Node.js Stats 同时提供 ms 和 Date 对象两种格式）
+    atime: this.convertDate(nsAttrs.NSFileModificationDate) || new Date(0),
+    mtime: this.convertDate(nsAttrs.NSFileModificationDate) || new Date(0),
+    ctime: this.convertDate(nsAttrs.NSFileCreationDate) || new Date(0),
+    birthtime: this.convertDate(nsAttrs.NSFileCreationDate) || new Date(0),
+
+    // NSFileManager 特有的属性（保留供参考）
+    _nsFileType: nsAttrs.NSFileType,
+    _nsFileOwnerAccountName: nsAttrs.NSFileOwnerAccountName,
+    _nsFileGroupOwnerAccountName: nsAttrs.NSFileGroupOwnerAccountName,
+    _nsFileProtectionKey: nsAttrs.NSFileProtectionKey,
+    _nsFileExtendedAttributes: nsAttrs.NSFileExtendedAttributes
+  };
+
+  // 添加类型判断方法（模拟 Node.js Stats 的 isFile()/isDirectory() 等）
+  stats.isFile = () => stats._nsFileType === 'NSFileTypeRegular';
+  stats.isDirectory = () => stats._nsFileType === 'NSFileTypeDirectory';
+  stats.isSymbolicLink = () => stats._nsFileType === 'NSFileTypeSymbolicLink';
+  stats.isFIFO = () => stats._nsFileType === 'NSFileTypeFIFO';
+  stats.isSocket = () => stats._nsFileType === 'NSFileTypeSocket';
+  stats.isBlockDevice = () => stats._nsFileType === 'NSFileTypeBlockSpecial';
+  stats.isCharacterDevice = () => stats._nsFileType === 'NSFileTypeCharacterSpecial';
+
+  return stats;
+}
+
+  static getFileAttributes(path){
+    let fileManager = NSFileManager.defaultManager()
+    let attributes = fileManager.attributesOfItemAtPath(path)
+    attributes = this.convertNsAttrsToFsStats(attributes)
+    attributes.path = path
+    return attributes
+  }
+  static getChatDataAttributes(){
+    let path = subscriptionUtils.extensionPath+"/data/chatData.json"
+    let attributes = this.getFileAttributes(path)
+    return attributes
   }
   /**
    * 从本地的chatData.json中读取聊天数据
@@ -10338,13 +10705,18 @@ static modelsWithoutVisionPatterns = [
       let chatsLength = data.chats.length
       if (chatsLength) {
         for (let i = 0; i < chatsLength; i++) {
-          if (typeof data.chats[i].name === "object") {
-            if ("content" in data.chats[i].name) {
-              data.chats[i].name = data.chats[i].name.content
+          let chat = data.chats[i]
+          if (typeof chat.name === "object") {
+            if ("content" in chat.name) {
+              chat.name = chat.name.content
             }else{
-              data.chats[i].name = "New Chat"
+              chat.name = "New Chat"
             }
           }
+          if (!("id" in chat)) {//为每个聊天追加一个id，方便定位
+            chat.id = MNUtil.UUID()
+          }
+          data.chats[i] = chat
       }
       }
       return data
@@ -10360,6 +10732,30 @@ static modelsWithoutVisionPatterns = [
       "chatIdxs": [0],
       "activeChatIdx": 0,
       "avatar": "https://file.feliks.top/avatar.webp"
+    }
+  }
+  static preChatDataId = ""
+  /**
+   * 将聊天记录加密上传并获取信息摘要
+   * @returns {Object}
+   * @property {string} id 聊天数据id
+   */
+  static async getChatDataInfo(){
+    let info = {success:true}
+    let dataPath = subscriptionUtils.extensionPath+"/data/chatData.json"
+    let text = MNUtil.readText(dataPath)
+    let res = await chatAIConfig.uploadConfigWithEncryptionToAlist(text)
+    if (res.success) {
+      let chatDataAttributes = this.getFileAttributes(dataPath)
+      info.size = chatDataAttributes.size
+      info.atimeMs = chatDataAttributes.atimeMs
+      info.mtimeMs = chatDataAttributes.mtimeMs
+      info.ctimeMs = chatDataAttributes.ctimeMs
+      info.birthtimeMs = chatDataAttributes.birthtimeMs
+      info.id = res.id
+      return info
+    }else{
+      return {success:false,error:res.error}
     }
   }
   static async getCachedNotesInStudySet(studySetId){
@@ -10418,18 +10814,14 @@ static modelsWithoutVisionPatterns = [
     let TunnelMap = ['Tunnel 1️⃣: ','Tunnel 2️⃣: ','Tunnel 3️⃣: ','Tunnel 4️⃣: ','Tunnel 5️⃣: ','Tunnel 6️⃣: ','Tunnel 7️⃣: ','Tunnel 8️⃣: ']
     if (!Object.keys(this.keys).length) {
       MNUtil.showHUD("Refreshing built-in keys...")
-      let keys = await chatAINetwork.fetchKeys()
-      if (keys) {
-        this.keys = keys 
-        this.save('MNChatglm_builtInKeys')
-        if (keys.message) {
-          // copyJSON(keys)
-          MNUtil.showHUD(keys.message)
+      let res = await chatAINetwork.fetchKeys()
+      if (res && "shareKeys" in res) {
+        if (res.shareKeys.message) {
+          MNUtil.showHUD(res.shareKeys.message)
         }else{
           MNUtil.showHUD("error")
           return ['Tunnel 1️⃣: ','Tunnel 2️⃣: ','Tunnel 3️⃣: ','Tunnel 4️⃣: ']
         }
-        // chatAIUtils.chatController.refreshButton.setTitleForState(`Refresh (1️⃣: ${keys.key0.keys.length}, 2️⃣: ${keys.key1.keys.length}, 3️⃣: ${keys.key2.keys.length}, 4️⃣: ${keys.key3.keys.length})`,0)
       }else{
         MNUtil.showHUD("error")
         return ['Tunnel 1️⃣: ','Tunnel 2️⃣: ','Tunnel 3️⃣: ','Tunnel 4️⃣: ']
@@ -12195,10 +12587,12 @@ static modelsWithoutVisionPatterns = [
     }
   }
   static getConfigFromPrompt(prompt = this.currentPrompt){
+
     if (!(prompt in this.prompts)) {
       return undefined
     }
     let promptConfig = this.prompts[prompt]
+  try {
     // MNUtil.copyJSON(promptConfig)
     let promptModel = promptConfig.model
     let config
@@ -12231,6 +12625,10 @@ static modelsWithoutVisionPatterns = [
       config.toolbarAction = promptConfig.toolbarAction
     }
     return config
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "getConfigFromPrompt: "+prompt,promptConfig)
+      return undefined
+    }
   }
   static getDynmaicConfig(){
     // let promptConfig = this.dynamicPrompt
@@ -12253,6 +12651,7 @@ static modelsWithoutVisionPatterns = [
     }
     // chatAIUtils.log("getDynmaicConfig", config)
     return config
+
   }
   /**
    * 
@@ -12430,21 +12829,29 @@ static modelsWithoutVisionPatterns = [
     let res = await chatAINetwork.uploadWebDAVFile(url, Authorization.user, Authorization.password, encodedText)
     // await this.uploadConfigToWebdav(encodedText, fileName,Authorization)
   }
-  static async uploadConfigWithEncryptionToAlist(config,alert = true){
-    let id = MNUtil.UUID()
+  static async uploadConfigWithEncryptionToAlist(config){
     let key = subscriptionConfig.APIKey
+    if (!key) {
+      return {success:false,error:"No APIKey"}
+    }
     let text = typeof config === "string" ? config : JSON.stringify(config)
+    let md5 = MNUtil.MD5(text)
+    if (md5 === this.preChatDataId) {//不重复上传
+      chatAIUtils.log("聊天内容未改变，不重复上传", md5)
+      return {success:true,id:md5}
+    }
     let encodedText = chatAIUtils.xorEncryptDecrypt(text, key)
     if (!encodedText) {
       return {success:false,error:"Encrypt failed"}
     }
-    let url = "https://cdn.u1162561.nyat.app:43836/dav/dl123/chatAIConfig/"+id
+    let url = "https://cdn.u1162561.nyat.app:43836/dav/dl123/chatAIConfig/"+md5
     let Authorization = {
       user:"chat",
       password:"chat"
     }
     let res = await chatAINetwork.uploadWebDAVFile(url, Authorization.user, Authorization.password, encodedText)
-    return {success:true,res:res,id:id}
+    this.preChatDataId = md5
+    return {success:true,res:res,id:md5}
     // await this.uploadConfigToWebdav(encodedText, fileName,Authorization)
   }
   static async readEncryptedConfigFrom123(id){
@@ -12513,6 +12920,8 @@ static modelsWithoutVisionPatterns = [
  * @param {{name:String,path:String,md5:String}} fileObject
  */
 static async getFileIdFromMoonshot (fileObject){
+try {
+
   let fileMd5 = fileObject.md5
   if (this.fileId[fileMd5]) {
     return this.fileId[fileMd5]
@@ -12531,7 +12940,13 @@ static async getFileIdFromMoonshot (fileObject){
       MNUtil.delay(1).then(()=>{
         MNUtil.stopHUD()
       })
-      let newError = new Error("Upload file failed: "+res.data.error.message);
+      let errorMessage = res.data.error.message ?? "Unknown error"
+      let errorType = res.data?.error?.type
+      if (errorType = "exceeded_current_quota_error") {
+        await MNUtil.confirm("🤖 MN ChatAI","Quota exceeded for Moonshot, please recharge\n\nMoonshot额度已用尽，请充值")
+        return undefined
+      }
+      let newError = new Error("Upload file failed: "+errorMessage);
       newError.detail = res
       throw newError;
     }
@@ -12549,6 +12964,11 @@ static async getFileIdFromMoonshot (fileObject){
   this.fileId[fileMd5] = fileId
   this.save("MNChatglm_fileId")
   return fileId
+  
+} catch (error) {
+  chatAIUtils.addErrorLog(error, "getFileIdFromMoonshot")
+  return undefined
+}
 }
 /**
  * @param {{name:String,path:String,md5:String}} fileObject
@@ -12751,13 +13171,8 @@ static async getFileContent(fileObject,local = false){
     if (!fileInfo) {
         let confirm = await MNUtil.confirm("🤖 MN ChatAI","❌ Moonshot Extraction Failed! Do you want to retry with local extraction?\n\nMoonshot文档内容抽取失败，是否使用本地解析重试？")
         if (!confirm) {
-          // 如果用户选择不重新获取，则返回空内容
-          return {
-            content:"",
-            file_type: "application/pdf",
-            type: "file",
-            filename: fileObject.name,
-          }
+          // 如果用户选择不重新获取，则返回undefined
+          return undefined
         }
         return await this.getFileContentFromLocal(fileObject)
     }
@@ -13115,9 +13530,14 @@ Image Text Extraction Specialist
     }
     let res = await this.fetch(url,option)
     if ("statusCode" in res && res.statusCode >= 400) {
-      url = `https://alist.feliks.top/d/cdn/new-api/model.json`
+      url = `https://cdn.u1162561.nyat.app:43836/d/cdn/mnaddonStore/model.json`
       res = await this.fetch(url,option)
     }
+    if ("statusCode" in res && res.statusCode >= 400) {
+      url = `https://qiniu.feliks.top/model.json`
+      res = await this.fetch(url,option)
+    }
+    
     if ("statusCode" in res && res.statusCode >= 400) {
       return undefined
     }
@@ -13173,9 +13593,14 @@ Image Text Extraction Specialist
     let res = await this.fetch(url,option)
     // MNUtil.log({message:"fetchKeys",detail:res})
     if ("statusCode" in res && res.statusCode >= 400) {
-      url = `https://alist.feliks.top/d/cdn/new-api/model.json`
+      url = `https://cdn.u1162561.nyat.app:43836/d/cdn/mnaddonStore/model.json`
       res = await this.fetch(url,option)
     }
+    if ("statusCode" in res && res.statusCode >= 400) {
+      url = `https://qiniu.feliks.top/model.json`
+      res = await this.fetch(url,option)
+    }
+    
     if ("statusCode" in res && res.statusCode >= 400) {
       // chatAIConfig.modelConfig = undefined
 

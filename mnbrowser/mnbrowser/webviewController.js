@@ -1212,12 +1212,14 @@ try {
     if (res.button) {
       let input = res.input
       if (!input.startsWith("https://") || !input.endsWith(".png")) {
-        MNUtil.confirm("MN Browser", "Invalid icon URL\n\n请输入正确的图标URL\n\nURL must starts with https:// and ends with .png")
+        MNUtil.confirm("MN Browser", "Enter the custom icon URL\n\n请输入自定义图标URL\n\nURL must starts with https:// and ends with .png, .jpg or .jpeg")
         return
       }
-      let confirm = await MNUtil.confirm(" MN Browser", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
-      if (!confirm) {
-        return
+      if (!browserUtils.isSubscribed()) {//仅在未订阅时提醒
+        let confirm = await MNUtil.confirm(" MN Browser", "Invalid icon URL\n\n请输入正确的图标URL\n\nURL must starts with https:// and ends with .png, .jpg or .jpeg")
+        if (!confirm) {
+          return
+        }
       }
       if (!browserUtils.checkSubscribe(true)) {
         return

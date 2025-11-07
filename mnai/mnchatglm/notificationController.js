@@ -830,7 +830,8 @@ try {
         self.errorMessage = res
         if ("error" in res && "message" in res.error) {
           contentToShow = contentToShow+" "+res.error.message
-          message = self.parseErrorMessage(res.error.message)
+          let errorType = res.error?.type
+          message = self.parseErrorMessage(res.error.message,errorType)
           // if (res.error.message.startsWith("Insufficient Balance")) {
           //   message = "DeepSeek 额度不足，请充值"
           //   self.retried = true//没必要重试的情况
@@ -1020,15 +1021,24 @@ try {
  * @this {notificationController}
  * @returns 
  */
-notificationController.prototype.preCheck = function () {
+notificationController.prototype.preCheck = function (forceToExecute = false) {
   if (this.connection) {
-    this.showHUD("on output")
-    return false
+    if (forceToExecute) {
+      this.connection.cancel()
+      delete this.connection
+    }else{
+      this.showHUD("on output")
+      return false
+    }
   }
   if (this.notShow && !this.called) {
-    MNUtil.copy({notShow:this.notShow,called:this.called})
-    // MNUtil.showHUD("not show")
-    return false
+    if (forceToExecute) {
+      this.notShow = false
+    }else{
+      MNUtil.copy({notShow:this.notShow,called:this.called})
+      // MNUtil.showHUD("not show")
+      return false
+    }
   }
   // MNUtil.showHUD("preCheck")
   return chatAIUtils.preCheck(this.config)
@@ -1186,18 +1196,41 @@ notificationController.prototype.askWithDynamicPromptOnNote = async function (no
 }
 
 /** 
- * 通知窗口切换prompt时使用
+ * 通知窗口切换prompt时使用,后续可能都用这个来执行prompt,而不是ask
  * @this {notificationController} 
- * @param {String} prompt
+ * @param {String} promptKey
+ * @param {boolean} forceToExecute 是否强制执行，即无视当前是否有正在执行的prompt
  */
-notificationController.prototype.askWithPrompt = async function (prompt) {
+notificationController.prototype.askWithPrompt = async function (promptKey,forceToExecute = false) {
   try {
-    let config = chatAIConfig.getConfigFromPrompt(prompt)
+  this.dynamic = false
+  this.token = []
+  this.func = []
+  this.preFuncResponse = ""
+  if (MNNote.getFocusNote()) {
+    this.noteid = MNNote.getFocusNote().noteId
+  }
+  // chatAIUtils.cu
+  if (!this.preCheck(forceToExecute)) {
+    // MNUtil.showHUD("message")
+    return
+  }
+  let promptConfig = chatAIConfig.prompts[promptKey]
+  if (promptKey) {
+    this.currentPrompt = promptKey
+    this.currentTitle = promptConfig.title
+  }
+  if ("model" in promptConfig) {
+    this.currentModel = promptConfig.model
+  }else{
+    this.currentModel = "Default"
+  }
+    let config = chatAIConfig.getConfigFromPrompt(promptKey)
     if (!config) {
-      MNUtil.showHUD("No config for prompt: "+prompt)
+      MNUtil.showHUD("No config for prompt: "+promptKey)
       return
     }
-    let question = await chatAIUtils.chatController.getQuestion(prompt)
+    let question = await chatAIUtils.chatController.getQuestion(promptKey)
     if (!question) {
       return
     }
@@ -1207,7 +1240,6 @@ notificationController.prototype.askWithPrompt = async function (prompt) {
   } catch (error) {
     chatAIUtils.addErrorLog(error, "askWithPrompt")
     throw error;
-    
   }
 }
 /**
@@ -1547,6 +1579,19 @@ try {
     // MNUtil.log({message:"executeFunctionByAI",detail:this.func})
     // await MNUtil.delay(0.5)
     this.funcResponses = await Promise.all(this.func.map(func=> this.executeFunctionByAI(func)))
+    let funcNames = this.func.map(func=>func.function.name)
+    if (funcNames.includes("executePrompt")) {
+      let func = this.func.find(func=>func.function.name === "executePrompt")
+      let args = MNUtil.getValidJSON(func.function.arguments)
+      chatAIUtils.log("executePrompt",args)
+      this.setButtonOpacity(1.0)
+      chatAIUtils.ask({promptKey:args.prompt,instruction:args.instruction,forceToExecute:true},false)
+      this.called = false
+      this.onFinish = false
+      return
+    }
+
+
     this.funcResponse = this.funcResponses.join("")
     // MNUtil.showHUD("123")
     // this.history.push(chatAIUtils.genAssistantMessage(undefined,this.func))
@@ -1559,7 +1604,7 @@ try {
     this.preFuncResponse = this.preFuncResponse+this.funcResponse
     this.preResponse = this.response.trim()
     // copy(this.preFuncResponse)
-    if (this.func.map(func=>func.function.name).includes("close")) {
+    if (funcNames.includes("close")) {
       // await this.delay(0.5)
       // MNUtil.showHUD("close")
       await this.hide()
@@ -1594,7 +1639,7 @@ try {
     this.preFuncResponse = ""
     // chatAIUtils.log("executeFinishAction", this.actions)
     if (this.actions.length) {
-      let validAction = this.actions.filter(action=> action <= 19)
+      let validAction = this.actions.filter(action=> action <= 20)
       if (validAction.length) {
         await this.executeFinishAction(validAction,this.lastResponse)
       }
@@ -2660,7 +2705,7 @@ notificationController.prototype.executeFinishAction = async function (actionInd
   // }else{
   //   note = chatAIUtils.getFocusNote()
   // }
-  var actions = ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","addChildNote","clearExcerpt","setExcerpt","snipasteHTML","addBrotherNote","appendBlankComment","appendTitle","appendExcerpt","snipasteText","markdown2Mindmap","openChat","enableExcerptMarkdown","disableExcerptMarkdown"];
+  var actions = ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","addChildNote","clearExcerpt","setExcerpt","snipasteHTML","addBrotherNote","appendBlankComment","appendTitle","appendExcerpt","snipasteText","markdown2Mindmap","openChat","enableExcerptMarkdown","disableExcerptMarkdown","saveToChatHistory"];
   chatAIUtils.log("executeFinishAction", actionIndices.map(index=>actions[index]).join(", "))
   MNUtil.undoGrouping(()=>{
     actionIndices.forEach(async (index)=>{
@@ -3115,6 +3160,39 @@ try {
         await chatAIUtils.openSideOutput()
         chatAIUtils.sideOutputController.openChatView(config)
         return;
+      case "saveToChatHistory":
+        if (chatAIUtils.isSideOutputCreated()) {
+          let config = {
+            token:this.token,
+            history:this.history,
+            config:this.config,
+            currentModel:this.currentModel,
+            preFuncResponse:this.preFuncResponse,
+            lastResponse:this.lastResponse,
+            funcIndices:this.funcIndices,
+            prompt:this.currentPrompt,
+            reasoningResponse:this.reasoningResponse
+          }
+          //聊天窗口已启动，直接添加到历史记录，并自动成为最新聊天
+          chatAIUtils.sideOutputController.openChatView(config)
+          chatAIUtils.log("saveToChatHistory")
+        }else{
+          let config = {
+            token:this.token,
+            history:this.history,
+            config:this.config,
+            currentModel:this.currentModel,
+            preFuncResponse:this.preFuncResponse,
+            lastResponse:this.lastResponse,
+            funcIndices:this.funcIndices,
+            prompt:this.currentPrompt,
+            reasoningResponse:this.reasoningResponse
+          }
+          //聊天窗口没启动，直接保存到本地
+          chatAIConfig.addToChatHistory(config)
+          chatAIUtils.log("saveToChatHistory")
+        }
+        return;
       case "bigbang":
         if (note) {
           MNUtil.postNotification("bigbangText",{text:text,noteid:note.noteId,url:note.noteURL})
@@ -3379,15 +3457,8 @@ notificationController.prototype.executeToolbarAction = async function (actionKe
     self.showHUD("Missing action")
     return
   }
-  MNUtil.log({message:"executeToolbarAction",source:"MN ChatAI",detail:actionDes})
-  await toolbarUtils.customActionByDes(actionDes,button,undefined,false)
-  while ("onFinish" in actionDes) {
-    let delay = actionDes.delay ?? 0.5
-    actionDes = actionDes.onFinish
-    await MNUtil.delay(delay)
-    await toolbarUtils.customActionByDes(actionDes,button,undefined,false)
-  }
-
+  // MNUtil.log({message:"executeToolbarAction",source:"MN ChatAI",detail:actionDes})
+  await chatAIUtils._executeToolbarAction(actionDes,button)
 }
 /**
  * @this {notificationController}
@@ -3781,7 +3852,7 @@ notificationController.prototype.updateHeight = async function () {
     this.scrollBottom()
   }
 }
-notificationController.prototype.parseErrorMessage = function (errorMessage) {
+notificationController.prototype.parseErrorMessage = function (errorMessage,errorType) {
   let message = ""
           if (errorMessage.startsWith("Insufficient Balance")) {
             message = "DeepSeek 额度不足，请充值"
@@ -3818,6 +3889,11 @@ notificationController.prototype.parseErrorMessage = function (errorMessage) {
             }else{
               message = "该令牌额度已用尽"
             }
+            this.retried = true//没必要重试的情况
+            return message
+          }
+          if (errorType && errorType === "exceeded_current_quota_error") {
+            message = "Moonshot额度已用尽，请充值"
             this.retried = true//没必要重试的情况
             return message
           }

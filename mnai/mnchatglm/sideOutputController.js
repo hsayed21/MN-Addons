@@ -208,14 +208,16 @@ try {
           return;
         }
         self.waitHUD("Exporting history...")
-        let text = MNUtil.readText(dataPath)
-        let res = await chatAIConfig.uploadConfigWithEncryptionToAlist(text)
-        if (res.success) {
-          MNUtil.copy(res.id)
+        let info = await chatAIConfig.getChatDataInfo()
+        // let text = MNUtil.readText(dataPath)
+        // let res = await chatAIConfig.uploadConfigWithEncryptionToAlist(text)
+        if (info.success) {
+          MNUtil.copy(info.id)
           MNUtil.stopHUD()
-          MNUtil.confirm("🤖 MN ChatAI","Export success! ChatID copied to clipboard.\n导出成功！ChatID已复制到剪贴板.\n\n"+res.id)
+          MNUtil.confirm("🤖 MN ChatAI","Export success! ChatID copied to clipboard.\n导出成功！ChatID已复制到剪贴板.\n\n"+info.id)
+          chatAIUtils.log("exportHistory", info)
         }else{
-          self.showHUD("Export failed: "+res.error)
+          self.showHUD("Export failed: "+info.error)
         }
         break;
       default:
@@ -2389,6 +2391,40 @@ sideOutputController.prototype.codifyToolCall = function (funcName,arguments) {
 }
 /** 
  * @this {sideOutputController}
+ * @param {Object} config 
+ * @returns {boolean} true if successful, false otherwise
+ */
+sideOutputController.prototype.addToChatHistory = function (config) {
+  try {
+      let newData = {data:config.history}
+      if (config.funcIndices && config.funcIndices.length) {
+        newData.funcIdxs = config.funcIndices
+      }
+      if (config.currentPrompt && config.currentPrompt !== "Dynamic") {
+        newData.name = chatAIConfig.prompts[config.currentPrompt].title
+      }else{
+        let firstUser = config.history.find(item=>item.role === "user")
+        if (typeof firstUser.content === "string") {
+          newData.name = firstUser.content.slice(0,10)
+        }else{
+          newData.name = firstUser.content.find(item=>item.type = "text").text.slice(0,10)
+        }
+      }
+      if (config.temperature !== undefined) {
+        newData.temperature = config.temperature
+      }
+      newData.model = config.currentModel
+      newData.token = config.token
+      newData.id = MNUtil.UUID()
+      this.importData(newData)
+    return true
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "addToChatHistory")
+    return false
+  }
+}
+/** 
+ * @this {sideOutputController}
  */
 sideOutputController.prototype.openChatView = async function (params=undefined) {
     if (this.connection) {
@@ -2416,39 +2452,40 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
         this.currentPrompt = params.prompt
       }
       if (this.chatWebview) {
-        let newData = {data:this.history}
-        if (this.funcIndices && this.funcIndices.length) {
-          newData.funcIdxs = this.funcIndices
-        }
-        if (this.currentPrompt && this.currentPrompt !== "Dynamic") {
-          newData.name = chatAIConfig.prompts[this.currentPrompt].title
-        }else{
-          let firstUser = this.history.find(item=>item.role === "user")
-          if (typeof firstUser.content === "string") {
-            newData.name = firstUser.content.slice(0,10)
-          }else{
-            newData.name = firstUser.content.find(item=>item.type = "text").text.slice(0,10)
-          }
-        }
-        if (this.temperature !== undefined) {
-          newData.temperature = this.temperature
-        }
-        if (this.preFilledUserInput) {
-          this.setInput(this.preFilledUserInput)
-          // this.userInput.text = this.preFilledUserInput
-          this.preFilledUserInput = undefined
-        }
-        newData.model = params.currentModel
-        newData.token = params.token
-        // if (this.config) {
-        //   if (this.config.model) {
-        //     newData.model = this.config.model
-        //   }
-        //   if (this.config.source) {
-        //     newData.source = this.config.source
+        this.addToChatHistory(params)
+        // let newData = {data:this.history}
+        // if (this.funcIndices && this.funcIndices.length) {
+        //   newData.funcIdxs = this.funcIndices
+        // }
+        // if (this.currentPrompt && this.currentPrompt !== "Dynamic") {
+        //   newData.name = chatAIConfig.prompts[this.currentPrompt].title
+        // }else{
+        //   let firstUser = this.history.find(item=>item.role === "user")
+        //   if (typeof firstUser.content === "string") {
+        //     newData.name = firstUser.content.slice(0,10)
+        //   }else{
+        //     newData.name = firstUser.content.find(item=>item.type = "text").text.slice(0,10)
         //   }
         // }
-        this.importData(newData)
+        // if (this.temperature !== undefined) {
+        //   newData.temperature = this.temperature
+        // }
+        // if (this.preFilledUserInput) {
+        //   this.setInput(this.preFilledUserInput)
+        //   // this.userInput.text = this.preFilledUserInput
+        //   this.preFilledUserInput = undefined
+        // }
+        // newData.model = params.currentModel
+        // newData.token = params.token
+        // // if (this.config) {
+        // //   if (this.config.model) {
+        // //     newData.model = this.config.model
+        // //   }
+        // //   if (this.config.source) {
+        // //     newData.source = this.config.source
+        // //   }
+        // // }
+        // this.importData(newData)
       }
     }
  
@@ -2860,6 +2897,7 @@ try {
       if ("token" in newChatData) {
         this.addTokenByKey(newChatData.token)
       }
+      //保存到chatData.json
       chatAIConfig.exportChatData(data)
     }else{
       let chatsData = data.chats

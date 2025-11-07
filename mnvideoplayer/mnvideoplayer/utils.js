@@ -1,18 +1,6 @@
-class MNFrame{
-  /**
-   * 
-   * @param {UIView} view 
-   * @param {number} x 
-   * @param {number} y 
-   * @param {number} width 
-   * @param {number} height 
-   */
-  static set(view,x,y,width,height){
-    view.frame = MNUtil.genFrame(x, y, width, height)
-  }
-}
-class browserUtils {
+class videoPlayerUtils {
   static errorLog = []
+  static videoConfig = {}
   static init(mainPath){
     this.mainPath = mainPath
     this.screenImage = MNUtil.getImage(mainPath + `/screen.png`)
@@ -25,6 +13,7 @@ class browserUtils {
     this.webappImage = MNUtil.getImage(mainPath + `/webapp.png`)
     this.moreImage = MNUtil.getImage(mainPath + `/more.png`,2.5)
   }
+
   // static cdn = {
   //   "html2canvas":"https://vip.123pan.cn/1836303614/dl/cdn/html2canvas.js",
   //   "win11":"https://vip.123pan.cn/1836303614/dl/win11.jpg",
@@ -32,58 +21,31 @@ class browserUtils {
   //   "search":"https://vip.123pan.cn/1836303614/dl/icon/search.png",
   // }
   static cdn = {
-    "html2canvas":"https://cdn.u1162561.nyat.app:43836/d/cdn/js/html2canvas.js",
-    "win11":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/win11.jpg",
-    "webapp":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/webapp.png",
-    "search":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/search.png",
-    "setting":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/settings.png",
-    "www.bilibili.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/bilibili.png",
-    "www.notion.so":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/notion.png",
-    "pan.baidu.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/baidupan.png",
-    "docs.craft.do":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/craft.png",
-    "www.doubao.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/doubao.png",
-    "chat.deepseek.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/deepseek.png",
-    "chat.qwen.ai":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/qwen.png",
-    "www.wolai.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/wolai.png",
-    "www.yinian.pro":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/yinian.png",
-    "yuanbao.tencent.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/yuanbao.png",
-    "ima.qq.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/ima.png",
-    "flowus.cn":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/flowus.png",
-    "www.kimi.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/kimi.png",
-    "chat.z.ai":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/zai.png",
-    "v.flomoapp.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/flomo.png",
-    "www.xiaohongshu.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/rednote.png",
-    "doc2x.noedgeai.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/doc2x.png",
-    "www.jianguoyun.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/nutstore.png",
-    "boardmix.cn":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/boardmix.png",
-    "fireflycard.shushiai.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/fireflyCard.png"
-  }
-  static cdnBackup = {
     "html2canvas":"https://alist.feliks.top/d/cdn/js/html2canvas.js",
-    "win11":"https://qiniu.feliks.top/icon/win11.jpg",
-    "webapp":"https://qiniu.feliks.top/icon/webapp.png",
-    "search":"https://qiniu.feliks.top/icon/search.png",
-    "setting":"https://qiniu.feliks.top/icon/settings.png",
-    "www.bilibili.com":"https://qiniu.feliks.top/icon/bilibili.png",
-    "www.notion.so":"https://qiniu.feliks.top/icon/notion.png",
-    "pan.baidu.com":"https://qiniu.feliks.top/icon/baidupan.png",
-    "docs.craft.do":"https://qiniu.feliks.top/icon/craft.png",
-    "www.doubao.com":"https://qiniu.feliks.top/icon/doubao.png",
-    "chat.deepseek.com":"https://qiniu.feliks.top/icon/deepseek.png",
-    "chat.qwen.ai":"https://qiniu.feliks.top/icon/qwen.png",
-    "www.wolai.com":"https://qiniu.feliks.top/icon/wolai.png",
-    "www.yinian.pro":"https://qiniu.feliks.top/icon/yinian.png",
-    "yuanbao.tencent.com":"https://qiniu.feliks.top/icon/yuanbao.png",
-    "ima.qq.com":"https://qiniu.feliks.top/icon/ima.png",
-    "flowus.cn":"https://qiniu.feliks.top/icon/flowus.png",
-    "www.kimi.com":"https://qiniu.feliks.top/icon/kimi.png",
-    "chat.z.ai":"https://qiniu.feliks.top/icon/zai.png",
-    "v.flomoapp.com":"https://qiniu.feliks.top/icon/flomo.png",
-    "www.xiaohongshu.com":"https://qiniu.feliks.top/icon/rednote.png",
-    "doc2x.noedgeai.com":"https://qiniu.feliks.top/icon/doc2x.png",
-    "www.jianguoyun.com":"https://qiniu.feliks.top/icon/nutstore.png",
-    "boardmix.cn":"https://qiniu.feliks.top/icon/boardmix.png",
-    "fireflycard.shushiai.com":"https://qiniu.feliks.top/icon/fireflyCard.png"
+    "win11":"https://alist.feliks.top/d/cdn/icon/win11.jpg",
+    "webapp":"https://alist.feliks.top/d/cdn/icon/webapp.png",
+    "search":"https://alist.feliks.top/d/cdn/icon/search.png",
+    "setting":"https://alist.feliks.top/d/cdn/icon/settings.png",
+    "www.bilibili.com":"https://alist.feliks.top/d/cdn/icon/bilibili.png",
+    "www.notion.so":"https://alist.feliks.top/d/cdn/icon/notion.png",
+    "pan.baidu.com":"https://alist.feliks.top/d/cdn/icon/baidupan.png",
+    "docs.craft.do":"https://alist.feliks.top/d/cdn/icon/craft.png",
+    "www.doubao.com":"https://alist.feliks.top/d/cdn/icon/doubao.png",
+    "chat.deepseek.com":"https://alist.feliks.top/d/cdn/icon/deepseek.png",
+    "chat.qwen.ai":"https://alist.feliks.top/d/cdn/icon/qwen.png",
+    "www.wolai.com":"https://alist.feliks.top/d/cdn/icon/wolai.png",
+    "www.yinian.pro":"https://alist.feliks.top/d/cdn/icon/yinian.png",
+    "yuanbao.tencent.com":"https://alist.feliks.top/d/cdn/icon/yuanbao.png",
+    "ima.qq.com":"https://alist.feliks.top/d/cdn/icon/ima.png",
+    "flowus.cn":"https://alist.feliks.top/d/cdn/icon/flowus.png",
+    "www.kimi.com":"https://alist.feliks.top/d/cdn/icon/kimi.png",
+    "chat.z.ai":"https://alist.feliks.top/d/cdn/icon/zai.png",
+    "v.flomoapp.com":"https://alist.feliks.top/d/cdn/icon/flomo.png",
+    "www.xiaohongshu.com":"https://alist.feliks.top/d/cdn/icon/rednote.png",
+    "doc2x.noedgeai.com":"https://alist.feliks.top/d/cdn/icon/doc2x.png",
+    "www.jianguoyun.com":"https://alist.feliks.top/d/cdn/icon/nutstore.png",
+    "boardmix.cn":"https://alist.feliks.top/d/cdn/icon/boardmix.png",
+    "fireflycard.shushiai.com":"https://alist.feliks.top/d/cdn/icon/fireflyCard.png"
   }
   /**
    * 
@@ -156,7 +118,7 @@ static getBase64UrlFileType(base64Url) {
     let extensionFolder = this.getExtensionFolder(fullPath)
     let folderExist = NSFileManager.defaultManager().fileExistsAtPath(extensionFolder+"/marginnote.extension.mnutils/main.js")
     if (!folderExist) {
-      this.showHUD("MN Browser: Please install 'MN Utils' first!",5)
+      this.showHUD("MN Video Player: Please install 'MN Utils' first!",5)
     }
     return folderExist
   }
@@ -167,12 +129,12 @@ static getBase64UrlFileType(base64Url) {
       await this.delay(delay)
       if (typeof MNUtil === 'undefined') {
         if (alert) {
-          let res = await this.confirm("MN Browser:", "Install 'MN Utils' first\n\n请先安装'MN Utils'",["Cancel","Open URL"])
+          let res = await this.confirm("MN Video Player:", "Install 'MN Utils' first\n\n请先安装'MN Utils'",["Cancel","Open URL"])
           if (res) {
             this.openURL("https://bbs.marginnote.com.cn/t/topic/49699")
           }
         }else{
-          this.showHUD("MN Browser: Please install 'MN Utils' first!",5)
+          this.showHUD("MN Video Player: Please install 'MN Utils' first!",5)
         }
         return false
       }
@@ -262,16 +224,6 @@ static getBase64UrlFileType(base64Url) {
     }
     return false
   }
-  static isSubscribed(msg = true){
-    if (typeof subscriptionConfig !== 'undefined') {
-      return subscriptionConfig.isSubscribed()
-    }else{
-      if (msg) {
-        this.showHUD("Please install 'MN Utils' first!")
-      }
-      return false
-    }
-  }
   /**
    * count为true代表本次check会消耗一次免费额度（如果当天未订阅），如果为false则表示只要当天免费额度没用完，check就会返回true
    * 开启ignoreFree则代表本次check只会看是否订阅，不管是否还有免费额度
@@ -299,7 +251,7 @@ static getBase64UrlFileType(base64Url) {
   }
   static checkLogo(){
     if (typeof MNUtil === 'undefined') return false
-    if (typeof toolbarConfig !== 'undefined' && toolbarConfig.addonLogos && ("MNBrowser" in toolbarConfig.addonLogos) && !toolbarConfig.addonLogos["MNBrowser"]) {
+    if (typeof toolbarConfig !== 'undefined' && toolbarConfig.addonLogos && ("MNVideoPlayer" in toolbarConfig.addonLogos) && !toolbarConfig.addonLogos["MNVideoPlayer"]) {
         return false
     }
     return true
@@ -383,9 +335,119 @@ static getBase64UrlFileType(base64Url) {
     return imageData
     
   } catch (error) {
-    browserUtils.addErrorLog(error, "getCurrentImage")
+    videoPlayerUtils.addErrorLog(error, "getCurrentImage")
     return undefined;
   }
+  }
+  /**
+   * 
+   * @param {string} url
+   * @returns 
+   */
+  static async readConfigFromURL(url){
+    try {
+
+      let text = await MNConnection.fetch(url, {
+        method: 'GET',
+        headers:{
+          "Cache-Control": "no-cache"
+        }
+      })
+      if (typeof text === "object") {
+        return text
+      }
+      return JSON.parse(text)
+
+    } catch (error) {
+      this.addErrorLog(error, "readConfigFromURL")
+      return undefined
+    }
+  }
+  static async getVideoConfig(){
+    //暂时使用本地配置
+    let config = MNUtil.readJSON(videoPlayerUtils.mainPath + '/videoConfig.json')
+    // let url = "https://cdn.u1162561.nyat.app:43836/d/cdn/videoConfig.json"
+    // let config = await this.readConfigFromURL(url)
+    let collections = config.collections
+    let collectionIds = Object.keys(collections)
+    for (let i = 0; i < collectionIds.length; i++) {
+      let collectionId = collectionIds[i]
+      let collection = collections[collectionId]
+      collection.cover = videoPlayerConfig.baseURL + collection.cover
+      collections[collectionId] = collection
+    }
+    config.collections = collections
+    if (config) {
+      this._videoConfig = config
+    }
+    return config
+  }
+  static hasVideoConfig(){
+    return this._videoConfig && Object.keys(this._videoConfig.videos).length > 0
+  }
+  static get videos(){
+    return this._videoConfig.videos
+  }
+  static get collections(){
+    return this._videoConfig.collections
+  }
+  /**
+   * 
+   * @param {string} id 
+   * @returns {{id:string,title:string,url:string,cover:string,videoId:string}}
+   */
+  static _getVideoInfoById(id){
+  try {
+
+    if (this.hasVideoConfig()) {
+      let videoInfo = this.videos[id]
+      return {...videoInfo}
+    }
+    return undefined
+    
+  } catch (error) {
+    this.addErrorLog(error, "_getVideoInfoById")
+    return undefined
+  }
+  }
+  /**
+   * 
+   * @param {string} id 
+   * @returns {{id:string,title:string,url:string,cover:string,videoId:string}}
+   */
+  static getVideoInfoById(id){
+  try {
+    let videoInfo = this._getVideoInfoById(id)
+    if (videoInfo && Object.keys(videoInfo).length > 0) {
+      videoPlayerUtils.log("getVideoInfoById", videoInfo)
+      if (!videoInfo.url.startsWith("http")) {
+        let url = videoPlayerConfig.baseURL+videoInfo.url
+        videoInfo.url = url
+      }
+      return videoInfo
+    }else{
+      videoPlayerUtils.log("id not found: " + id)
+      MNUtil.copy(id)
+    }
+    return undefined
+    
+  } catch (error) {
+    this.addErrorLog(error, "getVideoInfoById")
+    return undefined
+  }
+  }
+  static getAllVideosInfoByCollectionId(id){
+    if (this.hasVideoConfig()) {
+      let collectionInfo = this.collections[id]
+      return collectionInfo.videos.map(videoId => this.getVideoInfoById(videoId))
+    }
+    return undefined
+  }
+  static getCollectionInfoById(id){
+    if (this.hasVideoConfig()) {
+      return this.collections[id]
+    }
+    return undefined
   }
 static getSubFuncScript(){
 
@@ -455,7 +517,7 @@ function generateUrlScheme(scheme, host, path, query, fragment) {
      * @param {string} [host] - 可选的路径或操作名。
      * @param {Object<string, string|number|boolean>} [params] - 查询参数对象。
      */
-    function postMessageToAddon(scheme, host, path, params,fragment) {
+postMessageToAddon(scheme, host, path, params,fragment) {
       let url = generateUrlScheme(scheme,host,path, params,fragment)
       window.location.href = url
     }
@@ -742,12 +804,12 @@ function calculateMaxScale() {
   }
   }
   static addErrorLog(error,source,info){
-    MNUtil.showHUD("MN Browser Error ("+source+"): "+error)
+    MNUtil.showHUD("MN Video Player Error ("+source+"): "+error)
     let log = {
       error:error.toString(),
       source:source,
       time:(new Date(Date.now())).toString(),
-      mnaddon:"MN Browser"
+      mnaddon:"MN Video Player"
     }
     if (info) {
       log.info = info
@@ -756,7 +818,7 @@ function calculateMaxScale() {
     MNUtil.copy(this.errorLog)
     if (typeof MNUtil.log !== 'undefined') {
       MNUtil.log({
-        source:"MN Browser",
+        source:"MN Video Player",
         level:"error",
         message:source,
         detail:log,
@@ -827,7 +889,7 @@ function calculateMaxScale() {
     }
   }
   static getTextForSearch (note) {
-    let order = browserConfig.searchOrder
+    let order = videoPlayerConfig.searchOrder
     if (!order) {
       order = [2,1,3]
     }
@@ -914,8 +976,28 @@ static extractBilibiliLinks(markdownText) {
 
   return results;
 }
+static extractVideoLinks(markdownText) {
+  // if (!this.checkSubscribe(true)) {
+  //   return undefined
+  // }
+  // 正则表达式匹配以 "marginnote4app://addon/VideoExcerpt?videoId=" 开头的链接
+  const regex = /marginnote4app:\/\/addon\/VideoExcerpt\?videoId=([^&\s)]+)(?:&t=([\d.]+))?/g;
+
+  const results = [];
+  let match;
+
+  // 循环匹配所有符合条件的链接
+  while ((match = regex.exec(markdownText)) !== null) {
+    const videoId = match[1]; // 提取 videoId
+    const t = match[2] ? parseFloat(match[2]) : null; // 提取 t 并转换为数字，如果不存在则为 null
+
+    results.push({ videoId, t});
+  }
+
+  return results;
+}
   static videoInfo2MD(videoFrameInfo){
-    if ("bv" in videoFrameInfo) {
+    if ("videoId" in videoFrameInfo) {
       let timeStamp = this.videoTime2MD(videoFrameInfo)
       return `![image.png](${videoFrameInfo.image})\n${timeStamp}`
       
@@ -923,28 +1005,13 @@ static extractBilibiliLinks(markdownText) {
       return `![image.png](${videoFrameInfo.image})`
     }
   }
-  static genBilibiliExcerptLink(videoFrameInfo){
-    if ("p" in videoFrameInfo && videoFrameInfo.p) {
-      return `marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}&p=${videoFrameInfo.p}`
-    }else{
-      return `marginnote4app://addon/BilibiliExcerpt?videoId=${videoFrameInfo.bv}&t=${videoFrameInfo.time}`
-    }
+  static genVideoExcerptLink(videoFrameInfo){
+    return `marginnote4app://addon/VideoExcerpt?videoId=${videoFrameInfo.videoId}&t=${videoFrameInfo.time}`
   }
   static videoTime2MD(videoFrameInfo){
-    let link = this.genBilibiliExcerptLink(videoFrameInfo)
+    let link = this.genVideoExcerptLink(videoFrameInfo)
     let formatedVideoTime = this.formatSeconds(videoFrameInfo.time)
-    if ("p" in videoFrameInfo && videoFrameInfo.p) {
-      if (browserConfig.getConfig("timestampDetail")) {
-        return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv}-${videoFrameInfo.p})](${link})`
-      }else{
-        return `[${formatedVideoTime}](${link})`
-      }
-    }
-    if (browserConfig.getConfig("timestampDetail")) {
-      return `[\[${formatedVideoTime}\] (${videoFrameInfo.bv})](${link})`
-    }else{
-      return `[${formatedVideoTime}](${link})`
-    }
+    return `[${formatedVideoTime}](${link})`
   }
   static getTargetFrame(popupFrame,arrow){
     var x, y
@@ -1018,15 +1085,6 @@ static extractBilibiliLinks(markdownText) {
     if (url.includes("https://zhangyu1818.github.io/appicon-forge/")) {
       return true
     }
-    if (url.includes("https://feliks.rth1.xyz")) {
-      return true
-    }
-    if (url.includes("https://qiniu.feliks.top")) {
-      return true
-    }
-      if (url.includes("https://icons8.com")) {
-      return true
-    }
     return false
   }
   /**
@@ -1039,19 +1097,6 @@ static parseLink(url) {
         isPdfDownload: false,
         fileName: ''
     };
-    let config = MNUtil.parseURL(url)
-    let params = config.params
-    if (params.filename && params.filename.endsWith(".pdf")) {
-      result.fileName = params.filename
-      result.isPdfDownload = true
-      return result
-    }
-    // if (params.md5) {
-    //   result.md5 = params.md5
-    // }
-    // if (params.expires) {
-    //   result.expires = params.expires
-    // }
 
     // 检查是否是 PDF 文件的下载链接
     const isPdfRegex = /\.pdf(\?|$)/i;
@@ -1063,10 +1108,6 @@ static parseLink(url) {
     if (match && match[1]) {
         result.fileName = decodeURIComponent(match[1]);
     }
-    // MNUtil.log({
-    //   message:"parseLink",
-    //   detail:result
-    // })
 
     return result;
 }
@@ -1154,85 +1195,78 @@ static checkRedirect(requestURL){
     return info
 }
 
-static getWebJS(id) {
-  switch (id) {
-    case "updateDeeplOffset":
-      return `document.getElementsByClassName("page-header")[0].style.display='none';
-        document.getElementsByTagName("nav")[2].style.display='none';
-        document.querySelector('[data-layout-id="translatorTabList"]').style.display='none';
-        document.querySelector('[data-layout-id="mainSection"]').style.padding='0px';
-        `
-    case "updateThesaurusOffset":
-      return `document.getElementsByTagName("header")[0].style.display = "none"
-        document.getElementsByTagName("section")[0].style.display = "none"
-        document.getElementsByTagName("section")[6].style.display = "none"
-        document.getElementsByTagName("section")[7].style.display = "none"
-        document.getElementsByTagName("section")[8].style.display = "none"
-        document.getElementsByTagName("section")[9].style.display = "none"
-        document.getElementsByTagName("p")[5].style.display = "none"
-        document.getElementsByClassName("acw ac-widget-placeholder ac-reset")[0].style.display = "none"`
-    case "updateBaiduTranslateOffset":
-      return `document.querySelector('[class^="AppTopSwiper__root"]').style.display='none';`
-    case "updateBilibiliOffset":
-      return `
-      document.getElementsByClassName("v-popover-wrap")[0].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[1].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[2].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[3].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[4].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[5].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[6].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[8].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[10].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[11].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[13].style.display = "none";
-      document.getElementsByClassName("recommended-swipe grid-anchor")[0].style.display = "none";
-      `
-    default:
-      return ""
-  }
-}
   static log(message,detail){
-    MNUtil.log({message:message,detail:detail,source:"MN Browser"})
+    MNUtil.log({message:message,detail:detail,source:"MN Video Player"})
+  }
+  static btoa(str) {
+      // Encode the string to a WordArray
+      const wordArray = CryptoJS.enc.Utf8.parse(str);
+      // Convert the WordArray to Base64
+      const base64 = CryptoJS.enc.Base64.stringify(wordArray);
+      return base64;
+  }
+  static getWebdavConfig(config){
+      let url = (config.path === "/")?config.baseUrl:(config.baseUrl+config.path);
+      url = url.replace(/\/$/, '')+"/"+config.name
+      let res = {
+        Authorization:'Basic ' + this.btoa(config.username + ':' + config.password),
+        url:url
+      }
+      return res
+    }
+  static async uploadImageData(pdfData,fileName){
+    try {
+    // https://cdn.u1162561.nyat.app:43836/d/cdn/cover/00c28b6ac2070067780ee4089566f77d.jpeg
+      let config = {
+        path: "/cdn/cover",
+        name: fileName+".jpeg",
+        baseUrl: "https://cdn.u1162561.nyat.app:43836/dav",
+        username: "admin",
+        password: "linlifei"
+      }
+      let tem = this.getWebdavConfig(config)
+      const headers = {
+        Authorization:tem.Authorization,
+        "Cache-Control": "no-cache",
+        'Content-Type': "image/jpeg"
+      };
+      let body = NSMutableData.new()
+      body.appendData(pdfData)
+      // MNUtil.copy(tem)
+      const request = MNConnection.initRequest(tem.url, {
+          method: 'PUT',
+          headers: headers,
+          timeout: 3600
+      })
+      request.setHTTPBody(body)
+      let res = await MNConnection.sendRequest(request)
+      MNUtil.copy(res)
+      return res
+    } catch (error) {
+      this.addErrorLog(error, "uploadImageData")
+    }
   }
 
 }
-class browserConfig{
+class videoPlayerConfig{
+  static sourceConfig = {
+      "source1": "https://cdn.u1162561.nyat.app:43836/d/cdn",
+      "source2": "http://cn-hk-bgp-4.ofalias.net:62334/d/cdn",
+      "source3": "https://vip.123pan.cn/1836303614/video"
+  }
   static get defaultEntries(){
     return {
-      Bing:             { title: '🔍 Bing',           symbol: "🔍", engine: "Bing",     desktop:false, link: "https://www.bing.com/search?q=%s" },
-      Baidu:            { title: '🔍 Baidu',          symbol: "🔍", engine: "Baidu",    desktop:false, link: "https://www.baidu.com/s?wd=%s" },
-      Zhihu:            { title: '🔍 Zhihu',          symbol: "🔍", engine: "Zhihu",    desktop:false, link: "https://www.zhihu.com/search?type=content&q=%s" },
-      Google:           { title: '🔍 Google',         symbol: "🔍", engine: "Google",   desktop:false, link: "https://www.google.com/search?q=%s" },
-      BaiduTranslate:   { title: '📔 Baidu',          symbol: "📔", engine: "Baidu",    desktop:false, link: "https://fanyi.baidu.com/m/trans?from=en&to=zh&query=%s"},
-      Deepl:            { title: '📔 Deepl',          symbol: "📔", engine: "Deepl",    desktop:false, link: "https://www.deepl.com/translator#en/zh/%s" },
-      Youdao:           { title: '📔 Youdao',         symbol: "📔", engine: "Youdao",   desktop:false, link: "https://dict.youdao.com/m/result?word=%s&lang=en" },
-      GoogleTranslate:  { title: '📔 Google',         symbol: "📔", engine: "Google",   desktop:false, link: "https://translate.google.com/?sl=en&tl=zh-CN&text=%s&op=translate" },
-      Thesaurus:        { title: '📔 Thesaurus',      symbol: "📔", engine: "Thesaurus",desktop:false, link: "https://www.thesaurus.com/browse/%s" },
-      ChatGLM:          { title: '🤖 智谱清言',        symbol: "🤖", engine: "智谱清言",     desktop:false, link: "https://chatglm.cn/detail?from=apply" },
-      Yiyan:            { title: '🤖 文心一言',        symbol: "🤖", engine: "文心一言",     desktop:false, link: "https://yiyan.baidu.com/" },
-      ResearchGate:     { title: '🎓 ResearchGate',   symbol: "🎓", engine: "RG",       desktop:false, link: "https://www.researchgate.net/search.Search.html?query=%s" },
-      GoogleScholar:    { title: '🎓 Google Scholar', symbol: "🎓", engine: "Scholar",  desktop:false, link: "https://scholar.google.com/scholar?q=%s" }
+      Bing:             { title: '🔍 Bing',           symbol: "🔍", engine: "Bing",     desktop:false, link: "https://www.bing.com/search?q=%s" }
     }
   }
   static get defaultWebAppEntries(){
     return {
-      Bilibili:         { title: '📺 Bilibili',       symbol: "📺", engine: "Bilibili", desktop:true, link: "https://www.bilibili.com" },
-      Notion:           { title: '📝 Notion',         symbol: "📝", engine: "Notion",   desktop:false, link: "https://www.notion.so" },
-      Wolai:            { title: '📝 Wolai',          symbol: "📝", engine: "Wolai",    desktop:false, link: "https://www.wolai.com" },    
-      Craft:            { title: '📝 Craft',          symbol: "📝", engine: "Craft",    desktop:false, link: "https://docs.craft.do" },
-      Flomo:            { title: '📝 Flomo',          symbol: "📝", engine: "Flomo",    desktop:false, link: "https://v.flomoapp.com/mine" },
-      Flowus:           { title: '📝 Flowus',         symbol: "📝", engine: "Flowus",   desktop:false, link: "https://flowus.cn" },
-      Yinian:           { title: '📝 Yinian',         symbol: "📝", engine: "Yinian",   desktop:true, link: "https://www.yinian.pro/note/" },
-      Baiduyun:         { title: '☁️ Baiduyun',        symbol: "☁️", engine: "Baidu",    desktop:true, link: "https://pan.baidu.com/disk/main#/index?category=all" },
+      Example:         { title: 'Example',      id: "6b5b1286e3bcfae7224d01fe425a20d1", time:0 }
     }
   }
   static onSync = false
   static get allCustomActions(){
     return [
-        "openNewWindow",
-        "openInNewWindow",
-        "screenshot",
         "videoFrame2Clipboard",
         "videoFrame2Editor",
         "videoFrame2Note",
@@ -1246,7 +1280,6 @@ class browserConfig{
         "videoTime2ChildNote",
         "videoTimeToNewNote",
         "videoTimeToComment",
-        "changeBilibiliVideoPart",
         "pauseOrPlay",
         "play0.5x",
         "play1.25x",
@@ -1263,14 +1296,7 @@ class browserConfig{
         "forward30s",
         "backward10s",
         "backward15s",
-        "backward30s",
-        "bigbang",
-        "copyCurrentURL",
-        "copyAsMDLink",
-        "openCopiedURL",
-        "uploadPDF",
-        "uploadPDFToDoc2X",
-        "uploadImageToDoc2X"
+        "backward30s"
       ]
   }
   static getCustomEmojiByAction(action){
@@ -1404,28 +1430,25 @@ class browserConfig{
   }
   static get defaultConfig(){
     return{
+      baseURL: "https://cdn.u1162561.nyat.app:43836/d/cdn",
       syncNoteId: "",
       autoExport:false,
       autoImport:false,
       autoExitWatchMode:true,
       lastSyncTime:0,
       modifiedTime:0,
-      custom:"screenshot",
-      custom2:"copyCurrentURL",
-      custom3:"bigbang",
-      custom4:"openNewWindow",
-      custom5:"openCopiedURL",
-      custom6:"videoFrame2Clipboard",
-      custom7:"videoFrame2Note",
-      custom8:"videoFrame2ChildNote",
-      custom9:"videoFrameToNewNote",
-      custom10:"videoFrameToComment",
+      custom:"videoFrame2Clipboard",
+      custom2:"videoFrame2Note",
+      custom3:"videoFrame2ChildNote",
+      custom4:"videoFrameToComment",
+      custom5:"backward10s",
+      custom6:"pauseOrPlay",
+      custom7:"forward10s",
+      custom8:"toggleMute",
+      custom9:"play0.5x",
+      custom10:"play2x",
       timestampDetail:true,
       autoOpenVideoExcerpt:false,
-      homePage:{
-        url:'https://m.inftab.com/',
-        desktop:false
-      },
       size:{width:419,height:450},
       syncSource:"None",
       syncNoteId: "",
@@ -1437,8 +1460,8 @@ class browserConfig{
       webdavFolder:"",
       webdavUser:"",
       webdavPassword:"",
-      homePageEngine:"Bing",
-      useLocalHomePage:true
+      miniModeOpacity:1.0,
+      autoPlayNextVideo:false
     }
   }
   static previousConfig = {}
@@ -1464,31 +1487,35 @@ class browserConfig{
     return "customEWebApp"+i
   }
   static init(){
-    this.config = this.getByDefault('MNBrowser_config', this.defaultConfig)
-    this.entries = this.getByDefault('MNBrowser_entries', this.defaultEntries)
-    if ("BaiduTranslate" in this.entries && this.entries.BaiduTranslate.link === "https://fanyi.baidu.com/#en/zh/%s") {
-      this.entries.BaiduTranslate.link = "https://fanyi.baidu.com/m/trans?from=en&to=zh&query=%s"
-    }
-    this.entrieNames = this.getByDefault('MNBrowser_entrieNames',Object.keys(this.entries));
-    this.webAppEntries = this.getByDefault('MNBrowser_webAppEntries', this.defaultWebAppEntries)
-    this.webAppEntrieNames = this.getByDefault('MNBrowser_webAppEntrieNames', Object.keys(this.webAppEntries))
+    this.config = this.getByDefault('MNVideoPlayer_config', this.defaultConfig)
+    this.entries = this.defaultEntries
+    this.entrieNames = Object.keys(this.entries)
+    this.webAppEntries = this.defaultWebAppEntries
+    this.webAppEntrieNames = Object.keys(this.webAppEntries)
     if (!this.webAppEntrieNames.length) {
       this.webAppEntrieNames = Object.keys(this.webAppEntries)
     }
     // MNUtil
-    this.toolbar = this.getByDefault('MNBrowser_toolbar', true)
-    this.dynamic = this.getByDefault('MNBrowser_dynamic', false)
-    this.engine = this.getByDefault('MNBrowser_engine', "Bing")
+    this.toolbar = true
+    this.dynamic = false
+    this.engine = "Bilibili"
     if (!(this.engine in this.entries)) {
       this.engine = this.entrieNames[0]
     }
     // if (!(this.engine in this.entries)) {
     //   this.engine = this.entrieNames[0]
     // }
-    this.searchOrder         = this.getByDefault('MNBrowser_searchOrder',[2,1,3]);
+    this.searchOrder         = [2,1,3];
     if (!this.searchOrder || !this.searchOrder.length) {
       this.searchOrder = [2,1,3]
     }
+  }
+  static get baseURL(){
+    return this.getConfig("baseURL")
+  }
+  static set baseURL(url){
+    this.config.baseURL = url
+    this.save("MNVideoPlayer_config",true)
   }
   static copy(obj){
     return JSON.parse(JSON.stringify(obj))
@@ -1505,70 +1532,13 @@ class browserConfig{
     NSUserDefaults.standardUserDefaults().removeObjectForKey(key)
   }
   static save(key,ignoreExport = false,synchronize = true){
-        // MNUtil.showHUD("save "+key)
     switch (key) {
-      case "MNBrowser_webAppEntries":
-        NSUserDefaults.standardUserDefaults().setObjectForKey(this.webAppEntries,"MNBrowser_webAppEntries")
+      case "MNVideoPlayer_config":
+        NSUserDefaults.standardUserDefaults().setObjectForKey(this.config,"MNVideoPlayer_config")
         this.config.modifiedTime = Date.now()
-        if (!ignoreExport && this.autoExport(true)) {
-          this.export(false)
-        }
-        break;
-      case "MNBrowser_webAppEntrieNames":
-        NSUserDefaults.standardUserDefaults().setObjectForKey(this.webAppEntrieNames,"MNBrowser_webAppEntrieNames")
-        this.config.modifiedTime = Date.now()
-        if (!ignoreExport && this.autoExport(true)) {
-          this.export(false)
-        }
-        break;
-      case "MNBrowser_entries":
-        NSUserDefaults.standardUserDefaults().setObjectForKey(this.entries,"MNBrowser_entries")
-        this.config.modifiedTime = Date.now()
-        if (!ignoreExport && this.autoExport(true)) {
-          this.export(false)
-        }
-        break;
-      case "MNBrowser_entrieNames":
-        NSUserDefaults.standardUserDefaults().setObjectForKey(this.entrieNames,"MNBrowser_entrieNames")
-        this.config.modifiedTime = Date.now()
-        if (!ignoreExport && this.autoExport(true)) {
-          this.export(false)
-        }
-        break;
-      case "MNBrowser_searchOrder":
-        NSUserDefaults.standardUserDefaults().setObjectForKey(this.searchOrder,"MNBrowser_searchOrder")
-        this.config.modifiedTime = Date.now()
-        if (!ignoreExport && this.autoExport(true)) {
-          this.export(false)
-        }
-        break;
-      case "MNBrowser_dynamic":
-        NSUserDefaults.standardUserDefaults().setObjectForKey(this.dynamic,"MNBrowser_dynamic")
-        this.config.modifiedTime = Date.now()
-        if (!ignoreExport && this.autoExport(true)) {
-          this.export(false)
-        }
-        break;
-      case "MNBrowser_engine":
-        NSUserDefaults.standardUserDefaults().setObjectForKey(this.engine,"MNBrowser_engine")
-        this.config.modifiedTime = Date.now()
-        if (!ignoreExport && this.autoExport(true)) {
-          this.export(false)
-        }
-        break;
-      case "MNBrowser_toolbar":
-        NSUserDefaults.standardUserDefaults().setObjectForKey(this.toolbar,"MNBrowser_toolbar")
-        this.config.modifiedTime = Date.now()
-        if (!ignoreExport && this.autoExport(true)) {
-          this.export(false)
-        }
-        break;
-      case "MNBrowser_config":
-        NSUserDefaults.standardUserDefaults().setObjectForKey(this.config,"MNBrowser_config")
-        this.config.modifiedTime = Date.now()
-        if (!ignoreExport && this.autoExport(true)) {
-          this.export(false)
-        }
+        // if (!ignoreExport && this.autoExport(true)) {
+        //   this.export(false)
+        // }
         break;
       default:
         break;
@@ -1680,202 +1650,11 @@ class browserConfig{
   }
   /**
    * 
-   * @param {boolean} msg 
-   * @param {boolean} alert 
-   * @param {boolean} force 
-   * @returns {Promise<boolean>}
-   */
-  static async readCloudConfig(msg = true,alert = false,force = false){
-
-    // if (!chatAIUtils.checkSubscribe(false,msg)) {
-    //   return false
-    // }
-    this.checkCloudStore(false)
-    if (force) {
-      let cloudConfig = this.cloudStore.objectForKey("MNBrowser_totalConfig")
-      let success = this.importConfig(cloudConfig)
-      if (msg) {
-        MNUtil.showHUD("Import from iCloud")
-      }
-      if (success) {
-        if (alert) {
-          MNUtil.showHUD("Import success!")
-        }
-        return true
-      }else{
-        MNUtil.showHUD("Invalid config in iCloud!")
-        return false
-      }
-    }
-    let iCloudSync = this.getConfig("syncSource") === "iCloud"
-    if(!iCloudSync){
-      return false
-    }
-    try {
-      let cloudConfig = this.cloudStore.objectForKey("MNBrowser_totalConfig")
-      // MNUtil.copy(cloudConfig)
-      if (cloudConfig) {
-        let same = this.deepEqual(cloudConfig, this.getAllConfig())
-        if (same) {
-          if (msg) {
-            MNUtil.showHUD("Already synced")
-          }
-          return false
-        }
-        //要求云端的配置更新, 才能向本地写入
-        //即使云端最旧的时间也要比本地最新的时候更新
-        let localLatestTime = this.getLocalLatestTime()
-        let localOldestTime = Math.min(this.config.lastSyncTime,this.config.modifiedTime)
-        let cloudLatestTime = Math.max(cloudConfig.config.lastSyncTime,cloudConfig.config.modifiedTime)
-        let cloudOldestTime = Math.min(cloudConfig.config.lastSyncTime,cloudConfig.config.modifiedTime)
-        // MNUtil.copy({localLatestTime,localOldestTime,cloudLatestTime,cloudOldestTime})
-        if (localLatestTime < cloudOldestTime) {
-          if (alert) {
-            let confirm = await MNUtil.confirm("MN Browser\nImport from iCloud?","是否导入iCloud配置？")
-            if (!confirm) {
-              return false
-            }
-          }
-          if (msg) {
-            MNUtil.showHUD("Import from iCloud")
-          }
-          let success = this.importConfig(cloudConfig)
-          if (success) {
-            if (alert) {
-              MNUtil.showHUD("Import success!")
-            }
-            return true
-          }else{
-            MNUtil.showHUD("Invalid config in iCloud!")
-            return false
-          }
-        }
-        //如果本地配置的修改时间比云端配置的修改时间大1秒,则认为本地配置更新,需要上传到云端
-        if (this.config.modifiedTime > (cloudConfig.config.modifiedTime+1000)) {
-          if (alert) {
-            let confirm = await MNUtil.confirm("MN Browser\n Uploading to iCloud?","📤 是否上传配置到iCloud？")
-            if (!confirm) {
-              return false
-            }
-          }
-          this.writeCloudConfig(msg)
-          return false
-        }
-        let userSelect = await MNUtil.userSelect("MN Browser","Conflict config, import or export?\n\n配置冲突，请选择操作\n\n"+Date.parse(this.config.modifiedTime).toLocaleString()+"\n"+Date.parse(cloudConfig.config.modifiedTime).toLocaleString()+"\n\n"+Date.parse(this.config.lastSyncTime).toLocaleString()+"\n"+Date.parse(cloudConfig.config.lastSyncTime).toLocaleString(),["📥 Import / 导入","📤 Export / 导出"])
-        switch (userSelect) {
-          case 0:
-            MNUtil.showHUD("User Cancel")
-            return false
-          case 1:
-            let success = this.importConfig(cloudConfig)
-            if (success) {
-              if (alert) {
-                MNUtil.showHUD("Import success!")
-              }
-              return true
-            }else{
-              MNUtil.showHUD("Invalid config in iCloud!")
-              return false
-            }
-          case 2:
-            this.writeCloudConfig(msg,true)
-            return false
-          default:
-            return false
-        }
-      }else{
-        let confirm = await MNUtil.confirm("MN Browser\nEmpty config in iCloud, uploading?","iCloud配置为空,是否上传？")
-        if (!confirm) {
-          return false
-        }
-        this.writeCloudConfig(msg)
-        if (msg) {
-          MNUtil.showHUD("No config in iCloud, uploading...")
-        }
-        return false
-      }
-    } catch (error) {
-      browserUtils.addErrorLog(error, "readCloudConfig")
-      return false
-    }
-  }
-  static writeCloudConfig(msg = true,force = false){
-  try {
-    
-
-    // if (!browserUtils.checkSubscribe(false,msg,true)) {
-    //   return false
-    // }
-    let key = "MNBrowser_totalConfig"
-    this.checkCloudStore(false)
-    if (force) {
-      this.config.lastSyncTime = Date.now()
-      // this.config.modifiedTime = Date.now()
-      let config = this.getAllConfig()
-      this.cloudStore.setObjectForKey(config,key)
-      this.config.lastSyncTime = Date.now()
-      return true
-    }
-    let iCloudSync = this.getConfig("syncSource") === "iCloud"
-    if(!iCloudSync){
-      return false
-    }
-    let cloudConfig = this.cloudStore.objectForKey(key)
-    if (cloudConfig) {
-      let same = this.isSameConfigWithLocal(cloudConfig)
-      if (same) {
-        //如果同步配置相同,不应该向云端写入
-        return false
-      }
-      //如果云端的更新,那么不应该向云端写入
-      let localLatestTime = Math.max(this.config.lastSyncTime,this.config.modifiedTime)
-      let cloudOldestTime = Math.min(cloudConfig.config.lastSyncTime,cloudConfig.config.modifiedTime)
-      if (localLatestTime < cloudOldestTime) {
-        let localTime = Date.parse(localLatestTime).toLocaleString()
-        let cloudTime = Date.parse(cloudOldestTime).toLocaleString()
-        MNUtil.showHUD("Conflict config: local_"+localTime+", cloud_"+cloudTime)
-        return false
-      }
-    }
-    this.config.lastSyncTime = Date.now()
-    // this.config.modifiedTime = Date.now()
-    let config = this.getAllConfig()
-    this.cloudStore.setObjectForKey(config,key)
-    this.config.lastSyncTime = Date.now()
-    // MNUtil.copy(config)
-    // this.config.modifiedTime = Date.now()
-    return true
-  } catch (error) {
-    browserUtils.addErrorLog(error, "writeCloudConfig")
-    return false
-  }
-  }
-  static getSyncSourceString(){
-    switch (this.getConfig("syncSource")) {
-      case "MNNote":
-        return "MNNote"
-      case "CFR2":
-        return "Cloudflare R2"
-      case "Infi":
-        return "InfiniCloud"
-      case "Webdav":
-        return "Webdav"
-      case "iCloud":
-        return "iCloud"
-      case "None":
-        return "None"
-      default:
-        break;
-    }
-    return undefined
-  }
-  /**
-   * 
    * @param {boolean} checkSubscribe 
    * @returns {boolean}
    */
   static autoImport(checkSubscribe = false){
-    if (checkSubscribe && !browserUtils.checkSubscribe(false,false,true)) {
+    if (checkSubscribe && !videoPlayerUtils.checkSubscribe(false,false,true)) {
       return false
     }
     return this.getConfig("autoImport")
@@ -1886,7 +1665,7 @@ class browserConfig{
    * @returns {boolean}
    */
   static autoExport(checkSubscribe = false){
-    if (checkSubscribe && !browserUtils.checkSubscribe(false,false,true)) {
+    if (checkSubscribe && !videoPlayerUtils.checkSubscribe(false,false,true)) {
       return false
     }
     return this.getConfig("autoExport")
@@ -1918,7 +1697,7 @@ class browserConfig{
     //   }
     // }
   } catch (error) {
-    browserUtils.addErrorLog(error, "setSyncStatus")
+    videoPlayerUtils.addErrorLog(error, "setSyncStatus")
   }
   }
   /**
@@ -1940,110 +1719,6 @@ class browserConfig{
     return false
   }
   }
-  /**
-   * 只负责获取配置和检查配置格式是否正确,不负责检查版本
-   * @param {string} syncSource 
-   * @param {boolean} alert 
-   * @returns 
-   */
-  static async getCloudConfigFromSource(syncSource,alert){
-    try {
-    let key = "MNBrowser_totalConfig"
-    let config = undefined
-    switch (syncSource) {
-      case "None":
-        return undefined
-      case "iCloud":
-        this.checkCloudStore(false)
-        config = this.cloudStore.objectForKey(key)
-        break;
-      case "MNNote":
-        let noteId = this.getConfig("syncNoteId")
-        // if (!noteId.trim()) {
-        //   return undefined
-        // }
-        let focusNote = MNNote.new(noteId)
-        if (!focusNote) {
-          focusNote = MNNote.getFocusNote()
-        }
-        if (!focusNote) {
-          MNUtil.showHUD("Note not exists!")
-          return undefined
-        }
-        if (focusNote.noteTitle !== "MN Browser Config") {
-          MNUtil.showHUD("Invalid note title!")
-          this.setSyncStatus(false)
-          return undefined
-        }
-        let contentToParse = focusNote.excerptText
-        if (/```JSON/.test(contentToParse)) {
-          contentToParse = browserConfig.extractJSONFromMarkdown(contentToParse)
-        }
-        if (!MNUtil.isValidJSON(contentToParse)) {
-          MNUtil.showHUD("Invalid Config")
-          return undefined
-        }
-        config = JSON.parse(contentToParse)
-        break;
-      case "CFR2":
-        if (!browserConfig.getConfig("r2file")) {
-          MNUtil.showHUD("No Config file")
-          return undefined
-        }
-        let hasPassword = await this.checkR2Password()
-        if (!hasPassword) {
-          MNUtil.showHUD("No Password")
-          return undefined
-        }
-        if (alert) { MNUtil.showHUD("Downloading...") }
-        config = await browserConfig.readEncryptedConfigFromR2(browserConfig.config.r2file, browserConfig.config.r2password)
-        break;
-      case "Infi":
-        if (!browserConfig.getConfig("InfiFile")) {
-          MNUtil.showHUD("No Config file")
-          return undefined
-        }
-
-        let hasInfiPassword = await this.checkInfiPassword()
-        if (!hasInfiPassword) {
-          MNUtil.showHUD("No Password")
-          return undefined
-        }
-        if (alert) { MNUtil.showHUD("Downloading...") }
-        config = await browserConfig.readEncryptedConfigFromInfi(browserConfig.config.InfiFile, browserConfig.config.InfiPassword)
-        break;
-      case "Webdav":
-        if (!browserConfig.getConfig("webdavFile")) {
-          MNUtil.showHUD("No Config file")
-          return undefined
-        }
-        let hasAccount = await this.checkWebdavAccount()
-        if (!hasAccount) {
-          MNUtil.showHUD("No Account")
-          return undefined
-        }
-        if (alert) { MNUtil.showHUD("Downloading...") }
-        let authorization = {
-          user:browserConfig.getConfig("webdavUser"),
-          password:browserConfig.getConfig("webdavPassword")
-        }
-        config = await browserConfig.readConfigFromWebdav(browserConfig.config.webdavFile+".json",authorization)
-        if (!Object.keys(config).length || ("statusCode" in config && config.statusCode >= 400)) {
-          MNUtil.showHUD("Error when getCloudConfig: "+config.statusCode)
-          MNUtil.copyJSON(config)
-          return undefined
-        }
-        break;
-    }
-    if (this.isValidTotalConfig(config)) {
-      return config
-    }
-    return undefined
-    } catch (error) {
-      browserUtils.addErrorLog(error, "getCloudConfigFromSource",syncSource)
-      return undefined
-    }
-  }
   static getLocalLatestTime(){
     let lastSyncTime = this.config.lastSyncTime ?? 0
     let modifiedTime = this.config.modifiedTime ?? 0
@@ -2054,7 +1729,7 @@ class browserConfig{
     if (syncSource === "None") {
       return false
     }
-    if (!browserUtils.checkSubscribe(true)) {
+    if (!videoPlayerUtils.checkSubscribe(true)) {
       return false
     }
     if (this.onSync) {
@@ -2084,7 +1759,7 @@ class browserConfig{
     }
     // MNUtil.showHUD("Importing123...")
 
-    if (!config || browserConfig.isSameConfigWithLocal(config,alert)) {
+    if (!config || videoPlayerConfig.isSameConfigWithLocal(config,alert)) {
       this.setSyncStatus(false)
       return false
     }
@@ -2099,19 +1774,19 @@ class browserConfig{
         case "None":
           return false
         case "iCloud":
-          confirm = await MNUtil.confirm("MN Browser\nOlder config from iCloud!\niCloud配置较旧！",OverWriteOption)
+          confirm = await MNUtil.confirm("MN Video Player\nOlder config from iCloud!\niCloud配置较旧！",OverWriteOption)
           break;
         case "MNNote":
-          confirm = await MNUtil.confirm("MN Browser\nOlder config from note!\n卡片配置较旧！",OverWriteOption)
+          confirm = await MNUtil.confirm("MN Video Player\nOlder config from note!\n卡片配置较旧！",OverWriteOption)
           break;
         case "CFR2":
-          confirm = await MNUtil.confirm("MN Browser\nOlder config from R2!\nR2配置较旧！",OverWriteOption)
+          confirm = await MNUtil.confirm("MN Video Player\nOlder config from R2!\nR2配置较旧！",OverWriteOption)
           break;
         case "Infi":
-          confirm = await MNUtil.confirm("MN Browser\nOlder config from InfiniCloud!\nInfiniCloud配置较旧！","Overwrite local config?\n是否覆盖本地配置？")
+          confirm = await MNUtil.confirm("MN Video Player\nOlder config from InfiniCloud!\nInfiniCloud配置较旧！","Overwrite local config?\n是否覆盖本地配置？")
           break;
         case "Webdav":
-          confirm = await MNUtil.confirm("MN Browser\nOlder config from Webdav!\nWebdav配置较旧！","Overwrite local config?\n是否覆盖本地配置？")
+          confirm = await MNUtil.confirm("MN Video Player\nOlder config from Webdav!\nWebdav配置较旧！","Overwrite local config?\n是否覆盖本地配置？")
           break;
       }
     }
@@ -2138,7 +1813,7 @@ class browserConfig{
     if (syncSource === "None") {
       return false
     }
-    if (!browserUtils.checkSubscribe(true)) {
+    if (!videoPlayerUtils.checkSubscribe(true)) {
       return false
     }
     if (this.onSync) {
@@ -2173,7 +1848,7 @@ class browserConfig{
             confirm = true
           }else{
             if (alert) {
-              confirm = await MNUtil.confirm("MN Browser\nNewer config from note!\n卡片配置较新！","Overwrite?\n是否覆盖？")
+              confirm = await MNUtil.confirm("MN Video Player\nNewer config from note!\n卡片配置较新！","Overwrite?\n是否覆盖？")
             }
           }
           if (!confirm) {
@@ -2193,7 +1868,7 @@ class browserConfig{
           if (alert) {
             MNUtil.showHUD("Uploading...")
           }
-          await browserConfig.uploadConfigWithEncryptionFromR2(this.config.r2file, this.config.r2password, alert)
+          await videoPlayerConfig.uploadConfigWithEncryptionFromR2(this.config.r2file, this.config.r2password, alert)
           // MNUtil.copyJSON(this.config)
           this.setSyncStatus(false,true)
           return true
@@ -2204,7 +1879,7 @@ class browserConfig{
           if (alert) {
             MNUtil.showHUD("Uploading...")
           }
-          await browserConfig.uploadConfigWithEncryptionToInfi(this.config.InfiFile, this.config.InfiPassword, alert)
+          await videoPlayerConfig.uploadConfigWithEncryptionToInfi(this.config.InfiFile, this.config.InfiPassword, alert)
           // MNUtil.copyJSON(this.config)
           this.setSyncStatus(false,true)
           return true
@@ -2220,7 +1895,7 @@ class browserConfig{
             user:this.getConfig("webdavUser"),
             password:this.getConfig("webdavPassword")
           }
-          let res = await browserConfig.uploadConfigToWebdav(this.config.webdavFile+".json", authorization)
+          let res = await videoPlayerConfig.uploadConfigToWebdav(this.config.webdavFile+".json", authorization)
           if (typeof res === "object" && "statusCode" in res && res.statusCode >= 400) {
             MNUtil.showHUD("Error when export.uploadConfigToWebdav: "+res.statusCode)
             MNUtil.copyJSON(res)
@@ -2269,7 +1944,7 @@ class browserConfig{
           confirm = true
         }else{
           if (alert) {
-            confirm = await MNUtil.confirm("MN Browser\nNewer config from note!\n卡片配置较新！","Overwrite?\n是否覆盖？")
+            confirm = await MNUtil.confirm("MN Video Player\nNewer config from note!\n卡片配置较新！","Overwrite?\n是否覆盖？")
           }
         }
         if (!confirm) {
@@ -2286,7 +1961,7 @@ class browserConfig{
         this.setSyncStatus(true)
         if (remoteConfig && remoteConfig.config && remoteConfig.config.modifiedTime > this.config.modifiedTime) {
           if (alert) {
-            let confirm = await MNUtil.confirm("MN Browser\nNewer config from R2!\nR2配置较新！","Overwrite remote config?\n是否覆盖远程配置？")
+            let confirm = await MNUtil.confirm("MN Video Player\nNewer config from R2!\nR2配置较新！","Overwrite remote config?\n是否覆盖远程配置？")
             if (!confirm) {
               this.setSyncStatus(false)
               return false
@@ -2301,7 +1976,7 @@ class browserConfig{
         if (alert) {
           MNUtil.showHUD("Uploading...")
         }
-        await browserConfig.uploadConfigWithEncryptionFromR2(this.config.r2file, this.config.r2password, alert)
+        await videoPlayerConfig.uploadConfigWithEncryptionFromR2(this.config.r2file, this.config.r2password, alert)
         // MNUtil.copyJSON(this.config)
         this.setSyncStatus(false,true)
         return true
@@ -2309,7 +1984,7 @@ class browserConfig{
         this.setSyncStatus(true)
         if (remoteConfig && remoteConfig.config && remoteConfig.config.modifiedTime > this.config.modifiedTime) {
           if (alert) {
-            let confirm = await MNUtil.confirm("MN Browser\nNewer config from InfiniCloud!\nInfiniCloud配置较新！","Overwrite remote config?\n是否覆盖远程配置？")
+            let confirm = await MNUtil.confirm("MN Video Player\nNewer config from InfiniCloud!\nInfiniCloud配置较新！","Overwrite remote config?\n是否覆盖远程配置？")
             if (!confirm) {
               this.setSyncStatus(false)
               return false
@@ -2324,7 +1999,7 @@ class browserConfig{
         if (alert) {
           MNUtil.showHUD("Uploading...")
         }
-        await browserConfig.uploadConfigWithEncryptionToInfi(this.config.InfiFile, this.config.InfiPassword, alert)
+        await videoPlayerConfig.uploadConfigWithEncryptionToInfi(this.config.InfiFile, this.config.InfiPassword, alert)
         // MNUtil.copyJSON(this.config)
         this.setSyncStatus(false,true)
         return true
@@ -2340,7 +2015,7 @@ class browserConfig{
         }
         if (remoteConfig && remoteConfig.config && remoteConfig.config.modifiedTime > this.config.modifiedTime) {
           if (alert) {
-            let confirm = await MNUtil.confirm("MN Browser\nNewer config from Webdav!\nWebdav配置较新！","Overwrite remote config?\n是否覆盖远程配置？")
+            let confirm = await MNUtil.confirm("MN Video Player\nNewer config from Webdav!\nWebdav配置较新！","Overwrite remote config?\n是否覆盖远程配置？")
             if (!confirm) {
               this.setSyncStatus(false)
               return false
@@ -2360,7 +2035,7 @@ class browserConfig{
           user:this.getConfig("webdavUser"),
           password:this.getConfig("webdavPassword")
         }
-        let res = await browserConfig.uploadConfigToWebdav(this.config.webdavFile+".json", authorization)
+        let res = await videoPlayerConfig.uploadConfigToWebdav(this.config.webdavFile+".json", authorization)
         if (typeof res === "object" && "statusCode" in res && res.statusCode >= 400) {
           MNUtil.showHUD("Error when export.uploadConfigToWebdav: "+res.statusCode)
           MNUtil.copyJSON(res)
@@ -2378,108 +2053,10 @@ class browserConfig{
     }
     return true
   } catch (error) {
-    browserUtils.addErrorLog(error, "export")
+    videoPlayerUtils.addErrorLog(error, "export")
   }
     // MNUtil.copyJSON(config)
   }
-  static saveAfterImport(){
-    this.save("MNBrowser_dynamic",true)
-    this.save("MNBrowser_engine",true)
-    this.save("MNBrowser_entries",true)
-    this.save("MNBrowser_entrieNames",true)
-    this.save("MNBrowser_searchOrder",true)
-    this.save("MNBrowser_toolbar",true)
-    this.save("MNBrowser_webAppEntries",true)
-    this.save("MNBrowser_webAppEntrieNames",true)
-    this.save("MNBrowser_config",true)
-  }
-  static async sync(){
- try {
-  
-
-    if (!browserUtils.checkSubscribe(true)) {
-      return false
-    }
-    let noteId = this.config.syncNoteId
-    let lastSyncTime = this.config.lastSyncTime ?? 0
-    let modifiedTime = this.config.modifiedTime ?? 0
-    let latestTime = Math.max(lastSyncTime,modifiedTime)
-    let focusNote = MNUtil.getNoteById(noteId)
-    if (!focusNote) {
-      focusNote = MNNote.getFocusNote()
-    }
-    let isVaildNoteConfig = false
-    let noteConfig
-    let modifiedDate = Date.parse(focusNote.modifiedDate ?? focusNote.createDate)
-    if (focusNote.noteTitle === "MN Browser Config") {
-      let contentToParse = focusNote.excerptText
-      if (/```JSON/.test(contentToParse)) {
-        contentToParse = browserUtils.extractJSONFromMarkdown(contentToParse)
-      }
-      noteConfig = JSON.parse(contentToParse)
-      isVaildNoteConfig = ("config" in noteConfig 
-    && "entries" in noteConfig 
-    && "entrieNames" in noteConfig 
-    && "webAppEntries" in noteConfig 
-    && "webAppEntrieNames" in noteConfig 
-    && "searchOrder" in noteConfig
-    && "dynamic" in noteConfig
-    && "engine" in noteConfig
-    && "toolbar" in noteConfig
-    )
-      
-    }
-    if (latestTime < modifiedDate && isVaildNoteConfig) {
-      // MNUtil.showHUD("should import")
-      this.config = noteConfig.config
-      this.config.lastSyncTime = Date.now()
-      this.entries = noteConfig.entries
-      this.entrieNames = noteConfig.entrieNames
-      this.webAppEntries = noteConfig.webAppEntries
-      this.webAppEntrieNames = noteConfig.webAppEntrieNames
-      this.searchOrder = noteConfig.searchOrder
-      this.dynamic = noteConfig.dynamic
-      this.engine = noteConfig.engine
-      this.toolbar = noteConfig.toolbar
-
-      this.save("MNBrowser_config",true)
-      this.save("MNBrowser_webAppEntries",true)
-      this.save("MNBrowser_webAppEntrieNames",true)
-      this.save("MNBrowser_entries",true)
-      this.save("MNBrowser_entrieNames",true)
-      this.save("MNBrowser_searchOrder",true)
-      this.save("MNBrowser_dynamic",true)
-      this.save("MNBrowser_engine",true)
-      this.save("MNBrowser_toolbar",true)
-      MNUtil.showHUD("Sync Success (import)!")
-      return true
-    }else{
-      // MNUtil.showHUD("should export")
-      this.config.lastSyncTime = Date.now()+5
-      this.config.syncNoteId = focusNote.noteId
-      let config = {
-        config:this.config,
-        entries:this.entries,
-        entrieNames:this.entrieNames,
-        webAppEntries:this.webAppEntries,
-        webAppEntrieNames:this.webAppEntrieNames,
-        searchOrder:this.searchOrder,
-        dynamic:this.dynamic,
-        engine:this.engine,
-        toolbar:this.toolbar
-      }
-      MNUtil.undoGrouping(()=>{
-        focusNote.excerptText = "```JSON\n"+JSON.stringify(config,null,2)+"\n```"
-        focusNote.noteTitle = "MN Browser Config"
-        focusNote.note.excerptTextMarkdown = true
-      })
-      MNUtil.showHUD("Sync Success (export)!")
-      return true
-    }
- } catch (error) {
-  MNUtil.showHUD(error)
- }
- }
  static getWebAppEntriesWithIcon(){
   let webapp = JSON.parse(JSON.stringify(this.webAppEntries))
   let webappWithIcon = {}
@@ -2488,7 +2065,7 @@ class browserConfig{
     if (!entry.icon){//如果icon为空，则从link中提取域名
       let url = MNUtil.genNSURL(entry.link)
       let host = url.host
-      let icon = browserUtils.cdn[host]
+      let icon = videoPlayerUtils.cdn[host]
       if (icon) {
         entry.icon = icon
       }
@@ -2508,88 +2085,27 @@ class browserConfig{
     let config = this.getAllConfig()
     MNUtil.undoGrouping(()=>{
       focusNote.excerptText = "```JSON\n"+JSON.stringify(config,null,2)+"\n```"
-      focusNote.noteTitle = "MN Browser Config"
+      focusNote.noteTitle = "MN Video Player Config"
       focusNote.excerptTextMarkdown = true
     })
   }
-
-
-
-}
-function strCode(str) {  //获取字符串的字节数
-    var count = 0;  //初始化字节数递加变量并获取字符串参数的字符个数
-    var cn = [8211, 8212, 8216, 8217, 8220, 8221, 8230, 12289, 12290, 12296, 12297, 12298, 12299, 12300, 12301, 12302, 12303, 12304, 12305, 12308, 12309, 65281, 65288, 65289, 65292, 65294, 65306, 65307, 65311]
-    var half = [32, 33, 34, 35, 36, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 58, 59, 60, 61, 62, 63, 64, 91, 92, 93, 94, 95, 96, 123, 124, 125, 126,105,108,8211]
-    if (str) {  //如果存在字符串，则执行
-        len = str.length; 
-        for (var i = 0; i < len; i++) {  //遍历字符串，枚举每个字符
-          let charCode = str.charCodeAt(i)
-            if (charCode>=65 && charCode<=90) {
-              count += 1.5;  //大写
-            } else if (half.includes(charCode)) {
-              count +=0.45
-            } else if (cn.includes(charCode)) {
-              count +=0.8
-            }else if (charCode > 255) {  //字符编码大于255，说明是双字节字符(即是中文)
-                count += 2;  //则累加2个
-            }else{
-                count++;  //否则递加一次
-            }
-        }
-        return count;  //返回字节数
-    } else {
-        return 0;  //如果参数为空，则返回0个
+  static getSyncSourceString(){
+    switch (this.getConfig("syncSource")) {
+      case "MNNote":
+        return "MNNote"
+      case "CFR2":
+        return "Cloudflare R2"
+      case "Infi":
+        return "InfiniCloud"
+      case "Webdav":
+        return "Webdav"
+      case "iCloud":
+        return "iCloud"
+      case "None":
+        return "None"
+      default:
+        break;
     }
-}
-
-
-function getWebJS(id) {
-  switch (id) {
-    case "updateDeeplOffset":
-      return `document.getElementsByClassName("dl_header")[0].style.display="none";
-        document.getElementsByClassName("lmt__docTrans-tab-container")[0].style.display="none";
-        document.getElementsByClassName("lmt__sides_container")[0].style.margin = 0;
-        document.querySelector("#dl_translator").style.cssText = "padding-top: 20px";
-        document.getElementsByClassName("lmt__language_container")[0].style.display = "none";
-        document.getElementsByClassName("lmt__language_container")[1].style.display = "none";
-        document.getElementsByClassName("lmt__target_toolbar")[0].style.display = "none";
-        document.querySelector("#dl_cookieBanner").style.display="none";
-        document.querySelector("#lmt_quotes_article").style.display="none";
-        document.querySelector("#lmt__dict").style.margin = 0;
-        document.querySelector("#lmt_pro_ad_container").style.display = "none";
-        document.querySelector("body > div.dl_footerV2_container").style.display = "none";`
-    case "updateThesaurusOffset":
-      return `document.getElementsByTagName("header")[0].style.display = "none"
-        document.getElementsByTagName("section")[0].style.display = "none"
-        document.getElementsByTagName("section")[6].style.display = "none"
-        document.getElementsByTagName("section")[7].style.display = "none"
-        document.getElementsByTagName("section")[8].style.display = "none"
-        document.getElementsByTagName("section")[9].style.display = "none"
-        document.getElementsByTagName("p")[5].style.display = "none"
-        document.getElementsByClassName("acw ac-widget-placeholder ac-reset")[0].style.display = "none"`
-    case "updateBilibiliOffset":
-      return `
-      document.getElementsByClassName("v-popover-wrap")[0].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[1].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[2].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[3].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[4].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[5].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[6].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[8].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[10].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[11].style.display = "none";
-      document.getElementsByClassName("v-popover-wrap")[13].style.display = "none";
-      document.getElementsByClassName("recommended-swipe grid-anchor")[0].style.display = "none";
-      `
-    default:
-      return ""
+    return undefined
   }
-}
-
-
-function postNotification(name,userInfo) {
-  let focusWindow = Application.sharedInstance().focusWindow
-  NSNotificationCenter.defaultCenter().postNotificationNameObjectUserInfo(name, focusWindow, userInfo)
-  
 }

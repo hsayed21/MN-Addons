@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>我的视频合集</title>
+  <style>
+    /* --- 基础和布局 --- */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f4f7f9;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+    }
+
+    header h1 {
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+
+    /* --- 导航栏 (Breadcrumb) --- */
+    #page-nav {
+      background-color: #ecf0f1;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 1.1em;
+    }
+
+    #page-nav a {
+      color: #3498db;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    #page-nav a:hover {
+      color: #2980b9;
+    }
+
+    #page-nav span {
+      color: #7f8c8d;
+    }
+
+    /* --- 页面容器 --- */
+    .page {
+      display: none;
+      /* 默认所有页面都隐藏 */
+    }
+
+    .page.active {
+      display: block;
+      /* .active 的页面才显示 */
+    }
+
+    /* --- 网格容器 --- */
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    /* --- 卡片样式 (合集和视频通用) --- */
+    .card {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-thumbnail {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      background-color: #e0e0e0;
+    }
+
+    .card-content {
+      padding: 15px;
+      flex-grow: 1;
+    }
+
+    .card-title {
+      margin: 0 0 10px 0;
+      font-size: 1.2em;
+      color: #34495e;
+    }
+
+    .card-description {
+      font-size: 0.9em;
+      color: #7f8c8d;
+      line-height: 1.5;
+    }
+    /* --- 图标样式（合集/视频） --- */
+    .icon-label {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+    .icon-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 25px;
+      height: 25px;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 12px;
+      line-height: 1;
+      user-select: none;
+    }
+    .badge-collection { background-color: #8e44ad; }
+    .badge-video { background-color: #e67e22; }
+    .icon-img {
+      width: 25px;
+      height: 25px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 1;
+      object-fit: contain;
+    }
+    .icon-label span:not(.icon-img) {
+      margin-left: 40px;
+      display: inline-block;
+      word-wrap: break-word;
+      width: calc(100% - 40px);
+    }
+  </style>
+</head>
+
+<body>
+  <div id="notification" style="top: 20px; right: 20px; padding: 10px; color:rgb(255, 178, 55); background-color: #fff9e6; border: 2px solid #ffe57f; border-radius: 5px; z-index: 9999;">
+    <span id="notification-message">
+      仅供个人学习使用，如有侵权请联系删除
+    </span>
+  </div><br>
+  <div class="container">
+    <header>
+      <nav id="page-nav">
+        <!-- 导航内容将由JS动态生成 -->
+      </nav>
+    </header>
+
+    <main>
+      <!-- 主页：合集列表 -->
+      <section id="page-home" class="page">
+        <h2>所有合集</h2>
+        <div id="collections-container" class="grid-container">
+          <!-- 合集卡片将由JS动态插入这里 -->
+        </div>
+      </section>
+
+      <!-- 子页：视频列表 -->
+      <section id="page-collection-details" class="page">
+        <h2 id="videos-title"></h2>
+        <h3 id="subcollections-title"></h3>
+        <div id="subcollections-container" class="grid-container">
+          <!-- 子合集卡片将由JS动态插入这里 -->
+        </div>
+        <div id="videos-container" class="grid-container">
+          <!-- 视频卡片将由JS动态插入这里 -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+  /**
+ * 根据指定的 scheme、host、path、query 和 fragment 生成一个完整的 URL Scheme 字符串。
+ * URL Scheme 完整格式：scheme://host/path?query#fragment
+ *
+ * @param {string} scheme - URL scheme，例如 'myapp'。必须提供。
+ * @param {string|undefined} [host] - host 部分，例如 'user_profile'。
+ * @param {string|string[]|undefined} [path] - path 部分，例如 'view/123'。
+ * @param {Object<string, string|number|boolean|object>|undefined} [query] - 查询参数对象。
+ * @param {string|undefined} [fragment] - fragment 标识符，即 URL 中 # 后面的部分。
+ * @returns {string} - 生成的完整 URL 字符串。
+ */
+function generateUrlScheme(scheme, host, path, query, fragment) {
+  // 1. 处理必须的 scheme
+  if (!scheme) {
+    console.error("Scheme is a required parameter.");
+    return '';
+  }
+  // 2. 构建基础部分：scheme 和 host
+  //    即使 host 为空，也会生成 'scheme://'，这对于 'file:///' 这类 scheme 是正确的
+  let url = `${scheme}://${host || ''}`;
+
+  // 3. 添加 path
+  if (path) {
+    if (Array.isArray(path)) {
+      let pathStr = path.join('/')
+      url += `/${pathStr.replace(/^\/+/, '')}`;
+    }else{
+      // 确保 host 和 path 之间只有一个斜杠，并处理 path 开头可能存在的斜杠
+      url += `/${path.replace(/^\/+/, '')}`;
+    }
+  }
+
+  // 4. 添加 query 参数
+  if (query && Object.keys(query).length > 0) {
+    const queryParts = [];
+    for (const key in query) {
+      // 确保我们只处理对象自身的属性
+      if (Object.prototype.hasOwnProperty.call(query, key)) {
+        const value = query[key];
+        const encodedKey = encodeURIComponent(key);
+        // 对值进行编码，如果是对象，则先序列化为 JSON 字符串
+        const encodedValue = encodeURIComponent(
+          typeof value === "object" && value !== null ? JSON.stringify(value) : value
+        );
+        queryParts.push(`${encodedKey}=${encodedValue}`);
+      }
+    }
+    if (queryParts.length > 0) {
+      url += `?${queryParts.join('&')}`;
+    }
+  }
+
+  // 5. 添加 fragment
+  if (fragment) {
+    // Fragment 部分不应该被编码
+    url += `#${fragment}`;
+  }
+
+  return url;
+}
+    /**
+     *
+     * @param {string} scheme - URL scheme, 例如 'myapp'。
+     * @param {string} [host] - 可选的路径或操作名。
+     * @param {Object<string, string|number|boolean>} [params] - 查询参数对象。
+     */
+    function postMessageToAddon(scheme, host, params) {
+      // params 应进入 query，而非 path
+      let url = generateUrlScheme(scheme, host, undefined, params)
+      window.location.href = url
+    }
+    // 1. 配置文件数据 (保持不变)
+    let configData = {
+  "updateTime": 0,
+  "videos":{
+    "6b5b1286e3bcfae7224d01fe425a20d1":{
+      "id": "6b5b1286e3bcfae7224d01fe425a20d1",
+      "title": "1. 导学课一",
+      "description": "无描述",
+      "tags": ["tag1", "tag2"],
+      "duration": 100,
+      "url": "https://cdn.u1162561.nyat.app:43836/d/cdn/%E6%9D%90%E6%96%99%E7%A7%91%E5%AD%A6%E5%9F%BA%E7%A1%80/1.%E5%AF%BC%E5%AD%A6%E8%AF%BE%E4%B8%80.mp4",
+      "collection": "collection_2",
+      "backupUrls":[
+        "https://www.baidu.com",
+        "https://www.baidu.com"
+      ],
+      "type": "video"
+    },
+    "md5_1":{
+      "id": "md5_1",
+      "title": "视频2",
+      "description": "视频2描述",
+      "tags": ["tag1", "tag2"],
+      "url": "https://www.baidu.com",
+      "backupUrls":[
+        "https://www.baidu.com",
+        "https://www.baidu.com"
+      ],
+      "type": "video"
+    },
+    "md5_2":{
+      "id": "md5_2",
+      "title": "视频3",
+      "description": "视频3描述",
+      "tags": ["tag1", "tag2"],
+      "url": "https://www.baidu.com",
+      "backupUrls":[
+        "https://www.baidu.com",
+        "https://www.baidu.com"
+      ],
+      "type": "video"
+    }
+  },
+  "collections":{
+    "collection_0":{
+      "id": "collection_0",
+      "title": "（自控+现控）真橙全程班",
+      "description": "无描述",
+      "tags": ["tag1", "tag2"],
+      "videos": ["md5_0", "md5_1", "md5_2"]
+    },
+    "collection_1":{
+      "id": "collection_1",
+      "title": "（自控+现控）真橙书课包",
+      "description": "无描述",
+      "tags": ["tag1", "tag2"],
+      "videos": ["md5_0", "md5_1", "md5_2"]
+    },
+    "collection_2":{
+      "id": "collection_2",
+      "title": "材料科学基础",
+      "description": "无描述",
+      "tags": ["tag1", "tag2"],
+      "subCollections": ["collection_0", "collection_1"]
+    }
+  },
+  "collectionsToShow": ["collection_0", "collection_1", "collection_2"]
+}
+    // 2. 数据预处理和DOM元素获取
+    let videoMap = configData.videos;
+    let collectionMap = configData.collections;
+    // childId -> parentId 的索引，用于多级面包屑
+    let collectionParentMap = {};
+    const pageNav = document.getElementById('page-nav');
+    const pageHome = document.getElementById('page-home');
+    const pageCollectionDetails = document.getElementById('page-collection-details');
+    const collectionsContainer = document.getElementById('collections-container');
+    const videosTitle = document.getElementById('videos-title');
+    const subCollectionsTitle = document.getElementById('subcollections-title');
+    const subCollectionsContainer = document.getElementById('subcollections-container');
+    const videosContainer = document.getElementById('videos-container');
+
+      /**
+       * 核心路由函数：根据URL hash决定显示哪个页面
+       */
+      function router() {
+        console.log('router');
+        
+        const hash = window.location.hash;
+        console.log(hash);
+
+        // 隐藏所有页面
+        document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+
+        if (hash.startsWith('#collection/')) {
+          const collectionId = hash.substring('#collection/'.length);
+          showCollectionPage(collectionId);
+        } else {
+          showHomePage();
+        }
+      }
+      function updateConfigData(encodedConfig) {
+        let config = JSON.parse(decodeURIComponent(encodedConfig));
+        configData = config;
+        videoMap = configData.videos;
+        collectionMap = configData.collections;
+        buildCollectionParentIndex();
+      }
+
+      /**
+       * 构建 childId -> parentId 索引，支持多级父子追溯
+       */
+      function buildCollectionParentIndex() {
+        collectionParentMap = {};
+        if (!collectionMap) return;
+        Object.values(collectionMap).forEach(parent => {
+          const subs = Array.isArray(parent.subCollections) ? parent.subCollections : [];
+          subs.forEach(childId => {
+            // 首次记录为主父级；若存在多父级场景，保留第一个
+            if (!collectionParentMap[childId]) {
+              collectionParentMap[childId] = parent.id;
+            }
+          });
+        });
+      }
+
+      /**
+       * 获取从顶级到指定合集的祖先链（不含主页）
+       * 返回数组为 ancestorIds 按从上到下排序，不包含自身
+       */
+      function getAncestorChain(collectionId) {
+        const chain = [];
+        let current = collectionId;
+        const guard = new Set();
+        while (collectionParentMap[current] && !guard.has(current)) {
+          guard.add(current);
+          const parentId = collectionParentMap[current];
+          chain.push(parentId);
+          current = parentId;
+        }
+        return chain.reverse();
+      }
+
+      /**
+       * 渲染面包屑：主页 / 上级1 / ... / 当前
+       */
+      function renderBreadcrumbForCollection(collection) {
+        const ancestors = getAncestorChain(collection.id);
+        const parts = [];
+        parts.push(`<a href="#">主页</a>`);
+        ancestors.forEach(aid => {
+          const a = collectionMap[aid];
+          if (a) parts.push(`<a href="#collection/${a.id}">${a.title}</a>`);
+        });
+        parts.push(`<span>${collection.title}</span>`);
+        pageNav.innerHTML = parts.join(' / ');
+      }
+
+      /**
+       * 显示主页（合集列表）
+       */
+      function showHomePage() {
+        pageNav.innerHTML = `<span>主页</span>`;
+        pageHome.classList.add('active');
+
+        // 渲染合集列表（如果尚未渲染）
+        if (collectionsContainer.children.length === 0) {
+          configData.collectionsToShow.forEach(collectionId => {
+            const collection = collectionMap[collectionId];
+            console.log(collection);
+            
+            const card = document.createElement('div');
+            card.className = 'card';
+            let img = ""
+            if (collection.cover) {
+              img =`<img src="${collection.cover}" alt="${collection.title}" class="card-thumbnail">`
+            }
+            card.innerHTML = `
+                            ${img}
+                            <div class="card-content">
+                                <h3 class="card-title"><span class="icon-label"><img class="icon-img" src="https://vip.123pan.cn/1836303614/dl/icon/collection.png" alt="合集"><span>${collection.title}</span></span></h3>
+                                <p class="card-description">${collection.description}</p>
+                            </div>
+                        `;
+            // 点击合集时，不再直接调用函数，而是改变URL的hash来触发路由
+            card.addEventListener('click', () => {
+              window.location.hash = `collection/${collection.id}`;
+            });
+            collectionsContainer.appendChild(card);
+          });
+        }
+      }
+
+      /**
+       * 显示合集详情页（视频列表）
+       * @param {string} collectionId 
+       */
+      function showCollectionPage(collectionId) {
+        console.log(collectionId);
+        
+        const collection = collectionMap[collectionId];
+        if (!collection) {
+          // 如果找不到合集，跳转回主页
+          window.location.hash = '';
+          return;
+        }
+
+        // 更新导航栏（多级面包屑）
+        renderBreadcrumbForCollection(collection);
+
+        // 更新页面内容
+        videosTitle.textContent = `合集: ${collection.title}`;
+
+        // 渲染子合集
+        subCollectionsContainer.innerHTML = '';
+        const subIds = Array.isArray(collection.subCollections) ? collection.subCollections : [];
+        if (subIds.length > 0) {
+          subCollectionsTitle.textContent = '子合集';
+          subIds.forEach(subId => {
+            const sub = collectionMap[subId];
+            if (!sub) return;
+            const card = document.createElement('div');
+            card.className = 'card';
+            let img = "";
+            if (sub.cover) {
+              img = `<img src="${sub.cover}" alt="${sub.title}" class="card-thumbnail">`;
+            }
+            card.innerHTML = `
+                            ${img}
+                            <div class="card-content">
+                                <h3 class="card-title"><span class="icon-label"><img class="icon-img" src="https://vip.123pan.cn/1836303614/dl/icon/collection.png" alt="合集"><span>${sub.title}</span></span></h3>
+                                <p class="card-description">${sub.description || ''}</p>
+                            </div>
+                        `;
+            card.addEventListener('click', () => {
+              window.location.hash = `collection/${sub.id}`;
+            });
+            subCollectionsContainer.appendChild(card);
+          });
+        } else {
+          subCollectionsTitle.textContent = '';
+        }
+
+        // 渲染视频
+        videosContainer.innerHTML = '';
+        const videos = Array.isArray(collection.videos) ? collection.videos : [];
+        videos.forEach(videoId => {
+          const video = videoMap[videoId];
+          if (video) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            let cover = "https://cdn.u1162561.nyat.app:43836/d/cdn/cover/"+video.id+".jpeg"
+            let img = `<img src="${cover}" alt="${video.title}" class="card-thumbnail">`;
+            card.innerHTML = `
+                            ${img}
+                            <div class="card-content">
+                                <h3 class="card-title"><span class="icon-label"><img class="icon-img" src="https://vip.123pan.cn/1836303614/dl/icon/video.png" alt="视频"><span>${video.title}</span></span></h3>
+                                <p class="card-description">${video.description}</p>
+                            </div>
+                        `;
+            card.addEventListener('click', () => playVideo({
+              videoId: video.id,
+              collection: collection,
+              timestamp: 0
+            }));
+            videosContainer.appendChild(card);
+          }
+        });
+
+        // 显示详情页
+        pageCollectionDetails.classList.add('active');
+        // 每次进入子页面时，都滚动到页面顶部
+        window.scrollTo(0, 0);
+      }
+
+      /**
+       * 触发视频播放的函数（空实现）
+       * @param {object} params - 包含播放所需全部信息的对象
+       */
+      function playVideo(params) {
+        console.log('准备播放视频，接收到的参数:', params);
+        postMessageToAddon("videoplayer", "playVideo", {
+          videoId: params.videoId,
+          collectionId: params.collection.id,
+          timestamp: params.timestamp
+        });
+      }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // 3. 监听URL hash的变化，并立即执行一次路由以处理初始URL
+      window.addEventListener('hashchange', router);
+      // router(); // 页面加载时立即执行一次路由
+    });
+    // updateConfigData(encodeURIComponent(JSON.stringify(configData)));
+    // showHomePage()
+  </script>
+</body>
+
+</html>
