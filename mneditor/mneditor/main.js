@@ -456,32 +456,23 @@ onClosePopupMenuOnNote: function (params) {
         }
       },
       /**
-       * Handles the beginning of an inline text edit session.
-       * Ensures the addon only reacts in the active window, respects user preferences,
-       * and optionally surfaces the editor UI beside the selected mind map note.
-       *
-       * @param {{object:UITextView}} param - Notification payload where `object` is the text view entering edit mode.
-       * @returns {void}
+       * 
+       * @param {{object:UITextView}} param 
        */
       onTextDidBeginEditing:function (param) {
         try {
-          // Ignore notifications emitted by background windows to prevent cross-window interference.
           if (self.window !== MNUtil.currentWindow) {
             return
           }
-          // Skip when the study window is in review/watch mode to avoid forcing the editor open.
           if (MNUtil.studyMode === 3) {
             return
           }
-          // Respect the toggle that disables the editor when typing directly in MindNode.
           if (!editorConfig.getConfig("showOnNoteEdit")) {
             return
           }
-          // Cache the triggering text view for later operations such as placeholder cleanup.
           let textView = param.object
           editorUtils.textView = textView
           let mindmapView = editorUtils.getMindmapview(textView)
-          // Extended views are custom overlays; ensure they have placeholder text and open the main editor instead.
           if (editorUtils.checkExtendView(textView)) {
             if (textView.text && textView.text.trim()) {
              //do nothing 
@@ -496,18 +487,15 @@ onClosePopupMenuOnNote: function (params) {
             // MNUtil.showHUD("message")
             return
           }
-          // When the text view belongs to a mind map note, anchor the editor beside the selected node.
           if (mindmapView && mindmapView.selViewLst.length) {
             let noteView = mindmapView.selViewLst[0].view
             let beginFrame = noteView.convertRectToView(noteView.bounds, MNUtil.studyView)
             let textFrame = textView.convertRectToView(textView.bounds, MNUtil.studyView)
-            // Ignore inline edits triggered by detached floating text views.
             if (textFrame.x > beginFrame.x + beginFrame.width) {
               return
             }
             // let foucsNote = MNNote.getFocusNote()
             let foucsNote = MNNote.new(mindmapView.selViewLst[0].note.note)
-            // Pre-fill empty notes to keep the editor in sync and prevent zero-length content issues.
             if (!foucsNote.noteTitle && !foucsNote.excerptText && !foucsNote.comments.length) {
               // MNUtil.copyJSON(param.object)
               param.object.text = "placeholder"
@@ -519,7 +507,6 @@ onClosePopupMenuOnNote: function (params) {
             if (foucsNote) {
               let noteId = foucsNote.noteId
               let studyFrame = MNUtil.studyView.bounds
-              // Compute a frame for the editor: push left if the default width would overflow the study area.
               if (beginFrame.x+450 > studyFrame.width) {
                 let endFrame = Frame.gen(studyFrame.width-450, beginFrame.y-10, 450, 500)
                 if (beginFrame.y+490 > studyFrame.height) {
@@ -527,7 +514,6 @@ onClosePopupMenuOnNote: function (params) {
                 }
                 MNUtil.postNotification("openInEditor",{noteId:noteId,beginFrame:beginFrame,endFrame:endFrame})
               }else{
-                // Default placement sits directly over the current node with a slight vertical offset.
                 let endFrame = Frame.gen(beginFrame.x, beginFrame.y-10, 450, 500)
                 if (beginFrame.y+490 > studyFrame.height) {
                   endFrame.y = studyFrame.height-500
@@ -886,3 +872,4 @@ onClosePopupMenuOnNote: function (params) {
   }
   return MNEditorClass;
 };
+

@@ -189,11 +189,12 @@ document.addEventListener('DOMContentLoaded', function () {
         // editorDOM.addEventListener('dragover', (event) => {
         // });
   
-        editorDOM.addEventListener('drop', (event) => {
+        editorDOM.addEventListener('drop', async (event) => {
           const data = event.dataTransfer;
           if (data && data.types.includes('text/plain')) {
             const text = data.getData('text/plain');
-            sendDropNotification({type:"text",text:text})
+            let content = editor.getValue()
+            sendDropNotification({type:"text",text:text,content:content})
             // copyToClipboard(text)
           }
         });
@@ -341,7 +342,11 @@ function generateUUID() {
 }
 function sendDropNotification(obj){
   if(obj.type === "text"){
-    window.location.href = "editordroptext://content="+encodeURIComponent(obj.text);
+    if ("content" in obj) {
+      window.location.href = "editordroptext://content?text="+encodeURIComponent(obj.text)+"&content="+encodeURIComponent(obj.content);
+    }else{
+      window.location.href = "editordroptext://content?text="+encodeURIComponent(obj.text);
+    }
   }
 
 }

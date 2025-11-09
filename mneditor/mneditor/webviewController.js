@@ -34,105 +34,8 @@ var editorController = JSB.defineClass('editorController : UIViewController <UIW
     self.view.layer.opacity = 1.0
     self.view.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
     self.view.layer.borderWidth = 0
+    self.init()
 
-    // >>> DeepL view >>>
-    self.webview = new UIWebView(self.view.bounds);
-    self.webview.backgroundColor = UIColor.whiteColor();
-    self.webview.scalesPageToFit = true;
-    self.webview.autoresizingMask = (1 << 1 | 1 << 4);
-    self.webview.delegate = self;
-    self.webview.scrollView.delegate = self;
-    self.webview.layer.cornerRadius = 15;
-    self.webview.layer.masksToBounds = true;
-    self.webview.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
-    self.webview.layer.borderWidth = 0
-    self.highlightColor = UIColor.blendedColor( MNUtil.hexColorAlpha("#2c4d81",0.8),
-      self.appInstance.defaultTextColor,
-      0.8
-    );
-
-    self.webview.hidden = true;
-    self.webview.lastOffset = 0;
-    self.view.addSubview(self.webview);
-
-    self.createButton("toolbar")
-    self.toolbar.backgroundColor = MNUtil.hexColorAlpha("#727f94",0.)
-    self.toolbar.layer.cornerRadius = 0;
-
-    self.createButton("headingButton","changeHeading:","toolbar")
-    self.headingButton.setImageForState(editorUtils.webappImage,0)
-
-    self.createButton("listButton","changeList:","toolbar")
-    self.listButton.setImageForState(editorUtils.listImage,0)
-
-    self.createButton("boldButton","changebold:","toolbar")
-    self.boldButton.setImageForState(editorUtils.boldImage,0)
-
-    self.createButton("linkButton","addLink:","toolbar")
-    self.linkButton.setImageForState(editorUtils.linkImage,0)
-
-    self.createButton("codeButton","addcode:","toolbar")
-    self.codeButton.setImageForState(editorUtils.codeImage,0)
-
-    self.createButton("tableButton","addtable:","toolbar")
-    self.tableButton.setImageForState(editorUtils.tableImage,0)
-
-    self.createButton("moreButton","addmore:","toolbar")
-    self.moreButton.setImageForState(editorUtils.moreImage,0)
-
-    self.createButton("closeButton","closeButtonTapped:")
-    self.closeButton.setTitleForState('✖️', 0);
-    self.closeButton.titleLabel.font = UIFont.systemFontOfSize(10);
-
-    self.createButton("maxButton","maxButtonTapped:")
-    self.maxButton.setTitleForState('➕', 0);
-    self.maxButton.titleLabel.font = UIFont.systemFontOfSize(10);
-
-    self.createButton("minButton","minButtonTapped:")
-    self.minButton.setTitleForState('➖', 0);
-    self.minButton.titleLabel.font = UIFont.systemFontOfSize(10);
-
-    self.createButton("saveButton","saveButtonTapped:","toolbar")
-    self.saveButton.setTitleForState('Save', 0);
-    self.saveButton.titleLabel.font = UIFont.boldSystemFontOfSize(17);
-
-    self.createButton("searchButton","searchButtonTapped:","toolbar")
-    self.searchButton.setTitleForState('📝', 0);
-
-    self.createButton("moveButton","moveButtonTapped:")
-
-    self.createButton("goForwardButton","goForwardButtonTapped:","toolbar")
-    self.goForwardButton.setImageForState(editorUtils.goforwardImage,0)
-
-    self.createButton("goBackButton","goBackButtonTapped:","toolbar")
-    self.goBackButton.setImageForState(editorUtils.gobackImage,0)
-    // <<< goBack button <<<
-    // >>> refresh button >>>
-    self.createButton("refreshButton","refreshButtonTapped:","toolbar")
-    self.refreshButton.setImageForState(editorUtils.reloadImage,0)
-    MNButton.addLongPressGesture(self.refreshButton,self,"onLongPressRefresh:")
-    // <<< refresh button <<<
-    MNButton.addPanGesture(self.moveButton,self,"onMoveGesture:")
-    MNButton.addLongPressGesture(self.moveButton,self,"onLongPress:")
-    // self.moveGesture = new UIPanGestureRecognizer(self,"onMoveGesture:")
-    // self.moveButton.addGestureRecognizer(self.moveGesture)
-    // self.moveGesture.view.hidden = false
-    // self.moveGesture.addTargetAction(self,"onMoveGesture:")
-    MNButton.addPanGesture(self.saveButton,self,"onResizeGesture:")
-    MNButton.addLongPressGesture(self.saveButton,self,"onLongPressSave:")
-    // self.resizeGesture = new UIPanGestureRecognizer(self,"onResizeGesture:")
-    // self.saveButton.addGestureRecognizer(self.resizeGesture)
-    // self.resizeGesture.view.hidden = false
-    // self.resizeGesture.addTargetAction(self,"onResizeGesture:")
-    // self.creatTextView("inlineLinkInput")
-    self.creatView("inlineLinkView")
-    self.inlineLinkView.hidden = true
-    self.creatTextView("inlineLinkInput","inlineLinkView")
-    self.inlineLinkInput.id = "inlineLinkInput"
-    self.createButton("closeInlineLink","closeInlineLinkTapped:","inlineLinkView")
-    self.closeInlineLink.setImageForState(editorUtils.stopImage,0)
-    MNButton.setColor(self.closeInlineLink, "#e06c75")
-    self.inlineLinkScrollview = self.createScrollview("inlineLinkView")
   } catch (error) {
     MNUtil.showHUD("Error in viewDidLoad: "+error)
   }
@@ -181,7 +84,8 @@ viewWillLayoutSubviews: function() {
     if (self.miniMode) {
       return
     }
-    let buttonHeight = 25
+    let buttonHeight = 28
+    let buttonWidth = 35
     var viewFrame = self.view.bounds;
     var width    = viewFrame.width
     var height   = viewFrame.height
@@ -189,46 +93,33 @@ viewWillLayoutSubviews: function() {
     self.maxButton.frame = MNUtil.genFrame(width-43,0,18,18)
     self.minButton.frame = MNUtil.genFrame(width-68,0,18,18)
 
-    self.toolbar.frame = MNUtil.genFrame(1, height-25, width-2,buttonHeight)
-    self.saveButton.frame = {x: width - 55,y: 0,width: 50,height: buttonHeight};
+    self.toolbar.frame = MNUtil.genFrame(0, height-buttonHeight, width,buttonHeight)
+    self.buttonScrollview.frame = {x: 0,y: 0,width: width-105,height: buttonHeight};
+
+    self.saveButton.frame = {x: width - 55,y: 0,width: 55,height: buttonHeight};
     self.tableButton.hidden = width <= 400
     self.codeButton.hidden = width <= 370
 
-    if (width <= 440) {
-      self.moveButton.frame = {  x: width*0.5-75,  y: 0,  width: width*0.35,  height: 16};
-      self.refreshButton.hidden = false
-      self.goBackButton.hidden = false
-      self.goForwardButton.hidden = false
-      self.headingButton.frame = {  x: 106,  y: 0,  width: 30,  height: buttonHeight,};  
-      self.listButton.frame = {  x: 141,  y: 0,  width: 30,  height: buttonHeight,};  
-      self.boldButton.frame = {  x: 176,  y: 0,  width: 30,  height: buttonHeight,};  
-      self.linkButton.frame = {  x: 211,  y: 0,  width: 30,  height: buttonHeight,};  
-      self.codeButton.frame = {  x: 246,  y: 0,  width: 30,  height: buttonHeight,};  
-      self.tableButton.frame = {  x: 281,  y: 0,  width: 30,  height: buttonHeight,};  
-      self.searchButton.frame = {  x: width-95,  y: 0,  width: 35,  height: buttonHeight,};
-      self.moreButton.frame = {  x: 316,  y: 0,  width: 30,  height: buttonHeight,}; 
-      self.moreButton.hidden = true
-    }else{
-      self.moveButton.frame = {  x: width*0.5-75,  y: 0,  width: 150,  height: 16};
-      self.refreshButton.hidden = false
-      self.goBackButton.hidden = false
-      self.goForwardButton.hidden = false
-      self.headingButton.hidden = false
-      self.headingButton.frame = {  x: 106,  y: 0,  width:30,  height: buttonHeight,};   
-      self.listButton.frame = {  x: 141,  y: 0,  width:30,  height: buttonHeight,};   
-      self.boldButton.frame = {  x: 176,  y: 0,  width: 30,  height: buttonHeight,};  
-      self.linkButton.frame = {  x: 211,  y: 0,  width: 30,  height: buttonHeight,};  
-      self.codeButton.frame = {  x: 246,  y: 0,  width: 30,  height: buttonHeight,};  
-      self.tableButton.frame = {  x: 281,  y: 0,  width: 30,  height: buttonHeight,};  
-      self.moreButton.frame = {  x: 316,  y: 0,  width: 30,  height: buttonHeight,};  
-      self.searchButton.frame = {  x: width - 95,  y: 0,  width: 35,  height: buttonHeight};
-      self.moreButton.hidden = false
-    }
+    self.moveButton.frame = {  x: width*0.5-75,  y: 0,  width: 150,  height: 16};
+    self.refreshButton.hidden = false
+    self.goBackButton.hidden = false
+    self.goForwardButton.hidden = false
+    self.headingButton.hidden = false
+    self.headingButton.frame = {  x: 120,  y: 0,  width:buttonWidth,  height: buttonHeight,};   
+    self.listButton.frame = {  x: 160,  y: 0,  width:buttonWidth,  height: buttonHeight,};   
+    self.boldButton.frame = {  x: 200,  y: 0,  width: buttonWidth,  height: buttonHeight,};  
+    self.linkButton.frame = {  x: 240,  y: 0,  width: buttonWidth,  height: buttonHeight,};  
+    self.codeButton.frame = {  x: 280,  y: 0,  width: buttonWidth,  height: buttonHeight,};  
+    self.tableButton.frame = {  x: 320,  y: 0,  width: buttonWidth,  height: buttonHeight,};  
+    self.moreButton.frame = {  x: 360,  y: 0,  width: buttonWidth,  height: buttonHeight,};  
+    self.searchButton.frame = {  x: width - 100,  y: 0,  width: 40,  height: buttonHeight};
+    self.moreButton.hidden = false
+    self.buttonScrollview.contentSize = {width: 400,height: buttonHeight};
 
-    self.goBackButton.frame = {  x:1,  y: 0,  width: 30,  height: buttonHeight,};
-    self.goForwardButton.frame = {  x:36,  y: 0,  width: 30,  height: buttonHeight,};
-    self.refreshButton.frame = {  x: 71,  y: 0,  width: 30,  height: buttonHeight,};
-    self.webview.frame = {x:1,y:8,width:width-2,height:height-38}
+    self.goBackButton.frame = {  x:0,  y: 0,  width: buttonWidth,  height: buttonHeight,};
+    self.goForwardButton.frame = {  x:40,  y: 0,  width: buttonWidth,  height: buttonHeight,};
+    self.refreshButton.frame = {  x: 80,  y: 0,  width: buttonWidth,  height: buttonHeight,};
+    self.webview.frame = {x:0,y:8,width:width,height:height-41}
     try {
       if (self.settingView) {
         self.settingViewLayout()
@@ -331,6 +222,10 @@ viewWillLayoutSubviews: function() {
             break;
         }
         return false
+      case "editordroptext":
+        self.actionOnDropText(config.params)
+        return false
+
       default:
         editorUtils.log("config", config)
         break;
@@ -354,9 +249,18 @@ viewWillLayoutSubviews: function() {
       return false
     }
     
-    if (/^editordroptext\:\/\//.test(requestURL)) {
+    if (/^editordroptext\:\/\//.test(requestURL)) {//拖拽文本到编辑器
+      let text = decodeURIComponent(requestURL.split("content=")[1])
+      let autoTitle = editorConfig.getConfig("autoTitle")
+      if (autoTitle) {
+        let autoTitleThreshold = editorConfig.getConfig("autoTitleThreshold")
+        let wordCount = MNUtil.wordCountBySegmentit(text)
+        if (wordCount < autoTitleThreshold) {
+          self.appendTitle(text)
+          return false
+        }
+      }
       if(self.editorNoteId){
-        let text = decodeURIComponent(requestURL.split("content=")[1])
         // MNUtil.showHUD(text)
         let currentSelection = MNUtil.currentSelection
         if(currentSelection.onSelection && currentSelection.isText && currentSelection.text === text){
@@ -375,24 +279,26 @@ viewWillLayoutSubviews: function() {
       }
       return false
     }
-    if (/^editorimage\:\/\//.test(requestURL)) {
+    if (/^editorimage\:\/\//.test(requestURL)) {//拖拽图片到编辑器
       // MNUtil.excuteCommand("SourceHighlight")
       let dataURL = decodeURIComponent(requestURL.split("content=")[1])
-      // let currentSelection = MNUtil.currentSelection
-      // if(currentSelection.onSelection && !currentSelection.isText){
-      //   self.save(self.editorNoteId)
-      //   // let selectedMd5 = MNUtil.MD5(currentSelection.image.base64Encoding())
-      //   // if (imageMd5 === selectedMd5) {
-      //     MNUtil.undoGrouping(()=>{
-      //       let note = MNNote.fromSelection().realGroupNoteForTopicId()
-      //       note.excerptText = ""
-      //       note.textFirst = true
-      //       let currentNote = MNNote.new(self.editorNoteId)
-      //       currentNote.merge(note)
-      //       self.setContent(currentNote,0.5)
-      //     })
-      //     return false
-      // }
+      let currentSelection = MNUtil.currentSelection
+      if(currentSelection.onSelection && !currentSelection.isText){
+        // editorUtils.log("尝试创建摘录")
+        self.saveDev(self.editorNoteId).then(()=>{
+        // let selectedMd5 = MNUtil.MD5(currentSelection.image.base64Encoding())
+        // if (imageMd5 === selectedMd5) {
+          MNUtil.undoGrouping(()=>{
+            let note = MNNote.fromSelection().realGroupNoteForTopicId()
+            // note.excerptText = ""
+            // note.textFirst = true
+            let currentNote = MNNote.new(self.editorNoteId)
+            currentNote.merge(note)
+            self.setContent(currentNote,0.5)
+          })
+        })
+        return false
+      }
       if (editorConfig.getConfig("base64ToLocalBuffer")) {
         let url = editorUtils.getLocalBufferFromBase64(dataURL)
         // self.runJavaScript("editor.getCursorPosition()").then((res)=>{
@@ -656,8 +562,13 @@ viewWillLayoutSubviews: function() {
   },
   exportAction: async function (type) {
     Menu.dismissCurrentMenu()
+    if (!editorUtils.isSubscribed()) {
+      let confirm = await MNUtil.confirm("MN Editor", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
+    };
     if (!editorUtils.checkSubscribe(true)) {
-      MNUtil.showHUD("Please subscribe to export")
       return
     }
     let content = await self.getContent()
@@ -933,17 +844,21 @@ viewWillLayoutSubviews: function() {
   },
   exportMd: async function (params) {
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
-    //会消耗免费次数
-    if (editorUtils.checkSubscribe(true)) {
-  // let content = await self.runJavaScript('editor.getValue()')
+    if (!editorUtils.isSubscribed()) {
+      let confirm = await MNUtil.confirm("MN Editor", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
+    };
+    if (!editorUtils.checkSubscribe(true)) {
+      return
+    }
       let content = await self.getContent("base64")   
       MNUtil.copy(content)
       let docPath = MNUtil.cacheFolder+"/export.md"
       MNUtil.writeText(docPath, content)
       let UTI = ["public.md"]
       MNUtil.saveFile(docPath, UTI)
-    }
-    // }
   },
   changeMode: async function (mode) {
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
@@ -982,6 +897,27 @@ viewWillLayoutSubviews: function() {
       {title:'50%',object:self,selector:'changeOpacityTo:',param:0.5}
     ];
     self.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,100,1)
+  },
+  toggleAutoTitle: function () {
+    let autoTitle = editorConfig.getConfig("autoTitle")
+    editorConfig.config.autoTitle = !autoTitle
+    editorConfig.save("MNEditor_config")
+    self.autoTitleButton.setTitleForState("Auto title: "+(editorConfig.getConfig("autoTitle")?"✅":"❌"),0)
+  },
+  changeAutoTitleThreshold: function (button) {
+    let menu = Menu.new(button, self)
+    menu.addMenuItem("5 words", "setAutoTitleThreshold:", 5)
+    menu.addMenuItem("10 words", "setAutoTitleThreshold:", 10)
+    menu.addMenuItem("15 words", "setAutoTitleThreshold:", 15)
+    menu.addMenuItem("20 words", "setAutoTitleThreshold:", 20)
+    menu.addMenuItem("25 words", "setAutoTitleThreshold:", 25)
+    menu.addMenuItem("30 words", "setAutoTitleThreshold:", 30)
+    menu.show()
+  },
+  setAutoTitleThreshold: function (threshold) {
+    editorConfig.config.autoTitleThreshold = threshold
+    editorConfig.save("MNEditor_config")
+    self.autoTitleThresholdButton.setTitleForState("Auto title threshold: "+editorConfig.getConfig("autoTitleThreshold")+" words",0)
   },
   changeTheme: function (params) {
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
@@ -1540,8 +1476,14 @@ viewWillLayoutSubviews: function() {
     self.loadVditor(content)
 
   },
-  toggleShowOnEdit: function (params) {
-    if (!editorUtils.checkSubscribe(false,true,true)) {
+  toggleShowOnEdit: async function (params) {
+    if (!editorUtils.isSubscribed()) {
+      let confirm = await MNUtil.confirm("MN Editor", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
+    };
+    if (!editorUtils.checkSubscribe(true)) {
       return
     }
     editorConfig.config.showOnNoteEdit = !editorConfig.getConfig("showOnNoteEdit")
@@ -2132,7 +2074,7 @@ editorController.prototype.createButton = function (buttonName,targetAction,supe
     this[buttonName].setTitleColorForState(UIColor.whiteColor(),0);
     this[buttonName].setTitleColorForState(this.highlightColor, 1);
     this[buttonName].backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
-    this[buttonName].layer.cornerRadius = 8;
+    this[buttonName].layer.cornerRadius = 10;
     this[buttonName].layer.masksToBounds = true;
     this[buttonName].titleLabel.font = UIFont.systemFontOfSize(16);
 
@@ -2170,6 +2112,8 @@ editorController.prototype.settingViewLayout = function (){
     this.toolbarOn.frame = MNUtil.genFrame(10,50, width-20, 35)
     this.replaceEditOn.frame = MNUtil.genFrame(10.,90, width-20, 35)
     this.opacityButton.frame = MNUtil.genFrame(10.,130, width-20, 35)
+    this.autoTitleButton.frame = MNUtil.genFrame(10.,170, width-20, 35)
+    this.autoTitleThresholdButton.frame = MNUtil.genFrame(10.,210, width-20, 35)
     this.imageHostButton.frame = MNUtil.genFrame(10,50, width-20, 35)
     this.uploadOnSaveButton.frame = MNUtil.genFrame(10,90, (width-25)/2., 35)
     this.uploadOnEditButton.frame = MNUtil.genFrame(15+(width-25)/2.,90, (width-25)/2., 35)
@@ -2244,6 +2188,16 @@ try {
   this.opacityButton.layer.opacity = 1.0
   this.opacityButton.setTitleForState("Opacity: "+(this.view.layer.opacity*100)+"%",0)
   this.opacityButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
+
+  this.createButton("autoTitleButton","toggleAutoTitle:","configView")
+  this.autoTitleButton.layer.opacity = 1.0
+  this.autoTitleButton.setTitleForState("Auto title: "+(editorConfig.getConfig("autoTitle")?"✅":"❌"),0)
+  this.autoTitleButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
+
+  this.createButton("autoTitleThresholdButton","changeAutoTitleThreshold:","configView")
+  this.autoTitleThresholdButton.layer.opacity = 1.0
+  this.autoTitleThresholdButton.setTitleForState("Auto title threshold: "+editorConfig.getConfig("autoTitleThreshold")+" words",0)
+  this.autoTitleThresholdButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
 
   this.createButton("imageHostButton","toggleImageHost:","configView")
   this.imageHostButton.layer.opacity = 1.0
@@ -2740,6 +2694,7 @@ try {
   let indexToEdit = editorUtils.getIndexToEdit(focusNote,removeComment)
   let indexToRemove = indexToEdit.indexToRemove
   let targetToSet = indexToEdit.targetToSet
+
     // if (editorConfig.getConfig("includingComments") && removeComment && focusNote.comments.length) {
     //   focusNote.comments.map((comment,index)=>{
     //     switch (comment.type) {
@@ -2830,17 +2785,31 @@ try {
         let comment = focusNote.comments[targetIndex]
         let mergedNote = MNNote.new(comment.noteid)
         if (mergedNote) {
-          mergedNote.note.excerptTextMarkdown = true
-          // mergedNote.focusInMindMap()
-          // let temNote = MNNote.new(mergedNote.note.originNoteId)
-          // MNUtil.copyJSON({a:mergedNote.excerptTextMarkdown,b:temNote.excerptTextMarkdown})
-          // temNote.focusInMindMap()
-          // temNote.note.excerptTextMarkdown = true
-          // temNote.excerptText = contents[contentsIndex+1]
+          //判断合并的卡片是否是图片摘录
           if ((contentsIndex+1) >= contents.length) {
             mergedNote.excerptText = ""
           }else{
-            mergedNote.excerptText = contents[contentsIndex+1]
+            let content = contents[contentsIndex+1].trim()
+            if (content.startsWith("![image.png](") && comment.q_hpic.paint) {
+              let imageURL = editorUtils.getMNImageURL(comment.q_hpic.paint)
+              let imageURL2 = `![image.png](${imageURL})`
+              if (content === imageURL2) {//这部分markdown图片确实是对应卡片的图片，所以不做处理
+                // editorUtils.log("这部分markdown图片确实是对应卡片的图片，所以不做处理")
+                //do nothing
+              }else if (content.startsWith(imageURL2)) {//content为markdown图片+其他内容，此时需要将其他内容添加为下一个文本评论
+                // editorUtils.log("content为markdown图片+其他内容，此时需要将其他内容添加为下一个文本评论")
+                let contentRemain = content.slice(imageURL2.length).trim()
+                if (contentRemain.trim()) {
+                  focusNote.appendMarkdownComment(contentRemain,targetIndex+1)
+                }
+              }else{
+                mergedNote.note.excerptTextMarkdown = true
+                mergedNote.excerptText = content
+              }
+            }else{
+              mergedNote.note.excerptTextMarkdown = true
+              mergedNote.excerptText = content
+            }
           }
           // mergedNote.note.processMarkdownBase64Images()
         }
@@ -3585,4 +3554,179 @@ editorController.prototype.getSelection = async function () {
     return selection.trim()
   }
   return undefined
+}
+
+editorController.prototype.appendTitle = async function (title,content) {
+    if (!content) {
+      content = await this.getContent()
+    }
+    let config = editorUtils.parseContent(content,false)
+    if (config.hasTitle) {
+      let oldTitle = config.title
+      let newTitle = oldTitle+"; "+title
+      let newContent = "# "+newTitle+"\n"+config.content
+      this.runJavaScript(`updateValue(\`${encodeURIComponent(newContent)}\`)`)
+    }else{
+      let newContent = "# "+title+"\n"+config.content
+      this.runJavaScript(`updateValue(\`${encodeURIComponent(newContent)}\`)`)
+    }
+}
+
+editorController.prototype.actionOnDropText = async function (params) {
+  let text = params.text
+  let content = params.content
+  let autoTitle = editorConfig.getConfig("autoTitle")
+  if (autoTitle) {
+    let autoTitleThreshold = editorConfig.getConfig("autoTitleThreshold")
+    let wordCount = MNUtil.wordCountBySegmentit(text)
+    if (wordCount < autoTitleThreshold) {
+      this.appendTitle(text,content)
+      return
+    }
+  }
+  if(this.editorNoteId){
+    // MNUtil.showHUD(text)
+    let currentSelection = MNUtil.currentSelection
+    if(currentSelection.onSelection && currentSelection.isText && currentSelection.text === text){
+      MNUtil.undoGrouping(()=>{
+        let note = MNNote.fromSelection().realGroupNoteForTopicId()
+        note.excerptText = ""
+        let currentNote = MNNote.new(this.editorNoteId)
+        currentNote.merge(note)
+        MNUtil.delay(0.5).then(()=>{
+          // this.save(this.editorNoteId)
+          this.saveDev(this.editorNoteId)
+        })
+        // this.setContent(currentNote,0.5)
+      })
+    }
+  }
+}
+
+/** @this {editorController} */
+editorController.prototype.createWebview = function () {
+    if (this.webview) {
+      this.webview.removeFromSuperview()
+    }
+    this.webview = new UIWebView(this.view.bounds);
+    this.webview.backgroundColor = UIColor.whiteColor();
+    this.webview.scalesPageToFit = true;
+    this.webview.autoresizingMask = (1 << 1 | 1 << 4);
+    this.webview.delegate = this;
+    this.webview.scrollView.delegate = this;
+    this.webview.layer.cornerRadius = 15;
+    this.webview.layer.masksToBounds = true;
+    this.webview.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
+    this.webview.layer.borderWidth = 0
+    this.highlightColor = UIColor.blendedColor( MNUtil.hexColorAlpha("#2c4d81",0.8),
+      this.appInstance.defaultTextColor,
+      0.8
+    );
+
+    this.webview.hidden = true;
+    this.webview.lastOffset = 0;
+    this.view.addSubview(this.webview);
+}
+
+/** @this {editorController} */
+editorController.prototype.init = function () {
+  try {
+
+
+    this.createWebview()
+    this.createButton("toolbar")
+    this.toolbar.backgroundColor = MNUtil.hexColorAlpha("#727f94",0.)
+    this.toolbar.layer.cornerRadius = 0;
+
+    this.buttonScrollview = UIScrollView.new()
+    this.toolbar.addSubview(this.buttonScrollview)
+    this.buttonScrollview.hidden = false
+    this.buttonScrollview.delegate = this
+    this.buttonScrollview.bounces = true
+    this.buttonScrollview.alwaysBounceVertical = false
+    this.buttonScrollview.layer.cornerRadius = 8
+    this.buttonScrollview.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",0.0)
+    this.buttonScrollview.alwaysBounceHorizontal = true
+    this.buttonScrollview.showsHorizontalScrollIndicator = false
+
+
+
+    this.createButton("headingButton","changeHeading:","buttonScrollview")
+    this.headingButton.setImageForState(editorUtils.webappImage,0)
+
+    this.createButton("listButton","changeList:","buttonScrollview")
+    this.listButton.setImageForState(editorUtils.listImage,0)
+
+    this.createButton("boldButton","changebold:","buttonScrollview")
+    this.boldButton.setImageForState(editorUtils.boldImage,0)
+
+    this.createButton("linkButton","addLink:","buttonScrollview")
+    this.linkButton.setImageForState(editorUtils.linkImage,0)
+
+    this.createButton("codeButton","addcode:","buttonScrollview")
+    this.codeButton.setImageForState(editorUtils.codeImage,0)
+
+    this.createButton("tableButton","addtable:","buttonScrollview")
+    this.tableButton.setImageForState(editorUtils.tableImage,0)
+
+    this.createButton("moreButton","addmore:","buttonScrollview")
+    this.moreButton.setImageForState(editorUtils.moreImage,0)
+
+    this.createButton("closeButton","closeButtonTapped:")
+    this.closeButton.setTitleForState('✖️', 0);
+    this.closeButton.titleLabel.font = UIFont.systemFontOfSize(10);
+
+    this.createButton("maxButton","maxButtonTapped:")
+    this.maxButton.setTitleForState('➕', 0);
+    this.maxButton.titleLabel.font = UIFont.systemFontOfSize(10);
+
+    this.createButton("minButton","minButtonTapped:")
+    this.minButton.setTitleForState('➖', 0);
+    this.minButton.titleLabel.font = UIFont.systemFontOfSize(10);
+
+    this.createButton("saveButton","saveButtonTapped:","toolbar")
+    this.saveButton.setTitleForState('Save', 0);
+    this.saveButton.titleLabel.font = UIFont.boldSystemFontOfSize(17);
+
+    this.createButton("searchButton","searchButtonTapped:","toolbar")
+    this.searchButton.setTitleForState('📝', 0);
+
+    this.createButton("moveButton","moveButtonTapped:")
+
+    this.createButton("goForwardButton","goForwardButtonTapped:","buttonScrollview")
+    this.goForwardButton.setImageForState(editorUtils.goforwardImage,0)
+
+    this.createButton("goBackButton","goBackButtonTapped:","buttonScrollview")
+    this.goBackButton.setImageForState(editorUtils.gobackImage,0)
+    // <<< goBack button <<<
+    // >>> refresh button >>>
+    this.createButton("refreshButton","refreshButtonTapped:","buttonScrollview")
+    this.refreshButton.setImageForState(editorUtils.reloadImage,0)
+    MNButton.addLongPressGesture(this.refreshButton,this,"onLongPressRefresh:")
+    // <<< refresh button <<<
+    MNButton.addPanGesture(this.moveButton,this,"onMoveGesture:")
+    MNButton.addLongPressGesture(this.moveButton,this,"onLongPress:")
+    // this.moveGesture = new UIPanGestureRecognizer(this,"onMoveGesture:")
+    // this.moveButton.addGestureRecognizer(this.moveGesture)
+    // this.moveGesture.view.hidden = false
+    // this.moveGesture.addTargetAction(this,"onMoveGesture:")
+    MNButton.addPanGesture(this.saveButton,this,"onResizeGesture:")
+    MNButton.addLongPressGesture(this.saveButton,this,"onLongPressSave:")
+    // this.resizeGesture = new UIPanGestureRecognizer(this,"onResizeGesture:")
+    // this.saveButton.addGestureRecognizer(this.resizeGesture)
+    // this.resizeGesture.view.hidden = false
+    // this.resizeGesture.addTargetAction(this,"onResizeGesture:")
+    // this.creatTextView("inlineLinkInput")
+    this.creatView("inlineLinkView")
+    this.inlineLinkView.hidden = true
+    this.creatTextView("inlineLinkInput","inlineLinkView")
+    this.inlineLinkInput.id = "inlineLinkInput"
+    this.createButton("closeInlineLink","closeInlineLinkTapped:","inlineLinkView")
+    this.closeInlineLink.setImageForState(editorUtils.stopImage,0)
+    MNButton.setColor(this.closeInlineLink, "#e06c75")
+    this.inlineLinkScrollview = this.createScrollview("inlineLinkView")
+        
+  } catch (error) {
+    editorUtils.addErrorLog(error, "init")
+  }
 }
