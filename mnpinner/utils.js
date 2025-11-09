@@ -911,7 +911,7 @@ class pinnerConfig {
       }
 
       if (isDuplicate) {
-        MNUtil.showHUD("已存在")
+        // MNUtil.showHUD("已存在")
         return false
       }
 
@@ -934,8 +934,8 @@ class pinnerConfig {
       // 保存
       this.save()
 
-      let typeName = pinData.type === "card" ? "卡片" : "页面"
-      pinnerUtils.log(`Added ${pinData.type} pin at position ${position} to ${section}: ${pinData.title}`, "pinnerConfig:addPin")
+      // let typeName = pinData.type === "card" ? "卡片" : "页面"
+      // pinnerUtils.log(`Added ${pinData.type} pin at position ${position} to ${section}: ${pinData.title}`, "pinnerConfig:addPin")
       return true
 
     } catch (error) {

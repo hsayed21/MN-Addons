@@ -195,6 +195,17 @@ JSB.newAddon = function(mainPath){
           pinnerUtils.addonBar = self.addonBar
         }
 
+        pinnerUtils.ensureView(pinnerUtils.pinnerController.view)
+
+        // ✅ 新增：确保子视图已初始化
+        if (!pinnerUtils.pinnerController.focusCardScrollView) {
+          MNUtil.log("子视图尚未初始化，延迟 0.15 秒后重试")
+          MNUtil.delay(0.15).then(() => {
+            self.openPinnerLibrary()
+          })
+          return
+        }
+
         // 直接打开面板
         self.openPinnerLibrary()
       } catch (error) {

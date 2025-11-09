@@ -2215,6 +2215,9 @@ pinnerController.prototype.init = function () {
   this.lastTapTime = 0     // 双击检测时间
   this.currentSection = "focus"  // 当前显示的分区，默认focus
 
+  // ✅ 初始化多选功能
+  this.selectedCards = new Map()  // 存储选中的卡片，key: "section-noteId", value: {noteId, title, section}
+
   // 初始化 frame 状态（在 viewDidLoad 中会设置具体值）
   if (!this.lastFrame) {
     this.lastFrame = this.view.frame
@@ -2235,6 +2238,110 @@ pinnerController.prototype.init = function () {
     MNUtil.app.defaultTextColor,
     0.8
   );
+}
+
+// ========== 多选功能相关方法 ==========
+
+/**
+ * 切换卡片选择状态
+ */
+pinnerController.prototype.toggleCardSelection = function(button) {
+  try {
+    let index = button.tag
+    let section = button.section || this.currentSection
+
+    // 从 pinnerConfig 获取完整数据
+    let pins = pinnerConfig.getPins(section)
+    if (!pins || pins.length === 0) {
+      MNUtil.showHUD("分区数据为空")
+      return
+    }
+
+    let card = pins[index]
+    if (!card) {
+      MNUtil.showHUD("卡片数据已失效")
+      return
+    }
+
+    // 使用复合 key 存储选择状态
+    let key = section + "-" + card.noteId
+
+    if (this.selectedCards.has(key)) {
+      // 已选中，取消选择
+      this.selectedCards.delete(key)
+      button.setTitleForState("☐", 0)
+    } else {
+      // 未选中，添加选择
+      this.selectedCards.set(key, {
+        noteId: card.noteId,
+        title: card.title || "未命名卡片",
+        section: section
+      })
+      button.setTitleForState("☑️", 0)
+    }
+
+    // 更新导出按钮的状态和显示文本
+    this.updateExportButtonsState()
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "toggleCardSelection")
+  }
+}
+
+/**
+ * 清空所有选择
+ */
+pinnerController.prototype.clearSelection = function() {
+  this.selectedCards.clear()
+  this.updateExportButtonsState()
+}
+
+/**
+ * 获取已选数量
+ */
+pinnerController.prototype.getSelectedCount = function() {
+  return this.selectedCards.size
+}
+
+/**
+ * 获取所有选中的卡片（按 section 分组）
+ */
+pinnerController.prototype.getSelectedCards = function() {
+  let result = []
+  this.selectedCards.forEach((card) => {
+    result.push(card)
+  })
+  return result
+}
+
+/**
+ * 更新导出按钮的状态（更新所有分区的导出按钮）
+ */
+pinnerController.prototype.updateExportButtonsState = function() {
+  try {
+    let count = this.getSelectedCount()
+    // 动态获取所有分区（包括自定义分区）
+    let sections = pinnerConfig.getSectionNames()
+
+    sections.forEach(section => {
+      let urlButtonKey = section + "ExportURLButton"
+      let mdButtonKey = section + "ExportMarkdownButton"
+
+      if (this[urlButtonKey]) {
+        this[urlButtonKey].enabled = count > 0
+        let title = count > 0 ? `🔗 导出 (${count})` : "🔗 导出"
+        this[urlButtonKey].setTitleForState(title, 0)
+      }
+
+      if (this[mdButtonKey]) {
+        this[mdButtonKey].enabled = count > 0
+        let title = count > 0 ? `📝 导出 (${count})` : "📝 导出"
+        this[mdButtonKey].setTitleForState(title, 0)
+      }
+    })
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "updateExportButtonsState")
+  }
 }
 
 pinnerController.prototype.settingViewLayout = function () {
@@ -2880,6 +2987,29 @@ pinnerController.prototype.createSectionViews = function() {
       this[section + "AddButton"] = addButton
     }
 
+    // ✅ 添加导出按钮（支持多选导出）
+    // 导出为纯 URL 按钮
+    let exportURLButton = UIButton.buttonWithType(0)
+    exportURLButton.addTargetActionForControlEvents(this, "exportSelectedCardsAsURL:", 1 << 6)
+    exportURLButton.section = section
+    exportURLButton.enabled = false  // 初始时禁用（无选中）
+    buttonScrollView.addSubview(exportURLButton)
+    MNButton.setConfig(exportURLButton, {
+      color: "#98c379", alpha: 0.8, opacity: 1.0, title: "🔗 导出", radius: 10, font: 15
+    })
+    this[section + "ExportURLButton"] = exportURLButton
+
+    // 导出为 Markdown 按钮
+    let exportMarkdownButton = UIButton.buttonWithType(0)
+    exportMarkdownButton.addTargetActionForControlEvents(this, "exportSelectedCardsAsMarkdown:", 1 << 6)
+    exportMarkdownButton.section = section
+    exportMarkdownButton.enabled = false  // 初始时禁用（无选中）
+    buttonScrollView.addSubview(exportMarkdownButton)
+    MNButton.setConfig(exportMarkdownButton, {
+      color: "#98c379", alpha: 0.8, opacity: 1.0, title: "📝 导出", radius: 10, font: 15
+    })
+    this[section + "ExportMarkdownButton"] = exportMarkdownButton
+
     // 创建卡片滚动视图
     let cardScrollView = this.createScrollview(viewName, "#f5f5f5", 0.9)
     cardScrollView.layer.cornerRadius = 12
@@ -2904,6 +3034,18 @@ pinnerController.prototype.refreshSectionCards = function(section) {
     // 初始化卡片行数组
     if (!this[cardRowsKey]) {
       this[cardRowsKey] = []
+    }
+
+    // ✅ 刷新时清空该分区的选择状态
+    if (section) {
+      let keysToDelete = []
+      this.selectedCards.forEach((card, key) => {
+        if (key.startsWith(section + "-")) {
+          keysToDelete.push(key)
+        }
+      })
+      keysToDelete.forEach(key => this.selectedCards.delete(key))
+      this.updateExportButtonsState()
     }
 
     // 从 pinnerConfig 获取数据
@@ -2986,8 +3128,8 @@ pinnerController.prototype.layoutSectionView = function(section) {
 
   // 设置按钮滚动容器
   if (this[buttonScrollViewKey]) {
-    // 所有分区都有 4 个按钮（Clear + PinCard + PinPage + Add）
-    let containerWidth = 380
+    // ✅ 修改：原有 4 个按钮 + 新增 2 个导出按钮
+    let containerWidth = 580  // 增加宽度以容纳导出按钮
 
     this[buttonScrollViewKey].frame = {x: 10, y: 10, width: Math.min(width - 20, containerWidth), height: 32}
     this[buttonScrollViewKey].contentSize = {width: containerWidth, height: 32}
@@ -3005,6 +3147,15 @@ pinnerController.prototype.layoutSectionView = function(section) {
     if (this[addButtonKey]) {
       this[addButtonKey].frame = {x: 275, y: 0, width: 95, height: 32}
     }
+    // ✅ 导出按钮布局
+    let exportURLButtonKey = section + "ExportURLButton"
+    let exportMarkdownButtonKey = section + "ExportMarkdownButton"
+    if (this[exportURLButtonKey]) {
+      this[exportURLButtonKey].frame = {x: 375, y: 0, width: 95, height: 32}
+    }
+    if (this[exportMarkdownButtonKey]) {
+      this[exportMarkdownButtonKey].frame = {x: 475, y: 0, width: 95, height: 32}
+    }
   }
 
   // 设置卡片滚动视图
@@ -3014,7 +3165,7 @@ pinnerController.prototype.layoutSectionView = function(section) {
 
 
 /**
- * 创建单个卡片行视图（新版本）
+ * 创建单个卡片行视图（新版本，支持多选）
  */
 pinnerController.prototype.createCardRow = function(card, index, width, section) {
   // 创建卡片行容器
@@ -3033,10 +3184,25 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   // 获取卡片总数，用于判断是否禁用按钮
   let totalCards = pinnerConfig.getPins(section).length
 
-  // 上移按钮
+  // ========== 左侧勾选框（新增） ==========
+  let checkboxButton = UIButton.buttonWithType(0)
+  let key = section + "-" + card.noteId
+  let isSelected = this.selectedCards.has(key)
+  checkboxButton.setTitleForState(isSelected ? "☑️" : "☐", 0)
+  checkboxButton.frame = {x: 5, y: 7, width: 32, height: 30}
+  checkboxButton.titleLabel.font = UIFont.systemFontOfSize(18)
+  checkboxButton.backgroundColor = UIColor.clearColor()
+  checkboxButton.setTitleColorForState(UIColor.blackColor(), 0)       // 正常状态
+  checkboxButton.setTitleColorForState(this.highlightColor, 1)    // 高亮状态
+  checkboxButton.tag = index
+  checkboxButton.section = section
+  checkboxButton.addTargetActionForControlEvents(this, "toggleCardSelection:", 1 << 6)
+  rowView.addSubview(checkboxButton)
+
+  // 上移按钮（右移 40px）
   let moveUpButton = UIButton.buttonWithType(0)
   moveUpButton.setTitleForState("⬆️", 0)
-  moveUpButton.frame = {x: 5, y: 7, width: 30, height: 30}
+  moveUpButton.frame = {x: 45, y: 7, width: 30, height: 30}
   moveUpButton.layer.cornerRadius = 5
   moveUpButton.tag = index  // ✅ 只保存索引
   moveUpButton.section = section
@@ -3052,10 +3218,10 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   }
   rowView.addSubview(moveUpButton)
 
-  // 下移按钮
+  // 下移按钮（右移 40px）
   let moveDownButton = UIButton.buttonWithType(0)
   moveDownButton.setTitleForState("⬇️", 0)
-  moveDownButton.frame = {x: 40, y: 7, width: 30, height: 30}
+  moveDownButton.frame = {x: 80, y: 7, width: 30, height: 30}
   moveDownButton.layer.cornerRadius = 5
   moveDownButton.tag = index  // ✅ 只保存索引
   moveDownButton.section = section
@@ -3071,10 +3237,10 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   }
   rowView.addSubview(moveDownButton)
 
-  // 定位按钮
+  // 定位按钮（右移 40px）
   let focusButton = UIButton.buttonWithType(0)
   focusButton.setTitleForState("📍", 0)
-  focusButton.frame = {x: 75, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
+  focusButton.frame = {x: 115, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
   focusButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
   focusButton.layer.cornerRadius = 5
   focusButton.tag = index  // ✅ 只保存索引，点击时通过索引回溯数据
@@ -3084,11 +3250,11 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   MNButton.addLongPressGesture(focusButton, this, "onLongPressFocusButton:", 0.4)
   rowView.addSubview(focusButton)
 
-  // 添加标题
+  // 添加标题（右移 40px）
   let titleButton = UIButton.buttonWithType(0)
   titleButton.setTitleForState(`💳 ${card.title || "未命名卡片"}`, 0)
   titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
-  titleButton.frame = {x: 110, y: 5, width: width - 160, height: 35}
+  titleButton.frame = {x: 150, y: 5, width: width - 200, height: 35}
   titleButton.addTargetActionForControlEvents(this, "cardTapped:", 1 << 6)
   titleButton.tag = index  // ✅ 只保存索引
   titleButton.section = section
@@ -3195,8 +3361,8 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
 
   // 获取总数：如果传入了 totalCount 使用它，否则根据 section 获取
   let total = totalCount !== undefined ? totalCount : pinnerConfig.getPins(section).length
-  MNLog.log(`createPageRow: index=${index}, section=${section}, totalCount传入=${totalCount}, 实际total=${total}`)
-  MNLog.log(`  创建的是: docMd5=${page.docMd5.substring(0,8)}, pageIndex=${page.pageIndex}`)
+  // MNLog.log(`createPageRow: index=${index}, section=${section}, totalCount传入=${totalCount}, 实际total=${total}`)
+  // MNLog.log(`  创建的是: docMd5=${page.docMd5.substring(0,8)}, pageIndex=${page.pageIndex}`)
 
   // 上移按钮
   let moveUpButton = UIButton.buttonWithType(0)
@@ -3208,7 +3374,7 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   moveUpButton.addTargetActionForControlEvents(this, "movePageUp:", 1 << 6)
 
   // 验证按钮属性
-  MNLog.log(`创建上移按钮: tag=${moveUpButton.tag}, section=${moveUpButton.section}`)
+  // MNLog.log(`创建上移按钮: tag=${moveUpButton.tag}, section=${moveUpButton.section}`)
 
   if (index === 0) {
     moveUpButton.enabled = false
@@ -3228,7 +3394,7 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   moveDownButton.addTargetActionForControlEvents(this, "movePageDown:", 1 << 6)
 
   // 验证按钮属性
-  MNLog.log(`创建下移按钮: tag=${moveDownButton.tag}, section=${moveDownButton.section}`)
+  // MNLog.log(`创建下移按钮: tag=${moveDownButton.tag}, section=${moveDownButton.section}`)
   if (index === total - 1) {
     moveDownButton.enabled = false
     moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
@@ -3993,6 +4159,175 @@ pinnerController.prototype.customSectionTabTapped = function(button) {
   let viewInfo = this.customSectionViews[sectionId]
   if (viewInfo) {
     this.switchView(viewInfo.viewName)
+  }
+}
+
+// ========== 多选导出功能 ==========
+
+/**
+ * 导出选中的卡片为纯 URL 列表
+ * 格式：每行一个 URL
+ * marginnote4app://note/{noteId}
+ */
+pinnerController.prototype.exportSelectedCardsAsURL = async function(button) {
+  try {
+    // 检查是否有选中卡片
+    let selectedCards = this.getSelectedCards()
+    if (selectedCards.length === 0) {
+      MNUtil.showHUD("请先选中至少一张卡片")
+      return
+    }
+
+    // 检查是否有聚焦卡片（作为父节点）
+    let focusNote = MNNote.getFocusNote()
+    if (!focusNote) {
+      MNUtil.showHUD("请先聚焦一张卡片作为容器")
+      return
+    }
+
+    // 使用 MNUtil.userInput 让用户输入标题
+    let defaultTitle = `链接集合 (${selectedCards.length} 个)`
+    let result = await MNUtil.userInput(
+      "导出为 URL",
+      "请输入新卡片的标题",
+      ["取消", "确定"],
+      { default: defaultTitle }
+    )
+
+    if (result.button === 0) return  // 取消
+
+    let title = result.input.trim()
+    if (!title) {
+      title = defaultTitle
+    }
+
+    // 生成 URL 列表内容
+    let urlList = []
+    selectedCards.forEach(card => {
+      let url = "marginnote4app://note/" + card.noteId
+      urlList.push(url)
+    })
+    let content = urlList.join("\n")
+
+    // 创建新卡片
+    let newNote = focusNote.createChildNote({
+      title: title
+    })
+
+    if (!newNote) {
+      MNUtil.showHUD("创建卡片失败")
+      return
+    }
+
+    // 添加 URL 列表作为文本评论
+    newNote.appendTextComment(content)
+
+    // 清空选择状态并刷新界面
+    let affectedSections = new Set()
+    selectedCards.forEach(card => {
+      affectedSections.add(card.section)
+    })
+
+    this.clearSelection()
+
+    // 刷新受影响的分区（更新勾选框状态）
+    affectedSections.forEach(section => {
+      this.refreshSectionCards(section)
+    })
+
+    // 聚焦到新卡片
+    newNote.focusInMindMap(0.3)
+
+    MNUtil.showHUD(`✅ 已导出 ${selectedCards.length} 个链接`)
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "exportSelectedCardsAsURL")
+    MNUtil.showHUD("导出失败: " + error.message)
+  }
+}
+
+/**
+ * 导出选中的卡片为 Markdown 链接列表
+ * 格式：
+ * 1. [卡片标题](marginnote4app://note/{noteId})
+ * 2. [卡片标题](marginnote4app://note/{noteId})
+ */
+pinnerController.prototype.exportSelectedCardsAsMarkdown = async function(button) {
+  try {
+    // 检查是否有选中卡片
+    let selectedCards = this.getSelectedCards()
+    if (selectedCards.length === 0) {
+      MNUtil.showHUD("请先选中至少一张卡片")
+      return
+    }
+
+    // 检查是否有聚焦卡片（作为父节点）
+    let focusNote = MNNote.getFocusNote()
+    if (!focusNote) {
+      MNUtil.showHUD("请先聚焦一张卡片作为容器")
+      return
+    }
+
+    // 使用 MNUtil.userInput 让用户输入标题
+    let defaultTitle = `链接集合 (${selectedCards.length} 个)`
+    let result = await MNUtil.userInput(
+      "导出为 Markdown",
+      "请输入新卡片的标题",
+      ["取消", "确定"],
+      { default: defaultTitle }
+    )
+
+    if (result.button === 0) return  // 取消
+
+    let title = result.input.trim()
+    if (!title) {
+      title = defaultTitle
+    }
+
+    // 生成 Markdown 链接列表内容
+    let markdownLines = []
+    selectedCards.forEach((card, index) => {
+      let url = "marginnote4app://note/" + card.noteId
+      let displayTitle = card.title || "未命名卡片"
+      let line = `${index + 1}. [${displayTitle}](${url})`
+      markdownLines.push(line)
+    })
+    let content = markdownLines.join("\n")
+
+    // 创建新卡片
+    let newNote = focusNote.createChildNote({
+      title: title
+    })
+
+    if (!newNote) {
+      MNUtil.showHUD("创建卡片失败")
+      return
+    }
+
+    // 添加 Markdown 链接列表作为 Markdown 评论
+    newNote.appendMarkdownComment(content)
+
+    // 清空选择状态并刷新界面
+    let affectedSections = new Set()
+    selectedCards.forEach(card => {
+      affectedSections.add(card.section)
+    })
+
+    this.clearSelection()
+
+    // 刷新受影响的分区（更新勾选框状态）
+    affectedSections.forEach(section => {
+      this.refreshSectionCards(section)
+    })
+
+    // 聚焦到新卡片
+    newNote.focusInMindMap(0.3)
+
+    MNUtil.showHUD(`✅ 已导出 ${selectedCards.length} 个链接`)
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "exportSelectedCardsAsMarkdown")
+    MNUtil.showHUD("导出失败: " + error.message)
   }
 }
 
