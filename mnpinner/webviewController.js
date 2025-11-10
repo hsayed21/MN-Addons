@@ -2809,19 +2809,6 @@ pinnerController.prototype.settingViewLayout = function () {
       }
     })
 
-    // Custom 视图分区
-    if (this.customManageView) {
-      this.customManageView.frame = sectionFrame
-    }
-
-    // 动态创建的自定义子视图
-    Object.keys(this.customSectionViews || {}).forEach(sectionId => {
-      let viewInfo = this.customSectionViews[sectionId]
-      if (this[viewInfo.viewName]) {
-        this[viewInfo.viewName].frame = sectionFrame
-      }
-    })
-
     let settingFrame = this.settingView.bounds
     settingFrame.x = 0
     settingFrame.y = 20
@@ -2841,51 +2828,19 @@ pinnerController.prototype.settingViewLayout = function () {
       }
     })
 
-    // 隐藏 Custom 管理按钮
-    if (this.customManageTabButton) {
-      this.customManageTabButton.hidden = true
-    }
+    // 配置驱动：显示并布局当前模式的标签按钮
+    let configs = SectionRegistry.getAllByMode(this.currentViewMode)
 
-    // 隐藏所有动态创建的自定义子视图按钮
-    Object.keys(this.customSectionViews || {}).forEach(sectionId => {
-      let viewInfo = this.customSectionViews[sectionId]
-      if (this[viewInfo.tabButtonName]) {
-        this[viewInfo.tabButtonName].hidden = true
+    configs.forEach(config => {
+      let buttonName = config.key + "TabButton"
+      let button = this[buttonName]
+
+      if (button) {
+        button.hidden = false
+        button.frame = {x: tabX, y: 2, width: button.width, height: 26}
+        tabX += button.width + UI_CONSTANTS.TAB_SPACING
       }
     })
-
-    // 配置驱动：显示并布局当前模式的标签按钮
-    if (this.currentViewMode === "pin" || this.currentViewMode === "task") {
-      let configs = SectionRegistry.getAllByMode(this.currentViewMode)
-
-      configs.forEach(config => {
-        let buttonName = config.key + "TabButton"
-        let button = this[buttonName]
-
-        if (button) {
-          button.hidden = false
-          button.frame = {x: tabX, y: 2, width: button.width, height: 26}
-          tabX += button.width + UI_CONSTANTS.TAB_SPACING
-        }
-      })
-    } else if (this.currentViewMode === "custom") {
-      // Custom 视图的标签页 - 显示管理按钮和所有自定义子视图按钮
-      if (this.customManageTabButton) {
-        this.customManageTabButton.hidden = false
-        this.customManageTabButton.frame = {x: tabX, y: 2, width: this.customManageTabButton.width, height: 26}
-        tabX += this.customManageTabButton.width + UI_CONSTANTS.TAB_SPACING
-      }
-
-      // 显示并布局所有动态创建的自定义子视图按钮
-      Object.keys(this.customSectionViews || {}).forEach(sectionId => {
-        let viewInfo = this.customSectionViews[sectionId]
-        if (this[viewInfo.tabButtonName]) {
-          this[viewInfo.tabButtonName].hidden = false
-          this[viewInfo.tabButtonName].frame = {x: tabX, y: 2, width: this[viewInfo.tabButtonName].width, height: 26}
-          tabX += this[viewInfo.tabButtonName].width + UI_CONSTANTS.TAB_SPACING
-        }
-      })
-    }
 
     // 设置内容大小（超出 frame 时自动启用滚动）
     this.tabView.contentSize = {width: tabX + 10, height: 30}
@@ -2905,19 +2860,6 @@ pinnerController.prototype.settingViewLayout = function () {
       let viewName = key + "View"
       if (this[viewName] && !this[viewName].hidden) {
         this.layoutSectionView(key)
-      }
-    })
-
-    // Custom 视图分区
-    if (this.customManageView && !this.customManageView.hidden) {
-      this.layoutCustomManageView()
-    }
-
-    // 动态创建的自定义子视图
-    Object.keys(this.customSectionViews || {}).forEach(sectionId => {
-      let viewInfo = this.customSectionViews[sectionId]
-      if (this[viewInfo.viewName] && !this[viewInfo.viewName].hidden) {
-        this.layoutSectionView(sectionId)
       }
     })
   } catch (error) {
@@ -3039,10 +2981,6 @@ pinnerController.prototype.createAllSectionViewContainers = function () {
     this.createView(viewName, "settingView", "#9bb2d6", 0)
     this[viewName].hidden = (index !== 0)  // 第一个视图默认显示，其他隐藏
   })
-
-  // === 创建 Custom 视图的管理界面===
-  this.createView("customManageView", "settingView", "#9bb2d6", 0)
-  this.customManageView.hidden = true
 }
 
 pinnerController.prototype.createSettingView = function () {
@@ -3069,10 +3007,6 @@ pinnerController.prototype.createSettingView = function () {
     // 初始化当前分区和视图模式
     this.currentSection = "focus"
     this.currentViewMode = "pin"  // 默认 Pin 视图模式
-
-    // 初始化动态自定义子视图（延迟到需要时创建）
-    this.customSectionViews = {}  // 存储动态创建的自定义子视图
-
 
     // === 创建关闭按钮 ===
     this.createButton("closeButton", "closeButtonTapped:")
@@ -3189,32 +3123,17 @@ pinnerController.prototype.switchView = function (targetView) {
     // 根据当前视图模式选择对应的视图和按钮列表
     let allViews, allButtons, sectionMap
 
-    if (this.currentViewMode === "pin" || this.currentViewMode === "task") {
-      // 从 SectionRegistry 获取当前模式的所有分区
-      let configs = SectionRegistry.getAllByMode(this.currentViewMode)
+    // 配置驱动：从 SectionRegistry 获取当前模式的所有分区
+    let configs = SectionRegistry.getAllByMode(this.currentViewMode)
 
-      allViews = configs.map(c => c.key + "View")
-      allButtons = configs.map(c => c.key + "TabButton")
+    allViews = configs.map(c => c.key + "View")
+    allButtons = configs.map(c => c.key + "TabButton")
 
-      // 构建 viewName → sectionKey 的映射
-      sectionMap = {}
-      configs.forEach(c => {
-        sectionMap[c.key + "View"] = c.key
-      })
-    } else if (this.currentViewMode === "custom") {
-      // Custom 视图模式
-      allViews = ["customManageView"]
-      allButtons = ["customManageTabButton"]
-      sectionMap = {"customManageView": "customManage"}
-
-      // 添加动态创建的自定义子视图
-      Object.keys(this.customSectionViews || {}).forEach(sectionId => {
-        let viewInfo = this.customSectionViews[sectionId]
-        allViews.push(viewInfo.viewName)
-        allButtons.push(viewInfo.tabButtonName)
-        sectionMap[viewInfo.viewName] = sectionId
-      })
-    }
+    // 构建 viewName → sectionKey 的映射
+    sectionMap = {}
+    configs.forEach(c => {
+      sectionMap[c.key + "View"] = c.key
+    })
 
     // 切换视图和按钮状态
     allViews.forEach((viewName, index) => {
@@ -3245,9 +3164,8 @@ pinnerController.prototype.switchView = function (targetView) {
     // 更新当前分区
     this.currentSection = sectionMap[targetView]
 
-
     // 先布局再刷新,确保子视图 frame 正确
-    if (this.currentSection && this.currentSection !== "customManage") {
+    if (this.currentSection) {
       this.layoutSectionView(this.currentSection)
     }
     this.refreshView(targetView)
@@ -3269,11 +3187,8 @@ pinnerController.prototype.refreshView = function (targetView) {
     if (SectionRegistry.has(sectionKey)) {
       MNUtil.log(`refresh ${targetView}`)
       this.refreshSectionCards(sectionKey)
-    } else if (this.customSectionViews && this.customSectionViews[sectionKey]) {
-      // 自定义子视图
-      this.refreshSectionCards(sectionKey)
     } else {
-      // 不是标准分区，可能是 Custom 管理界面等特殊视图
+      // 不是标准分区
       pinnerUtils.log(`refreshView: ${targetView} 不需要刷新或不存在`, "refreshView")
     }
   } catch (error) {

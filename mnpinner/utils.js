@@ -271,6 +271,15 @@ class SectionRegistry {
       order: 4,
       description: "课程相关内容"
     }],
+    ["exerciseClass", {
+      key: "exerciseClass",
+      displayName: "习题课",
+      viewMode: "pin",
+      color: "#e5c07b",
+      icon: "🎓",
+      order: 5,
+      description: "习题课"
+    }],
 
     // Task 视图分区
     ["taskToday", {
