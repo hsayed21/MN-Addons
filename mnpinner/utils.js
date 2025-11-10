@@ -317,53 +317,6 @@ class SectionRegistry {
       icon: "🏃",
       order: 5,
       description: "每日坚持的任务"
-    }],
-
-    // Custom 视图分区
-    ["custom1", {
-      key: "custom1",
-      displayName: "自定义 1",
-      viewMode: "custom",
-      color: "#98c379",
-      icon: "📌",
-      order: 1,
-      description: "自定义分区 1"
-    }],
-    ["custom2", {
-      key: "custom2",
-      displayName: "自定义 2",
-      viewMode: "custom",
-      color: "#61afef",
-      icon: "📌",
-      order: 2,
-      description: "自定义分区 2"
-    }],
-    ["custom3", {
-      key: "custom3",
-      displayName: "自定义 3",
-      viewMode: "custom",
-      color: "#c678dd",
-      icon: "📌",
-      order: 3,
-      description: "自定义分区 3"
-    }],
-    ["custom4", {
-      key: "custom4",
-      displayName: "自定义 4",
-      viewMode: "custom",
-      color: "#e5c07b",
-      icon: "📌",
-      order: 4,
-      description: "自定义分区 4"
-    }],
-    ["custom5", {
-      key: "custom5",
-      displayName: "自定义 5",
-      viewMode: "custom",
-      color: "#56b6c2",
-      icon: "📌",
-      order: 5,
-      description: "自定义分区 5"
     }]
   ])
 

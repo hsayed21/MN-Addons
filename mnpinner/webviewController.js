@@ -64,15 +64,15 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       self.createToolbarButtons()
 
       // 调试日志
-      MNUtil.log("📊 工具栏组件信息:")
-      MNUtil.log("  toolbar: " + self.toolbar)
-      MNUtil.log("  toolbar.frame: " + JSON.stringify(self.toolbar.frame))
-      MNUtil.log("  toolbarScrollView: " + self.toolbarScrollView)
-      if (self.viewModeButton) {
-        MNUtil.log("  viewModeButton: " + self.viewModeButton)
-        MNUtil.log("  viewModeButton.frame: " + JSON.stringify(self.viewModeButton.frame))
-        MNUtil.log("  viewModeButton.superview: " + self.viewModeButton.superview)
-      }
+      // MNUtil.log("📊 工具栏组件信息:")
+      // MNUtil.log("  toolbar: " + self.toolbar)
+      // MNUtil.log("  toolbar.frame: " + JSON.stringify(self.toolbar.frame))
+      // MNUtil.log("  toolbarScrollView: " + self.toolbarScrollView)
+      // if (self.viewModeButton) {
+      //   MNUtil.log("  viewModeButton: " + self.viewModeButton)
+      //   MNUtil.log("  viewModeButton.frame: " + JSON.stringify(self.viewModeButton.frame))
+      //   MNUtil.log("  viewModeButton.superview: " + self.viewModeButton.superview)
+      // }
 
     } catch (error) {
       pinnerUtils.addErrorLog(error, "viewDidLoad")
@@ -100,15 +100,15 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       let height   = viewFrame.height
       let buttonHeight = 28  // 工具栏高度
 
-      // moveButton 移到右下角
-      self.moveButton.frame = {x: width - 35, y: height - 35, width: 30, height: 30};
+      // 顶部 moveButton（原有）
+      self.moveButton.frame = {x: width*0.5-75, y: 0, width: 150, height: 16};
 
       // ========== 底部工具栏布局 ==========
       // 工具栏容器（底部）
-      self.toolbar.frame = {x: 5, y: height - buttonHeight - 8, width: width - 10, height: buttonHeight}
+      self.toolbar.frame = {x: 5, y: height - buttonHeight - 8, width: width - 40, height: buttonHeight}
 
-      // 可滚动区域（占满整个工具栏宽度）
-      self.toolbarScrollView.frame = {x: 0, y: 0, width: width - 10, height: buttonHeight}
+      // 可滚动区域（左侧）
+      self.toolbarScrollView.frame = {x: 0, y: 0, width: width - 70, height: buttonHeight}
 
       // 左侧可滚动按钮布局
       let buttonX = 5
@@ -2896,9 +2896,9 @@ pinnerController.prototype.settingViewLayout = function () {
     settingFrame.width = 30
     this.closeButton.frame = settingFrame
 
-    // 布局调整大小按钮（需要避开底部工具栏）
-    // 底部工具栏高度 28 + 间距 15 = 43，resizeButton 自身高度 30
-    this.resizeButton.frame = {x: this.view.bounds.width - 30, y: this.view.bounds.height - 43 - 30, width: 30, height: 30}
+    // 布局调整大小按钮
+    // resizeButton 自身高度 30
+    this.resizeButton.frame = {x: this.view.bounds.width - 30, y: this.view.bounds.height - 40, width: 30, height: 30}
 
     // 配置驱动：根据当前显示的视图布局子视图
     allSectionKeys.forEach(key => {
