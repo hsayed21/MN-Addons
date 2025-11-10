@@ -3065,11 +3065,6 @@ pinnerController.prototype.createSettingView = function () {
     // === 为每个分区创建子视图 ===
     this.createSectionViews()
 
-    // === 创建 Custom 管理界面的子视图 ===
-    this.createCustomManageView()
-    // ✅ 立即刷新以确保视图状态正确
-    this.refreshCustomManageView()
-
     // 初始化当前分区和视图模式
     this.currentSection = "focus"
     this.currentViewMode = "pin"  // 默认 Pin 视图模式
@@ -3249,11 +3244,6 @@ pinnerController.prototype.switchView = function (targetView) {
     // 更新当前分区
     this.currentSection = sectionMap[targetView]
 
-    // Custom 管理界面不需要 layoutSectionView 和刷新（它有自己的布局逻辑）
-    if (this.currentViewMode === "custom" && targetView === "customManageView") {
-      this.refreshCustomManageView()
-      return
-    }
 
     // 先布局再刷新,确保子视图 frame 正确
     if (this.currentSection && this.currentSection !== "customManage") {
