@@ -751,7 +751,10 @@ class pinnerConfig {
       alwaysAskCardTitle: false,   // Pin卡片时是否总是询问标题
       alwaysAskPageTitle: false,   // Pin页面时是否总是询问标题
       defaultViewMode: "pin",      // 默认视图模式: pin/task
-      defaultSection: "focus"      // 默认打开的分区
+      defaultSection: "focus",     // 默认打开的分区
+      rememberLastView: true,      // 是否记住上次视图（默认开启）
+      lastViewMode: "pin",         // 上次的视图模式
+      lastSection: "focus"         // 上次的分区
     }
   }
 
@@ -1092,6 +1095,9 @@ class pinnerConfig {
 
       // 保存配置
       NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, "MNPinner_config")
+
+      // 保存设置项
+      NSUserDefaults.standardUserDefaults().setObjectForKey(this.settings, "MNPinner_settings")
 
       // 为了向后兼容，清理旧的key
       NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_temporaryPins")

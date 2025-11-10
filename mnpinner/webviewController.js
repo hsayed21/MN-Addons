@@ -156,6 +156,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       self.settingViewLayout()
       self.refreshLayout()
+
+      // 布局设置窗口（如果已创建）
+      if (self.preferencesView) {
+        self.preferencesViewLayout()
+      }
     } catch (error) {
       pinnerUtils.addErrorLog(error, "viewWillLayoutSubviews")
     }
@@ -709,7 +714,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
-   * 打开设置窗口
+   * 打开设置视图（嵌入式）
    */
   openSettings: function(button) {
     try {
@@ -719,24 +724,205 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         self.popoverController = null
       }
 
-      // 创建或获取设置控制器（挂载到 pinnerUtils 上，类似 pinnerController）
-      if (!pinnerUtils.settingController) {
-        pinnerUtils.settingController = settingController.new()
+      // 延迟创建设置窗口（参考 mneditor 架构）
+      if (!self.preferencesView) {
+        self.createPreferencesView()
+        // 创建后立即布局
+        self.preferencesViewLayout()
       }
 
-      // 使用直接视图管理方式显示设置面板（修复崩溃问题）
-      // 参考 mntoolbar 的实现，不使用 presentViewController
-      let settingFrame = {
-        x: 50,
-        y: 50,
-        width: 380,
-        height: 480
-      }
-      pinnerUtils.settingController.show(settingFrame)
+      // 显示设置窗口
+      self.preferencesView.hidden = false
 
     } catch (error) {
       pinnerUtils.addErrorLog(error, "openSettings")
       MNUtil.showHUD("打开设置失败: " + error.message)
+    }
+  },
+
+  /**
+   * 关闭设置窗口（事件处理）
+   */
+  closePreferencesView: function() {
+    try {
+      self.closePreferencesView()  // 调用原型方法
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "closePreferencesView")
+    }
+  },
+
+  /**
+   * 修改默认视图模式
+   */
+  changeDefaultViewMode: function() {
+    try {
+      let currentMode = pinnerConfig.settings.defaultViewMode || "pin"
+      let modes = ["pin", "task", "custom"]
+      let modeNames = ["Pin 视图", "Task 视图", "自定义视图"]
+
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        "选择默认视图模式",
+        "打开插件时默认显示的视图",
+        0,  // 普通按钮
+        "取消",
+        modeNames,
+        (alert, buttonIndex) => {
+          try {
+            if (buttonIndex === 0) return  // 取消
+
+            let selectedMode = modes[buttonIndex - 1]
+            pinnerConfig.settings.defaultViewMode = selectedMode
+            pinnerConfig.save()
+
+            // 更新按钮文字
+            let modeText = modeNames[buttonIndex - 1]
+            self.defaultViewModeButton.setTitleForState(`默认视图: ${modeText}`, 0)
+
+            MNUtil.showHUD(`已设置为: ${modeText}`)
+          } catch (error) {
+            pinnerUtils.addErrorLog(error, "changeDefaultViewMode:callback")
+          }
+        }
+      )
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "changeDefaultViewMode")
+    }
+  },
+
+  /**
+   * 修改默认分区
+   */
+  changeDefaultSection: function() {
+    try {
+      let currentMode = pinnerConfig.settings.defaultViewMode || "pin"
+
+      // 根据当前默认视图模式获取可用分区
+      let configs = SectionRegistry.getAllByMode(currentMode)
+      let sectionKeys = configs.map(c => c.key)
+      let sectionNames = configs.map(c => c.icon ? `${c.icon} ${c.displayName}` : c.displayName)
+
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        "选择默认分区",
+        "打开插件时默认显示的分区",
+        0,
+        "取消",
+        sectionNames,
+        (alert, buttonIndex) => {
+          try {
+            if (buttonIndex === 0) return  // 取消
+
+            let selectedSection = sectionKeys[buttonIndex - 1]
+            pinnerConfig.settings.defaultSection = selectedSection
+            pinnerConfig.save()
+
+            // 更新按钮文字
+            let sectionText = sectionNames[buttonIndex - 1]
+            self.defaultSectionButton.setTitleForState(`默认分区: ${sectionText}`, 0)
+
+            MNUtil.showHUD(`已设置为: ${sectionText}`)
+          } catch (error) {
+            pinnerUtils.addErrorLog(error, "changeDefaultSection:callback")
+          }
+        }
+      )
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "changeDefaultSection")
+    }
+  },
+
+  /**
+   * 切换启动视图模式（记住上次 vs 固定默认）
+   */
+  changeStartupViewMode: function() {
+    try {
+      let options = [
+        "记住上次视图（推荐）",
+        "固定默认视图"
+      ]
+
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        "选择启动行为",
+        "下次打开插件时如何选择视图",
+        0,
+        "取消",
+        options,
+        (alert, buttonIndex) => {
+          try {
+            if (buttonIndex === 0) return  // 取消
+
+            let rememberLast = (buttonIndex === 1)  // 1=记住上次, 2=固定默认
+            pinnerConfig.settings.rememberLastView = rememberLast
+            pinnerConfig.save()
+
+            // 更新按钮文字
+            let modeText = rememberLast ? "启动: 记住上次视图 ✅" : "启动: 固定默认视图 📌"
+            self.startupViewModeButton.setTitleForState(modeText, 0)
+
+            // 切换其他按钮的显示/隐藏
+            if (self.defaultViewModeButton) {
+              self.defaultViewModeButton.hidden = rememberLast
+            }
+            if (self.defaultSectionButton) {
+              self.defaultSectionButton.hidden = rememberLast
+            }
+
+            // 重新布局（因为按钮显示状态改变）
+            self.preferencesViewLayout()
+
+            MNUtil.showHUD(`已切换到: ${options[buttonIndex - 1]}`)
+          } catch (error) {
+            pinnerUtils.addErrorLog(error, "changeStartupViewMode:callback")
+          }
+        }
+      )
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "changeStartupViewMode")
+    }
+  },
+
+  /**
+   * 切换"Pin 卡片时询问标题"开关
+   */
+  toggleAlwaysAskCardTitle: function() {
+    try {
+      let currentValue = pinnerConfig.settings.alwaysAskCardTitle || false
+      let newValue = !currentValue
+
+      pinnerConfig.settings.alwaysAskCardTitle = newValue
+      pinnerConfig.save()
+
+      // 更新按钮文字
+      self.alwaysAskCardTitleButton.setTitleForState(
+        `Pin 卡片时询问标题: ${newValue ? "✅" : "❌"}`,
+        0
+      )
+
+      MNUtil.showHUD(newValue ? "已开启询问" : "已关闭询问")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "toggleAlwaysAskCardTitle")
+    }
+  },
+
+  /**
+   * 切换"Pin 页面时询问标题"开关
+   */
+  toggleAlwaysAskPageTitle: function() {
+    try {
+      let currentValue = pinnerConfig.settings.alwaysAskPageTitle || false
+      let newValue = !currentValue
+
+      pinnerConfig.settings.alwaysAskPageTitle = newValue
+      pinnerConfig.save()
+
+      // 更新按钮文字
+      self.alwaysAskPageTitleButton.setTitleForState(
+        `Pin 页面时询问标题: ${newValue ? "✅" : "❌"}`,
+        0
+      )
+
+      MNUtil.showHUD(newValue ? "已开启询问" : "已关闭询问")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "toggleAlwaysAskPageTitle")
     }
   },
 
@@ -810,7 +996,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
           "自定义卡片标题",
           "请输入卡片标题",
           ["取消", "确定"],
-          defaultTitle  // 预填充默认标题
+          { default: defaultTitle }  // 设置默认值
         )
 
         if (result.button === 0) return  // 点击取消
@@ -866,7 +1052,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
           "自定义页面标题",
           "请输入页面标题",
           ["取消", "确定"],
-          defaultTitle  // 预填充默认标题
+          { default: defaultTitle }  // 设置默认值
         )
 
         if (result.button === 0) return  // 点击取消
@@ -2659,14 +2845,33 @@ pinnerController.prototype.show = function (frame) {
       // 使用设置的默认视图和分区
       let settings = pinnerConfig.settings || pinnerConfig.getDefaultSettings()
 
-      // 设置默认视图模式
-      this.currentViewMode = settings.defaultViewMode || "pin"
+      // 根据设置决定使用默认值还是上次的值
+      let viewMode, section
 
-      // 设置默认分区
-      let defaultSection = settings.defaultSection || "focus"
+      if (settings.rememberLastView !== false) {
+        // 使用上次的视图（默认行为）
+        viewMode = settings.lastViewMode || "pin"
+        section = settings.lastSection || "focus"
+      } else {
+        // 使用固定的默认视图
+        viewMode = settings.defaultViewMode || "pin"
+        section = settings.defaultSection || "focus"
+      }
 
-      // 刷新视图内容
-      this.refreshView(defaultSection)
+      // 检查是否需要切换视图模式
+      if (this.currentViewMode !== viewMode) {
+        // 需要切换视图模式（如 Pin → Task）
+        this.switchViewMode(viewMode)
+
+        // switchViewMode 会切换到该模式的第一个分区
+        // 如果目标分区不是第一个，需要再次切换
+        if (this.currentSection !== section) {
+          this.switchView(section + "View")
+        }
+      } else {
+        // 只需要切换分区
+        this.switchView(section + "View")
+      }
     }
   )
 }
@@ -2728,6 +2933,13 @@ pinnerController.prototype.hide = function (frame) {
       this.view.layer.opacity = preOpacity  // 恢复透明度（为下次显示准备）
       this.view.frame = preFrame         // 恢复位置
       this.currentFrame = preFrame
+
+      // 保存上次的视图状态（如果启用了记住上次视图）
+      if (pinnerConfig.settings.rememberLastView !== false) {
+        pinnerConfig.settings.lastViewMode = this.currentViewMode
+        pinnerConfig.settings.lastSection = this.currentSection
+        pinnerConfig.save()  // 保存到 NSUserDefaults
+      }
     }
   )
 }
@@ -3304,7 +3516,7 @@ pinnerController.prototype.switchViewMode = function (targetMode) {
     this.settingViewLayout()
 
     let modeText = targetMode === "pin" ? "Pin 视图" : (targetMode === "task" ? "Task 视图" : "自定义视图")
-    MNUtil.showHUD(`切换到 ${modeText}`)
+    // MNUtil.showHUD(`切换到 ${modeText}`)
   } catch (error) {
     pinnerUtils.addErrorLog(error, "switchViewMode")
     MNUtil.showHUD("切换视图失败")
@@ -3844,6 +4056,211 @@ pinnerController.prototype.updateToolbarButtonsForSection = function(section) {
     pinnerUtils.log(`工具栏按钮已更新（分区：${section}）`, "updateToolbarButtonsForSection")
   } catch (error) {
     pinnerUtils.addErrorLog(error, "updateToolbarButtonsForSection")
+  }
+}
+
+/**
+ * 创建设置窗口（嵌入式，参考 mneditor 架构）
+ */
+pinnerController.prototype.createPreferencesView = function() {
+  try {
+    // 1. 创建设置视图容器（半透明白色背景，覆盖主视图）
+    this.preferencesView = UIView.new()
+    this.preferencesView.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0.9)
+    this.preferencesView.layer.cornerRadius = 13
+    this.preferencesView.hidden = true  // 默认隐藏
+    this.view.addSubview(this.preferencesView)
+
+    // 2. 创建标签栏背景
+    this.preferencesTabView = UIView.new()
+    this.preferencesTabView.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6", 0.8)
+    this.preferencesTabView.layer.cornerRadius = 10
+    this.preferencesView.addSubview(this.preferencesTabView)
+
+    // 3. 创建内容区域
+    this.preferencesContentView = UIView.new()
+    this.preferencesContentView.backgroundColor = UIColor.clearColor()
+    this.preferencesView.addSubview(this.preferencesContentView)
+
+    // 4. 创建标签按钮（简化版，只有一个"常规"标签）
+    this.createButton("generalTabButton", null, "preferencesTabView")
+    MNButton.setConfig(this.generalTabButton, {
+      color: "#457bd3",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: "⚙️ 常规",
+      font: 17,
+      bold: true
+    })
+    this.generalTabButton.enabled = false  // 不可点击（只有一个标签）
+
+    // 5. 创建关闭按钮
+    this.createButton("closePreferencesButton", "closePreferencesView:", "preferencesTabView")
+    MNButton.setConfig(this.closePreferencesButton, {
+      color: "#e06c75",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: "✕",
+      font: 18,
+      bold: true
+    })
+
+    // 6. 创建设置项按钮
+    let yOffset = 20  // 起始 Y 坐标
+    let buttonHeight = 40
+    let buttonSpacing = 15
+
+    // 启动视图设置（记住上次 vs 固定默认）
+    this.createButton("startupViewModeButton", "changeStartupViewMode:", "preferencesContentView")
+    let rememberLast = pinnerConfig.settings.rememberLastView !== false  // 默认 true
+    MNButton.setConfig(this.startupViewModeButton, {
+      color: "#e06c75",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: rememberLast ? "启动: 记住上次视图 ✅" : "启动: 固定默认视图 📌",
+      font: 15
+    })
+
+    // 默认视图模式（仅在固定模式下显示）
+    this.createButton("defaultViewModeButton", "changeDefaultViewMode:", "preferencesContentView")
+    let currentViewMode = pinnerConfig.settings.defaultViewMode || "pin"
+    let viewModeText = currentViewMode === "pin" ? "Pin 视图" : (currentViewMode === "task" ? "Task 视图" : "自定义视图")
+    MNButton.setConfig(this.defaultViewModeButton, {
+      color: "#457bd3",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: `默认视图: ${viewModeText}`,
+      font: 15
+    })
+    this.defaultViewModeButton.hidden = rememberLast  // 记住模式时隐藏
+
+    // 默认分区（仅在固定模式下显示）
+    this.createButton("defaultSectionButton", "changeDefaultSection:", "preferencesContentView")
+    let currentSection = pinnerConfig.settings.defaultSection || "focus"
+    let sectionText = pinnerConfig.getSectionDisplayName(currentSection)
+    MNButton.setConfig(this.defaultSectionButton, {
+      color: "#61afef",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: `默认分区: ${sectionText}`,
+      font: 15
+    })
+    this.defaultSectionButton.hidden = rememberLast  // 记住模式时隐藏
+
+    // 卡片标题询问开关
+    this.createButton("alwaysAskCardTitleButton", "toggleAlwaysAskCardTitle:", "preferencesContentView")
+    let askCardTitle = pinnerConfig.settings.alwaysAskCardTitle || false
+    MNButton.setConfig(this.alwaysAskCardTitleButton, {
+      color: "#98c379",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: `Pin 卡片时询问标题: ${askCardTitle ? "✅" : "❌"}`,
+      font: 15
+    })
+
+    // 页面标题询问开关
+    this.createButton("alwaysAskPageTitleButton", "toggleAlwaysAskPageTitle:", "preferencesContentView")
+    let askPageTitle = pinnerConfig.settings.alwaysAskPageTitle || false
+    MNButton.setConfig(this.alwaysAskPageTitleButton, {
+      color: "#c678dd",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: `Pin 页面时询问标题: ${askPageTitle ? "✅" : "❌"}`,
+      font: 15
+    })
+
+    pinnerUtils.log("设置窗口创建完成", "createPreferencesView")
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "createPreferencesView")
+  }
+}
+
+/**
+ * 布局设置窗口
+ */
+pinnerController.prototype.preferencesViewLayout = function() {
+  try {
+    if (!this.preferencesView) return
+
+    let viewFrame = this.view.bounds
+    let width = viewFrame.width
+    let height = viewFrame.height
+
+    // 设置视图覆盖整个主视图（留边距）
+    this.preferencesView.frame = {x: 1, y: 20, width: width - 2, height: height - 50}
+
+    // 标签栏布局（顶部）
+    this.preferencesTabView.frame = {x: 10, y: 10, width: width - 22, height: 35}
+
+    // 标签按钮布局
+    if (this.generalTabButton) {
+      this.generalTabButton.frame = {x: 5, y: 2, width: 100, height: 30}
+    }
+
+    // 关闭按钮布局（右侧）
+    if (this.closePreferencesButton) {
+      this.closePreferencesButton.frame = {x: width - 50, y: 2, width: 35, height: 30}
+    }
+
+    // 内容区域布局
+    this.preferencesContentView.frame = {x: 10, y: 55, width: width - 22, height: height - 95}
+
+    // 设置项按钮布局（自动跳过 hidden 的按钮）
+    let yOffset = 20
+    let buttonHeight = 40
+    let buttonSpacing = 15
+    let buttonWidth = width - 42
+
+    // 启动视图设置
+    if (this.startupViewModeButton) {
+      this.startupViewModeButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
+      yOffset += buttonHeight + buttonSpacing
+    }
+
+    // 默认视图模式（可能隐藏）
+    if (this.defaultViewModeButton && !this.defaultViewModeButton.hidden) {
+      this.defaultViewModeButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
+      yOffset += buttonHeight + buttonSpacing
+    }
+
+    // 默认分区（可能隐藏）
+    if (this.defaultSectionButton && !this.defaultSectionButton.hidden) {
+      this.defaultSectionButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
+      yOffset += buttonHeight + buttonSpacing
+    }
+
+    // 卡片标题询问开关
+    if (this.alwaysAskCardTitleButton) {
+      this.alwaysAskCardTitleButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
+      yOffset += buttonHeight + buttonSpacing
+    }
+
+    // 页面标题询问开关
+    if (this.alwaysAskPageTitleButton) {
+      this.alwaysAskPageTitleButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
+    }
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "preferencesViewLayout")
+  }
+}
+
+/**
+ * 关闭设置窗口（带淡出动画）
+ */
+pinnerController.prototype.closePreferencesView = function() {
+  try {
+    if (!this.preferencesView) return
+
+    let preOpacity = this.preferencesView.layer.opacity
+    UIView.animateWithDurationAnimationsCompletion(0.2, () => {
+      this.preferencesView.layer.opacity = 0  // 淡出动画
+    }, () => {
+      this.preferencesView.layer.opacity = preOpacity
+      this.preferencesView.hidden = true  // 隐藏
+    })
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "closePreferencesView")
   }
 }
 
