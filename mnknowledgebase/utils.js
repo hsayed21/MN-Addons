@@ -8653,6 +8653,7 @@ class KnowledgeBaseTemplate {
           "增加兄弟层级模板",  // 3
           "向上层增加模板",  // 4
         ],
+        { default: contentInTitle }
       )
       let userInputTitle = userInputRes.input
       // 分割输入，支持通过//创建多个兄弟卡片链

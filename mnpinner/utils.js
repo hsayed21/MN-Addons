@@ -271,6 +271,15 @@ class SectionRegistry {
       order: 4,
       description: "课程相关内容"
     }],
+    ["exerciseClass", {
+      key: "exerciseClass",
+      displayName: "习题课",
+      viewMode: "pin",
+      color: "#e5c07b",
+      icon: "🎓",
+      order: 5,
+      description: "习题课"
+    }],
 
     // Task 视图分区
     ["taskToday", {
@@ -317,6 +326,16 @@ class SectionRegistry {
       icon: "🏃",
       order: 5,
       description: "每日坚持的任务"
+    }],
+
+    ["custom1", {
+      key: "custom1",
+      displayName: "Custom 1",
+      viewMode: "custom",
+      color: "#98c379",
+      icon: "🏃",
+      order: 1,
+      description: "默认自定义分区 1"
     }]
   ])
 
@@ -429,6 +448,288 @@ class SectionRegistry {
   static getVersion() {
     return "1.0.0"
   }
+
+  /**
+   * 获取所有分区的配置（用于导出）
+   * @returns {Array} 所有分区配置的数组
+   */
+  static getAllConfigs() {
+    return Array.from(this.sections.values())
+  }
+
+  /**
+   * 应用导入的分区配置（批量更新）
+   * @param {Array} configs - 配置数组
+   * @returns {Object} {success: boolean, updated: number, message: string}
+   */
+  static applySectionConfigs(configs) {
+    try {
+      if (!Array.isArray(configs)) {
+        return {
+          success: false,
+          updated: 0,
+          message: "配置数据格式错误"
+        }
+      }
+
+      let updated = 0
+      configs.forEach(config => {
+        if (config.key && this.sections.has(config.key)) {
+          let existingConfig = this.sections.get(config.key)
+          // 只更新可修改的属性
+          this.sections.set(config.key, {
+            ...existingConfig,
+            displayName: config.displayName || existingConfig.displayName,
+            color: config.color || existingConfig.color,
+            icon: config.icon || existingConfig.icon,
+            order: config.order !== undefined ? config.order : existingConfig.order,
+            description: config.description !== undefined ? config.description : existingConfig.description
+          })
+          updated++
+        }
+      })
+
+      // 保存到存储
+      this.saveToStorage()
+
+      pinnerUtils.log(`应用导入配置成功，更新了 ${updated} 个分区`, "SectionRegistry:applySectionConfigs")
+
+      return {
+        success: true,
+        updated: updated,
+        message: `成功导入 ${updated} 个分区的配置`
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "SectionRegistry:applySectionConfigs")
+      return {
+        success: false,
+        updated: 0,
+        message: "导入配置失败: " + error.message
+      }
+    }
+  }
+
+  /**
+   * 保存配置到 NSUserDefaults
+   * 只保存可修改的属性：displayName, color, icon, order, description
+   */
+  static saveToStorage() {
+    try {
+      let configs = this.getAllConfigs().map(config => ({
+        key: config.key,
+        displayName: config.displayName,
+        color: config.color,
+        icon: config.icon,
+        order: config.order,
+        description: config.description,
+        viewMode: config.viewMode  // 保存 viewMode 用于验证
+      }))
+
+      let jsonData = JSON.stringify(configs)
+      NSUserDefaults.standardUserDefaults().setObjectForKey(jsonData, "MNPinner_sectionConfigs")
+
+      pinnerUtils.log(`配置已保存到存储，共 ${configs.length} 个分区`, "SectionRegistry:saveToStorage")
+      return true
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "SectionRegistry:saveToStorage")
+      return false
+    }
+  }
+
+  /**
+   * 从 NSUserDefaults 加载配置
+   * 如果存储中没有数据，则使用代码中的默认配置
+   */
+  static loadFromStorage() {
+    try {
+      let jsonData = NSUserDefaults.standardUserDefaults().objectForKey("MNPinner_sectionConfigs")
+
+      if (!jsonData) {
+        pinnerUtils.log("存储中无配置数据，使用默认配置", "SectionRegistry:loadFromStorage")
+        return true
+      }
+
+      let configs = JSON.parse(jsonData)
+      if (!Array.isArray(configs)) {
+        pinnerUtils.log("配置数据格式错误，使用默认配置", "SectionRegistry:loadFromStorage")
+        return false
+      }
+
+      // 应用加载的配置
+      configs.forEach(config => {
+        if (this.sections.has(config.key)) {
+          let existingConfig = this.sections.get(config.key)
+          // 只更新可修改的属性，保留 key 和 viewMode
+          this.sections.set(config.key, {
+            ...existingConfig,
+            displayName: config.displayName,
+            color: config.color,
+            icon: config.icon,
+            order: config.order,
+            description: config.description
+          })
+        }
+      })
+
+      pinnerUtils.log(`从存储加载配置成功，共 ${configs.length} 个分区`, "SectionRegistry:loadFromStorage")
+      return true
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "SectionRegistry:loadFromStorage")
+      return false
+    }
+  }
+
+  /**
+   * 重置为默认配置（代码中定义的配置）
+   * 删除 NSUserDefaults 中的数据，然后重新加载
+   */
+  static resetToDefault() {
+    try {
+      NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_sectionConfigs")
+
+      // 重新初始化 sections Map（恢复代码中的默认值）
+      // 由于 Map 是静态定义的，我们需要手动重置每个值
+      this.sections = new Map([
+        // Pin 视图分区
+        ["focus", {
+          key: "focus",
+          displayName: "Focus",
+          viewMode: "pin",
+          color: "#457bd3",
+          icon: "📌",
+          order: 1,
+          description: "重点关注的卡片"
+        }],
+        ["midway", {
+          key: "midway",
+          displayName: "中间知识",
+          viewMode: "pin",
+          color: "#61afef",
+          icon: "📚",
+          order: 2,
+          description: "待进一步处理的知识"
+        }],
+        ["toOrganize", {
+          key: "toOrganize",
+          displayName: "待整理",
+          viewMode: "pin",
+          color: "#98c379",
+          icon: "📥",
+          order: 3,
+          description: "需要整理的零散内容"
+        }],
+        ["class", {
+          key: "class",
+          displayName: "Class",
+          viewMode: "pin",
+          color: "#e5c07b",
+          icon: "🎓",
+          order: 4,
+          description: "课程相关内容"
+        }],
+
+        // Task 视图分区
+        ["taskToday", {
+          key: "taskToday",
+          displayName: "Today",
+          viewMode: "task",
+          color: "#e06c75",
+          icon: "📅",
+          order: 1,
+          description: "今天要处理的任务"
+        }],
+        ["taskTomorrow", {
+          key: "taskTomorrow",
+          displayName: "Tomorrow",
+          viewMode: "task",
+          color: "#d19a66",
+          icon: "📆",
+          order: 2,
+          description: "明天的任务"
+        }],
+        ["taskThisWeek", {
+          key: "taskThisWeek",
+          displayName: "This Week",
+          viewMode: "task",
+          color: "#c678dd",
+          icon: "📊",
+          order: 3,
+          description: "本周任务"
+        }],
+        ["taskTodo", {
+          key: "taskTodo",
+          displayName: "TODO",
+          viewMode: "task",
+          color: "#56b6c2",
+          icon: "✅",
+          order: 4,
+          description: "待办事项"
+        }],
+        ["taskDailyTask", {
+          key: "taskDailyTask",
+          displayName: "日拱一卒",
+          viewMode: "task",
+          color: "#98c379",
+          icon: "🏃",
+          order: 5,
+          description: "每日坚持的任务"
+        }],
+
+        // Custom 视图分区
+        ["custom1", {
+          key: "custom1",
+          displayName: "自定义 1",
+          viewMode: "custom",
+          color: "#98c379",
+          icon: "📌",
+          order: 1,
+          description: "自定义分区 1"
+        }],
+        ["custom2", {
+          key: "custom2",
+          displayName: "自定义 2",
+          viewMode: "custom",
+          color: "#61afef",
+          icon: "📌",
+          order: 2,
+          description: "自定义分区 2"
+        }],
+        ["custom3", {
+          key: "custom3",
+          displayName: "自定义 3",
+          viewMode: "custom",
+          color: "#c678dd",
+          icon: "📌",
+          order: 3,
+          description: "自定义分区 3"
+        }],
+        ["custom4", {
+          key: "custom4",
+          displayName: "自定义 4",
+          viewMode: "custom",
+          color: "#e5c07b",
+          icon: "📌",
+          order: 4,
+          description: "自定义分区 4"
+        }],
+        ["custom5", {
+          key: "custom5",
+          displayName: "自定义 5",
+          viewMode: "custom",
+          color: "#56b6c2",
+          icon: "📌",
+          order: 5,
+          description: "自定义分区 5"
+        }]
+      ])
+
+      pinnerUtils.log("配置已重置为默认值", "SectionRegistry:resetToDefault")
+      return true
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "SectionRegistry:resetToDefault")
+      return false
+    }
+  }
 }
 
 
@@ -450,7 +751,10 @@ class pinnerConfig {
       alwaysAskCardTitle: false,   // Pin卡片时是否总是询问标题
       alwaysAskPageTitle: false,   // Pin页面时是否总是询问标题
       defaultViewMode: "pin",      // 默认视图模式: pin/task
-      defaultSection: "focus"      // 默认打开的分区
+      defaultSection: "focus",     // 默认打开的分区
+      rememberLastView: true,      // 是否记住上次视图（默认开启）
+      lastViewMode: "pin",         // 上次的视图模式
+      lastSection: "focus"         // 上次的分区
     }
   }
 
@@ -657,6 +961,9 @@ class pinnerConfig {
       this.closeImage = this.mainPath + "/close.png"
       this.resizeImage = this.mainPath + "/resize.png"
 
+      // 加载分区配置（从 NSUserDefaults 恢复用户自定义）
+      SectionRegistry.loadFromStorage()
+
       // 初始化自定义视图配置
       this.ensureCustomConfig()
 
@@ -665,7 +972,33 @@ class pinnerConfig {
       pinnerUtils.addErrorLog(error, "pinnerConfig:init")
     }
   }
-  
+
+  /**
+   * 确保自定义视图的数据结构存在
+   * 在初始化时调用，保证 custom1-custom5 分区数据完整
+   */
+  static ensureCustomConfig() {
+    try {
+      let customKeys = ["custom1", "custom2", "custom3", "custom4", "custom5"]
+      let needSave = false
+
+      customKeys.forEach(key => {
+        if (!this.sections[key]) {
+          this.sections[key] = []
+          needSave = true
+          pinnerUtils.log(`Initialized custom section: ${key}`, "pinnerConfig:ensureCustomConfig")
+        }
+      })
+
+      if (needSave) {
+        this.save()
+        pinnerUtils.log("Saved custom sections to storage", "pinnerConfig:ensureCustomConfig")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:ensureCustomConfig")
+    }
+  }
+
   /**
    * 检查并创建数据目录
    */
@@ -763,6 +1096,9 @@ class pinnerConfig {
       // 保存配置
       NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, "MNPinner_config")
 
+      // 保存设置项
+      NSUserDefaults.standardUserDefaults().setObjectForKey(this.settings, "MNPinner_settings")
+
       // 为了向后兼容，清理旧的key
       NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_temporaryPins")
       NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_permanentPins")
@@ -811,31 +1147,66 @@ class pinnerConfig {
     return {
       sections: this.sections,
       config: this.config,
-      settings: this.settings,  // 新增设置项
-      version: "1.1.0"  // 版本号升级
+      settings: this.settings,
+      sectionConfigs: SectionRegistry.getAllConfigs(),  // 分区配置
+      version: "1.2.0"  // 版本号升级
     }
   }
   
   /**
    * 验证配置格式（统一命名）
+   * 支持 1.0.0, 1.1.0, 1.2.0 版本
+   * 支持 Card Pin 和 Page Pin 两种类型
    */
   static isValidTotalConfig(data) {
     if (!data || typeof data !== 'object') return false
 
-    // 验证 pin 数据格式 (只需要 noteId 和 title)
+    // 验证 pin 数据格式（支持 Card 和 Page 类型）
     let validatePins = (pins) => {
       if (!Array.isArray(pins)) return true
-      return pins.every(pin =>
-        pin && typeof pin === 'object' &&
-        'noteId' in pin && 'title' in pin
-      )
+      return pins.every(pin => {
+        if (!pin || typeof pin !== 'object') return false
+
+        // Card 类型：必须有 noteId 和 title
+        if (pin.type === "card" || !pin.type) {
+          return 'noteId' in pin && 'title' in pin
+        }
+
+        // Page 类型：必须有 docMd5, pageIndex, title
+        if (pin.type === "page") {
+          return 'docMd5' in pin && 'pageIndex' in pin && 'title' in pin
+        }
+
+        return false
+      })
     }
 
-    // 新版本格式
+    // 支持 1.2.0 版本
+    if (data.version === "1.2.0") {
+      if (!data.sections || typeof data.sections !== 'object') return false
+      // 验证所有分区的数据格式
+      for (let section in data.sections) {
+        if (!validatePins(data.sections[section])) return false
+      }
+      return true
+    }
+
+    // 支持 1.1.0 版本
+    if (data.version === "1.1.0") {
+      if (!data.sections || typeof data.sections !== 'object') return false
+      // 验证所有分区
+      for (let section in data.sections) {
+        if (!validatePins(data.sections[section])) return false
+      }
+      return true
+    }
+
+    // 支持 1.0.0 版本（原有逻辑保留，但改为动态验证所有分区）
     if (data.version === "1.0.0") {
       if (!data.sections || typeof data.sections !== 'object') return false
-      if (data.sections.focus && !validatePins(data.sections.focus)) return false
-      if (data.sections.midway && !validatePins(data.sections.midway)) return false
+      for (let section in data.sections) {
+        if (!validatePins(data.sections[section])) return false
+      }
       return true
     }
 
@@ -862,7 +1233,20 @@ class pinnerConfig {
       this.previousConfig = this.getAllConfig()
 
       // 判断版本并导入
-      if (newConfig.version === "1.1.0") {
+      if (newConfig.version === "1.2.0") {
+        // 1.2.0 版本格式（包含 sectionConfigs）
+        this.sections = newConfig.sections || this.defaultSections
+        this.config = newConfig.config || { version: "1.2.0", source: "focus" }
+        this.settings = newConfig.settings || this.getDefaultSettings()
+
+        // 应用分区配置（如果存在）
+        if (newConfig.sectionConfigs) {
+          let result = SectionRegistry.applySectionConfigs(newConfig.sectionConfigs)
+          if (result.success) {
+            pinnerUtils.log(result.message, "pinnerConfig:importConfig")
+          }
+        }
+      } else if (newConfig.version === "1.1.0") {
         // 最新版本格式（包含settings）
         this.sections = newConfig.sections || this.defaultSections
         this.config = newConfig.config || { version: "1.1.0", source: "focus" }
@@ -922,30 +1306,26 @@ class pinnerConfig {
    */
   static async importFromFile() {
     try {
-      return new Promise((resolve) => {
-        MNUtil.importFile("public.json", (filePath) => {
-          if (!filePath) {
-            MNUtil.showHUD("未选择文件")
-            resolve(false)
-            return
-          }
+      // ✅ 使用数组参数 + await（参考 MNToolbar/MNTask 实现）
+      let path = await MNUtil.importFile(["public.json"])
 
-          try {
-            let fileData = NSData.dataWithContentsOfFile(filePath)
-            let jsonString = NSString.alloc().initWithDataEncoding(fileData, 4)
-            let data = JSON.parse(jsonString)
+      if (!path) {
+        MNUtil.showHUD("未选择文件")
+        return false
+      }
 
-            let success = this.importConfig(data)
-            resolve(success)
-          } catch (error) {
-            pinnerUtils.addErrorLog(error, "pinnerConfig:importFromFile:parseJSON")
-            MNUtil.showHUD("文件格式错误")
-            resolve(false)
-          }
-        })
-      })
+      // ✅ 使用 MNUtil.readJSON 高级 API
+      let config = MNUtil.readJSON(path)
+      let success = this.importConfig(config)
+
+      if (success) {
+        MNUtil.showHUD("✅ 导入成功")
+      }
+
+      return success
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:importFromFile")
+      MNUtil.showHUD("❌ 文件导入失败")
       return false
     }
   }
@@ -2086,424 +2466,4 @@ class pinnerConfig {
     }
   }
 
-  // ========== 自定义视图管理方法 ==========
-
-  /**
-   * 确保自定义视图配置存在
-   * @private
-   */
-  static ensureCustomConfig() {
-    if (!this.customSections) {
-      this.customSections = []
-      this.loadCustomSections()
-    }
-  }
-
-  /**
-   * 加载自定义视图配置
-   * @private
-   */
-  static loadCustomSections() {
-    try {
-      let saved = NSUserDefaults.standardUserDefaults().objectForKey("MNPinner_customSections")
-      if (saved && Array.isArray(saved)) {
-        this.customSections = saved
-      } else {
-        this.customSections = []
-      }
-      pinnerUtils.log(`Loaded ${this.customSections.length} custom sections`, "pinnerConfig:loadCustomSections")
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinnerConfig:loadCustomSections")
-      this.customSections = []
-    }
-  }
-
-  /**
-   * 保存自定义视图配置
-   * @private
-   */
-  static saveCustomSections() {
-    try {
-      NSUserDefaults.standardUserDefaults().setObjectForKey(this.customSections, "MNPinner_customSections")
-      pinnerUtils.log("Custom sections saved", "pinnerConfig:saveCustomSections")
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinnerConfig:saveCustomSections")
-    }
-  }
-
-  /**
-   * 生成唯一的子视图 ID
-   * @private
-   * @returns {string} 唯一 ID
-   */
-  static generateCustomSectionId() {
-    return "custom_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9)
-  }
-
-  /**
-   * 获取所有自定义子视图
-   * @returns {Array} 子视图配置数组 [{id, name, cards}, ...]
-   */
-  static getCustomSections() {
-    this.ensureCustomConfig()
-    return this.customSections
-  }
-
-  /**
-   * 创建新的自定义子视图
-   * @param {string} name - 子视图名称
-   * @returns {{success: boolean, message: string, section: Object|null}} 创建结果
-   */
-  static createCustomSection(name) {
-    try {
-      this.ensureCustomConfig()
-
-      // 验证名称
-      if (!name || typeof name !== 'string') {
-        return { success: false, message: "名称不能为空", section: null }
-      }
-
-      name = name.trim()
-      if (!name) {
-        return { success: false, message: "名称不能为空", section: null }
-      }
-
-      // 检查数量限制（最多 5 个）
-      if (this.customSections.length >= 5) {
-        return { success: false, message: "最多创建 5 个子视图", section: null }
-      }
-
-      // 检查名称重复
-      if (this.customSections.find(s => s.name === name)) {
-        return { success: false, message: "名称已存在", section: null }
-      }
-
-      // 创建新子视图
-      let newSection = {
-        id: this.generateCustomSectionId(),
-        name: name,
-        cards: []
-      }
-
-      this.customSections.push(newSection)
-      this.saveCustomSections()
-
-      pinnerUtils.log(`Created custom section: ${name} (${newSection.id})`, "pinnerConfig:createCustomSection")
-      return { success: true, message: "创建成功", section: newSection }
-
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinnerConfig:createCustomSection")
-      return { success: false, message: `创建失败: ${error.message}`, section: null }
-    }
-  }
-
-  /**
-   * 重命名自定义子视图
-   * @param {string} id - 子视图 ID
-   * @param {string} newName - 新名称
-   * @returns {{success: boolean, message: string}} 重命名结果
-   */
-  static renameCustomSection(id, newName) {
-    try {
-      this.ensureCustomConfig()
-
-      // 验证名称
-      if (!newName || typeof newName !== 'string') {
-        return { success: false, message: "名称不能为空" }
-      }
-
-      newName = newName.trim()
-      if (!newName) {
-        return { success: false, message: "名称不能为空" }
-      }
-
-      // 查找子视图
-      let section = this.customSections.find(s => s.id === id)
-      if (!section) {
-        return { success: false, message: "子视图不存在" }
-      }
-
-      // 检查名称重复（排除自己）
-      if (this.customSections.find(s => s.id !== id && s.name === newName)) {
-        return { success: false, message: "名称已存在" }
-      }
-
-      // 更新名称
-      let oldName = section.name
-      section.name = newName
-      this.saveCustomSections()
-
-      pinnerUtils.log(`Renamed custom section: ${oldName} -> ${newName}`, "pinnerConfig:renameCustomSection")
-      return { success: true, message: "重命名成功" }
-
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinnerConfig:renameCustomSection")
-      return { success: false, message: `重命名失败: ${error.message}` }
-    }
-  }
-
-  /**
-   * 删除自定义子视图
-   * @param {string} id - 子视图 ID
-   * @param {string} transferToId - 卡片转移目标 ID（可选，null 表示直接删除）
-   * @returns {{success: boolean, message: string}} 删除结果
-   */
-  static deleteCustomSection(id, transferToId) {
-    try {
-      this.ensureCustomConfig()
-
-      // 查找要删除的子视图
-      let index = this.customSections.findIndex(s => s.id === id)
-      if (index === -1) {
-        return { success: false, message: "子视图不存在" }
-      }
-
-      let section = this.customSections[index]
-
-      // 处理卡片转移
-      if (section.cards && section.cards.length > 0) {
-        if (transferToId) {
-          // 转移到指定子视图
-          let targetSection = this.customSections.find(s => s.id === transferToId)
-          if (!targetSection) {
-            return { success: false, message: "目标子视图不存在" }
-          }
-
-          // 执行转移（去重）
-          section.cards.forEach(card => {
-            let isDuplicate = targetSection.cards.find(c =>
-              c.type === card.type &&
-              (card.type === "card" ? c.noteId === card.noteId : (c.docMd5 === card.docMd5 && c.pageIndex === card.pageIndex))
-            )
-            if (!isDuplicate) {
-              targetSection.cards.push(card)
-            }
-          })
-
-          pinnerUtils.log(`Transferred ${section.cards.length} cards to ${targetSection.name}`, "pinnerConfig:deleteCustomSection")
-        }
-        // 如果 transferToId 为 null，则直接删除卡片（不转移）
-      }
-
-      // 删除子视图
-      this.customSections.splice(index, 1)
-      this.saveCustomSections()
-
-      pinnerUtils.log(`Deleted custom section: ${section.name}`, "pinnerConfig:deleteCustomSection")
-      return { success: true, message: "删除成功" }
-
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinnerConfig:deleteCustomSection")
-      return { success: false, message: `删除失败: ${error.message}` }
-    }
-  }
-
-  /**
-   * 调整自定义子视图顺序
-   * @param {number} oldIndex - 原位置
-   * @param {number} newIndex - 新位置
-   * @returns {{success: boolean, message: string}} 调整结果
-   */
-  static reorderCustomSections(oldIndex, newIndex) {
-    try {
-      this.ensureCustomConfig()
-
-      if (oldIndex < 0 || oldIndex >= this.customSections.length ||
-          newIndex < 0 || newIndex >= this.customSections.length) {
-        return { success: false, message: "索引越界" }
-      }
-
-      if (oldIndex === newIndex) {
-        return { success: true, message: "顺序未改变" }
-      }
-
-      // 移动子视图
-      let [item] = this.customSections.splice(oldIndex, 1)
-      this.customSections.splice(newIndex, 0, item)
-
-      this.saveCustomSections()
-
-      pinnerUtils.log(`Reordered custom sections: ${oldIndex} -> ${newIndex}`, "pinnerConfig:reorderCustomSections")
-      return { success: true, message: "调整成功" }
-
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinnerConfig:reorderCustomSections")
-      return { success: false, message: `调整失败: ${error.message}` }
-    }
-  }
-
-  /**
-   * 获取自定义子视图的卡片列表
-   * @param {string} sectionId - 子视图 ID
-   * @returns {Array} 卡片数组
-   */
-  static getCustomPins(sectionId) {
-    this.ensureCustomConfig()
-    let section = this.customSections.find(s => s.id === sectionId)
-    return section ? section.cards : []
-  }
-
-  /**
-   * 添加卡片到自定义子视图
-   * @param {string} sectionId - 子视图 ID
-   * @param {Object} pinData - Pin 数据对象
-   * @param {string|number} position - 位置：'top', 'bottom' 或具体索引
-   * @returns {{success: boolean, message: string}} 添加结果
-   */
-  static addCustomPin(sectionId, pinData, position = "bottom") {
-    try {
-      this.ensureCustomConfig()
-
-      // 查找子视图
-      let section = this.customSections.find(s => s.id === sectionId)
-      if (!section) {
-        return { success: false, message: "子视图不存在" }
-      }
-
-      if (!pinData.type) {
-        return { success: false, message: "Pin 数据必须包含 type 字段" }
-      }
-
-      // 检查重复
-      let isDuplicate = false
-      if (pinData.type === "card") {
-        isDuplicate = section.cards.find(p => p.type === "card" && p.noteId === pinData.noteId)
-      } else if (pinData.type === "page") {
-        isDuplicate = section.cards.find(p =>
-          p.type === "page" &&
-          p.docMd5 === pinData.docMd5 &&
-          p.pageIndex === pinData.pageIndex
-        )
-      }
-
-      if (isDuplicate) {
-        return { success: false, message: "卡片已存在" }
-      }
-
-      // 插入卡片
-      if (position === "top") {
-        section.cards.unshift(pinData)
-      } else if (position === "bottom") {
-        section.cards.push(pinData)
-      } else if (typeof position === "number" || !isNaN(Number(position))) {
-        let index = Number(position)
-        if (index < 0) index = 0
-        if (index > section.cards.length) index = section.cards.length
-        section.cards.splice(index, 0, pinData)
-      } else {
-        section.cards.push(pinData)
-      }
-
-      this.saveCustomSections()
-
-      pinnerUtils.log(`Added ${pinData.type} pin to custom section ${section.name}`, "pinnerConfig:addCustomPin")
-      return { success: true, message: "添加成功" }
-
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinnerConfig:addCustomPin")
-      return { success: false, message: `添加失败: ${error.message}` }
-    }
-  }
-
-  /**
-   * 从自定义子视图删除卡片
-   * @param {string} sectionId - 子视图 ID
-   * @param {Object|string} pinOrId - Pin 对象或 noteId
-   * @returns {{success: boolean, message: string}} 删除结果
-   */
-  static removeCustomPin(sectionId, pinOrId) {
-    try {
-      this.ensureCustomConfig()
-
-      // 查找子视图
-      let section = this.customSections.find(s => s.id === sectionId)
-      if (!section) {
-        return { success: false, message: "子视图不存在" }
-      }
-
-      // 兼容旧版：如果传入的是字符串，视为 noteId（Card 类型）
-      let pin = pinOrId
-      if (typeof pinOrId === 'string') {
-        pin = { type: "card", noteId: pinOrId }
-      }
-
-      let index = this.findPinIndex(section.cards, pin)
-      if (index === -1) {
-        return { success: false, message: "卡片不存在" }
-      }
-
-      section.cards.splice(index, 1)
-      this.saveCustomSections()
-
-      pinnerUtils.log(`Removed ${pin.type} pin from custom section ${section.name}`, "pinnerConfig:removeCustomPin")
-      return { success: true, message: "删除成功" }
-
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinnerConfig:removeCustomPin")
-      return { success: false, message: `删除失败: ${error.message}` }
-    }
-  }
-
-  /**
-   * 在自定义子视图中移动卡片顺序
-   * @param {string} sectionId - 子视图 ID
-   * @param {number} oldIndex - 原位置
-   * @param {number} newIndex - 新位置
-   * @returns {{success: boolean, message: string}} 移动结果
-   */
-  static moveCustomPin(sectionId, oldIndex, newIndex) {
-    try {
-      this.ensureCustomConfig()
-
-      // 查找子视图
-      let section = this.customSections.find(s => s.id === sectionId)
-      if (!section) {
-        return { success: false, message: "子视图不存在" }
-      }
-
-      if (oldIndex < 0 || oldIndex >= section.cards.length ||
-          newIndex < 0 || newIndex >= section.cards.length) {
-        return { success: false, message: "索引越界" }
-      }
-
-      let [item] = section.cards.splice(oldIndex, 1)
-      section.cards.splice(newIndex, 0, item)
-
-      this.saveCustomSections()
-
-      pinnerUtils.log(`Moved pin in custom section ${section.name}: ${oldIndex} -> ${newIndex}`, "pinnerConfig:moveCustomPin")
-      return { success: true, message: "移动成功" }
-
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinnerConfig:moveCustomPin")
-      return { success: false, message: `移动失败: ${error.message}` }
-    }
-  }
-
-  /**
-   * 清空自定义子视图的所有卡片
-   * @param {string} sectionId - 子视图 ID
-   * @returns {{success: boolean, message: string}} 清空结果
-   */
-  static clearCustomPins(sectionId) {
-    try {
-      this.ensureCustomConfig()
-
-      // 查找子视图
-      let section = this.customSections.find(s => s.id === sectionId)
-      if (!section) {
-        return { success: false, message: "子视图不存在" }
-      }
-
-      section.cards = []
-      this.saveCustomSections()
-
-      pinnerUtils.log(`Cleared custom section: ${section.name}`, "pinnerConfig:clearCustomPins")
-      return { success: true, message: "清空成功" }
-
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinnerConfig:clearCustomPins")
-      return { success: false, message: `清空失败: ${error.message}` }
-    }
-  }
 }
