@@ -1149,24 +1149,58 @@ class pinnerConfig {
   
   /**
    * 验证配置格式（统一命名）
+   * 支持 1.0.0, 1.1.0, 1.2.0 版本
+   * 支持 Card Pin 和 Page Pin 两种类型
    */
   static isValidTotalConfig(data) {
     if (!data || typeof data !== 'object') return false
 
-    // 验证 pin 数据格式 (只需要 noteId 和 title)
+    // 验证 pin 数据格式（支持 Card 和 Page 类型）
     let validatePins = (pins) => {
       if (!Array.isArray(pins)) return true
-      return pins.every(pin =>
-        pin && typeof pin === 'object' &&
-        'noteId' in pin && 'title' in pin
-      )
+      return pins.every(pin => {
+        if (!pin || typeof pin !== 'object') return false
+
+        // Card 类型：必须有 noteId 和 title
+        if (pin.type === "card" || !pin.type) {
+          return 'noteId' in pin && 'title' in pin
+        }
+
+        // Page 类型：必须有 docMd5, pageIndex, title
+        if (pin.type === "page") {
+          return 'docMd5' in pin && 'pageIndex' in pin && 'title' in pin
+        }
+
+        return false
+      })
     }
 
-    // 新版本格式
+    // 支持 1.2.0 版本
+    if (data.version === "1.2.0") {
+      if (!data.sections || typeof data.sections !== 'object') return false
+      // 验证所有分区的数据格式
+      for (let section in data.sections) {
+        if (!validatePins(data.sections[section])) return false
+      }
+      return true
+    }
+
+    // 支持 1.1.0 版本
+    if (data.version === "1.1.0") {
+      if (!data.sections || typeof data.sections !== 'object') return false
+      // 验证所有分区
+      for (let section in data.sections) {
+        if (!validatePins(data.sections[section])) return false
+      }
+      return true
+    }
+
+    // 支持 1.0.0 版本（原有逻辑保留，但改为动态验证所有分区）
     if (data.version === "1.0.0") {
       if (!data.sections || typeof data.sections !== 'object') return false
-      if (data.sections.focus && !validatePins(data.sections.focus)) return false
-      if (data.sections.midway && !validatePins(data.sections.midway)) return false
+      for (let section in data.sections) {
+        if (!validatePins(data.sections[section])) return false
+      }
       return true
     }
 

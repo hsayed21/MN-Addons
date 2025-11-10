@@ -538,9 +538,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
         // ✅ 新增：重新布局
         self.settingViewLayout()
-
-        // 保留原有：刷新当前视图
-        self.refreshCurrentView()
       }
     } catch (error) {
       pinnerUtils.addErrorLog(error, "importConfig")
