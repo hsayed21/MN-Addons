@@ -2092,13 +2092,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         title = defaultTitle
       }
 
-      // 生成 URL 列表内容
-      let urlList = []
-      selectedCards.forEach(card => {
-        let url = "marginnote4app://note/" + card.noteId
-        urlList.push(url)
-      })
-      let content = urlList.join("\n")
+      // let content = urlList.join("\n")
 
       // 创建新卡片
       let newNote = focusNote.createChildNote({
@@ -2111,7 +2105,9 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       }
 
       // 添加 URL 列表作为文本评论
-      newNote.appendTextComment(content)
+      selectedCards.forEach(card => {
+        newNote.appendTextComment("marginnote4app://note/" + card.noteId)
+      })
 
       // 清空选择状态并刷新界面
       let affectedSections = new Set()
@@ -2591,8 +2587,7 @@ pinnerController.prototype.settingViewLayout = function () {
   try {
     let viewFrame = this.view.bounds
     let width = viewFrame.width+10
-    let buttonHeight = 28  // 底部工具栏高度
-    let height = viewFrame.height - buttonHeight - 15  // 减去工具栏高度和间距
+    let height = viewFrame.height  // 恢复原始逻辑，不在这里减去工具栏高度
     this.settingView.frame = MNUtil.genFrame(-5, 55, width, height-65)
     // Pin 视图分区
     this.focusView.frame = MNUtil.genFrame(0, 0,width, height-65)
@@ -2716,7 +2711,8 @@ pinnerController.prototype.settingViewLayout = function () {
     this.closeButton.frame = settingFrame
 
     // 布局调整大小按钮（需要避开底部工具栏）
-    this.resizeButton.frame = {x: this.view.bounds.width - 30, y: this.view.bounds.height - buttonHeight - 15 - 30, width: 30, height: 30}
+    // 底部工具栏高度 28 + 间距 15 = 43，resizeButton 自身高度 30
+    this.resizeButton.frame = {x: this.view.bounds.width - 30, y: this.view.bounds.height - 43 - 30, width: 30, height: 30}
 
     // 根据当前显示的视图布局子视图
     // Pin 视图分区
