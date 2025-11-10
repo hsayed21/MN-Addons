@@ -241,29 +241,9 @@ pinnerConfig.exportToClipboard()
 pinnerConfig.importFromClipboard()
 ```
 
-## 已知问题
+## 常见问题
 
-### 1. 崩溃问题（见 ips.md）
-
-问题：UIView 创建时的 bounds 异常
-
-堆栈：
-```
-QuartzCore CA::Layer::set_bounds
-UIKitCore -[UIView _createLayerWithFrame:]
-JavaScriptCore JSC::ObjCCallbackFunctionImpl::call
-```
-
-可能原因：
-- JavaScript 传递的 frame 参数包含无效值（NaN、Infinity）
-- 内存不足
-
-建议修复：
-1. 创建 UIView 前验证 frame 参数
-2. 添加防御性检查
-3. 捕获异常并提供降级方案
-
-### 2. self 和 this 的使用
+### self 和 this 的使用
 
 重要：在 JSB.defineClass 内部严禁使用 `let self = this;`
 
@@ -275,37 +255,18 @@ let self = this;
 self.someProperty = value;
 ```
 
-### 3. 多窗口支持
+### 按钮菜单的功能与生命周期里的功能（极其重要！）
 
-- MarginNote 支持多窗口，插件实例独立
-- 数据挂载到 `self` 上区分窗口
-- 视图控制器通过 `pinnerUtils` 单例管理
+需要写在生命周期中才能通过 selector 绑定，写在 prototype 里的方法无法绑定菜单。
 
-## 构建和打包
+相反的是生命周期里用 `self.xxx()` 只能调用 prototype 里的方法，不能调用生命周期里的方法。
 
-### 打包插件
-
-```bash
-cd /path/to/mnpinner
-mnaddon4 build .
-```
-
-或优先使用 mnaddon-packager agent：
-```
-请打包 mnpinner 插件
-```
-
-### 解包插件
-
-```bash
-mnaddon4 unpack plugin_name.mnaddon
-```
 
 ## 调试技巧
 
 ```javascript
 // 日志记录
-pinnerUtils.log("消息", "来源")
+pinnerUtils.log("消息", "来源")  // 而不是用  MNUtil.log!
 
 // 复制对象
 MNUtil.copyJSON(object)
@@ -314,7 +275,7 @@ MNUtil.copyJSON(object)
 MNUtil.showHUD("提示信息")
 
 // 错误日志
-// 错误自动记录到 pinnerUtils.errorLog 并复制到剪贴板
+pinnerUtils.errorLog()
 ```
 
 ## 相关文档
