@@ -317,6 +317,16 @@ class SectionRegistry {
       icon: "🏃",
       order: 5,
       description: "每日坚持的任务"
+    }],
+
+    ["custom1", {
+      key: "custom1",
+      displayName: "Custom 1",
+      viewMode: "custom",
+      color: "#98c379",
+      icon: "🏃",
+      order: 1,
+      description: "默认自定义分区 1"
     }]
   ])
 

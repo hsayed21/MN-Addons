@@ -3029,7 +3029,8 @@ pinnerController.prototype.createAllSectionViewContainers = function () {
   // 获取所有分区配置
   let allConfigs = [
     ...SectionRegistry.getAllByMode("pin"),
-    ...SectionRegistry.getAllByMode("task")
+    ...SectionRegistry.getAllByMode("task"),
+    ...SectionRegistry.getAllByMode("custom")
   ]
 
   // 创建每个分区的视图容器
