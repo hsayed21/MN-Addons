@@ -1300,30 +1300,26 @@ class pinnerConfig {
    */
   static async importFromFile() {
     try {
-      return new Promise((resolve) => {
-        MNUtil.importFile("public.json", (filePath) => {
-          if (!filePath) {
-            MNUtil.showHUD("未选择文件")
-            resolve(false)
-            return
-          }
+      // ✅ 使用数组参数 + await（参考 MNToolbar/MNTask 实现）
+      let path = await MNUtil.importFile(["public.json"])
 
-          try {
-            let fileData = NSData.dataWithContentsOfFile(filePath)
-            let jsonString = NSString.alloc().initWithDataEncoding(fileData, 4)
-            let data = JSON.parse(jsonString)
+      if (!path) {
+        MNUtil.showHUD("未选择文件")
+        return false
+      }
 
-            let success = this.importConfig(data)
-            resolve(success)
-          } catch (error) {
-            pinnerUtils.addErrorLog(error, "pinnerConfig:importFromFile:parseJSON")
-            MNUtil.showHUD("文件格式错误")
-            resolve(false)
-          }
-        })
-      })
+      // ✅ 使用 MNUtil.readJSON 高级 API
+      let config = MNUtil.readJSON(path)
+      let success = this.importConfig(config)
+
+      if (success) {
+        MNUtil.showHUD("✅ 导入成功")
+      }
+
+      return success
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:importFromFile")
+      MNUtil.showHUD("❌ 文件导入失败")
       return false
     }
   }
