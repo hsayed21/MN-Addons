@@ -100,20 +100,15 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       let height   = viewFrame.height
       let buttonHeight = 28  // 工具栏高度
 
-      // 顶部 moveButton（原有）
-      self.moveButton.frame = {x: width*0.5-75, y: 0, width: 150, height: 16};
+      // moveButton 移到右下角
+      self.moveButton.frame = {x: width - 35, y: height - 35, width: 30, height: 30};
 
       // ========== 底部工具栏布局 ==========
       // 工具栏容器（底部）
       self.toolbar.frame = {x: 5, y: height - buttonHeight - 8, width: width - 10, height: buttonHeight}
 
-      // 可滚动区域（左侧）
-      self.toolbarScrollView.frame = {x: 0, y: 0, width: width - 70, height: buttonHeight}
-
-      // 固定按钮（右侧）
-      if (self.toolbarSettingButton) {
-        self.toolbarSettingButton.frame = {x: width - 60, y: 0, width: 50, height: buttonHeight}
-      }
+      // 可滚动区域（占满整个工具栏宽度）
+      self.toolbarScrollView.frame = {x: 0, y: 0, width: width - 10, height: buttonHeight}
 
       // 左侧可滚动按钮布局
       let buttonX = 5
@@ -520,6 +515,16 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       // 导入成功后刷新 UI
       if (success && !self.view.hidden) {
+        // ✅ 新增：保存配置到存储
+        SectionRegistry.saveToStorage()
+
+        // ✅ 新增：重新创建标签按钮
+        self.recreateSectionTabs()
+
+        // ✅ 新增：重新布局
+        self.settingViewLayout()
+
+        // 保留原有：刷新当前视图
         self.refreshCurrentView()
       }
     } catch (error) {
@@ -2282,6 +2287,143 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       pinnerUtils.addErrorLog(error, "exportSelectedCardsAsMarkdown")
       MNUtil.showHUD("导出失败: " + error.message)
     }
+  },
+
+  // ========== Toolbar 按钮方法（selector 绑定） ==========
+
+  /**
+   * 视图模式切换菜单（底部工具栏按钮）
+   */
+  changeViewMode: function(sender) {
+    try {
+      pinnerUtils.log("🔔 changeViewMode 被调用", "changeViewMode")
+      self.checkPopover()
+
+      let commandTable = [
+        {
+          title: '📌 Pin 视图',
+          object: self,
+          selector: 'switchViewModeTo:',
+          param: 'pin',
+          checked: self.currentViewMode === 'pin'
+        },
+        {
+          title: '✅ Task 视图',
+          object: self,
+          selector: 'switchViewModeTo:',
+          param: 'task',
+          checked: self.currentViewMode === 'task'
+        },
+        {
+          title: '🎨 自定义视图',
+          object: self,
+          selector: 'switchViewModeTo:',
+          param: 'custom',
+          checked: self.currentViewMode === 'custom'
+        }
+      ]
+
+      self.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable, 200, 1)
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "changeViewMode")
+    }
+  },
+
+  /**
+   * 切换到指定视图模式
+   */
+  switchViewModeTo: function(mode) {
+    try {
+      self.checkPopover()
+      // 调用现有的 switchViewMode 方法
+      self.switchViewMode(mode)
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "switchViewModeTo")
+    }
+  },
+
+  /**
+   * 刷新当前视图
+   */
+  refreshCurrentView: function(sender) {
+    try {
+      pinnerUtils.log("🔔 refreshCurrentView 被调用", "refreshCurrentView")
+      if (self.currentSection) {
+        self.refreshSectionCards(self.currentSection)
+        MNUtil.showHUD("✓ 已刷新")
+      } else {
+        MNUtil.showHUD("未选择分区")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "refreshCurrentView")
+    }
+  },
+
+  /**
+   * 显示排序菜单
+   */
+  showSortMenu: function(sender) {
+    try {
+      pinnerUtils.log("🔔 showSortMenu 被调用", "showSortMenu")
+      self.checkPopover()
+
+      let commandTable = [
+        {title: '📅 按添加时间排序', object: self, selector: 'sortCards:', param: 'time'},
+        {title: '🔤 按标题排序', object: self, selector: 'sortCards:', param: 'title'},
+        {title: '🔄 反转顺序', object: self, selector: 'sortCards:', param: 'reverse'}
+      ]
+
+      self.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable, 180, 1)
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "showSortMenu")
+    }
+  },
+
+  /**
+   * 排序卡片
+   */
+  sortCards: function(mode) {
+    try {
+      self.checkPopover()
+
+      if (!self.currentSection) {
+        MNUtil.showHUD("未选择分区")
+        return
+      }
+
+      let pins = pinnerConfig.sections[self.currentSection]
+      if (!pins || pins.length === 0) {
+        MNUtil.showHUD("当前分区为空")
+        return
+      }
+
+      // 执行排序
+      if (mode === 'time') {
+        // 按添加时间排序（使用 pinnedAt 字段）
+        pins.sort((a, b) => (a.pinnedAt || 0) - (b.pinnedAt || 0))
+        MNUtil.showHUD("✓ 已按时间排序")
+      } else if (mode === 'title') {
+        // 按标题排序
+        pins.sort((a, b) => {
+          let titleA = a.title || ""
+          let titleB = b.title || ""
+          return titleA.localeCompare(titleB)
+        })
+        MNUtil.showHUD("✓ 已按标题排序")
+      } else if (mode === 'reverse') {
+        // 反转顺序
+        pins.reverse()
+        MNUtil.showHUD("✓ 已反转顺序")
+      }
+
+      // 保存并刷新
+      pinnerConfig.save("MNPinner_sections")
+      self.refreshSectionCards(self.currentSection)
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "sortCards")
+      MNUtil.showHUD("排序失败")
+    }
   }
 });
 
@@ -2862,6 +3004,7 @@ pinnerController.prototype.createAllSectionTabs = function () {
   // 获取所有分区配置（按 order 排序）
   let pinConfigs = SectionRegistry.getAllByMode("pin")
   let taskConfigs = SectionRegistry.getAllByMode("task")
+  let customConfigs = SectionRegistry.getAllByMode("custom")
 
   // 创建 Pin 视图的标签按钮
   pinConfigs.forEach((config, index) => {
@@ -2873,20 +3016,10 @@ pinnerController.prototype.createAllSectionTabs = function () {
     this.createSectionTabButton(config, radius, false)
   })
 
-  // === 创建 Custom 视图的管理标签按钮 ===
-  this.createButton("customManageTabButton", "customManageTabTapped:", "tabView")
-  this.customManageTabButton.layer.cornerRadius = radius
-  this.customManageTabButton.isSelected = false
-  MNButton.setConfig(this.customManageTabButton, {
-    color: "#9bb2d6",
-    alpha: 0.9,
-    opacity: 1.0,
-    title: "🎨 管理",
-    font: 17,
-    bold: true
+  // 创建 Custom 视图的标签按钮
+  customConfigs.forEach((config, index) => {
+    this.createSectionTabButton(config, radius, false)
   })
-  let size = this.customManageTabButton.sizeThatFits({width: 120, height: 100})
-  this.customManageTabButton.width = size.width + 15
 }
 
 /**
@@ -3031,14 +3164,6 @@ pinnerController.prototype.createToolbarButtons = function() {
     pinnerUtils.log("✅ sortButton 创建成功，绑定事件: showSortMenu:", "createToolbarButtons")
     buttonX += 75
 
-    // 设置按钮（frame 在 viewWillLayoutSubviews 中动态调整）
-    this.createButton("toolbarSettingButton", "openSettingView:", "toolbar")
-    this.toolbarSettingButton.frame = {x: 0, y: 0, width: 50, height: buttonHeight}
-    MNButton.setConfig(this.toolbarSettingButton, {
-      color: "#c678dd", alpha: 0.8, opacity: 1.0, title: "⚙️", radius: 6, font: 16
-    })
-    pinnerUtils.log("✅ toolbarSettingButton 创建成功，绑定事件: openSettingView:", "createToolbarButtons")
-
     // 设置滚动视图的内容大小
     this.toolbarScrollView.contentSize = {width: buttonX + 10, height: buttonHeight}
 
@@ -3046,154 +3171,6 @@ pinnerController.prototype.createToolbarButtons = function() {
   } catch (error) {
     pinnerUtils.addErrorLog(error, "createToolbarButtons")
     MNUtil.showHUD("❌ 工具栏创建失败: " + error)
-  }
-}
-
-/**
- * 视图模式切换菜单（底部工具栏按钮）
- */
-pinnerController.prototype.changeViewMode = function(sender) {
-  try {
-    pinnerUtils.log("🔔 changeViewMode 被调用", "changeViewMode")
-    this.checkPopover()
-
-    let commandTable = [
-      {
-        title: '📌 Pin 视图',
-        object: this,
-        selector: 'switchViewModeTo:',
-        param: 'pin',
-        checked: this.currentViewMode === 'pin'
-      },
-      {
-        title: '✅ Task 视图',
-        object: this,
-        selector: 'switchViewModeTo:',
-        param: 'task',
-        checked: this.currentViewMode === 'task'
-      },
-      {
-        title: '🎨 自定义视图',
-        object: this,
-        selector: 'switchViewModeTo:',
-        param: 'custom',
-        checked: this.currentViewMode === 'custom'
-      }
-    ]
-
-    this.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable, 200, 1)
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "changeViewMode")
-  }
-}
-
-/**
- * 切换到指定视图模式
- */
-pinnerController.prototype.switchViewModeTo = function(mode) {
-  try {
-    this.checkPopover()
-    // 调用现有的 switchViewMode 方法
-    this.switchViewMode(mode)
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "switchViewModeTo")
-  }
-}
-
-/**
- * 刷新当前视图
- */
-pinnerController.prototype.refreshCurrentView = function(sender) {
-  try {
-    pinnerUtils.log("🔔 refreshCurrentView 被调用", "refreshCurrentView")
-    if (this.currentSection) {
-      this.refreshSectionCards(this.currentSection)
-      MNUtil.showHUD("✓ 已刷新")
-    } else {
-      MNUtil.showHUD("未选择分区")
-    }
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "refreshCurrentView")
-  }
-}
-
-/**
- * 显示排序菜单
- */
-pinnerController.prototype.showSortMenu = function(sender) {
-  try {
-    pinnerUtils.log("🔔 showSortMenu 被调用", "showSortMenu")
-    this.checkPopover()
-
-    let commandTable = [
-      {title: '📅 按添加时间排序', object: this, selector: 'sortCards:', param: 'time'},
-      {title: '🔤 按标题排序', object: this, selector: 'sortCards:', param: 'title'},
-      {title: '🔄 反转顺序', object: this, selector: 'sortCards:', param: 'reverse'}
-    ]
-
-    this.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable, 180, 1)
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "showSortMenu")
-  }
-}
-
-/**
- * 排序卡片
- */
-pinnerController.prototype.sortCards = function(mode) {
-  try {
-    this.checkPopover()
-
-    if (!this.currentSection) {
-      MNUtil.showHUD("未选择分区")
-      return
-    }
-
-    let pins = pinnerConfig.sections[this.currentSection]
-    if (!pins || pins.length === 0) {
-      MNUtil.showHUD("当前分区为空")
-      return
-    }
-
-    // 执行排序
-    if (mode === 'time') {
-      // 按添加时间排序（使用 pinnedAt 字段）
-      pins.sort((a, b) => (a.pinnedAt || 0) - (b.pinnedAt || 0))
-      MNUtil.showHUD("✓ 已按时间排序")
-    } else if (mode === 'title') {
-      // 按标题排序
-      pins.sort((a, b) => {
-        let titleA = a.title || ""
-        let titleB = b.title || ""
-        return titleA.localeCompare(titleB)
-      })
-      MNUtil.showHUD("✓ 已按标题排序")
-    } else if (mode === 'reverse') {
-      // 反转顺序
-      pins.reverse()
-      MNUtil.showHUD("✓ 已反转顺序")
-    }
-
-    // 保存并刷新
-    pinnerConfig.save("MNPinner_sections")
-    this.refreshSectionCards(this.currentSection)
-
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "sortCards")
-    MNUtil.showHUD("排序失败")
-  }
-}
-
-/**
- * 打开设置视图（从底部工具栏）
- */
-pinnerController.prototype.openSettingView = function(sender) {
-  try {
-    pinnerUtils.log("🔔 openSettingView 被调用", "openSettingView")
-    // 调用现有的 openSettings 方法
-    this.openSettings(sender)
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "openSettingView")
   }
 }
 
@@ -3332,15 +3309,9 @@ pinnerController.prototype.switchViewMode = function (targetMode) {
       currentViews = currentConfigs.map(c => c.key + "View")
       currentButtons = currentConfigs.map(c => c.key + "TabButton")
     } else if (this.currentViewMode === "custom") {
-      currentViews = ["customManageView"]
-      currentButtons = ["customManageTabButton"]
-
-      // 添加所有动态创建的自定义子视图
-      Object.keys(this.customSectionViews || {}).forEach(sectionId => {
-        let viewInfo = this.customSectionViews[sectionId]
-        currentViews.push(viewInfo.viewName)
-        currentButtons.push(viewInfo.tabButtonName)
-      })
+      let currentConfigs = SectionRegistry.getAllByMode("custom")
+      currentViews = currentConfigs.map(c => c.key + "View")
+      currentButtons = currentConfigs.map(c => c.key + "TabButton")
     }
 
     // 隐藏当前模式的所有视图和按钮
@@ -3372,9 +3343,9 @@ pinnerController.prototype.switchViewMode = function (targetMode) {
       let firstConfig = SectionRegistry.getAllByMode("task")[0]
       targetView = firstConfig ? firstConfig.key + "View" : "taskTodayView"
     } else if (targetMode === "custom") {
-      targetView = "customManageView"
-      // 刷新管理界面（确保显示最新的自定义子视图列表）
-      this.refreshCustomManageView()
+      // Custom 模式默认显示第一个分区
+      let firstConfig = SectionRegistry.getAllByMode("custom")[0]
+      targetView = firstConfig ? firstConfig.key + "View" : "custom1View"
     }
 
     // 切换到目标视图
@@ -4023,727 +3994,44 @@ pinnerController.prototype.tableItem = function (title, selector, param = "", ch
   }
 }
 
-// ========== 自定义视图管理界面相关方法 ==========
-
 /**
- * 创建自定义视图管理界面
+ * 重新创建所有分区标签按钮（用于配置更新后的 UI 刷新）
+ *
+ * 使用场景：
+ * - 导入配置后更新 UI
+ * - 用户修改分区配置（名称、颜色、图标、顺序）后刷新
+ *
+ * 工作流程：
+ * 1. 删除所有旧的标签按钮（从 superview 移除并清空引用）
+ * 2. 从 SectionRegistry 读取最新配置
+ * 3. 调用 createAllSectionTabs() 重新创建按钮
  */
-pinnerController.prototype.createCustomManageView = function() {
+pinnerController.prototype.recreateSectionTabs = function() {
   try {
-    // 创建滚动视图
-    let scrollView = this.createScrollview("customManageView", "#f5f5f5", 0.9)
-    scrollView.layer.cornerRadius = 12
-    scrollView.alwaysBounceVertical = true
-    scrollView.showsVerticalScrollIndicator = true
-    scrollView.hidden = true  // ✅ 初始隐藏，避免覆盖按钮，等待刷新时根据内容决定是否显示
-    this.customManageScrollView = scrollView
+    // 1. 删除旧的标签按钮
+    let allConfigs = [
+      ...SectionRegistry.getAllByMode("pin"),
+      ...SectionRegistry.getAllByMode("task"),
+      ...SectionRegistry.getAllByMode("custom")
+    ]
 
-    // 创建"创建新子视图"按钮
-    let createButton = UIButton.buttonWithType(0)
-    createButton.userInteractionEnabled = true  // ✅ 显式启用交互
-    createButton.addTargetActionForControlEvents(this, "createNewCustomSection:", 1 << 6)
-    this.customManageView.addSubview(createButton)
-    MNButton.setConfig(createButton, {
-      color: "#61afef", alpha: 0.9, opacity: 1.0, title: "➕ 创建新子视图", radius: 10, font: 16, bold: true
-    })
-    this.customCreateButton = createButton
-
-    // 创建提示标签
-    this.customHintLabel = UILabel.new()
-    this.customHintLabel.textColor = MNUtil.hexColorAlpha("#666666", 0.8)
-    this.customHintLabel.font = UIFont.systemFontOfSize(14)
-    this.customHintLabel.textAlignment = 1  // 居中
-    this.customHintLabel.numberOfLines = 0
-    this.customManageView.addSubview(this.customHintLabel)
-
-    // 初始化子视图列表数组
-    this.customSectionRows = []
-
-    pinnerUtils.log("Custom manage view created", "createCustomManageView")
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "createCustomManageView")
-  }
-}
-
-/**
- * 布局自定义视图管理界面
- */
-pinnerController.prototype.layoutCustomManageView = function() {
-  try {
-    let viewFrame = this.customManageView.bounds
-    let width = viewFrame.width
-    let height = viewFrame.height
-
-    // 布局创建按钮（顶部）
-    let buttonWidth = width - 40
-    this.customCreateButton.frame = {x: 20, y: 20, width: buttonWidth, height: 44}
-
-    // 布局滚动视图
-    this.customManageScrollView.frame = {x: 10, y: 74, width: width - 20, height: height - 84}
-
-    // 布局提示标签
-    this.customHintLabel.frame = {x: 20, y: height / 2 - 40, width: width - 40, height: 80}
-
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "layoutCustomManageView")
-  }
-}
-
-/**
- * 刷新自定义视图管理界面
- */
-pinnerController.prototype.refreshCustomManageView = function() {
-  try {
-    // 获取所有自定义子视图
-    let sections = pinnerConfig.getCustomSections()
-
-    // 清空旧的行视图
-    this.customSectionRows.forEach(row => row.removeFromSuperview())
-    this.customSectionRows = []
-
-    // 如果没有子视图，显示提示
-    if (sections.length === 0) {
-      this.customHintLabel.hidden = false
-      this.customHintLabel.text = "暂无自定义子视图\n\n点击上方按钮创建您的第一个分组\n\n最多可创建 5 个子视图"
-      this.customManageScrollView.hidden = true
-    } else {
-      this.customHintLabel.hidden = true
-      this.customManageScrollView.hidden = false
-
-      // 渲染每个子视图行
-      let yOffset = 10
-      let width = this.customManageScrollView.bounds.width
-
-      sections.forEach((section, index) => {
-        let row = this.createCustomSectionRow(section, index, width)
-        row.frame = {x: 5, y: yOffset, width: width - 10, height: 60}
-        this.customManageScrollView.addSubview(row)
-        this.customSectionRows.push(row)
-        yOffset += 70
-      })
-
-      // 设置滚动区域大小
-      this.customManageScrollView.contentSize = {width: 0, height: yOffset + 10}
-    }
-
-    // 根据数量决定是否禁用创建按钮
-    if (sections.length >= 5) {
-      this.customCreateButton.enabled = false
-      this.customCreateButton.alpha = 0.5
-    } else {
-      this.customCreateButton.enabled = true
-      this.customCreateButton.alpha = 1.0
-      this.customCreateButton.userInteractionEnabled = true  // ✅ 确保可交互
-    }
-
-    // ✅ 确保按钮在视图层次的顶部，不被滚动视图覆盖
-    this.customManageView.bringSubviewToFront(this.customCreateButton)
-
-    pinnerUtils.log("Refreshed custom manage view with " + sections.length + " sections", "refreshCustomManageView")
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "refreshCustomManageView")
-  }
-}
-
-/**
- * 创建自定义子视图行
- */
-pinnerController.prototype.createCustomSectionRow = function(section, index, width) {
-  try {
-    let rowView = UIView.new()
-    rowView.backgroundColor = MNUtil.hexColorAlpha("#ffffff", 0.95)
-    rowView.layer.cornerRadius = 10
-    rowView.layer.masksToBounds = true
-
-    // 名称标签
-    let nameLabel = UILabel.new()
-    nameLabel.text = section.name
-    nameLabel.font = UIFont.boldSystemFontOfSize(16)
-    nameLabel.textColor = MNUtil.hexColorAlpha("#333333", 1.0)
-    nameLabel.frame = {x: 15, y: 10, width: width - 200, height: 20}
-    rowView.addSubview(nameLabel)
-
-    // 卡片数量标签
-    let countLabel = UILabel.new()
-    let cardCount = section.cards ? section.cards.length : 0
-    countLabel.text = cardCount + " 张卡片"
-    countLabel.font = UIFont.systemFontOfSize(13)
-    countLabel.textColor = MNUtil.hexColorAlpha("#888888", 1.0)
-    countLabel.frame = {x: 15, y: 32, width: 100, height: 18}
-    rowView.addSubview(countLabel)
-
-    // 按钮区域
-    let buttonY = 10
-    let buttonX = width - 180
-
-    // 重命名按钮
-    let renameButton = UIButton.buttonWithType(0)
-    renameButton.tag = index
-    renameButton.sectionId = section.id
-    renameButton.addTargetActionForControlEvents(this, "renameCustomSection:", 1 << 6)
-    renameButton.frame = {x: buttonX, y: buttonY, width: 35, height: 40}
-    MNButton.setConfig(renameButton, {
-      color: "#61afef", alpha: 0.8, opacity: 1.0, title: "✏️", radius: 8, font: 18
-    })
-    rowView.addSubview(renameButton)
-    buttonX += 40
-
-    // 上移按钮
-    let moveUpButton = UIButton.buttonWithType(0)
-    moveUpButton.tag = index
-    moveUpButton.addTargetActionForControlEvents(this, "moveCustomSectionUp:", 1 << 6)
-    moveUpButton.frame = {x: buttonX, y: buttonY, width: 35, height: 40}
-    MNButton.setConfig(moveUpButton, {
-      color: "#98c379", alpha: 0.8, opacity: 1.0, title: "⬆️", radius: 8, font: 16
-    })
-    moveUpButton.enabled = index > 0
-    if (!moveUpButton.enabled) moveUpButton.alpha = 0.3
-    rowView.addSubview(moveUpButton)
-    buttonX += 40
-
-    // 下移按钮
-    let moveDownButton = UIButton.buttonWithType(0)
-    moveDownButton.tag = index
-    moveDownButton.addTargetActionForControlEvents(this, "moveCustomSectionDown:", 1 << 6)
-    moveDownButton.frame = {x: buttonX, y: buttonY, width: 35, height: 40}
-    MNButton.setConfig(moveDownButton, {
-      color: "#98c379", alpha: 0.8, opacity: 1.0, title: "⬇️", radius: 8, font: 16
-    })
-    let sections = pinnerConfig.getCustomSections()
-    moveDownButton.enabled = index < sections.length - 1
-    if (!moveDownButton.enabled) moveDownButton.alpha = 0.3
-    rowView.addSubview(moveDownButton)
-    buttonX += 40
-
-    // 删除按钮
-    let deleteButton = UIButton.buttonWithType(0)
-    deleteButton.tag = index
-    deleteButton.sectionId = section.id
-    deleteButton.addTargetActionForControlEvents(this, "deleteCustomSection:", 1 << 6)
-    deleteButton.frame = {x: buttonX, y: buttonY, width: 35, height: 40}
-    MNButton.setConfig(deleteButton, {
-      color: "#e06c75", alpha: 0.8, opacity: 1.0, title: "🗑", radius: 8, font: 18
-    })
-    rowView.addSubview(deleteButton)
-
-    return rowView
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "createCustomSectionRow")
-    return UIView.new()
-  }
-}
-
-/**
- * 管理标签页点击事件
- */
-pinnerController.prototype.customManageTabTapped = function(button) {
-  pinnerUtils.log("customManageTabTapped called", "DEBUG")
-  MNUtil.showHUD("管理标签被点击")  // 用户可见的反馈
-  this.switchView("customManageView")
-}
-
-/**
- * 创建新的自定义子视图
- */
-pinnerController.prototype.createNewCustomSection = function(button) {
-  pinnerUtils.log("createNewCustomSection called", "DEBUG")
-  MNUtil.showHUD("创建按钮被点击")  // 用户可见的反馈
-  try {
-    UIAlertView.show("创建子视图", "请输入子视图名称（建议简短，如：待办、重要等）", 2, "取消", ["确定"], (alert, buttonIndex) => {
-      if (buttonIndex === 0) return
-
-      let name = alert.textFieldAtIndex(0).text
-      if (!name || name.trim() === "") {
-        MNUtil.showHUD("名称不能为空")
-        return
-      }
-
-      let result = pinnerConfig.createCustomSection(name.trim())
-      if (result.success) {
-        MNUtil.showHUD("✅ 创建成功")
-        this.createDynamicCustomSectionView(result.section)
-        this.refreshCustomManageView()
-        this.settingViewLayout()
-      } else {
-        MNUtil.showHUD(result.message)
-      }
-    })
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "createNewCustomSection")
-    MNUtil.showHUD("创建失败")
-  }
-}
-
-/**
- * 重命名自定义子视图
- */
-pinnerController.prototype.renameCustomSection = function(button) {
-  try {
-    let sectionId = button.sectionId
-    let sections = pinnerConfig.getCustomSections()
-    let section = sections.find(s => s.id === sectionId)
-
-    if (!section) {
-      MNUtil.showHUD("子视图不存在")
-      return
-    }
-
-    UIAlertView.show("重命名", "请输入新名称", 2, "取消", ["确定"], (alert, buttonIndex) => {
-      if (buttonIndex === 0) return
-
-      let newName = alert.textFieldAtIndex(0).text
-      if (!newName || newName.trim() === "") {
-        MNUtil.showHUD("名称不能为空")
-        return
-      }
-
-      let result = pinnerConfig.renameCustomSection(sectionId, newName.trim())
-      if (result.success) {
-        MNUtil.showHUD("✅ 重命名成功")
-        this.updateCustomSectionTabButton(sectionId, newName.trim())
-        this.refreshCustomManageView()
-        this.settingViewLayout()
-      } else {
-        MNUtil.showHUD(result.message)
+    allConfigs.forEach(config => {
+      let buttonName = config.key + "TabButton"
+      if (this[buttonName]) {
+        // 从父视图移除
+        this[buttonName].removeFromSuperview()
+        // 清空引用（释放内存）
+        this[buttonName] = null
       }
     })
 
-    let textField = alert.textFieldAtIndex(0)
-    if (textField) {
-      textField.text = section.name
-    }
+    // 2. 重新创建标签按钮（复用现有逻辑）
+    this.createAllSectionTabs()
+
+    pinnerUtils.log("标签按钮已重新创建", "recreateSectionTabs")
   } catch (error) {
-    pinnerUtils.addErrorLog(error, "renameCustomSection")
-    MNUtil.showHUD("重命名失败")
+    pinnerUtils.addErrorLog(error, "recreateSectionTabs")
+    MNUtil.showHUD("刷新标签失败: " + error.message)
   }
 }
 
-/**
- * 上移自定义子视图
- */
-pinnerController.prototype.moveCustomSectionUp = function(button) {
-  try {
-    let index = button.tag
-    if (index === 0) return
-
-    let result = pinnerConfig.reorderCustomSections(index, index - 1)
-    if (result.success) {
-      this.refreshCustomManageView()
-      this.settingViewLayout()
-    } else {
-      MNUtil.showHUD(result.message)
-    }
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "moveCustomSectionUp")
-  }
-}
-
-/**
- * 下移自定义子视图
- */
-pinnerController.prototype.moveCustomSectionDown = function(button) {
-  try {
-    let index = button.tag
-    let sections = pinnerConfig.getCustomSections()
-    if (index >= sections.length - 1) return
-
-    let result = pinnerConfig.reorderCustomSections(index, index + 1)
-    if (result.success) {
-      this.refreshCustomManageView()
-      this.settingViewLayout()
-    } else {
-      MNUtil.showHUD(result.message)
-    }
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "moveCustomSectionDown")
-  }
-}
-
-/**
- * 删除自定义子视图
- */
-pinnerController.prototype.deleteCustomSection = function(button) {
-  try {
-    let sectionId = button.sectionId
-    let sections = pinnerConfig.getCustomSections()
-    let section = sections.find(s => s.id === sectionId)
-
-    if (!section) {
-      MNUtil.showHUD("子视图不存在")
-      return
-    }
-
-    let cardCount = section.cards ? section.cards.length : 0
-
-    if (cardCount > 0) {
-      let options = ["直接删除（包括所有卡片）"]
-      let otherSections = sections.filter(s => s.id !== sectionId)
-      otherSections.forEach(s => {
-        options.push("转移到 " + s.name)
-      })
-
-      UIAlertView.show("删除确认", "该子视图包含 " + cardCount + " 张卡片\n请选择处理方式：", 0, "取消", options, (alert, buttonIndex) => {
-        if (buttonIndex === 0) return
-
-        if (buttonIndex === 1) {
-          this.confirmDeleteCustomSection(sectionId, null)
-        } else {
-          let targetSection = otherSections[buttonIndex - 2]
-          this.confirmDeleteCustomSection(sectionId, targetSection.id)
-        }
-      })
-    } else {
-      UIAlertView.show("删除确认", "确定删除子视图\"" + section.name + "\"吗？", 0, "取消", ["确定删除"], (alert, buttonIndex) => {
-        if (buttonIndex === 1) {
-          this.confirmDeleteCustomSection(sectionId, null)
-        }
-      })
-    }
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "deleteCustomSection")
-    MNUtil.showHUD("删除失败")
-  }
-}
-
-/**
- * 确认删除自定义子视图
- */
-pinnerController.prototype.confirmDeleteCustomSection = function(sectionId, transferToId) {
-  try {
-    let result = pinnerConfig.deleteCustomSection(sectionId, transferToId)
-    if (result.success) {
-      MNUtil.showHUD("✅ 删除成功")
-      this.removeDynamicCustomSectionView(sectionId)
-      this.refreshCustomManageView()
-      this.settingViewLayout()
-    } else {
-      MNUtil.showHUD(result.message)
-    }
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "confirmDeleteCustomSection")
-    MNUtil.showHUD("删除失败")
-  }
-}
-
-// ========== 动态自定义子视图创建和管理 ==========
-
-/**
- * 创建动态自定义子视图
- */
-pinnerController.prototype.createDynamicCustomSectionView = function(section) {
-  try {
-    let sectionId = section.id
-    let viewName = "customSection_" + sectionId + "_View"
-    let tabButtonName = "customSection_" + sectionId + "_TabButton"
-
-    // 创建视图
-    this.createView(viewName, "settingView", "#9bb2d6", 0)
-    this[viewName].hidden = true
-
-    // 创建标签按钮
-    let radius = 10
-    this.createButton(tabButtonName, "customSectionTabTapped:", "tabView")
-    this[tabButtonName].layer.cornerRadius = radius
-    this[tabButtonName].isSelected = false
-    this[tabButtonName].sectionId = sectionId
-    MNButton.setConfig(this[tabButtonName], {
-      color: "#9bb2d6", alpha: 0.9, opacity: 1.0, title: section.name, font: 17, bold: true
-    })
-    let size = this[tabButtonName].sizeThatFits({width: 120, height: 100})
-    this[tabButtonName].width = size.width + 15
-
-    // 创建子视图结构（类似 Pin/Task 的分区）
-    this.createDynamicSectionViews(sectionId, viewName)
-
-    // 保存视图信息
-    this.customSectionViews[sectionId] = {
-      viewName: viewName,
-      tabButtonName: tabButtonName
-    }
-
-    pinnerUtils.log("Created dynamic custom section view: " + section.name, "createDynamicCustomSectionView")
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "createDynamicCustomSectionView")
-  }
-}
-
-/**
- * 为动态自定义子视图创建内部结构
- */
-pinnerController.prototype.createDynamicSectionViews = function(sectionId, viewName) {
-  try {
-    // 创建顶部按钮的滚动容器
-    let buttonScrollView = UIScrollView.new()
-    buttonScrollView.alwaysBounceHorizontal = true
-    buttonScrollView.showsHorizontalScrollIndicator = false
-    buttonScrollView.backgroundColor = UIColor.clearColor()
-    buttonScrollView.bounces = false
-    this[viewName].addSubview(buttonScrollView)
-    this[sectionId + "ButtonScrollView"] = buttonScrollView
-
-    // 创建清空按钮
-    let clearButton = UIButton.buttonWithType(0)
-    clearButton.addTargetActionForControlEvents(this, "clearCustomCards:", 1 << 6)
-    clearButton.section = sectionId
-    buttonScrollView.addSubview(clearButton)
-    MNButton.setConfig(clearButton, {
-      color: "#e06c75", alpha: 0.8, opacity: 1.0, title: "🗑 清空", radius: 10, font: 15
-    })
-    this[sectionId + "ClearButton"] = clearButton
-
-    // 创建 Pin 卡片按钮
-    let pinCardButton = UIButton.buttonWithType(0)
-    pinCardButton.addTargetActionForControlEvents(this, "pinCurrentCardToCustom:", 1 << 6)
-    pinCardButton.section = sectionId
-    buttonScrollView.addSubview(pinCardButton)
-    MNButton.setConfig(pinCardButton, {
-      color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "📌 Pin 卡片", radius: 10, font: 15
-    })
-    this[sectionId + "PinCardButton"] = pinCardButton
-
-    // 创建 Pin 页面按钮
-    let pinPageButton = UIButton.buttonWithType(0)
-    pinPageButton.addTargetActionForControlEvents(this, "pinCurrentPageToCustom:", 1 << 6)
-    pinPageButton.section = sectionId
-    buttonScrollView.addSubview(pinPageButton)
-    MNButton.setConfig(pinPageButton, {
-      color: "#61afef", alpha: 0.8, opacity: 1.0, title: "📄 Pin 页面", radius: 10, font: 15
-    })
-    this[sectionId + "PinPageButton"] = pinPageButton
-
-    // 创建卡片滚动视图
-    let cardScrollView = this.createScrollview(viewName, "#f5f5f5", 0.9)
-    cardScrollView.layer.cornerRadius = 12
-    cardScrollView.alwaysBounceVertical = true
-    cardScrollView.showsVerticalScrollIndicator = true
-    cardScrollView.id = sectionId + "CardScrollView"
-    this[sectionId + "CardScrollView"] = cardScrollView
-
-    // 初始化卡片行数组
-    this[sectionId + "CardRows"] = []
-
-    pinnerUtils.log("Created dynamic section views for " + sectionId, "createDynamicSectionViews")
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "createDynamicSectionViews")
-  }
-}
-
-/**
- * 移除动态自定义子视图
- */
-pinnerController.prototype.removeDynamicCustomSectionView = function(sectionId) {
-  try {
-    let viewInfo = this.customSectionViews[sectionId]
-    if (!viewInfo) return
-
-    // 移除视图
-    if (this[viewInfo.viewName]) {
-      this[viewInfo.viewName].removeFromSuperview()
-      delete this[viewInfo.viewName]
-    }
-
-    // 移除标签按钮
-    if (this[viewInfo.tabButtonName]) {
-      this[viewInfo.tabButtonName].removeFromSuperview()
-      delete this[viewInfo.tabButtonName]
-    }
-
-    // 移除相关的滚动视图和按钮
-    if (this[sectionId + "ButtonScrollView"]) {
-      this[sectionId + "ButtonScrollView"].removeFromSuperview()
-      delete this[sectionId + "ButtonScrollView"]
-    }
-    if (this[sectionId + "CardScrollView"]) {
-      this[sectionId + "CardScrollView"].removeFromSuperview()
-      delete this[sectionId + "CardScrollView"]
-    }
-
-    // 移除按钮
-    ["ClearButton", "PinCardButton", "PinPageButton"].forEach(buttonType => {
-      if (this[sectionId + buttonType]) {
-        delete this[sectionId + buttonType]
-      }
-    })
-
-    // 移除卡片行数组
-    if (this[sectionId + "CardRows"]) {
-      delete this[sectionId + "CardRows"]
-    }
-
-    // 从记录中移除
-    delete this.customSectionViews[sectionId]
-
-    pinnerUtils.log("Removed dynamic custom section view: " + sectionId, "removeDynamicCustomSectionView")
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "removeDynamicCustomSectionView")
-  }
-}
-
-/**
- * 更新自定义子视图的标签按钮文字
- */
-pinnerController.prototype.updateCustomSectionTabButton = function(sectionId, newName) {
-  try {
-    let viewInfo = this.customSectionViews[sectionId]
-    if (!viewInfo) return
-
-    let button = this[viewInfo.tabButtonName]
-    if (button) {
-      MNButton.setConfig(button, {
-        color: button.isSelected ? "#457bd3" : "#9bb2d6",
-        alpha: 0.9,
-        opacity: 1.0,
-        title: newName,
-        font: 17,
-        bold: true
-      })
-      let size = button.sizeThatFits({width: 120, height: 100})
-      button.width = size.width + 15
-    }
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "updateCustomSectionTabButton")
-  }
-}
-
-/**
- * 自定义子视图标签页点击事件
- */
-pinnerController.prototype.customSectionTabTapped = function(button) {
-  let sectionId = button.sectionId
-  let viewInfo = this.customSectionViews[sectionId]
-  if (viewInfo) {
-    this.switchView(viewInfo.viewName)
-  }
-}
-
-/**
- * 清空自定义子视图的卡片
- */
-pinnerController.prototype.clearCustomCards = function(button) {
-  try {
-    let sectionId = button.section
-    let sections = pinnerConfig.getCustomSections()
-    let section = sections.find(s => s.id === sectionId)
-
-    if (!section) {
-      MNUtil.showHUD("子视图不存在")
-      return
-    }
-
-    UIAlertView.show("清空确认", "确定清空\"" + section.name + "\"分区的所有卡片吗？", 0, "取消", ["确定清空"], (alert, buttonIndex) => {
-      if (buttonIndex === 1) {
-        let result = pinnerConfig.clearCustomPins(sectionId)
-        if (result.success) {
-          MNUtil.showHUD("已清空")
-          this.refreshCustomSectionCards(sectionId)
-        } else {
-          MNUtil.showHUD(result.message)
-        }
-      }
-    })
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "clearCustomCards")
-  }
-}
-
-/**
- * Pin 当前卡片到自定义子视图
- */
-pinnerController.prototype.pinCurrentCardToCustom = function(button) {
-  try {
-    let sectionId = button.section
-    let focusNote = MNNote.getFocusNote()
-
-    if (!focusNote) {
-      MNUtil.showHUD("请先选中一张卡片")
-      return
-    }
-
-    let pinData = pinnerConfig.createCardPin(focusNote.noteId, focusNote.noteTitle || "未命名卡片")
-    let result = pinnerConfig.addCustomPin(sectionId, pinData, "bottom")
-
-    if (result.success) {
-      MNUtil.showHUD("✅ 已添加")
-      this.refreshCustomSectionCards(sectionId)
-    } else {
-      MNUtil.showHUD(result.message)
-    }
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "pinCurrentCardToCustom")
-  }
-}
-
-/**
- * Pin 当前页面到自定义子视图
- */
-pinnerController.prototype.pinCurrentPageToCustom = function(button) {
-  try {
-    let sectionId = button.section
-    let currentDoc = MNUtil.currentDocController
-
-    if (!currentDoc) {
-      MNUtil.showHUD("请先打开文档")
-      return
-    }
-
-    let docMd5 = currentDoc.document.docMd5
-    let pageIndex = currentDoc.document.currentPageIndex
-
-    let pinData = pinnerConfig.createPagePin(docMd5, pageIndex, "第" + (pageIndex + 1) + "页", "")
-    let result = pinnerConfig.addCustomPin(sectionId, pinData, "bottom")
-
-    if (result.success) {
-      MNUtil.showHUD("✅ 已添加")
-      this.refreshCustomSectionCards(sectionId)
-    } else {
-      MNUtil.showHUD(result.message)
-    }
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "pinCurrentPageToCustom")
-  }
-}
-
-/**
- * 刷新自定义子视图的卡片列表
- */
-pinnerController.prototype.refreshCustomSectionCards = function(sectionId) {
-  try {
-    let cards = pinnerConfig.getCustomPins(sectionId)
-    let scrollView = this[sectionId + "CardScrollView"]
-
-    if (!scrollView) return
-
-    // 清空旧的卡片行
-    if (this[sectionId + "CardRows"]) {
-      this[sectionId + "CardRows"].forEach(row => row.removeFromSuperview())
-    }
-    this[sectionId + "CardRows"] = []
-
-    // 渲染新的卡片
-    let yOffset = 10
-    let width = scrollView.bounds.width
-
-    cards.forEach((card, index) => {
-      let row
-      if (card.type === "page") {
-        row = this.createPageRow(card, index, width, sectionId)
-      } else {
-        row = this.createCardRow(card, index, width, sectionId)
-      }
-
-      if (row) {
-        row.frame = {x: 5, y: yOffset, width: width - 10, height: 45}
-        scrollView.addSubview(row)
-        this[sectionId + "CardRows"].push(row)
-        yOffset += 50
-      }
-    })
-
-    // 设置滚动区域大小
-    scrollView.contentSize = {width: 0, height: yOffset + 10}
-
-    pinnerUtils.log("Refreshed custom section cards for " + sectionId + ": " + cards.length + " cards", "refreshCustomSectionCards")
-  } catch (error) {
-    pinnerUtils.addErrorLog(error, "refreshCustomSectionCards")
-  }
-}
