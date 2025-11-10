@@ -107,32 +107,47 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       // 工具栏容器（底部）
       self.toolbar.frame = {x: 5, y: height - buttonHeight - 8, width: width - 40, height: buttonHeight}
 
-      // 可滚动区域（左侧）
-      self.toolbarScrollView.frame = {x: 0, y: 0, width: width - 70, height: buttonHeight}
+      // 可滚动区域（填满工具栏宽度）
+      self.toolbarScrollView.frame = {x: 0, y: 0, width: width - 40, height: buttonHeight}
 
-      // 左侧可滚动按钮布局
+      // ✅ 恢复：重新布局所有工具栏按钮（响应式布局需要）
       let buttonX = 5
       if (self.viewModeButton) {
         self.viewModeButton.frame = {x: buttonX, y: 0, width: 70, height: buttonHeight}
         buttonX += 75
       }
 
-      if (self.refreshButton) {
-        self.refreshButton.frame = {x: buttonX, y: 0, width: 70, height: buttonHeight}
+      if (self.toolbarClearButton) {
+        self.toolbarClearButton.frame = {x: buttonX, y: 0, width: 70, height: buttonHeight}
         buttonX += 75
       }
 
-      if (self.sortButton) {
-        self.sortButton.frame = {x: buttonX, y: 0, width: 70, height: buttonHeight}
-        buttonX += 75
+      if (self.toolbarPinCardButton) {
+        self.toolbarPinCardButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+        buttonX += 100
       }
 
-      // 响应式隐藏
-      if (self.sortButton) {
-        self.sortButton.hidden = width <= 350
+      if (self.toolbarPinPageButton) {
+        self.toolbarPinPageButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+        buttonX += 100
       }
 
-      // 设置滚动内容大小
+      if (self.toolbarAddButton) {
+        self.toolbarAddButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+        buttonX += 100
+      }
+
+      if (self.toolbarExportURLButton) {
+        self.toolbarExportURLButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+        buttonX += 100
+      }
+
+      if (self.toolbarExportMarkdownButton) {
+        self.toolbarExportMarkdownButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+        buttonX += 100
+      }
+
+      // 更新滚动内容大小
       self.toolbarScrollView.contentSize = {width: buttonX + 10, height: buttonHeight}
 
       // ========== 调整内容区域高度 ==========
@@ -750,8 +765,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   // === 分区视图的事件处理方法 ===
   clearCards: async function(button) {
     try {
-      // 从按钮获取分区信息
-      let section = button.section || self.currentSection
+      // ✅ 直接使用 currentSection（工具栏按钮）
+      let section = self.currentSection
       if (!section) {
         MNUtil.showHUD("无法确定分区")
         return
@@ -774,7 +789,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   pinCurrentCard: async function(param) {
     try {
-      let section = param.section || self.currentSection
+      // ✅ 直接使用 currentSection（工具栏按钮）
+      let section = self.currentSection
 
       // 获取当前聚焦的卡片
       let focusNote = MNNote.getFocusNote()
@@ -826,7 +842,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   pinCurrentPageToSection: async function(param) {
     try {
-      let section = param.section || self.currentSection
+      // ✅ 直接使用 currentSection（工具栏按钮）
+      let section = self.currentSection
 
       // 获取当前文档控制器
       let docController = MNUtil.currentDocController
@@ -881,7 +898,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   createBlankCard: async function(button) {
     try {
-      let section = button.section || self.currentSection
+      // ✅ 直接使用 currentSection（工具栏按钮）
+      let section = self.currentSection
 
       // 弹出输入框让用户输入标题
       let result = await MNUtil.userInput(
@@ -2458,30 +2476,24 @@ pinnerController.prototype.getSelectedCards = function() {
 }
 
 /**
- * 更新导出按钮的状态（更新所有分区的导出按钮）
+ * 更新导出按钮的状态（只更新工具栏的导出按钮）
  */
 pinnerController.prototype.updateExportButtonsState = function() {
   try {
     let count = this.getSelectedCount()
-    // 动态获取所有分区（包括自定义分区）
-    let sections = pinnerConfig.getSectionNames()
 
-    sections.forEach(section => {
-      let urlButtonKey = section + "ExportURLButton"
-      let mdButtonKey = section + "ExportMarkdownButton"
+    // ✅ 只更新工具栏的导出按钮（不再遍历所有分区）
+    if (this.toolbarExportURLButton) {
+      this.toolbarExportURLButton.enabled = count > 0
+      let title = count > 0 ? `🔗 导出 (${count})` : "🔗 导出"
+      this.toolbarExportURLButton.setTitleForState(title, 0)
+    }
 
-      if (this[urlButtonKey]) {
-        this[urlButtonKey].enabled = count > 0
-        let title = count > 0 ? `🔗 导出 (${count})` : "🔗 导出"
-        this[urlButtonKey].setTitleForState(title, 0)
-      }
-
-      if (this[mdButtonKey]) {
-        this[mdButtonKey].enabled = count > 0
-        let title = count > 0 ? `📝 导出 (${count})` : "📝 导出"
-        this[mdButtonKey].setTitleForState(title, 0)
-      }
-    })
+    if (this.toolbarExportMarkdownButton) {
+      this.toolbarExportMarkdownButton.enabled = count > 0
+      let title = count > 0 ? `📝 导出 (${count})` : "📝 导出"
+      this.toolbarExportMarkdownButton.setTitleForState(title, 0)
+    }
   } catch (error) {
     pinnerUtils.addErrorLog(error, "updateExportButtonsState")
   }
@@ -3065,39 +3077,70 @@ pinnerController.prototype.createToolbarButtons = function() {
     let buttonHeight = 28
     let buttonX = 5
 
-    // 左侧可滚动按钮区域
+    // ========== 左侧可滚动按钮区域 ==========
 
-    // 视图模式切换按钮
+    // 1. 视图模式切换按钮（保留）
     this.createButton("viewModeButton", "changeViewMode:", "toolbarScrollView")
     this.viewModeButton.frame = {x: buttonX, y: 0, width: 70, height: buttonHeight}
     MNButton.setConfig(this.viewModeButton, {
       color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "📌 视图", radius: 6, font: 14
     })
-    pinnerUtils.log("✅ viewModeButton 创建成功，绑定事件: changeViewMode:", "createToolbarButtons")
     buttonX += 75
 
-    // 刷新按钮
-    this.createButton("refreshButton", "refreshCurrentView:", "toolbarScrollView")
-    this.refreshButton.frame = {x: buttonX, y: 0, width: 70, height: buttonHeight}
-    MNButton.setConfig(this.refreshButton, {
-      color: "#61afef", alpha: 0.8, opacity: 1.0, title: "🔄 刷新", radius: 6, font: 14
+    // 2. 清空按钮（新增）
+    this.createButton("toolbarClearButton", "clearCards:", "toolbarScrollView")
+    this.toolbarClearButton.frame = {x: buttonX, y: 0, width: 70, height: buttonHeight}
+    MNButton.setConfig(this.toolbarClearButton, {
+      color: "#e06c75", alpha: 0.8, opacity: 1.0, title: "🗑 清空", radius: 6, font: 14
     })
-    pinnerUtils.log("✅ refreshButton 创建成功，绑定事件: refreshCurrentView:", "createToolbarButtons")
     buttonX += 75
 
-    // 排序按钮
-    this.createButton("sortButton", "showSortMenu:", "toolbarScrollView")
-    this.sortButton.frame = {x: buttonX, y: 0, width: 70, height: buttonHeight}
-    MNButton.setConfig(this.sortButton, {
-      color: "#98c379", alpha: 0.8, opacity: 1.0, title: "↕️ 排序", radius: 6, font: 14
+    // 3. Pin 卡片按钮（新增）
+    this.createButton("toolbarPinCardButton", "pinCurrentCard:", "toolbarScrollView")
+    this.toolbarPinCardButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+    MNButton.setConfig(this.toolbarPinCardButton, {
+      color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "📌 Pin 卡片", radius: 6, font: 14
     })
-    pinnerUtils.log("✅ sortButton 创建成功，绑定事件: showSortMenu:", "createToolbarButtons")
-    buttonX += 75
+    buttonX += 100
 
-    // 设置滚动视图的内容大小
+    // 4. Pin 页面按钮（新增）
+    this.createButton("toolbarPinPageButton", "pinCurrentPageToSection:", "toolbarScrollView")
+    this.toolbarPinPageButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+    MNButton.setConfig(this.toolbarPinPageButton, {
+      color: "#61afef", alpha: 0.8, opacity: 1.0, title: "📄 Pin 页面", radius: 6, font: 14
+    })
+    buttonX += 100
+
+    // 5. Add 按钮（新增）
+    this.createButton("toolbarAddButton", "createBlankCard:", "toolbarScrollView")
+    this.toolbarAddButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+    MNButton.setConfig(this.toolbarAddButton, {
+      color: "#61afef", alpha: 0.8, opacity: 1.0, title: "➕ Add", radius: 6, font: 14
+    })
+    buttonX += 100
+
+    // 6. 导出 URL 按钮（新增）
+    this.createButton("toolbarExportURLButton", "exportSelectedCardsAsURL:", "toolbarScrollView")
+    this.toolbarExportURLButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+    this.toolbarExportURLButton.enabled = false  // 初始禁用
+    MNButton.setConfig(this.toolbarExportURLButton, {
+      color: "#98c379", alpha: 0.8, opacity: 1.0, title: "🔗 导出", radius: 6, font: 14
+    })
+    buttonX += 100
+
+    // 7. 导出 Markdown 按钮（新增）
+    this.createButton("toolbarExportMarkdownButton", "exportSelectedCardsAsMarkdown:", "toolbarScrollView")
+    this.toolbarExportMarkdownButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+    this.toolbarExportMarkdownButton.enabled = false  // 初始禁用
+    MNButton.setConfig(this.toolbarExportMarkdownButton, {
+      color: "#98c379", alpha: 0.8, opacity: 1.0, title: "📝 导出", radius: 6, font: 14
+    })
+    buttonX += 100
+
+    // 设置滚动视图的内容大小（支持水平滚动）
     this.toolbarScrollView.contentSize = {width: buttonX + 10, height: buttonHeight}
 
-    MNUtil.log("✅ 工具栏按钮创建完成，buttonX: " + buttonX)
+    pinnerUtils.log("✅ 工具栏按钮创建完成，总宽度: " + buttonX, "createToolbarButtons")
   } catch (error) {
     pinnerUtils.addErrorLog(error, "createToolbarButtons")
     MNUtil.showHUD("❌ 工具栏创建失败: " + error)
@@ -3163,6 +3206,9 @@ pinnerController.prototype.switchView = function (targetView) {
 
     // 更新当前分区
     this.currentSection = sectionMap[targetView]
+
+    // ✅ 新增：更新工具栏按钮状态
+    this.updateToolbarButtonsForSection(this.currentSection)
 
     // 先布局再刷新,确保子视图 frame 正确
     if (this.currentSection) {
@@ -3275,83 +3321,9 @@ pinnerController.prototype.createSectionViews = function() {
   // 从 SectionRegistry 获取所有分区键名
   let allSectionKeys = SectionRegistry.getOrderedKeys()
 
-  // 为每个分区创建相同的结构
+  // 为每个分区创建卡片滚动视图
   allSectionKeys.forEach(section => {
     let viewName = section + "View"
-
-    // 创建顶部按钮的滚动容器
-    let buttonScrollView = UIScrollView.new()
-    buttonScrollView.alwaysBounceHorizontal = true
-    buttonScrollView.showsHorizontalScrollIndicator = false
-    buttonScrollView.backgroundColor = UIColor.clearColor()
-    buttonScrollView.bounces = false
-    this[viewName].addSubview(buttonScrollView)
-    this[section + "ButtonScrollView"] = buttonScrollView
-
-    // 创建清空按钮
-    let clearButton = UIButton.buttonWithType(0)
-    clearButton.addTargetActionForControlEvents(this, section === "pages" ? "clearPages:" : "clearCards:", 1 << 6)
-    clearButton.section = section  // 保存分区信息
-    buttonScrollView.addSubview(clearButton)
-    MNButton.setConfig(clearButton, {
-      color: "#e06c75", alpha: 0.8, opacity: 1.0, title: "🗑 清空", radius: 10, font: 15
-    })
-    this[section + "ClearButton"] = clearButton
-
-    // 创建 Pin 卡片按钮
-    let pinCardButton = UIButton.buttonWithType(0)
-    pinCardButton.addTargetActionForControlEvents(this, "pinCurrentCard:", 1 << 6)
-    pinCardButton.section = section
-    buttonScrollView.addSubview(pinCardButton)
-    MNButton.setConfig(pinCardButton, {
-      color: "#457bd3", alpha: 0.8, opacity: 1.0, title: "📌 Pin 卡片", radius: 10, font: 15
-    })
-    this[section + "PinCardButton"] = pinCardButton
-
-    // 创建 Pin 页面按钮
-    let pinPageButton = UIButton.buttonWithType(0)
-    pinPageButton.addTargetActionForControlEvents(this, "pinCurrentPageToSection:", 1 << 6)
-    pinPageButton.section = section
-    buttonScrollView.addSubview(pinPageButton)
-    MNButton.setConfig(pinPageButton, {
-      color: "#61afef", alpha: 0.8, opacity: 1.0, title: "📄 Pin 页面", radius: 10, font: 15
-    })
-    this[section + "PinPageButton"] = pinPageButton
-
-    // 创建 Add 按钮（除了 pages 分区）
-    if (section !== "pages") {
-      let addButton = UIButton.buttonWithType(0)
-      addButton.addTargetActionForControlEvents(this, "createBlankCard:", 1 << 6)
-      addButton.section = section
-      buttonScrollView.addSubview(addButton)
-      MNButton.setConfig(addButton, {
-        color: "#61afef", alpha: 0.8, opacity: 1.0, title: "➕ Add", radius: 10, font: 15
-      })
-      this[section + "AddButton"] = addButton
-    }
-
-    // ✅ 添加导出按钮（支持多选导出）
-    // 导出为纯 URL 按钮
-    let exportURLButton = UIButton.buttonWithType(0)
-    exportURLButton.addTargetActionForControlEvents(this, "exportSelectedCardsAsURL:", 1 << 6)
-    exportURLButton.section = section
-    exportURLButton.enabled = false  // 初始时禁用（无选中）
-    buttonScrollView.addSubview(exportURLButton)
-    MNButton.setConfig(exportURLButton, {
-      color: "#98c379", alpha: 0.8, opacity: 1.0, title: "🔗 导出", radius: 10, font: 15
-    })
-    this[section + "ExportURLButton"] = exportURLButton
-
-    // 导出为 Markdown 按钮
-    let exportMarkdownButton = UIButton.buttonWithType(0)
-    exportMarkdownButton.addTargetActionForControlEvents(this, "exportSelectedCardsAsMarkdown:", 1 << 6)
-    exportMarkdownButton.section = section
-    exportMarkdownButton.enabled = false  // 初始时禁用（无选中）
-    buttonScrollView.addSubview(exportMarkdownButton)
-    MNButton.setConfig(exportMarkdownButton, {
-      color: "#98c379", alpha: 0.8, opacity: 1.0, title: "📝 导出", radius: 10, font: 15
-    })
-    this[section + "ExportMarkdownButton"] = exportMarkdownButton
 
     // 创建卡片滚动视图
     let cardScrollView = this.createScrollview(viewName, "#f5f5f5", 0.9)
@@ -3445,11 +3417,6 @@ pinnerController.prototype.layoutSectionView = function(section) {
   if (!view || view.hidden) return
 
   let scrollViewKey = section + "CardScrollView"
-  let buttonScrollViewKey = section + "ButtonScrollView"
-  let clearButtonKey = section + "ClearButton"
-  let pinCardButtonKey = section + "PinCardButton"
-  let pinPageButtonKey = section + "PinPageButton"
-  let addButtonKey = section + "AddButton"
 
   if (!this[scrollViewKey]) return
 
@@ -3457,40 +3424,8 @@ pinnerController.prototype.layoutSectionView = function(section) {
   let width = frame.width
   let height = frame.height
 
-  // 设置按钮滚动容器
-  if (this[buttonScrollViewKey]) {
-    // ✅ 修改：原有 4 个按钮 + 新增 2 个导出按钮
-    let containerWidth = 600  // 增加宽度以容纳所有导出按钮（2个导出按钮各95宽度）
-
-    this[buttonScrollViewKey].frame = {x: 10, y: 10, width: Math.min(width - 20, containerWidth), height: 32}
-    this[buttonScrollViewKey].contentSize = {width: containerWidth, height: 32}
-
-    // 按钮布局（水平并排）
-    if (this[clearButtonKey]) {
-      this[clearButtonKey].frame = {x: 0, y: 0, width: 70, height: 32}
-    }
-    if (this[pinCardButtonKey]) {
-      this[pinCardButtonKey].frame = {x: 75, y: 0, width: 95, height: 32}
-    }
-    if (this[pinPageButtonKey]) {
-      this[pinPageButtonKey].frame = {x: 175, y: 0, width: 95, height: 32}
-    }
-    if (this[addButtonKey]) {
-      this[addButtonKey].frame = {x: 275, y: 0, width: 95, height: 32}
-    }
-    // ✅ 导出按钮布局
-    let exportURLButtonKey = section + "ExportURLButton"
-    let exportMarkdownButtonKey = section + "ExportMarkdownButton"
-    if (this[exportURLButtonKey]) {
-      this[exportURLButtonKey].frame = {x: 375, y: 0, width: 95, height: 32}
-    }
-    if (this[exportMarkdownButtonKey]) {
-      this[exportMarkdownButtonKey].frame = {x: 475, y: 0, width: 95, height: 32}
-    }
-  }
-
-  // 设置卡片滚动视图
-  this[scrollViewKey].frame = {x: 10, y: 50, width: width - 50, height: height - 65}
+  // 设置卡片滚动视图（从顶部开始，因为按钮已移到工具栏）
+  this[scrollViewKey].frame = {x: 10, y: 10, width: width - 50, height: height - 25}
 }
 
 
@@ -3882,13 +3817,47 @@ pinnerController.prototype.fromMinimode = function() {
 }
 
 /**
- * 
- * @param {string} title 
- * @param {string} selector 
- * @param {any} param 
- * @param {boolean|undefined} checked 
+ * 根据当前分区更新工具栏按钮状态
+ * @param {string} section - 当前分区键名
+ */
+pinnerController.prototype.updateToolbarButtonsForSection = function(section) {
+  try {
+    if (!section) return
+
+    // 1. 更新 Add 按钮可见性（pages 分区隐藏）
+    if (this.toolbarAddButton) {
+      this.toolbarAddButton.hidden = (section === "pages")
+    }
+
+    // 2. 更新导出按钮状态（从选择状态获取计数）
+    let selectedCount = this.getSelectedCount()
+
+    if (this.toolbarExportURLButton) {
+      this.toolbarExportURLButton.enabled = selectedCount > 0
+      let title = selectedCount > 0 ? `🔗 导出 (${selectedCount})` : "🔗 导出"
+      this.toolbarExportURLButton.setTitleForState(title, 0)
+    }
+
+    if (this.toolbarExportMarkdownButton) {
+      this.toolbarExportMarkdownButton.enabled = selectedCount > 0
+      let title = selectedCount > 0 ? `📝 导出 (${selectedCount})` : "📝 导出"
+      this.toolbarExportMarkdownButton.setTitleForState(title, 0)
+    }
+
+    pinnerUtils.log(`工具栏按钮已更新（分区：${section}）`, "updateToolbarButtonsForSection")
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "updateToolbarButtonsForSection")
+  }
+}
+
+/**
+ *
+ * @param {string} title
+ * @param {string} selector
+ * @param {any} param
+ * @param {boolean|undefined} checked
  * @this {pinnerController}
- * @returns 
+ * @returns
  */
 pinnerController.prototype.tableItem = function (title, selector, param = "", checked = false) {
   return {
