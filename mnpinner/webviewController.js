@@ -2046,7 +2046,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    * 格式：每行一个 URL
    * marginnote4app://note/{noteId}
    */
-  exportSelectedCardsAsURL: async function(button) {
+  exportSelectedCardsAsURL: function(button) {
     try {
       // 检查是否有选中卡片
       let selectedCards = self.getSelectedCards()
@@ -2055,63 +2055,100 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         return
       }
 
-      // 检查是否有聚焦卡片（作为父节点）
-      let focusNote = MNNote.getFocusNote()
-      if (!focusNote) {
-        MNUtil.showHUD("请先聚焦一张卡片作为容器")
-        return
-      }
-
-      // 使用 MNUtil.userInput 让用户输入标题
+      // 默认标题
       let defaultTitle = `链接集合 (${selectedCards.length} 个)`
-      let result = await MNUtil.userInput(
+
+      // 显示带输入框和选项的对话框
+      const alert = UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
         "导出为 URL",
-        "请输入新卡片的标题",
-        ["取消", "确定"],
-        { default: defaultTitle }
+        "请选择导出方式",
+        2,  // alertViewStyle = 2（文本输入框）
+        "取消",
+        ["✅ 创建新卡片", "📌 添加到当前卡片"],
+        (alert, buttonIndex) => {
+          try {
+            if (buttonIndex === 0) return  // 取消
+
+            if (buttonIndex === 1) {
+              // ✅ 创建新卡片
+              let focusNote = MNNote.getFocusNote()
+              if (!focusNote) {
+                MNUtil.showHUD("请先聚焦一张卡片作为容器")
+                return
+              }
+
+              let title = alert.textFieldAtIndex(0).text.trim()
+              if (!title) {
+                title = defaultTitle
+              }
+
+              // 创建新卡片
+              let newNote = focusNote.createChildNote({
+                title: title
+              })
+
+              if (!newNote) {
+                MNUtil.showHUD("创建卡片失败")
+                return
+              }
+
+              // 添加 URL 列表作为文本评论
+              selectedCards.forEach(card => {
+                newNote.appendTextComment("marginnote4app://note/" + card.noteId)
+              })
+
+              newNote.refresh()
+
+              // 聚焦到新卡片
+              newNote.focusInMindMap(0.3)
+
+              MNUtil.showHUD(`✅ 已导出 ${selectedCards.length} 个链接`)
+
+            } else if (buttonIndex === 2) {
+              // 📌 添加到当前卡片
+              let focusNote = MNNote.getFocusNote()
+              if (!focusNote) {
+                MNUtil.showHUD("请先聚焦一张卡片")
+                return
+              }
+
+              // 生成 URL 列表并添加到当前卡片评论
+              selectedCards.forEach(card => {
+                focusNote.appendTextComment("marginnote4app://note/" + card.noteId)
+              })
+
+              focusNote.refresh()
+
+              MNUtil.showHUD(`✅ 已添加 ${selectedCards.length} 个链接到当前卡片`)
+            }
+
+            // 清空选择状态并刷新界面
+            let affectedSections = new Set()
+            selectedCards.forEach(card => {
+              affectedSections.add(card.section)
+            })
+
+            self.clearSelection()
+
+            // 刷新受影响的分区（更新勾选框状态）
+            affectedSections.forEach(section => {
+              self.refreshSectionCards(section)
+            })
+
+          } catch (error) {
+            pinnerUtils.addErrorLog(error, "exportSelectedCardsAsURL callback")
+            MNUtil.showHUD("导出失败: " + error.message)
+          }
+        }
       )
 
-      if (result.button === 0) return  // 取消
-
-      let title = result.input.trim()
-      if (!title) {
-        title = defaultTitle
-      }
-
-      // let content = urlList.join("\n")
-
-      // 创建新卡片
-      let newNote = focusNote.createChildNote({
-        title: title
+      // 设置输入框默认值
+      MNUtil.delay(0.1).then(() => {
+        const textField = alert.textFieldAtIndex(0)
+        if (textField) {
+          textField.text = defaultTitle
+        }
       })
-
-      if (!newNote) {
-        MNUtil.showHUD("创建卡片失败")
-        return
-      }
-
-      // 添加 URL 列表作为文本评论
-      selectedCards.forEach(card => {
-        newNote.appendTextComment("marginnote4app://note/" + card.noteId)
-      })
-
-      // 清空选择状态并刷新界面
-      let affectedSections = new Set()
-      selectedCards.forEach(card => {
-        affectedSections.add(card.section)
-      })
-
-      self.clearSelection()
-
-      // 刷新受影响的分区（更新勾选框状态）
-      affectedSections.forEach(section => {
-        self.refreshSectionCards(section)
-      })
-
-      // 聚焦到新卡片
-      newNote.focusInMindMap(0.3)
-
-      MNUtil.showHUD(`✅ 已导出 ${selectedCards.length} 个链接`)
 
     } catch (error) {
       pinnerUtils.addErrorLog(error, "exportSelectedCardsAsURL")
@@ -2125,7 +2162,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    * 1. [卡片标题](marginnote4app://note/{noteId})
    * 2. [卡片标题](marginnote4app://note/{noteId})
    */
-  exportSelectedCardsAsMarkdown: async function(button) {
+  exportSelectedCardsAsMarkdown: function(button) {
     try {
       // 检查是否有选中卡片
       let selectedCards = self.getSelectedCards()
@@ -2134,69 +2171,104 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         return
       }
 
-      // 检查是否有聚焦卡片（作为父节点）
-      let focusNote = MNNote.getFocusNote()
-      if (!focusNote) {
-        MNUtil.showHUD("请先聚焦一张卡片作为容器")
-        return
-      }
-
-      // 使用 MNUtil.userInput 让用户输入标题
+      // 默认标题
       let defaultTitle = `链接集合 (${selectedCards.length} 个)`
-      let result = await MNUtil.userInput(
+
+      // 显示带输入框和选项的对话框
+      const alert = UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
         "导出为 Markdown",
-        "请输入新卡片的标题",
-        ["取消", "确定"],
-        { default: defaultTitle }
+        "请选择导出方式",
+        2,  // alertViewStyle = 2（文本输入框）
+        "取消",
+        ["✅ 创建新卡片", "📌 添加到当前卡片"],
+        (alert, buttonIndex) => {
+          try {
+            if (buttonIndex === 0) return  // 取消
+
+            // 生成 Markdown 链接列表内容
+            let markdownLines = []
+            selectedCards.forEach((card, index) => {
+              let url = "marginnote4app://note/" + card.noteId
+              let displayTitle = card.title || "未命名卡片"
+              let line = `${index + 1}. [${displayTitle}](${url})`
+              markdownLines.push(line)
+            })
+            let content = markdownLines.join("\n")
+
+            if (buttonIndex === 1) {
+              // ✅ 创建新卡片
+              let focusNote = MNNote.getFocusNote()
+              if (!focusNote) {
+                MNUtil.showHUD("请先聚焦一张卡片作为容器")
+                return
+              }
+
+              let title = alert.textFieldAtIndex(0).text.trim()
+              if (!title) {
+                title = defaultTitle
+              }
+
+              // 创建新卡片
+              let newNote = focusNote.createChildNote({
+                title: title
+              })
+
+              if (!newNote) {
+                MNUtil.showHUD("创建卡片失败")
+                return
+              }
+
+              // 添加 Markdown 链接列表作为 Markdown 评论
+              newNote.appendMarkdownComment(content)
+
+              newNote.refresh()
+              // 聚焦到新卡片
+              newNote.focusInMindMap(0.3)
+
+              MNUtil.showHUD(`✅ 已导出 ${selectedCards.length} 个链接`)
+
+            } else if (buttonIndex === 2) {
+              // 📌 添加到当前卡片
+              let focusNote = MNNote.getFocusNote()
+              if (!focusNote) {
+                MNUtil.showHUD("请先聚焦一张卡片")
+                return
+              }
+
+              // 添加 Markdown 链接列表到当前卡片评论
+              focusNote.appendMarkdownComment(content)
+              focusNote.refresh()
+
+              MNUtil.showHUD(`✅ 已添加 ${selectedCards.length} 个链接到当前卡片`)
+            }
+
+            // 清空选择状态并刷新界面
+            let affectedSections = new Set()
+            selectedCards.forEach(card => {
+              affectedSections.add(card.section)
+            })
+
+            self.clearSelection()
+
+            // 刷新受影响的分区（更新勾选框状态）
+            affectedSections.forEach(section => {
+              self.refreshSectionCards(section)
+            })
+
+          } catch (error) {
+            pinnerUtils.addErrorLog(error, "exportSelectedCardsAsMarkdown callback")
+            MNUtil.showHUD("导出失败: " + error.message)
+          }
+        }
       )
 
-      if (result.button === 0) return  // 取消
-
-      let title = result.input.trim()
-      if (!title) {
-        title = defaultTitle
-      }
-
-      // 生成 Markdown 链接列表内容
-      let markdownLines = []
-      selectedCards.forEach((card, index) => {
-        let url = "marginnote4app://note/" + card.noteId
-        let displayTitle = card.title || "未命名卡片"
-        let line = `${index + 1}. [${displayTitle}](${url})`
-        markdownLines.push(line)
+      // 设置输入框默认值
+      MNUtil.delay(0.1).then(() => {
+        const textField = alert.textFieldAtIndex(0)
+        if (textField) {
+          textField.text = defaultTitle
+        }
       })
-      let content = markdownLines.join("\n")
-
-      // 创建新卡片
-      let newNote = focusNote.createChildNote({
-        title: title
-      })
-
-      if (!newNote) {
-        MNUtil.showHUD("创建卡片失败")
-        return
-      }
-
-      // 添加 Markdown 链接列表作为 Markdown 评论
-      newNote.appendMarkdownComment(content)
-
-      // 清空选择状态并刷新界面
-      let affectedSections = new Set()
-      selectedCards.forEach(card => {
-        affectedSections.add(card.section)
-      })
-
-      self.clearSelection()
-
-      // 刷新受影响的分区（更新勾选框状态）
-      affectedSections.forEach(section => {
-        self.refreshSectionCards(section)
-      })
-
-      // 聚焦到新卡片
-      newNote.focusInMindMap(0.3)
-
-      MNUtil.showHUD(`✅ 已导出 ${selectedCards.length} 个链接`)
 
     } catch (error) {
       pinnerUtils.addErrorLog(error, "exportSelectedCardsAsMarkdown")
