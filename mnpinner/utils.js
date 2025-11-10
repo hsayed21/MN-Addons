@@ -219,6 +219,219 @@ class pinnerUtils {
 }
 
 
+/**
+ * 分区配置注册中心
+ * 集中管理所有视图分区的配置信息
+ *
+ * 核心职责：
+ * 1. 定义所有分区的元数据（名称、图标、颜色等）
+ * 2. 提供配置查询接口
+ * 3. 支持动态添加/删除分区
+ */
+class SectionRegistry {
+  /**
+   * 所有分区的配置信息
+   * 使用 Map 而不是普通对象，避免原型链问题
+   */
+  static sections = new Map([
+    // Pin 视图分区
+    ["focus", {
+      key: "focus",
+      displayName: "Focus",
+      viewMode: "pin",
+      color: "#457bd3",
+      icon: "📌",
+      order: 1,
+      description: "重点关注的卡片"
+    }],
+    ["midway", {
+      key: "midway",
+      displayName: "中间知识",
+      viewMode: "pin",
+      color: "#61afef",
+      icon: "📚",
+      order: 2,
+      description: "待进一步处理的知识"
+    }],
+    ["toOrganize", {
+      key: "toOrganize",
+      displayName: "待整理",
+      viewMode: "pin",
+      color: "#98c379",
+      icon: "📥",
+      order: 3,
+      description: "需要整理的零散内容"
+    }],
+    ["class", {
+      key: "class",
+      displayName: "Class",
+      viewMode: "pin",
+      color: "#e5c07b",
+      icon: "🎓",
+      order: 4,
+      description: "课程相关内容"
+    }],
+
+    // Task 视图分区
+    ["taskToday", {
+      key: "taskToday",
+      displayName: "Today",
+      viewMode: "task",
+      color: "#e06c75",
+      icon: "📅",
+      order: 1,
+      description: "今天要处理的任务"
+    }],
+    ["taskTomorrow", {
+      key: "taskTomorrow",
+      displayName: "Tomorrow",
+      viewMode: "task",
+      color: "#d19a66",
+      icon: "📆",
+      order: 2,
+      description: "明天的任务"
+    }],
+    ["taskThisWeek", {
+      key: "taskThisWeek",
+      displayName: "This Week",
+      viewMode: "task",
+      color: "#c678dd",
+      icon: "📊",
+      order: 3,
+      description: "本周任务"
+    }],
+    ["taskTodo", {
+      key: "taskTodo",
+      displayName: "TODO",
+      viewMode: "task",
+      color: "#56b6c2",
+      icon: "✅",
+      order: 4,
+      description: "待办事项"
+    }],
+    ["taskDailyTask", {
+      key: "taskDailyTask",
+      displayName: "日拱一卒",
+      viewMode: "task",
+      color: "#98c379",
+      icon: "🏃",
+      order: 5,
+      description: "每日坚持的任务"
+    }]
+  ])
+
+  /**
+   * 获取单个分区配置
+   * @param {string} key - 分区键名
+   * @returns {Object|null} 配置对象，不存在返回 null
+   */
+  static getConfig(key) {
+    return this.sections.get(key) || null
+  }
+
+  /**
+   * 获取指定视图模式的所有分区配置（按 order 排序）
+   * @param {string} mode - 视图模式：'pin' 或 'task'
+   * @returns {Array} 配置对象数组
+   */
+  static getAllByMode(mode) {
+    return Array.from(this.sections.values())
+      .filter(section => section.viewMode === mode)
+      .sort((a, b) => a.order - b.order)
+  }
+
+  /**
+   * 获取所有分区键名（按 order 排序）
+   * @param {string} mode - 可选，指定视图模式
+   * @returns {Array<string>} 分区键名数组
+   */
+  static getOrderedKeys(mode = null) {
+    let configs = mode
+      ? this.getAllByMode(mode)
+      : Array.from(this.sections.values()).sort((a, b) => {
+          // 先按 viewMode 排序（pin < task），再按 order 排序
+          if (a.viewMode !== b.viewMode) {
+            return a.viewMode === 'pin' ? -1 : 1
+          }
+          return a.order - b.order
+        })
+    return configs.map(c => c.key)
+  }
+
+  /**
+   * 获取分区的显示名称
+   * @param {string} key - 分区键名
+   * @returns {string} 显示名称，不存在返回键名本身
+   */
+  static getDisplayName(key) {
+    let config = this.getConfig(key)
+    return config ? config.displayName : key
+  }
+
+  /**
+   * 检查分区是否存在
+   * @param {string} key - 分区键名
+   * @returns {boolean}
+   */
+  static has(key) {
+    return this.sections.has(key)
+  }
+
+  /**
+   * 添加新分区（动态扩展）
+   * @param {Object} config - 分区配置对象
+   * @returns {boolean} 是否添加成功
+   */
+  static addSection(config) {
+    if (!config.key) {
+      pinnerUtils.log("添加分区失败：缺少 key", "SectionRegistry:addSection")
+      return false
+    }
+    if (this.sections.has(config.key)) {
+      pinnerUtils.log(`分区 ${config.key} 已存在`, "SectionRegistry:addSection")
+      return false
+    }
+
+    // 填充默认值
+    let fullConfig = {
+      displayName: config.key,
+      viewMode: "pin",
+      color: "#abb2bf",
+      icon: "📋",
+      order: 999,
+      description: "",
+      ...config
+    }
+
+    this.sections.set(config.key, fullConfig)
+    pinnerUtils.log(`成功添加分区：${config.key}`, "SectionRegistry:addSection")
+    return true
+  }
+
+  /**
+   * 删除分区（谨慎使用）
+   * @param {string} key - 分区键名
+   * @returns {boolean} 是否删除成功
+   */
+  static removeSection(key) {
+    if (!this.sections.has(key)) {
+      return false
+    }
+    this.sections.delete(key)
+    pinnerUtils.log(`已删除分区：${key}`, "SectionRegistry:removeSection")
+    return true
+  }
+
+  /**
+   * 获取配置版本（用于数据迁移）
+   * @returns {string}
+   */
+  static getVersion() {
+    return "1.0.0"
+  }
+}
+
+
 class pinnerConfig {
   // 路径和定时器
   static mainPath
@@ -241,22 +454,26 @@ class pinnerConfig {
     }
   }
 
-  // 默认值通过 getter 返回，避免多窗口共享问题
+  /**
+   * 默认分区数据结构（从 SectionRegistry 动态生成）
+   * 使用 getter 避免多窗口共享问题
+   * @returns {Object} 分区数据对象，每个分区初始化为空数组
+   */
   static get defaultSections() {
-    return {
-      // Pin 视图分区
-      focus: [],
-      midway: [],
-      toOrganize: [],  // 新增：待整理
-      pages: [],       // 新增：文档页面（已废弃，保留用于数据迁移）
+    let sections = {}
 
-      // Task 视图分区
-      taskToday: [],
-      taskTomorrow: [],
-      taskThisWeek: [],
-      taskTodo: [],
-      taskDailyTask: []  // 新增：日拱一卒（从 Pin 视图迁移到 Task 视图）
-    }
+    // 从 SectionRegistry 获取所有分区键名
+    let allKeys = SectionRegistry.getOrderedKeys()
+
+    // 初始化所有分区为空数组
+    allKeys.forEach(key => {
+      sections[key] = []
+    })
+
+    // 保留已废弃的分区用于数据迁移
+    sections.pages = []  // 旧的文档页面分区（已废弃，但需保留用于数据迁移）
+
+    return sections
   }
   
   // 会造成 iPad 闪退，先去掉
@@ -1423,25 +1640,18 @@ class pinnerConfig {
   }
 
   /**
-   * 获取分区显示名称
+   * 获取分区显示名称（从 SectionRegistry 获取）
    * @param {string} section - 分区键名
+   * @returns {string} 显示名称，不存在则返回键名本身
    */
   static getSectionDisplayName(section) {
-    const displayNames = {
-      // Pin 视图分区
-      'focus': 'Focus',
-      'midway': '中间知识',
-      'toOrganize': '待整理',
-      'pages': 'Pages',
-
-      // Task 视图分区
-      'taskToday': 'Today',
-      'taskTomorrow': 'Tomorrow',
-      'taskThisWeek': 'This Week',
-      'taskTodo': 'TODO',
-      'taskDailyTask': '日拱一卒'
+    // 特殊处理已废弃的分区
+    if (section === 'pages') {
+      return 'Pages'
     }
-    return displayNames[section] || section
+
+    // 从 SectionRegistry 获取显示名称
+    return SectionRegistry.getDisplayName(section)
   }
 
   // ========== 页面标题预设管理方法 ==========

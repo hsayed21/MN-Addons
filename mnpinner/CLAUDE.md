@@ -241,6 +241,352 @@ pinnerConfig.exportToClipboard()
 pinnerConfig.importFromClipboard()
 ```
 
+## 视图管理（配置驱动架构）⭐
+
+MNPinner v2.0 采用配置驱动架构，通过 `SectionRegistry` 配置中心统一管理所有视图分区。
+
+### 架构概述
+
+**核心类：SectionRegistry** (`utils.js:222-432`)
+
+所有视图分区的元数据都集中在 `SectionRegistry.sections` 中，包括：
+- **key**: 分区唯一标识（用于数据存储和代码引用）
+- **displayName**: 显示名称（界面显示）
+- **viewMode**: 视图模式（"pin" 或 "task"）
+- **color**: 主题颜色（十六进制色值）
+- **icon**: 图标（Emoji）
+- **order**: 显示顺序（数字越小越靠前）
+- **description**: 分区描述
+
+### 当前分区列表
+
+**Pin 视图（4个）：**
+1. Focus - 重点关注的卡片 (#457bd3 📌)
+2. 中间知识 - 待进一步处理的知识 (#61afef 📚)
+3. 待整理 - 需要整理的零散内容 (#98c379 📥)
+4. Class - 课程相关内容 (#e5c07b 🎓)
+
+**Task 视图（5个）：**
+1. Today - 今天要处理的任务 (#e06c75 📅)
+2. Tomorrow - 明天的任务 (#d19a66 📆)
+3. This Week - 本周任务 (#c678dd 📊)
+4. TODO - 待办事项 (#56b6c2 ✅)
+5. 日拱一卒 - 每日坚持的任务 (#98c379 🏃)
+
+### 添加新视图
+
+#### 步骤 1：在 SectionRegistry 添加配置
+
+**文件位置：** `utils.js` 第 236-321 行
+
+在 `SectionRegistry.sections` Map 中添加新的配置对象：
+
+```javascript
+class SectionRegistry {
+  static sections = new Map([
+    // ... 现有配置
+
+    // 添加新视图：例如 "项目" 分区
+    ["project", {
+      key: "project",                    // 必需：唯一标识，用于数据存储
+      displayName: "项目",                // 必需：界面显示名称
+      viewMode: "pin",                   // 必需：视图模式 "pin" 或 "task"
+      color: "#c678dd",                  // 必需：主题颜色（十六进制）
+      icon: "📂",                        // 可选：图标 Emoji
+      order: 5,                          // 必需：显示顺序（决定标签位置）
+      description: "项目相关的卡片"       // 可选：描述信息
+    }],
+
+    // ... 其他配置
+  ])
+}
+```
+
+#### 步骤 2：验证配置
+
+添加后，系统会自动：
+1. ✅ 在数据层创建对应的数据结构（`pinnerConfig.sections.project`）
+2. ✅ 创建视图容器（`projectView`）
+3. ✅ 创建标签按钮（`projectTabButton`）
+4. ✅ 绑定事件处理（自动使用 `genericTabTapped`）
+5. ✅ 支持所有标准操作（Pin、清空、导出等）
+6. ✅ 支持 URL Scheme（`section=project`）
+
+**无需修改其他任何代码！**
+
+#### 配置参数详解
+
+| 参数 | 类型 | 必需 | 说明 | 示例 |
+|------|------|------|------|------|
+| `key` | string | ✅ | 唯一标识，用于数据存储和 URL Scheme | `"project"` |
+| `displayName` | string | ✅ | 界面显示的名称 | `"项目"` |
+| `viewMode` | string | ✅ | 视图模式，决定分组显示 | `"pin"` 或 `"task"` |
+| `color` | string | ✅ | 主题颜色（选中时的按钮颜色） | `"#c678dd"` |
+| `icon` | string | 可选 | 图标，通常使用 Emoji | `"📂"` |
+| `order` | number | ✅ | 显示顺序，数字越小越靠前 | `5` |
+| `description` | string | 可选 | 描述信息，用于说明分区用途 | `"项目相关的卡片"` |
+
+#### 显示顺序规则
+
+`order` 参数决定标签按钮的显示位置：
+
+**Pin 视图当前顺序：**
+- order: 1 → Focus
+- order: 2 → 中间知识
+- order: 3 → 待整理
+- order: 4 → Class
+- **order: 5 → 你的新分区（会显示在 Class 之后）**
+
+**调整顺序技巧：**
+- 若想插入到 Focus 和中间知识之间，设置 `order: 1.5`
+- 若想放到最前面，设置 `order: 0.5`
+- 若想放到最后面，使用较大的数字如 `order: 999`
+
+### 删除视图
+
+#### 方法 1：注释配置（推荐，可恢复）
+
+在 `utils.js` 中注释掉对应的配置：
+
+```javascript
+class SectionRegistry {
+  static sections = new Map([
+    // ... 其他配置
+
+    // 临时隐藏 toOrganize 分区
+    // ["toOrganize", {
+    //   key: "toOrganize",
+    //   displayName: "待整理",
+    //   viewMode: "pin",
+    //   color: "#98c379",
+    //   icon: "📥",
+    //   order: 3
+    // }],
+
+    // ... 其他配置
+  ])
+}
+```
+
+**注意：** 注释后，该分区的数据仍保留在 `pinnerConfig.sections` 中，取消注释即可恢复。
+
+#### 方法 2：使用 API 删除（运行时）
+
+```javascript
+// 临时删除分区（插件重启后恢复）
+SectionRegistry.removeSection("toOrganize")
+
+// 重新布局视图
+if (pinnerUtils.pinnerController) {
+  pinnerUtils.pinnerController.settingViewLayout()
+}
+```
+
+**警告：** 使用 API 删除的分区在插件重启后会恢复（因为配置仍在代码中）。
+
+#### 方法 3：完全删除
+
+如果确定要永久删除某个分区：
+
+1. 从 `SectionRegistry.sections` 中删除配置
+2. 导出用户数据（避免数据丢失）
+3. 通知用户该分区的数据将被迁移或清空
+
+```javascript
+// 1. 从配置中删除
+// 直接从 Map 中移除对应的条目
+
+// 2. 迁移数据到其他分区（可选）
+let oldData = pinnerConfig.getPins("toOrganize")
+oldData.forEach(pin => {
+  pinnerConfig.addPin(pin, "midway", "bottom")
+})
+
+// 3. 清空旧分区数据
+pinnerConfig.clearPins("toOrganize")
+```
+
+### 调整视图顺序
+
+修改 `order` 参数即可调整显示顺序：
+
+**示例：将 Class 移到第一位**
+
+```javascript
+["class", {
+  key: "class",
+  displayName: "Class",
+  viewMode: "pin",
+  color: "#e5c07b",
+  icon: "🎓",
+  order: 0.5,  // 原来是 4，改为 0.5 就会显示在最前面
+  description: "课程相关内容"
+}]
+```
+
+保存后重新加载插件，Class 标签会显示在最左边。
+
+### 修改视图属性
+
+可以修改任意配置属性：
+
+```javascript
+// 修改显示名称
+["focus", {
+  key: "focus",
+  displayName: "⭐ 重点",  // 原来是 "Focus"，改为中文加图标
+  // ... 其他属性保持不变
+}]
+
+// 修改颜色
+["midway", {
+  key: "midway",
+  displayName: "中间知识",
+  color: "#e5c07b",  // 原来是 "#61afef"，改为金色
+  // ... 其他属性保持不变
+}]
+
+// 修改图标
+["toOrganize", {
+  key: "toOrganize",
+  displayName: "待整理",
+  icon: "🗂",  // 原来是 "📥"，改为文件夹图标
+  // ... 其他属性保持不变
+}]
+```
+
+### 在不同视图模式间移动分区
+
+如果想将某个分区从 Pin 视图移动到 Task 视图（或反之）：
+
+```javascript
+// 将 Class 分区从 Pin 移到 Task
+["class", {
+  key: "class",
+  displayName: "Class",
+  viewMode: "task",  // 改为 "task"（原来是 "pin"）
+  color: "#e5c07b",
+  icon: "🎓",
+  order: 6,  // 调整顺序，避免与 Task 视图现有分区冲突
+  description: "课程相关内容"
+}]
+```
+
+**注意：** 修改 `viewMode` 后，该分区的数据仍保留，但会出现在不同的视图模式中。
+
+### 动态添加分区（高级用法）
+
+在运行时动态添加分区：
+
+```javascript
+// 添加新分区
+let newConfig = {
+  key: "reading",
+  displayName: "阅读",
+  viewMode: "pin",
+  color: "#56b6c2",
+  icon: "📖",
+  order: 6,
+  description: "阅读材料"
+}
+
+// 调用 API 添加
+let success = SectionRegistry.addSection(newConfig)
+
+if (success) {
+  // 初始化数据结构
+  if (!pinnerConfig.sections.reading) {
+    pinnerConfig.sections.reading = []
+    pinnerConfig.save()
+  }
+
+  // 重新创建视图（需要重启插件或重新加载视图）
+  MNUtil.showHUD("新分区已添加，请重启插件")
+}
+```
+
+**限制：** 动态添加的分区在插件重启后会消失（除非写入配置文件）。
+
+### 实际案例：添加 "学习" 分区
+
+**需求：** 在 Pin 视图中添加一个 "学习" 分区，用于存放学习相关的卡片。
+
+**步骤：**
+
+1. **打开 `utils.js`**，找到 `SectionRegistry.sections`（第 236 行）
+
+2. **在 Pin 视图分区的最后添加配置**：
+
+```javascript
+class SectionRegistry {
+  static sections = new Map([
+    // Pin 视图分区
+    ["focus", { ... }],
+    ["midway", { ... }],
+    ["toOrganize", { ... }],
+    ["class", { ... }],
+
+    // 新增：学习分区
+    ["study", {
+      key: "study",
+      displayName: "学习",
+      viewMode: "pin",
+      color: "#56b6c2",      // 青色
+      icon: "📖",
+      order: 5,              // 显示在 Class 之后
+      description: "学习材料和笔记"
+    }],
+
+    // Task 视图分区
+    ["taskToday", { ... }],
+    // ...
+  ])
+}
+```
+
+3. **保存文件并重新加载插件**
+
+4. **验证结果**：
+   - 打开 MNPinner 插件
+   - 切换到 Pin 视图
+   - 应该能看到新的 "学习" 标签（青色，显示在 Class 之后）
+   - 尝试 Pin 卡片到学习分区
+   - 数据会自动保存到 `pinnerConfig.sections.study`
+
+### 注意事项
+
+1. **key 唯一性**：确保 `key` 在所有分区中唯一，避免冲突
+2. **数据迁移**：删除分区前，考虑迁移或导出该分区的数据
+3. **向后兼容**：修改现有分区的 `key` 会导致数据无法访问
+4. **颜色选择**：建议使用区分度高的颜色，方便用户识别
+5. **order 冲突**：多个分区使用相同 `order` 时，按配置顺序显示
+6. **插件重启**：修改配置后需要重新加载插件才能生效
+
+### 配置最佳实践
+
+1. **命名规范**：
+   - `key` 使用小写英文，如 `"study"`, `"project"`
+   - `displayName` 使用中文或简短英文，如 `"学习"`, `"Project"`
+
+2. **颜色搭配**：
+   - 避免使用相似颜色
+   - 建议使用 VSCode 主题色系（如 One Dark）
+   - 常用色值：`#e06c75`(红) `#98c379`(绿) `#61afef`(蓝) `#c678dd`(紫) `#e5c07b`(黄)
+
+3. **顺序规划**：
+   - 常用分区放前面（order < 5）
+   - 特殊分区放后面（order > 5）
+   - 预留间隔（如 1, 2, 3, 5, 10）方便插入
+
+4. **描述信息**：
+   - 简洁明了，说明分区用途
+   - 方便团队协作和代码维护
+
+### 相关文档
+
+- 配置驱动架构详解：`CONFIG_DRIVEN_ARCHITECTURE.md`
+- API 参考：`SectionRegistry` 类文档（`utils.js:222-432`）
+
 ## 常见问题
 
 ### self 和 this 的使用

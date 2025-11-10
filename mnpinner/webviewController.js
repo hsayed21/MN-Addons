@@ -723,37 +723,23 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     }
   },
 
-  focusTabTapped: function(button) {
-    self.switchView("focusView")
-  },
-
-  midwayTabTapped: function(button) {
-    self.switchView("midwayView")
-  },
-
-  toOrganizeTabTapped: function(button) {
-    self.switchView("toOrganizeView")
-  },
-
-  // === Task 视图标签页切换 ===
-  taskTodayTabTapped: function(button) {
-    self.switchView("taskTodayView")
-  },
-
-  taskTomorrowTabTapped: function(button) {
-    self.switchView("taskTomorrowView")
-  },
-
-  taskThisWeekTabTapped: function(button) {
-    self.switchView("taskThisWeekView")
-  },
-
-  taskTodoTabTapped: function(button) {
-    self.switchView("taskTodoView")
-  },
-
-  taskDailyTaskTabTapped: function(button) {
-    self.switchView("taskDailyTaskView")
+  /**
+   * 统一的标签页切换处理方法（配置驱动）
+   * 替代所有重复的 xxxTabTapped 方法
+   * @param {UIButton} button - 点击的按钮，包含 viewName 元数据
+   */
+  genericTabTapped: function(button) {
+    try {
+      // 从按钮获取目标视图名称（在 createSectionTabButton 中设置）
+      let targetView = button.viewName
+      if (targetView) {
+        self.switchView(targetView)
+      } else {
+        pinnerUtils.log("按钮缺少 viewName 属性", "genericTabTapped")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "genericTabTapped")
+    }
   },
 
   // === 分区视图的事件处理方法 ===
@@ -2589,23 +2575,28 @@ pinnerController.prototype.settingViewLayout = function () {
     let width = viewFrame.width+10
     let height = viewFrame.height  // 恢复原始逻辑，不在这里减去工具栏高度
     this.settingView.frame = MNUtil.genFrame(-5, 55, width, height-65)
-    // Pin 视图分区
-    this.focusView.frame = MNUtil.genFrame(0, 0,width, height-65)
-    this.midwayView.frame = MNUtil.genFrame(0, 0,width, height-65)
-    this.toOrganizeView.frame = MNUtil.genFrame(0, 0,width, height-65)
-    // Task 视图分区
-    this.taskTodayView.frame = MNUtil.genFrame(0, 0,width, height-65)
-    this.taskTomorrowView.frame = MNUtil.genFrame(0, 0,width, height-65)
-    this.taskThisWeekView.frame = MNUtil.genFrame(0, 0,width, height-65)
-    this.taskTodoView.frame = MNUtil.genFrame(0, 0,width, height-65)
-    this.taskDailyTaskView.frame = MNUtil.genFrame(0, 0,width, height-65)
+
+    // 配置驱动：为所有分区视图设置 frame
+    let allSectionKeys = SectionRegistry.getOrderedKeys()
+    let sectionFrame = MNUtil.genFrame(0, 0, width, height-65)
+
+    allSectionKeys.forEach(key => {
+      let viewName = key + "View"
+      if (this[viewName]) {
+        this[viewName].frame = sectionFrame
+      }
+    })
+
     // Custom 视图分区
-    this.customManageView.frame = MNUtil.genFrame(0, 0,width, height-65)
+    if (this.customManageView) {
+      this.customManageView.frame = sectionFrame
+    }
+
     // 动态创建的自定义子视图
     Object.keys(this.customSectionViews || {}).forEach(sectionId => {
       let viewInfo = this.customSectionViews[sectionId]
       if (this[viewInfo.viewName]) {
-        this[viewInfo.viewName].frame = MNUtil.genFrame(0, 0,width, height-65)
+        this[viewInfo.viewName].frame = sectionFrame
       }
     })
 
@@ -2620,15 +2611,18 @@ pinnerController.prototype.settingViewLayout = function () {
     // 根据当前视图模式决定显示哪些标签
     let tabX = 10;  // 添加分号，避免自动分号插入问题
 
-    // 先隐藏所有标签按钮
-    ["focusTabButton", "midwayTabButton", "toOrganizeTabButton",
-     "taskTodayTabButton", "taskTomorrowTabButton", "taskThisWeekTabButton", "taskTodoTabButton", "taskDailyTaskTabButton",
-     "customManageTabButton"
-    ].forEach(buttonName => {
+    // 配置驱动：先隐藏所有标签按钮
+    allSectionKeys.forEach(key => {
+      let buttonName = key + "TabButton"
       if (this[buttonName]) {
         this[buttonName].hidden = true
       }
-    });
+    })
+
+    // 隐藏 Custom 管理按钮
+    if (this.customManageTabButton) {
+      this.customManageTabButton.hidden = true
+    }
 
     // 隐藏所有动态创建的自定义子视图按钮
     Object.keys(this.customSectionViews || {}).forEach(sectionId => {
@@ -2638,50 +2632,20 @@ pinnerController.prototype.settingViewLayout = function () {
       }
     })
 
-    if (this.currentViewMode === "pin") {
-      // Pin 视图的标签页 - 显示并布局
-      if (this.focusTabButton) {
-        this.focusTabButton.hidden = false
-        this.focusTabButton.frame = {x: tabX, y: 2, width: this.focusTabButton.width, height: 26}
-        tabX += this.focusTabButton.width + UI_CONSTANTS.TAB_SPACING
-      }
-      if (this.midwayTabButton) {
-        this.midwayTabButton.hidden = false
-        this.midwayTabButton.frame = {x: tabX, y: 2, width: this.midwayTabButton.width, height: 26}
-        tabX += this.midwayTabButton.width + UI_CONSTANTS.TAB_SPACING
-      }
-      if (this.toOrganizeTabButton) {
-        this.toOrganizeTabButton.hidden = false
-        this.toOrganizeTabButton.frame = {x: tabX, y: 2, width: this.toOrganizeTabButton.width, height: 26}
-        tabX += this.toOrganizeTabButton.width + UI_CONSTANTS.TAB_SPACING
-      }
-    } else if (this.currentViewMode === "task") {
-      // Task 视图的标签页 - 显示并布局
-      if (this.taskTodayTabButton) {
-        this.taskTodayTabButton.hidden = false
-        this.taskTodayTabButton.frame = {x: tabX, y: 2, width: this.taskTodayTabButton.width, height: 26}
-        tabX += this.taskTodayTabButton.width + UI_CONSTANTS.TAB_SPACING
-      }
-      if (this.taskTomorrowTabButton) {
-        this.taskTomorrowTabButton.hidden = false
-        this.taskTomorrowTabButton.frame = {x: tabX, y: 2, width: this.taskTomorrowTabButton.width, height: 26}
-        tabX += this.taskTomorrowTabButton.width + UI_CONSTANTS.TAB_SPACING
-      }
-      if (this.taskThisWeekTabButton) {
-        this.taskThisWeekTabButton.hidden = false
-        this.taskThisWeekTabButton.frame = {x: tabX, y: 2, width: this.taskThisWeekTabButton.width, height: 26}
-        tabX += this.taskThisWeekTabButton.width + UI_CONSTANTS.TAB_SPACING
-      }
-      if (this.taskTodoTabButton) {
-        this.taskTodoTabButton.hidden = false
-        this.taskTodoTabButton.frame = {x: tabX, y: 2, width: this.taskTodoTabButton.width, height: 26}
-        tabX += this.taskTodoTabButton.width + UI_CONSTANTS.TAB_SPACING
-      }
-      if (this.taskDailyTaskTabButton) {
-        this.taskDailyTaskTabButton.hidden = false
-        this.taskDailyTaskTabButton.frame = {x: tabX, y: 2, width: this.taskDailyTaskTabButton.width, height: 26}
-        tabX += this.taskDailyTaskTabButton.width + UI_CONSTANTS.TAB_SPACING
-      }
+    // 配置驱动：显示并布局当前模式的标签按钮
+    if (this.currentViewMode === "pin" || this.currentViewMode === "task") {
+      let configs = SectionRegistry.getAllByMode(this.currentViewMode)
+
+      configs.forEach(config => {
+        let buttonName = config.key + "TabButton"
+        let button = this[buttonName]
+
+        if (button) {
+          button.hidden = false
+          button.frame = {x: tabX, y: 2, width: button.width, height: 26}
+          tabX += button.width + UI_CONSTANTS.TAB_SPACING
+        }
+      })
     } else if (this.currentViewMode === "custom") {
       // Custom 视图的标签页 - 显示管理按钮和所有自定义子视图按钮
       if (this.customManageTabButton) {
@@ -2714,37 +2678,19 @@ pinnerController.prototype.settingViewLayout = function () {
     // 底部工具栏高度 28 + 间距 15 = 43，resizeButton 自身高度 30
     this.resizeButton.frame = {x: this.view.bounds.width - 30, y: this.view.bounds.height - 43 - 30, width: 30, height: 30}
 
-    // 根据当前显示的视图布局子视图
-    // Pin 视图分区
-    if (!this.focusView.hidden) {
-      this.layoutSectionView("focus")
-    }
-    if (!this.midwayView.hidden) {
-      this.layoutSectionView("midway")
-    }
-    if (!this.toOrganizeView.hidden) {
-      this.layoutSectionView("toOrganize")
-    }
-    // Task 视图分区
-    if (!this.taskTodayView.hidden) {
-      this.layoutSectionView("taskToday")
-    }
-    if (!this.taskTomorrowView.hidden) {
-      this.layoutSectionView("taskTomorrow")
-    }
-    if (!this.taskThisWeekView.hidden) {
-      this.layoutSectionView("taskThisWeek")
-    }
-    if (!this.taskTodoView.hidden) {
-      this.layoutSectionView("taskTodo")
-    }
-    if (!this.taskDailyTaskView.hidden) {
-      this.layoutSectionView("taskDailyTask")
-    }
+    // 配置驱动：根据当前显示的视图布局子视图
+    allSectionKeys.forEach(key => {
+      let viewName = key + "View"
+      if (this[viewName] && !this[viewName].hidden) {
+        this.layoutSectionView(key)
+      }
+    })
+
     // Custom 视图分区
-    if (!this.customManageView.hidden) {
+    if (this.customManageView && !this.customManageView.hidden) {
       this.layoutCustomManageView()
     }
+
     // 动态创建的自定义子视图
     Object.keys(this.customSectionViews || {}).forEach(sectionId => {
       let viewInfo = this.customSectionViews[sectionId]
@@ -2785,6 +2731,102 @@ pinnerController.prototype.refreshLayout = function () {
     this.layoutSectionView("taskDailyTask")
   }
 }
+/**
+ * 创建单个分区的标签按钮（工厂方法）
+ * @param {Object} config - 分区配置对象
+ * @param {number} radius - 圆角半径
+ * @param {boolean} isFirst - 是否为第一个按钮（默认选中）
+ */
+pinnerController.prototype.createSectionTabButton = function (config, radius, isFirst) {
+  let buttonName = config.key + "TabButton"
+  let viewName = config.key + "View"
+
+  // 创建按钮
+  this.createButton(buttonName, "genericTabTapped:", "tabView")
+  let button = this[buttonName]
+
+  // 存储元数据，用于统一响应方法
+  button.sectionKey = config.key
+  button.viewName = viewName
+
+  // 设置样式
+  button.layer.cornerRadius = radius
+  button.isSelected = isFirst
+
+  // 根据选中状态设置颜色
+  let buttonColor = isFirst ? config.color : "#9bb2d6"
+  MNButton.setConfig(button, {
+    color: buttonColor,
+    alpha: 0.9,
+    opacity: 1.0,
+    title: config.displayName,
+    font: 17,
+    bold: true
+  })
+
+  // 计算并设置宽度
+  let size = button.sizeThatFits({width: 150, height: 100})
+  button.width = size.width + 15
+}
+
+/**
+ * 创建所有分区的标签按钮（配置驱动）
+ */
+pinnerController.prototype.createAllSectionTabs = function () {
+  let radius = 10
+
+  // 获取所有分区配置（按 order 排序）
+  let pinConfigs = SectionRegistry.getAllByMode("pin")
+  let taskConfigs = SectionRegistry.getAllByMode("task")
+
+  // 创建 Pin 视图的标签按钮
+  pinConfigs.forEach((config, index) => {
+    this.createSectionTabButton(config, radius, index === 0)
+  })
+
+  // 创建 Task 视图的标签按钮
+  taskConfigs.forEach((config, index) => {
+    this.createSectionTabButton(config, radius, false)
+  })
+
+  // === 创建 Custom 视图的管理标签按钮 ===
+  this.createButton("customManageTabButton", "customManageTabTapped:", "tabView")
+  this.customManageTabButton.layer.cornerRadius = radius
+  this.customManageTabButton.isSelected = false
+  MNButton.setConfig(this.customManageTabButton, {
+    color: "#9bb2d6",
+    alpha: 0.9,
+    opacity: 1.0,
+    title: "🎨 管理",
+    font: 17,
+    bold: true
+  })
+  let size = this.customManageTabButton.sizeThatFits({width: 120, height: 100})
+  this.customManageTabButton.width = size.width + 15
+}
+
+/**
+ * 创建所有分区的视图容器（配置驱动）
+ */
+pinnerController.prototype.createAllSectionViewContainers = function () {
+  // 获取所有分区配置
+  let allConfigs = [
+    ...SectionRegistry.getAllByMode("pin"),
+    ...SectionRegistry.getAllByMode("task")
+  ]
+
+  // 创建每个分区的视图容器
+  allConfigs.forEach((config, index) => {
+    let viewName = config.key + "View"
+    this.createView(viewName, "settingView", "#9bb2d6", 0)
+    this[viewName].hidden = (index !== 0)  // 第一个视图默认显示，其他隐藏
+  })
+
+  // === 创建 Custom 视图的管理界面===
+  this.createView("customManageView", "settingView", "#9bb2d6", 0)
+  this.customManageView.hidden = true
+}
+
 pinnerController.prototype.createSettingView = function () {
   try {
     /**
@@ -2797,120 +2839,11 @@ pinnerController.prototype.createSettingView = function () {
     this.tabView.alwaysBounceHorizontal = true
     this.tabView.showsHorizontalScrollIndicator = false
 
-    // === 创建 tab 切换按钮 ===
-    let radius = 10
-    this.createButton("focusTabButton","focusTabTapped:","tabView")
-    this.focusTabButton.layer.cornerRadius = radius;
-    this.focusTabButton.isSelected = true  // 默认选中第一个 tab
-    MNButton.setConfig(this.focusTabButton,
-      {color:"#457bd3",alpha:0.9,opacity:1.0,title:"Focus",font:17,bold:true}  // 使用选中颜色
-    )
-    let size = this.focusTabButton.sizeThatFits({width:100,height:100})
-    this.focusTabButton.width = size.width+15
+    // === 使用配置驱动创建所有标签按钮 ===
+    this.createAllSectionTabs()
 
-    this.createButton("midwayTabButton","midwayTabTapped:","tabView")
-    this.midwayTabButton.layer.cornerRadius = radius;
-    this.midwayTabButton.isSelected = false
-    MNButton.setConfig(this.midwayTabButton,
-      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"中间知识",font:17,bold:true}
-    )
-    size = this.midwayTabButton.sizeThatFits({width:120,height:100})
-    this.midwayTabButton.width = size.width+15
-
-    this.createButton("toOrganizeTabButton","toOrganizeTabTapped:","tabView")
-    this.toOrganizeTabButton.layer.cornerRadius = radius;
-    this.toOrganizeTabButton.isSelected = false
-    MNButton.setConfig(this.toOrganizeTabButton,
-      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"待整理",font:17,bold:true}
-    )
-    size = this.toOrganizeTabButton.sizeThatFits({width:120,height:100})
-    this.toOrganizeTabButton.width = size.width+15
-
-    // === 创建 Task 视图的 tab 按钮 ===
-    this.createButton("taskTodayTabButton","taskTodayTabTapped:","tabView")
-    this.taskTodayTabButton.layer.cornerRadius = radius;
-    this.taskTodayTabButton.isSelected = false
-    MNButton.setConfig(this.taskTodayTabButton,
-      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"Today",font:17,bold:true}
-    )
-    size = this.taskTodayTabButton.sizeThatFits({width:100,height:100})
-    this.taskTodayTabButton.width = size.width+15
-
-    this.createButton("taskTomorrowTabButton","taskTomorrowTabTapped:","tabView")
-    this.taskTomorrowTabButton.layer.cornerRadius = radius;
-    this.taskTomorrowTabButton.isSelected = false
-    MNButton.setConfig(this.taskTomorrowTabButton,
-      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"Tomorrow",font:17,bold:true}
-    )
-    size = this.taskTomorrowTabButton.sizeThatFits({width:120,height:100})
-    this.taskTomorrowTabButton.width = size.width+15
-
-    this.createButton("taskThisWeekTabButton","taskThisWeekTabTapped:","tabView")
-    this.taskThisWeekTabButton.layer.cornerRadius = radius;
-    this.taskThisWeekTabButton.isSelected = false
-    MNButton.setConfig(this.taskThisWeekTabButton,
-      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"This Week",font:17,bold:true}
-    )
-    size = this.taskThisWeekTabButton.sizeThatFits({width:120,height:100})
-    this.taskThisWeekTabButton.width = size.width+15
-
-    this.createButton("taskTodoTabButton","taskTodoTabTapped:","tabView")
-    this.taskTodoTabButton.layer.cornerRadius = radius;
-    this.taskTodoTabButton.isSelected = false
-    MNButton.setConfig(this.taskTodoTabButton,
-      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"TODO",font:17,bold:true}
-    )
-    size = this.taskTodoTabButton.sizeThatFits({width:100,height:100})
-    this.taskTodoTabButton.width = size.width+15
-
-    this.createButton("taskDailyTaskTabButton","taskDailyTaskTabTapped:","tabView")
-    this.taskDailyTaskTabButton.layer.cornerRadius = radius;
-    this.taskDailyTaskTabButton.isSelected = false
-    MNButton.setConfig(this.taskDailyTaskTabButton,
-      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"日拱一卒",font:17,bold:true}
-    )
-    size = this.taskDailyTaskTabButton.sizeThatFits({width:120,height:100})
-    this.taskDailyTaskTabButton.width = size.width+15
-
-    // === 创建 Custom 视图的管理标签按钮 ===
-    this.createButton("customManageTabButton","customManageTabTapped:","tabView")
-    this.customManageTabButton.layer.cornerRadius = radius;
-    this.customManageTabButton.isSelected = false
-    MNButton.setConfig(this.customManageTabButton,
-      {color:"#9bb2d6",alpha:0.9,opacity:1.0,title:"🎨 管理",font:17,bold:true}
-    )
-    size = this.customManageTabButton.sizeThatFits({width:120,height:100})
-    this.customManageTabButton.width = size.width+15
-
-    // === 创建 Pin 视图的各个分页===
-    this.createView("focusView","settingView","#9bb2d6",0)
-    this.focusView.hidden = false  // 默认显示第一个视图
-
-    this.createView("midwayView","settingView","#9bb2d6",0)
-    this.midwayView.hidden = true  // 隐藏其他视图
-
-    this.createView("toOrganizeView","settingView","#9bb2d6",0)
-    this.toOrganizeView.hidden = true  // 隐藏其他视图
-
-    // === 创建 Task 视图的各个分页===
-    this.createView("taskTodayView","settingView","#9bb2d6",0)
-    this.taskTodayView.hidden = true
-
-    this.createView("taskTomorrowView","settingView","#9bb2d6",0)
-    this.taskTomorrowView.hidden = true
-
-    this.createView("taskThisWeekView","settingView","#9bb2d6",0)
-    this.taskThisWeekView.hidden = true
-
-    this.createView("taskTodoView","settingView","#9bb2d6",0)
-    this.taskTodoView.hidden = true
-
-    this.createView("taskDailyTaskView","settingView","#9bb2d6",0)
-    this.taskDailyTaskView.hidden = true
-
-    // === 创建 Custom 视图的管理界面===
-    this.createView("customManageView","settingView","#9bb2d6",0)
-    this.customManageView.hidden = true
+    // === 使用配置驱动创建所有视图容器 ===
+    this.createAllSectionViewContainers()
 
     // === 为每个分区创建子视图 ===
     this.createSectionViews()
@@ -3190,109 +3123,106 @@ pinnerController.prototype.createScrollview = function (superview="view", color=
   this[superview].addSubview(scrollview)
   return scrollview
 }
+/**
+ * 切换到目标视图（配置驱动）
+ * @param {string} targetView - 目标视图名称（如 "focusView"）
+ */
 pinnerController.prototype.switchView = function (targetView) {
-  // 根据当前视图模式选择对应的视图和按钮列表
-  let allViews, allButtons, sectionMap
+  try {
+    // 根据当前视图模式选择对应的视图和按钮列表
+    let allViews, allButtons, sectionMap
 
-  if (this.currentViewMode === "pin") {
-    allViews = ["focusView", "midwayView", "toOrganizeView"]
-    allButtons = ["focusTabButton","midwayTabButton","toOrganizeTabButton"]
-    sectionMap = {
-      "focusView": "focus",
-      "midwayView": "midway",
-      "toOrganizeView": "toOrganize"
-    }
-  } else if (this.currentViewMode === "task") {
-    allViews = ["taskTodayView", "taskTomorrowView", "taskThisWeekView", "taskTodoView", "taskDailyTaskView"]
-    allButtons = ["taskTodayTabButton","taskTomorrowTabButton","taskThisWeekTabButton","taskTodoTabButton","taskDailyTaskTabButton"]
-    sectionMap = {
-      "taskTodayView": "taskToday",
-      "taskTomorrowView": "taskTomorrow",
-      "taskThisWeekView": "taskThisWeek",
-      "taskTodoView": "taskTodo",
-      "taskDailyTaskView": "taskDailyTask"
-    }
-  } else if (this.currentViewMode === "custom") {
-    // Custom 视图模式
-    allViews = ["customManageView"]
-    allButtons = ["customManageTabButton"]
-    sectionMap = {"customManageView": "customManage"}
+    if (this.currentViewMode === "pin" || this.currentViewMode === "task") {
+      // 从 SectionRegistry 获取当前模式的所有分区
+      let configs = SectionRegistry.getAllByMode(this.currentViewMode)
 
-    // 添加动态创建的自定义子视图
-    Object.keys(this.customSectionViews || {}).forEach(sectionId => {
-      let viewInfo = this.customSectionViews[sectionId]
-      allViews.push(viewInfo.viewName)
-      allButtons.push(viewInfo.tabButtonName)
-      sectionMap[viewInfo.viewName] = sectionId
+      allViews = configs.map(c => c.key + "View")
+      allButtons = configs.map(c => c.key + "TabButton")
+
+      // 构建 viewName → sectionKey 的映射
+      sectionMap = {}
+      configs.forEach(c => {
+        sectionMap[c.key + "View"] = c.key
+      })
+    } else if (this.currentViewMode === "custom") {
+      // Custom 视图模式
+      allViews = ["customManageView"]
+      allButtons = ["customManageTabButton"]
+      sectionMap = {"customManageView": "customManage"}
+
+      // 添加动态创建的自定义子视图
+      Object.keys(this.customSectionViews || {}).forEach(sectionId => {
+        let viewInfo = this.customSectionViews[sectionId]
+        allViews.push(viewInfo.viewName)
+        allButtons.push(viewInfo.tabButtonName)
+        sectionMap[viewInfo.viewName] = sectionId
+      })
+    }
+
+    // 切换视图和按钮状态
+    allViews.forEach((viewName, index) => {
+      let isTargetView = viewName === targetView
+
+      // 切换视图显示/隐藏
+      if (this[viewName]) {
+        this[viewName].hidden = !isTargetView
+      }
+
+      // 切换按钮选中状态和颜色
+      let buttonName = allButtons[index]
+      if (this[buttonName]) {
+        this[buttonName].isSelected = isTargetView
+
+        // 获取按钮的配置颜色（如果是配置的分区）
+        let sectionKey = sectionMap[viewName]
+        let config = SectionRegistry.getConfig(sectionKey)
+        let selectedColor = config ? config.color : "#457bd3"
+
+        this[buttonName].backgroundColor = MNUtil.hexColorAlpha(
+          isTargetView ? selectedColor : "#9bb2d6",
+          0.8
+        )
+      }
     })
-  }
 
-  allViews.forEach((k, index) => {
-    let isTargetView = k === targetView
-    if (this[k]) {
-      this[k].hidden = !isTargetView
+    // 更新当前分区
+    this.currentSection = sectionMap[targetView]
+
+    // Custom 管理界面不需要 layoutSectionView 和刷新（它有自己的布局逻辑）
+    if (this.currentViewMode === "custom" && targetView === "customManageView") {
+      this.refreshCustomManageView()
+      return
     }
-    if (this[allButtons[index]]) {
-      this[allButtons[index]].isSelected = isTargetView
-      this[allButtons[index]].backgroundColor = MNUtil.hexColorAlpha(isTargetView?"#457bd3":"#9bb2d6",0.8)
+
+    // 先布局再刷新,确保子视图 frame 正确
+    if (this.currentSection && this.currentSection !== "customManage") {
+      this.layoutSectionView(this.currentSection)
     }
-  })
-
-  // 更新当前分区
-  this.currentSection = sectionMap[targetView]
-
-  // Custom 管理界面不需要 layoutSectionView 和刷新（它有自己的布局逻辑）
-  if (this.currentViewMode === "custom" && targetView === "customManageView") {
-    this.refreshCustomManageView()
-    return
+    this.refreshView(targetView)
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "switchView")
   }
-
-  // 先布局再刷新,确保子视图 frame 正确
-  if (this.currentSection && this.currentSection !== "customManage") {
-    this.layoutSectionView(this.currentSection)
-  }
-  this.refreshView(targetView)
 }
 
+/**
+ * 刷新视图内容（配置驱动）
+ * @param {string} targetView - 视图名称（如 "focusView"）
+ */
 pinnerController.prototype.refreshView = function (targetView) {
   try {
-    switch (targetView) {
-      // Pin 视图分区
-      case "focusView":
-        MNUtil.log("refresh focusView")
-        this.refreshSectionCards("focus")
-        break;
-      case "midwayView":
-        MNUtil.log("refresh midwayView")
-        this.refreshSectionCards("midway")
-        break;
-      case "toOrganizeView":
-        MNUtil.log("refresh toOrganizeView")
-        this.refreshSectionCards("toOrganize")
-        break;
-      // Task 视图分区
-      case "taskTodayView":
-        MNUtil.log("refresh taskTodayView")
-        this.refreshSectionCards("taskToday")
-        break;
-      case "taskTomorrowView":
-        MNUtil.log("refresh taskTomorrowView")
-        this.refreshSectionCards("taskTomorrow")
-        break;
-      case "taskThisWeekView":
-        MNUtil.log("refresh taskThisWeekView")
-        this.refreshSectionCards("taskThisWeek")
-        break;
-      case "taskTodoView":
-        MNUtil.log("refresh taskTodoView")
-        this.refreshSectionCards("taskTodo")
-        break;
-      case "taskDailyTaskView":
-        MNUtil.log("refresh taskDailyTaskView")
-        this.refreshSectionCards("taskDailyTask")
-        break;
-      default:
-        break;
+    // 从视图名称提取分区键（移除 "View" 后缀）
+    let sectionKey = targetView.replace(/View$/, '')
+
+    // 检查是否为有效的分区
+    if (SectionRegistry.has(sectionKey)) {
+      MNUtil.log(`refresh ${targetView}`)
+      this.refreshSectionCards(sectionKey)
+    } else if (this.customSectionViews && this.customSectionViews[sectionKey]) {
+      // 自定义子视图
+      this.refreshSectionCards(sectionKey)
+    } else {
+      // 不是标准分区，可能是 Custom 管理界面等特殊视图
+      pinnerUtils.log(`refreshView: ${targetView} 不需要刷新或不存在`, "refreshView")
     }
   } catch (error) {
     pinnerUtils.addErrorLog(error, "refreshView")
@@ -3300,7 +3230,8 @@ pinnerController.prototype.refreshView = function (targetView) {
 }
 
 /**
- * 切换视图模式（Pin ↔ Task）
+ * 切换视图模式（Pin ↔ Task ↔ Custom）（配置驱动）
+ * @param {string} targetMode - 目标模式："pin" | "task" | "custom"
  */
 pinnerController.prototype.switchViewMode = function (targetMode) {
   try {
@@ -3310,25 +3241,25 @@ pinnerController.prototype.switchViewMode = function (targetMode) {
 
     // 隐藏当前模式的所有视图和按钮
     let currentViews, currentButtons
-    if (this.currentViewMode === "pin") {
-      currentViews = ["focusView", "midwayView", "toOrganizeView"]
-      currentButtons = ["focusTabButton","midwayTabButton","toOrganizeTabButton"]
-    } else if (this.currentViewMode === "task") {
-      currentViews = ["taskTodayView", "taskTomorrowView", "taskThisWeekView", "taskTodoView", "taskDailyTaskView"]
-      currentButtons = ["taskTodayTabButton","taskTomorrowTabButton","taskThisWeekTabButton","taskTodoTabButton","taskDailyTaskTabButton"]
+
+    if (this.currentViewMode === "pin" || this.currentViewMode === "task") {
+      // 从 SectionRegistry 获取当前模式的所有分区
+      let currentConfigs = SectionRegistry.getAllByMode(this.currentViewMode)
+      currentViews = currentConfigs.map(c => c.key + "View")
+      currentButtons = currentConfigs.map(c => c.key + "TabButton")
     } else if (this.currentViewMode === "custom") {
       currentViews = ["customManageView"]
+      currentButtons = ["customManageTabButton"]
+
       // 添加所有动态创建的自定义子视图
       Object.keys(this.customSectionViews || {}).forEach(sectionId => {
-        currentViews.push(this.customSectionViews[sectionId].viewName)
-      })
-      currentButtons = ["customManageTabButton"]
-      // 添加所有动态创建的自定义子视图按钮
-      Object.keys(this.customSectionViews || {}).forEach(sectionId => {
-        currentButtons.push(this.customSectionViews[sectionId].tabButtonName)
+        let viewInfo = this.customSectionViews[sectionId]
+        currentViews.push(viewInfo.viewName)
+        currentButtons.push(viewInfo.tabButtonName)
       })
     }
 
+    // 隐藏当前模式的所有视图和按钮
     if (currentViews && currentButtons) {
       currentViews.forEach(viewName => {
         if (this[viewName]) {
@@ -3349,9 +3280,13 @@ pinnerController.prototype.switchViewMode = function (targetMode) {
     // 显示目标模式的默认视图
     let targetView
     if (targetMode === "pin") {
-      targetView = "focusView"
+      // Pin 模式默认显示第一个分区
+      let firstConfig = SectionRegistry.getAllByMode("pin")[0]
+      targetView = firstConfig ? firstConfig.key + "View" : "focusView"
     } else if (targetMode === "task") {
-      targetView = "taskTodayView"
+      // Task 模式默认显示第一个分区
+      let firstConfig = SectionRegistry.getAllByMode("task")[0]
+      targetView = firstConfig ? firstConfig.key + "View" : "taskTodayView"
     } else if (targetMode === "custom") {
       targetView = "customManageView"
       // 刷新管理界面（确保显示最新的自定义子视图列表）
@@ -3373,11 +3308,14 @@ pinnerController.prototype.switchViewMode = function (targetMode) {
 }
 
 /**
- * 创建各分区的子视图
+ * 创建各分区的子视图（配置驱动）
  */
 pinnerController.prototype.createSectionViews = function() {
-  // 为每个分区创建相同的结构（包括 Pin 和 Task 视图的所有分区）
-  ["focus", "midway", "toOrganize", "taskToday", "taskTomorrow", "taskThisWeek", "taskTodo", "taskDailyTask"].forEach(section => {
+  // 从 SectionRegistry 获取所有分区键名
+  let allSectionKeys = SectionRegistry.getOrderedKeys()
+
+  // 为每个分区创建相同的结构
+  allSectionKeys.forEach(section => {
     let viewName = section + "View"
 
     // 创建顶部按钮的滚动容器
