@@ -2093,11 +2093,13 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
               }
 
               // 添加 URL 列表作为文本评论
-              selectedCards.forEach(card => {
-                newNote.appendTextComment("marginnote4app://note/" + card.noteId)
-              })
+              MNUtil.undoGrouping(()=>{
+                selectedCards.forEach(card => {
+                  newNote.appendTextComment("marginnote4app://note/" + card.noteId)
+                })
 
-              newNote.refresh()
+                newNote.refresh()
+              })
 
               // 聚焦到新卡片
               newNote.focusInMindMap(0.3)
@@ -2112,12 +2114,14 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
                 return
               }
 
-              // 生成 URL 列表并添加到当前卡片评论
-              selectedCards.forEach(card => {
-                focusNote.appendTextComment("marginnote4app://note/" + card.noteId)
-              })
+              MNUtil.undoGrouping(()=>{
+                // 生成 URL 列表并添加到当前卡片评论
+                selectedCards.forEach(card => {
+                  focusNote.appendTextComment("marginnote4app://note/" + card.noteId)
+                })
 
-              focusNote.refresh()
+                focusNote.refresh()
+              })
 
               MNUtil.showHUD(`✅ 已添加 ${selectedCards.length} 个链接到当前卡片`)
             }
@@ -2218,10 +2222,12 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
                 return
               }
 
-              // 添加 Markdown 链接列表作为 Markdown 评论
-              newNote.appendMarkdownComment(content)
+              MNUtil.undoGrouping(()=>{
+                // 添加 Markdown 链接列表作为 Markdown 评论
+                newNote.appendMarkdownComment(content)
 
-              newNote.refresh()
+                newNote.refresh()
+              })
               // 聚焦到新卡片
               newNote.focusInMindMap(0.3)
 
@@ -2235,9 +2241,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
                 return
               }
 
-              // 添加 Markdown 链接列表到当前卡片评论
-              focusNote.appendMarkdownComment(content)
-              focusNote.refresh()
+              MNUtil.undoGrouping(()=>{
+                // 添加 Markdown 链接列表到当前卡片评论
+                focusNote.appendMarkdownComment(content)
+                focusNote.refresh()
+              })
 
               MNUtil.showHUD(`✅ 已添加 ${selectedCards.length} 个链接到当前卡片`)
             }
@@ -2827,11 +2835,15 @@ pinnerController.prototype.createSectionTabButton = function (config, radius, is
 
   // 根据选中状态设置颜色
   let buttonColor = isFirst ? config.color : "#9bb2d6"
+
+  // 构建按钮标题（包含 emoji 图标）
+  let title = config.icon ? (config.icon + " " + config.displayName) : config.displayName
+
   MNButton.setConfig(button, {
     color: buttonColor,
     alpha: 0.9,
     opacity: 1.0,
-    title: config.displayName,
+    title: title,
     font: 17,
     bold: true
   })
