@@ -2889,6 +2889,9 @@ pinnerController.prototype.setAllButton = function (hidden) {
   if (this.tabView) {
     this.tabView.hidden = hidden
   }
+  if (this.toolbar) {
+    this.toolbar.hidden = hidden
+  }
 }
 /**
  * 隐藏面板（带动画效果）
