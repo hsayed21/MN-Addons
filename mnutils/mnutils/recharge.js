@@ -24,7 +24,7 @@ const elements = {
     summaryPrice: document.getElementById('summary-price'),
     payButton: document.getElementById('pay-button'),
     payInBrowserButton: document.getElementById('pay-button-browser'),
-    payButtonMobile: document.getElementById('pay-button-mobile')
+    payButtonMobile: document.getElementById('pay-button-mobile'),
 };
 
         /**
@@ -88,6 +88,8 @@ function initEventListeners() {
     elements.payButton.addEventListener('click', handlePayment);
     elements.payInBrowserButton.addEventListener('click', handlePaymentInBrowser);
     elements.payButtonMobile.addEventListener('click', handlePaymentMobile);
+    elements.payButtonMbd.addEventListener('click', handlePaymentMbd);
+    elements.payButtonMbdMobile.addEventListener('click', handlePaymentMbdMobile);
 }
 
 // 处理充值类型选择
@@ -326,10 +328,10 @@ async function handlePayment() {
     }
     switch (state.rechargeType) {
       case "existing":
-        postMessageToAddon("subscription", "recharge", {credit:state.selectedCredits})
+        postMessageToAddon("subscription", "recharge", {credit:state.selectedCredits,target:"afd"})
         break;
       case "new":
-        postMessageToAddon("subscription", "newkey", {credit:state.selectedCredits})
+        postMessageToAddon("subscription", "newkey", {credit:state.selectedCredits,target:"afd"})
         break;
     
       default:
@@ -337,6 +339,58 @@ async function handlePayment() {
     }
 }
 
+// 处理面包多支付
+async function handlePaymentMbd() {    // 验证订单信息
+    if (!validateOrder()) {
+        return;
+    }
+    switch (state.rechargeType) {
+      case "existing":
+        postMessageToAddon("subscription", "recharge", {credit:state.selectedCredits,target:"mbd"})
+        break;
+      case "new":
+        postMessageToAddon("subscription", "newkey", {credit:state.selectedCredits,target:"mbd"})
+        break;
+    
+      default:
+        break;
+    }
+}
+// 处理面包多移动端支付
+async function handlePaymentMbdMobile() {
+    if (!validateOrder()) {
+        return;
+    }
+    switch (state.rechargeType) {
+      case "existing":
+        postMessageToAddon("subscription", "recharge", {credit:state.selectedCredits,openInMobile:true,target:"mbd"})
+        break;
+      case "new":
+        postMessageToAddon("subscription", "newkey", {credit:state.selectedCredits,openInMobile:true,target:"mbd"})
+        break;
+    
+      default:
+        break;
+    }
+}
+// 处理支付
+async function handlePaymentMobile() {
+    // 验证订单信息
+    if (!validateOrder()) {
+        return;
+    }
+    switch (state.rechargeType) {
+      case "existing":
+        postMessageToAddon("subscription", "recharge", {credit:state.selectedCredits,openInMobile:true,target:"afd"})
+        break;
+      case "new":
+        postMessageToAddon("subscription", "newkey", {credit:state.selectedCredits,openInMobile:true,target:"afd"})
+        break;
+    
+      default:
+        break;
+    }
+}
 // 处理支付
 async function handlePaymentInBrowser() {
     // 验证订单信息
@@ -355,24 +409,7 @@ async function handlePaymentInBrowser() {
         break;
     }
 }
-// 处理支付
-async function handlePaymentMobile() {
-    // 验证订单信息
-    if (!validateOrder()) {
-        return;
-    }
-    switch (state.rechargeType) {
-      case "existing":
-        postMessageToAddon("subscription", "recharge", {credit:state.selectedCredits,openInMobile:true})
-        break;
-      case "new":
-        postMessageToAddon("subscription", "newkey", {credit:state.selectedCredits,openInMobile:true})
-        break;
-    
-      default:
-        break;
-    }
-}
+
 
 // 验证订单信息
 function validateOrder() {

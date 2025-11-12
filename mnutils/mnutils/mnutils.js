@@ -946,6 +946,20 @@ static fileTypeFromBase64(content) {
     return {onSelection:false}
   }
   static _currentSelection = {}
+  /**
+   * 返回选中的内容，如果没有选中，则onSelection属性为false
+   * 如果有选中内容，则同时包括text和image，并通过isText属性表明当时是选中的文字还是图片
+   * Retrieves the current selection details.
+   * 
+   * This method checks for the current document controller's selection. If an image is found,
+   * it generates the selection details using the `genSelection` method. If no image is found
+   * in the current document controller, it iterates through all document controllers if the
+   * study controller's document map split mode is enabled. If a selection is found in the
+   * pop-up selection info, it also generates the selection details. If no selection is found,
+   * it returns an object indicating no selection.
+   * 
+   * @returns {{onSelection: boolean, image: null|undefined|NSData, text: null|undefined|string, isText: null|undefined|boolean,docMd5:string|undefined,pageIndex:number|undefined}} The current selection details.
+   */
   static get currentSelection() {
     if (this.selectionRefreshTime) {
       if (Date.now() - this.selectionRefreshTime > 100) {//超过100ms，重新获取选区信息
@@ -1346,6 +1360,83 @@ static fileTypeFromBase64(content) {
       allNotes = studySetId.notes
     }
     return allNotes.filter(note=>note.docMd5.endsWith("_StudySet"))
+  }
+/**
+ * 将 NSFileManager 返回的文件属性对象转换为 Node.js fs.Stats 格式
+ * @param {Object} nsAttrs - NSFileManager 获取的文件属性
+ * @returns {Object} - 模拟 Node.js fs.Stats 的对象
+ */
+  static convertNsAttrsToFsStats(nsAttrs) {
+  // 处理时间：ISO 字符串 → Date 对象
+
+  // 处理权限：NSFilePosixPermissions（十进制）→ Node.js mode（八进制）
+  const mode = nsAttrs.NSFilePosixPermissions ? 
+    `0o${nsAttrs.NSFilePosixPermissions.toString(8)}` : null;
+
+  // 构建模拟的 Stats 对象
+  const stats = {
+    // 核心属性（与 Node.js fs.Stats 对齐）
+    dev: nsAttrs.NSFileSystemNumber || 0,       // 设备 ID（对应 NSFileSystemNumber）
+    ino: nsAttrs.NSFileSystemFileNumber || 0,   // inode 编号（对应 NSFileSystemFileNumber）
+    mode: mode ? parseInt(mode, 8) : 0,         // 权限模式（八进制）
+    nlink: nsAttrs.NSFileReferenceCount || 1,   // 硬链接数（对应 NSFileReferenceCount）
+    uid: nsAttrs.NSFileOwnerAccountID || 0,     // 用户 ID（对应 NSFileOwnerAccountID）
+    gid: nsAttrs.NSFileGroupOwnerAccountID || 0,// 组 ID（对应 NSFileGroupOwnerAccountID）
+    rdev: 0,                                    // 特殊设备 ID（NSFileManager 无直接对应，默认 0）
+    size: nsAttrs.NSFileSize || 0,              // 文件大小（对应 NSFileSize）
+    blksize: 4096,                              // 块大小（NSFileManager 无直接对应，默认 4096）
+    blocks: nsAttrs.NSFileSize ? Math.ceil(nsAttrs.NSFileSize / 4096) : 0, // 块数（计算值）
+    atimeMs: this.convertDate(nsAttrs.NSFileModificationDate)?.getTime() || 0, // 最后访问时间（NSFileManager 无直接对应，暂用修改时间）
+    mtimeMs: this.convertDate(nsAttrs.NSFileModificationDate)?.getTime() || 0, // 最后修改时间（对应 NSFileModificationDate）
+    ctimeMs: this.convertDate(nsAttrs.NSFileCreationDate)?.getTime() || 0,     // 状态改变时间（对应 NSFileCreationDate）
+    birthtimeMs: this.convertDate(nsAttrs.NSFileCreationDate)?.getTime() || 0, // 创建时间（对应 NSFileCreationDate）
+
+    // 时间对象（Node.js Stats 同时提供 ms 和 Date 对象两种格式）
+    atime: this.convertDate(nsAttrs.NSFileModificationDate) || new Date(0),
+    mtime: this.convertDate(nsAttrs.NSFileModificationDate) || new Date(0),
+    ctime: this.convertDate(nsAttrs.NSFileCreationDate) || new Date(0),
+    birthtime: this.convertDate(nsAttrs.NSFileCreationDate) || new Date(0),
+
+    // NSFileManager 特有的属性（保留供参考）
+    _nsFileType: nsAttrs.NSFileType,
+    _nsFileOwnerAccountName: nsAttrs.NSFileOwnerAccountName,
+    _nsFileGroupOwnerAccountName: nsAttrs.NSFileGroupOwnerAccountName,
+    _nsFileProtectionKey: nsAttrs.NSFileProtectionKey,
+    _nsFileExtendedAttributes: nsAttrs.NSFileExtendedAttributes
+  };
+
+  // 添加类型判断方法（模拟 Node.js Stats 的 isFile()/isDirectory() 等）
+  stats.isFile = () => stats._nsFileType === 'NSFileTypeRegular';
+  stats.isDirectory = () => stats._nsFileType === 'NSFileTypeDirectory';
+  stats.isSymbolicLink = () => stats._nsFileType === 'NSFileTypeSymbolicLink';
+  stats.isFIFO = () => stats._nsFileType === 'NSFileTypeFIFO';
+  stats.isSocket = () => stats._nsFileType === 'NSFileTypeSocket';
+  stats.isBlockDevice = () => stats._nsFileType === 'NSFileTypeBlockSpecial';
+  stats.isCharacterDevice = () => stats._nsFileType === 'NSFileTypeCharacterSpecial';
+
+  return stats;
+}
+/**
+ * 获取文件属性
+ * @param {string} path 
+ * @returns {Object}
+ * @property {number} size 文件大小
+ * @property {number} atimeMs 最后访问时间
+ * @property {number} mtimeMs 最后修改时间
+ * @property {number} ctimeMs 状态改变时间
+ * @property {number} birthtimeMs 创建时间
+ * @property {Date} atime 最后访问时间
+ * @property {Date} mtime 最后修改时间
+ * @property {Date} ctime 状态改变时间
+ * @property {Date} birthtime 创建时间
+ * @property {string} path 文件路径
+ */
+  static getFileAttributes(path){
+    let fileManager = NSFileManager.defaultManager()
+    let attributes = fileManager.attributesOfItemAtPath(path)
+    attributes = this.convertNsAttrsToFsStats(attributes)
+    attributes.path = path
+    return attributes
   }
   static strCode(str) {  //获取字符串的字节数
     var count = 0;  //初始化字节数递加变量并获取字符串参数的字符个数
@@ -2090,9 +2181,11 @@ static textMatchPhrase(text, query) {
     return false
   }
   static noteExists(noteId){
-    let note = this.db.getNoteById(noteId)
-    if (note) {
-      return true
+    if (noteId && noteId.trim()){
+      let note = this.db.getNoteById(noteId)
+      if (note) {
+        return true
+      }
     }
     return false
   }
@@ -5312,6 +5405,7 @@ class MNButton{
     this.button.layer.cornerRadius = radius;
     MNButton.setConfig(this.button, config)
     this.titleLabel = this.button.titleLabel
+    this.layer = this.button.layer
     if (superView) {
       superView.addSubview(this.button)
     }
@@ -5367,6 +5461,18 @@ class MNButton{
   }
   get gestureRecognizers(){
     return this.button.gestureRecognizers
+  }
+  get borderColor(){
+    return this.button.layer.borderColor
+  }
+  get borderWidth(){
+    return this.button.layer.borderWidth
+  }
+  set borderColor(color){
+    this.button.layer.borderColor = color
+  }
+  set borderWidth(width){
+    this.button.layer.borderWidth = width
   }
   /**
    * 
