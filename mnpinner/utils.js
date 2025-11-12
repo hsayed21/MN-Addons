@@ -216,6 +216,44 @@ class pinnerUtils {
       return false
     }
   }
+
+  /**
+   * Pin 剪贴板文本
+   * @param {String} text - 剪贴板文本内容
+   * @param {Object} options - 选项
+   * @returns {Boolean} 是否成功
+   */
+  static pinClipboard(text, options = {}) {
+    try {
+      const {
+        section = "focus",
+        position = "top",
+        title = null
+      } = options
+
+      // 验证文本内容
+      if (!text || text.trim().length === 0) {
+        MNUtil.showHUD("文本内容不能为空")
+        return false
+      }
+
+      // 限制文本长度（防止性能问题）
+      const maxTextLength = 10000
+      if (text.length > maxTextLength) {
+        MNUtil.showHUD(`文本过长，已截取前 ${maxTextLength} 字符`)
+        text = text.substring(0, maxTextLength)
+      }
+
+      // 创建 Clipboard Pin 数据
+      let clipboardPin = pinnerConfig.createClipboardPin(text, title)
+
+      // 添加到指定分区
+      return pinnerConfig.addPin(clipboardPin, section, position)
+    } catch (error) {
+      this.addErrorLog(error, "pinnerUtils:pinClipboard")
+      return false
+    }
+  }
 }
 
 
@@ -754,7 +792,9 @@ class pinnerConfig {
       defaultSection: "focus",     // 默认打开的分区
       rememberLastView: true,      // 是否记住上次视图（默认开启）
       lastViewMode: "pin",         // 上次的视图模式
-      lastSection: "focus"         // 上次的分区
+      lastSection: "focus",        // 上次的分区
+      clipboardTitleStrategy: "truncate",  // 剪贴板标题生成策略：truncate（截取） 或 firstLine（首行）
+      clipboardTitleLength: 30     // 剪贴板标题截取长度（默认30字符）
     }
   }
 
@@ -1470,6 +1510,36 @@ class pinnerConfig {
       pageIndex: pageIndex,
       title: title || `第${pageIndex + 1}页`,
       note: note || "",
+      pinnedAt: Date.now()
+    }
+  }
+
+  /**
+   * 创建剪贴板文本 Pin 对象
+   * @param {String} text - 剪贴板文本内容
+   * @param {String} title - Pin 的标题（可选，根据设置自动生成）
+   * @returns {Object} 剪贴板文本 Pin 对象
+   */
+  static createClipboardPin(text, title) {
+    // 如果没有提供标题，根据设置生成默认标题
+    if (!title) {
+      const strategy = this.settings.clipboardTitleStrategy || "truncate"
+      const maxLength = this.settings.clipboardTitleLength || 30
+      
+      if (strategy === "firstLine") {
+        // 策略2：使用第一行作为标题
+        const firstLine = text.split('\n')[0].trim()
+        title = firstLine.substring(0, maxLength) + (firstLine.length > maxLength ? "..." : "")
+      } else {
+        // 策略1：截取前N个字符（默认）
+        title = text.substring(0, maxLength) + (text.length > maxLength ? "..." : "")
+      }
+    }
+    
+    return {
+      type: "clipboard",
+      text: text,
+      title: title,
       pinnedAt: Date.now()
     }
   }

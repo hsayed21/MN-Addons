@@ -132,6 +132,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         buttonX += 100
       }
 
+      if (self.toolbarPinClipboardButton) {
+        self.toolbarPinClipboardButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+        buttonX += 100
+      }
+
       if (self.toolbarAddButton) {
         self.toolbarAddButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
         buttonX += 100
@@ -1077,6 +1082,50 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
+   * Pin 当前剪贴板内容到当前分区
+   */
+  pinCurrentClipboard: async function(button) {
+    try {
+      // 获取系统剪贴板文本
+      let clipboardText = UIPasteboard.generalPasteboard().string
+
+      if (!clipboardText || clipboardText.trim().length === 0) {
+        MNUtil.showHUD("剪贴板为空")
+        return
+      }
+
+      // 获取当前分区
+      let section = button.section || self.currentSection
+
+      // 弹出输入框让用户自定义标题（可选）
+      let result = await MNUtil.userInput(
+        "Pin 剪贴板文本",
+        "请输入标题（留空自动生成）",
+        ["取消", "确定"]
+      )
+
+      if (result.button === 0) return  // 点击取消
+
+      let title = result.input.trim() || null  // 空字符串转为 null，让工厂方法自动生成
+
+      // 调用工具方法添加剪贴板 Pin
+      if (pinnerUtils.pinClipboard(clipboardText, {
+        section: section,
+        position: "top",
+        title: title
+      })) {
+        MNUtil.showHUD(`✅ 已添加到 ${pinnerConfig.getSectionDisplayName(section)}`)
+        // 刷新当前分区视图
+        self.refreshSectionCards(section)
+      }
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinCurrentClipboard")
+      MNUtil.showHUD("Pin 剪贴板失败: " + error.message)
+    }
+  },
+
+  /**
    * 创建空白占位卡片
    */
   createBlankCard: async function(button) {
@@ -1756,6 +1805,317 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pageItemTapped")
       MNUtil.showHUD(error)
+    }
+  },
+
+  // ========== 剪贴板 Pin 事件处理方法 ==========
+  
+  /**
+   * 复制剪贴板文本到系统剪贴板
+   */
+  copyClipboardText: function(button) {
+    try {
+      let index = button.tag
+      let section = button.section || self.currentSection
+      
+      let pins = pinnerConfig.getPins(section)
+      let clipboard = pins[index]
+      
+      if (clipboard && clipboard.text) {
+        MNUtil.copy(clipboard.text)
+        MNUtil.showHUD("✅ 已复制到剪贴板")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "copyClipboardText")
+      MNUtil.showHUD("复制失败")
+    }
+  },
+  
+  /**
+   * 预览剪贴板文本（弹窗显示完整内容）
+   */
+  previewClipboardText: function(button) {
+    try {
+      let index = button.tag
+      let section = button.section || self.currentSection
+
+      let pins = pinnerConfig.getPins(section)
+      let clipboard = pins[index]
+
+      if (!clipboard || !clipboard.text) {
+        MNUtil.showHUD("数据已失效")
+        return
+      }
+
+      // 使用正确的 UIAlertView API 显示完整文本
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        clipboard.title || "文本内容",
+        clipboard.text,
+        0,  // alertViewStyle: 0 = 普通对话框（无输入框）
+        "关闭",
+        null,  // 没有其他按钮
+        null   // 没有回调
+      )
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "previewClipboardText")
+      MNUtil.showHUD("预览失败")
+    }
+  },
+  
+  /**
+   * 编辑剪贴板文本
+   */
+  editClipboardText: async function(button) {
+    try {
+      let index = button.tag
+      let section = button.section || self.currentSection
+
+      let pins = pinnerConfig.getPins(section)
+      let clipboard = pins[index]
+
+      if (!clipboard || !clipboard.text) {
+        MNUtil.showHUD("数据已失效")
+        return
+      }
+
+      // 使用 MNUtil.userInput 并设置默认值（前100个字符）
+      let defaultText = clipboard.text.length > 100
+        ? clipboard.text.substring(0, 100) + "..."
+        : clipboard.text
+
+      let result = await MNUtil.userInput(
+        "编辑文本",
+        "请输入新的文本内容",
+        ["取消", "保存"],
+        {default: defaultText}
+      )
+
+      if (result.button === 0) return  // 点击取消
+
+      let newText = result.input.trim()
+      if (!newText || newText.length === 0) {
+        MNUtil.showHUD("文本内容不能为空")
+        return
+      }
+
+      // 更新文本内容
+      clipboard.text = newText
+
+      // 根据策略重新生成标题
+      const strategy = pinnerConfig.settings.clipboardTitleStrategy || "truncate"
+      const maxLength = pinnerConfig.settings.clipboardTitleLength || 30
+
+      if (strategy === "firstLine") {
+        const firstLine = newText.split('\n')[0].trim()
+        clipboard.title = firstLine.substring(0, maxLength) + (firstLine.length > maxLength ? "..." : "")
+      } else {
+        clipboard.title = newText.substring(0, maxLength) + (newText.length > maxLength ? "..." : "")
+      }
+
+      // 保存
+      pinnerConfig.save()
+
+      // 刷新视图
+      self.refreshView(section + "View")
+
+      MNUtil.showHUD("✅ 已更新")
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "editClipboardText")
+      MNUtil.showHUD("编辑失败")
+    }
+  },
+  
+  /**
+   * 点击剪贴板文本标题，显示菜单
+   */
+  clipboardItemTapped: function(button) {
+    try {
+      let index = button.tag
+      let section = button.section || self.currentSection
+      
+      let pins = pinnerConfig.getPins(section)
+      let clipboard = pins[index]
+      
+      if (!clipboard) {
+        MNUtil.showHUD("数据已失效，正在刷新...")
+        self.refreshSectionCards(section)
+        return
+      }
+      
+      let param = {
+        index: index,
+        clipboard: clipboard,
+        section: section,
+        button: button
+      }
+      
+      // 创建菜单选项
+      let commandTable = [
+        self.tableItem("📋 复制文本", "copyClipboardTextFromMenu:", param),
+        self.tableItem("👁️ 查看完整内容", "previewClipboardTextFromMenu:", param),
+        self.tableItem("✏️ 编辑文本", "editClipboardTextFromMenu:", param),
+        self.tableItem("✏️ 修改标题", "renameClipboard:", param),
+        self.tableItem("↔️ 转移到...", "showTransferMenu:", param)
+      ]
+      
+      // 显示弹出菜单
+      self.popoverController = MNUtil.getPopoverAndPresent(
+        button,
+        commandTable,
+        150,
+        35 * commandTable.length
+      )
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "clipboardItemTapped")
+      MNUtil.showHUD("菜单显示失败")
+    }
+  },
+  
+  /**
+   * 从菜单中复制文本
+   */
+  copyClipboardTextFromMenu: function(param) {
+    try {
+      self.checkPopover()  // 关闭菜单
+      let clipboard = param.clipboard
+      if (clipboard && clipboard.text) {
+        MNUtil.copy(clipboard.text)
+        MNUtil.showHUD("✅ 已复制到剪贴板")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "copyClipboardTextFromMenu")
+      MNUtil.showHUD("复制失败")
+    }
+  },
+  
+  /**
+   * 从菜单中预览文本
+   */
+  previewClipboardTextFromMenu: function(param) {
+    try {
+      self.checkPopover()  // 关闭菜单
+      let clipboard = param.clipboard
+      if (!clipboard || !clipboard.text) {
+        MNUtil.showHUD("数据已失效")
+        return
+      }
+
+      // 使用正确的 UIAlertView API 显示完整文本
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        clipboard.title || "文本内容",
+        clipboard.text,
+        0,  // alertViewStyle: 0 = 普通对话框（无输入框）
+        "关闭",
+        null,  // 没有其他按钮
+        null   // 没有回调
+      )
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "previewClipboardTextFromMenu")
+      MNUtil.showHUD("预览失败")
+    }
+  },
+  
+  /**
+   * 从菜单中编辑文本
+   */
+  editClipboardTextFromMenu: async function(param) {
+    try {
+      self.checkPopover()  // 关闭菜单
+      let section = param.section
+      let clipboard = param.clipboard
+
+      if (!clipboard || !clipboard.text) {
+        MNUtil.showHUD("数据已失效")
+        return
+      }
+
+      // 使用 MNUtil.userInput 并设置默认值（前100个字符）
+      let defaultText = clipboard.text.length > 100
+        ? clipboard.text.substring(0, 100) + "..."
+        : clipboard.text
+
+      let result = await MNUtil.userInput(
+        "编辑文本",
+        "请输入新的文本内容",
+        ["取消", "保存"],
+        {default: defaultText}
+      )
+
+      if (result.button === 0) return  // 点击取消
+
+      let newText = result.input.trim()
+      if (!newText || newText.length === 0) {
+        MNUtil.showHUD("文本内容不能为空")
+        return
+      }
+
+      // 更新文本内容
+      clipboard.text = newText
+
+      // 重新生成标题
+      const strategy = pinnerConfig.settings.clipboardTitleStrategy || "truncate"
+      const maxLength = pinnerConfig.settings.clipboardTitleLength || 30
+
+      if (strategy === "firstLine") {
+        const firstLine = newText.split('\n')[0].trim()
+        clipboard.title = firstLine.substring(0, maxLength) + (firstLine.length > maxLength ? "..." : "")
+      } else {
+        clipboard.title = newText.substring(0, maxLength) + (newText.length > maxLength ? "..." : "")
+      }
+
+      pinnerConfig.save()
+      self.refreshView(section + "View")
+      MNUtil.showHUD("✅ 已更新")
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "editClipboardTextFromMenu")
+      MNUtil.showHUD("编辑失败")
+    }
+  },
+  
+  /**
+   * 修改剪贴板 Pin 的标题
+   */
+  renameClipboard: async function(param) {
+    try {
+      self.checkPopover()  // 关闭菜单
+      let clipboard = param.clipboard
+      let section = param.section
+
+      if (!clipboard) {
+        MNUtil.showHUD("数据已失效")
+        return
+      }
+
+      // 使用 MNUtil.userInput 并设置当前标题为默认值
+      let result = await MNUtil.userInput(
+        "修改标题",
+        "请输入新标题",
+        ["取消", "确定"],
+        {default: clipboard.title || ""}
+      )
+
+      if (result.button === 0) return  // 点击取消
+
+      let newTitle = result.input.trim()
+      if (!newTitle || newTitle.length === 0) {
+        MNUtil.showHUD("标题不能为空")
+        return
+      }
+
+      // 更新标题
+      clipboard.title = newTitle
+      pinnerConfig.save()
+
+      // 刷新视图
+      self.refreshView(section + "View")
+
+      MNUtil.showHUD("✅ 标题已更新")
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "renameClipboard")
+      MNUtil.showHUD("修改标题失败")
     }
   },
 
@@ -3323,6 +3683,14 @@ pinnerController.prototype.createToolbarButtons = function() {
     })
     buttonX += 100
 
+    // 4.5. Pin 剪贴板按钮（新增）
+    this.createButton("toolbarPinClipboardButton", "pinCurrentClipboard:", "toolbarScrollView")
+    this.toolbarPinClipboardButton.frame = {x: buttonX, y: 0, width: 110, height: buttonHeight}
+    MNButton.setConfig(this.toolbarPinClipboardButton, {
+      color: "#98c379", alpha: 0.8, opacity: 1.0, title: "📋 Pin 剪贴板", radius: 6, font: 14
+    })
+    buttonX += 115
+
     // 5. Add 按钮（新增）
     this.createButton("toolbarAddButton", "createBlankCard:", "toolbarScrollView")
     this.toolbarAddButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
@@ -3602,6 +3970,9 @@ pinnerController.prototype.refreshSectionCards = function(section) {
       // 根据 type 字段选择渲染方法
       if (pin.type === "page") {
         row = this.createPageRow(pin, index, scrollWidth - 20, section, cards.length)
+      } else if (pin.type === "clipboard") {
+        // 剪贴板文本类型
+        row = this.createClipboardRow(pin, index, scrollWidth - 20, section)
       } else {
         // type === "card" 或没有 type 字段（兼容旧数据，默认为 card）
         row = this.createCardRow(pin, index, scrollWidth - 20, section)
@@ -3920,6 +4291,137 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   rowView.addSubview(deleteButton)
 
   return rowView
+}
+
+/**
+ * 创建剪贴板文本 Pin 的行视图
+ * @param {Object} clipboard - 剪贴板 Pin 对象
+ * @param {Number} index - 索引
+ * @param {Number} width - 宽度
+ * @param {String} section - 分区
+ * @returns {UIView} 行视图
+ */
+pinnerController.prototype.createClipboardRow = function(clipboard, index, width, section) {
+    const UI_CONSTANTS = {
+      ROW_HEIGHT: 50,  // 剪贴板行高度（比 Card 稍高，因为按钮更多）
+      BUTTON_SIZE: 30,
+      BUTTON_SPACING: 35
+    }
+    
+    // 创建行容器
+    let rowView = UIView.new()
+    rowView.frame = {
+      x: 10,
+      y: 10 + index * UI_CONSTANTS.ROW_HEIGHT,
+      width: width,
+      height: 45
+    }
+    rowView.backgroundColor = MNUtil.hexColorAlpha("#ffffff", 0.95)
+    rowView.layer.cornerRadius = 8
+    rowView.layer.borderWidth = 1
+    rowView.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6", 0.3)
+    
+    rowView.tag = index
+    rowView.section = section
+    
+    let xOffset = 5
+    
+    // 1. 上移按钮
+    let moveUpButton = UIButton.buttonWithType(0)
+    moveUpButton.setTitleForState("⬆️", 0)
+    moveUpButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+    moveUpButton.layer.cornerRadius = 5
+    moveUpButton.tag = index
+    moveUpButton.section = section
+    moveUpButton.addTargetActionForControlEvents(this, "moveCardUp:", 1 << 6)
+    if (index === 0) {
+      moveUpButton.enabled = false
+      moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
+    } else {
+      moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+    }
+    rowView.addSubview(moveUpButton)
+    xOffset += UI_CONSTANTS.BUTTON_SPACING
+    
+    // 2. 下移按钮
+    let moveDownButton = UIButton.buttonWithType(0)
+    moveDownButton.setTitleForState("⬇️", 0)
+    moveDownButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+    moveDownButton.layer.cornerRadius = 5
+    moveDownButton.tag = index
+    moveDownButton.section = section
+    moveDownButton.addTargetActionForControlEvents(this, "moveCardDown:", 1 << 6)
+    let totalCards = pinnerConfig.getPins(section).length
+    if (index === totalCards - 1) {
+      moveDownButton.enabled = false
+      moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
+    } else {
+      moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+    }
+    rowView.addSubview(moveDownButton)
+    xOffset += UI_CONSTANTS.BUTTON_SPACING
+    
+    // 3. 复制按钮
+    let copyButton = UIButton.buttonWithType(0)
+    copyButton.setTitleForState("📋", 0)
+    copyButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+    copyButton.backgroundColor = MNUtil.hexColorAlpha("#61afef", 0.8)
+    copyButton.layer.cornerRadius = 5
+    copyButton.tag = index
+    copyButton.section = section
+    copyButton.addTargetActionForControlEvents(this, "copyClipboardText:", 1 << 6)
+    rowView.addSubview(copyButton)
+    xOffset += UI_CONSTANTS.BUTTON_SPACING
+    
+    // 4. 预览按钮
+    let previewButton = UIButton.buttonWithType(0)
+    previewButton.setTitleForState("👁", 0)
+    previewButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+    previewButton.backgroundColor = MNUtil.hexColorAlpha("#98c379", 0.8)
+    previewButton.layer.cornerRadius = 5
+    previewButton.tag = index
+    previewButton.section = section
+    previewButton.addTargetActionForControlEvents(this, "previewClipboardText:", 1 << 6)
+    rowView.addSubview(previewButton)
+    xOffset += UI_CONSTANTS.BUTTON_SPACING
+    
+    // 5. 编辑按钮
+    let editButton = UIButton.buttonWithType(0)
+    editButton.setTitleForState("✏️", 0)
+    editButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+    editButton.backgroundColor = MNUtil.hexColorAlpha("#e5c07b", 0.8)
+    editButton.layer.cornerRadius = 5
+    editButton.tag = index
+    editButton.section = section
+    editButton.addTargetActionForControlEvents(this, "editClipboardText:", 1 << 6)
+    rowView.addSubview(editButton)
+    xOffset += UI_CONSTANTS.BUTTON_SPACING + 5
+    
+    // 6. 标题按钮（显示标题，点击弹出菜单）
+    let titleButton = UIButton.buttonWithType(0)
+    titleButton.setTitleForState(`📝 ${clipboard.title || "未命名文本"}`, 0)
+    titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
+    titleButton.frame = {x: xOffset, y: 5, width: width - xOffset - 50, height: 35}
+    titleButton.tag = index
+    titleButton.section = section
+    titleButton.addTargetActionForControlEvents(this, "clipboardItemTapped:", 1 << 6)
+    titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#007AFF", 1.0), 0)
+    titleButton.setTitleColorForState(MNUtil.hexColorAlpha("#0051D5", 1.0), 1)
+    titleButton.contentHorizontalAlignment = 1  // 左对齐
+    rowView.addSubview(titleButton)
+    
+    // 7. 删除按钮
+    let deleteButton = UIButton.buttonWithType(0)
+    deleteButton.setTitleForState("🗑", 0)
+    deleteButton.frame = {x: width - 40, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+    deleteButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 0.8)
+    deleteButton.layer.cornerRadius = 5
+    deleteButton.tag = index
+    deleteButton.section = section
+    deleteButton.addTargetActionForControlEvents(this, "deleteCard:", 1 << 6)
+    rowView.addSubview(deleteButton)
+
+    return rowView
 }
 
 
