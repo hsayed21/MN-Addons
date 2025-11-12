@@ -18,12 +18,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 mnpinner/
-├── main.js                 # 插件入口和生命周期
-├── utils.js                # 工具类和配置管理
-├── webviewController.js    # 视图控制器（精简版）
+├── main.js                 # 插件入口和生命周期（~600 行）
+├── utils.js                # 工具类和配置管理（~2200 行）
+├── webviewController.js    # 主视图控制器（~1800 行）
+├── settingController.js    # 设置视图控制器（~600 行，已废弃）
+├── index.html              # 静态模板（未使用）
 ├── mnaddon.json           # 插件配置
 └── logo.png               # 插件图标
 ```
+
+**注：** `settingController.js` 已实现但未集成到主面板，其功能在 `webviewController.js` 的 `preferencesView` 中重新实现。
 
 ### 关键类
 
@@ -66,7 +70,10 @@ mnpinner/
     alwaysAskCardTitle: false,
     alwaysAskPageTitle: false,
     defaultViewMode: "pin",
-    defaultSection: "focus"
+    defaultSection: "focus",
+    rememberLastView: true,     // 记住上次视图
+    lastViewMode: "pin",         // 上次的视图模式
+    lastSection: "focus"         // 上次的分区
   }
 }
 ```
@@ -92,23 +99,85 @@ Pin 数据类型：
 ```
 
 核心方法：
-- `createCardPin(noteId, title)` - 创建 Card Pin
-- `createPagePin(docMd5, pageIndex, title, note)` - 创建 Page Pin
-- `addPin(pinData, section, position)` - 添加 Pin
-- `removePin(pinOrId, section)` - 删除 Pin
-- `movePin(oldIndex, newIndex, section)` - 移动顺序
-- `transferPin(pinOrId, fromSection, toSection)` - 转移分区
-- `save(sectionName)` - 保存数据
+
+**创建与添加：**
+- `createCardPin(noteId, title)` - 工厂方法：创建 Card Pin
+- `createPagePin(docMd5, pageIndex, title, note)` - 工厂方法：创建 Page Pin
+- `addPin(pinData, section, position)` - 统一添加方法（支持 top/bottom/index）
+
+**删除与修改：**
+- `removePin(pinOrId, section)` - 删除 Pin（支持对象或 ID）
+- `updatePinTitle(noteId, newTitle, section)` - 更新卡片标题
+- `updatePageTitle(oldTitle, newPageIndex)` - 智能更新页面标题中的页数
+- `clearPins(section)` - 清空分区（返回 Promise）
+
+**移动与转移：**
+- `movePin(oldIndex, newIndex, section)` - 调整顺序
+- `transferPin(pinOrId, fromSection, toSection)` - 转移到其他分区
+
+**查询：**
+- `getPins(section)` - 获取分区所有 Pin
+- `getAllConfig()` - 获取完整配置
+- `isValidTotalConfig(data)` - 验证配置格式
+
+**导入导出：**
+- `exportToFile()` - 导出为 JSON 文件
+- `exportToClipboard()` - 导出到剪贴板
+- `exportToCard(targetNote)` - 导出到指定卡片
+- `importConfig(newConfig)` - 导入配置（自动迁移）
+- `importFromFile()` - 从文件导入
+- `importFromClipboard()` - 从剪贴板导入
+- `importFromCard(note)` - 从卡片导入
+
+**数据持久化：**
+- `save(sectionName)` - 保存数据（可选指定分区）
+- `load()` - 加载数据
 
 #### 3. pinnerController (webviewController.js)
 
-视图控制器（精简版）
+主视图控制器
 
-功能：
-- WebView 管理
-- 关闭按钮和拖动手势
-- 显示/隐藏动画
-- JavaScript 交互
+**核心功能：**
+- WebView 创建和生命周期管理
+- 多分区视图创建和切换（配置驱动）
+- 视图模式切换（Pin ↔ Task ↔ Custom）
+- 底部工具栏管理（8个快捷按钮）
+- 拖放移动手势（支持边缘吸附）
+- 调整大小手势（右下角调整）
+- 多选模式和批量导出
+- 显示/隐藏动画（淡入淡出）
+- JavaScript 交互和数据绑定
+
+**视图层级结构：**
+```
+this.view (主容器)
+├── moveButton (拖动柄，蓝色圆点)
+├── closeButton (关闭按钮)
+├── resizeButton (调整大小按钮)
+├── settingView (主内容区)
+│   ├── tabView (标签栏，水平滚动)
+│   │   ├── focusTabButton (分区标签按钮)
+│   │   ├── midwayTabButton
+│   │   └── ... (其他分区按钮，配置驱动创建)
+│   ├── focusView (分区容器，只显示一个)
+│   │   └── focusCardScrollView (卡片列表滚动视图)
+│   ├── midwayView
+│   │   └── midwayCardScrollView
+│   └── ... (其他分区容器)
+└── toolbar (底部工具栏)
+    ├── viewModeButton (视图模式切换)
+    ├── toolbarClearButton (清空分区)
+    ├── toolbarPinCardButton (Pin 卡片)
+    ├── toolbarPinPageButton (Pin 页面)
+    ├── toolbarAddButton (手动添加)
+    ├── toolbarExportURLButton (导出 URL)
+    └── toolbarExportMarkdownButton (导出 Markdown)
+
+preferencesView (设置窗口，叠加显示)
+├── 默认视图设置
+├── 行为设置（是否弹窗询问标题）
+└── 预设短语管理
+```
 
 #### 4. MNPinnerClass (main.js)
 
@@ -199,6 +268,127 @@ marginnote4app://addon/mnpinner?action=pinPageToSection&docMd5=ABC123&pageIndex=
 2. 参数验证：无效的 section 会返回错误
 3. 去重检查：重复添加相同 ID 会提示"卡片已存在"
 
+## 数据存储与迁移
+
+### NSUserDefaults 键值表
+
+插件使用 NSUserDefaults 存储所有数据，键值如下：
+
+| 键名 | 数据类型 | 说明 | 示例 |
+|------|--------|------|------|
+| `MNPinner_sections` | Object | 所有分区的卡片数据 | `{focus: [], midway: [], ...}` |
+| `MNPinner_config` | Object | 配置信息（版本、预设短语） | `{version: "1.0.0", pageTitlePresets: []}` |
+| `MNPinner_settings` | Object | 用户设置 | `{defaultViewMode: "pin", ...}` |
+| `MNPinner_sectionConfigs` | JSON String | 分区元数据（用户自定义配置） | SectionRegistry 配置 |
+| `MNPinner_temporaryPins` | Array | **已废弃**（v1.0 遗留） | - |
+
+### 数据迁移机制
+
+插件启动时（`pinnerConfig.init()`）会自动执行数据迁移，确保向后兼容：
+
+#### 迁移流程
+
+```javascript
+// v0 → v1.0 迁移
+if (临时卡片存在) {
+  迁移所有临时卡片到 midway 分区
+  删除旧的 temporaryPins 键
+}
+
+// v1.0 → v1.1 迁移
+for (每个分区的所有 Pin) {
+  if (!pin.type) {
+    pin.type = "card"  // 添加 type 字段
+  }
+}
+
+// v1.1 → v1.2 迁移
+if (pages 分区存在) {
+  迁移 pages 所有数据到 toOrganize
+  清空 pages 分区
+}
+if (dailyTask 分区存在) {
+  迁移 dailyTask 所有数据到 taskDailyTask
+  清空 dailyTask 分区
+}
+
+// 新增分区初始化
+for (SectionRegistry 中的所有分区) {
+  if (!pinnerConfig.sections[section]) {
+    pinnerConfig.sections[section] = []  // 初始化空数组
+  }
+}
+```
+
+#### 版本历史
+
+| 版本 | 变更内容 | 迁移说明 |
+|------|--------|--------|
+| v0.x | 临时卡片功能 | - |
+| v1.0 | 迁移到分区系统 | temporaryPins → midway |
+| v1.1 | 添加 type 字段 | 所有 Pin 添加 type: "card" |
+| v1.2 | 分区重命名 | pages → toOrganize, dailyTask → taskDailyTask |
+| v2.0 | 配置驱动架构 | SectionRegistry 引入 |
+| v2.1 | 自定义视图 | 新增 custom1-5 分区 |
+
+### 数据导出格式
+
+#### 完整配置结构
+
+```javascript
+{
+  sections: {
+    focus: [
+      {type: "card", noteId: "xxx", title: "卡片标题"},
+      {type: "page", docMd5: "xxx", pageIndex: 5, title: "第6页", note: "备注", pinnedAt: 1234567890}
+    ],
+    midway: [],
+    // ... 其他分区
+  },
+  config: {
+    version: "1.2.0",
+    source: "focus",
+    pageTitlePresets: ["重要", "复习", "待办"]
+  },
+  settings: {
+    alwaysAskCardTitle: false,
+    alwaysAskPageTitle: false,
+    defaultViewMode: "pin",
+    defaultSection: "focus",
+    rememberLastView: true,
+    lastViewMode: "pin",
+    lastSection: "focus"
+  }
+}
+```
+
+#### 导出方式对比
+
+| 方式 | 方法 | 适用场景 | 特点 |
+|------|------|--------|------|
+| 导出到文件 | `exportToFile()` | 完整备份 | 弹出文件选择器，保存为 .json |
+| 导出到剪贴板 | `exportToClipboard()` | 快速分享 | 自动复制到剪贴板 |
+| 导出到卡片 | `exportToCard(note)` | 集成到笔记 | 创建或追加到卡片评论 |
+
+#### 导入验证
+
+`isValidTotalConfig(data)` 验证导入数据的完整性：
+
+```javascript
+// 必需字段检查
+✅ data.sections 存在且为对象
+✅ data.config 存在且为对象
+✅ data.config.version 存在
+
+// 可选但推荐
+⚠️ data.settings 存在
+⚠️ 所有分区数据为数组
+
+// 自动修复
+🔧 缺失的分区自动初始化为 []
+🔧 version 自动更新为当前版本
+```
+
 ## 开发指南
 
 ### 添加新卡片到 Focus
@@ -241,6 +431,368 @@ pinnerConfig.exportToClipboard()
 pinnerConfig.importFromClipboard()
 ```
 
+## 核心功能详解
+
+### 1. 多选导出功能
+
+用户可以勾选多个卡片并批量导出为 URL 列表或 Markdown 链接。
+
+#### 使用流程
+
+1. **进入多选模式**：长按任意卡片
+2. **勾选卡片**：点击卡片左侧的复选框
+3. **导出操作**：点击底部工具栏的导出按钮
+   - 🔗 **导出 URL**：纯 MarginNote URL 列表（每行一个）
+   - 📝 **导出 Markdown**：带序号的 Markdown 链接列表
+
+#### 导出格式示例
+
+**URL 列表格式：**
+```
+marginnote4app://note/NOTE123
+marginnote4app://note/NOTE456
+marginnote4app://note/NOTE789
+```
+
+**Markdown 格式：**
+```markdown
+1. [卡片标题1](marginnote4app://note/NOTE123)
+2. [卡片标题2](marginnote4app://note/NOTE456)
+3. [卡片标题3](marginnote4app://note/NOTE789)
+```
+
+#### 导出目标
+
+用户可以选择将导出的内容：
+- **复制到剪贴板**：直接使用 `MNUtil.copyText()`
+- **创建新卡片**：在当前笔记本创建评论卡片
+- **添加到现有卡片**：追加到聚焦卡片的评论中
+
+#### 实现要点
+
+```javascript
+// 多选状态管理
+this.selectedCards = new Map()  // key: "section-noteId", value: {noteId, title, section}
+
+// 添加选中卡片
+this.selectedCards.set(`${section}-${noteId}`, {noteId, title, section})
+
+// 导出为 URL
+exportSelectedCardsAsURL() {
+  let urls = []
+  this.selectedCards.forEach(card => {
+    urls.push("marginnote4app://note/" + card.noteId)
+  })
+  return urls.join("\n")
+}
+
+// 导出为 Markdown
+exportSelectedCardsAsMarkdown() {
+  let lines = []
+  let index = 1
+  this.selectedCards.forEach(card => {
+    lines.push(`${index}. [${card.title}](marginnote4app://note/${card.noteId})`)
+    index++
+  })
+  return lines.join("\n")
+}
+```
+
+### 2. 预设短语管理
+
+为 Pin 页面时提供快速选择的标题预设。
+
+#### 功能说明
+
+- 存储常用的页面标题模板
+- Pin 页面时可从预设列表快速选择
+- 支持添加、编辑、删除预设
+
+#### 使用方法
+
+1. **打开设置界面**：点击右上角齿轮图标
+2. **管理预设**：点击"管理预设短语"按钮
+3. **添加预设**：输入常用标题，点击"添加"
+4. **删除预设**：长按预设项，选择"删除"
+5. **使用预设**：Pin 页面时，从列表中选择预设
+
+#### 预设示例
+
+```javascript
+pinnerConfig.config.pageTitlePresets = [
+  "重要内容",
+  "需要复习",
+  "待整理",
+  "第x页",
+  "p.x",
+  "Page x"
+]
+```
+
+#### API 方法
+
+```javascript
+// 添加预设
+pinnerConfig.addPreset("新预设")
+
+// 删除预设
+pinnerConfig.removePreset(index)
+
+// 获取所有预设
+let presets = pinnerConfig.config.pageTitlePresets
+
+// 保存预设
+pinnerConfig.save()
+```
+
+#### 预设弹窗
+
+Pin 页面时，如果 `alwaysAskPageTitle` 为 false，会直接使用默认标题；如果为 true，会弹出对话框让用户选择：
+- 使用预设标题
+- 自定义输入
+- 使用默认标题（第x页）
+
+### 3. 智能页面标题更新
+
+Pin 页面时，系统会智能识别标题中的页数并自动更新。
+
+#### 支持的格式
+
+| 格式 | 示例 | 更新后 |
+|------|------|--------|
+| 中文格式 | "第5页：重要内容" | "第8页：重要内容" |
+| 英文格式（小写p） | "p.5 - 知识点" | "p.8 - 知识点" |
+| 英文格式（大写P） | "Page 5: Notes" | "Page 8: Notes" |
+
+#### 实现原理
+
+```javascript
+updatePageTitle(oldTitle, newPageIndex) {
+  // 替换中文格式
+  if (oldTitle.includes("第") && oldTitle.includes("页")) {
+    return oldTitle.replace(/第(\d+)页/, `第${newPageIndex + 1}页`)
+  }
+
+  // 替换 p.x 格式
+  if (/p\.(\d+)/i.test(oldTitle)) {
+    return oldTitle.replace(/p\.(\d+)/i, `p.${newPageIndex + 1}`)
+  }
+
+  // 替换 Page x 格式
+  if (/Page\s+(\d+)/i.test(oldTitle)) {
+    return oldTitle.replace(/Page\s+(\d+)/i, `Page ${newPageIndex + 1}`)
+  }
+
+  // 无法识别格式，返回默认标题
+  return `第${newPageIndex + 1}页`
+}
+```
+
+#### 使用示例
+
+```javascript
+// Pin 新页面时复用旧标题
+let oldPin = {
+  type: "page",
+  docMd5: "ABC123",
+  pageIndex: 4,
+  title: "第5页：重要知识点"
+}
+
+// 更新到第8页
+let newTitle = pinnerConfig.updatePageTitle(oldPin.title, 7)
+// newTitle = "第8页：重要知识点"
+
+let newPin = pinnerConfig.createPagePin("ABC123", 7, newTitle, oldPin.note)
+pinnerConfig.addPin(newPin, "focus", "top")
+```
+
+### 4. 底部工具栏
+
+固定在面板底部的快捷操作栏，提供常用功能的快速入口。
+
+#### 工具栏按钮
+
+| 按钮 | 图标 | 功能 | 快捷键/条件 |
+|------|------|------|-----------|
+| **视图模式** | 🔄 | 切换 Pin/Task/Custom 模式 | 点击切换 |
+| **清空分区** | 🗑️ | 清空当前分区所有卡片 | 需要确认 |
+| **Pin 卡片** | 📌 | Pin 当前聚焦卡片 | 需要聚焦卡片 |
+| **Pin 页面** | 📄 | Pin 当前文档页面 | 需要打开文档 |
+| **手动添加** | ➕ | 手动输入创建 Pin | 弹出输入框 |
+| **导出 URL** | 🔗 | 多选导出为 URL 列表 | 需选中卡片 |
+| **导出 Markdown** | 📝 | 多选导出为 Markdown | 需选中卡片 |
+| **设置** | ⚙️ | 打开设置界面 | - |
+
+#### 工具栏布局
+
+```
+┌─────────────────────────────────────────────────┐
+│  🔄   🗑️   📌   📄   ➕   🔗   📝   ⚙️         │
+└─────────────────────────────────────────────────┘
+   ↑     ↑     ↑     ↑     ↑     ↑     ↑     ↑
+  模式  清空  卡片  页面  添加  URL   MD   设置
+```
+
+#### 按钮状态管理
+
+```javascript
+// 根据多选状态动态更新按钮
+updateToolbarButtonStates() {
+  let hasSelection = this.selectedCards.size > 0
+
+  // 导出按钮仅在有选中卡片时可用
+  this.toolbarExportURLButton.enabled = hasSelection
+  this.toolbarExportMarkdownButton.enabled = hasSelection
+
+  // Pin 按钮根据上下文可用性
+  this.toolbarPinCardButton.enabled = (MNNote.getFocusNote() != null)
+  this.toolbarPinPageButton.enabled = (MNUtil.currentDocController != null)
+}
+```
+
+#### 实现细节
+
+```javascript
+// 创建工具栏
+createToolbarButtons() {
+  let toolbar = UIView.new()
+  toolbar.frame = {x: 0, y: height - 44, width: width, height: 44}
+  toolbar.backgroundColor = UIColor.colorWithHexString("#2d2d2d")
+
+  let buttonWidth = width / 8
+  let buttons = [
+    {title: "🔄", action: "switchViewMode"},
+    {title: "🗑️", action: "clearCurrentSection"},
+    {title: "📌", action: "pinFocusCard"},
+    {title: "📄", action: "pinCurrentPage"},
+    {title: "➕", action: "manualAddPin"},
+    {title: "🔗", action: "exportSelectedAsURL"},
+    {title: "📝", action: "exportSelectedAsMarkdown"},
+    {title: "⚙️", action: "showPreferences"}
+  ]
+
+  buttons.forEach((btn, index) => {
+    let button = UIButton.new()
+    button.frame = {x: buttonWidth * index, y: 0, width: buttonWidth, height: 44}
+    button.setTitleForState(btn.title, 0)
+    button.tag = 9000 + index
+    button.addTargetActionForControlEvents(self, btn.action, 1 << 6)
+    toolbar.addSubview(button)
+  })
+
+  this.view.addSubview(toolbar)
+  this.toolbar = toolbar
+}
+```
+
+### 5. 启动设置
+
+配置插件启动时的默认行为，提供个性化的使用体验。
+
+#### 设置项说明
+
+| 设置项 | 字段名 | 类型 | 说明 | 默认值 |
+|--------|--------|------|------|--------|
+| **记住上次视图** | `rememberLastView` | boolean | 启动时恢复上次关闭时的视图 | true |
+| **默认视图模式** | `defaultViewMode` | string | 固定默认视图模式（pin/task/custom） | "pin" |
+| **默认分区** | `defaultSection` | string | 固定默认分区 | "focus" |
+| **上次视图模式** | `lastViewMode` | string | 记录上次的视图模式（自动） | "pin" |
+| **上次分区** | `lastSection` | string | 记录上次的分区（自动） | "focus" |
+
+#### 启动逻辑
+
+```javascript
+// 插件显示时决定初始视图
+show() {
+  let viewMode, section
+
+  if (pinnerConfig.settings.rememberLastView) {
+    // 恢复上次视图
+    viewMode = pinnerConfig.settings.lastViewMode || "pin"
+    section = pinnerConfig.settings.lastSection || "focus"
+  } else {
+    // 使用固定默认视图
+    viewMode = pinnerConfig.settings.defaultViewMode || "pin"
+    section = pinnerConfig.settings.defaultSection || "focus"
+  }
+
+  // 切换到目标视图
+  this.switchViewMode(viewMode)
+  this.switchView(section)
+}
+
+// 插件隐藏时保存当前视图
+hide() {
+  // 保存当前状态
+  pinnerConfig.settings.lastViewMode = this.currentViewMode
+  pinnerConfig.settings.lastSection = this.currentSection
+  pinnerConfig.save()
+}
+```
+
+#### 设置界面
+
+用户可以在设置界面（⚙️ 按钮）中配置：
+
+```
+┌─────────────────────────────────────┐
+│  启动设置                            │
+├─────────────────────────────────────┤
+│  ☑️ 记住上次视图                    │
+│  ☐ 固定默认视图                     │
+│                                     │
+│  默认视图模式：[Pin ▼]              │
+│  默认分区：    [Focus ▼]            │
+│                                     │
+│  [保存]  [取消]                     │
+└─────────────────────────────────────┘
+```
+
+#### API 配置
+
+```javascript
+// 启用记住上次视图
+pinnerConfig.settings.rememberLastView = true
+pinnerConfig.save()
+
+// 固定默认视图
+pinnerConfig.settings.rememberLastView = false
+pinnerConfig.settings.defaultViewMode = "pin"
+pinnerConfig.settings.defaultSection = "focus"
+pinnerConfig.save()
+
+// 手动设置上次视图（通常由系统自动管理）
+pinnerConfig.settings.lastViewMode = "task"
+pinnerConfig.settings.lastSection = "taskToday"
+pinnerConfig.save()
+```
+
+#### 使用场景
+
+**场景 1：项目工作模式**
+```javascript
+// 每次都从 Focus 分区开始
+settings.rememberLastView = false
+settings.defaultViewMode = "pin"
+settings.defaultSection = "focus"
+```
+
+**场景 2：任务管理模式**
+```javascript
+// 每次都从今天任务开始
+settings.rememberLastView = false
+settings.defaultViewMode = "task"
+settings.defaultSection = "taskToday"
+```
+
+**场景 3：连续工作模式**
+```javascript
+// 自动恢复上次工作状态
+settings.rememberLastView = true
+// defaultViewMode 和 defaultSection 作为回退选项
+```
+
 ## 视图管理（配置驱动架构）⭐
 
 MNPinner v2.0 采用配置驱动架构，通过 `SectionRegistry` 配置中心统一管理所有视图分区。
@@ -252,15 +804,30 @@ MNPinner v2.0 采用配置驱动架构，通过 `SectionRegistry` 配置中心�
 所有视图分区的元数据都集中在 `SectionRegistry.sections` 中，包括：
 - **key**: 分区唯一标识（用于数据存储和代码引用）
 - **displayName**: 显示名称（界面显示）
-- **viewMode**: 视图模式（"pin" 或 "task"）
+- **viewMode**: 视图模式（"pin"、"task" 或 "custom"）
 - **color**: 主题颜色（十六进制色值）
 - **icon**: 图标（Emoji）
 - **order**: 显示顺序（数字越小越靠前）
 - **description**: 分区描述
 
+**核心方法：**
+
+| 方法 | 功能 | 返回值 |
+|------|------|--------|
+| `getConfig(key)` | 获取单个分区配置 | Object \| undefined |
+| `getAllByMode(mode)` | 获取指定模式的所有分区 | Array |
+| `getOrderedKeys(mode)` | 获取排序后的分区键名 | Array<string> |
+| `getDisplayName(key)` | 获取显示名称 | string |
+| `has(key)` | 检查分区是否存在 | boolean |
+| `addSection(config)` | 动态添加分区 | boolean |
+| `removeSection(key)` | 删除分区 | boolean |
+| `loadFromStorage()` | 从 NSUserDefaults 加载用户自定义配置 | void |
+| `saveToStorage()` | 保存配置到 NSUserDefaults | void |
+| `resetToDefault()` | 重置为默认配置 | void |
+
 ### 当前分区列表
 
-**Pin 视图（4个）：**
+**Pin 视图（5个）：**
 1. Focus - 重点关注的卡片 (#457bd3 📌)
 2. 中间知识 - 待进一步处理的知识 (#61afef 📚)
 3. 待整理 - 需要整理的零散内容 (#98c379 📥)
@@ -272,6 +839,9 @@ MNPinner v2.0 采用配置驱动架构，通过 `SectionRegistry` 配置中心�
 3. This Week - 本周任务 (#c678dd 📊)
 4. TODO - 待办事项 (#56b6c2 ✅)
 5. 日拱一卒 - 每日坚持的任务 (#98c379 🏃)
+
+**自定义视图（5个）：**
+1. Custom 1-5 - 用户自定义分区（可通过配置自定义名称、颜色和图标）
 
 ### 添加新视图
 
@@ -610,18 +1180,139 @@ self.someProperty = value;
 
 ## 调试技巧
 
-```javascript
-// 日志记录
-pinnerUtils.log("消息", "来源")  // 而不是用  MNUtil.log!
+### 日志记录
 
-// 复制对象
+```javascript
+// 普通日志（推荐使用 pinnerUtils.log）
+pinnerUtils.log("消息", "来源")  // 而不是用 MNUtil.log!
+
+// 错误日志（自动复制错误信息）
+pinnerUtils.errorLog(error, "来源", {额外信息})
+
+// 错误日志示例
+try {
+  // 可能出错的代码
+} catch (error) {
+  pinnerUtils.addErrorLog(error, "pinCard", {noteId, section})
+  MNUtil.showHUD("Pin 失败")
+}
+```
+
+### 数据检查
+
+```javascript
+// 复制对象到剪贴板（方便查看完整数据）
 MNUtil.copyJSON(object)
 
-// HUD 提示
+// 查看当前配置
+MNUtil.copyJSON(pinnerConfig.getAllConfig())
+
+// 查看分区元数据
+MNUtil.copyJSON(Array.from(SectionRegistry.sections.entries()))
+
+// 查看某个分区的所有 Pin
+MNUtil.copyJSON(pinnerConfig.getPins("focus"))
+
+// 查看视图控制器状态
+MNUtil.copyJSON({
+  currentSection: pinnerController.currentSection,
+  currentViewMode: pinnerController.currentViewMode,
+  selectedCards: Array.from(pinnerController.selectedCards.entries())
+})
+```
+
+### 用户提示
+
+```javascript
+// 显示 HUD 提示
 MNUtil.showHUD("提示信息")
 
-// 错误日志
-pinnerUtils.errorLog()
+// 显示带持续时间的 HUD
+MNUtil.showHUD("操作成功", 2.0)
+
+// 显示错误提示
+MNUtil.showHUD("❌ 操作失败")
+
+// 显示成功提示
+MNUtil.showHUD("✅ 操作完成")
+```
+
+### 状态检查
+
+```javascript
+// 检查视图控制器是否存在
+if (pinnerUtils.pinnerController) {
+  pinnerUtils.log("视图控制器已创建")
+} else {
+  pinnerUtils.log("视图控制器未创建")
+}
+
+// 检查当前聚焦卡片
+let focusNote = MNNote.getFocusNote()
+if (focusNote) {
+  pinnerUtils.log(`当前聚焦: ${focusNote.noteTitle}`)
+}
+
+// 检查当前文档
+let docController = MNUtil.currentDocController
+if (docController) {
+  pinnerUtils.log(`当前文档: ${docController.document.docMd5}`)
+}
+
+// 检查笔记本状态
+let notebook = MNUtil.currentNotebook
+if (notebook) {
+  pinnerUtils.log(`当前笔记本: ${notebook.topic}`)
+}
+```
+
+### 数据重置（仅开发调试使用）
+
+```javascript
+// ⚠️ 警告：以下操作会清空所有数据，仅用于开发调试
+
+// 重置所有分区数据
+Object.keys(pinnerConfig.sections).forEach(section => {
+  pinnerConfig.sections[section] = []
+})
+pinnerConfig.save()
+
+// 重置设置为默认值
+pinnerConfig.settings = {
+  alwaysAskCardTitle: false,
+  alwaysAskPageTitle: false,
+  defaultViewMode: "pin",
+  defaultSection: "focus",
+  rememberLastView: true,
+  lastViewMode: "pin",
+  lastSection: "focus"
+}
+pinnerConfig.save()
+
+// 完全重置（删除所有存储的数据）
+NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_sections")
+NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_config")
+NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_settings")
+NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_sectionConfigs")
+```
+
+### 性能分析
+
+```javascript
+// 测量操作耗时
+let startTime = Date.now()
+
+// 执行操作
+for (let i = 0; i < 1000; i++) {
+  pinnerConfig.getPins("focus")
+}
+
+let elapsed = Date.now() - startTime
+pinnerUtils.log(`操作耗时: ${elapsed}ms`)
+
+// 测量内存占用（估算）
+let configSize = JSON.stringify(pinnerConfig.getAllConfig()).length
+pinnerUtils.log(`配置大小: ${(configSize / 1024).toFixed(2)} KB`)
 ```
 
 ## 相关文档
