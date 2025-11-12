@@ -69,6 +69,9 @@ const kbSearchConfig = {
    */
   synonymGroups: [
     {
+      "words": ["闭凸包","凸包的闭包", "凸组合的闭包"],
+    },
+    {
       "words": ["凸{{}}集", "{{}}凸集"],
       "patternMode": true
     },
@@ -769,8 +772,8 @@ const kbOCRConfig = {
       replacement: "则",
     },
     {
-      pattern: "",
-      replacement: "",
+      pattern: "₁≤ₖ≤ₙ",
+      replacement: "_{1≤k≤n}",
     },
     {
       pattern: "",
@@ -19724,7 +19727,7 @@ ${this.OCRNumberingRules}
 5. Unicode 符号是否正确使用
 `
 
-  static async OCRToTitle(note, mode = 1, needTranslation = undefined) {
+  static async OCRToTitle(note, mode = 1, needTranslation = undefined, place = "all") {
     let imageData = ocrUtils.getImageFromNote(note)
     if (!imageData) {
       // MNUtil.showHUD("No image found")
@@ -19803,7 +19806,18 @@ ${this.OCRNumberingRules}
     result = this.postProcessOCRResult(result)
     if (result) {
       MNUtil.undoGrouping(()=>{
-        note.title = result.trim()
+        let titleParts = KnowledgeBaseTemplate.parseNoteTitle(note)
+        switch (place) {
+          case "all":
+            note.title = result.trim()
+            break;
+          case "firstTitleLinkWord":
+            note.title = "【${titleParts.type} >> ${titleParts.prefixContent}】" + result.trim() + "; " +  titleParts.content
+            break;
+          case "lastTitleLinkWord":
+            note.title = note.title + "; " +  result.trim()
+            break;
+        }
         KnowledgeBaseUtils.log("Set note title via OCR: "+result, "OCRToTitle")
         return true
       })

@@ -5628,14 +5628,40 @@ function registerAllCustomActions() {
     }
   })
 
-  global.registerCustomAction("ocrMode1NoTranslation", async function(context) {
+  global.registerCustomAction("ocrMode1NoTranslationReplaceTitle", async function(context) {
     const { focusNote } = context;
     try {
       if (!focusNote) {
         MNUtil.showHUD("请先选中一张卡片");
         return;
       }
-      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 1, false);
+      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 1, false, "all");
+    } catch (error) {
+      MNUtil.showHUD("模式1原文版 OCR 失败: " + error.message);
+    }
+  })
+
+  global.registerCustomAction("ocrMode1NoTranslationAddToFirstHeaderLink", async function(context) {
+    const { focusNote } = context;
+    try {
+      if (!focusNote) {
+        MNUtil.showHUD("请先选中一张卡片");
+        return;
+      }
+      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 1, false, "firstTitleLinkWord");
+    } catch (error) {
+      MNUtil.showHUD("模式1原文版 OCR 失败: " + error.message);
+    }
+  })
+
+  global.registerCustomAction("ocrMode1NoTranslationAddToLastHeaderLink", async function(context) {
+    const { focusNote } = context;
+    try {
+      if (!focusNote) {
+        MNUtil.showHUD("请先选中一张卡片");
+        return;
+      }
+      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 1, false, "lastTitleLinkWord");
     } catch (error) {
       MNUtil.showHUD("模式1原文版 OCR 失败: " + error.message);
     }

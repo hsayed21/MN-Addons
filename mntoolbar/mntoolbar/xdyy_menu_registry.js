@@ -1037,8 +1037,16 @@ function registerAllMenuTemplates() {
               menuTitle: "🌐 翻译版（中英对照）",
             },
             {
-              action: "ocrMode1NoTranslation",
-              menuTitle: "📄 原文版（仅中文）",
+              action: "ocrMode1NoTranslationReplaceTitle",
+              menuTitle: "📄 原文版（仅中文） → 替换标题",
+            },
+            {
+              action: "ocrMode1NoTranslationAddToFirstHeaderLink",
+              menuTitle: "📄 原文版（仅中文） → 加到第一个标题链接词",
+            },
+            {
+              action: "ocrMode1NoTranslationAddToLastHeaderLink",
+              menuTitle: "📄 原文版（仅中文） → 加到最后一个标题链接词",
             },
           ],
         },
