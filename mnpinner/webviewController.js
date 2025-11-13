@@ -1930,17 +1930,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       // 更新文本内容
       clipboard.text = newText
 
-      // 根据策略重新生成标题
-      const strategy = pinnerConfig.settings.clipboardTitleStrategy || "truncate"
-      const maxLength = pinnerConfig.settings.clipboardTitleLength || 30
-
-      if (strategy === "firstLine") {
-        const firstLine = newText.split('\n')[0].trim()
-        clipboard.title = firstLine.substring(0, maxLength) + (firstLine.length > maxLength ? "..." : "")
-      } else {
-        clipboard.title = newText.substring(0, maxLength) + (newText.length > maxLength ? "..." : "")
-      }
-
       // 保存
       pinnerConfig.save()
 
@@ -2085,17 +2074,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       // 更新文本内容
       clipboard.text = newText
-
-      // 重新生成标题
-      const strategy = pinnerConfig.settings.clipboardTitleStrategy || "truncate"
-      const maxLength = pinnerConfig.settings.clipboardTitleLength || 30
-
-      if (strategy === "firstLine") {
-        const firstLine = newText.split('\n')[0].trim()
-        clipboard.title = firstLine.substring(0, maxLength) + (firstLine.length > maxLength ? "..." : "")
-      } else {
-        clipboard.title = newText.substring(0, maxLength) + (newText.length > maxLength ? "..." : "")
-      }
 
       pinnerConfig.save()
       self.refreshView(section + "View")
