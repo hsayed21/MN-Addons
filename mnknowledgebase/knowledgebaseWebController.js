@@ -16,13 +16,9 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
 
       // 设置初始 frame - 尝试从 userDefaults 恢复上次的窗口大小
       let savedFrameStr = NSUserDefaults.standardUserDefaults().objectForKey("KB_WindowFrame")
-      MNLog.log("【WebViewController 初始化】savedFrameStr = " + savedFrameStr)
-
       let initialFrame = savedFrameStr
         ? JSON.parse(savedFrameStr)
         : {x: 50, y: 30, width: 720, height: 720}
-
-      MNLog.log("【WebViewController 初始化】initialFrame = " + JSON.stringify(initialFrame))
 
       self.view.frame = initialFrame
       self.lastFrame = self.view.frame
@@ -372,9 +368,6 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
             width: currentFrame.width,
             height: currentFrame.height
           }
-
-          MNLog.log("【onResizeGesture 结束】保存窗口大小: " + JSON.stringify(frameToSave))
-
           NSUserDefaults.standardUserDefaults().setObjectForKey(
             JSON.stringify(frameToSave),
             "KB_WindowFrame"
@@ -994,11 +987,8 @@ knowledgebaseWebController.prototype.show = async function(beginFrame, endFrame)
   if (!endFrame) {
     try {
       let savedFrameStr = NSUserDefaults.standardUserDefaults().objectForKey("KB_WindowFrame")
-      MNLog.log("【show()】从 userDefaults 读取: " + savedFrameStr)
-
       if (savedFrameStr) {
         savedFrame = JSON.parse(savedFrameStr)
-        MNLog.log("【show()】解析后的 savedFrame = " + JSON.stringify(savedFrame))
       }
     } catch (error) {
       MNLog.log("【show()】加载窗口 frame 失败: " + error)
@@ -1006,9 +996,6 @@ knowledgebaseWebController.prototype.show = async function(beginFrame, endFrame)
   }
 
   let targetFrame = endFrame || savedFrame || { x: 50, y: 50, width: 420, height: 600 }
-  MNLog.log("【show()】最终使用的 targetFrame = " + JSON.stringify(targetFrame))
-  MNLog.log("【show()】来源: endFrame=" + (endFrame ? "有" : "无") +
-            ", savedFrame=" + (savedFrame ? "有" : "无"))
   let studyFrame = MNUtil.studyView.frame
 
   // 约束 frame 在屏幕范围内
@@ -1067,14 +1054,10 @@ knowledgebaseWebController.prototype.hide = function(frame) {
       width: preFrame.width,
       height: preFrame.height
     }
-    MNLog.log("【hide()】准备保存窗口大小: " + JSON.stringify(frameToSave))
-
     NSUserDefaults.standardUserDefaults().setObjectForKey(
       JSON.stringify(frameToSave),
       "KB_WindowFrame"
     )
-
-    MNLog.log("【hide()】窗口大小已保存到 userDefaults")
   } catch (error) {
     MNLog.log("【hide()】保存窗口 frame 失败: " + error)
   }

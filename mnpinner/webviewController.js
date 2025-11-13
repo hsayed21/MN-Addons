@@ -3084,7 +3084,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   changeViewMode: function(sender) {
     try {
-      pinnerUtils.log("🔔 changeViewMode 被调用", "changeViewMode")
       self.checkPopover()
 
       let commandTable = [
@@ -3135,7 +3134,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   refreshCurrentView: function(sender) {
     try {
-      pinnerUtils.log("🔔 refreshCurrentView 被调用", "refreshCurrentView")
       if (self.currentSection) {
         self.refreshSectionCards(self.currentSection)
         MNUtil.showHUD("✓ 已刷新")
@@ -3152,7 +3150,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   showSortMenu: function(sender) {
     try {
-      pinnerUtils.log("🔔 showSortMenu 被调用", "showSortMenu")
       self.checkPopover()
 
       let commandTable = [
@@ -3994,8 +3991,6 @@ pinnerController.prototype.createToolbarButtons = function() {
 
     // 设置滚动视图的内容大小（支持水平滚动）
     this.toolbarScrollView.contentSize = {width: buttonX + 10, height: buttonHeight}
-
-    pinnerUtils.log("✅ 工具栏按钮创建完成，总宽度: " + buttonX, "createToolbarButtons")
   } catch (error) {
     pinnerUtils.addErrorLog(error, "createToolbarButtons")
     MNUtil.showHUD("❌ 工具栏创建失败: " + error)
@@ -4089,8 +4084,7 @@ pinnerController.prototype.refreshView = function (targetView) {
       MNUtil.log(`refresh ${targetView}`)
       this.refreshSectionCards(sectionKey)
     } else {
-      // 不是标准分区
-      pinnerUtils.log(`refreshView: ${targetView} 不需要刷新或不存在`, "refreshView")
+      // 不是标准分区，不需要刷新
     }
   } catch (error) {
     pinnerUtils.addErrorLog(error, "refreshView")
@@ -4876,8 +4870,6 @@ pinnerController.prototype.updateToolbarButtonsForSection = function(section) {
       let title = selectedCount > 0 ? `📝 导出 (${selectedCount})` : "📝 导出"
       this.toolbarExportMarkdownButton.setTitleForState(title, 0)
     }
-
-    pinnerUtils.log(`工具栏按钮已更新（分区：${section}）`, "updateToolbarButtonsForSection")
   } catch (error) {
     pinnerUtils.addErrorLog(error, "updateToolbarButtonsForSection")
   }
@@ -5015,7 +5007,6 @@ pinnerController.prototype.createPreferencesView = function() {
       font: 15
     })
 
-    pinnerUtils.log("设置窗口创建完成", "createPreferencesView")
   } catch (error) {
     pinnerUtils.addErrorLog(error, "createPreferencesView")
   }
@@ -5175,8 +5166,6 @@ pinnerController.prototype.recreateSectionTabs = function() {
 
     // 2. 重新创建标签按钮（复用现有逻辑）
     this.createAllSectionTabs()
-
-    pinnerUtils.log("标签按钮已重新创建", "recreateSectionTabs")
   } catch (error) {
     pinnerUtils.addErrorLog(error, "recreateSectionTabs")
     MNUtil.showHUD("刷新标签失败: " + error.message)
