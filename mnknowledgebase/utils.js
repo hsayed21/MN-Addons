@@ -1612,13 +1612,14 @@ class KnowledgeBaseTemplate {
    * @param {Array<{text: string, url: string}>} marginNoteLinks - 已提取的链接数组
    */
   static processExtractedMarginNoteLinks(note, marginNoteLinks) {
-    // 定义允许链接的目标字段
-    const allowedTargetFields = [
+    // 定义允许链接的目标字段（标准化后的名称，无冒号）
+    const normalizedAllowedFields = [
       "相关链接",
-      "相关链接：",
-      "应用：",
       "应用"
     ];
+    
+    let successCount = 0;
+    let skippedCount = 0;
     
     // 处理每个找到的 MarginNote 链接
     marginNoteLinks.forEach(linkInfo => {
@@ -1635,10 +1636,19 @@ class KnowledgeBaseTemplate {
           return;
         }
         
-        // 检查目标卡片的最后一个字段是否在允许列表中
-        let targetLastField = this.getLastFieldOfNote(targetNote);
+        // 获取目标卡片的所有 HTML 评论字段
+        let htmlCommentsTextArr = this.parseNoteComments(targetNote).htmlCommentsTextArr;
         
-        if (!targetLastField || !allowedTargetFields.includes(targetLastField)) {
+        // 检查目标卡片中是否存在任何允许的字段（使用标准化后的字段名比较）
+        let hasAllowedField = htmlCommentsTextArr.some(fieldText => {
+          let normalizedFieldText = this.normalizeFieldName(fieldText);
+          return normalizedAllowedFields.some(allowedField => 
+            normalizedFieldText.includes(allowedField)
+          );
+        });
+        
+        if (!hasAllowedField) {
+          skippedCount++;
           return;
         }
         
@@ -1648,10 +1658,27 @@ class KnowledgeBaseTemplate {
         // 对目标卡片的最后一个字段进行链接去重
         this.removeDuplicateLinksInLastField(targetNote);
         
+        successCount++;
+        
       } catch (error) {
-        // 忽略错误
+        // 记录错误并继续处理其他链接
+        KnowledgeBaseUtils.addErrorLog(
+          `处理反向链接时发生错误：${error.message}`, 
+          "processExtractedMarginNoteLinks",
+          { error: error.stack }
+        );
       }
     });
+    
+    // 如果有跳过的链接，显示提示
+    if (skippedCount > 0 && successCount === 0) {
+      MNUtil.showHUD(`⚠️ ${skippedCount} 个链接因目标卡片缺少"相关链接"或"应用"字段而未建立反向链接`);
+    } else if (successCount > 0) {
+      this.log(
+        `反向链接处理完成：成功 ${successCount} 个，跳过 ${skippedCount} 个`, 
+        "processExtractedMarginNoteLinks"
+      );
+    }
   }
 
   /**
