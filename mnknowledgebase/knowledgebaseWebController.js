@@ -14,8 +14,17 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
       // 初始化状态
       self.init()
 
-      // 设置初始 frame
-      self.view.frame = {x: 50, y: 30, width: 720, height: 720}
+      // 设置初始 frame - 尝试从 userDefaults 恢复上次的窗口大小
+      let savedFrameStr = NSUserDefaults.standardUserDefaults().objectForKey("KB_WindowFrame")
+      MNLog.log("【WebViewController 初始化】savedFrameStr = " + savedFrameStr)
+
+      let initialFrame = savedFrameStr
+        ? JSON.parse(savedFrameStr)
+        : {x: 50, y: 30, width: 720, height: 720}
+
+      MNLog.log("【WebViewController 初始化】initialFrame = " + JSON.stringify(initialFrame))
+
+      self.view.frame = initialFrame
       self.lastFrame = self.view.frame
       self.currentFrame = self.view.frame
 
@@ -107,7 +116,7 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
       if (config && config.scheme === "mnknowledgebase") {
         // 特殊处理：自动关闭模式切换
         if (config.host === "setAutoCloseMode") {
-          let enabled = config.params.enabled === "true"
+          let enabled = !!config.params.enabled
 
           // ✅ 使用 KnowledgeBaseConfig 统一管理
           KnowledgeBaseConfig.setAutoCloseMode(enabled)
@@ -153,8 +162,9 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
           }
         `
         self.webView.evaluateJavaScript(script)
+        MNUtil.log(`【同步状态】已向 WebView 发送同步脚本: ${self.autoCloseMode}`)
       } catch (error) {
-        MNUtil.log("同步 autoCloseMode 失败: " + error)
+        MNUtil.log("【同步状态】失败: " + error)
       }
     })
 
@@ -352,6 +362,26 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
       }
       if (gesture.state === 3) {
         MNUtil.studyView.bringSubviewToFront(self.view)
+
+        // 保存调整后的窗口大小（与 hide() 方法中的逻辑一致）
+        try {
+          let currentFrame = self.view.frame
+          let frameToSave = {
+            x: currentFrame.x,
+            y: currentFrame.y,
+            width: currentFrame.width,
+            height: currentFrame.height
+          }
+
+          MNLog.log("【onResizeGesture 结束】保存窗口大小: " + JSON.stringify(frameToSave))
+
+          NSUserDefaults.standardUserDefaults().setObjectForKey(
+            JSON.stringify(frameToSave),
+            "KB_WindowFrame"
+          )
+        } catch (error) {
+          MNLog.log("【onResizeGesture】保存窗口大小失败: " + error)
+        }
       }
     } catch (error) {
       MNUtil.showHUD("调整大小失败: " + error)
@@ -964,16 +994,21 @@ knowledgebaseWebController.prototype.show = async function(beginFrame, endFrame)
   if (!endFrame) {
     try {
       let savedFrameStr = NSUserDefaults.standardUserDefaults().objectForKey("KB_WindowFrame")
+      MNLog.log("【show()】从 userDefaults 读取: " + savedFrameStr)
+
       if (savedFrameStr) {
         savedFrame = JSON.parse(savedFrameStr)
-        MNLog.log("【show()】加载保存的窗口 frame")
+        MNLog.log("【show()】解析后的 savedFrame = " + JSON.stringify(savedFrame))
       }
     } catch (error) {
-      MNLog.log("加载窗口 frame 失败: " + error)
+      MNLog.log("【show()】加载窗口 frame 失败: " + error)
     }
   }
 
   let targetFrame = endFrame || savedFrame || { x: 50, y: 50, width: 420, height: 600 }
+  MNLog.log("【show()】最终使用的 targetFrame = " + JSON.stringify(targetFrame))
+  MNLog.log("【show()】来源: endFrame=" + (endFrame ? "有" : "无") +
+            ", savedFrame=" + (savedFrame ? "有" : "无"))
   let studyFrame = MNUtil.studyView.frame
 
   // 约束 frame 在屏幕范围内
@@ -1032,12 +1067,16 @@ knowledgebaseWebController.prototype.hide = function(frame) {
       width: preFrame.width,
       height: preFrame.height
     }
+    MNLog.log("【hide()】准备保存窗口大小: " + JSON.stringify(frameToSave))
+
     NSUserDefaults.standardUserDefaults().setObjectForKey(
       JSON.stringify(frameToSave),
       "KB_WindowFrame"
     )
+
+    MNLog.log("【hide()】窗口大小已保存到 userDefaults")
   } catch (error) {
-    MNUtil.log("保存窗口 frame 失败: " + error)
+    MNLog.log("【hide()】保存窗口 frame 失败: " + error)
   }
 
   // 标记动画状态
