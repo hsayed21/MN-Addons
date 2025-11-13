@@ -1175,7 +1175,7 @@ class KnowledgeBaseTemplate {
           //   stepDurationMs: Date.now() - processStartTime
           // })
 
-          switch (this.getNoteType(processedNote, directly)) {
+          switch (this.getNoteType(processedNote, true)) {
             case "定义":
               // const makeCardStartTime = Date.now();
               this.makeCard(processedNote, true, true)
@@ -8714,10 +8714,12 @@ class KnowledgeBaseTemplate {
             newClassificationNote.note.noteTitle = `“${userInputTitle}”相关${titleType}`;
             
             // 3. 建立层级关系：新卡片作为父卡片的子卡片
-            parentNote.addChild(newClassificationNote.note);
+            parentNote.addChild(newClassificationNote);
+
+            newClassificationNote.moveTo(note.indexInBrotherNotes + 1)
             
             // 4. 移动选中卡片：从原位置移动到新卡片下
-            newClassificationNote.addChild(note.note);
+            newClassificationNote.addChild(note);
             
             // 5. 使用 this API 处理链接关系
             this.linkParentNote(newClassificationNote);
