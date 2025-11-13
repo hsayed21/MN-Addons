@@ -20199,7 +20199,10 @@ class KnowledgeBaseConfig {
       // 🆕 搜索索引模式配置
       searchIndexMode: "light",  // 索引模式: "light" (轻量，默认) 或 "full" (全量，含同义词扩展)
       lastIndexMode: "light",    // 记录上次构建的索引模式
-      autoRebuildOnConfigChange: false  // 配置变更时是否自动提示重建索引
+      autoRebuildOnConfigChange: false,  // 配置变更时是否自动提示重建索引
+
+      // 🆕 自动关闭模式
+      autoCloseMode: true  // 默认启用自动关闭（搜索界面）
     }
   }
   
@@ -20272,6 +20275,24 @@ class KnowledgeBaseConfig {
   static recordLastIndexMode(mode) {
     this.config.lastIndexMode = mode;
     this.save();
+  }
+
+  /**
+   * 获取自动关闭模式
+   * @returns {boolean}
+   */
+  static getAutoCloseMode() {
+    return this.getConfig("autoCloseMode");
+  }
+
+  /**
+   * 设置自动关闭模式
+   * @param {boolean} enabled
+   */
+  static setAutoCloseMode(enabled) {
+    this.config.autoCloseMode = enabled;
+    this.save();
+    MNUtil.log(`【KnowledgeBaseConfig】autoCloseMode 已保存: ${enabled}`);
   }
 
   /**

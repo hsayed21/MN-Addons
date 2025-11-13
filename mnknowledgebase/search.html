@@ -2916,36 +2916,11 @@
         }
       }
 
-      // 从 localStorage 加载自动关闭模式设置
-      function loadAutoCloseMode() {
-        try {
-          const saved = localStorage.getItem('mnkb_auto_close_mode');
-          if (saved !== null) {
-            state.autoCloseMode = JSON.parse(saved);
-          }
-        } catch (error) {
-          console.warn('加载自动关闭模式失败', error);
-          state.autoCloseMode = true; // 默认启用
-        }
-      }
-
-      // 保存自动关闭模式设置到 localStorage
-      function saveAutoCloseMode(enabled) {
-        try {
-          localStorage.setItem('mnkb_auto_close_mode', JSON.stringify(enabled));
-        } catch (error) {
-          console.warn('保存自动关闭模式失败', error);
-        }
-      }
-
       // 切换自动关闭模式
       function toggleAutoCloseMode() {
         state.autoCloseMode = !state.autoCloseMode;
 
-        // 保存到 localStorage
-        saveAutoCloseMode(state.autoCloseMode);
-
-        // 通知原生层
+        // 通知原生层（原生层会保存到 NSUserDefaults）
         const url = `mnknowledgebase://setAutoCloseMode?enabled=${state.autoCloseMode}`;
         window.location.href = url;
 
@@ -2987,7 +2962,6 @@
       function initAll() {
         // 1. 主应用初始化
         loadRecentPresets();
-        loadAutoCloseMode();  // 加载自动关闭模式设置
         init();
 
         // 2. AI 助手初始化（确保在主应用初始化之后）

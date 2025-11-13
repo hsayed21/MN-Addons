@@ -108,8 +108,11 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
         // 特殊处理：自动关闭模式切换
         if (config.host === "setAutoCloseMode") {
           let enabled = config.params.enabled === "true"
+
+          // ✅ 使用 KnowledgeBaseConfig 统一管理
+          KnowledgeBaseConfig.setAutoCloseMode(enabled)
           self.autoCloseMode = enabled
-          NSUserDefaults.standardUserDefaults().setObjectForKey(enabled, "KB_AutoCloseMode")
+
           MNUtil.showHUD(enabled ? "已启用自动关闭" : "已禁用自动关闭")
           return false
         }
@@ -136,6 +139,24 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
     // 标记 WebView 已加载完成
     self.webViewLoaded = true
     MNUtil.log("webViewLoaded 设置为 true")
+
+    // 🆕 同步 autoCloseMode 状态到 WebView
+    MNUtil.delay(0.15).then(() => {
+      try {
+        let script = `
+          if (typeof state !== 'undefined' && state.autoCloseMode !== undefined) {
+            state.autoCloseMode = ${self.autoCloseMode};
+            if (typeof updateAutoCloseModeButton === 'function') {
+              updateAutoCloseModeButton();
+            }
+            console.log('[autoCloseMode] 已从 Native 同步状态: ' + ${self.autoCloseMode});
+          }
+        `
+        self.webView.evaluateJavaScript(script)
+      } catch (error) {
+        MNUtil.log("同步 autoCloseMode 失败: " + error)
+      }
+    })
 
     // 🆕 新增：如果窗口已经显示，立即刷新数据
     // 这解决了首次打开时数据不刷新的问题
@@ -1051,9 +1072,9 @@ knowledgebaseWebController.prototype.init = function() {
   this.moveDate = 0
   this.currentHTMLType = null  // 'search' 或 'comment-manager'
 
-  // 初始化自动关闭模式（默认启用）
-  let savedMode = NSUserDefaults.standardUserDefaults().objectForKey("KB_AutoCloseMode")
-  this.autoCloseMode = savedMode !== undefined ? savedMode : true
+  // 🆕 从 KnowledgeBaseConfig 读取自动关闭模式
+  this.autoCloseMode = KnowledgeBaseConfig.getAutoCloseMode()
+  MNUtil.log(`【init】读取的 autoCloseMode: ${this.autoCloseMode}`)
 
   if (!this.lastFrame) {
     this.lastFrame = this.view.frame
