@@ -578,3 +578,197 @@ git remote -v
 - 在创建 GitHub Issue 之前，确保代码已经推送到远程仓库
 - 使用 `git push github [分支名]` 而不是 `git push origin [分支名]`
 - 如果忘记 push，Issue 中引用的代码链接将无法访问
+## UIAlertView API 使用规范(极其重要!⚠️)
+
+### ❌ 禁止使用
+
+**错误示例(永远不要这样写):**
+
+```javascript
+// ❌ 错误:使用 UIAlertView.show()
+UIAlertView.show(
+  "标题",
+  "消息",
+  "取消",
+  ["选项1", "选项2"],
+  (alert, buttonIndex) => {
+    if (buttonIndex === 0) return  // 取消
+    // 处理逻辑
+  }
+)
+```
+
+**问题:**
+- `UIAlertView.show()` 是低层级原生 API，不应直接使用
+- 使用回调模式，容易产生回调地狱
+- 不符合 MarginNote 插件开发规范
+
+### ✅ 正确使用:MNUtil.userSelect
+
+**正确示例(推荐):**
+
+```javascript
+// ✅ 正确:使用 MNUtil.userSelect()
+let selected = await MNUtil.userSelect(
+  "标题",
+  "消息",
+  ["选项1", "选项2"]
+)
+
+// 返回值说明:
+// 0 = 取消
+// 1 = 选项1
+// 2 = 选项2
+// ...
+
+if (selected === 0) return  // 用户取消
+
+// 处理选择
+let selectedIndex = selected - 1  // 转换为 0-based 索引
+MNUtil.showHUD(`选择了: ${options[selectedIndex]}`)
+```
+
+**实际案例:批量转移功能**
+
+```javascript
+// webviewController.js:2993-3096
+transferSelectedPins: async function(button) {
+  try {
+    // 检查是否有选中项
+    let selectedCards = self.getSelectedCards()
+    if (selectedCards.length === 0) {
+      MNUtil.showHUD("请先选中至少一个项目")
+      return
+    }
+
+    // 获取目标分区列表
+    let currentSection = self.currentSection
+    let allSections = SectionRegistry.getOrderedKeys(self.currentViewMode)
+
+    let sectionOptions = []
+    let sectionKeys = []
+
+    allSections.forEach(sectionKey => {
+      let config = SectionRegistry.getConfig(sectionKey)
+      if (config) {
+        let displayName = config.displayName || sectionKey
+        let icon = config.icon || ""
+
+        if (sectionKey === currentSection) {
+          sectionOptions.push(`${icon} ${displayName} (当前)`)
+        } else {
+          sectionOptions.push(`${icon} ${displayName}`)
+        }
+        sectionKeys.push(sectionKey)
+      }
+    })
+
+    // ✅ 使用 MNUtil.userSelect 替代 UIAlertView.show
+    let selected = await MNUtil.userSelect(
+      `批量转移 (已选 ${selectedCards.length} 项)`,
+      "请选择目标分区",
+      sectionOptions
+    )
+
+    // 用户取消
+    if (selected === 0) return
+
+    // 获取选中的分区索引(selected - 1，因为返回值从1开始)
+    let selectedIndex = selected - 1
+    let targetSection = sectionKeys[selectedIndex]
+
+    // 检查是否选择了当前分区
+    if (targetSection === currentSection) {
+      MNUtil.showHUD("无法转移到当前分区")
+      return
+    }
+
+    // 执行批量转移
+    let successCount = 0
+    let failCount = 0
+
+    MNUtil.undoGrouping(() => {
+      selectedCards.forEach(card => {
+        let success = pinnerConfig.transferPin(
+          card.rawPin,
+          card.section,
+          targetSection
+        )
+
+        if (success) {
+          successCount++
+        } else {
+          failCount++
+        }
+      })
+    })
+
+    // 显示结果
+    if (failCount === 0) {
+      MNUtil.showHUD(`✅ 已转移 ${successCount} 个项目`)
+    } else {
+      MNUtil.showHUD(`⚠️ 成功 ${successCount} 个，失败 ${failCount} 个`)
+    }
+
+    // 清空选择并刷新界面
+    self.clearSelection()
+    self.refreshSectionCards(currentSection)
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "transferSelectedPins")
+    MNUtil.showHUD("转移失败: " + error.message)
+  }
+}
+```
+
+### ✅ 特殊情况:需要输入 + 选择
+
+**唯一允许的 UIAlertView 直接调用场景:**
+
+当需要**同时支持输入和选择**时，可以使用完整的原生 API:
+
+```javascript
+// ✅ 可以接受:需要输入框 + 多个选择按钮
+UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+  "修改页面标题",
+  "输入标题或选择预设短语",
+  2,  // alertViewStyle = 2(文本输入框)
+  "取消",
+  ["确定", "预设1", "预设2"],  // 多个选项按钮
+  (alert, buttonIndex) => {
+    if (buttonIndex === 0) return  // 取消
+
+    let inputText = alert.textFieldAtIndex(0).text.trim()
+
+    if (buttonIndex === 1) {
+      // 确定按钮 - 使用输入框内容
+      // ...
+    } else {
+      // 选择了预设短语
+      let preset = presets[buttonIndex - 2]
+      // ...
+    }
+  }
+)
+```
+
+**使用条件:**
+- 必须同时需要输入和选择功能
+- 使用完整方法名:`UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock`
+- **绝对不能用** `UIAlertView.show()`
+
+### 对比表格
+
+| API | 是否允许 | 适用场景 | 返回方式 |
+|-----|---------|---------|---------|
+| `UIAlertView.show()` | ❌ 禁止 | 无 | 回调 |
+| `MNUtil.userSelect()` | ✅ 推荐 | 纯选择 | async/await |
+| `UIAlertView.showWithTitle...TapBlock()` | ⚠️ 特殊情况 | 输入+选择 | 回调 |
+
+### 重要提醒
+
+1. **永远不要使用 `UIAlertView.show()`**
+2. **优先使用 MNUtils 封装的 API**
+3. **使用 async/await 代替回调模式**
+4. **只在必须同时需要输入和选择时才使用原生 API**
+5. **必须使用完整的方法名，而不是简写形式**

@@ -1672,12 +1672,7 @@ class KnowledgeBaseTemplate {
     
     // 如果有跳过的链接，显示提示
     if (skippedCount > 0 && successCount === 0) {
-      MNUtil.showHUD(`⚠️ ${skippedCount} 个链接因目标卡片缺少"相关链接"或"应用"字段而未建立反向链接`);
-    } else if (successCount > 0) {
-      this.log(
-        `反向链接处理完成：成功 ${successCount} 个，跳过 ${skippedCount} 个`, 
-        "processExtractedMarginNoteLinks"
-      );
+      // MNUtil.showHUD(`⚠️ ${skippedCount} 个链接因目标卡片缺少"相关链接"或"应用"字段而未建立反向链接`);
     }
   }
 
