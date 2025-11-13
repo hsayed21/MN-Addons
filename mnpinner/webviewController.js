@@ -932,6 +932,29 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
+   * 切换"Pin 剪贴板时询问标题"开关
+   */
+  toggleAlwaysAskClipboardTitle: function() {
+    try {
+      let currentValue = pinnerConfig.settings.alwaysAskClipboardTitle || false
+      let newValue = !currentValue
+
+      pinnerConfig.settings.alwaysAskClipboardTitle = newValue
+      pinnerConfig.save()
+
+      // 更新按钮文字
+      self.alwaysAskClipboardTitleButton.setTitleForState(
+        `Pin 剪贴板时询问标题: ${newValue ? "✅" : "❌"}`,
+        0
+      )
+
+      MNUtil.showHUD(newValue ? "已开启询问" : "已关闭询问")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "toggleAlwaysAskClipboardTitle")
+    }
+  },
+
+  /**
    * 统一的标签页切换处理方法（配置驱动）
    * 替代所有重复的 xxxTabTapped 方法
    * @param {UIButton} button - 点击的按钮，包含 viewName 元数据
@@ -1097,16 +1120,22 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       // 获取当前分区
       let section = button.section || self.currentSection
 
-      // 弹出输入框让用户自定义标题（可选）
-      let result = await MNUtil.userInput(
-        "Pin 剪贴板文本",
-        "请输入标题（留空自动生成）",
-        ["取消", "确定"]
-      )
+      let title = null
 
-      if (result.button === 0) return  // 点击取消
+      // 检查是否需要询问标题
+      if (pinnerConfig.settings.alwaysAskClipboardTitle) {
+        // 弹出输入框让用户自定义标题（可选）
+        let result = await MNUtil.userInput(
+          "Pin 剪贴板文本",
+          "请输入标题（留空自动生成）",
+          ["取消", "确定"]
+        )
 
-      let title = result.input.trim() || null  // 空字符串转为 null，让工厂方法自动生成
+        if (result.button === 0) return  // 点击取消
+
+        title = result.input.trim() || null  // 空字符串转为 null，让工厂方法自动生成
+      }
+      // 否则直接使用 null，让工厂方法自动生成标题
 
       // 调用工具方法添加剪贴板 Pin
       if (pinnerUtils.pinClipboard(clipboardText, {
@@ -1114,7 +1143,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         position: "top",
         title: title
       })) {
-        MNUtil.showHUD(`✅ 已添加到 ${pinnerConfig.getSectionDisplayName(section)}`)
+        // MNUtil.showHUD(`✅ 已添加到 ${pinnerConfig.getSectionDisplayName(section)}`)
         // 刷新当前分区视图
         self.refreshSectionCards(section)
       }
@@ -2023,7 +2052,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     try {
       self.checkPopover()  // 关闭菜单
       let section = param.section
-      let clipboard = param.clipboard
+      let index = param.index  // ✅ 使用索引而不是对象引用
+      
+      // ✅ 重新获取最新的对象
+      let pins = pinnerConfig.getPins(section)
+      let clipboard = pins[index]
 
       if (!clipboard || !clipboard.text) {
         MNUtil.showHUD("数据已失效")
@@ -2080,8 +2113,12 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   renameClipboard: async function(param) {
     try {
       self.checkPopover()  // 关闭菜单
-      let clipboard = param.clipboard
       let section = param.section
+      let index = param.index  // ✅ 使用索引而不是对象引用
+      
+      // ✅ 重新获取最新的对象
+      let pins = pinnerConfig.getPins(section)
+      let clipboard = pins[index]
 
       if (!clipboard) {
         MNUtil.showHUD("数据已失效")
@@ -4674,6 +4711,17 @@ pinnerController.prototype.createPreferencesView = function() {
       font: 15
     })
 
+    // 剪贴板标题询问开关
+    this.createButton("alwaysAskClipboardTitleButton", "toggleAlwaysAskClipboardTitle:", "preferencesContentView")
+    let askClipboardTitle = pinnerConfig.settings.alwaysAskClipboardTitle || false
+    MNButton.setConfig(this.alwaysAskClipboardTitleButton, {
+      color: "#56b6c2",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: `Pin 剪贴板时询问标题: ${askClipboardTitle ? "✅" : "❌"}`,
+      font: 15
+    })
+
     pinnerUtils.log("设置窗口创建完成", "createPreferencesView")
   } catch (error) {
     pinnerUtils.addErrorLog(error, "createPreferencesView")
@@ -4743,6 +4791,13 @@ pinnerController.prototype.preferencesViewLayout = function() {
     // 页面标题询问开关
     if (this.alwaysAskPageTitleButton) {
       this.alwaysAskPageTitleButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
+      yOffset += buttonHeight + buttonSpacing
+    }
+
+    // 剪贴板标题询问开关
+    if (this.alwaysAskClipboardTitleButton) {
+      this.alwaysAskClipboardTitleButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
+      yOffset += buttonHeight + buttonSpacing
     }
 
   } catch (error) {

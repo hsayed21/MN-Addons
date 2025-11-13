@@ -309,7 +309,7 @@ JSB.newAddon = function(mainPath){
                 }
                 let sectionName = pinnerConfig.getSectionDisplayName(section)
                 let positionText = position === "top" ? "顶部" : (position === "bottom" ? "底部" : `位置${position}`)
-                MNUtil.showHUD(`已添加到${sectionName}${positionText}: ${title}`)
+                // MNUtil.showHUD(`已添加到${sectionName}${positionText}: ${title}`)
               }
               break;
 
@@ -359,7 +359,7 @@ JSB.newAddon = function(mainPath){
                 }
                 let posSectionName = pinnerConfig.getSectionDisplayName(posSection)
                 let posText = posPosition === "top" ? "顶部" : (posPosition === "bottom" ? "底部" : `位置${posPosition}`)
-                MNUtil.showHUD(`已添加到${posSectionName}${posText}: ${posTitle}`)
+                // MNUtil.showHUD(`已添加到${posSectionName}${posText}: ${posTitle}`)
               }
               break;
 
@@ -398,7 +398,7 @@ JSB.newAddon = function(mainPath){
                   if (pinnerUtils.pinnerController) {
                     pinnerUtils.pinnerController.refreshView("pagesView")
                   }
-                  MNUtil.showHUD(`已添加到 Pages: ${pageTitle || `第${pageIndex+1}页`}`)
+                  // MNUtil.showHUD(`已添加到 Pages: ${pageTitle || `第${pageIndex+1}页`}`)
                 }
               } catch (error) {
                 pinnerUtils.addErrorLog(error, "onAddonBroadcast:pinPage")
