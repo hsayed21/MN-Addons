@@ -955,6 +955,39 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
+   * 切换多选框显示状态
+   */
+  toggleShowCheckbox: function() {
+    try {
+      let currentValue = pinnerConfig.settings.showCheckbox || false
+      let newValue = !currentValue
+
+      // 更新设置并保存
+      pinnerConfig.settings.showCheckbox = newValue
+      pinnerConfig.save()
+
+      // 更新按钮文字
+      self.showCheckboxButton.setTitleForState(
+        `显示多选框: ${newValue ? "✅" : "❌"}`,
+        0
+      )
+
+      // 如果关闭多选框，自动清空所有选择
+      if (!newValue) {
+        self.clearSelection()
+      }
+
+      // 刷新当前分区视图（重新创建卡片行）
+      let currentViewName = self.currentSection + "View"
+      self.refreshView(currentViewName)
+
+      MNUtil.showHUD(newValue ? "多选框已显示" : "多选框已隐藏")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "toggleShowCheckbox")
+    }
+  },
+
+  /**
    * 统一的标签页切换处理方法（配置驱动）
    * 替代所有重复的 xxxTabTapped 方法
    * @param {UIButton} button - 点击的按钮，包含 viewName 元数据
@@ -4048,25 +4081,30 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   // 获取卡片总数，用于判断是否禁用按钮
   let totalCards = pinnerConfig.getPins(section).length
 
-  // ========== 左侧勾选框（新增） ==========
-  let checkboxButton = UIButton.buttonWithType(0)
-  let key = section + "-" + card.noteId
-  let isSelected = this.selectedCards.has(key)
-  checkboxButton.setTitleForState(isSelected ? "☑️" : "☐", 0)
-  checkboxButton.frame = {x: 5, y: 7, width: 32, height: 30}
-  checkboxButton.titleLabel.font = UIFont.systemFontOfSize(18)
-  checkboxButton.backgroundColor = UIColor.clearColor()
-  checkboxButton.setTitleColorForState(UIColor.blackColor(), 0)       // 正常状态
-  checkboxButton.setTitleColorForState(this.highlightColor, 1)    // 高亮状态
-  checkboxButton.tag = index
-  checkboxButton.section = section
-  checkboxButton.addTargetActionForControlEvents(this, "toggleCardSelection:", 1 << 6)
-  rowView.addSubview(checkboxButton)
+  // ========== 左侧勾选框（可选显示） ==========
+  let showCheckbox = pinnerConfig.settings.showCheckbox || false  // 读取配置（默认隐藏）
+  let checkboxWidth = showCheckbox ? 40 : 0  // 动态计算宽度
 
-  // 上移按钮（右移 40px）
+  if (showCheckbox) {
+    let checkboxButton = UIButton.buttonWithType(0)
+    let key = section + "-" + card.noteId
+    let isSelected = this.selectedCards.has(key)
+    checkboxButton.setTitleForState(isSelected ? "☑️" : "☐", 0)
+    checkboxButton.frame = {x: 5, y: 7, width: 32, height: 30}
+    checkboxButton.titleLabel.font = UIFont.systemFontOfSize(18)
+    checkboxButton.backgroundColor = UIColor.clearColor()
+    checkboxButton.setTitleColorForState(UIColor.blackColor(), 0)       // 正常状态
+    checkboxButton.setTitleColorForState(this.highlightColor, 1)    // 高亮状态
+    checkboxButton.tag = index
+    checkboxButton.section = section
+    checkboxButton.addTargetActionForControlEvents(this, "toggleCardSelection:", 1 << 6)
+    rowView.addSubview(checkboxButton)
+  }
+
+  // 上移按钮（位置根据 checkboxWidth 动态调整）
   let moveUpButton = UIButton.buttonWithType(0)
   moveUpButton.setTitleForState("⬆️", 0)
-  moveUpButton.frame = {x: 45, y: 7, width: 30, height: 30}
+  moveUpButton.frame = {x: 5 + checkboxWidth, y: 7, width: 30, height: 30}
   moveUpButton.layer.cornerRadius = 5
   moveUpButton.tag = index  // ✅ 只保存索引
   moveUpButton.section = section
@@ -4082,10 +4120,10 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   }
   rowView.addSubview(moveUpButton)
 
-  // 下移按钮（右移 40px）
+  // 下移按钮（位置根据 checkboxWidth 动态调整）
   let moveDownButton = UIButton.buttonWithType(0)
   moveDownButton.setTitleForState("⬇️", 0)
-  moveDownButton.frame = {x: 80, y: 7, width: 30, height: 30}
+  moveDownButton.frame = {x: 40 + checkboxWidth, y: 7, width: 30, height: 30}
   moveDownButton.layer.cornerRadius = 5
   moveDownButton.tag = index  // ✅ 只保存索引
   moveDownButton.section = section
@@ -4101,10 +4139,10 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   }
   rowView.addSubview(moveDownButton)
 
-  // 定位按钮（右移 40px）
+  // 定位按钮（位置根据 checkboxWidth 动态调整）
   let focusButton = UIButton.buttonWithType(0)
   focusButton.setTitleForState("📍", 0)
-  focusButton.frame = {x: 115, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
+  focusButton.frame = {x: 75 + checkboxWidth, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
   focusButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
   focusButton.layer.cornerRadius = 5
   focusButton.tag = index  // ✅ 只保存索引，点击时通过索引回溯数据
@@ -4114,11 +4152,11 @@ pinnerController.prototype.createCardRow = function(card, index, width, section)
   MNButton.addLongPressGesture(focusButton, this, "onLongPressFocusButton:", 0.4)
   rowView.addSubview(focusButton)
 
-  // 添加标题（右移 40px）
+  // 添加标题（位置根据 checkboxWidth 动态调整）
   let titleButton = UIButton.buttonWithType(0)
   titleButton.setTitleForState(`💳 ${card.title || "未命名卡片"}`, 0)
   titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
-  titleButton.frame = {x: 150, y: 5, width: width - 200, height: 35}
+  titleButton.frame = {x: 110 + checkboxWidth, y: 5, width: width - 160 - checkboxWidth, height: 35}
   titleButton.addTargetActionForControlEvents(this, "cardTapped:", 1 << 6)
   titleButton.tag = index  // ✅ 只保存索引
   titleButton.section = section
@@ -4700,6 +4738,17 @@ pinnerController.prototype.createPreferencesView = function() {
       font: 15
     })
 
+    // 多选框显示开关
+    this.createButton("showCheckboxButton", "toggleShowCheckbox:", "preferencesContentView")
+    let showCheckbox = pinnerConfig.settings.showCheckbox !== false  // 默认 false（隐藏）
+    MNButton.setConfig(this.showCheckboxButton, {
+      color: "#61afef",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: `显示多选框: ${showCheckbox ? "✅" : "❌"}`,
+      font: 15
+    })
+
     pinnerUtils.log("设置窗口创建完成", "createPreferencesView")
   } catch (error) {
     pinnerUtils.addErrorLog(error, "createPreferencesView")
@@ -4775,6 +4824,12 @@ pinnerController.prototype.preferencesViewLayout = function() {
     // 剪贴板标题询问开关
     if (this.alwaysAskClipboardTitleButton) {
       this.alwaysAskClipboardTitleButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
+      yOffset += buttonHeight + buttonSpacing
+    }
+
+    // 多选框显示开关
+    if (this.showCheckboxButton) {
+      this.showCheckboxButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
       yOffset += buttonHeight + buttonSpacing
     }
 

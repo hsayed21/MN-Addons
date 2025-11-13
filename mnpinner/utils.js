@@ -318,6 +318,15 @@ class SectionRegistry {
       order: 5,
       description: "习题课"
     }],
+    ["literatureReading", {
+      key: "literatureReading",
+      displayName: "文献阅读",
+      viewMode: "pin",
+      color: "#e5c07b",
+      icon: "📖",
+      order: 6,
+      description: "文献阅读"
+    }],
 
     // Task 视图分区
     ["taskToday", {
@@ -795,7 +804,8 @@ class pinnerConfig {
       lastViewMode: "pin",         // 上次的视图模式
       lastSection: "focus",        // 上次的分区
       clipboardTitleStrategy: "truncate",  // 剪贴板标题生成策略：truncate（截取） 或 firstLine（首行）
-      clipboardTitleLength: 30     // 剪贴板标题截取长度（默认30字符）
+      clipboardTitleLength: 30,    // 剪贴板标题截取长度（默认30字符）
+      showCheckbox: false          // 是否显示多选框（默认隐藏）
     }
   }
 
