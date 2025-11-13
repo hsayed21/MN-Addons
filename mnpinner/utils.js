@@ -797,7 +797,7 @@ class pinnerConfig {
     return {
       alwaysAskCardTitle: false,   // Pin卡片时是否总是询问标题
       alwaysAskPageTitle: false,   // Pin页面时是否总是询问标题
-      alwaysAskClipboardTitle: false,  // Pin剪贴板时是否总是询问标题（默认不询问，直接pin）
+      alwaysAskClipboardTitle: false,  // Pin文本时是否总是询问标题（默认不询问，直接pin）
       defaultViewMode: "pin",      // 默认视图模式: pin/task
       defaultSection: "focus",     // 默认打开的分区
       rememberLastView: true,      // 是否记住上次视图（默认开启）

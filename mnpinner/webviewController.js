@@ -613,7 +613,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       }
 
       pinnerConfig.addPageTitlePreset(inputText)
-      MNUtil.showHUD("✅ 已添加预设")
+      // MNUtil.showHUD("✅ 已添加预设")
     } catch (error) {
       pinnerUtils.addErrorLog(error, "addPreset")
       MNUtil.showHUD("操作失败")
@@ -932,7 +932,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
-   * 切换"Pin 剪贴板时询问标题"开关
+   * 切换"Pin 文本时询问标题"开关
    */
   toggleAlwaysAskClipboardTitle: function() {
     try {
@@ -944,7 +944,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       // 更新按钮文字
       self.alwaysAskClipboardTitleButton.setTitleForState(
-        `Pin 剪贴板时询问标题: ${newValue ? "✅" : "❌"}`,
+        `Pin 文本时询问标题: ${newValue ? "✅" : "❌"}`,
         0
       )
 
@@ -1138,52 +1138,86 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
-   * Pin 当前剪贴板内容到当前分区
+   * Pin 文本内容（优先使用选中文本，无选中则使用剪切板）
    */
-  pinCurrentClipboard: async function(button) {
+  pinTextContent: async function(button) {
     try {
-      // 获取系统剪贴板文本
-      let clipboardText = UIPasteboard.generalPasteboard().string
+      let textContent = null
+      let textSource = null
 
-      if (!clipboardText || clipboardText.trim().length === 0) {
-        MNUtil.showHUD("剪贴板为空")
-        return
+      // 【步骤1】优先检测选中文本
+      let selection = MNUtil.currentSelection
+
+      if (selection && selection.onSelection) {
+        // 有选中内容
+        if (selection.isText && selection.text && selection.text.trim().length > 0) {
+          // 选中的是文本
+          textContent = selection.text
+          textSource = "selection"
+        } else if (!selection.isText && selection.image) {
+          // 选中的是图片，提示用户
+          MNUtil.showHUD("当前选中的是图片，请选择文本内容")
+          return
+        }
       }
 
-      // 获取当前分区
+      // 【步骤2】无选中时，使用剪切板
+      if (!textContent) {
+        let clipboardText = UIPasteboard.generalPasteboard().string
+
+        if (!clipboardText || clipboardText.trim().length === 0) {
+          MNUtil.showHUD("请先选择文本或复制内容到剪贴板")
+          return
+        }
+
+        textContent = clipboardText
+        textSource = "clipboard"
+      }
+
+      // 【步骤3】限制文本长度
+      const maxTextLength = 10000
+      if (textContent.length > maxTextLength) {
+        MNUtil.showHUD(`文本过长，已截取前 ${maxTextLength} 字符`)
+        textContent = textContent.substring(0, maxTextLength)
+      }
+
+      // 【步骤4】获取目标分区
       let section = button.section || self.currentSection
 
+      // 【步骤5】标题处理
       let title = null
 
-      // 检查是否需要询问标题
+      // 根据来源显示不同的提示
+      let titlePrompt = textSource === "selection"
+        ? "Pin 选中文本"
+        : "Pin 剪贴板文本"
+
       if (pinnerConfig.settings.alwaysAskClipboardTitle) {
-        // 弹出输入框让用户自定义标题（可选）
         let result = await MNUtil.userInput(
-          "Pin 剪贴板文本",
+          titlePrompt,
           "请输入标题（留空自动生成）",
           ["取消", "确定"]
         )
 
-        if (result.button === 0) return  // 点击取消
-
-        title = result.input.trim() || null  // 空字符串转为 null，让工厂方法自动生成
+        if (result.button === 0) return
+        title = result.input.trim() || null
       }
-      // 否则直接使用 null，让工厂方法自动生成标题
 
-      // 调用工具方法添加剪贴板 Pin
-      if (pinnerUtils.pinClipboard(clipboardText, {
-        section: section,
-        position: "top",
-        title: title
-      })) {
-        // MNUtil.showHUD(`✅ 已添加到 ${pinnerConfig.getSectionDisplayName(section)}`)
-        // 刷新当前分区视图
+      // 【步骤6】创建 Pin 并添加
+      let clipboardPin = pinnerConfig.createClipboardPin(textContent, title)
+
+      if (pinnerConfig.addPin(clipboardPin, section, "top")) {
+        // 显示成功提示（区分来源）
+        let sourceLabel = textSource === "selection" ? "选中文本" : "剪贴板"
+        // MNUtil.showHUD(`✅ 已添加${sourceLabel}到 ${pinnerConfig.getSectionDisplayName(section)}`)
+
+        // 刷新视图
         self.refreshSectionCards(section)
       }
 
     } catch (error) {
-      pinnerUtils.addErrorLog(error, "pinCurrentClipboard")
-      MNUtil.showHUD("Pin 剪贴板失败: " + error.message)
+      pinnerUtils.addErrorLog(error, "pinTextContent")
+      MNUtil.showHUD("Pin 失败: " + error.message)
     }
   },
 
@@ -1230,7 +1264,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       // 刷新界面
       self.refreshSectionCards(section)
-      MNUtil.showHUD("已添加空白卡片")
+      // MNUtil.showHUD("已添加空白卡片")
 
     } catch (error) {
       pinnerUtils.addErrorLog(error, "createBlankCard")
@@ -2737,7 +2771,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
                 focusNote.refresh()
               })
 
-              MNUtil.showHUD(`✅ 已添加 ${selectedCards.length} 个链接到当前卡片`)
+              // MNUtil.showHUD(`✅ 已添加 ${selectedCards.length} 个链接到当前卡片`)
             }
 
             // 清空选择状态并刷新界面
@@ -2861,7 +2895,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
                 focusNote.refresh()
               })
 
-              MNUtil.showHUD(`✅ 已添加 ${selectedCards.length} 个链接到当前卡片`)
+              // MNUtil.showHUD(`✅ 已添加 ${selectedCards.length} 个链接到当前卡片`)
             }
 
             // 清空选择状态并刷新界面
@@ -3732,10 +3766,10 @@ pinnerController.prototype.createToolbarButtons = function() {
     buttonX += 100
 
     // 4.5. Pin 剪贴板按钮（新增）
-    this.createButton("toolbarPinClipboardButton", "pinCurrentClipboard:", "toolbarScrollView")
+    this.createButton("toolbarPinClipboardButton", "pinTextContent:", "toolbarScrollView")
     this.toolbarPinClipboardButton.frame = {x: buttonX, y: 0, width: 110, height: buttonHeight}
     MNButton.setConfig(this.toolbarPinClipboardButton, {
-      color: "#98c379", alpha: 0.8, opacity: 1.0, title: "📋 Pin 剪贴板", radius: 6, font: 14
+      color: "#98c379", alpha: 0.8, opacity: 1.0, title: "📝 Pin 文本", radius: 6, font: 14
     })
     buttonX += 115
 
@@ -4734,7 +4768,7 @@ pinnerController.prototype.createPreferencesView = function() {
       color: "#56b6c2",
       alpha: 0.8,
       opacity: 1.0,
-      title: `Pin 剪贴板时询问标题: ${askClipboardTitle ? "✅" : "❌"}`,
+      title: `Pin 文本时询问标题: ${askClipboardTitle ? "✅" : "❌"}`,
       font: 15
     })
 
