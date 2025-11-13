@@ -19812,7 +19812,7 @@ ${this.OCRNumberingRules}
             note.title = result.trim()
             break;
           case "firstTitleLinkWord":
-            note.title = "【${titleParts.type} >> ${titleParts.prefixContent}】" + result.trim() + "; " +  titleParts.content
+            note.title = titleParts.type?'【' + titleParts.type + ' >> ' + titleParts.prefixContent + '】' + result.trim() + "; " +  titleParts.content : result.trim() + "; " +  titleParts.content
             break;
           case "lastTitleLinkWord":
             note.title = note.title + "; " +  result.trim()
