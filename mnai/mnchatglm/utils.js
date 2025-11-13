@@ -16,8 +16,10 @@ class chatAITool{
   preCSS = ""
   /** @type {Boolean} **/
   needNote
-  /** @type {UIView} **/
+  /** @type {UIView } **/
   executeView = undefined
+  /** @type {Object} **/
+  static toolbarActionConfigs = {}
   /**
    * 
    * @param {String} name 
@@ -69,13 +71,13 @@ class chatAITool{
       if (content.success) {
         let text = "Successfully executed this tool call."
         if (content.response) {
-          text += "\n\nTool Response:\n"+content.response
+          text += "\n\n#####Tool Response#####\n"+content.response
         }
         return {"role":"tool","content":text,"tool_call_id":funcId}
       }else{
         let text = "Failed to execute this tool call."
         if (content.response) {
-          text += "\n\nTool Response:\n"+content.response
+          text += "\n\n#####Tool Response#####\n"+content.response
         }
         return {"role":"tool","content":text,"tool_call_id":funcId}
       }
@@ -83,10 +85,74 @@ class chatAITool{
       return {"role":"tool","content":content,"tool_call_id":funcId}
     }
   }
+
+  getArgs(){
+    //toolbar的动作配置需要动态更新，所以需要单独处理
+    if (this.name === "executeAction") {
+      let args = this.args
+      let actionConfigs = {}
+      if (typeof toolbarUtils === "undefined") {
+        args.action.description = "All actions are disabled due to the missing of addon [MN Toolbar]. Please tell user to install MN Toolbar First!"
+        return args
+      }
+      let actionKeys = toolbarConfig.getDefaultActionKeys()
+      let actionEnums = []
+      actionKeys.map(key=>{//key就是actionId
+        let hideForAI = false
+        let config = toolbarConfig.getAction(key)
+        let configToReturn = {
+          name:config.name,//动作名，不参与实际运行,
+          actionId:key//动作ID，不参与实际运行,用于指定动作
+        }
+        if ("description" in config && MNUtil.isValidJSON(config.description)) {
+          //config.description才是每个动作的具体配置
+          let des = JSON.parse(config.description)
+          if ("description" in des) {//des.description则是对动作的描述，不参与实际运行
+            //把des.description提升层级（和name同层级），不放在具体的配置中，而是用于描述动作
+            configToReturn.description = des.description
+            delete des.description
+          }
+          if ("onLongPress" in des) {//不需要这个参数
+            delete des.onLongPress
+          }
+          configToReturn.config = des
+          if ("hideForAI" in des) {
+            hideForAI = des.hideForAI
+          }
+        }
+        if (!hideForAI) {//只有在hideForAI为false时，才将动作加入到actionEnums和actionConfigs中
+          actionEnums.push(key)
+          actionConfigs[key] = configToReturn
+        }
+        //configToReturn包括name,description,config三个部分，其中config是动作的具体配置
+      })
+      chatAITool.toolbarActionConfigs = actionConfigs
+      args.action.enum = actionEnums
+      args.action.description = `Use the actionId to specify the action to execute. Configuration for actions:
+${JSON.stringify(actionConfigs,undefined,2)}`
+      // chatAIUtils.log("getArgs",{args:args})
+      return args
+    }
+    if (this.name === "executePrompt") {
+      let args = this.args
+      let promptKeys = chatAIConfig.getConfig("promptNames")
+      let promptConfigs = promptKeys.map(key=>{
+        return {
+          promptId:key,
+          name:chatAIConfig.prompts[key].title
+        }
+      })
+      args.prompt.enum = promptKeys
+      args.prompt.description = `Use the promptId to specify the prompt to execute. Configuration for prompts:
+${JSON.stringify(promptConfigs,undefined,2)}`
+      return args
+    }
+    return this.args
+  }
   body(forMinimax = false) {
     let parameters = {
       "type": "object",
-      "properties": this.args,
+      "properties": this.getArgs(),
     }
     if ("required" in this.config) {
       parameters.required = this.config.required
@@ -105,13 +171,12 @@ class chatAITool{
     return {"type":"function","function":funcStructure}
   }
   checkArgs(args,funcId){
-    // MNUtil.copy(args)
     let res = {onError:false}
     let args2check = []
     if ("required" in this.config) {
       args2check = this.config.required
     }else{
-      args2check = Object.keys(this.args)
+      args2check = Object.keys(this.args??{})
     }
     if (args2check.length) {//如果有必选参数
       if (!args) {
@@ -202,6 +267,12 @@ class chatAITool{
   let response = {}
   // MNUtil.log({message:"execute",detail:funcName})
   switch (funcName) {
+    case "executeAction":
+      response = await this.executeToolbarAction(func,args)
+      break;
+    case "executePrompt":
+      response = await this.executePrompt(func,args)
+      break;
     case "createMindmap":
       response = this.createMindmap(func,args,note)
       break;
@@ -329,9 +400,17 @@ class chatAITool{
         try {
           let PDFExtractMode = chatAIConfig.getConfig("PDFExtractMode")
           let currentDocInfo = await chatAIConfig.getFileContent(currentFile,PDFExtractMode === "local")
+          if (!currentDocInfo) {
+            message.response = "Reading document failed"
+            message.success = false
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+            MNUtil.stopHUD()
+            break
+          }
           response.toolMessages = chatAITool.genToolMessage(JSON.stringify(currentDocInfo,undefined,2),func.id)
         } catch (error) {
           response.toolMessages = chatAITool.genToolMessage("Reading document failed",func.id)
+          MNUtil.stopHUD()
           throw error;
         }
         MNUtil.waitHUD("🤖 Reading: "+currentFile.name)
@@ -1593,6 +1672,107 @@ class chatAITool{
     return true
 
   }
+
+  async executeToolbarAction(func,args) {
+  try {
+
+    let response = {}
+    let message = {success:true}
+    if (typeof toolbarUtils === "undefined") {
+      MNUtil.showHUD("Please install MN Utils First!")
+      return
+    }
+    let actionKey = args.action
+    let actionDes = toolbarConfig.getDescriptionById(actionKey)
+    if (!actionDes) {
+      message.response = "Action ["+actionKey+"] not found"
+      message.success = false
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      MNUtil.showHUD("Action ["+actionKey+"] not found")
+      return response
+    }
+    if (!("action" in actionDes)) {
+      message.response = "Missing action"
+      message.success = false
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      MNUtil.showHUD("Missing action")
+      return response
+    }
+    MNUtil.log({message:"executeToolbarAction",source:"MN ChatAI",detail:args})
+    //支持通过额外参数替换原动作
+    let extraArgs = chatAITool.getExtraArgs(args)
+    if (Object.keys(extraArgs).length > 0) {
+      for (let key of Object.keys(extraArgs)) {
+        actionDes[key] = extraArgs[key]
+      }
+    }
+    // let argsToIgnore = ["action","onTrue","onFalse","onFinish","onLongPress"]
+    // if ("extraArgs" in args) {
+    //   let keys = Object.keys(args.extraArgs).filter((key)=>!argsToIgnore.includes(key))
+    //   if (keys.length > 0) {
+    //     for (let key of keys) {
+    //       actionDes[key] = args.extraArgs[key]
+    //     }
+    //   }
+    // }else if ("config" in args) {
+    //   let keys = Object.keys(args.config).filter((key)=>!argsToIgnore.includes(key))
+    //   if (keys.length > 0) {
+    //     for (let key of keys) {
+    //       actionDes[key] = args.config[key]
+    //     }
+    //   }
+    // }else{
+    //   let keys = Object.keys(args).filter((key)=>!argsToIgnore.includes(key))
+    //   if (keys.length > 0) {
+    //     for (let key of keys) {
+    //       actionDes[key] = args[key]
+    //     }
+    //   }
+    // }
+    if ("onLongPress" in actionDes) {
+      delete actionDes.onLongPress
+    }
+    MNUtil.log({message:"executeToolbarAction",source:"MN ChatAI",detail:actionDes})
+    await chatAIUtils._executeToolbarAction(actionDes)
+    message.response = "Detail of the successfully executed action ["+actionKey+"] configuration:\n"+JSON.stringify(actionDes,undefined,2)
+    message.success = true
+    response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    // chatAIUtils.log("moveNotes", response)
+    return response
+    
+  } catch (error) {
+    let response = {}
+    let message = {success:false}
+    chatAIUtils.addErrorLog(error, "executeToolbarAction")
+    message.response = "Failed in execute toolbar action: "+error.message
+    response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    return response
+  }
+  }
+  /**
+   * 这里不会真的执行prompt，相当于占位
+   * @param {*} func 
+   * @param {*} args 
+   * @returns 
+   */
+  async executePrompt(func,args) {
+    try {
+      let response = {}
+      let message = {success:true}
+      message.response = "Failed in execute prompt: Can not execute prompt in chat mode, please use the tool in notification mode"
+      // let prompt = args.prompt
+      // let instruction = args.instruction??""
+      // chatAIUtils.ask({promptKey:prompt,instruction:instruction,forceToExecute:true},false)
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      return response
+    } catch (error) {
+      let response = {}
+      let message = {success:false}
+      message.response = "Failed in execute prompt: "+error.message
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      return response
+    }
+  }
   async moveNotes (func,args) {
   try {
 
@@ -1687,6 +1867,18 @@ class chatAITool{
           //   note.color = args.color
           // })
           message.response = `Color of note [${note.noteId}] has been changed to "${args.color}"`
+          break;
+        case "setMarkdownStatus":
+          if ("markdown" in args) {
+            editConfig.excerptTextMarkdown = args.markdown
+          }else{
+            editConfig.excerptTextMarkdown = false
+          }
+          if (editConfig.excerptTextMarkdown) {
+            message.response = `Markdown Render for content of note [${note.noteId}] has been enabled`
+          }else{
+            message.response = `Markdown Render for content of note [${note.noteId}] has been disabled`
+          }
           break;
         case "replaceContent":
           // chatAIUtils.log("before", {excerptText:note.excerptText,originalContent:args.originalContent,content:args.content})
@@ -1900,6 +2092,7 @@ class chatAITool{
       // chatAIUtils.log("_editNote.message",message)
       return message
   }
+
   /**
    * 
    * @param {Object} func 
@@ -1945,199 +2138,6 @@ class chatAITool{
       // chatAIUtils.log("editNote.response",response)
       return response
     }
-
-    // /**
-    //  * @type {Array<MNNote>} 
-    //  */
-    // if (args.noteId && chatAIUtils.noteExists(args.noteId)) {
-    //   note = MNNote.new(args.noteId)
-    // }
-    //   let targetTitle = ""
-    //   let targetContent = ""
-    //   switch (args.action) {
-    //     case "setColor":
-    //       MNUtil.undoGrouping(()=>{
-    //         note.color = args.color
-    //       })
-    //       message.response = `Color of note [${note.noteId}] has been changed to "${args.color}"`
-    //       break;
-    //     case "replaceContent":
-    //       // chatAIUtils.log("before", {excerptText:note.excerptText,originalContent:args.originalContent,content:args.content})
-    //       let targetString = chatAIUtils.safeReplaceAll(note.excerptText,args.originalContent,args.content)
-    //       // chatAIUtils.log("after", {targetString:targetString})
-    //       MNUtil.undoGrouping(()=>{
-    //         note.excerptText = targetString
-    //         if ("markdown" in args) {
-    //           note.excerptTextMarkdown = args.markdown
-    //         }
-    //       })
-    //       message.response = `Content of note [${note.noteId}] has been updated as "${targetString}"`
-    //       break;
-    //     case "setTitle":
-    //     case "setTitleWithOptions":
-    //       targetTitle = args.content ?? args.title ?? ""
-    //       if ("titleOptions" in args) {
-    //         let choices = ["Cancel"].concat(args.titleOptions,"Confirm")
-    //         let selectRes = await MNUtil.input("🤖: 请选择要设置的标题","",choices)
-    //         // MNUtil.copy(selectRes)
-    //         if (selectRes.button === 0) {
-    //           response.result = {question:args,confirmed:false}
-    //           message.response = `Title of note [${note.noteId}] has not been changed, user does not make the choice`
-    //           targetTitle = ""
-    //           // MNUtil.copy(message)
-    //         }else if(selectRes.button === choices.length-1){
-    //           response.result = {question:args,confirmed:true,userInput:selectRes.input}
-    //           message.response = `Title of note [${note.noteId}] has been changed to "${selectRes.input}"`
-    //           targetTitle = selectRes.input
-    //         }else{
-    //           response.result = {question:args,confirmed:true,choice:choices[selectRes.button]}
-    //           message.response = `Title of note [${note.noteId}] has been changed to "${choices[selectRes.button]}"`
-    //           targetTitle = choices[selectRes.button]
-    //         }
-    //         // MNUtil.copy(targetTitle)
-    //       }
-    //       if (targetTitle) {
-    //         MNUtil.undoGrouping(()=>{
-    //           note.title = targetTitle
-    //         })
-    //         message.success = true
-    //       }else{
-    //         message.success = false
-    //       }
-    //       break;
-    //     case "appendTitle":
-    //       targetTitle = note.title+";"+(args.content ?? args.title ?? "")
-    //       MNUtil.undoGrouping(()=>{
-    //         note.title = targetTitle
-    //       })
-    //       message.response = `Title of note [${note.noteId}] has been changed as "${targetTitle}"`
-    //       message.success = true
-    //       break;
-    //     case "prependTitle":
-    //       targetTitle = (args.content ?? args.title ?? "")+";"+note.title
-    //       MNUtil.undoGrouping(()=>{
-    //         note.title = targetTitle
-    //       })
-    //       message.response = `Title of note [${note.noteId}] has been changed as "${targetTitle}"`
-    //       message.success = true
-    //       break;
-    //     case "clearTitle":
-    //       MNUtil.undoGrouping(()=>{
-    //         note.title = ""
-    //       })
-    //       message.response = `Title of note [${note.noteId}] has been cleared`
-    //       message.success = true
-    //       break;
-    //     case "setContent":
-    //       MNUtil.undoGrouping(()=>{
-    //         let content = chatAITool.formatMarkdown(args.content)
-    //         note.excerptText = content
-    //         if ("markdown" in args) {
-    //           note.excerptTextMarkdown = args.markdown
-    //         }
-    //       })
-    //       message.response = `Note/card content of note [${note.noteId}] has been changed as: "${args.content}"`
-    //       message.success = true
-    //       break;
-    //     case "appendContent":
-    //       targetContent = note.excerptText+"\n"+args.content
-    //       MNUtil.undoGrouping(()=>{
-    //         note.excerptText = chatAITool.formatMarkdown(targetContent)
-    //         if ("markdown" in args) {
-    //           note.excerptTextMarkdown = args.markdown
-    //         }
-    //       })
-    //       message.response = `Note/card content of note [${note.noteId}] has been changed as: "${targetContent}"`
-    //       message.success = true
-    //       break;
-    //     case "prependContent":
-    //       targetContent = args.content.trim()+"\n"+note.excerptText
-    //       MNUtil.undoGrouping(()=>{
-    //         note.excerptText = chatAITool.formatMarkdown(targetContent)
-    //         if ("markdown" in args) {
-    //           note.excerptTextMarkdown = args.markdown
-    //         }
-    //       })
-    //       message.response = `Note/card content of note [${note.noteId}] has been changed as: "${targetContent}"`
-    //       message.success = true
-    //       break;
-    //     case "clearContent":
-    //       MNUtil.undoGrouping(()=>{
-    //         note.excerptText = ""
-    //       })
-    //       message.response = `Note/card content of note [${note.noteId}] has been cleared`
-    //       message.success = true
-    //       break;
-    //     case "addComment":
-    //       MNUtil.undoGrouping(()=>{
-    //         note.appendMarkdownComment(chatAITool.formatMarkdown(args.content))
-    //       })
-    //       message.response = `Add comment to note [${note.noteId}] with content: "${args.content}"`
-    //       message.success = true
-    //       break;
-    //     case "appendComment":
-    //       MNUtil.undoGrouping(()=>{
-    //         note.appendMarkdownComment(chatAITool.formatMarkdown(args.content))
-    //       })
-    //       message.response = `Append comment to note [${note.noteId}] with content: "${args.content}"`
-    //       message.success = true
-    //       break;
-    //     case "prependComment":
-    //       MNUtil.undoGrouping(()=>{
-    //         note.appendMarkdownComment(chatAITool.formatMarkdown(args.content),0)
-    //       })
-    //       message.response = `Prepend comment to note [${note.noteId}] with content: "${args.content}"`
-    //       message.success = true
-    //       break;
-    //     case "addTags":
-    //       MNUtil.undoGrouping(()=>{
-    //         note.appendTags(args.tags)
-    //       })
-    //       message.response = `Add tags to note [${note.noteId}]: "${args.tags}"`
-    //       message.success = true
-    //       break;
-    //     case "removeTags":
-    //       if ("tags" in args) {
-    //         MNUtil.undoGrouping(()=>{
-    //           note.removeTags(args.tags)
-    //         })
-    //         message.response = `Remove tags from note [${note.noteId}]: "${args.tags}"`
-    //       }else{
-    //         MNUtil.undoGrouping(()=>{
-    //           note.removeTags(note.tags)
-    //         })
-    //         message.response = `Remove all tags from note [${note.noteId}]: "${note.tags}"`
-    //       }
-    //       message.success = true
-    //       break;
-    //     case "deleteNote":
-    //       if ("needConfirm" in args && args.needConfirm) {
-    //         let confirmRes = await MNUtil.confirm("🤖: 请确认是否删除当前笔记","",["Cancel","Confirm"])
-    //         if (confirmRes === 0) {
-    //           message.response = `Note [${note.noteId}] is not deleted, user does not confirm`
-    //           message.success = false
-    //         }else{
-    //           MNUtil.undoGrouping(()=>{
-    //             note.delete()
-    //           })
-    //           message.response = `Note [${note.noteId}] is deleted`
-    //           message.success = true
-    //         }
-    //       }else{
-    //         MNUtil.undoGrouping(()=>{
-    //           note.delete()
-    //         })
-    //         message.response = `Note [${note.noteId}] is deleted`
-    //         message.success = true
-    //       }
-    //       break;
-    //     default:
-    //       message.response = `Unspported action: "${args.action}" for note [${note.noteId}]`
-    //       message.success = false
-    //       break;
-    //   }
-    //   response.toolMessages = chatAITool.genToolMessage(message, func.id)
-    // return response
   }
   /**
  * 
@@ -2202,13 +2202,11 @@ try {
       if (!str) {
         return "";
       }
-      chatAIUtils.log("before",str)
+      // chatAIUtils.log("before",str)
       // 1. 替换为标准空格
       // 2. 将多个连续的换行符替换为双换行符
       // 3. 将其它空白符（除了换行符）替换为单个空格
       var tempStr = str.replace(/&nbsp;/g, ' ').replace(/\r/g, '\n').replace(/\n+/g, '\n\n').trim()
-      chatAIUtils.log("after",tempStr)
-      // var tempStr = str.replace(/\n+/g, '\n').replace(/[\r\t\f\v ]+/g, ' ').trim()
       return tempStr;
   }
 /**
@@ -2251,44 +2249,46 @@ static fixDisplayMathNewlines(markdown) {
  * @returns {string} - 格式修正后的 Markdown 文本。
  */
 static formatMarkdown(markdownText) {
+  // chatAIUtils.log("1", markdownText)
   // 1. 首先，全局替换所有的 &nbsp; 为标准空格。
   let correctedText = markdownText
       .replace(/&nbsp;/g, ' ')
-      .replace(/\frac/g, '\\frac')
-      .replace(/\x08egin/, "\\begin")
-      .replace(/\right/, "\\right")
       .replace(/\\\[/g, '\n$$$') // Replace display math mode delimiters
       .replace(/\\\]/g, '$$$\n') // Replace display math mode delimiters
       .replace(/(\\\(\s?)|(\s?\\\))/g, '$') // Replace inline math mode opening delimiter;
       .replace(/\r/g, '\n')
       .replace(/\n{3,}/g, '\n\n')//三个以上换行符替换为两个
       .trim()
+  // chatAIUtils.log("2", correctedText)
   correctedText = this.fixDisplayMathNewlines(correctedText)
-  // 2. 将文本按行分割成数组，以便逐行处理。
-  const lines = correctedText.split('\n');
+  return correctedText
+  // chatAIUtils.log("3", correctedText)
+  // // 2. 将文本按行分割成数组，以便逐行处理。
+  // const lines = correctedText.split('\n');
 
-  // 3. 遍历每一行，修正列表项的格式。
-  const formattedLines = lines.map(line => {
-    // 使用正则表达式匹配以可选空格开头，后跟一个短横线 (-) 的行。
-    // \s* : 匹配行首的任意个空格（处理缩进）。
-    // -     : 匹配列表标记符“-”。
-    // \s* : 匹配“-”后面可能存在或缺失的空格。
-    // (.*)  : 捕获该行剩余的全部内容（即列表的文本）。
-    const listRegex = /^\s*-\s*(.*)$/;
+  // // 3. 遍历每一行，修正列表项的格式。
+  // const formattedLines = lines.map(line => {
+  //   // 使用正则表达式匹配以可选空格开头，后跟一个短横线 (-) 的行。
+  //   // \s* : 匹配行首的任意个空格（处理缩进）。
+  //   // -     : 匹配列表标记符“-”。
+  //   // \s* : 匹配“-”后面可能存在或缺失的空格。
+  //   // (.*)  : 捕获该行剩余的全部内容（即列表的文本）。
+  //   const listRegex = /^\s*-\s*(.*)$/;
 
-    // 如果当前行匹配列表项的格式
-    if (listRegex.test(line)) {
-      // 就将其替换为标准格式：“  - 文本内容”
-      // 这里我们统一使用两个空格作为缩进，并在“-”后加一个空格。
-      return line.replace(listRegex, '  - $1');
-    }
+  //   // 如果当前行匹配列表项的格式
+  //   if (listRegex.test(line)) {
+  //     // 就将其替换为标准格式：“  - 文本内容”
+  //     // 这里我们统一使用两个空格作为缩进，并在“-”后加一个空格。
+  //     return line.replace(listRegex, '  - $1');
+  //   }
     
-    // 如果不是列表项，则保持原样。
-    return line;
-  });
+  //   // 如果不是列表项，则保持原样。
+  //   return line;
+  // });
+  // chatAIUtils.log("3", formattedLines.join('\n'))
 
-  // 4. 将处理好的各行重新用换行符连接成一个完整的字符串。
-  return formattedLines.join('\n');
+  // // 4. 将处理好的各行重新用换行符连接成一个完整的字符串。
+  // return formattedLines.join('\n');
 }
 
 /**
@@ -2387,6 +2387,14 @@ static getLoadingHTML(content = "loading"){
 renderEditNote(args,moreIndent = false){
   let indent = moreIndent ? "      " : "  "
     switch (args.action) {
+          case "setMarkdownStatus":
+            if ("markdown" in args) {
+              if (args.markdown) {
+                return `\n${indent}Markdown Render Enabled: true\n`
+              }
+              return `\n${indent}Markdown Render Enabled: false\n`
+            }
+            return ""
           case "setColor":
             if (args.color) {
               return `\n${indent}color: ${args.color}\n`
@@ -2424,17 +2432,27 @@ ${indent}To: ${args.content??""}\n`
           case "clearTitle":
             return ""
           case "setContent":
+
             if (args.content) {
+              if ("markdown" in args && args.markdown) {
+                return `\n${indent}Markdown: ${args.content}\n`
+              }
               return `\n${indent}Content: ${args.content}\n`
             }
             return ""
           case "appendContent":
             if (args.content) {
+              if ("markdown" in args && args.markdown) {
+                return `\n${indent}Markdown: ${args.content}\n`
+              }
               return `\n${indent}Content: ${args.content}\n`
             }
             return ""
           case "prependContent":
             if (args.content) {
+              if ("markdown" in args && args.markdown) {
+                return `\n${indent}Markdown: ${args.content}\n`
+              }
               return `\n${indent}Content: ${args.content}\n`
             }
             return ""
@@ -2473,6 +2491,46 @@ try {
   let funcName = this.name
   // MNUtil.copy(funcName)
   switch (funcName) {
+    case "executeAction":
+      if (args.action && args.action in chatAITool.toolbarActionConfigs) {
+        let actionName = chatAITool.toolbarActionConfigs[args.action].name
+        if (actionName) {
+          let extraArgs = chatAITool.getExtraArgs(args)
+          if (Object.keys(extraArgs).length > 0) {
+            let extraArgsString = JSON.stringify(extraArgs,undefined,2).replace(/\n/g, '\n  ')
+            return `🔨 executeAction(
+  Name: ${actionName}
+  ExtraArgs: ${extraArgsString}
+)\n`
+          }
+//           if ("extraArgs" in args) {
+//             return `🔨 executeAction(
+//   Name: ${actionName}
+//   ExtraArgs: 
+//   ${JSON.stringify(args.extraArgs,undefined,2).replace(/\n/g, '\n  ')}
+// )\n`
+//           }
+          return `🔨 executeAction(
+  Name: ${actionName}
+)\n`
+        }
+      }
+      return `🔨 ${funcName}("${args.action}")\n`
+    case "executePrompt":
+      if (args.prompt) {
+        let promptKey = args.prompt
+        let prompt = (promptKey in chatAIConfig.getConfig("promptNames"))? chatAIConfig.prompts[args.prompt].title:promptKey
+        if (args.instruction) {
+          return `🔨 ${funcName}(
+  Prompt: ${prompt}
+  Instruction: ${args.instruction}
+)\n`
+        }
+        return `🔨 ${funcName}(
+  Prompt: ${prompt}
+)\n`
+      }
+      return `🔨 ${funcName}()\n`
     case "setTitle":
       if (args.title) {
         return `🔨 ${funcName}("${MNUtil.mergeWhitespace(args.title)}")\n`
@@ -2658,14 +2716,18 @@ try {
     case "editNote":
       let editAction = {}
       if (args.actions) {
-        if (Object.keys(args.actions).length > 1) {
+        let numberOfActions = Object.keys(args.actions).length
+        if (numberOfActions === 0) {
+          return `🔨 ${funcName}()\n`
+        }
+        if (numberOfActions === 1) {
+          editAction = args.actions[0]
+          editAction.noteId = args.noteId
+        }else{
           noteIdString = args.noteId ? `\n   📝 id: ${args.noteId}` : ""
           let argsString = args.actions.map((action,index)=>`   ${chatAIUtils.emojiIndices[index]} ${action.action}:`+this.renderEditNote(action,true)).join("")
           return `🔨 editNote.multipleEdits(${noteIdString}
 ${argsString})\n`
-        }else{
-          editAction = args.actions[0]
-          editAction.noteId = args.noteId
         }
       }else{
         editAction = args
@@ -2674,6 +2736,8 @@ ${argsString})\n`
         noteIdString = editAction.noteId ? `\n  noteId: ${editAction.noteId}` : ""
         let argsString = this.renderEditNote(editAction)
         switch (editAction.action) {
+          case "setMarkdownStatus":
+            return `🔨 editNote.setMarkdownStatus(${noteIdString}${argsString})\n`
           case "setColor":
             return `🔨 editNote.setColor(${noteIdString}${argsString})\n`
           case "replaceContent":
@@ -2772,7 +2836,7 @@ ${argsString})\n`
   }
   
 } catch (error) {
-  chatAIUtils.addErrorLog(error, "chatAITool.codifyToolCall")
+  chatAIUtils.addErrorLog(error, "chatAITool.codifyToolCall",args)
   return `🔨 ${funcName}()\n`
 }
 }
@@ -2780,7 +2844,7 @@ genErrorInMissingArguments(arg,funcId) {
   // MNUtil.copy(arg)
   MNUtil.showHUD("Missing arguments: "+arg)
   let response = {
-    toolMessages: chatAITool.genToolMessage("Execution failed! The arguments ["+arg+"] provided is empty!",funcId),
+    toolMessages: chatAITool.genToolMessage("Execution failed! The arguments ["+arg+"] for function "+this.name+" is not provided!",funcId),
     description: "Error in "+this.name+"(): Missing arguments: "+arg+"\n"
   }
   return response
@@ -2788,7 +2852,7 @@ genErrorInMissingArguments(arg,funcId) {
 genErrorInEmptyArguments(arg,funcId) {
   MNUtil.showHUD("Empty content in arguments: "+arg)
   let response = {
-    toolMessages: chatAITool.genToolMessage("Execution failed! The content of arguments ["+arg+"] provided is empty!",funcId),
+    toolMessages: chatAITool.genToolMessage("Execution failed! The content of arguments ["+arg+"] for function "+this.name+" is empty!",funcId),
     description: "Error in "+this.name+"(): Empty content in arguments: "+arg+"\n"
   }
   return response
@@ -3049,8 +3113,39 @@ getFullHTML(args){
     }
 
 }
+  static getExtraArgs(args){
+    let argsToIgnore = ["action","onTrue","onFalse","onFinish","onLongPress"]
+    let extraArgs = {}
+    if ("extraArgs" in args) {
+      let keys = Object.keys(args.extraArgs).filter((key)=>!argsToIgnore.includes(key))
+      if (keys.length > 0) {
+        for (let key of keys) {
+          extraArgs[key] = args.extraArgs[key]
+        }
+      }
+    }else if ("config" in args) {
+      let keys = Object.keys(args.config).filter((key)=>!argsToIgnore.includes(key))
+      if (keys.length > 0) {
+        for (let key of keys) {
+          extraArgs[key] = args.config[key]
+        }
+      }
+    }else{
+      let keys = Object.keys(args).filter((key)=>!argsToIgnore.includes(key))
+      if (keys.length > 0) {
+        for (let key of keys) {
+          extraArgs[key] = args[key]
+        }
+      }
+    }
+    return extraArgs
+  }
+  static _toolConfig = undefined
   static get toolConfig(){
-    return {
+    if (this._toolConfig !== undefined) {
+      return this._toolConfig
+    }
+    let toolConfig = {
       "setTitle":{
         needNote:true,
         toolTitle: "📝   Set Title",
@@ -3536,8 +3631,9 @@ sequenceDiagram
               properties:{
                 action:{
                   type:"string",
-                  enum:["setTitle","setTitleWithOptions","appendTitle","prependTitle","clearTitle","setColor","setContent","appendContent","prependContent","clearContent","replaceContent","appendComment","prependComment","addTags","removeTags","deleteNote"],
+                  enum:["setTitle","setTitleWithOptions","appendTitle","prependTitle","clearTitle","setColor","setContent","appendContent","prependContent","clearContent","replaceContent","appendComment","prependComment","addTags","removeTags","deleteNote","setMarkdownStatus"],
                   description:`actions to edit note.
+For action \`setMarkdownStatus\`, the parameter \`markdown\` is required. This action will not change the content of the note, but change whether the content is rendered as markdown format.
 Use the \`replaceContent\` action to change the style of specific words.
 For example, set parameter \`originalContent\` to "reveals" and parameter \`content\` to "<span style="background-color: red;">reveals</span>" to change the color of the word "reveals" to red.`
                 },
@@ -3549,7 +3645,7 @@ For actions \`setContent\`, \`appendContent\`, \`replaceContent\` and \`addComme
 IMPORTANT: 
 * All inline formulas must be wrapped with single dollar signs $...$, and all displayed equations must be wrapped with double dollar signs $$...$$.
 * The bold style is supported by using "**".
-* Dolded text will be hidden in recall mode (also called 回忆模式 in Chinese) to enable active recall practice through blank-filling.
+* Bold text will be hidden in recall mode (also called 回忆模式 in Chinese) to enable active recall practice through blank-filling.
 `
                 },
                 markdown:{
@@ -3679,10 +3775,68 @@ IMPORTANT:
         required:["action"],
         description:"this tool is used to process knowledge"
       },
+      "executeAction":{
+        needNote:false,
+        toolTitle: "🔨   Execute Action",
+        args:{
+          action:{
+            type:"string",
+            enum:[],
+            description:"action to execute, provide the actionId to specify the action to execute"
+          },
+          extraArgs:{
+            type:"object",
+            description:"optional, additional arguments to replace the original arguments of the action"
+          }
+        },
+        required:["action"],
+        description: `this tool [executeAction] is used to execute an action of addon [MN Toolbar]. 
+For action, you must provide the actionId to specify the action to execute.
+In addition to the actionId, you can also provide additional arguments to replace the original arguments of the action.
+`
+      },
+      "executePrompt":{
+        needNote:false,
+        toolTitle: "🤖   Execute Prompt",
+        args:{
+          prompt:{
+            type:"string",
+            enum:[],
+            description:"Prompt to execute, provide promptId to specify the prompt to execute"
+          }
+          // instruction:{
+          //   type:"string",
+          //   description:"optional, additional instruction for assistant who will execute the prompt"
+          // }
+        },
+        required:["prompt"],
+        description: `this tool [executePrompt] is used to ask an assistant to execute a prompt. You must provide the promptId to specify the prompt to execute. `
+      }
+    }
+    // chatAIUtils.log("toolConfig",toolConfig)
+    this._toolConfig = toolConfig
+    return toolConfig
+  }
+  /**
+   * 获取工具的配置,支持传入索引或工具名称
+   * @param {string|number} name 
+   * @returns {Object}
+   */
+  static getToolConfig(name){
+    if (typeof name === "number") {
+      let index = name
+      let funcKey = this.toolNames[index]
+      return this.getToolConfig(funcKey)
+    }
+    let toolConfig = this.toolConfig
+    if (name in toolConfig) {
+      return toolConfig[name]
+    }else{
+      return undefined
     }
   }
   static get toolNames(){
-    return ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","createNote","clearExcerpt","setExcerpt","readDocument","readNotes","webSearch","readParentNote","createMindmap","editNote","generateImage","createHTML","userConfirm","userInput","userSelect","mergeNotes","moveNotes","linkNotes","organizeNotes","searchNotes","createMermaidChart","knowledge"]
+    return ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","createNote","clearExcerpt","setExcerpt","readDocument","readNotes","webSearch","readParentNote","createMindmap","editNote","generateImage","createHTML","userConfirm","userInput","userSelect","mergeNotes","moveNotes","linkNotes","organizeNotes","searchNotes","createMermaidChart","knowledge","executeAction","executePrompt"]
   }
   static get toolNumber(){
     return this.toolNames.length
@@ -3691,12 +3845,14 @@ IMPORTANT:
     return [0,1,2,3,4,6,8,9]
   }
   static get activatedTools(){
-    // return [15,11,13,21,22,23,24,25,7,14,17,16,18,19,20,10,12,0,1,6,2,3,4,8,9,5]
-    return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,0,1,6,2,3,4,8,9,27,5]
+    // 还没正式启用新功能，先隐藏新功能
+    return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,0,1,6,2,3,4,8,9,27,28,29,5]
+    // return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,0,1,6,2,3,4,8,9,27,5]
   }
   static get activatedToolsExceptOld(){
-    // return [15,11,13,21,22,23,24,25,7,14,17,16,18,19,20,10,12,5]
-    return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,27,5]
+    // 还没正式启用新功能，先隐藏新功能
+    return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,27,28,29,5]
+    // return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,27,5]
   }
   static async getChangedTools(currentFunc,index){
     let targetFunc = currentFunc
@@ -3757,10 +3913,10 @@ IMPORTANT:
   static initTools(){
     this.tools = {}
     for (let i = 0; i < this.toolNames.length; i++) {
-      let func = this.toolNames[i]
-      let config = this.toolConfig[func]
+      let funcKey = this.toolNames[i]
+      let config = this.getToolConfig(funcKey)
       // this.tools[func] = this.new(func,config.args,config.description,config.needNote)
-      this.tools[func] = this.new(func,config)
+      this.tools[funcKey] = this.new(funcKey,config)
     }
     this.tools["UnkonwFunc"] = this.new("UnkonwFunc",{},"UnkonwFunc",false)
   }
@@ -4673,7 +4829,7 @@ try {
         return this.currentNote()
       }
       if (allowSelection && this.currentSelection.onSelection) {
-        // MNUtil.log("create from selection")
+        chatAIUtils.log("create from selection")
         return MNNote.fromSelection().realGroupNoteForTopicId()
       }
       return undefined
@@ -4857,7 +5013,7 @@ try {
       config.isSelectionText = false
       config.isSelectionImage = false
     }
-    let focusNote = this.getFocusNote()
+    let focusNote = this.getFocusNote(false)
     if (focusNote) {
       config.hasFocusNote = true
     }else{
@@ -4929,6 +5085,9 @@ try {
     if (opt.withContent) {
       chatAIUtils.log("getDocObject withContent", tem)
       let fileInfo = await chatAIConfig.getFileContent(tem,PDFExtractMode === "local")
+      if (!fileInfo) {
+        return undefined
+      }
       // MNUtil.log(typeof fileInfo)
       docConfig.content = fileInfo.content
     }
@@ -4983,7 +5142,7 @@ try {
         name:MNUtil.getNoteBookById(note.notebookId).title,
       }
     }
-    noteConfig.title = note.noteTitle
+    noteConfig.title = this.removeMarkdownHeadingsFromTitle(note.noteTitle)
     noteConfig.url = note.noteURL
     noteConfig.excerptText = note.excerptText
     noteConfig.isMarkdownExcerpt = note.excerptTextMarkdown
@@ -5033,7 +5192,11 @@ try {
       if (startPage !== undefined && endPage !== undefined) {
         pageRange = {startPage,endPage}
       }
-      noteConfig.doc = await this.getDocObject(MNUtil.getDocById(note.docMd5),{withContent:noteInfo.hasNoteDoc,pageRange:pageRange}) 
+      let docObject = await this.getDocObject(MNUtil.getDocById(note.docMd5),{withContent:noteInfo.hasNoteDoc,pageRange:pageRange}) 
+      if (!docObject) {
+        return undefined
+      }
+      noteConfig.doc = docObject
       noteConfig.hasDoc = true
     }else{
       noteConfig.hasDoc = false
@@ -5067,77 +5230,6 @@ try {
     }
   }
   
-  /**
-   * 
-   * @param {string} text 
-   * @param {string} userInput 
-   * @returns 
-   */
-  static checkVariableForNote(text,userInput){//提前写好要退化到的变量
-    let OCR_Enabled = chatAIUtils.OCREnhancedMode
-    let hasUserInput = text.includes("{{userInput}}")
-    let hasCards = text.includes("{{cards}}")
-    let hasCardsOCR = text.includes("{{cardsOCR}}")
-    let replaceVarConfig = {}
-    if (OCR_Enabled) {
-      replaceVarConfig.context = `{{textOCR}}`
-      replaceVarConfig.card = `{{cardOCR}}`
-      replaceVarConfig.parentCard = `{{parentCardOCR}}`
-      replaceVarConfig.cards = `{{cardsOCR}}`
-
-      if (hasUserInput && !userInput) {
-        replaceVarConfig.userInput = `{{textOCR}}`
-      }
-      if (hasCards || hasCardsOCR) {
-        if (this.getFocusNotes().length === 1) {
-          replaceVarConfig.cards = `{{cardOCR}}`
-          replaceVarConfig.cardsOCR = `{{cardOCR}}`
-        }
-      }
-    }else{
-      if (hasUserInput && !userInput) {
-        replaceVarConfig.userInput = `{{context}}`
-      }
-      if (hasCards || hasCardsOCR) {
-        if (this.getFocusNotes().length === 1) {
-          replaceVarConfig.cards = `{{card}}`
-          replaceVarConfig.cardsOCR = `{{carsdOCR}}`
-        }
-      }
-    }
-    MNUtil.copy({text: text,replaceVarConfig:replaceVarConfig})
-    return MNUtil.render(text, replaceVarConfig)
-    // return this.replacVar(text, replaceVarConfig)
-  }
-
-  static checkVariableForText(text,userInput){//提前写好要退化到的变量
-    let OCR_Enabled = chatAIUtils.OCREnhancedMode
-    let hasUserInput = text.includes("{{userInput}}")
-    let replaceVarConfig = {}
-    if (OCR_Enabled) {
-      replaceVarConfig.context = `{{textOCR}}`
-      replaceVarConfig.card = `{{textOCR}}`
-      replaceVarConfig.parentCard = `{{textOCR}}`
-      replaceVarConfig.cards = `{{textOCR}}`
-      if (hasUserInput && !userInput) {
-        replaceVarConfig.userInput = `{{textOCR}}`
-      }
-    }else{
-      replaceVarConfig.card = `{{context}}`
-      replaceVarConfig.cards = `{{context}}`
-      replaceVarConfig.parentCard = `{{context}}`
-      if (hasUserInput && !userInput) {
-        replaceVarConfig.userInput = `{{context}}`
-      }
-    }
-    replaceVarConfig.cardOCR = `{{textOCR}}`
-    replaceVarConfig.cardsOCR = `{{textOCR}}`
-    replaceVarConfig.parentCardOCR = `{{textOCR}}`
-    replaceVarConfig.noteDocInfo = `{{currentDocInfo}}`
-    replaceVarConfig.noteDocAttach = `{{currentDocAttach}}`
-    replaceVarConfig.noteDocName = `{{currentDocName}}`
-    return this.replacVar(text, replaceVarConfig)
-  }
   static replacVar(text,varInfo) {
     let vars = Object.keys(varInfo)
     let original = text
@@ -5353,10 +5445,35 @@ try {
   /**
    * 
    * @param {MbBookNote|MNNote} note 
+   * @param {boolean} OCR_enabled 
+   * @returns {Promise<string>}
+   */
+  static async getExcerptText(note,OCR_enabled=false) {
+    let text = ""
+    if (MNUtil.isBlankNote(note)) {//单独处理留白笔记
+      if (note.excerptText) {
+        text = note.excerptText+"\n"
+      }else{
+        text = ""
+      }
+    }else{
+      if (OCR_enabled && note.excerptPic && !note.textFirst) {
+        let image = MNUtil.getMediaByHash(note.excerptPic.paint)
+        text = await chatAINetwork.getTextOCR(image)+"\n"
+        // text = ""
+      }else if (this.noteHasExcerptText(note)) {
+        text = note.excerptText+"\n"
+      }
+    }
+    return text
+  }
+  /**
+   * 
+   * @param {MbBookNote|MNNote} note 
    */
   static async getTextForSearch(note,OCR_enabled=false) {
     let order = chatAIConfig.getConfig("searchOrder")
-    let text
+    let text = ""
     for (let index = 0; index < order.length; index++) {
       const element = order[index];
       switch (element) {
@@ -5366,18 +5483,22 @@ try {
           }
           break;
         case 2:
-          if (MNUtil.isBlankNote(note)) {//单独处理留白笔记
-            text = note.excerptText??""
-          }else{
-            if (OCR_enabled && note.excerptPic && !note.textFirst) {
-              let image = MNUtil.getMediaByHash(note.excerptPic.paint)
-              text = await chatAINetwork.getTextOCR(image)
-              // text = ""
-            }else if (this.noteHasExcerptText(note)) {
-              text = note.excerptText
-            }
+          let notes = note.notes
+          for (let i = 0; i < notes.length; i++) {
+            const n = notes[i];
+            text = text + await this.getExcerptText(n,OCR_enabled)
           }
-
+          // if (MNUtil.isBlankNote(note)) {//单独处理留白笔记
+          //   text = note.excerptText??""
+          // }else{
+          //   if (OCR_enabled && note.excerptPic && !note.textFirst) {
+          //     let image = MNUtil.getMediaByHash(note.excerptPic.paint)
+          //     text = await chatAINetwork.getTextOCR(image)
+          //     // text = ""
+          //   }else if (this.noteHasExcerptText(note)) {
+          //     text = note.excerptText
+          //   }
+          // }
           //如果都不满足，此时text依然为undefined
           break;
         case 3:
@@ -5431,7 +5552,7 @@ try {
           }
           break;
         case 4:
-          text = chatAIUtils.getMDFromNote(note)
+          text = this.getMDFromNote(note)
           break;
         default:
           break;
@@ -6232,7 +6353,13 @@ static async getInfoForDynamic() {
     });
     return events;
   }
+/**
+ * 
+ * @param {String} str 
+ * @returns {{results:Object[],usage:Object}}
+ */
 static parseDataChunks(str) {
+  str = str.replace(/: OPENROUTER PROCESSING/g, '');
 
   const regex = /data:\s*({[\s\S]*?})(?=\s*data:|$)/g;
   const results = [];//role,citation
@@ -6254,7 +6381,7 @@ static parseDataChunks(str) {
       // results.push(data);
     } catch (e) {
       MNUtil.showHUD("Error in parseDataChunks: "+e.message)
-      MNUtil.log({message:"error in parseDataChunks",source:"MN ChatAI",level:"ERROR",detail:{error:e.message,jsonStr:jsonStr}})
+      MNUtil.log({message:"error in parseDataChunks"+e.message,source:"MN ChatAI",level:"ERROR",detail:jsonStr})
     }
   }
   if (results.length === 0 && /data:\s/.test(str)) {
@@ -6385,6 +6512,33 @@ static parseDataChunks(str) {
         return null; // 如果解析失败，返回 null 或其他默认值
     }
 }
+static multiLetterRegex = /(?<!\\)(\\[a-zA-Z]{2,})/g;
+static singleCharRegex = /(?<!\\)(\\(?:[cvHkdu]|[^a-zA-Z0-9\\]))/g;
+/**
+ * 使用两步替换策略，精准地纠正AI生成的字符串中未正确转义的LaTeX反斜杠。
+ * 这种方法可以有效避免将标准的JavaScript转义序列（如 \n, \b）错误地转义。
+ *
+ * @param {string} text - 包含可能未转义的LaTeX公式的输入字符串。
+ * @returns {string} - 返回修复了反斜杠转义的字符串。
+ */
+static fixLatexEscaping(text) {
+  if (typeof text !== 'string' || !text) {
+    return "";
+  }
+  let correctedText = text;
+  // --- 第 1 步：修复多字母（2个及以上）的单词命令 ---
+  // 正则表达式：匹配一个未转义的 \，后面跟着两个或更多的字母。
+  // [a-zA-Z]{2,} - 匹配至少两个字母。
+  correctedText = correctedText.replace(this.multiLetterRegex, '\\$1');
+  // --- 第 2 步：修复特定的、安全的单字母命令和所有符号命令 ---
+  // 正则表达式：匹配一个未转义的 \，后面跟着...
+  // 1. 白名单中的一个单字母：[cvHkdu] (根据需要增删)
+  // 2. 或 (|) 一个非字母、非数字、非反斜杠的字符：[^a-zA-Z0-9\\]
+  //    我们排除了反斜杠，因为 `\\` 已经是正确的。
+  //    排除了数字，因为像 \1 这样的命令在LaTeX中不常见，且可能与其他格式冲突。
+  correctedText = correctedText.replace(this.singleCharRegex, '\\$1');
+  return correctedText;
+}
 
 static parseTime = []
 static preResults = []
@@ -6395,6 +6549,9 @@ static preResults = []
  */
   static parseResponse(originalText,checkToolCalls) {
   try {
+    if (!originalText) {
+      return undefined
+    }
     // let beginTime = Date.now()
     let response = {}
     // this.parseTime.push(MNUtil.UUID())
@@ -6431,7 +6588,7 @@ static preResults = []
           }else{
             let index = res.tool_calls[0].index ?? 0
             if (!funcs[index]) {
-              funcs[index] = {function:{name:"unknownFunction",arguments:"",index:index}}
+              funcs[index] = {function:{name:"unknownFunction",arguments:"{}"},index:index,type:"function",id:MNUtil.UUID()}
             }
             if (funcs[index].function.arguments) {
               funcs[index].function.arguments = funcs[index].function.arguments+res.tool_calls[0].function.arguments
@@ -6449,10 +6606,11 @@ static preResults = []
       let funcList = []
       // MNUtil.copy(funcs)
       let funcResponses = funcs.map(func=>{
-        let arg = func.function.arguments
+        let arg = func.function.arguments//此时arg是一个json字符串而不是json对象
         // MNUtil.log({message:"funcArgs",detail:arg})
         // MNUtil.copyJSON(JSON.parse("{\"title\": \"排放变化特征分析\"}{\"title\": \"排放变化特征分析\"}"))
         if (arg) {//尝试解析arg为对象
+          arg = this.fixLatexEscaping(arg)//修复LaTeX反斜杠转义错误
           let args = this.getValidJSON(arg.trim())
           if (!args) {
             args = this.getValidJSON(this.safeJsonParse(arg.trim()))
@@ -7115,13 +7273,13 @@ code.hljs {
    * @returns 
    */
   static genCardStructureSync (noteid) {
-    MNUtil.log("genCardStructureSync")
+    // MNUtil.log("genCardStructureSync")
   let hasImage = false
   let cardStructure = {title:""}
   let note = MNNote.new(noteid)
   let imageId = ""
   if (note.noteTitle && note.noteTitle !== "") {
-    cardStructure.title = note.noteTitle
+    cardStructure.title = this.removeMarkdownHeadingsFromTitle(note.noteTitle)
   }
   if (note.excerptPic && !note.textFirst) {
     if (this.isBlankNote(note)) {
@@ -7134,8 +7292,10 @@ code.hljs {
   }else if(note.excerptText){
     if (note.excerptTextMarkdown) {
       cardStructure.content = chatAIUtils.replaceBase64ImagesWithTemplate(note.excerptText)
+      cardStructure.markdownEnabled = true
     }else{
       cardStructure.content = note.excerptText
+      cardStructure.markdownEnabled = false
     }
   }
 
@@ -7222,6 +7382,28 @@ code.hljs {
   }
   return cardStructure
 }
+  static removeMarkdownHeadingsFromTitle(title){
+  try {
+
+    let titles = title.split(";")
+    if (!titles || titles.length === 0) {
+      return ""
+    }
+    if (titles.length === 1) {
+      return titles[0]
+    }
+    return titles.filter(t=>{
+        if (/{{.*}}/.test(t)) {
+          return false
+        }
+        return true
+      }).join(";")
+    
+  } catch (error) {
+    this.addErrorLog(error, "removeMarkdownHeadingsFromTitle")
+    return ""
+  }
+  }
   /**
    * 
    * @param {string|MNNote} noteid 
@@ -7234,7 +7416,7 @@ code.hljs {
   let note = MNNote.new(noteid)
   let imageId = ""
   if (note.noteTitle && note.noteTitle !== "") {
-    cardStructure.title = note.noteTitle
+    cardStructure.title = this.removeMarkdownHeadingsFromTitle(note.noteTitle)
   }
   if (note.excerptPic && !note.textFirst) {
     if (this.isBlankNote(note)) {
@@ -7246,6 +7428,9 @@ code.hljs {
   }
   if (this.isBlankNote(note)) {
     cardStructure.content = note.excerptText??""
+    if (cardStructure.content) {
+      cardStructure.markdownEnabled = note.excerptTextMarkdown
+    }
   }else{
     if (OCR_enabled && note.excerptPic && !note.textFirst) {
       cardStructure.content = await chatAINetwork.getTextOCR(MNUtil.getMediaByHash(note.excerptPic.paint))
@@ -7254,7 +7439,13 @@ code.hljs {
         // cardStructure.content = "![noteImage](marginnote4app://markdownimg/png/"+imageId+")"
         cardStructure.content = "![noteImage]("+this.getImageUrl(imageId)+")"
       }else{
-        cardStructure.content = chatAIUtils.replaceBase64ImagesWithTemplate(note.excerptText)
+        if (note.excerptTextMarkdown) {
+          cardStructure.markdownEnabled = true
+          cardStructure.content = chatAIUtils.replaceBase64ImagesWithTemplate(note.excerptText)
+        }else{
+          cardStructure.content = note.excerptText
+          cardStructure.markdownEnabled = false
+        }
       }
     }
   }
@@ -7405,8 +7596,8 @@ code.hljs {
   }
   static extractJSONFromMarkdown(markdown) {
     // 使用正则表达式匹配被```JSON```包裹的内容
-    const regex = /```JSON([\s\S]*?)```/g;
-    const matches = regex.exec(markdown);
+    const regex = /^```JSON([\s\S]*?)```$/;
+    const matches = regex.exec(markdown.trim());
     
     // 提取匹配结果中的JSON字符串部分，并去掉多余的空格和换行符
     if (matches && matches[1]) {
@@ -7485,6 +7676,9 @@ code.hljs {
   static constrain(value, min, max) {
     return Math.min(Math.max(value, min), max);
   }
+  static isSideOutputCreated(){
+    return this.sideOutputController !== undefined
+  }
   static async openSideOutput(){
     if (this.isMN3()) {
       MNUtil.confirm("Only available in MN4+")
@@ -7492,7 +7686,7 @@ code.hljs {
     }
     try {
 
-    if (!this.sideOutputController) {
+    if (!this.isSideOutputCreated()) {
         this.sideOutputController = sideOutputController.new();
         MNUtil.toggleExtensionPanel()
         MNExtensionPanel.show()
@@ -7910,7 +8104,7 @@ static getLineByIndex(str, index) {
    */
   static async getNoteVarInfo(noteid,text,userInput,vision=false,ocr = this.OCREnhancedMode) {
     try {
-    let replaceText= text//this.checkVariableForNote(text, userInput)//提前写好要退化到的变量
+    let replaceText= text
     let vars = this.parseVars(replaceText)
     let noteInfo = vars.noteInfo
     // MNUtil.log({message:"noteInfo",detail:noteInfo})
@@ -7918,6 +8112,9 @@ static getLineByIndex(str, index) {
 
     let mindmapObject = await this.getMindmapObject(vars,ocr)
     let docConfig = await this.getDocObject(MNUtil.currentDoc,{withContent:vars.hasCurrentDocContent})
+    if (!docConfig) {
+      return undefined
+    }
     let noteConfig = undefined
     if (noteInfo.hasNote) {
       noteConfig = await this.getNoteObject(note,{
@@ -8073,7 +8270,7 @@ static async getTextVarInfo(text,userInput,vision=false,ocr=this.OCREnhancedMode
   let noteInfo = vars.noteInfo
   let mindmapObject = await this.getMindmapObject(vars)
     // this.showHUD(userInput+vars.hasUserInput)
-  let replaceText= text//this.checkVariableForText(text, userInput)//提前写好要退化到的变量
+  let replaceText= text
   let noteConfig = undefined
   if (noteInfo.hasNote) {
     noteConfig = await this.getNoteObject(MNNote.getFocusNote(),{
@@ -8081,6 +8278,9 @@ static async getTextVarInfo(text,userInput,vision=false,ocr=this.OCREnhancedMode
     })
   }
   let docConfig = await this.getDocObject(MNUtil.currentDoc,{withContent:vars.hasCurrentDocContent})
+  if (!docConfig) {
+    return undefined
+  }
   let preObject = {
     visionMode:vision,
     currentDoc:docConfig,
@@ -8593,6 +8793,43 @@ static replaceLtInLatexBlocks(markdown) {
         return '$$' + latexContent.replace(/</g, '\\lt') + '$$';
     });
 }
+
+/**
+ * 将字符串中美元符号包裹的 LaTeX 公式替换为 KaTeX 渲染后的 HTML
+ * @param {string} inputStr - 包含可能公式的原始字符串（如 "E=mc^2$，块级公式：$$\int_a^b f(x)dx$$"）
+ * @param {Object} [katexOptions] - KaTeX 渲染配置项（可选，默认：{ throwOnError: false }）
+ * @returns {string} 替换公式后的 HTML 字符串
+ */
+static renderKaTeXFormulas(inputStr, katexOptions = {}) {
+  // 合并默认配置和用户配置（throwOnError 默认关闭，避免生产环境报错）
+  const defaultOptions = { throwOnError: false, errorColor: "#cc0000" };
+  const options = { ...defaultOptions, ...katexOptions };
+
+  // 正则表达式：匹配 $$...$$（块级公式）和 $...$（行内公式）
+  // 注意：使用非贪婪匹配（*?）避免跨多个公式匹配，同时排除转义的 \$（即 \$ 不视为公式分隔符）
+  const formulaRegex = /(?<!\\)\$\$(.*?)(?<!\\)\$\$|(?<!\\)\$(.*?)(?<!\\)\$/gs;
+
+  // 替换匹配到的公式
+  return inputStr.replace(formulaRegex, (match, blockFormula, inlineFormula) => {
+    // 判断是块级公式（$$...$$）还是行内公式（$...$）
+    const isBlock = blockFormula !== undefined;
+    const formulaContent = isBlock ? blockFormula.trim() : inlineFormula.trim();
+
+    try {
+      // 使用 KaTeX 渲染公式为 HTML 字符串
+      return katex.renderToString(formulaContent, {
+        ...options,
+        displayMode: isBlock, // 块级公式设置 displayMode: true
+      });
+    } catch (error) {
+      // 渲染失败时，返回错误提示（保留原始公式内容以便调试）
+      console.error("KaTeX 渲染错误:", error, "公式内容:", formulaContent);
+      return `<span style="color: ${options.errorColor}; background: #ffebee; padding: 2px 4px; border-radius: 2px;">
+        [公式错误: ${formulaContent}]
+      </span>`;
+    }
+  });
+}
 /**
  * 
  * @param {string} code 
@@ -8602,17 +8839,18 @@ static getChoiceBlock(code) {
   // let url = `userselect://choice?content=${encodeURIComponent(code)}`
   let tem = code.split(". ")
   if (tem.length > 1 && tem[0].trim().length === 1) {
+    let choiceWithLatex = this.renderKaTeXFormulas(tem.slice(1).join(". "))
     
   return `<div style="margin-top: 15px;">
   <div style="display: block; padding: 0.8em 0.8em; color: #495057; border-radius: 20px; text-decoration: none; border: 0.1em solid #dee2e6; background: #f1f7fe; cursor: pointer; box-sizing: border-box; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative;">
     <span style="display: inline-block; width: 1.8em; height: 1.8em; background: #2196f3; color: white; border-radius: 50%; text-align: center; line-height: 1.8em; font-weight: 600; margin-right: 0.5em; vertical-align: middle; ">${tem[0]}</span>
-    <span style="vertical-align: middle;">${tem.slice(1).join(". ")}</span>
+    <span style="vertical-align: middle;">${choiceWithLatex}</span>
   </div>
   </div>`
   }
   return `<div style="margin-top: 15px;">
   <div style="display: block; padding: 0.8em 0.8em; color: #495057; border-radius: 20px; text-decoration: none; border: 0.1em solid #dee2e6; background: #f1f7fe; cursor: pointer; box-sizing: border-box; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative;">
-      <span style="vertical-align: middle;">${code}</span>
+      <span style="vertical-align: middle;">${this.renderKaTeXFormulas(code)}</span>
   </div>
   </div>`
 }
@@ -9011,7 +9249,7 @@ static isVisionModel(model) {
    * @param {number} interval 轮询间隔时间,单位为毫秒,默认1000毫秒
    * @returns {Promise<void>}
    */
-  static async waitForResponseFinish(interval = 1000){
+  static async waitForResponseFinish(interval = 1000,showHUD = true){
     try {
       return new Promise((resolve, reject) => {
         let timer = this.setInterval(() => {
@@ -9019,10 +9257,12 @@ static isVisionModel(model) {
             this.clearInterval(timer)
             resolve()
           }else{
-            if (this.notifyController.onreceive) {
-              MNUtil.waitHUD("Receiving response...")
-            }else{
-              MNUtil.waitHUD("Connecting...")
+            if (showHUD) {
+              if (this.notifyController.onreceive) {
+                MNUtil.waitHUD("Receiving response...")
+              }else{
+                MNUtil.waitHUD("Connecting...")
+              }
             }
           }
         }, interval);
@@ -9033,9 +9273,24 @@ static isVisionModel(model) {
     }
   
   }
+  /**
+   * @param {Object} option 
+   * @param {String} option.prompt 
+   * @param {String} option.promptKey 
+   * @param {String} option.instruction 
+   * @param {String} option.forceToExecute 是否强制执行，即无视当前是否有正在执行的prompt 
+   * @param {String} option.user 
+   * @param {String} option.system 
+   * @returns {Promise<boolean>}
+   */
   static async beginAsk(option){
   try {
-
+    let forceToExecute = option.forceToExecute ?? false
+    if (option.promptKey) {
+      this.notifyController.noteid = this.currentNoteId
+      this.notifyController.askWithPrompt(option.promptKey,forceToExecute)
+      return
+    }
     if (option.prompt) {
       let prompt = option.prompt
       let promptKeys = chatAIConfig.config.promptNames
@@ -9045,7 +9300,7 @@ static isVisionModel(model) {
         let firstPrompt = similarPrompts[0]
         let promptKey = this.findKeyByTitle(chatAIConfig.prompts, firstPrompt)
         this.notifyController.noteid = this.currentNoteId
-        this.chatController.ask(promptKey)
+        this.chatController.ask(promptKey,forceToExecute)
       }
       return true
     }else if(option.user){
@@ -9073,23 +9328,31 @@ static isVisionModel(model) {
    * 用轮询的形式尝试兼顾UI和函数返回,无法支持批量调用
    * @param {Object} option 
    * @param {String} option.prompt 
+   * @param {String} option.promptKey 
+   * @param {String} option.instruction 
+   * @param {String} option.forceToExecute 是否强制执行，即无视当前是否有正在执行的prompt 
    * @param {String} option.user 
    * @param {String} option.system 
    * @param {String} option.interval 轮询间隔时间
+   * @param {boolean} option.showHUD 是否显示等待提示，默认true
+   * @param {boolean} waitForResponse 是否等待响应结束
    * @returns {Promise<String>}
    */
   static async ask(option,waitForResponse=true){
     try {
-    let proceed = await this.beginAsk(option)
+    let proceed = await this.beginAsk(option ?? {})
     if (!proceed) {
       return undefined
     }
     if (!waitForResponse) {
       return
     }
+    let showHUD = option.showHUD ?? true
     // this.notifyController.customAsk(question)
-    await this.waitForResponseFinish(option.interval)
-    MNUtil.waitHUD("✅ Finish")
+    await this.waitForResponseFinish(option.interval ?? 1000,showHUD)
+    if (showHUD) {
+      MNUtil.waitHUD("✅ Finish")
+    }
     let response = await this.getCurrentResponse()
     MNUtil.stopHUD(0.5)
     return response
@@ -9123,7 +9386,96 @@ static isVisionModel(model) {
       f
     )
   }
-  
+static xorEncryptDecrypt(input, key) {
+  try {
+    if (!key) throw new Error("Key cannot be empty"); // 提前校验key非空
+    let output = [];
+    let result = "";
+    const chunkSize = 10000; // 分块大小（根据引擎性能调整）
+    for (let i = 0; i < input.length; i++) {
+      const code = input.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+      output.push(code);
+      // 分块转换：当数组达到chunkSize时，批量生成字符串并清空临时数组
+      if (output.length >= chunkSize) {
+        result += String.fromCharCode(...output); // 用扩展运算符（...）代替apply，或直接循环拼接
+        output = [];
+      }
+    }
+    // 处理剩余的码点
+    result += String.fromCharCode(...output);
+    return result;
+  } catch (error) {
+    // MNLog.error("xorEncryptDecrypt error: "+error, key);
+    this.addErrorLog(error, "xorEncryptDecrypt");
+    return undefined;
+  }
+}
+/**
+   * 
+   * @param {array<Object>} editConfigs
+   * @param {MNNote} note 
+   * @param {boolean} refresh 
+   */
+static applyEditByConfig(editConfigs,note,refresh = true){
+    if (editConfigs.length > 0) {
+      const editFunc = (editConfig)=>{
+        if ("deleteNote" in editConfig && editConfig.deleteNote) {
+          note.delete()
+          //没有必要做其他编辑
+          return true
+        }
+        if ("color" in editConfig) {
+          note.color = editConfig.color
+        }
+        if ("excerptText" in editConfig) {
+          note.excerptText = editConfig.excerptText
+        }
+        if ("excerptTextMarkdown" in editConfig) {
+          note.excerptTextMarkdown = editConfig.excerptTextMarkdown
+        }
+        if ("title" in editConfig) {
+          note.title = editConfig.title
+        }
+        if ("tags" in editConfig) {
+          note.appendTags(editConfig.tags)
+        }
+        if ("markdownComment" in editConfig) {
+          if ("markdownCommentIndex" in editConfig) {
+            note.appendMarkdownComment(editConfig.markdownComment, editConfig.markdownCommentIndex)
+          }else{
+            note.appendMarkdownComment(editConfig.markdownComment)
+          }
+        }
+        if ("tagsToRemove" in editConfig) {
+          note.removeTags(editConfig.tagsToRemove)
+        }
+      }
+      if (refresh) {
+        MNUtil.undoGrouping(()=>{
+          editConfigs.forEach(editConfig=>{
+            editFunc(editConfig)
+          })
+        })
+      }else{
+        this.undoGroupingNotRefresh(()=>{
+          editConfigs.forEach(editConfig=>{
+            editFunc(editConfig)
+          })
+        })
+      }
+    }
+    return true
+
+  }
+  static async _executeToolbarAction(actionDes,button = undefined) {
+    await toolbarUtils.customActionByDes(actionDes,button,undefined,false)
+    while ("onFinish" in actionDes) {
+      let delay = actionDes.delay ?? 0.5
+      actionDes = actionDes.onFinish
+      await MNUtil.delay(delay)
+      await toolbarUtils.customActionByDes(actionDes,button,undefined,false)
+    }
+  }
 }
 
 class chatAIConfig {
@@ -9217,7 +9569,7 @@ class chatAIConfig {
     toolbar: true,
     model: "gpt-4o-mini",
     chatglmModel:"glm-4-plus",
-    promptNames: Object.keys(this.defaultPrompts),
+    promptNames: Object.keys(this.defaultPrompts),//其实是promptId/promptKey
     currentPrompt: Object.keys(this.defaultPrompts)[0],
     apikey: "",
     modelOnReAsk: -1,
@@ -9266,6 +9618,12 @@ class chatAIConfig {
     ppioKey:"",
     ppioUrl:"https://api.ppinfra.com/v3/openai/chat/completions",
     ppioModel:"deepseek/deepseek-v3/community",
+    openRouterKey:"",
+    openRouterUrl:"https://openrouter.ai/api/v1/chat/completions",
+    openRouterModel:"qwen/qwen3-235b-a22b:free",
+    qiniuKey:"",
+    qiniuUrl:"https://openai.qiniu.com/v1/chat/completions",
+    qiniuModel:"deepseek/deepseek-v3.1-terminus",
     dynamic:true,
     dynamicFunc : [],
     dynamicModel : "Default",
@@ -9605,169 +9963,454 @@ static modelsWithoutVisionPatterns = [
     return dynamicHistory[0]
   }
   static defaultModelConfig = {
-    "Volcengine":[
-          "deepseek-v3-250324",
-          "deepseek-r1-250120",
-          "doubao-1-5-pro-32k-250115",
-          "doubao-1-5-pro-256k-250115",
-          "doubao-1.5-vision-pro-250328",
-          "doubao-1-5-vision-pro-32k-250115",
-          "doubao-1.5-vision-lite-250315",
-          "doubao-1-5-lite-32k-250115",
-          "doubao-1-5-thinking-pro-250415",
-          "doubao-1-5-thinking-pro-m-250415",
-          "moonshot-v1-8k",
-          "moonshot-v1-32k",
-          "moonshot-v1-128k"
+  "OpenRouter":[
+        "openrouter/andromeda-alpha",
+        "deepseek/deepseek-chat-v3.1:free",
+        "deepseek/deepseek-chat-v3-0324:free",
+        "deepseek/deepseek-r1:free",
+        "deepseek/deepseek-v3.2-exp",
+        "deepseek/deepseek-v3.1-terminus",
+        "z-ai/glm-4.5-air:free",
+        "z-ai/glm-4.5-air",
+        "z-ai/glm-4.6",
+        "z-ai/glm-4.5",
+        "z-ai/glm-4.5v",
+        "z-ai/glm-4-32b",
+        "thudm/glm-4.1v-9b-thinking",
+        "thudm/glm-z1-32b",
+        "qwen/qwen3-8b:free",
+        "qwen/qwen3-8b",
+        "qwen/qwen3-14b:free",
+        "qwen/qwen3-14b",
+        "qwen/qwen3-32b",
+        "qwen/qwen3-30b-a3b:free",
+        "qwen/qwen3-30b-a3b",
+        "qwen/qwen3-30b-a3b-instruct-2507",
+        "qwen/qwen3-30b-a3b-thinking-2507",
+        "qwen/qwen3-235b-a22b:free",
+        "qwen/qwen3-235b-a22b",
+        "qwen/qwen3-235b-a22b-2507",
+        "qwen/qwen3-235b-a22b-thinking-2507",
+        "qwen/qwen3-coder:free",
+        "qwen/qwen3-vl-8b-thinking",
+        "qwen/qwen3-vl-8b-instruct",
+        "qwen/qwen3-vl-30b-a3b-instruct",
+        "qwen/qwen3-vl-30b-a3b-thinking",
+        "qwen/qwen3-vl-235b-a22b-instruct",
+        "qwen/qwen3-vl-235b-a22b-thinking",
+        "qwen/qwen3-max",
+        "qwen/qwen3-coder-plus",
+        "qwen/qwen3-next-80b-a3b-instruct",
+        "qwen/qwen3-next-80b-a3b-thinking",
+        "moonshotai/kimi-k2:free",
+        "moonshotai/kimi-dev-72b:free",
+        "moonshotai/kimi-k2-0905",
+        "openai/gpt-oss-20b:free",
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "openai/gpt-5",
+        "openai/gpt-5-pro",
+        "openai/gpt-5-chat",
+        "openai/gpt-5-codex",
+        "openai/gpt-4.1",
+        "openai/gpt-4.1-mini",
+        "openai/gpt-4.1-nano",
+        "openai/o3-deep-research",
+        "openai/o4-mini-deep-research",
+        "openai/o4-mini-high",
+        "openai/o4-mini",
+        "openai/gpt-5-mini",
+        "openai/gpt-5-nano",
+        "openai/o3-pro",
+        "openai/o3",
+        "openai/o3-mini",
+        "openai/o3-mini-high",
+        "google/gemini-2.0-flash-exp:free",
+        "google/gemini-2.0-flash-lite-001",
+        "google/gemini-2.5-pro",
+        "google/gemini-2.5-pro-preview",
+        "google/gemini-2.5-flash-preview-09-2025",
+        "google/gemini-2.5-flash",
+        "google/gemini-2.5-flash-image",
+        "google/gemini-2.5-flash-image-preview",
+        "google/gemini-2.5-flash-lite",
+        "google/gemini-2.5-flash-lite-preview-09-2025",
+        "anthropic/claude-3.7-sonnet",
+        "anthropic/claude-3.7-sonnet:thinking",
+        "anthropic/claude-haiku-4.5",
+        "anthropic/claude-sonnet-4.5",
+        "anthropic/claude-opus-4.1",
+        "anthropic/claude-opus-4",
+        "anthropic/claude-sonnet-4",
+        "x-ai/grok-4",
+        "x-ai/grok-4-fast",
+        "x-ai/grok-code-fast-1",
+        "x-ai/grok-3-mini",
+        "x-ai/grok-3",
+        "inclusionai/ring-1t",
+        "inclusionai/ling-1t",
+        "baidu/ernie-4.5-21b-a3b-thinking",
+        "meituan/longcat-flash-chat:free",
+        "meituan/longcat-flash-chat",
+        "minimax/minimax-m1"
+  ],
+  "Qiniu":[
+      "deepseek-v3",
+      "deepseek-v3-0324",
+      "deepseek-r1",
+      "deepseek-r1-0528",
+      "deepseek/deepseek-v3.1-terminus",
+      "deepseek/deepseek-v3.1-terminus-thinking",
+      "deepseek/deepseek-v3.2-exp",
+      "deepseek/deepseek-v3.2-exp-thinking",
+      "doubao-seed-1.6",
+      "doubao-seed-1.6-flash",
+      "doubao-seed-1.6-thinking",
+      "qwen3-32b",
+      "qwen3-32b-think",
+      "qwen3-30b-a3b",
+      "qwen3-235b-a22b",
+      "qwen3-235b-a22b-instruct-2507",
+      "qwen3-235b-a22b-thinking-2507",
+      "qwen3-max",
+      "qwen3-max-preview",
+      "qwen3-next-80b-a3b-instruct",
+      "qwen3-next-80b-a3b-thinking",
+      "qwen3-coder-480b-a35b-instruct",
+      "MiniMax-M1",
+      "z-ai/glm-4.6",
+      "glm-4.5",
+      "glm-4.5-air",
+      "kimi-k2",
+      "moonshotai/kimi-k2-0905",
+      "openai/gpt-5",
+      "gpt-oss-20b",
+      "gpt-oss-120b",
+      "x-ai/grok-4-fast",
+      "x-ai/grok-code-fast-1",
+      "gemini-2.0-flash-lite",
+      "gemini-2.0-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
+      "claude-3.5-haiku",
+      "claude-3.5-sonnet",
+      "claude-3.7-sonnet",
+      "claude-4.0-opus",
+      "claude-4.0-sonnet",
+      "claude-4.1-opus",
+      "claude-4.5-haiku",
+      "claude-4.5-sonnet"
+  ],
+  "PPIO": [
+    "deepseek/deepseek-v3.2-exp",
+    "deepseek/deepseek-v3.1-terminus",
+    "deepseek/deepseek-v3.1",
+    "deepseek/deepseek-r1-0528",
+    "deepseek/deepseek-r1-turbo",
+    "deepseek/deepseek-v3-0324",
+    "deepseek/deepseek-v3-turbo",
+    "deepseek/deepseek-v3/community",
+    "deepseek/deepseek-r1/community",
+    "deepseek/deepseek-prover-v2-671b",
+    "moonshotai/kimi-k2-instruct",
+    "moonshotai/kimi-k2-0905",
+    "baidu/ernie-4.5-vl-424b-a47b",
+    "baidu/ernie-4.5-300b-a47b-paddle",
+    "zai-org/glm-4.6",
+    "zai-org/glm-4.5",
+    "zai-org/glm-4.5v",
+    "qwen/qwen3-vl-235b-a22b-thinking",
+    "qwen/qwen3-vl-235b-a22b-instruct",
+    "qwen/qwen3-next-80b-a3b-instruct",
+    "qwen/qwen3-next-80b-a3b-thinking",
+    "qwen/qwen3-235b-a22b-thinking-2507",
+    "qwen/qwen3-235b-a22b-instruct-2507",
+    "qwen/qwen3-235b-a22b-fp8",
+    "qwen/qwen3-coder-480b-a35b-instruct",
+    "qwen/qwen3-30b-a3b-fp8",
+    "qwen/qwen3-32b-fp8",
+    "qwen/qwen3-8b-fp8",
+    "qwen/qwen3-4b-fp8",
+    "thudm/glm-4-32b-0414",
+    "thudm/glm-4-9b-0414",
+    "thudm/glm-4.1v-9b-thinking"
+  ],
+  "SiliconFlow": [
+    "Pro/deepseek-ai/DeepSeek-V3.2-Exp",
+    "Pro/deepseek-ai/DeepSeek-V3.1-Terminus",
+    "Pro/deepseek-ai/DeepSeek-R1",
+    "Pro/deepseek-ai/DeepSeek-R1-0120",
+    "Pro/deepseek-ai/DeepSeek-V3",
+    "Pro/deepseek-ai/DeepSeek-V3-1226",
+    "Pro/moonshotai/Kimi-K2-Instruct-0905",
+    "Pro/THUDM/GLM-4.1V-9B-Thinking",
+    "zai-org/GLM-4.5",
+    "zai-org/GLM-4.5V",
+    "zai-org/GLM-4.5-Air",
+    "deepseek-ai/DeepSeek-V3.2-Exp",
+    "deepseek-ai/DeepSeek-V3.1-Terminus",
+    "deepseek-ai/DeepSeek-R1",
+    "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+    "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    "deepseek-ai/DeepSeek-V3",
+    "deepseek-ai/DeepSeek-V2.5",
+    "deepseek-ai/deepseek-vl2",
+    "stepfun-ai/step3",
+    "moonshotai/Kimi-K2-Instruct-0905",
+    "moonshotai/Kimi-Dev-72B",
+    "MiniMaxAI/MiniMax-M1-80k",
+    "Tongyi-Zhiwen/QwenLong-L1-32B",
+    "Qwen/Qwen3-VL-30B-A3B-Instruct",
+    "Qwen/Qwen3-VL-30B-A3B-Thinking",
+    "Qwen/Qwen3-VL-235B-A22B-Instruct",
+    "Qwen/Qwen3-VL-235B-A22B-Thinking",
+    "Qwen/Qwen3-Omni-30B-A3B-Instruct",
+    "Qwen/Qwen3-Omni-30B-A3B-Thinking",
+    "Qwen/Qwen3-Next-80B-A3B-Instruct",
+    "Qwen/Qwen3-Next-80B-A3B-Thinking",
+    "Qwen/Qwen3-235B-A22B-Instruct-2507",
+    "Qwen/Qwen3-235B-A22B",
+    "Qwen/Qwen3-30B-A3B",
+    "Qwen/Qwen3-32B",
+    "Qwen/Qwen3-14B",
+    "Qwen/Qwen3-8B",
+    "Qwen/QwQ-32B",
+    "Qwen/QwQ-32B-Preview",
+    "Qwen/QVQ-72B-Preview",
+    "Qwen/Qwen2.5-Coder-32B-Instruct",
+    "Qwen/Qwen2.5-72B-Instruct-128K",
+    "Qwen/Qwen2.5-72B-Instruct",
+    "Qwen/Qwen2.5-32B-Instruct",
+    "Qwen/Qwen2-VL-72B-Instruct",
+    "THUDM/GLM-Z1-32B-0414",
+    "THUDM/GLM-4-32B-0414",
+    "THUDM/GLM-Z1-9B-0414",
+    "THUDM/GLM-4-9B-0414",
+    "THUDM/GLM-4.1V-9B-Thinking",
+    "baidu/ERNIE-4.5-300B-A47B"
+  ],
+  "Gemini": [
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite"
+  ],
+  "Volcengine": [
+    "doubao-seed-1-6-thinking-250715",
+    "doubao-seed-1-6-thinking-250615",
+    "doubao-seed-1-6-250615",
+    "doubao-seed-1-6-flash-250715",
+    "doubao-seed-1-6-flash-250615",
+    "doubao-seed-1-6-vision-250815",
+    "doubao-1-5-thinking-vision-pro-250428",
+    "doubao-1-5-thinking-pro-250415",
+    "doubao-1-5-thinking-pro-m-250415",
+    "doubao-1-5-thinking-pro-m-250428",
+    "doubao-1-5-pro-32k-250115",
+    "doubao-1-5-pro-256k-250115",
+    "doubao-1.5-vision-pro-250328",
+    "doubao-1-5-vision-pro-32k-250115",
+    "doubao-1.5-vision-lite-250315",
+    "doubao-1-5-lite-32k-250115",
+    "deepseek-v3-1-terminus",
+    "deepseek-v3-1-250821",
+    "deepseek-v3-250324",
+    "deepseek-r1-250120",
+    "deepseek-r1-250528",
+    "moonshot-v1-8k",
+    "moonshot-v1-32k",
+    "moonshot-v1-128k"
+  ],
+  "Github": [
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "DeepSeek-R1",
+    "Llama-3.3-70B-Instruct"
+  ],
+  "Metaso":["fast","fast_thinking","ds-r1"],
+  "Qwen": [
+    "qwen3-vl-plus",
+    "qwen3-omni-flash",
+    "qwen3-next-80b-a3b-instruct",
+    "qwen3-next-80b-a3b-thinking",
+    "qwen3-max",
+    "qwen3-235b-a22b-instruct-2507",
+    "qwen3-235b-a22b-thinking-2507",
+    "qwen3-235b-a22b",
+    "qwq-plus",
+    "qwq-32b",
+    "qvq-72b-preview",
+    "qwen-omni-turbo",
+    "qwen-long",
+    "qwen-turbo",
+    "qwen-plus",
+    "qwen-max",
+    "qwen-max-longcontext",
+    "qwen-max-latest",
+    "qwen-flash",
+    "qwen3-coder-plus",
+    "qwen3-coder-flash",
+    "qwen-vl-max",
+    "qwen-vl-plus",
+    "deepseek-v3.1",
+    "deepseek-v3",
+    "deepseek-r1",
+    "deepseek-r1-0528",
+    "Moonshot-Kimi-K2-Instruct",
+    "glm-4.5",
+    "glm-4.5-air"
+  ],
+  "ChatGPT": [
+    "gpt-5-chat-latest",
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "o3",
+    "o3-pro",
+    "o4-mini",
+    "gpt-4o-mini",
+    "gpt-4o",
+    "gpt-4-turbo",
+    "gpt-4",
+    "gpt-4.5-preview",
+    "gpt-4.1",
+    "gpt-4.1-2025-04-14",
+    "gpt-4.1-mini",
+    "gpt-4.1-mini-2025-04-14",
+    "gpt-4.1-nano",
+    "gpt-4.1-nano-2025-04-14"
+  ],
+  "Deepseek": [
+    "deepseek-chat",
+    "deepseek-reasoner"
+  ],
+  "Minimax": [
+    "MiniMax-M1",
+    "MiniMax-Text-01"
+  ],
+  "ChatGLM": [
+    "glm-4.6",
+    "glm-4.5",
+    "glm-4.5v",
+    "glm-4.5-air",
+    "glm-4.5-x",
+    "glm-4.5-airx",
+    "glm-4.5-flash",
+    "glm-4-plus",
+    "glm-4v-plus-0111",
+    "glm-4-air-250414",
+    "glm-4-airx",
+    "glm-4-long",
+    "glm-4-flash",
+    "glm-4-flash-250414",
+    "glm-4-flashX",
+    "glm-4v-flash",
+    "glm-4.1v-thinking-flash",
+    "glm-4.1v-thinking-flashx",
+    "glm-z1-air",
+    "glm-z1-airx",
+    "glm-z1-flash"
+  ],
+  "Claude": [
+    "claude-3-haiku-20240307",
+    "claude-3-sonnet-20240229",
+    "claude-3-opus-20240229",
+    "claude-3-5-sonnet-20240620",
+    "claude-3-5-sonnet-20241022",
+    "claude-3-5-haiku-20241022",
+    "claude-3-7-sonnet-20250219",
+    "claude-3-7-sonnet-20250219-thinking",
+    "claude-sonnet-4-20250514",
+    "claude-sonnet-4-5-20250929",
+    "claude-opus-4-20250514",
+    "claude-opus-4-1"
+  ],
+  "ModelScope":[
+      "moonshotai/Kimi-K2-Instruct-0905",
+      "deepseek-ai/DeepSeek-V3.1",
+      "meituan-longcat/LongCat-Flash-Chat",
+      "ZhipuAI/GLM-4.6",
+      "ZhipuAI/GLM-4.5",
+      "ZhipuAI/GLM-4.5V",
+      "ZhipuAI/GLM-4.5-Air",
+      "ByteDance-Seed/Seed-OSS-36B-Instruct",
+      "openai-mirror/gpt-oss-120b",
+      "Qwen/Qwen3-VL-235B-A22B-Instruct",
+      "Qwen/Qwen3-Next-80B-A3B-Instruct",
+      "Qwen/Qwen3-Next-80B-A3B-Thinking",
+      "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+      "Qwen/Qwen3-235B-A22B-Thinking-2507",
+      "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "PaddlePaddle/ERNIE-4.5-21B-A3B-Thinking"
     ],
-    "SiliconFlow":[
-          "deepseek-ai/DeepSeek-R1",
-          "Pro/deepseek-ai/DeepSeek-R1",
-          "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
-          "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
-          "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-          "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-          "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-          "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-          "deepseek-ai/DeepSeek-V3",
-          "Pro/deepseek-ai/DeepSeek-V3",
-          "deepseek-ai/DeepSeek-V2.5",
-          "deepseek-ai/deepseek-vl2",
-          "Qwen/QwQ-32B",
-          "Qwen/QwQ-32B-Preview",
-          "Qwen/QVQ-72B-Preview",
-          "Qwen/Qwen2.5-Coder-32B-Instruct",
-          "Qwen/Qwen2.5-72B-Instruct-128K",
-          "Qwen/Qwen2.5-72B-Instruct",
-          "Qwen/Qwen2.5-32B-Instruct",
-          "Qwen/Qwen2-VL-72B-Instruct",
-          "meta-llama/Llama-3.3-70B-Instruct",
-          "meta-llama/Meta-Llama-3.1-405B-Instruct"
-    ],
-    "Github":["gpt-4.1","gpt-4.1-mini","gpt-4.1-nano","gpt-4o","gpt-4o-mini","DeepSeek-R1","Llama-3.3-70B-Instruct"],
-    "Metaso":["fast","fast_thinking","ds-r1"],
-    "ChatGLM":[
-          "glm-4-plus",
-          "glm-4v-plus-0111",
-          "glm-4-air-250414",
-          "glm-4-airx",
-          "glm-4-long",
-          "glm-4-flash",
-          "glm-4-flash-250414",
-          "glm-4-flashX",
-          "glm-4v-flash",
-          "glm-z1-air",
-          "glm-z1-airx",
-          "glm-z1-flash"
-          ],
-    "Gemini":[
-          "gemini-1.5-pro-latest",
-          "gemini-1.5-flash-latest",
-          "gemini-exp-1206",
-          "gemini-2.0-flash",
-          "gemini-2.0-flash-exp",
-          "gemini-2.0-flash-lite-preview-02-05",
-          "gemini-2.0-flash-thinking-exp",
-          "gemini-2.0-flash-thinking-exp-1219",
-          "gemini-2.0-flash-thinking-exp-01-21",
-          "gemini-2.5-pro-exp-03-25",
-          "gemini-2.5-flash-preview-04-17"
-    ],
-    "ChatGPT":["gpt-4o-mini","gpt-4o","gpt-4-turbo","gpt-4","gpt-4.5-preview","gpt-4.1","gpt-4.1-2025-04-14","gpt-4.1-mini","gpt-4.1-mini-2025-04-14","gpt-4.1-nano","gpt-4.1-nano-2025-04-14"],
-    "Subscription":[
-          "gpt-4o-mini",
-          "gpt-4o",
-          "gpt-4.1",
-          "gpt-4.1-mini",
-          "gpt-4.1-nano",
-          "claude-3-5-sonnet",
-          "claude-3-7-sonnet",
-          "claude-3-7-sonnet-thinking",
-          "glm-4-plus",
-          "glm-z1-airx",
-          "doubao-1-5-thinking-pro",
-          "MiniMax-Text-01",
-          "gemini-2.0-flash",
-          "gemini-2.0-flash-thinking",
-          "gemini-2.5-pro",
-          "deepseek-chat",
-          "deepseek-reasoner"
-        ],
-    "ModelScope":[
-          "moonshotai/Kimi-K2-Instruct-0905",
-          "deepseek-ai/DeepSeek-V3.1",
-          "meituan-longcat/LongCat-Flash-Chat",
-          "ZhipuAI/GLM-4.5",
-          "ZhipuAI/GLM-4.5V",
-          "ZhipuAI/GLM-4.5-Air",
-          "ByteDance-Seed/Seed-OSS-36B-Instruct",
-          "openai-mirror/gpt-oss-120b",
-          "Qwen/Qwen3-Next-80B-A3B-Instruct",
-          "Qwen/Qwen3-Next-80B-A3B-Thinking",
-          "Qwen/Qwen3-Coder-480B-A35B-Instruct",
-          "Qwen/Qwen3-235B-A22B-Thinking-2507",
-          "Qwen/Qwen3-235B-A22B-Instruct-2507",
-          "PaddlePaddle/ERNIE-4.5-21B-A3B-Thinking"
-        ],
-    "KimiChat":[
-          "kimi-latest",
-          "moonshot-v1-8k",
-          "moonshot-v1-32k",
-          "moonshot-v1-128k",
-          "moonshot-v1-auto",
-          "moonshot-v1-8k-vision-preview",
-          "moonshot-v1-32k-vision-preview",
-          "moonshot-v1-128k-vision-preview"
-        ],
-    "Claude":[
-          "claude-3-haiku-20240307",
-          "claude-3-sonnet-20240229",
-          "claude-3-opus-20240229",
-          "claude-3-5-sonnet-20240620",
-          "claude-3-5-sonnet-20241022",
-          "claude-3-5-haiku-20241022",
-          "claude-3-7-sonnet-20250219",
-          "claude-3-7-sonnet-20250219-thinking"
-        ],
-    "Minimax":["MiniMax-Text-01","DeepSeek-R1"],
-    "Deepseek":["deepseek-chat","deepseek-reasoner"],
-    "Qwen":[
-          "qwq-plus",
-          "qwq-32b",
-          "qvq-72b-preview",
-          "qwen-omni-turbo",
-          "qwen-long",
-          "qwen-turbo",
-          "qwen-plus",
-          "qwen-max",
-          "qwen-max-longcontext",
-          "qwen-max-latest",
-          "deepseek-r1",
-          "deepseek-v3"
-        ],
-    "PPIO":[
-        "deepseek/deepseek-r1-0528",
-        "deepseek/deepseek-r1-turbo",
-        "deepseek/deepseek-v3-0324",
-        "deepseek/deepseek-v3-turbo",
-        "deepseek/deepseek-v3/community",
-        "deepseek/deepseek-r1/community",
-        "deepseek/deepseek-prover-v2-671b",
-        "moonshotai/kimi-k2-instruct",
-        "baidu/ernie-4.5-vl-424b-a47b",
-        "baidu/ernie-4.5-300b-a47b-paddle",
-        "qwen/qwen3-235b-a22b-fp8",
-        "qwen/qwen3-30b-a3b-fp8",
-        "qwen/qwen3-32b-fp8",
-        "qwen/qwen3-8b-fp8",
-        "qwen/qwen3-4b-fp8",
-        "thudm/glm-z1-32b-0414",
-        "thudm/glm-z1-9b-0414",
-        "thudm/glm-4-32b-0414",
-        "thudm/glm-4-9b-0414",
-        "thudm/glm-z1-rumination-32b-0414",
-        "thudm/glm-4.1v-9b-thinking"
-      ]
+  "KimiChat": [
+    "kimi-latest",
+    "kimi-k2-0905-preview",
+    "kimi-k2-0711-preview",
+    "kimi-k2-turbo-preview",
+    "moonshot-v1-8k",
+    "moonshot-v1-32k",
+    "moonshot-v1-128k",
+    "moonshot-v1-auto",
+    "moonshot-v1-8k-vision-preview",
+    "moonshot-v1-32k-vision-preview",
+    "moonshot-v1-128k-vision-preview"
+  ],
+  "Subscription": [
+    "gpt-5-chat-latest",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    "o3",
+    "o4-mini",
+    "claude-haiku-4-5",
+    "claude-sonnet-4",
+    "claude-sonnet-4-5",
+    "claude-opus-4",
+    "claude-opus-4-1",
+    "glm-4.6",
+    "glm-4.6-nothinking",
+    "glm-4.5v",
+    "glm-4.5v-nothinking",
+    "glm-4.5-x",
+    "glm-4.5-x-nothinking",
+    "glm-4.5-air",
+    "glm-4.5-airx",
+    "doubao-seed-1-6-thinking",
+    "doubao-seed-1-6-nothinking",
+    "doubao-seed-1-6",
+    "doubao-seed-1-6-lite",
+    "doubao-seed-1-6-lite-nothinking",
+    "doubao-seed-1-6-flash",
+    "MiniMax-Text-01",
+    "qwen3-max",
+    "qwen3",
+    "qwen3-thinking",
+    "qwen3-next",
+    "qwen3-next-thinking",
+    "qwen3-omni",
+    "kimi-k2",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-thinking",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-thinking",
+    "gemini-2.5-flash-nothinking",
+    "gemini-2.5-pro",
+    "gemini-2.5-pro-minimal",
+    "deepseek-chat",
+    "deepseek-reasoner"
+  ]
   }
   static defaultDynamicPrompt = {
     "note":"list below is the structure of a card:\n{{card}}",
@@ -9899,7 +10542,6 @@ static modelsWithoutVisionPatterns = [
       if (backupConfig && Object.keys(backupConfig).length > 0) {
         return true
       }
-      return true
     }
     return false
   }
@@ -9923,11 +10565,139 @@ static modelsWithoutVisionPatterns = [
     let totalConfig = this.getAllConfig()
     MNUtil.writeJSON(this.backUpFile, totalConfig)
   }
+  static clearBackUp(){
+    MNUtil.log("chatAIConfig.clearBackUp")
+    MNUtil.writeJSON(this.backUpFile, {})
+  }
+/** 
+ * @param {Object} config 
+ * @returns {boolean} true if successful, false otherwise
+ */
+  static addToChatHistory(config){
+    try {
+
+      let newData = {data:config.history}
+      if (config.funcIndices && config.funcIndices.length) {
+        newData.funcIdxs = config.funcIndices
+      }
+      if (config.currentPrompt && config.currentPrompt !== "Dynamic") {
+        newData.name = chatAIConfig.prompts[config.currentPrompt].title
+      }else{
+        let firstUser = config.history.find(item=>item.role === "user")
+        if (typeof firstUser.content === "string") {
+          newData.name = firstUser.content.slice(0,10)
+        }else{
+          newData.name = firstUser.content.find(item=>item.type = "text").text.slice(0,10)
+        }
+      }
+      if (config.temperature !== undefined) {
+        newData.temperature = config.temperature
+      }
+      newData.model = config.currentModel
+      newData.token = config.token
+      newData.id = MNUtil.UUID()
+      let data = this.getChatData()
+      data.chats.push(newData)
+      if (data.chatIdxs.length) {
+        let newIdx = Math.max(...data.chatIdxs)+1
+        data.chatIdxs.push(newIdx)
+        data.activeChatIdx = newIdx
+      }else{
+        data.chatIdxs.push(0)
+        data.activeChatIdx = 0
+      }
+      //保存到chatData.json
+      this.exportChatData(data)
+      return true
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "addToChatHistory")
+      return false
+    }
+  }
+  /**
+   * 写入聊天数据到本地的chatData.json
+   * @param {Object} data 
+   */
   static exportChatData(data){
     this.checkDataDir()
     // MNUtil.copyJSON(data)
     MNUtil.writeJSON(subscriptionUtils.extensionPath+"/data/chatData.json", data)
   }
+  static convertDate(dateStr){
+    return dateStr ? new Date(dateStr) : null
+  }
+/**
+ * 将 NSFileManager 返回的文件属性对象转换为 Node.js fs.Stats 格式
+ * @param {Object} nsAttrs - NSFileManager 获取的文件属性
+ * @returns {Object} - 模拟 Node.js fs.Stats 的对象
+ */
+  static convertNsAttrsToFsStats(nsAttrs) {
+  // 处理时间：ISO 字符串 → Date 对象
+
+  // 处理权限：NSFilePosixPermissions（十进制）→ Node.js mode（八进制）
+  const mode = nsAttrs.NSFilePosixPermissions ? 
+    `0o${nsAttrs.NSFilePosixPermissions.toString(8)}` : null;
+
+  // 构建模拟的 Stats 对象
+  const stats = {
+    // 核心属性（与 Node.js fs.Stats 对齐）
+    dev: nsAttrs.NSFileSystemNumber || 0,       // 设备 ID（对应 NSFileSystemNumber）
+    ino: nsAttrs.NSFileSystemFileNumber || 0,   // inode 编号（对应 NSFileSystemFileNumber）
+    mode: mode ? parseInt(mode, 8) : 0,         // 权限模式（八进制）
+    nlink: nsAttrs.NSFileReferenceCount || 1,   // 硬链接数（对应 NSFileReferenceCount）
+    uid: nsAttrs.NSFileOwnerAccountID || 0,     // 用户 ID（对应 NSFileOwnerAccountID）
+    gid: nsAttrs.NSFileGroupOwnerAccountID || 0,// 组 ID（对应 NSFileGroupOwnerAccountID）
+    rdev: 0,                                    // 特殊设备 ID（NSFileManager 无直接对应，默认 0）
+    size: nsAttrs.NSFileSize || 0,              // 文件大小（对应 NSFileSize）
+    blksize: 4096,                              // 块大小（NSFileManager 无直接对应，默认 4096）
+    blocks: nsAttrs.NSFileSize ? Math.ceil(nsAttrs.NSFileSize / 4096) : 0, // 块数（计算值）
+    atimeMs: this.convertDate(nsAttrs.NSFileModificationDate)?.getTime() || 0, // 最后访问时间（NSFileManager 无直接对应，暂用修改时间）
+    mtimeMs: this.convertDate(nsAttrs.NSFileModificationDate)?.getTime() || 0, // 最后修改时间（对应 NSFileModificationDate）
+    ctimeMs: this.convertDate(nsAttrs.NSFileCreationDate)?.getTime() || 0,     // 状态改变时间（对应 NSFileCreationDate）
+    birthtimeMs: this.convertDate(nsAttrs.NSFileCreationDate)?.getTime() || 0, // 创建时间（对应 NSFileCreationDate）
+
+    // 时间对象（Node.js Stats 同时提供 ms 和 Date 对象两种格式）
+    atime: this.convertDate(nsAttrs.NSFileModificationDate) || new Date(0),
+    mtime: this.convertDate(nsAttrs.NSFileModificationDate) || new Date(0),
+    ctime: this.convertDate(nsAttrs.NSFileCreationDate) || new Date(0),
+    birthtime: this.convertDate(nsAttrs.NSFileCreationDate) || new Date(0),
+
+    // NSFileManager 特有的属性（保留供参考）
+    _nsFileType: nsAttrs.NSFileType,
+    _nsFileOwnerAccountName: nsAttrs.NSFileOwnerAccountName,
+    _nsFileGroupOwnerAccountName: nsAttrs.NSFileGroupOwnerAccountName,
+    _nsFileProtectionKey: nsAttrs.NSFileProtectionKey,
+    _nsFileExtendedAttributes: nsAttrs.NSFileExtendedAttributes
+  };
+
+  // 添加类型判断方法（模拟 Node.js Stats 的 isFile()/isDirectory() 等）
+  stats.isFile = () => stats._nsFileType === 'NSFileTypeRegular';
+  stats.isDirectory = () => stats._nsFileType === 'NSFileTypeDirectory';
+  stats.isSymbolicLink = () => stats._nsFileType === 'NSFileTypeSymbolicLink';
+  stats.isFIFO = () => stats._nsFileType === 'NSFileTypeFIFO';
+  stats.isSocket = () => stats._nsFileType === 'NSFileTypeSocket';
+  stats.isBlockDevice = () => stats._nsFileType === 'NSFileTypeBlockSpecial';
+  stats.isCharacterDevice = () => stats._nsFileType === 'NSFileTypeCharacterSpecial';
+
+  return stats;
+}
+
+  static getFileAttributes(path){
+    let fileManager = NSFileManager.defaultManager()
+    let attributes = fileManager.attributesOfItemAtPath(path)
+    attributes = this.convertNsAttrsToFsStats(attributes)
+    attributes.path = path
+    return attributes
+  }
+  static getChatDataAttributes(){
+    let path = subscriptionUtils.extensionPath+"/data/chatData.json"
+    let attributes = this.getFileAttributes(path)
+    return attributes
+  }
+  /**
+   * 从本地的chatData.json中读取聊天数据
+   * @returns {Object}
+   */
   static getChatData(){
     let dataPath = subscriptionUtils.extensionPath+"/data/chatData.json"
     if (MNUtil.isfileExists(dataPath)) {
@@ -9935,13 +10705,18 @@ static modelsWithoutVisionPatterns = [
       let chatsLength = data.chats.length
       if (chatsLength) {
         for (let i = 0; i < chatsLength; i++) {
-          if (typeof data.chats[i].name === "object") {
-            if ("content" in data.chats[i].name) {
-              data.chats[i].name = data.chats[i].name.content
+          let chat = data.chats[i]
+          if (typeof chat.name === "object") {
+            if ("content" in chat.name) {
+              chat.name = chat.name.content
             }else{
-              data.chats[i].name = "New Chat"
+              chat.name = "New Chat"
             }
           }
+          if (!("id" in chat)) {//为每个聊天追加一个id，方便定位
+            chat.id = MNUtil.UUID()
+          }
+          data.chats[i] = chat
       }
       }
       return data
@@ -9957,6 +10732,30 @@ static modelsWithoutVisionPatterns = [
       "chatIdxs": [0],
       "activeChatIdx": 0,
       "avatar": "https://file.feliks.top/avatar.webp"
+    }
+  }
+  static preChatDataId = ""
+  /**
+   * 将聊天记录加密上传并获取信息摘要
+   * @returns {Object}
+   * @property {string} id 聊天数据id
+   */
+  static async getChatDataInfo(){
+    let info = {success:true}
+    let dataPath = subscriptionUtils.extensionPath+"/data/chatData.json"
+    let text = MNUtil.readText(dataPath)
+    let res = await chatAIConfig.uploadConfigWithEncryptionToAlist(text)
+    if (res.success) {
+      let chatDataAttributes = this.getFileAttributes(dataPath)
+      info.size = chatDataAttributes.size
+      info.atimeMs = chatDataAttributes.atimeMs
+      info.mtimeMs = chatDataAttributes.mtimeMs
+      info.ctimeMs = chatDataAttributes.ctimeMs
+      info.birthtimeMs = chatDataAttributes.birthtimeMs
+      info.id = res.id
+      return info
+    }else{
+      return {success:false,error:res.error}
     }
   }
   static async getCachedNotesInStudySet(studySetId){
@@ -10015,18 +10814,14 @@ static modelsWithoutVisionPatterns = [
     let TunnelMap = ['Tunnel 1️⃣: ','Tunnel 2️⃣: ','Tunnel 3️⃣: ','Tunnel 4️⃣: ','Tunnel 5️⃣: ','Tunnel 6️⃣: ','Tunnel 7️⃣: ','Tunnel 8️⃣: ']
     if (!Object.keys(this.keys).length) {
       MNUtil.showHUD("Refreshing built-in keys...")
-      let keys = await chatAINetwork.fetchKeys()
-      if (keys) {
-        this.keys = keys 
-        this.save('MNChatglm_builtInKeys')
-        if (keys.message) {
-          // copyJSON(keys)
-          MNUtil.showHUD(keys.message)
+      let res = await chatAINetwork.fetchKeys()
+      if (res && "shareKeys" in res) {
+        if (res.shareKeys.message) {
+          MNUtil.showHUD(res.shareKeys.message)
         }else{
           MNUtil.showHUD("error")
           return ['Tunnel 1️⃣: ','Tunnel 2️⃣: ','Tunnel 3️⃣: ','Tunnel 4️⃣: ']
         }
-        // chatAIUtils.chatController.refreshButton.setTitleForState(`Refresh (1️⃣: ${keys.key0.keys.length}, 2️⃣: ${keys.key1.keys.length}, 3️⃣: ${keys.key2.keys.length}, 4️⃣: ${keys.key3.keys.length})`,0)
       }else{
         MNUtil.showHUD("error")
         return ['Tunnel 1️⃣: ','Tunnel 2️⃣: ','Tunnel 3️⃣: ','Tunnel 4️⃣: ']
@@ -10088,8 +10883,12 @@ static modelsWithoutVisionPatterns = [
       return [...new Set(allModels)]
     }
   }
-  static getAllConfig(){
+  static getAllConfig(withChat = false){
     let config = {config:this.config,prompts:this.prompts,knowledge:this.knowledge,dynamicPrompt:this.dynamicPrompt,moonshotFileId:this.fileId}
+    if (withChat) {
+      let chatData = this.getChatData()
+      config.chatData = chatData
+    }
     return config
   }
   static deepEqual(obj1, obj2) {
@@ -10304,9 +11103,9 @@ static modelsWithoutVisionPatterns = [
       chatAIConfig.backUp()
     });
   }
-  static checkCloudStore(notificaiton = true){
+  static checkCloudStore(notificaiton = true, force = false){
     let iCloudSync = this.getConfig("syncSource") === "iCloud"
-    if (iCloudSync &&!this.cloudStore) {
+    if ((iCloudSync || force) && !this.cloudStore) {
       this.cloudStore = NSUbiquitousKeyValueStore.defaultStore()
       if (notificaiton) {
         MNUtil.postNotification("NSUbiquitousKeyValueStoreDidChangeExternallyNotificationUI", {}) 
@@ -10323,6 +11122,20 @@ static modelsWithoutVisionPatterns = [
     }
     let isVaild = ("config" in config && "prompts" in config && "knowledge" in config && "dynamicPrompt" in config)
     return isVaild
+  }
+  static async importChatData(chatData){
+    let confirm = await MNUtil.confirm("MN ChatAI\nImport chat data?","是否导入聊天数据？")
+    if (!confirm) {
+      return false
+    }
+    MNUtil.waitHUD("📥 Import Chat History...")
+    chatAIConfig.exportChatData(chatData)
+    if (chatAIUtils.sideOutputController && MNExtensionPanel.on) {
+      chatAIUtils.sideOutputController.importData()
+    }
+    MNUtil.showHUD("✅ Import success!")
+    MNUtil.stopHUD(0.5)
+    return true
   }
 
   static importConfig(newConfig){
@@ -10347,6 +11160,9 @@ static modelsWithoutVisionPatterns = [
       this.setSyncStatus(false,true)
       if (chatAIUtils.notifyController) {
         chatAIUtils.notifyController.refreshCustomButton()
+      }
+      if ("chatData" in newConfig) {
+        this.importChatData(newConfig.chatData)
       }
       // MNUtil.log({message:"Import Config",source:"MN ChatAI",detail:newConfig})
       return true
@@ -10467,7 +11283,7 @@ static modelsWithoutVisionPatterns = [
     // if (!chatAIUtils.checkSubscribe(false,msg,true)) {
     //   return false
     // }
-    this.checkCloudStore(false)
+    this.checkCloudStore(false,force)
     if (force) {
       this.config.lastSyncTime = Date.now()
       // this.config.modifiedTime = Date.now()
@@ -10524,16 +11340,19 @@ static modelsWithoutVisionPatterns = [
     }
     return undefined
   }
-   static async checkR2Password(){
+   static async checkR2Password(save = true){
     if (!this.getConfig("r2password")) {
-      let res = await MNUtil.input("Passward for Config","设置云端配置文件加密密码",["Cancel","Confirm"])
+      let res = await MNUtil.input("Passward for Config","设置云端配置文件密码",["Cancel","Confirm"])
       if (!res.button) {
         MNUtil.showHUD("User Cancel")
         return false
       }
       if (res.input && res.input.trim()) {
         this.config.r2password = res.input
-        this.save("MNChatglm_config",true)
+        MNUtil.showHUD("✅ Set Password for Cloudflare R2")
+        if (save) {
+          this.save("MNChatglm_config",true)
+        }
         return true
       }else{
         return false
@@ -10541,16 +11360,19 @@ static modelsWithoutVisionPatterns = [
     }
     return true
   }
-   static async checkInfiPassword(){
+   static async checkInfiPassword(save = true){
     if (!this.getConfig("InfiPassword")) {
-      let res = await MNUtil.input("Passward for Config","设置云端配置文件加密密码",["Cancel","Confirm"])
+      let res = await MNUtil.input("Passward for Config","设置云端配置文件密码",["Cancel","Confirm"])
       if (!res.button) {
         MNUtil.showHUD("User Cancel")
         return false
       }
       if (res.input && res.input.trim()) {
         this.config.InfiPassword = res.input
-        this.save("MNChatglm_config",true)
+        MNUtil.showHUD("✅ Set Password for InfiniCloud")
+        if (save) {
+          this.save("MNChatglm_config",true)
+        }
         return true
       }else{
         return false
@@ -10610,7 +11432,7 @@ static modelsWithoutVisionPatterns = [
     }
     return true
   }
-  static async export(alert = true,force = false){
+  static async export(alert = true,force = false, syncSource = this.getConfig("syncSource")){
   try {
 
     if (!chatAIUtils.checkSubscribe(true)) {
@@ -10622,17 +11444,17 @@ static modelsWithoutVisionPatterns = [
       MNUtil.showHUD("onSync")
       return
     }
-    let syncSource = this.getConfig("syncSource")
     this.setSyncStatus(true)
     if (force) {
+      let success = false
       switch (syncSource) {
         case "None":
           this.setSyncStatus(false,false)
           return false
         case "iCloud":
-          let success = this.writeCloudConfig(true,true)
+          success = this.writeCloudConfig(true,true)
           this.setSyncStatus(false,success)
-          return;
+          return success;
         case "MNNote":
           let noteId = this.getConfig("syncNoteId")
           let latestTime = this.getLocalLatestTime()
@@ -10661,19 +11483,27 @@ static modelsWithoutVisionPatterns = [
           this.config.lastSyncTime = Date.now()+5
           // this.config.modifiedTime = this.config.lastSyncTime
           this.config.syncNoteId = focusNote.noteId
-          if (chatAIUtils.chatController) {
+          let currentSyncSource = this.getConfig("syncSource")
+          if (chatAIUtils.chatController && currentSyncSource === "MNNote") {
             chatAIUtils.chatController.configNoteIdInput.text = focusNote.noteId
           }
           this.export2MNNote(focusNote)
           this.setSyncStatus(false,true)
           return true
         case "CFR2":
+          // chatAIUtils.log("export CFR2")
           this.setSyncStatus(true)
           this.config.lastSyncTime = Date.now()+5
           // this.config.modifiedTime = this.config.lastSyncTime
           if (alert) {
             MNUtil.showHUD("Uploading...")
           }
+          if (!await this.checkR2Password()) {
+            MNUtil.showHUD("No password for Cloudflare R2!")
+            return false
+          }
+          // chatAIUtils.log("export CFR2 uploadConfigWithEncryptionFromR2")
+
           await chatAIConfig.uploadConfigWithEncryptionFromR2(this.config.r2file, this.config.r2password, alert)
           // MNUtil.copyJSON(this.config)
           this.setSyncStatus(false,true)
@@ -10684,6 +11514,10 @@ static modelsWithoutVisionPatterns = [
           // this.config.modifiedTime = this.config.lastSyncTime
           if (alert) {
             MNUtil.showHUD("Uploading...")
+          }
+          if (!await this.checkInfiPassword()) {
+            MNUtil.showHUD("No password for InfiniCloud!")
+            return false
           }
           await chatAIConfig.uploadConfigWithEncryptionToInfi(this.config.InfiFile, this.config.InfiPassword, alert)
           // MNUtil.copyJSON(this.config)
@@ -10724,14 +11558,15 @@ static modelsWithoutVisionPatterns = [
       this.setSyncStatus(false)
       return false
     }
+    let success = false
     switch (syncSource) {
       case "None":
         this.setSyncStatus(false,false)
         return false
       case "iCloud":
-        let success = this.writeCloudConfig(false,true)
+        success = this.writeCloudConfig(false,true)
         this.setSyncStatus(false,success)
-        return;
+        return success;
       case "MNNote":
         let noteId = this.getConfig("syncNoteId")
         let latestTime = this.getLocalLatestTime()
@@ -10760,7 +11595,8 @@ static modelsWithoutVisionPatterns = [
         this.config.lastSyncTime = Date.now()+5
         // this.config.modifiedTime = this.config.lastSyncTime
         this.config.syncNoteId = focusNote.noteId
-        if (chatAIUtils.chatController) {
+        let currentSyncSource = this.getConfig("syncSource")
+        if (chatAIUtils.chatController && currentSyncSource === "MNNote") {
           chatAIUtils.chatController.configNoteIdInput.text = focusNote.noteId
         }
         this.export2MNNote(focusNote)
@@ -10785,6 +11621,10 @@ static modelsWithoutVisionPatterns = [
         if (alert) {
           MNUtil.showHUD("Uploading...")
         }
+        if (!await this.checkR2Password()) {
+          MNUtil.showHUD("No password for Cloudflare R2!")
+          return false
+        }
         await chatAIConfig.uploadConfigWithEncryptionFromR2(this.config.r2file, this.config.r2password, alert)
         // MNUtil.copyJSON(this.config)
         this.setSyncStatus(false,true)
@@ -10807,6 +11647,10 @@ static modelsWithoutVisionPatterns = [
         // this.config.modifiedTime = this.config.lastSyncTime
         if (alert) {
           MNUtil.showHUD("Uploading...")
+        }
+        if (!await this.checkInfiPassword()) {
+          MNUtil.showHUD("No password for InfiniCloud!")
+          return false
         }
         await chatAIConfig.uploadConfigWithEncryptionToInfi(this.config.InfiFile, this.config.InfiPassword, alert)
         // MNUtil.copyJSON(this.config)
@@ -10878,14 +11722,14 @@ static modelsWithoutVisionPatterns = [
    * @param {boolean} alert 
    * @returns 
    */
-  static async getCloudConfigFromSource(syncSource,alert){
+  static async getCloudConfigFromSource(syncSource,alert,force = false){
     try {
     let config = undefined
     switch (syncSource) {
       case "None":
         return undefined
       case "iCloud":
-        this.checkCloudStore(false)
+        this.checkCloudStore(false,true)
         config = this.cloudStore.objectForKey("MNChatAI_totalConfig")
         break;
       case "MNNote":
@@ -10901,7 +11745,8 @@ static modelsWithoutVisionPatterns = [
           MNUtil.showHUD("Note not exists!")
           return undefined
         }
-        if (chatAIUtils.chatController) {
+        let currentSyncSource = this.getConfig("syncSource")
+        if (chatAIUtils.chatController && currentSyncSource === "MNNote") {
           chatAIUtils.chatController.configNoteIdInput.text = focusNote.noteId
         }
         if (focusNote.noteTitle !== "MN ChatAI Config") {
@@ -10914,7 +11759,9 @@ static modelsWithoutVisionPatterns = [
           contentToParse = chatAIUtils.extractJSONFromMarkdown(contentToParse)
         }
         if (!MNUtil.isValidJSON(contentToParse)) {
+          MNUtil.copy(contentToParse)
           MNUtil.showHUD("Invalid Config")
+          chatAIUtils.log("Invalid Config", contentToParse)
           return undefined
         }
         config = JSON.parse(contentToParse)
@@ -10983,7 +11830,7 @@ static modelsWithoutVisionPatterns = [
     let modifiedTime = this.config.modifiedTime ?? 0
     return Math.max(lastSyncTime,modifiedTime)
   }
-  static async import(alert = true,force = false){
+  static async import(alert = true,force = false, syncSource = this.getConfig("syncSource")){
     if (!chatAIUtils.checkSubscribe(true)) {
       return false
     }
@@ -10993,7 +11840,6 @@ static modelsWithoutVisionPatterns = [
       }
       return false
     }
-    let syncSource = this.getConfig("syncSource")
     // if (syncSource === "iCloud") {
     //   return false
     // }
@@ -11009,7 +11855,8 @@ static modelsWithoutVisionPatterns = [
         }
         return true
       }else{
-        MNUtil.showHUD("Invalid config in note!")
+        MNUtil.showHUD("Invalid config!")
+        chatAIUtils.log("Invalid config", config,"error")
         return false
       }
     }
@@ -11058,7 +11905,8 @@ static modelsWithoutVisionPatterns = [
       }
       return true
     }else{
-      MNUtil.showHUD("Invalid config in note!")
+      MNUtil.showHUD("❌ Failed to import config!")
+      chatAIUtils.log("❌ Failed to import config!", config,"error")
       return false
     }
   }
@@ -11164,13 +12012,6 @@ static modelsWithoutVisionPatterns = [
       }
       return success
     }else{
-      // if (!this.getConfig("r2file")) {
-      //   let fileName = NSUUID.UUID().UUIDString()
-      //   this.config.r2file = fileName
-      //   chatAIUtils.chatController.configNoteIdInput.text = fileName
-      // }
-      // this.config.lastSyncTime = Date.now()+5
-      // this.config.modifiedTime = this.config.lastSyncTime
       
       MNUtil.showHUD("Uploading...")
       await this.uploadConfigWithEncryptionFromR2(this.config.r2file, this.config.r2password)
@@ -11202,14 +12043,6 @@ static modelsWithoutVisionPatterns = [
       }
       return success
     }else{
-      // if (!this.getConfig("InfiFile")) {
-      //   let fileName = NSUUID.UUID().UUIDString()
-      //   this.config.InfiFile = fileName
-      //   chatAIUtils.chatController.configNoteIdInput.text = fileName
-      // }
-
-      // this.config.lastSyncTime = Date.now()+5
-      // this.config.modifiedTime = this.config.lastSyncTime
       
       MNUtil.showHUD("Uploading...")
       await this.uploadConfigWithEncryptionToInfi(this.config.InfiFile, this.config.InfiPassword)
@@ -11242,14 +12075,6 @@ static modelsWithoutVisionPatterns = [
       }
       return success
     }else{
-      // if (!this.getConfig("webdavFile")) {
-      //   let fileName = NSUUID.UUID().UUIDString()
-      //   this.config.webdavFile = fileName
-      //   chatAIUtils.chatController.configNoteIdInput.text = fileName
-      // }
-
-      // this.config.lastSyncTime = Date.now()+5
-      // this.config.modifiedTime = this.config.lastSyncTime
       
       MNUtil.showHUD("Uploading...")
       let authorization = {
@@ -11327,7 +12152,7 @@ static modelsWithoutVisionPatterns = [
     return this.usage
   }
   static allSource(withBuiltIn = false,checkKey = false){
-    let allSources = ['Subscription','ChatGPT','ChatGLM','KimiChat','Minimax','Deepseek','SiliconFlow','PPIO','Github','Qwen','Volcengine','Claude','Gemini','Metaso','ModelScope','Custom']
+    let allSources = ['Subscription','ChatGPT','ChatGLM','KimiChat','Minimax','Deepseek','SiliconFlow','PPIO','Github','Qwen','Volcengine','Claude','Gemini','Metaso','ModelScope','OpenRouter','Qiniu','Custom']
     if (checkKey) {
       allSources = allSources.filter(source=>this.hasAPIKeyInSource(source))
     }
@@ -11362,12 +12187,16 @@ static modelsWithoutVisionPatterns = [
         return "modelScopeKey"
       case "PPIO":
         return "ppioKey"
+      case "Qiniu":
+        return "qiniuKey"
       case "Volcengine":
         return "volcengineKey"
       case "Github":
         return "githubKey"
       case "Metaso":
         return "metasoKey"
+      case "OpenRouter":
+        return "openRouterKey"
       default:
         return ""
     }
@@ -11390,6 +12219,7 @@ static modelsWithoutVisionPatterns = [
       case "SiliconFlow":
       case "ModelScope":
       case "PPIO":
+      case "Qiniu":
       case "Github":
       case "Metaso":
       case "ChatGLM":
@@ -11399,6 +12229,7 @@ static modelsWithoutVisionPatterns = [
       case "Minimax":
       case "Deepseek":
       case "Qwen":
+      case "OpenRouter":
         return modelConfig[source]
       case "ChatGPT":
         models = modelConfig["ChatGPT"]
@@ -11462,6 +12293,8 @@ static modelsWithoutVisionPatterns = [
       case "SiliconFlow":
       case "ModelScope":
       case "PPIO":
+      case "Qiniu":
+      case "OpenRouter":
       case "Volcengine":
       case "Github":
       case "Metaso":
@@ -11513,6 +12346,12 @@ static modelsWithoutVisionPatterns = [
       case "PPIO":
         this.config.ppioModel = model
         break;
+      case "Qiniu":
+        this.config.qiniuModel = model
+        break;
+      case "OpenRouter":
+        this.config.openRouterModel = model
+        break;
       case "Volcengine":
         this.config.volcengineModel = model
         break;
@@ -11546,6 +12385,12 @@ static modelsWithoutVisionPatterns = [
       case "PPIO":
         this.config.ppioModel = model
         break;
+      case "Qiniu":
+        this.config.qiniuModel = model
+        break;
+      case "OpenRouter":
+        this.config.openRouterModel = model
+        break;
       case "Built-in":
         break;
       default:
@@ -11577,6 +12422,12 @@ static modelsWithoutVisionPatterns = [
         break;
       case "PPIO":
         model = this.getConfig("ppioModel")
+        break;
+      case "Qiniu":
+        model = this.getConfig("qiniuModel")
+        break;
+      case "OpenRouter":
+        model = this.getConfig("openRouterModel")
         break;
       case "Volcengine":
         model = this.getConfig("volcengineModel")
@@ -11645,6 +12496,9 @@ static modelsWithoutVisionPatterns = [
       if (modelConfig.length === 2) {
         config.model = modelConfig[1]
       }
+      if (modelConfig.length === 3) {
+        config.model = modelConfig[1]+":"+modelConfig[2]
+      }
     }else{
       config = this.getConfigFromSource()
     }
@@ -11687,6 +12541,12 @@ static modelsWithoutVisionPatterns = [
       case "PPIO":
         config.url = this.getConfig("ppioUrl")
         return config
+      case "Qiniu":
+        config.url = this.getConfig("qiniuUrl")
+        return config
+      case "OpenRouter":
+        config.url = this.getConfig("openRouterUrl")
+        return config
       case "Volcengine":
         config.url = this.getConfig("volcengineUrl")
         return config
@@ -11727,12 +12587,17 @@ static modelsWithoutVisionPatterns = [
     }
   }
   static getConfigFromPrompt(prompt = this.currentPrompt){
+
+    if (!(prompt in this.prompts)) {
+      return undefined
+    }
     let promptConfig = this.prompts[prompt]
+  try {
     // MNUtil.copyJSON(promptConfig)
     let promptModel = promptConfig.model
     let config
     if (promptModel) {
-      config = chatAIConfig.parseModelConfig(promptModel)
+      config = this.parseModelConfig(promptModel)
       // let modelConfig = promptModel.split(":").map(model=>model.trim())
       // if (modelConfig[0] !== "Default") {
       //   let source = modelConfig[0]
@@ -11760,6 +12625,10 @@ static modelsWithoutVisionPatterns = [
       config.toolbarAction = promptConfig.toolbarAction
     }
     return config
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "getConfigFromPrompt: "+prompt,promptConfig)
+      return undefined
+    }
   }
   static getDynmaicConfig(){
     // let promptConfig = this.dynamicPrompt
@@ -11780,7 +12649,9 @@ static modelsWithoutVisionPatterns = [
     if (dynamicToolbarAction) {
       config.toolbarAction = dynamicToolbarAction
     }
+    // chatAIUtils.log("getDynmaicConfig", config)
     return config
+
   }
   /**
    * 
@@ -11874,16 +12745,26 @@ static modelsWithoutVisionPatterns = [
   }
   }
   static async uploadConfigWithEncryptionFromR2(fileName,key,alert = true){
+  try {
+    // chatAIUtils.log("uploadConfigWithEncryptionFromR2")
     if (!this.getConfig("r2file")) {
       let fileName = NSUUID.UUID().UUIDString()
       this.config.r2file = fileName
-      chatAIUtils.chatController.configNoteIdInput.text = fileName
+      let currentSyncSource = this.getConfig("syncSource")
+      if (currentSyncSource === "CFR2") {
+        chatAIUtils.chatController.configNoteIdInput.text = fileName
+      }
     }
     this.config.lastSyncTime = Date.now()+5
     this.config.modifiedTime = this.config.lastSyncTime
     let text = JSON.stringify(this.getAllConfig())
     let encodedText = MNUtil.xorEncryptDecrypt(text, key)
     await chatAINetwork.uploadFileToR2(encodedText, fileName,alert)
+    return true
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "uploadConfigWithEncryptionFromR2")
+    return false
+  }
   }
   static async readEncryptedConfigFromInfi(fileName,key){
   try {
@@ -11915,7 +12796,7 @@ static modelsWithoutVisionPatterns = [
       this.setSyncStatus(false)
       return undefined
     }
-    let decodedText = MNUtil.xorEncryptDecrypt(text, key)
+    let decodedText = chatAIUtils.xorEncryptDecrypt(text, key)
     // MNUtil.copy(decodedText)
     if (MNUtil.isValidJSON(decodedText)) {
       let config = JSON.parse(decodedText)
@@ -11931,7 +12812,10 @@ static modelsWithoutVisionPatterns = [
     if (!this.getConfig("InfiFile")) {
       let fileName = NSUUID.UUID().UUIDString()
       this.config.InfiFile = fileName
-      chatAIUtils.chatController.configNoteIdInput.text = fileName
+      let currentSyncSource = this.getConfig("syncSource")
+      if (currentSyncSource === "Infi") {
+        chatAIUtils.chatController.configNoteIdInput.text = fileName
+      }
     }
     this.config.lastSyncTime = Date.now()+5
     // this.config.modifiedTime = this.config.lastSyncTime
@@ -11944,6 +12828,44 @@ static modelsWithoutVisionPatterns = [
     }
     let res = await chatAINetwork.uploadWebDAVFile(url, Authorization.user, Authorization.password, encodedText)
     // await this.uploadConfigToWebdav(encodedText, fileName,Authorization)
+  }
+  static async uploadConfigWithEncryptionToAlist(config){
+    let key = subscriptionConfig.APIKey
+    if (!key) {
+      return {success:false,error:"No APIKey"}
+    }
+    let text = typeof config === "string" ? config : JSON.stringify(config)
+    let md5 = MNUtil.MD5(text)
+    if (md5 === this.preChatDataId) {//不重复上传
+      chatAIUtils.log("聊天内容未改变，不重复上传", md5)
+      return {success:true,id:md5}
+    }
+    let encodedText = chatAIUtils.xorEncryptDecrypt(text, key)
+    if (!encodedText) {
+      return {success:false,error:"Encrypt failed"}
+    }
+    let url = "https://cdn.u1162561.nyat.app:43836/dav/dl123/chatAIConfig/"+md5
+    let Authorization = {
+      user:"chat",
+      password:"chat"
+    }
+    let res = await chatAINetwork.uploadWebDAVFile(url, Authorization.user, Authorization.password, encodedText)
+    this.preChatDataId = md5
+    return {success:true,res:res,id:md5}
+    // await this.uploadConfigToWebdav(encodedText, fileName,Authorization)
+  }
+  static async readEncryptedConfigFrom123(id){
+    let key = subscriptionConfig.APIKey
+    let url = "https://vip.123pan.cn/1836303614/dl/chatAIConfig/"+id
+    let text = await chatAINetwork.fetch(url)
+    // MNUtil.log(typeof text)
+    let decodedText = chatAIUtils.xorEncryptDecrypt(text, key)
+    if (MNUtil.isValidJSON(decodedText)) {
+      let config = JSON.parse(decodedText)
+      return config
+    }
+    MNUtil.showHUD("Invalid history file!")
+    return undefined
   }
   /**
    * 
@@ -11975,7 +12897,10 @@ static modelsWithoutVisionPatterns = [
     if (!this.getConfig("webdavFile")) {
       let fileName = NSUUID.UUID().UUIDString()
       this.config.webdavFile = fileName
-      chatAIUtils.chatController.configNoteIdInput.text = fileName
+      let currentSyncSource = this.getConfig("syncSource")
+      if (currentSyncSource === "Webdav") {
+        chatAIUtils.chatController.configNoteIdInput.text = fileName
+      }
     }
     this.config.lastSyncTime = Date.now()+5
     this.config.modifiedTime = this.config.lastSyncTime
@@ -11995,6 +12920,8 @@ static modelsWithoutVisionPatterns = [
  * @param {{name:String,path:String,md5:String}} fileObject
  */
 static async getFileIdFromMoonshot (fileObject){
+try {
+
   let fileMd5 = fileObject.md5
   if (this.fileId[fileMd5]) {
     return this.fileId[fileMd5]
@@ -12013,7 +12940,13 @@ static async getFileIdFromMoonshot (fileObject){
       MNUtil.delay(1).then(()=>{
         MNUtil.stopHUD()
       })
-      let newError = new Error("Upload file failed: "+res.data.error.message);
+      let errorMessage = res.data.error.message ?? "Unknown error"
+      let errorType = res.data?.error?.type
+      if (errorType = "exceeded_current_quota_error") {
+        await MNUtil.confirm("🤖 MN ChatAI","Quota exceeded for Moonshot, please recharge\n\nMoonshot额度已用尽，请充值")
+        return undefined
+      }
+      let newError = new Error("Upload file failed: "+errorMessage);
       newError.detail = res
       throw newError;
     }
@@ -12031,6 +12964,11 @@ static async getFileIdFromMoonshot (fileObject){
   this.fileId[fileMd5] = fileId
   this.save("MNChatglm_fileId")
   return fileId
+  
+} catch (error) {
+  chatAIUtils.addErrorLog(error, "getFileIdFromMoonshot")
+  return undefined
+}
 }
 /**
  * @param {{name:String,path:String,md5:String}} fileObject
@@ -12233,13 +13171,8 @@ static async getFileContent(fileObject,local = false){
     if (!fileInfo) {
         let confirm = await MNUtil.confirm("🤖 MN ChatAI","❌ Moonshot Extraction Failed! Do you want to retry with local extraction?\n\nMoonshot文档内容抽取失败，是否使用本地解析重试？")
         if (!confirm) {
-          // 如果用户选择不重新获取，则返回空内容
-          return {
-            content:"",
-            file_type: "application/pdf",
-            type: "file",
-            filename: fileObject.name,
-          }
+          // 如果用户选择不重新获取，则返回undefined
+          return undefined
         }
         return await this.getFileContentFromLocal(fileObject)
     }
@@ -12597,9 +13530,14 @@ Image Text Extraction Specialist
     }
     let res = await this.fetch(url,option)
     if ("statusCode" in res && res.statusCode >= 400) {
-      url = `https://alist.feliks.top/d/cdn/new-api/model.json`
+      url = `https://cdn.u1162561.nyat.app:43836/d/cdn/mnaddonStore/model.json`
       res = await this.fetch(url,option)
     }
+    if ("statusCode" in res && res.statusCode >= 400) {
+      url = `https://qiniu.feliks.top/model.json`
+      res = await this.fetch(url,option)
+    }
+    
     if ("statusCode" in res && res.statusCode >= 400) {
       return undefined
     }
@@ -12655,9 +13593,14 @@ Image Text Extraction Specialist
     let res = await this.fetch(url,option)
     // MNUtil.log({message:"fetchKeys",detail:res})
     if ("statusCode" in res && res.statusCode >= 400) {
-      url = `https://alist.feliks.top/d/cdn/new-api/model.json`
+      url = `https://cdn.u1162561.nyat.app:43836/d/cdn/mnaddonStore/model.json`
       res = await this.fetch(url,option)
     }
+    if ("statusCode" in res && res.statusCode >= 400) {
+      url = `https://qiniu.feliks.top/model.json`
+      res = await this.fetch(url,option)
+    }
+    
     if ("statusCode" in res && res.statusCode >= 400) {
       // chatAIConfig.modelConfig = undefined
 
@@ -12985,6 +13928,7 @@ static async uploadWebDAVFile(url, username, password, fileContent) {
         return text
     } catch (error) {
       chatAIUtils.addErrorLog(error, "uploadWebDAVFile")
+      return undefined
     }
 }
 

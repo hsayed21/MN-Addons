@@ -12,7 +12,17 @@
       "mcp__serena__list_dir",
       "mcp__serena__find_file",
       "Read(//Users/xiakangwei/Nutstore/Github/repository/MN-Addon/**)",
-      "mcp__serena__check_onboarding_performed"
+      "mcp__serena__check_onboarding_performed",
+      "Bash(sed:*)",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__read_text_file",
+      "Bash(find:*)",
+      "Bash(git log:*)",
+      "mcp__filesystem__directory_tree",
+      "mcp__filesystem__list_allowed_directories",
+      "Bash(cat:*)",
+      "mcp__serena__initial_instructions",
+      "mcp__serena__get_symbols_overview"
     ],
     "deny": [],
     "ask": []

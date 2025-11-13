@@ -146,31 +146,23 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController <N
     let file
     switch (source) {
       case "iCloud":
-        // MNButton.setTitle(self.exportConfigButton, "Export to iCloud")
-        // MNButton.setTitle(self.importConfigButton, "Import from iCloud")
         self.configNoteIdInput.text = file
         // self.focusConfigNoteButton.hidden = true
         break;
       case "CFR2":
         file = chatAIConfig.getConfig("r2file") ?? ""
-        // MNButton.setTitle(self.exportConfigButton, "Export to R2")
-        // MNButton.setTitle(self.importConfigButton, "Import from R2")
         MNButton.setTitle(self.focusConfigNoteButton, "Copy")
         self.configNoteIdInput.text = file
         // self.focusConfigNoteButton.hidden = true
         break;
       case "Infi":
         file = chatAIConfig.getConfig("InfiFile") ?? ""
-        // MNButton.setTitle(self.exportConfigButton, "Export to Infini")
-        // MNButton.setTitle(self.importConfigButton, "Import from Infini")
         MNButton.setTitle(self.focusConfigNoteButton, "Copy")
         self.configNoteIdInput.text = file
         // self.focusConfigNoteButton.hidden = true
         break;
       case "Webdav":
         file = chatAIConfig.getConfig("webdavFile") ?? ""
-        // MNButton.setTitle(self.exportConfigButton, "Export to Webdav")
-        // MNButton.setTitle(self.importConfigButton, "Import from Webdav")
         MNButton.setTitle(self.focusConfigNoteButton, "Copy")
         self.configNoteIdInput.text = file
         // self.focusConfigNoteButton.hidden = true
@@ -178,8 +170,6 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController <N
       case "MNNote":
         self.configNoteIdInput.text = chatAIConfig.getConfig("syncNoteId")
         self.focusConfigNoteButton.hidden = false
-        // MNButton.setTitle(self.exportConfigButton, "Export to Note")
-        // MNButton.setTitle(self.importConfigButton, "Import from Note")
         MNButton.setTitle(self.focusConfigNoteButton, "Focus")
         break;
       default:
@@ -216,6 +206,8 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController <N
     menu.addMenuItem("✴️  Claude", selector,'Claude',source =='Claude')
     menu.addMenuItem("✨  Gemini", selector,'Gemini',source =='Gemini')
     menu.addMenuItem("🔍  Metaso", selector,'Metaso',source =='Metaso')
+    menu.addMenuItem("🔀  OpenRouter", selector,'OpenRouter',source =='OpenRouter')
+    menu.addMenuItem("🐮  Qiniu", selector,'Qiniu',source =='Qiniu')
     menu.addMenuItem("🎨  Custom", selector,'Custom',source =='Custom')
     menu.show()
   },
@@ -687,11 +679,13 @@ try {
     menu.addMenuItem("🆓 Copy Text", selector,4,currentAction.includes(4))
     menu.addMenuItem("🆓 Snipaste HTML", selector,10,currentAction.includes(10))
     menu.addMenuItem("🆓 Snipaste Text", selector,15,currentAction.includes(15))
+    menu.addMenuItem("🆓 Switch to Chat Mode", selector,17,currentAction.includes(17))
+    menu.addMenuItem("🆓 Save to Chat History", selector,20,currentAction.includes(20))
+    menu.addMenuItem("🆓 Enable Excerpt Markdown", selector,18,currentAction.includes(18))
+    menu.addMenuItem("🆓 Disable Excerpt Markdown", selector,19,currentAction.includes(19))
     menu.addMenuItem("🆓 Close", selector,5,currentAction.includes(5))
     menu.addMenuItem("❌ None", selector,-1,currentAction.length === 0)
     menu.addMenuItem("➡️ Toolbar actions:", "chooseToolbarActions:",button)
-
-    menu.width = 250
     menu.show()
   },
   setAction(param) {
@@ -703,7 +697,7 @@ try {
         currentAction = []
         break;
       case 100:
-        currentAction = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]//增加函数后要在这里加一条，不然显示不出来
+        currentAction = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]//增加函数后要在这里加一条，不然显示不出来
         break
       default:
         if (currentAction.includes(param)) {
@@ -734,7 +728,7 @@ try {
         currentAction = []
         break;
       case 100://All
-        currentAction = [0,1,2,3,4,5,6,7,8,9]//增加函数后要在这里加一条，不然显示不出来
+        currentAction = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]//增加函数后要在这里加一条，不然显示不出来
         break
       default:
         if (currentAction.includes(param)) {
@@ -1709,7 +1703,6 @@ ${self.knowledgeInput.text}
           self.openURL("https://www.bigmodel.cn/invite?icode=6m37FNrh1xwvptSaD261cmczbXFgPRGIalpycrEwJ28%3D")
         }
         break;
-        break;
       case "PPIO":
         confirm = await MNUtil.confirm("MN ChatAI", "是否已注册PPIO？",["未注册","已注册"])
         if (confirm) {
@@ -1717,6 +1710,18 @@ ${self.knowledgeInput.text}
         }else{
           self.openURL("https://ppio.com/user/register?invited_by=4QHT31")
         }
+        break;
+      case "OpenRouter":
+        self.openURL("https://openrouter.ai/settings/keys")
+        break;
+      case "Qiniu":
+        confirm = await MNUtil.confirm("MN ChatAI", "是否已注册七牛云？",["未注册","已注册"])
+        if (confirm) {
+          self.openURL("https://s.qiniu.com/3A7reu")
+        }else{
+          self.openURL("https://portal.qiniu.com/ai-inference/api-key?from=home-resource-card")
+        }
+        break;
         break;
       default:
         self.showHUD("Unsupported source: "+chatAIConfig.config.source)
@@ -1845,8 +1850,8 @@ ${self.knowledgeInput.text}
         chatAIConfig.config.customModel = self.customModelInput.text
         break;
       default:
-        chatAIUtils.addErrorLog("Unspported source: "+chatAIConfig.config.source, "saveConfig")
-        return
+        // chatAIUtils.addErrorLog("Unspported source: "+chatAIConfig.config.source, "saveConfig")
+        break;
     }
     chatAIConfig.save('MNChatglm_config')
     MNUtil.showHUD("Save Config for ["+chatAIConfig.config.source+"]")
@@ -1916,11 +1921,11 @@ ${self.knowledgeInput.text}
       let clipboardText = ""
       switch (params) {
         case "copyUser":
-          MNUtil.copy(prompt.context)
+          MNUtil.copy(self.contextInput.text)
           self.showHUD("Copy user message")
           break;
         case "copySystem":
-          MNUtil.copy(prompt.system)
+          MNUtil.copy(self.systemInput.text)
           self.showHUD("Copy system message")
           break;
         case "pasteUser":
@@ -2406,32 +2411,116 @@ ${config}
     chatAIConfig.save("MNChatglm_config")
 
   },
-  exportConfig:async function (params) {
+  exportConfig:async function (button) {
   try {
-    
+    let menu = new Menu(button,self)
+    menu.preferredPosition = 2
+    menu.addMenuItem("☁️  Export to iCloud","exportConfigBySource:","iCloud")
+    menu.addMenuItem("📝  Export to MNNote","exportConfigBySource:","MNNote")
+    menu.addMenuItem("☁️  Export to Cloudflare R2","exportConfigBySource:","CFR2")
+    menu.addMenuItem("☁️  Export to InfiniCloud","exportConfigBySource:","Infi")
+    menu.addMenuItem("🌐  Export to WebDAV","exportConfigBySource:","Webdav")
+    menu.addMenuItem("🗃️  Export to File","exportConfigBySource:","File")
+    menu.show()
 
-    let success = await chatAIConfig.export(true,true)
-    if (success) {
-      // self.configNoteIdInput.text = chatAIConfig.config.syncNoteId
-      chatAIConfig.save("MNChatglm_config",true)
-      MNUtil.showHUD("Export Success!")
-      self.refreshLastSyncTime()
-    }
+    // let success = await chatAIConfig.export(true,true)
+    // if (success) {
+    //   // self.configNoteIdInput.text = chatAIConfig.config.syncNoteId
+    //   chatAIConfig.save("MNChatglm_config",true)
+    //   MNUtil.showHUD("Export Success!")
+    //   self.refreshLastSyncTime()
+    // }
   } catch (error) {
     chatAIUtils.addErrorLog(error, "exportConfig")
   }
   },
-  importConfig:async function (params) {
-    let success = await chatAIConfig.import(true,true)
-    // let iCloudSync = chatAIConfig.getConfig("syncSource") === "iCloud"
-    // if(iCloudSync){
-    //   success = await chatAIConfig.readCloudConfig()
+  exportConfigBySource:async function (source) {
+  try {
+    Menu.dismissCurrentMenu()
+    if (source === "File") {
+      let dateNow = Date.now()
+      let filePath = chatAIConfig.mainPath+"/chatAIConfig_"+dateNow+".json"
+      MNUtil.writeJSON(filePath,chatAIConfig.getAllConfig(true))
+      MNUtil.saveFile(filePath,["public.json"])
+      return;
+    }
+    self.waitHUD("Exporting config to "+source)
+    let success = await chatAIConfig.export(true,true,source)
+    if (success) {
+      // self.configNoteIdInput.text = chatAIConfig.config.syncNoteId
+      chatAIConfig.save("MNChatglm_config",true)
+      self.waitHUD("Export Success!")
+      let currentSyncSource = chatAIConfig.getConfig("syncSource")
+      if (currentSyncSource === source) {
+        self.refreshLastSyncTime()
+      }
+      MNUtil.stopHUD(0.5)
+    }else{
+      self.waitHUD("Export Failed!")
+      MNUtil.stopHUD(0.5)
+    }
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "exportConfigBySource")
+  }
+  },
+  importConfig:async function (button) {
+  try {
+
+    let menu = new Menu(button,self)
+    menu.preferredPosition = 2
+    menu.addMenuItem("☁️  Import from iCloud","importConfigBySource:","iCloud")
+    menu.addMenuItem("📝  Import from MNNote","importConfigBySource:","MNNote")
+    menu.addMenuItem("☁️  Import from Cloudflare R2","importConfigBySource:","CFR2")
+    menu.addMenuItem("☁️  Import from InfiniCloud","importConfigBySource:","Infi")
+    menu.addMenuItem("🌐  Import from WebDAV","importConfigBySource:","Webdav")
+    menu.addMenuItem("🗃️  Import from File","importConfigBySource:","File")
+    menu.show()
+
+    // let success = await chatAIConfig.import(true,true)
+    // // let iCloudSync = chatAIConfig.getConfig("syncSource") === "iCloud"
+    // // if(iCloudSync){
+    // //   success = await chatAIConfig.readCloudConfig()
+    // // }
+    // if (success) {
+    //   chatAIConfig.save(undefined,true)
+    //   self.refreshLastSyncTime()
+    //   MNUtil.showHUD("Import Success!")
     // }
+    
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "importConfig")
+  }
+  },
+  importConfigBySource:async function (source) {
+  try {
+    Menu.dismissCurrentMenu()
+    if (source === "File") {
+      let path = await MNUtil.importFile(["public.json"])
+      let config = MNUtil.readJSON(path)
+      let success = chatAIConfig.importConfig(config)
+      if (success) {
+        chatAIConfig.save(undefined,true)
+        MNUtil.showHUD("Import Success!")
+      }
+      return;
+    }
+    self.waitHUD("Importing config from "+source)
+    let success = await chatAIConfig.import(true,true,source)
     if (success) {
       chatAIConfig.save(undefined,true)
-      self.refreshLastSyncTime()
-      MNUtil.showHUD("Import Success!")
+      let currentSyncSource = chatAIConfig.getConfig("syncSource")
+      if (currentSyncSource === source) {
+        self.refreshLastSyncTime()
+      }
+      self.waitHUD("Import Success!")
+      MNUtil.stopHUD(0.5)
+    }else{
+      self.waitHUD("Export Failed!")
+      MNUtil.stopHUD(0.5)
     }
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "importConfigBySource")
+  }
   },
   restoreConfig:async function (params) {
     let modifiedTime = chatAIConfig.previousConfig?.config?.modifiedTime
@@ -2451,7 +2540,7 @@ ${config}
         }
       }
     }else{
-      MNUtil.showHUD("❌ No previous config to restore!")
+      MNUtil.confirm("❌ No previous config to restore!")
     }
   },
   syncConfig: async function (params) {
@@ -2488,7 +2577,7 @@ ${config}
       case "None":
         return;
       case "MNNote":
-        let noteId = MNUtil.clipboardText
+        let noteId = MNUtil.clipboardText.trim()
         let note = MNNote.new(noteId)//MNUtil.getNoteById(noteId)
         if (note) {
           self.configNoteIdInput.text = note.noteId
@@ -2500,27 +2589,35 @@ ${config}
         }
         break;
       case "CFR2":
-        file = MNUtil.clipboardText
+        file = MNUtil.clipboardText.trim()
         self.configNoteIdInput.text = file
         chatAIConfig.config.r2file = file
+        //每次粘贴都要求输入新密码
         res = await MNUtil.input("Passward for Config","输入云端配置文件加密密码",["Cancel","Confirm"])
         if (res.button) {
           chatAIConfig.config.r2password = res.input
+          MNUtil.showHUD("✅ Set Password for Cloudflare R2")
         }
-        chatAIConfig.save("MNChatglm_config")
+        if (chatAIConfig.getConfig("r2password")) {
+          chatAIConfig.save("MNChatglm_config")
+        }
         break;
       case "Infi":
-        file = MNUtil.clipboardText
+        file = MNUtil.clipboardText.trim()
         self.configNoteIdInput.text = file
         chatAIConfig.config.InfiFile = file
+        //每次粘贴都要求输入新密码
         res = await MNUtil.input("Passward for Config","输入云端配置文件加密密码",["Cancel","Confirm"])
         if (res.button) {
           chatAIConfig.config.InfiPassword = res.input
+          MNUtil.showHUD("✅ Set Password for InfiniCloud")
         }
-        chatAIConfig.save("MNChatglm_config")
+        if (chatAIConfig.getConfig("InfiPassword")) {
+          chatAIConfig.save("MNChatglm_config")
+        }
         break;
       case "Webdav":
-        file = MNUtil.clipboardText
+        file = MNUtil.clipboardText.trim()
         self.configNoteIdInput.text = file
         chatAIConfig.config.webdavFile = file
         chatAIConfig.checkWebdavAccount(true)
@@ -2587,7 +2684,11 @@ ${config}
       self.visionButton.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",0.8)
     }else{
       let config = chatAIConfig.getConfigFromPrompt(promptKey)
-      if (!chatAIUtils.isVisionModel(config.model)) {
+      if (!config) {
+        MNUtil.showHUD("No config for prompt: "+promptKey)
+        return
+      }
+      if (config.model && !chatAIUtils.isVisionModel(config.model)) {
         let confirm = await MNUtil.confirm("🤖 MN ChatAI", `The current model [${config.model}] does not support image input. Continue? \n\n当前模型 [${config.model}] 不支持图片输入，是否继续？`)
         if (!confirm) {
           return
@@ -2917,6 +3018,9 @@ chatglmController.prototype.getQuestionOnNote = async function(noteid,prompt = c
   }
   if (system) {//有system指令的情况
     systemMessage = await chatAIUtils.render(system,opt)
+    if (typeof systemMessage === "undefined") {
+      return undefined
+    }
     if (chatAIUtils.visionMode || vision) {
       let imageDatas = chatAIUtils.getImagesFromNote(MNNote.new(noteid),true)
       question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(contextMessage, imageDatas)]
@@ -2958,6 +3062,9 @@ chatglmController.prototype.getQuestionOnText = async function(prompt = chatAICo
   // MNUtil.copy(contextMessage)
   if (system) {
     let systemMessage = await chatAIUtils.render(system,opt)
+    if (typeof systemMessage === "undefined") {
+      return undefined
+    }
     if (chatAIUtils.visionMode  || vision) {
       let imageData = MNUtil.getDocImage()
       question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(contextMessage, imageData)]
@@ -3164,16 +3271,16 @@ chatglmController.prototype.settingViewLayout = function (){
 
     // syncView
     this.syncSourceButton.frame = MNUtil.genFrame(5, 5, width-10, 35)
-    this.restoreConfigButton.frame = MNUtil.genFrame(5, height-105, width-10, 35)
-    this.configNoteIdInput.frame = MNUtil.genFrame(5,50,width-10,60)
-    this.syncTimeButton.frame = MNUtil.genFrame(5,115,width-10,35)
-    this.exportConfigButton.frame = MNUtil.genFrame(5,155,(width-15)*0.5,35)
-    this.importConfigButton.frame = MNUtil.genFrame(10+(width-15)*0.5,155,(width-15)*0.5,35)
-    this.autoExportButton.frame = MNUtil.genFrame(5,195,(width-15)*0.5,35)
-    this.autoImportButton.frame = MNUtil.genFrame(10+(width-15)*0.5,195,(width-15)*0.5,35)
-    this.pasteConfigNoteButton.frame = MNUtil.genFrame(width-70,80,60,25)
-    this.clearConfigNoteButton.frame = MNUtil.genFrame(width-135,80,60,25)
-    this.focusConfigNoteButton.frame = MNUtil.genFrame(width-200,80,60,25)
+    this.restoreConfigButton.frame = MNUtil.genFrame(5, height-105, 2*width/5, 35)
+    this.configNoteIdInput.frame = MNUtil.genFrame(5,130,width-10,60)
+    this.syncTimeButton.frame = MNUtil.genFrame(5,50,width-10,35)
+    this.exportConfigButton.frame = MNUtil.genFrame(2*width/5+10,height-105,1.5*width/5-10,35)
+    this.importConfigButton.frame = MNUtil.genFrame(3.5*width/5+5,height-105,1.5*width/5-10,35)
+    this.autoExportButton.frame = MNUtil.genFrame(5,90,(width-15)*0.5,35)
+    this.autoImportButton.frame = MNUtil.genFrame(10+(width-15)*0.5,90,(width-15)*0.5,35)
+    this.focusConfigNoteButton.frame = MNUtil.genFrame(width-210,195,65,30)
+    this.clearConfigNoteButton.frame = MNUtil.genFrame(width-140,195,65,30)
+    this.pasteConfigNoteButton.frame = MNUtil.genFrame(width-70,195,65,30)
 
     let initX = 5
     let initY = 135
@@ -3670,21 +3777,26 @@ try {
 
   this.creatTextView("configNoteIdInput",targetView)
   this.configNoteIdInput.editable = false
+  MNButton.setRadius(this.configNoteIdInput, 11)
   this.createButton("syncTimeButton","syncConfig:",targetView)
-  MNButton.setConfig(this.syncTimeButton, {color:"#457bd3",alpha:0.8})
-  
-  this.createButton("exportConfigButton","exportConfig:",targetView)
-
-  this.createButton("importConfigButton","importConfig:",targetView)
+  MNButton.setConfig(this.syncTimeButton, {color:"#457bd3", alpha:0.8, radius:11})
+  let dateObj = new Date(chatAIConfig.getConfig("lastSyncTime") ?? 0)
+  MNButton.setTitle(this.syncTimeButton, "Last Sync Time: "+dateObj.toLocaleString())
 
   this.createButton("restoreConfigButton","restoreConfig:",targetView)
-  MNButton.setConfig(this.restoreConfigButton, {title:"Restore Config",radius:11})
+  MNButton.setConfig(this.restoreConfigButton, {title:"🔄 Restore",radius:11})
+
+  this.createButton("exportConfigButton","exportConfig:",targetView)
+  MNButton.setConfig(this.exportConfigButton, {title:"📤 Export",radius:11})
+
+  this.createButton("importConfigButton","importConfig:",targetView)
+  MNButton.setConfig(this.importConfigButton, {title:"📥 Import",radius:11})
 
   this.createButton("autoExportButton","toggleAutoExport:",targetView)
-  MNButton.setConfig(this.autoExportButton, {color:"#457bd3",alpha:0.8})
+  MNButton.setConfig(this.autoExportButton, {color:"#457bd3", alpha:0.8, radius:11})
 
   this.createButton("autoImportButton","toggleAutoImport:",targetView)
-  MNButton.setConfig(this.autoImportButton, {color:"#457bd3",alpha:0.8})
+  MNButton.setConfig(this.autoImportButton, {color:"#457bd3", alpha:0.8, radius:11})
 
   this.createButton("pasteConfigNoteButton","pasteConfigNoteId:",targetView)
   MNButton.setConfig(this.pasteConfigNoteButton, {title:"Paste",color:"#9bb2d6",alpha:0.8})
@@ -4051,6 +4163,8 @@ chatglmController.prototype.setModel = function (source) {
     case "SiliconFlow":
     case "ModelScope":
     case "PPIO":
+    case "Qiniu":
+    case "OpenRouter":
     case "Volcengine":
     case "Github":
     case "Metaso":
@@ -4089,6 +4203,8 @@ chatglmController.prototype.setModel = function (source) {
     case "SiliconFlow":
     case "ModelScope":
     case "PPIO":
+    case "Qiniu":
+    case "OpenRouter":
     case "Volcengine":
     case "Github":
     case "Metaso":
@@ -4171,7 +4287,7 @@ try {
       break;
     case "advanceView":
       MNUtil.log("refresh advanceView")
-      let locInd = chatAIConfig.config.notifyLoc
+      let locInd = chatAIConfig.getConfig("notifyLoc")
       let locNames = ["Left","Right"]
       MNButton.setTitle(this.windowLocationButton, "Notification: "+locNames[locInd])
       MNButton.setTitle(this.autoThemeButton, "Auto Theme: "+(chatAIConfig.getConfig("autoTheme")?"✅":"❌"))
@@ -4271,42 +4387,30 @@ try {
       this.syncTimeButton.hidden = (syncSource === "None")
       this.autoExportButton.hidden = (syncSource === "None")
       this.autoImportButton.hidden = (syncSource === "None")
-      this.exportConfigButton.hidden = (syncSource === "None")
-      this.importConfigButton.hidden = (syncSource === "None")
       switch (syncSource) {
         case "None":
           break;
         case "iCloud":
-          MNButton.setTitle(this.exportConfigButton, "Export to iCloud")
-          MNButton.setTitle(this.importConfigButton, "Import from iCloud")
           MNButton.setTitle(this.focusConfigNoteButton, "Focus")
           // this.focusConfigNoteButton.hidden = syncSource === "iCloud"
           break;
         case "MNNote":
           MNButton.setTitle(this.focusConfigNoteButton, "Focus")
-          MNButton.setTitle(this.exportConfigButton, "Export to Note")
-          MNButton.setTitle(this.importConfigButton, "Import from Note")
           // this.focusConfigNoteButton.hidden = syncSource === "MNNote"
           this.configNoteIdInput.text = chatAIConfig.getConfig("syncNoteId")
           break;
         case "CFR2":
           MNButton.setTitle(this.focusConfigNoteButton, "Copy")
-          MNButton.setTitle(this.exportConfigButton, "Export to R2")
-          MNButton.setTitle(this.importConfigButton, "Import from R2")
           // this.focusConfigNoteButton.hidden = syncSource === "CFR2"
           this.configNoteIdInput.text = chatAIConfig.getConfig("r2file")
           break;
         case "Infi":
           MNButton.setTitle(this.focusConfigNoteButton, "Copy")
-          MNButton.setTitle(this.exportConfigButton, "Export to Infi")
-          MNButton.setTitle(this.importConfigButton, "Import from Infi")
           // this.focusConfigNoteButton.hidden = syncSource === "CFR2"
           this.configNoteIdInput.text = chatAIConfig.getConfig("InfiFile")
           break;
         case "Webdav":
           MNButton.setTitle(this.focusConfigNoteButton, "Copy")
-          MNButton.setTitle(this.exportConfigButton, "Export to Webdav")
-          MNButton.setTitle(this.importConfigButton, "Import from Webdav")
           // this.focusConfigNoteButton.hidden = syncSource === "CFR2"
           this.configNoteIdInput.text = chatAIConfig.getConfig("webdavFile")
           break;
@@ -4795,6 +4899,8 @@ try {
     case "SiliconFlow":
     case "ModelScope":
     case "PPIO":
+    case "Qiniu":
+    case "OpenRouter":
     case "Github":
     case "Metaso":
     case "Qwen":
@@ -5080,5 +5186,6 @@ chatglmController.prototype.restoreSystem = async function (mode = "optimizeSyst
 chatglmController.prototype.contextInput
 /** @type {UITextView} */
 chatglmController.prototype.knowledgeInput
+
 
 

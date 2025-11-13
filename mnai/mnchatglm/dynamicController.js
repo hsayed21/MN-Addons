@@ -795,6 +795,7 @@ var dynamicController = JSB.defineClass(
           userInput,
         );
         if (!question) {
+          chatAIUtils.log("question is undefined",title,"error")
           return;
         }
         // chatAIUtils.log("ask: "+Date.now())
@@ -1171,7 +1172,7 @@ dynamicController.prototype.openInput = async function () {
     } else {
       chatAIUtils.addErrorLog(
         "Empty model config",
-        "dynamicController.openInput",
+        "dynamicController.openInput",{model:model,modelConfig:chatAIConfig.modelConfig}
       );
     }
     await this.setLayout();

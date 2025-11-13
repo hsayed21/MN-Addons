@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>视频播放器</title>
+  <link rel="stylesheet" href="player.css">
+  <script src="player.js"></script>
+  <link rel="stylesheet" href="notyf.min.css">
+  <script src="notyf.min.js" defer></script>
+</head>
+<body>
+  <h2 id="title">Loading...</h2>
+  <!-- 提示信息框，背景为浅黄色，边框为黄色 -->
+  <div id="notification" style="top: 20px; right: 20px; padding: 10px; margin-bottom: 10px; color:rgb(255, 178, 55); background-color: #fff9e6; border: 2px solid #ffe57f; border-radius: 10px; z-index: 9999;">
+    <span id="notification-message">
+      仅供个人学习使用，如有侵权请联系删除
+    </span>
+  </div>
+  <!-- 主内容容器 -->
+  <div class="main-content">
+    <!-- 核心视频标签 -->
+    <video controls></video>
+  </div>
+  <button id="webfs-btn" type="button" aria-pressed="false" aria-label="网页全屏" title="网页全屏">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="15 3 21 3 21 9"></polyline>
+      <polyline points="9 21 3 21 3 15"></polyline>
+      <line x1="21" y1="3" x2="14" y2="10"></line>
+      <line x1="3" y1="21" x2="10" y2="14"></line>
+    </svg>
+  </button>
+
+  <script>
+
+    document.addEventListener('DOMContentLoaded', function () {
+        notyf = new Notyf({position: {x: 'center', y: 'top'}, duration: 1500,ripple:false});
+    })
+    function showNotification(message,type = 'success') {
+      notyf.open({
+        message: message,
+        type: type
+      })
+    }
+    // // 测试包含视频列表的功能
+    // const testVideoData = {
+    //     "title": "1. 导学课一",
+    //     "url": "https://cdn.u1162561.nyat.app:43836/d/cdn/%E6%9D%90%E6%96%99%E7%A7%91%E5%AD%A6%E5%9F%BA%E7%A1%80/1.%E5%AF%BC%E5%AD%A6%E8%AF%BE%E4%B8%80.mp4",
+    //     "startAtSeconds": "0",
+    //     "id": "test_video_1",
+    //     "allVideos": [
+    //         {"id": "test_video_1", "title": "1. 导学课一"},
+    //         {"id": "test_video_2", "title": "2. 材料科学基础"},
+    //         {"id": "test_video_3", "title": "3. 材料测试方法"},
+    //         {"id": "test_video_4", "title": "4. 材料加工工艺"},
+    //         {"id": "test_video_5", "title": "5. 金属材料学"},
+    //         {"id": "test_video_6", "title": "6. 高分子材料"},
+    //         {"id": "test_video_7", "title": "7. 陶瓷材料基础"},
+    //         {"id": "test_video_8", "title": "8. 复合材料技术"}
+    //     ]
+    // };
+    // initVideo(encodeURIComponent(JSON.stringify(testVideoData)));
+  </script>
+</body>
+</html>

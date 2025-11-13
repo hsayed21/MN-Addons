@@ -32,31 +32,58 @@ class browserUtils {
   //   "search":"https://vip.123pan.cn/1836303614/dl/icon/search.png",
   // }
   static cdn = {
+    "html2canvas":"https://cdn.u1162561.nyat.app:43836/d/cdn/js/html2canvas.js",
+    "win11":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/win11.jpg",
+    "webapp":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/webapp.png",
+    "search":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/search.png",
+    "setting":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/settings.png",
+    "www.bilibili.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/bilibili.png",
+    "www.notion.so":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/notion.png",
+    "pan.baidu.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/baidupan.png",
+    "docs.craft.do":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/craft.png",
+    "www.doubao.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/doubao.png",
+    "chat.deepseek.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/deepseek.png",
+    "chat.qwen.ai":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/qwen.png",
+    "www.wolai.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/wolai.png",
+    "www.yinian.pro":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/yinian.png",
+    "yuanbao.tencent.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/yuanbao.png",
+    "ima.qq.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/ima.png",
+    "flowus.cn":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/flowus.png",
+    "www.kimi.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/kimi.png",
+    "chat.z.ai":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/zai.png",
+    "v.flomoapp.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/flomo.png",
+    "www.xiaohongshu.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/rednote.png",
+    "doc2x.noedgeai.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/doc2x.png",
+    "www.jianguoyun.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/nutstore.png",
+    "boardmix.cn":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/boardmix.png",
+    "fireflycard.shushiai.com":"https://cdn.u1162561.nyat.app:43836/d/cdn/icon/fireflyCard.png"
+  }
+  static cdnBackup = {
     "html2canvas":"https://alist.feliks.top/d/cdn/js/html2canvas.js",
-    "win11":"https://alist.feliks.top/d/cdn/icon/win11.jpg",
-    "webapp":"https://alist.feliks.top/d/cdn/icon/webapp.png",
-    "search":"https://alist.feliks.top/d/cdn/icon/search.png",
-    "setting":"https://alist.feliks.top/d/cdn/icon/settings.png",
-    "www.bilibili.com":"https://alist.feliks.top/d/cdn/icon/bilibili.png",
-    "www.notion.so":"https://alist.feliks.top/d/cdn/icon/notion.png",
-    "pan.baidu.com":"https://alist.feliks.top/d/cdn/icon/baidupan.png",
-    "docs.craft.do":"https://alist.feliks.top/d/cdn/icon/craft.png",
-    "www.doubao.com":"https://alist.feliks.top/d/cdn/icon/doubao.png",
-    "chat.deepseek.com":"https://alist.feliks.top/d/cdn/icon/deepseek.png",
-    "chat.qwen.ai":"https://alist.feliks.top/d/cdn/icon/qwen.png",
-    "www.wolai.com":"https://alist.feliks.top/d/cdn/icon/wolai.png",
-    "www.yinian.pro":"https://alist.feliks.top/d/cdn/icon/yinian.png",
-    "yuanbao.tencent.com":"https://alist.feliks.top/d/cdn/icon/yuanbao.png",
-    "ima.qq.com":"https://alist.feliks.top/d/cdn/icon/ima.png",
-    "flowus.cn":"https://alist.feliks.top/d/cdn/icon/flowus.png",
-    "www.kimi.com":"https://alist.feliks.top/d/cdn/icon/kimi.png",
-    "chat.z.ai":"https://alist.feliks.top/d/cdn/icon/zai.png",
-    "v.flomoapp.com":"https://alist.feliks.top/d/cdn/icon/flomo.png",
-    "www.xiaohongshu.com":"https://alist.feliks.top/d/cdn/icon/rednote.png",
-    "doc2x.noedgeai.com":"https://alist.feliks.top/d/cdn/icon/doc2x.png",
-    "www.jianguoyun.com":"https://alist.feliks.top/d/cdn/icon/nutstore.png",
-    "boardmix.cn":"https://alist.feliks.top/d/cdn/icon/boardmix.png",
-    "fireflycard.shushiai.com":"https://alist.feliks.top/d/cdn/icon/fireflyCard.png"
+    "win11":"https://qiniu.feliks.top/icon/win11.jpg",
+    "webapp":"https://qiniu.feliks.top/icon/webapp.png",
+    "search":"https://qiniu.feliks.top/icon/search.png",
+    "setting":"https://qiniu.feliks.top/icon/settings.png",
+    "www.bilibili.com":"https://qiniu.feliks.top/icon/bilibili.png",
+    "www.notion.so":"https://qiniu.feliks.top/icon/notion.png",
+    "pan.baidu.com":"https://qiniu.feliks.top/icon/baidupan.png",
+    "docs.craft.do":"https://qiniu.feliks.top/icon/craft.png",
+    "www.doubao.com":"https://qiniu.feliks.top/icon/doubao.png",
+    "chat.deepseek.com":"https://qiniu.feliks.top/icon/deepseek.png",
+    "chat.qwen.ai":"https://qiniu.feliks.top/icon/qwen.png",
+    "www.wolai.com":"https://qiniu.feliks.top/icon/wolai.png",
+    "www.yinian.pro":"https://qiniu.feliks.top/icon/yinian.png",
+    "yuanbao.tencent.com":"https://qiniu.feliks.top/icon/yuanbao.png",
+    "ima.qq.com":"https://qiniu.feliks.top/icon/ima.png",
+    "flowus.cn":"https://qiniu.feliks.top/icon/flowus.png",
+    "www.kimi.com":"https://qiniu.feliks.top/icon/kimi.png",
+    "chat.z.ai":"https://qiniu.feliks.top/icon/zai.png",
+    "v.flomoapp.com":"https://qiniu.feliks.top/icon/flomo.png",
+    "www.xiaohongshu.com":"https://qiniu.feliks.top/icon/rednote.png",
+    "doc2x.noedgeai.com":"https://qiniu.feliks.top/icon/doc2x.png",
+    "www.jianguoyun.com":"https://qiniu.feliks.top/icon/nutstore.png",
+    "boardmix.cn":"https://qiniu.feliks.top/icon/boardmix.png",
+    "fireflycard.shushiai.com":"https://qiniu.feliks.top/icon/fireflyCard.png"
   }
   /**
    * 
@@ -234,6 +261,16 @@ static getBase64UrlFileType(base64Url) {
       }
     }
     return false
+  }
+  static isSubscribed(msg = true){
+    if (typeof subscriptionConfig !== 'undefined') {
+      return subscriptionConfig.isSubscribed()
+    }else{
+      if (msg) {
+        this.showHUD("Please install 'MN Utils' first!")
+      }
+      return false
+    }
   }
   /**
    * count为true代表本次check会消耗一次免费额度（如果当天未订阅），如果为false则表示只要当天免费额度没用完，check就会返回true
@@ -984,6 +1021,12 @@ static extractBilibiliLinks(markdownText) {
     if (url.includes("https://feliks.rth1.xyz")) {
       return true
     }
+    if (url.includes("https://qiniu.feliks.top")) {
+      return true
+    }
+      if (url.includes("https://icons8.com")) {
+      return true
+    }
     return false
   }
   /**
@@ -996,6 +1039,19 @@ static parseLink(url) {
         isPdfDownload: false,
         fileName: ''
     };
+    let config = MNUtil.parseURL(url)
+    let params = config.params
+    if (params.filename && params.filename.endsWith(".pdf")) {
+      result.fileName = params.filename
+      result.isPdfDownload = true
+      return result
+    }
+    // if (params.md5) {
+    //   result.md5 = params.md5
+    // }
+    // if (params.expires) {
+    //   result.expires = params.expires
+    // }
 
     // 检查是否是 PDF 文件的下载链接
     const isPdfRegex = /\.pdf(\?|$)/i;
@@ -1007,6 +1063,10 @@ static parseLink(url) {
     if (match && match[1]) {
         result.fileName = decodeURIComponent(match[1]);
     }
+    // MNUtil.log({
+    //   message:"parseLink",
+    //   detail:result
+    // })
 
     return result;
 }

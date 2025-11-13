@@ -267,10 +267,10 @@ class ocrUtils {
   }
   static getImageForOCR(){
     //先看文档有没有，没有就从笔记里找，再没有就从文档上的笔记找
-    let foucsNote = ocrUtils.getFocusNote()
+    let focusNote = ocrUtils.getFocusNote()
     let imageData = ocrUtils.currentDocController.imageFromSelection()
-    if (!imageData && foucsNote) {
-      imageData = ocrUtils.getImageFromNote(foucsNote)
+    if (!imageData && focusNote) {
+      imageData = ocrUtils.getImageFromNote(focusNote)
     }
     if (!imageData) {
       imageData = ocrUtils.currentDocController.imageFromFocusNote()
@@ -1249,6 +1249,29 @@ static async OCR(imageData,source = ocrConfig.getConfig("source"),buffer=true, p
     case "doubao-seed-1.6-flash-nothinking":
     case "Moonshot-v1":
     case "MiniMax-Text-01":
+    // 🆕 新增 Qwen 视觉系列
+    case "qwen3-vl-plus":
+    case "qwen3-omni-flash":
+    case "qwen/qwen3-vl-235b-a22b-instruct":
+    case "qwen/qwen3-vl-235b-a22b-thinking":
+    // 🆕 新增 Moonshot 完整系列
+    case "kimi-latest":
+    case "moonshot-v1-8k":
+    case "moonshot-v1-32k":
+    case "moonshot-v1-128k":
+    case "moonshot-v1-8k-vision-preview":
+    case "moonshot-v1-32k-vision-preview":
+    case "moonshot-v1-128k-vision-preview":
+    case "moonshot-v1-auto":
+    // 🆕 新增 Doubao 详细版本
+    case "doubao-seed-1-6-thinking-250715":
+    case "doubao-seed-1-6-thinking-250615":
+    case "doubao-seed-1-6-250615":
+    case "doubao-seed-1-6-flash-250715":
+    case "doubao-seed-1-6-flash-250615":
+    case "doubao-seed-1-6-vision-250815":
+    // 🆕 新增 GLM 高级版本
+    case "pro/thudm/glm-4.1v-9b-thinking":
       let beginTime = Date.now()
       res = await this.ChatGPTVision(imageBase64,ocrSource, prompt)
       let endTime = Date.now()
@@ -1430,6 +1453,33 @@ You are not allowed to output any content other than what is in the image.`,
       "doubao-seed-1-6-nothinking":{title: "Doubao 1.6 No Thinking",model:"doubao-seed-1-6-nothinking",isFree:false},
       "doubao-seed-1.6-flash":{title: "Doubao 1.6 Flash",model:"doubao-seed-1-6-flash",isFree:true},
       "doubao-seed-1.6-flash-nothinking":{title: "Doubao 1.6 Flash No Thinking",model:"doubao-seed-1-6-flash-nothinking",isFree:true},
+
+      // ========== 🆕 新增 Qwen 视觉系列 ==========
+      "qwen3-vl-plus":{title: "Qwen3-VL Plus", model:"qwen3-vl-plus", isFree:false},
+      "qwen3-omni-flash":{title: "Qwen3 Omni Flash", model:"qwen3-omni-flash", isFree:false},
+      "qwen/qwen3-vl-235b-a22b-instruct":{title: "Qwen3-VL 235B Instruct", model:"qwen/qwen3-vl-235b-a22b-instruct", isFree:false},
+      "qwen/qwen3-vl-235b-a22b-thinking":{title: "Qwen3-VL 235B Thinking", model:"qwen/qwen3-vl-235b-a22b-thinking", isFree:false},
+
+      // ========== 🆕 新增 Moonshot (Kimi) 完整系列 ==========
+      "kimi-latest":{title: "Kimi Latest", model:"kimi-latest", isFree:false},
+      "moonshot-v1-8k":{title: "Moonshot V1 8K", model:"moonshot-v1-8k", isFree:false},
+      "moonshot-v1-32k":{title: "Moonshot V1 32K", model:"moonshot-v1-32k", isFree:false},
+      "moonshot-v1-128k":{title: "Moonshot V1 128K", model:"moonshot-v1-128k", isFree:false},
+      "moonshot-v1-8k-vision-preview":{title: "Moonshot V1 8K Vision", model:"moonshot-v1-8k-vision-preview", isFree:false},
+      "moonshot-v1-32k-vision-preview":{title: "Moonshot V1 32K Vision", model:"moonshot-v1-32k-vision-preview", isFree:false},
+      "moonshot-v1-128k-vision-preview":{title: "Moonshot V1 128K Vision", model:"moonshot-v1-128k-vision-preview", isFree:false},
+      "moonshot-v1-auto":{title: "Moonshot V1 Auto", model:"moonshot-v1-auto", isFree:false},
+
+      // ========== 🆕 新增 Doubao 详细版本 ==========
+      "doubao-seed-1-6-thinking-250715":{title: "Doubao 1.6 Thinking 0715", model:"doubao-seed-1-6-thinking-250715", isFree:false},
+      "doubao-seed-1-6-thinking-250615":{title: "Doubao 1.6 Thinking 0615", model:"doubao-seed-1-6-thinking-250615", isFree:false},
+      "doubao-seed-1-6-250615":{title: "Doubao 1.6 0615", model:"doubao-seed-1-6-250615", isFree:false},
+      "doubao-seed-1-6-flash-250715":{title: "Doubao 1.6 Flash 0715", model:"doubao-seed-1-6-flash-250715", isFree:true},
+      "doubao-seed-1-6-flash-250615":{title: "Doubao 1.6 Flash 0615", model:"doubao-seed-1-6-flash-250615", isFree:true},
+      "doubao-seed-1-6-vision-250815":{title: "Doubao 1.6 Vision", model:"doubao-seed-1-6-vision-250815", isFree:false},
+
+      // ========== 🆕 新增 GLM 高级版本 ==========
+      "pro/thudm/glm-4.1v-9b-thinking":{title: "GLM-4.1V 9B Thinking", model:"Pro/THUDM/GLM-4.1V-9B-Thinking", isFree:false},
     }
     let tem = config[model.toLowerCase()]
     if (tem) {

@@ -112,10 +112,10 @@ class editorUtils {
         title:newTitle,
         content:this.highlightEqualsContent(contentRemain)
       }
-    }else{
+    }else{//没有标题
       let newTitle = ""
       let headingNames = this.headingNamesFromMarkdown(content)//解析标题链接
-      if (headingNames.length) {
+      if (headingNames.length) {//从markdown内容中提取标题链接
         newTitle = headingNames.map(h=>"{{"+h+"}}").join(";")
         return {
           hasTitle:true,
@@ -148,15 +148,17 @@ class editorUtils {
               indexToRemove.push(index)
             }
             break;
-          case "LinkNote":
+          case "LinkNote"://合并的卡片
             let commentNote = MNUtil.db.getNoteById(comment.noteid)
             if (!commentNote) {
               indexToRemove.push(index)
               break
             }
-            if (comment.q_htext && comment.q_htext.trim()) {
-              targetToSet.push(index)
-            }
+            targetToSet.push(index)
+            // this.log("LinkNote", comment)
+            // if (comment.q_htext && comment.q_htext.trim()) {
+            //   targetToSet.push(index)
+            // }
             // if (comment.q_hpic && !comment.q_hpic.mask && !comment.q_hpic.drawing) {
             //   shouldTextFirst = true
             // }
@@ -1409,7 +1411,9 @@ class editorConfig{
     showOnPopupEdit:false,
     showOnNoteEdit:false,
     mode:"wysiwyg",
-    size:{width:450,height:500}
+    size:{width:450,height:500},
+    autoTitle:false,
+    autoTitleThreshold:5
   }
   static init(){
     this.config = this.getByDefault('MNEditor_config', this.defaultConfig)

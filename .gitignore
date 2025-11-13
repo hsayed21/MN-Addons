@@ -66,3 +66,5 @@ mntask/reference/
 *.zip
 
 mnknowledgebase/log.json
+
+mnpinner/ips.md

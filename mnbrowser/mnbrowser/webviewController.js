@@ -345,7 +345,6 @@ viewWillLayoutSubviews: function() {
     //   MNUtil.log("reject")
     //   return false
     // }
-    
     let config = MNUtil.parseURL(requestURL)
     // browserUtils.log("webViewShouldStartLoadWithRequestNavigationType", config)
     // let currentConfig = MNUtil.parseURL(currentURL)
@@ -422,11 +421,21 @@ viewWillLayoutSubviews: function() {
         return false
       case "zotero":
       case "marginnote3app":
+        if (MNUtil.isMN4()) {
+          MNUtil.openURL(requestURL.replace("marginnote3app://", "marginnote4app://"))
+        }else{
+          MNUtil.openURL(requestURL)
+        }
+        return false
       case "marginnote4app":
-        MNUtil.openURL(requestURL)
+        if (MNUtil.isMN4()) {
+          MNUtil.openURL(requestURL)
+        }else{
+          MNUtil.openURL(requestURL.replace("marginnote4app://", "marginnote3app://"))
+        }
         return false
       case "browser":
-        browserUtils.log("config",config)
+        // browserUtils.log("config",config)
         switch (config.host) {
           case "showhud":
             self.showHUD(config.params.message)
@@ -516,6 +525,7 @@ viewWillLayoutSubviews: function() {
         self.openIMA(config)
         return false
       case "data":
+        // MNUtil.log("data",requestURL)
         if (browserUtils.isAllowedIconLibrary(currentURL) && /data:image\/png;base64/.test(requestURL)) {
           //此时type为0
           MNUtil.postNotification("newIconImage", {imageBase64:requestURL})
@@ -534,49 +544,27 @@ viewWillLayoutSubviews: function() {
     }
     // MNUtil.copy(config)
 
-    // MNUtil.showHUD("type:"+type)
     // MNUtil.copyJSON({currentURL:currentURL,requestURL:requestURL,type:type,time:Date.now()})
     let redirectInfo = browserUtils.checkRedirect(requestURL)
     if (redirectInfo.isRedirect) {
       // MNUtil.showHUD("Redirect to: "+redirectInfo.redirectURL)
       MNConnection.loadRequest(webView, redirectInfo.redirectURL)
+      MNUtil.log("redirectInfo.redirectURL:"+redirectInfo.redirectURL)
       return false
     }
     // if (requestURL.startsWith("https://graph.qq.com/jsdkproxy/PMProxy.html")) {
     //   return false
     // }
+    // MNUtil.log("type:"+type)
 
-    if (type === 0) {
+    if (type === 0 || type === 5) {
       let isLink = browserUtils.parseLink(requestURL)
       if (isLink.isPdfDownload) {
-        let fileName = isLink.fileName
-        MNUtil.delay(0.1).then(async ()=>{
-          let confirm = await MNUtil.confirm("Download doc ["+fileName+"]?", "是否要下载文档 ["+fileName+"]?")
-          if (confirm) {
-            MNUtil.showHUD("Downloading: "+fileName)
-            await MNUtil.delay(0.1)
-            let targetPath = browserUtils.mainPath+"/"+fileName
-            let data = NSData.dataWithContentsOfURL(MNUtil.genNSURL(requestURL))
-            data.writeToFileAtomically(targetPath, false)
-            let docMd5 = MNUtil.importDocument(targetPath)
-            if (typeof snipasteUtils !== 'undefined') {
-              MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
-            }else{
-              let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
-              if (confirm) {
-                MNUtil.openDoc(md5,MNUtil.currentNotebookId)
-                if (MNUtil.docMapSplitMode === 0) {
-                  MNUtil.studyController.docMapSplitMode = 1
-                }
-              }
-            }
-            // MNUtil.openDoc(docMd5)
-          }
-        })
-        // MNUtil.showHUD("Save to "+targetPath)
+        // self.downloadPDFFromLink(requestURL,isLink)
+        self.downloadPDFFromLinkDev(requestURL,isLink)
         return false
       }
-    } 
+    }
 
     // MNUtil.copy(requestURL)
 //     if (requestURL.startsWith("https://s1.hdslb.com") && /https:\/\/www\.bilibili\.com\/video\/.*/.test(currentURL)) {
@@ -625,17 +613,118 @@ viewWillLayoutSubviews: function() {
    * @returns 
    */
   connectionDidReceiveResponse: async function (connection,response) {
-    MNUtil.showHUD("connectionDidReceiveResponse")
+    self.statusCode = response.statusCode()
+    if (self.statusCode >= 400) {
+      // MNUtil.stopHUD()
+      // MNUtil.showHUD(MNUtil.getStatusCodeDescription(""+self.statusCode))
+      MNUtil.showHUD(MNUtil.getStatusCodeDescription(""+self.statusCode))
+      return
+    }
+    self.onDownloading = true
+    self.currentData = NSMutableData.new()
+    self.expectedContentLength = response.expectedContentLength()
+    self.cancelConfirmed = false
+    // MNUtil.log("expectedContentLength:"+self.expectedContentLength)
+    self.timeStart = Date.now()
+    MNUtil.waitHUD("Received response...")
   },
 
   connectionDidReceiveData: async function (connection,data) {
-    MNUtil.showHUD("connectionDidReceiveData")
+    try {
+    if (self.statusCode >= 400) {
+      self.onDownloading = false
+      return
+    }
+    if (self.cancelConfirmed) {
+      self.connection.cancel()
+      delete self.connection
+      self.onDownloading = false
+      return
+    }
+    self.currentData.appendData(data)
+    let dataSize = self.currentData.length()
+    let timeUsed = Date.now() - self.timeStart
+    let speed = dataSize/timeUsed //KB/s
+    let speedString = self.getSpeedString(speed)
+    // if (timeUsed > 20000 && speed < 200) {//二十秒且平均速度小于200KB/s
+    //   self.confirmStopDownload()
+    // }
+    if (self.expectedContentLength > 0) {
+      self.waitHUD("Downloading: "+(dataSize/self.expectedContentLength*100).toFixed(1)+"% ("+speedString+")")
+    }else{
+      let sizeString = self.getSizeString(dataSize)
+      self.waitHUD("Downloading ("+sizeString+"; "+speedString+")...")
+    }
+    } catch (error) {
+      browserUtils.addErrorLog(error,"connectionDidReceiveData")
+    }
   },
-  connectionDidFinishLoading: function (connection) {
-    MNUtil.showHUD("connectionDidFinishLoading")
+  connectionDidFinishLoading: async function (connection) {
+try {
+    self.onDownloading = false
+    if (self.statusCode >= 400) {
+      return
+    }
+    // MNUtil.log("connectionDidFinishLoading: "+(Date.now()-self.timeStart))
+    // let success = false
+    // let config = {}
+    if (self.targetPath) {
+      // config.targetPath = self.targetPath
+      self.currentData.writeToFileAtomically(self.targetPath,false)
+      switch (self.fileType) {
+        case "document":
+          let fileName = self.fileName
+          let md5 = MNUtil.importDocument(self.targetPath)
+          if (MNUtil.currentNotebookId) {
+            let confirm = await MNUtil.confirm("🌐 MN Browser","Open document?\n\n是否打开该文档？\n"+fileName)
+            if (confirm) {
+              // MNUtil.copy(MNUtil.currentNotebookId)
+              MNUtil.openDoc(md5,MNUtil.currentNotebookId)
+            }
+          }
+          break;
+        // case "notebook":
+        //   if (self.targetPath.endsWith(".marginpkg") || self.targetPath.endsWith(".marginnotes")) {
+        //     subscriptionUtils.importNotebook(self.targetPath,self.folder,self.notebookId)
+        //   }
+        //   break;
+        // case "database":
+        //   self.waitHUD("Importing database...")
+        //   MNUtil.delay(0.1).then(()=>{
+        //     success = ZipArchive.unzipFileAtPathToDestination(self.targetPath,self.addonPath)
+        //     if (success) {
+        //       self.waitHUD("✅ Import database success!")
+        //     }else{
+        //       self.waitHUD("❌ Import database failed!")
+        //     }
+        //   })
+        //   break;
+        // case "mnaddon":
+        //   success = ZipArchive.unzipFileAtPathToDestination(self.targetPath,self.addonPath)
+        //   if (success) {
+        //     self.waitHUD("✅ Install success!\n\nPlease restart MN manually")
+        //     self.sideBarNotification("安装完成，请手动重启MN")
+        //   }else{
+        //     self.waitHUD("❌ Install failed!")
+        //   }
+        //   self.blur("webview")
+        //   break;
+        default:
+          break;
+      }
+    }
+    // MNUtil.copyJSON(config)
+    MNUtil.stopHUD(1)
+  } catch (error) {
+    MNUtil.stopHUD()
+    browserUtils.addErrorLog(error,"connectionDidFinishLoading")
+  }
   },
-  connectionDidFailWithError: function (connection,error) {
-    MNUtil.showHUD("connectionDidFailWithError")
+  connectionDidFailWithError: async function (connection,error) {
+    self.onDownloading = false
+    let url = connection.originalRequest.URL().absoluteString()
+    MNUtil.log({message:"url",detail:url})
+    MNUtil.log({message:"browserController.connectionDidFailWithError",detail:error.userInfo,source:"MN Browser",level:"error"})
   },
   changeScreen: function(sender) {
     if (sender.link) {
@@ -1123,12 +1212,14 @@ try {
     if (res.button) {
       let input = res.input
       if (!input.startsWith("https://") || !input.endsWith(".png")) {
-        MNUtil.confirm("MN Browser", "Invalid icon URL\n\n请输入正确的图标URL\n\nURL must starts with https:// and ends with .png")
+        MNUtil.confirm("MN Browser", "Enter the custom icon URL\n\n请输入自定义图标URL\n\nURL must starts with https:// and ends with .png, .jpg or .jpeg")
         return
       }
-      let confirm = await MNUtil.confirm(" MN Browser", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
-      if (!confirm) {
-        return
+      if (!browserUtils.isSubscribed()) {//仅在未订阅时提醒
+        let confirm = await MNUtil.confirm(" MN Browser", "Invalid icon URL\n\n请输入正确的图标URL\n\nURL must starts with https:// and ends with .png, .jpg or .jpeg")
+        if (!confirm) {
+          return
+        }
       }
       if (!browserUtils.checkSubscribe(true)) {
         return
@@ -1833,11 +1924,14 @@ exportToPDF()
     }
   },
   dynamicButtonTapped: function() {
+    Menu.dismissCurrentMenu()
     if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
 
     // self.view.popoverController.dismissPopoverAnimated(true);
     // self.switchView();
     browserConfig.dynamic = !browserConfig.dynamic;
+    let dynamicString = browserConfig.dynamic ? "✅ Dynamic mode" : "❌ Dynamic mode";
+    self.showHUD(dynamicString)
     if (browserConfig.dynamic) {
       browserConfig.toolbar = false
       self.custom = false;
@@ -3163,6 +3257,7 @@ body {
 }
 /** @this {browserController} */
 browserController.prototype.homePageHtml = function(){
+  //提供默认图标
   let webAppEntriesWithIcon = browserConfig.getWebAppEntriesWithIcon()
   // MNUtil.copy(webAppEntriesWithIcon)
   return `
@@ -3175,6 +3270,10 @@ browserController.prototype.homePageHtml = function(){
   <style>
     ${this.homePageCSS()}
   </style>
+  <script>
+    const cdn = ${JSON.stringify(browserUtils.cdn)};
+    const cdnBackup = ${JSON.stringify(browserUtils.cdnBackup)};
+  </script>
 </head>
 <body>
   <div class="container">
@@ -3235,25 +3334,75 @@ browserController.prototype.homePageHtml = function(){
       let url = generateUrlScheme(scheme,host,params)
       window.location.href = url
     }
+    async function getValidIcon(icon,alternativeIcons){
+        let allIcons = [icon,...alternativeIcons];
+        return new Promise((resolve,reject)=>{
+          const img = new Image();
+          let currentPathIndex = 0;
+          function tryNextIcon() {
+            if (currentPathIndex >= allIcons.length) {
+              // 如果所有路径都失败，使用默认图标
+              resolve(cdn.webapp);
+              return;
+            }
+            
+            img.src = allIcons[currentPathIndex];
+            
+            img.onload = function() {
+              // 找到可用的图标
+              resolve(img.src);
+            };
+            
+            img.onerror = function() {
+              // 当前图标加载失败，尝试下一个
+              currentPathIndex++;
+              tryNextIcon();
+            };
+          }
+          tryNextIcon();
+        });
+    }
+    async function setBackgroundIcon() {
+      let icon = await getValidIcon(cdn.win11,[cdnBackup.win11]);
+      document.body.style.background = \`url(\${icon}) no-repeat center center fixed\`;
+    }
+    async function setSettingIcon() {
+      let icon = await getValidIcon(cdn.setting,[cdnBackup.setting]);
+      document.querySelector('.settings-button img').src = icon;
+    }
     function setShortcuts(config,order){
       shortcutList.innerHTML = '';
       
-      order.forEach(item => {
+      order.forEach(async (item) => {
         let webapp = config[item];
         const div = document.createElement('div');
         div.className = 'shortcut';
         div.onclick = () => {
           openShortcut(webapp.link,webapp.desktop);
         };
-        console.log(webapp);
         shortcutList.appendChild(div);
         let name = webapp.name ?? webapp.title
         name = name.slice(0,10)
         let nameSpan = \`<span style="font-weight: bold; font-size: 14px;">\${name}</span>\`
         if ("icon" in webapp) {
-          div.innerHTML = \`<div class="shortcut-icon"><img src="\${webapp.icon}" alt="\${name}" class="custom-img"></div>\${nameSpan}\`;
+          // 从URL中提取域名
+          const url = new URL(webapp.link);
+          const host = url.hostname;
+          let alternativeIcons = []
+          if (host in cdn && cdn[host] && (cdn[host] !== webapp.icon)) {
+            alternativeIcons.push(cdn[host]);
+          }
+          if (host in cdnBackup && cdnBackup[host] && (cdnBackup[host] !== webapp.icon)) {
+            alternativeIcons.push(cdnBackup[host]);
+          }
+          let icon = await getValidIcon(webapp.icon,alternativeIcons);
+          if (icon === cdn.webapp) {
+            div.innerHTML = \`<div class="shortcut-icon"><img src="\${cdn.webapp}" alt="\${name}" class="default-img"></div>\${nameSpan}\`;
+          } else {
+            div.innerHTML = \`<div class="shortcut-icon"><img src="\${icon}" alt="\${name}" class="custom-img"></div>\${nameSpan}\`;
+          }
         } else {
-          div.innerHTML = \`<div class="shortcut-icon"><img src="${browserUtils.cdn.webapp}" alt="\${name}" class="default-img"></div>\${nameSpan}\`;
+          div.innerHTML = \`<div class="shortcut-icon"><img src="\${cdn.webapp}" alt="\${name}" class="default-img"></div>\${nameSpan}\`;
           // 从URL中提取域名
           const url = new URL(webapp.link);
           const baseUrl = \`\${url.protocol}//\${url.hostname}\`;
@@ -3278,7 +3427,7 @@ browserController.prototype.homePageHtml = function(){
           function tryNextIcon() {
             if (currentPathIndex >= iconPaths.length) {
               // 如果所有路径都失败，使用默认图标
-              div.innerHTML = \`<div class="shortcut-icon"><img src="${browserUtils.cdn.webapp}" alt="\${name}" class="default-img"></div>\${nameSpan}\`;
+              div.innerHTML = \`<div class="shortcut-icon"><img src="\${cdn.webapp}" alt="\${name}" class="default-img"></div>\${nameSpan}\`;
               return;
             }
             
@@ -3300,6 +3449,8 @@ browserController.prototype.homePageHtml = function(){
         }
       });
     }
+    setBackgroundIcon();
+    setSettingIcon();
     setShortcuts(webapps,webappOrder);
 
 
@@ -3416,6 +3567,7 @@ try {
   let useLocalHomePage = browserConfig.getConfig("useLocalHomePage")
   if (useLocalHomePage) {
     let html = this.homePageHtml()
+    // MNUtil.copy(html)
     this.webview.loadHTMLStringBaseURL(html)
   } else {
     MNConnection.loadRequest(this.webview, homePage.url)
@@ -6003,6 +6155,88 @@ browserController.prototype.currentURLStartsWith = async function(url) {
   return currentURL.startsWith(url);
 }
 
+browserController.prototype.downloadPDFFromLink = async function (url,option = {}) {
+  try {
+          let fileName = option.fileName
+          let userInputRes = await MNUtil.input("🌐 MN Browser","Download link detected, download PDF?\n\n检测到下载链接，是否要下载PDF？\n\n"+fileName, ["Cancel / 取消","Confirm / 确认"],{default:fileName})
+          if (userInputRes.button === 0) {
+            return false
+          }
+          if (userInputRes.button === 1) {
+            if (userInputRes.input.trim()) {
+              fileName = userInputRes.input.trim()
+              if (!fileName.endsWith(".pdf")) {
+                fileName = fileName+".pdf"
+              }
+            }
+          }
+          MNUtil.waitHUD("Downloading: "+fileName)
+          await MNUtil.delay(0.1)
+          let targetPath = browserUtils.mainPath+"/"+fileName
+          let data = NSData.dataWithContentsOfURL(MNUtil.genNSURL(url))
+          data.writeToFileAtomically(targetPath, false)
+          let docMd5 = MNUtil.importDocument(targetPath)
+          MNUtil.stopHUD(0.5)
+          if (typeof snipasteUtils !== 'undefined') {
+            MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
+          }else{
+            let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
+            if (confirm) {
+              MNUtil.openDoc(md5,MNUtil.currentNotebookId)
+              if (MNUtil.docMapSplitMode === 0) {
+                MNUtil.studyController.docMapSplitMode = 1
+              }
+            }
+          }
+    
+  } catch (error) {
+    browserUtils.addErrorLog(error, "downloadPDFFromLink")
+  }
+}
+
+browserController.prototype.downloadPDFFromLinkDev = async function (url,option = {}) {
+  try {
+          let fileName = option.fileName
+          let userInputRes = await MNUtil.input("🌐 MN Browser","Download link detected, download PDF?\n\n检测到下载链接，是否要下载PDF？\n\n"+fileName, ["Cancel / 取消","Confirm / 确认"],{default:fileName})
+          if (userInputRes.button === 0) {
+            return false
+          }
+          if (userInputRes.button === 1) {
+            if (userInputRes.input.trim()) {
+              fileName = userInputRes.input.trim()
+              if (!fileName.endsWith(".pdf")) {
+                fileName = fileName+".pdf"
+              }
+            }
+          }
+          MNUtil.waitHUD("Downloading: "+fileName)
+          await MNUtil.delay(0.1)
+          let targetPath = browserUtils.mainPath+"/"+fileName
+          let request = MNConnection.requestWithURL(url)
+          let connection = NSURLConnection.connectionWithRequestDelegate(request, this)
+          this.fileName = fileName
+          this.targetPath = targetPath
+          this.fileType = "document"
+
+          // data.writeToFileAtomically(targetPath, false)
+          // let docMd5 = MNUtil.importDocument(targetPath)
+          // MNUtil.stopHUD(0.5)
+          // if (typeof snipasteUtils !== 'undefined') {
+          //   MNUtil.postNotification("snipastePDF", {docMd5:docMd5,currPageNo:1})
+          // }else{
+          //   let confirm = await MNUtil.confirm("🌐 MN Browser", "Open document?\n\n是否直接打开该文档？\n\n"+fileName)
+          //   if (confirm) {
+          //     MNUtil.openDoc(md5,MNUtil.currentNotebookId)
+          //     if (MNUtil.docMapSplitMode === 0) {
+          //       MNUtil.studyController.docMapSplitMode = 1
+          //     }
+          //   }
+          // }
+    
+  } catch (error) {
+    browserUtils.addErrorLog(error, "downloadPDFFromLink")
+  }
+}
 browserController.prototype.downloadPDF = async function (params) {
 try {
 
@@ -6518,7 +6752,10 @@ browserController.prototype.configMoreOption = function(button) {
  * @returns {MNNote}
  */
 browserController.prototype.currentNote = function () {
-  return MNNote.new(this.currentNoteId)
+  if (this.currentNoteId) {
+    return MNNote.new(this.currentNoteId)
+  }
+  return undefined
 }
 
 browserController.prototype.getWebSource = async function () {
@@ -6656,4 +6893,21 @@ try {
   browserUtils.addErrorLog(error, "newConfig")
   return undefined
 }
+}
+
+browserController.prototype.getSpeedString = function (speed) {
+  if (speed > 1000) {
+    return (speed/1000).toFixed(1)+" MB/s"
+  }
+  return speed.toFixed(1)+" KB/s"
+}
+
+browserController.prototype.getSizeString = function (size) {
+  if (size > 1000000) {
+    return (size/1000000).toFixed(1)+" MB"
+  }
+  if (size > 1000) {
+    return (size/1000).toFixed(1)+" KB"
+  }
+  return size.toFixed(1)+" B"
 }

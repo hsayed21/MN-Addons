@@ -721,7 +721,8 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
     //   return
     // }
     if (selected === "chatglm") {
-      toolbarUtils.chatAI()
+      let des = toolbarConfig.getDescriptionById("chatglm")
+      self.toolbarController.customActionByDes(button,des)
       return
     }
 
@@ -784,7 +785,13 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
     let self = getSettingController()
     Menu.dismissCurrentMenu()
     self.checkPopoverController()
-    let userSelect = await MNUtil.userSelect("Choose Icon Source", "请选择图片来源", ["🖼️  Photo / 图库","📄  File / 文件","🌐  Appicon Forge","🌐  Icon Font"])
+    if (!toolbarUtils.isSubscribed()) {//增加订阅提示
+      let confirm = await MNUtil.confirm(" MN Toolbar", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
+      if (!confirm) {
+        return
+      }
+    }
+    let userSelect = await MNUtil.userSelect("Choose Icon Source", "请选择图片来源", ["🖼️  Photo / 图库","📄  File / 文件","🌐  Appicon Forge","🌐  Icon Font","🌐  Icon8","🔗  Custom Icon URL"])
     if (userSelect === 0) {
       MNUtil.showHUD("Cancel")
       return
@@ -830,7 +837,7 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
         }
 
         // MNUtil.postNotification("openInBrowser", {url:"https://feliks.rth1.xyz",beginFrame:beginFrame,endFrame:endFrame})
-        MNUtil.postNotification("openInBrowser", {url:"https://zhangyu1818.github.io/appicon-forge",beginFrame:beginFrame,endFrame:endFrame})
+        MNUtil.postNotification("openInBrowser", {url:"https://qiniu.feliks.top/appicon-forge/index.html",beginFrame:beginFrame,endFrame:endFrame})
         break;
       case 4:
         if (typeof browserUtils === 'undefined') {
@@ -839,6 +846,36 @@ webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
         }
 
         MNUtil.postNotification("openInBrowser", {url:"https://www.iconfont.cn/",beginFrame:beginFrame,endFrame:endFrame})
+        break;
+      case 5:
+        if (typeof browserUtils === 'undefined') {
+          MNUtil.confirm("MN Toolbar","❌ MN Browser not installed\n\n请先安装'MN Browser'")
+          return
+        }
+
+        MNUtil.postNotification("openInBrowser", {url:"https://icons8.com/icons",beginFrame:beginFrame,endFrame:endFrame})
+        break;
+      case 6:
+        let res = await MNUtil.input("Custom Icon", "Enter the custom icon URL\n\n请输入自定义图标URL\n\nURL must starts with https:// and ends with .png, .jpg or .jpeg")
+        if (res.button) {
+          let input = res.input
+          if (!input.startsWith("https://") || (!input.endsWith(".png") && !input.endsWith(".jpg") && !input.endsWith(".jpeg"))) {
+            MNUtil.confirm("MN Toolbar", "Invalid icon URL\n\n请输入正确的图标URL\n\nURL must starts with https:// and ends with .png, .jpg or .jpeg")
+            return
+          }
+          self.waitHUD("Downloading image...")
+          await MNUtil.delay(0.01)
+          let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(input))
+          if (imageData) {
+            let image = UIImage.imageWithData(imageData)
+            toolbarConfig.setButtonImage(buttonName, image,true)
+            await MNUtil.delay(0.01)
+            MNUtil.stopHUD(0.5)
+          }else{
+            self.waitHUD("❌ Download failed")
+            MNUtil.stopHUD(0.5)
+          }
+        }
         break;
       default:
         break;
@@ -938,7 +975,7 @@ ${input}
     let currentScale = toolbarConfig.imageScale[buttonName].scale
     let image = toolbarConfig.imageConfigs[buttonName]
     let size = UIImage.imageWithDataScale(image.pngData(), 1).size
-    let res = await MNUtil.input("MN Toolbar","Custom Icon Scale\n\n自定义图标缩放比例\n\nImage size: "+size.width+"x"+size.height,["cancel","1","2","3","4","5","confirm"],{default:currentScale})
+    let res = await MNUtil.input("MN Toolbar","Custom Icon Scale\n\n自定义图标缩放比例\n\nImage size: "+size.width+"x"+size.height,["cancel","1","2","3","4","5","6","confirm"],{default:currentScale})
     if (res.button === 0) {
       MNUtil.showHUD("Cancel")
       return
@@ -961,6 +998,9 @@ ${input}
         scale = 5
         break;
       case 6:
+        scale = 6
+        break;
+      case 7:
         if (res.input.trim()) {
           scale = parseFloat(res.input.trim())
         }
@@ -1045,6 +1085,14 @@ ${input}
       let menuItemsForOnLongPress = toolbarUtils.getActionOptions(des.onLongPress,"onLongPress.")
       menuItems = menuItems.concat(menuItemsForOnLongPress)
     }
+    if ("onTrue" in des) {
+      let menuItemsForOnTrue = toolbarUtils.getActionOptions(des.onTrue,"onTrue.")
+      menuItems = menuItems.concat(menuItemsForOnTrue)
+    }
+    if ("onFalse" in des) {
+      let menuItemsForOnFalse = toolbarUtils.getActionOptions(des.onFalse,"onFalse.")
+      menuItems = menuItems.concat(menuItemsForOnFalse)
+    }
     let width = []
     if (menuItems.length > 0) {
       // let currentKeys = Object.keys(des)
@@ -1092,6 +1140,34 @@ ${input}
       let onLongPressItem = items[1]
       onLongPress = toolbarUtils.addActionOption(onLongPress, onLongPressItem)
       config.onLongPress = onLongPress
+      self.updateWebviewContent(config)
+      return
+    }
+    if (item.startsWith("onTrue.")) {
+      let items = item.split(".")
+      let levels = items.length
+      if (levels > 2) {
+        MNUtil.showHUD("Level "+levels+" is not supported")
+        return
+      }
+      let onTrue = config.onTrue
+      let onTrueItem = items[1]
+      onTrue = toolbarUtils.addActionOption(onTrue, onTrueItem)
+      config.onTrue = onTrue
+      self.updateWebviewContent(config)
+      return
+    }
+    if (item.startsWith("onFalse.")) {
+      let items = item.split(".")
+      let levels = items.length
+      if (levels > 2) {
+        MNUtil.showHUD("Level "+levels+" is not supported")
+        return
+      }
+      let onFalse = config.onFalse
+      let onFalseItem = items[1]
+      onFalse = toolbarUtils.addActionOption(onFalse, onFalseItem)
+      config.onFalse = onFalse
       self.updateWebviewContent(config)
       return
     }
@@ -2270,6 +2346,16 @@ settingController.prototype.getUpdatedConfig = async function () {
   let configEncoded = await this.runJavaScript(`getUpdatedConfigEncoded()`, "popupEditView")
   let config = JSON.parse(decodeURIComponent(configEncoded))
   return config
+}
+
+/**
+ * 
+ * @param {string} title 
+ * @param {number} duration 
+ * @param {UIView} view 
+ */
+settingController.prototype.waitHUD = function (title,view = this.view) {
+  MNUtil.waitHUD(title,view)
 }
 
 /**

@@ -946,6 +946,20 @@ static fileTypeFromBase64(content) {
     return {onSelection:false}
   }
   static _currentSelection = {}
+  /**
+   * 返回选中的内容，如果没有选中，则onSelection属性为false
+   * 如果有选中内容，则同时包括text和image，并通过isText属性表明当时是选中的文字还是图片
+   * Retrieves the current selection details.
+   * 
+   * This method checks for the current document controller's selection. If an image is found,
+   * it generates the selection details using the `genSelection` method. If no image is found
+   * in the current document controller, it iterates through all document controllers if the
+   * study controller's document map split mode is enabled. If a selection is found in the
+   * pop-up selection info, it also generates the selection details. If no selection is found,
+   * it returns an object indicating no selection.
+   * 
+   * @returns {{onSelection: boolean, image: null|undefined|NSData, text: null|undefined|string, isText: null|undefined|boolean,docMd5:string|undefined,pageIndex:number|undefined}} The current selection details.
+   */
   static get currentSelection() {
     if (this.selectionRefreshTime) {
       if (Date.now() - this.selectionRefreshTime > 100) {//超过100ms，重新获取选区信息
@@ -1126,6 +1140,7 @@ static fileTypeFromBase64(content) {
       return splitLine
     }
   }
+  static _appVersion = undefined
   /**
    * Retrieves the version and type of the application.
    * 
@@ -1136,9 +1151,10 @@ static fileTypeFromBase64(content) {
    * @returns {{version: "marginnote4" | "marginnote3", type: "iPadOS" | "iPhoneOS" | "macOS"}} An object containing the application version and operating system type.
    */
   static appVersion() {
+    if (this._appVersion) {
+      return this._appVersion
+    }
     try {
-      
-
     let info = {}
     let version = parseFloat(this.app.appVersion)
     if (version >= 4) {
@@ -1161,6 +1177,7 @@ static fileTypeFromBase64(content) {
       default:
         break;
     }
+    this._appVersion = info
     return info
     } catch (error) {
       this.addErrorLog(error, "appVersion")
@@ -1343,6 +1360,83 @@ static fileTypeFromBase64(content) {
       allNotes = studySetId.notes
     }
     return allNotes.filter(note=>note.docMd5.endsWith("_StudySet"))
+  }
+/**
+ * 将 NSFileManager 返回的文件属性对象转换为 Node.js fs.Stats 格式
+ * @param {Object} nsAttrs - NSFileManager 获取的文件属性
+ * @returns {Object} - 模拟 Node.js fs.Stats 的对象
+ */
+  static convertNsAttrsToFsStats(nsAttrs) {
+  // 处理时间：ISO 字符串 → Date 对象
+
+  // 处理权限：NSFilePosixPermissions（十进制）→ Node.js mode（八进制）
+  const mode = nsAttrs.NSFilePosixPermissions ? 
+    `0o${nsAttrs.NSFilePosixPermissions.toString(8)}` : null;
+
+  // 构建模拟的 Stats 对象
+  const stats = {
+    // 核心属性（与 Node.js fs.Stats 对齐）
+    dev: nsAttrs.NSFileSystemNumber || 0,       // 设备 ID（对应 NSFileSystemNumber）
+    ino: nsAttrs.NSFileSystemFileNumber || 0,   // inode 编号（对应 NSFileSystemFileNumber）
+    mode: mode ? parseInt(mode, 8) : 0,         // 权限模式（八进制）
+    nlink: nsAttrs.NSFileReferenceCount || 1,   // 硬链接数（对应 NSFileReferenceCount）
+    uid: nsAttrs.NSFileOwnerAccountID || 0,     // 用户 ID（对应 NSFileOwnerAccountID）
+    gid: nsAttrs.NSFileGroupOwnerAccountID || 0,// 组 ID（对应 NSFileGroupOwnerAccountID）
+    rdev: 0,                                    // 特殊设备 ID（NSFileManager 无直接对应，默认 0）
+    size: nsAttrs.NSFileSize || 0,              // 文件大小（对应 NSFileSize）
+    blksize: 4096,                              // 块大小（NSFileManager 无直接对应，默认 4096）
+    blocks: nsAttrs.NSFileSize ? Math.ceil(nsAttrs.NSFileSize / 4096) : 0, // 块数（计算值）
+    atimeMs: this.convertDate(nsAttrs.NSFileModificationDate)?.getTime() || 0, // 最后访问时间（NSFileManager 无直接对应，暂用修改时间）
+    mtimeMs: this.convertDate(nsAttrs.NSFileModificationDate)?.getTime() || 0, // 最后修改时间（对应 NSFileModificationDate）
+    ctimeMs: this.convertDate(nsAttrs.NSFileCreationDate)?.getTime() || 0,     // 状态改变时间（对应 NSFileCreationDate）
+    birthtimeMs: this.convertDate(nsAttrs.NSFileCreationDate)?.getTime() || 0, // 创建时间（对应 NSFileCreationDate）
+
+    // 时间对象（Node.js Stats 同时提供 ms 和 Date 对象两种格式）
+    atime: this.convertDate(nsAttrs.NSFileModificationDate) || new Date(0),
+    mtime: this.convertDate(nsAttrs.NSFileModificationDate) || new Date(0),
+    ctime: this.convertDate(nsAttrs.NSFileCreationDate) || new Date(0),
+    birthtime: this.convertDate(nsAttrs.NSFileCreationDate) || new Date(0),
+
+    // NSFileManager 特有的属性（保留供参考）
+    _nsFileType: nsAttrs.NSFileType,
+    _nsFileOwnerAccountName: nsAttrs.NSFileOwnerAccountName,
+    _nsFileGroupOwnerAccountName: nsAttrs.NSFileGroupOwnerAccountName,
+    _nsFileProtectionKey: nsAttrs.NSFileProtectionKey,
+    _nsFileExtendedAttributes: nsAttrs.NSFileExtendedAttributes
+  };
+
+  // 添加类型判断方法（模拟 Node.js Stats 的 isFile()/isDirectory() 等）
+  stats.isFile = () => stats._nsFileType === 'NSFileTypeRegular';
+  stats.isDirectory = () => stats._nsFileType === 'NSFileTypeDirectory';
+  stats.isSymbolicLink = () => stats._nsFileType === 'NSFileTypeSymbolicLink';
+  stats.isFIFO = () => stats._nsFileType === 'NSFileTypeFIFO';
+  stats.isSocket = () => stats._nsFileType === 'NSFileTypeSocket';
+  stats.isBlockDevice = () => stats._nsFileType === 'NSFileTypeBlockSpecial';
+  stats.isCharacterDevice = () => stats._nsFileType === 'NSFileTypeCharacterSpecial';
+
+  return stats;
+}
+/**
+ * 获取文件属性
+ * @param {string} path 
+ * @returns {Object}
+ * @property {number} size 文件大小
+ * @property {number} atimeMs 最后访问时间
+ * @property {number} mtimeMs 最后修改时间
+ * @property {number} ctimeMs 状态改变时间
+ * @property {number} birthtimeMs 创建时间
+ * @property {Date} atime 最后访问时间
+ * @property {Date} mtime 最后修改时间
+ * @property {Date} ctime 状态改变时间
+ * @property {Date} birthtime 创建时间
+ * @property {string} path 文件路径
+ */
+  static getFileAttributes(path){
+    let fileManager = NSFileManager.defaultManager()
+    let attributes = fileManager.attributesOfItemAtPath(path)
+    attributes = this.convertNsAttrsToFsStats(attributes)
+    attributes.path = path
+    return attributes
   }
   static strCode(str) {  //获取字符串的字节数
     var count = 0;  //初始化字节数递加变量并获取字符串参数的字符个数
@@ -1813,6 +1907,13 @@ static textMatchPhrase(text, query) {
 
     if (type === "NSURL") {
       let urlString = url.absoluteString()
+      if (urlString.startsWith("marginnote")) {
+        if (MNUtil.isMN4() && urlString.startsWith("marginnote3app://")) {
+          urlString = urlString.replace("marginnote3app://", "marginnote4app://")
+        }else if (MNUtil.isMN3() && urlString.startsWith("marginnote4app://")) {
+          urlString = urlString.replace("marginnote4app://", "marginnote3app://")
+        }
+      }
       switch (mode) {
         case "auto":
           if (urlString.startsWith("http://") || urlString.startsWith("https://")) {
@@ -1839,6 +1940,13 @@ static textMatchPhrase(text, query) {
       return
     }
     if (typeof url === "string") {
+      if (url.startsWith("marginnote")) {
+        if (MNUtil.isMN4() && url.startsWith("marginnote3app://")) {
+          url = url.replace("marginnote3app://", "marginnote4app://")
+        }else if (MNUtil.isMN3() && url.startsWith("marginnote4app://")) {
+          url = url.replace("marginnote4app://", "marginnote3app://")
+        }
+      }
       switch (mode) {
         case "auto":
           if (url.startsWith("http://") || url.startsWith("https://")) {
@@ -2073,9 +2181,11 @@ static textMatchPhrase(text, query) {
     return false
   }
   static noteExists(noteId){
-    let note = this.db.getNoteById(noteId)
-    if (note) {
-      return true
+    if (noteId && noteId.trim()){
+      let note = this.db.getNoteById(noteId)
+      if (note) {
+        return true
+      }
     }
     return false
   }
@@ -2590,6 +2700,23 @@ static getValidJSON(jsonString,debug = false) {
     )
     this.app.refreshAfterDBChanged(notebookId)
   }
+  /**
+   * Groups the specified function within an undo operation for the given notebook.
+   * 
+   * This method wraps the provided function within an undo operation for the specified notebook.
+   * It ensures that the function's changes can be undone as a single group. After the function is executed,
+   * it refreshes the application to reflect the changes.
+   * 
+   * @param {Function} f - The function to be executed within the undo group.
+   * @param {string} [notebookId=this.currentNotebookId] - The ID of the notebook for which the undo group is created.
+   */
+  static undoGroupingNotRefresh(f,notebookId = this.currentNotebookId){
+    UndoManager.sharedInstance().undoGrouping(
+      String(Date.now()),
+      notebookId,
+      f
+    )
+  }
   static getNoteColorHex(colorIndex){
     let theme = MNUtil.app.currentTheme
     let colorConfig = {
@@ -2928,13 +3055,30 @@ static getValidJSON(jsonString,debug = false) {
    * @returns {string} The encrypted or decrypted string.
    */
   static xorEncryptDecrypt(input, key) {
+  try {
+    if (!key) throw new Error("Key cannot be empty"); // 提前校验key非空
     let output = [];
+    let result = "";
+    const chunkSize = 10000; // 分块大小（根据引擎性能调整）
     for (let i = 0; i < input.length; i++) {
-        // Perform XOR between the input character and the key character
-        output.push(input.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+      const code = input.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+      output.push(code);
+      // 分块转换：当数组达到chunkSize时，批量生成字符串并清空临时数组
+      if (output.length >= chunkSize) {
+        result += String.fromCharCode(...output); // 用扩展运算符（...）代替apply，或直接循环拼接
+        output = [];
+      }
     }
-    return String.fromCharCode.apply(null, output);
+    // 处理剩余的码点
+    result += String.fromCharCode(...output);
+    return result;
+  } catch (error) {
+    MNLog.error("xorEncryptDecrypt error: "+error, key);
+    this.addErrorLog(error, "xorEncryptDecrypt");
+    return undefined;
   }
+}
+
   // static encrypt(text,key){
   //   var encrypted = CryptoJS.AES.encrypt(text, key).toString();
   //   return encrypted
@@ -3257,6 +3401,18 @@ try {
    * @param {"AddToReview"|"AddToTOC"|"BackupDB"|"BindSplit"|"BookTOC"|"BookPageList"|"BookMarkList"|"BookSketchList"|"BookCardList"|"BookSearch"|"BookPageFlip"|"BookPageScroll"|"BookPageNumber"|"BookMarkAdd"|"BookMarkRemove"|"ClearTemp"|"ClearFormat1"|"ClearFormat2"|"CommonCopy"|"CollapseExtend"|"ContinueExcerpt"|"DBVaults"|"DraftList"|"EditAddTitle"|"EditAddText"|"EditAppendComment"|"EditArrangeNotes"|"EditUndo"|"EditRedo"|"EditCut"|"EditCopy"|"EditCopyLink"|"EditDeleteNote"|"EditDocLayers"|"EditPaste"|"EditPDFPages"|"EditMarkdown"|"EditTextBox"|"EditTextMode"|"EditImageBox"|"EditGroupNotes"|"EditLinkNotes"|"EditMultiSel"|"EditMergeNotes"|"EditOcclusion"|"EditOutlineIncLevel"|"EditOutlineDecLevel"|"EditReference"|"EditSelAll"|"EditTagNote"|"EditUnmergeNote"|"EditColorNoteIndex0"|"EditColorNoteIndex1"|"EditColorNoteIndex2"|"EditColorNoteIndex3"|"EditColorNoteIndex4"|"EditColorNoteIndex5"|"EditColorNoteIndex6"|"EditColorNoteIndex7"|"EditColorNoteIndex8"|"EditColorNoteIndex9"|"EditColorNoteIndex10"|"EditColorNoteIndex11"|"EditColorNoteIndex12"|"EditColorNoteIndex13"|"EditColorNoteIndex14"|"EditColorNoteIndex15"|"ExcerptToolSettings"|"ExcerptToolSelect"|"ExcerptToolCustom0"|"ExcerptToolCustom1"|"ExcerptToolCustom2"|"ExcerptToolCustom3"|"ExcerptToolSketch"|"EmphasisCloze"|"ExportPKG"|"ExportVault"|"ExportMapPDF"|"ExportDocPDF"|"ExportOmni"|"ExportWord"|"ExportMind"|"ExportAnki"|"ExtendSplit"|"ExtendMargin"|"ExtendPopup"|"ExpandExtend"|"FocusNote"|"FocusParent"|"FoldHighlight"|"FullTextSearch"|"FlashcardsPlay"|"FlashcardsStop"|"FlashcardFlip"|"FlashcardLocal"|"FlashcardAgain"|"FlashcardHard"|"FlashcardGood"|"FlashcardEasy"|"FlashcardStarred"|"FlashcardSpeech"|"GlobalBranchStyle"|"GoBack"|"GoForward"|"GoiCloud"|"GoManual"|"GoNewFeatures"|"GoSettings"|"GoUserGuide"|"HideSketch"|"HighlightShortcut1"|"HighlightShortcut2"|"HighlightShortcut3"|"HighlightShortcut4"|"InAppPurchase"|"InsertBlank"|"ManageDocs"|"MergeTo"|"MindmapSnippetMode"|"NotebookOutline"|"NotebookOutlineEdit"|"NewSiblingNote"|"NewChildNote"|"NewParentNote"|"OpenTrash"|"OpenExtensions"|"PdfCrop"|"RemoveFromMap"|"SendToMap"|"ShareLicenses"|"SharePackage"|"SplitBook"|"SyncMindMapToBook"|"SyncBookToMindMap"|"SyncWindowPos"|"SyncDeletion"|"SetAsEmphasis"|"SetCloneCopyMode"|"SetCommentHighlight"|"SetRefCopyMode"|"SetTitleHighlight"|"SourceHighlight"|"SnippetMode"|"SelBranchStyle0"|"SelBranchStyle1"|"SelBranchStyle2"|"SelBranchStyle3"|"SelBranchStyle4"|"SelBranchStyle60"|"SelBranchStyle61"|"SelBranchStyle64"|"SelBranchStyle7"|"SelBranchStyle100"|"SelectBranch"|"ShowSketch"|"TabNextFile"|"TabPrevFile"|"TextToTitle"|"Translate"|"ToggleAddFile"|"ToggleBookLeft"|"ToggleBookBottom"|"ToggleCards"|"ToggleDocument"|"ToggleExpand"|"ToggleFullDoc"|"ToggleSplit"|"ToggleSidebar"|"ToggleTabsBar"|"ToggleTextLink"|"ToggleMindMap"|"ToggleMoreSettings"|"ToggleReview"|"ToggleResearch"|"UIStatusURL"|"ViewCollapseRows"|"ViewCollapseAll"|"ViewDocCardGroup"|"ViewExpandAll"|"ViewExpandLevel0"|"ViewExpandLevel1"|"ViewExpandLevel2"|"ViewExpandLevel3"|"ViewExpandLevel4"|"ViewExpandLevel5"|"ViewExpandLevel6"|"ViewExpandLevel7"|"ViewExpandRows"|"ViewMapCardGroup"|"ZoomToFit"} command 
    */
   static excuteCommand(command){
+    let urlPre = "marginnote4app://command/"
+    if (command) {
+      let url = urlPre+command
+      this.openURL(url)
+      return
+    }
+  }
+  /**
+   * 
+   * @param {"AddToReview"|"AddToTOC"|"BackupDB"|"BindSplit"|"BookTOC"|"BookPageList"|"BookMarkList"|"BookSketchList"|"BookCardList"|"BookSearch"|"BookPageFlip"|"BookPageScroll"|"BookPageNumber"|"BookMarkAdd"|"BookMarkRemove"|"ClearTemp"|"ClearFormat1"|"ClearFormat2"|"CommonCopy"|"CollapseExtend"|"ContinueExcerpt"|"DBVaults"|"DraftList"|"EditAddTitle"|"EditAddText"|"EditAppendComment"|"EditArrangeNotes"|"EditUndo"|"EditRedo"|"EditCut"|"EditCopy"|"EditCopyLink"|"EditDeleteNote"|"EditDocLayers"|"EditPaste"|"EditPDFPages"|"EditMarkdown"|"EditTextBox"|"EditTextMode"|"EditImageBox"|"EditGroupNotes"|"EditLinkNotes"|"EditMultiSel"|"EditMergeNotes"|"EditOcclusion"|"EditOutlineIncLevel"|"EditOutlineDecLevel"|"EditReference"|"EditSelAll"|"EditTagNote"|"EditUnmergeNote"|"EditColorNoteIndex0"|"EditColorNoteIndex1"|"EditColorNoteIndex2"|"EditColorNoteIndex3"|"EditColorNoteIndex4"|"EditColorNoteIndex5"|"EditColorNoteIndex6"|"EditColorNoteIndex7"|"EditColorNoteIndex8"|"EditColorNoteIndex9"|"EditColorNoteIndex10"|"EditColorNoteIndex11"|"EditColorNoteIndex12"|"EditColorNoteIndex13"|"EditColorNoteIndex14"|"EditColorNoteIndex15"|"ExcerptToolSettings"|"ExcerptToolSelect"|"ExcerptToolCustom0"|"ExcerptToolCustom1"|"ExcerptToolCustom2"|"ExcerptToolCustom3"|"ExcerptToolSketch"|"EmphasisCloze"|"ExportPKG"|"ExportVault"|"ExportMapPDF"|"ExportDocPDF"|"ExportOmni"|"ExportWord"|"ExportMind"|"ExportAnki"|"ExtendSplit"|"ExtendMargin"|"ExtendPopup"|"ExpandExtend"|"FocusNote"|"FocusParent"|"FoldHighlight"|"FullTextSearch"|"FlashcardsPlay"|"FlashcardsStop"|"FlashcardFlip"|"FlashcardLocal"|"FlashcardAgain"|"FlashcardHard"|"FlashcardGood"|"FlashcardEasy"|"FlashcardStarred"|"FlashcardSpeech"|"GlobalBranchStyle"|"GoBack"|"GoForward"|"GoiCloud"|"GoManual"|"GoNewFeatures"|"GoSettings"|"GoUserGuide"|"HideSketch"|"HighlightShortcut1"|"HighlightShortcut2"|"HighlightShortcut3"|"HighlightShortcut4"|"InAppPurchase"|"InsertBlank"|"ManageDocs"|"MergeTo"|"MindmapSnippetMode"|"NotebookOutline"|"NotebookOutlineEdit"|"NewSiblingNote"|"NewChildNote"|"NewParentNote"|"OpenTrash"|"OpenExtensions"|"PdfCrop"|"RemoveFromMap"|"SendToMap"|"ShareLicenses"|"SharePackage"|"SplitBook"|"SyncMindMapToBook"|"SyncBookToMindMap"|"SyncWindowPos"|"SyncDeletion"|"SetAsEmphasis"|"SetCloneCopyMode"|"SetCommentHighlight"|"SetRefCopyMode"|"SetTitleHighlight"|"SourceHighlight"|"SnippetMode"|"SelBranchStyle0"|"SelBranchStyle1"|"SelBranchStyle2"|"SelBranchStyle3"|"SelBranchStyle4"|"SelBranchStyle60"|"SelBranchStyle61"|"SelBranchStyle64"|"SelBranchStyle7"|"SelBranchStyle100"|"SelectBranch"|"ShowSketch"|"TabNextFile"|"TabPrevFile"|"TextToTitle"|"Translate"|"ToggleAddFile"|"ToggleBookLeft"|"ToggleBookBottom"|"ToggleCards"|"ToggleDocument"|"ToggleExpand"|"ToggleFullDoc"|"ToggleSplit"|"ToggleSidebar"|"ToggleTabsBar"|"ToggleTextLink"|"ToggleMindMap"|"ToggleMoreSettings"|"ToggleReview"|"ToggleResearch"|"UIStatusURL"|"ViewCollapseRows"|"ViewCollapseAll"|"ViewDocCardGroup"|"ViewExpandAll"|"ViewExpandLevel0"|"ViewExpandLevel1"|"ViewExpandLevel2"|"ViewExpandLevel3"|"ViewExpandLevel4"|"ViewExpandLevel5"|"ViewExpandLevel6"|"ViewExpandLevel7"|"ViewExpandRows"|"ViewMapCardGroup"|"ZoomToFit"} command 
+   */
+  static executeCommand(command){
     let urlPre = "marginnote4app://command/"
     if (command) {
       let url = urlPre+command
@@ -3901,6 +4057,38 @@ static getUnformattedText(token) {
     // MNUtil.copy(tokens)
     return this.buildTree(tokens)
   }
+static extractHeadingNames(node) {
+  try {
+    
+
+  let result = [];
+  
+  // 检查当前节点是否是 heading 类型
+  if (node.type && node.type === 'heading') {
+    result.push(node.name);
+  }
+  
+  // 递归处理子节点
+  if (node.children && node.children.length > 0) {
+    for (const child of node.children) {
+      result = result.concat(this.extractHeadingNames(child));
+    }
+  }
+  
+  return result;
+  } catch (error) {
+    this.addErrorLog(error, "extractHeadingNames")
+    return []
+  }
+}
+  /**
+   * @param {string} markdown 
+   * @returns {string[]}
+   */
+  static headingNamesFromMarkdown(markdown){
+    let ast = this.markdown2AST(markdown)
+    return this.extractHeadingNames(ast)
+  }
 static  containsMathFormula(markdownText) {
     // 正则表达式匹配单美元符号包裹的公式
     const inlineMathRegex = /\$[^$]+\$/;
@@ -4187,6 +4375,13 @@ static NSValue2String(v) {
     .join(" ")
     .trim()
 }
+static isEmptyImage(imageData){
+  let image = UIImage.imageWithData(imageData)
+  if (image.size.width === 1 && image.size.height === 1) {
+    return true
+  }
+  return false
+}
 /**
  * 
  * @param {MNNote} note 
@@ -4202,6 +4397,7 @@ static isBlankNote(note){//指有图片摘录但图片分辨率为1x1的空白�
   }
   return false
 }
+
 
   /**
    * 
@@ -4700,13 +4896,16 @@ class MNConnection{
    */
   static initRequest(url,options) {
     const request = this.requestWithURL(url)
-    request.setHTTPMethod(options.method ?? "GET")
+    let method = options.method ?? "GET"
+    request.setHTTPMethod(method)
     request.setTimeoutInterval(options.timeout ?? 10)
     const headers = {
       "User-Agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15",
-      "Content-Type": "application/json",
       Accept: "application/json"
+    }
+    if (method !== "GET") {
+      headers["Content-Type"] = "application/json"
     }
     // let newHearders = {
     //   ...headers,
@@ -5206,6 +5405,7 @@ class MNButton{
     this.button.layer.cornerRadius = radius;
     MNButton.setConfig(this.button, config)
     this.titleLabel = this.button.titleLabel
+    this.layer = this.button.layer
     if (superView) {
       superView.addSubview(this.button)
     }
@@ -5261,6 +5461,18 @@ class MNButton{
   }
   get gestureRecognizers(){
     return this.button.gestureRecognizers
+  }
+  get borderColor(){
+    return this.button.layer.borderColor
+  }
+  get borderWidth(){
+    return this.button.layer.borderWidth
+  }
+  set borderColor(color){
+    this.button.layer.borderColor = color
+  }
+  set borderWidth(width){
+    this.button.layer.borderWidth = width
   }
   /**
    * 

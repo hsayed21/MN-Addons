@@ -173,20 +173,12 @@ viewWillLayoutSubviews: function() {
       }else{
         commandTable.unshift(self.tableItem('🌟  Direction   ↔️', selector,"dynamic"))
       }
-      // 夏大鱼羊 - begin
-      commandTable.unshift(self.tableItem('🗂️   卡片预处理模式',"togglePreprocess:", "", toolbarConfig.windowState.preprocess))
-      commandTable.unshift(self.tableItem('📖   粗读模式',"toggleRoughReading:", "", toolbarConfig.windowState.roughReading))
-      // 夏大鱼羊 - end
     }else{
       if (toolbarConfig.vertical()) {
         commandTable.unshift(self.tableItem('🛠️  Direction   ↕️', selector,"fixed"))
       }else{
         commandTable.unshift(self.tableItem('🛠️  Direction   ↔️', selector,"fixed"))
       }
-      // 夏大鱼羊 - begin
-      commandTable.unshift(self.tableItem('🗂️   卡片预处理模式',"togglePreprocess:", "", toolbarConfig.windowState.preprocess))
-      commandTable.unshift(self.tableItem('📖   粗读模式',"toggleRoughReading:", "", toolbarConfig.windowState.roughReading))
-      // 夏大鱼羊 - end
     }
     commandTable.push()
     self.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable,200)
@@ -225,16 +217,6 @@ try {
   MNUtil.showHUD(error)
 }
   },
-  // 夏大鱼羊 - begin
-  togglePreprocess: function () {
-    self.checkPopover()
-    toolbarConfig.togglePreprocess()
-  },
-  toggleRoughReading: function () {
-    self.checkPopover()
-    toolbarConfig.toggleRoughReading()
-  },
-  // 夏大鱼羊 - end
   /**
    * 
    * @param {UIButton} button 

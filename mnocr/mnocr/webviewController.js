@@ -236,13 +236,11 @@ viewWillLayoutSubviews: function() {
     self.settingButton.frame = {x: xLeft+5,y: 5,width: 30,height: 30};
     self.closeButton.frame = {x: xLeft+225,y: 5,width: 30,height: 30};
     let buttonHeight = 33
-    self.OCROptionButton.frame = {x: xLeft+15 ,y: 10,width: 230,height: buttonHeight};
-    self.OCRCommentButton.frame = {x: xLeft+15 ,y: 50,width: 230,height: buttonHeight};
-    self.OCRCopyButton.frame = {x: xLeft+15 ,y: 90,width: 230,height: buttonHeight};
-    self.OCRExcerptButton.frame = {x: xLeft+15 ,y: 130,width: 230,height: buttonHeight};
-    self.OCRChildButton.frame = {x: xLeft+15 ,y: 170,width: 230,height: buttonHeight};
-    self.OCREditorButton.frame = {x: xLeft+15 ,y: 210,width: 230,height: buttonHeight};
-    self.OCRTitleButton.frame = {x: xLeft+15 ,y: 250,width: 230,height: buttonHeight};
+    self.OCRTitleButton.frame = {x: xLeft+15 ,y: 10,width: 230,height: buttonHeight};
+    self.OCRChildButton.frame = {x: xLeft+15 ,y: 50,width: 230,height: buttonHeight};
+    self.OCRCommentButton.frame = {x: xLeft+15 ,y: 90,width: 230,height: buttonHeight};
+    self.OCRCopyButton.frame = {x: xLeft+15 ,y: 130,width: 230,height: buttonHeight};
+    self.OCREditorButton.frame = {x: xLeft+15 ,y: 170,width: 230,height: buttonHeight};
 
     self.OCRClearButton.frame = MNUtil.genFrame(xRight-45, yBottom-85, 35, 35);
     self.PDFOCRFileButton.frame = {x: xLeft+15 ,y: 10,width: 230,height: buttonHeight};
@@ -306,6 +304,34 @@ viewWillLayoutSubviews: function() {
       commandTable.push({title:'🤖 Gemini-2.0 Flash',object:self,selector:selector,param:"gemini-2.0-flash",checked:source === "gemini-2.0-flash"})
       commandTable.push({title:'🤖 Gemini-2.5 Flash',object:self,selector:selector,param:"gemini-2.5-flash",checked:source === "gemini-2.5-flash"})
       commandTable.push({title:'🤖 Gemini-2.5 Pro',object:self,selector:selector,param:"gemini-2.5-pro",checked:source === "gemini-2.5-pro"})
+
+      // 🆕 新增 Qwen 视觉系列
+      commandTable.push({title:'🤖 Qwen3-VL Plus',object:self,selector:selector,param:"qwen3-vl-plus",checked:source === "qwen3-vl-plus"})
+      commandTable.push({title:'🤖 Qwen3 Omni Flash',object:self,selector:selector,param:"qwen3-omni-flash",checked:source === "qwen3-omni-flash"})
+      commandTable.push({title:'🤖 Qwen3-VL 235B Instruct',object:self,selector:selector,param:"qwen/qwen3-vl-235b-a22b-instruct",checked:source === "qwen/qwen3-vl-235b-a22b-instruct"})
+      commandTable.push({title:'🤖 Qwen3-VL 235B Thinking',object:self,selector:selector,param:"qwen/qwen3-vl-235b-a22b-thinking",checked:source === "qwen/qwen3-vl-235b-a22b-thinking"})
+
+      // 🆕 新增 Moonshot 完整系列
+      commandTable.push({title:'🤖 Kimi Latest',object:self,selector:selector,param:"kimi-latest",checked:source === "kimi-latest"})
+      commandTable.push({title:'🤖 Moonshot V1 8K',object:self,selector:selector,param:"moonshot-v1-8k",checked:source === "moonshot-v1-8k"})
+      commandTable.push({title:'🤖 Moonshot V1 32K',object:self,selector:selector,param:"moonshot-v1-32k",checked:source === "moonshot-v1-32k"})
+      commandTable.push({title:'🤖 Moonshot V1 128K',object:self,selector:selector,param:"moonshot-v1-128k",checked:source === "moonshot-v1-128k"})
+      commandTable.push({title:'🤖 Moonshot V1 8K Vision',object:self,selector:selector,param:"moonshot-v1-8k-vision-preview",checked:source === "moonshot-v1-8k-vision-preview"})
+      commandTable.push({title:'🤖 Moonshot V1 32K Vision',object:self,selector:selector,param:"moonshot-v1-32k-vision-preview",checked:source === "moonshot-v1-32k-vision-preview"})
+      commandTable.push({title:'🤖 Moonshot V1 128K Vision',object:self,selector:selector,param:"moonshot-v1-128k-vision-preview",checked:source === "moonshot-v1-128k-vision-preview"})
+      commandTable.push({title:'🤖 Moonshot V1 Auto',object:self,selector:selector,param:"moonshot-v1-auto",checked:source === "moonshot-v1-auto"})
+
+      // 🆕 新增 Doubao 详细版本
+      commandTable.push({title:'🤖 Doubao 1.6 Thinking 0715',object:self,selector:selector,param:"doubao-seed-1-6-thinking-250715",checked:source === "doubao-seed-1-6-thinking-250715"})
+      commandTable.push({title:'🤖 Doubao 1.6 Thinking 0615',object:self,selector:selector,param:"doubao-seed-1-6-thinking-250615",checked:source === "doubao-seed-1-6-thinking-250615"})
+      commandTable.push({title:'🤖 Doubao 1.6 0615',object:self,selector:selector,param:"doubao-seed-1-6-250615",checked:source === "doubao-seed-1-6-250615"})
+      commandTable.push({title:'🆓 Doubao 1.6 Flash 0715',object:self,selector:selector,param:"doubao-seed-1-6-flash-250715",checked:source === "doubao-seed-1-6-flash-250715"})
+      commandTable.push({title:'🆓 Doubao 1.6 Flash 0615',object:self,selector:selector,param:"doubao-seed-1-6-flash-250615",checked:source === "doubao-seed-1-6-flash-250615"})
+      commandTable.push({title:'🤖 Doubao 1.6 Vision',object:self,selector:selector,param:"doubao-seed-1-6-vision-250815",checked:source === "doubao-seed-1-6-vision-250815"})
+
+      // 🆕 新增 GLM 高级版本
+      commandTable.push({title:'🤖 GLM-4.1V 9B Thinking',object:self,selector:selector,param:"pro/thudm/glm-4.1v-9b-thinking",checked:source === "pro/thudm/glm-4.1v-9b-thinking"})
+
       // commandTable.push({title:'🤖 Claude-3.5-Haiku',object:self,selector:selector,param:"claude-3-5-haiku-20241022",checked:source === "claude-3-5-haiku-20241022"})
     }
     self.view.popoverController = MNUtil.getPopoverAndPresent(sender,commandTable,350,1)
@@ -426,12 +452,12 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
   },
   clearBuffer: function (params) {
     ocrNetwork.OCRBuffer = {}
-    // let foucsNote = ocrUtils.getFocusNote()
+    // let focusNote = ocrUtils.getFocusNote()
     // // let imageData = ocrUtils.getImageForOCR()
     // let imageData = MNUtil.getDocImage(true,true)
     // if (!imageData) {
-    //   if (foucsNote) {
-    //     imageData = ocrUtils.getImageFromNote(foucsNote)
+    //   if (focusNote) {
+    //     imageData = ocrUtils.getImageFromNote(focusNote)
     //   }else{
     //     MNUtil.showHUD("No image found")
     //     return;
@@ -608,13 +634,13 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
   try {
     // let docSplitMode = MNUtil.studyController.docMapSplitMode
     // MNUtil.showHUD("message"+docSplitMode)
-    let foucsNote = MNNote.getFocusNote()
+    let focusNote = MNNote.getFocusNote()
 
     // let imageData = ocrUtils.getImageForOCR()
     let imageData = MNUtil.getDocImage(true,true)
     if (!imageData) {
-      if (foucsNote) {
-        imageData = ocrUtils.getImageFromNote(foucsNote)
+      if (focusNote) {
+        imageData = ocrUtils.getImageFromNote(focusNote)
       }else{
         MNUtil.showHUD("No image found")
         return;
@@ -632,16 +658,16 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
       MNUtil.stopHUD()
     })
     let selection = MNUtil.currentSelection
-    let actions2createNote = ["toChild","toExcerpt","toComment"]
+    let actions2createNote = ["toExcerpt"]
     if (selection.onSelection && actions2createNote.includes(button.action)) {
-      foucsNote = MNNote.fromSelection()
+      focusNote = MNNote.fromSelection()
     }
     // MNUtil.copyJSON(res)
     if (res) {
       // ocrUtils.showHUD("Time usage: "+(Date.now()-self.currentTime)+" ms")
       switch (button.action) {
         case "toOption":
-          if (foucsNote) {
+          if (focusNote) {
             let userSelect = await MNUtil.userSelect("OCR Result", res, ["Copy","Comment","Excerpt","Editor","ChildNote"])
             switch (userSelect) {
               case 0:
@@ -652,19 +678,19 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
                 return;
               case 2:
                 MNUtil.undoGrouping(()=>{
-                  foucsNote.appendMarkdownComment(res)
+                  focusNote.appendMarkdownComment(res)
                   MNUtil.showHUD("✅ Append to comment")
                 })
-                MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:foucsNote.noteId,result:res})
+                MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:focusNote.noteId,result:res})
                 return;
               case 3:
                 ocrUtils.undoGrouping(()=>{
-                  // foucsNote.textFirst = true
-                  foucsNote.excerptTextMarkdown = true
-                  foucsNote.excerptText =  res
+                  // focusNote.textFirst = true
+                  focusNote.excerptTextMarkdown = true
+                  focusNote.excerptText =  res
                   MNUtil.showHUD("✅ Set to excerpt")
                 })
-                MNUtil.postNotification("OCRFinished", {action:"toExcerpt",noteId:foucsNote.noteId,result:res})
+                MNUtil.postNotification("OCRFinished", {action:"toExcerpt",noteId:focusNote.noteId,result:res})
                 return;
               case 4:
                 let beginFrame = self.view.frame
@@ -685,7 +711,7 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
                 return;
               case 5:
                 MNUtil.undoGrouping(()=>{
-                  let child = foucsNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
+                  let child = focusNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
                   child.focusInMindMap(0.5)
                 })
                 MNUtil.showHUD("✅ Create child note")
@@ -723,7 +749,7 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
                 MNUtil.undoGrouping(()=>{
                   let childmap = MNUtil.currentChildMap
                   if (childmap) {
-                    let child = foucsNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
+                    let child = focusNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
                     child.focusInMindMap(0.5)
                   }else{
                     let child = MNNote.new({excerptText:res,excerptTextMarkdown:true})
@@ -737,12 +763,12 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
             }
           }
         case "toComment":
-          if (foucsNote) {
+          if (focusNote) {
             MNUtil.undoGrouping(()=>{
-              foucsNote.appendMarkdownComment(res)
+              focusNote.appendMarkdownComment(res)
               MNUtil.waitHUD("✅ Append to comment")
             })
-            MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:foucsNote.noteId,result:res})
+            MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:focusNote.noteId,result:res})
           }else{
             MNUtil.copy(res)
           }
@@ -769,34 +795,34 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
           MNUtil.postNotification("openInEditor", {content:res})
           break;
         case "toChild":
-          if (foucsNote) {
+          if (focusNote) {
             MNUtil.undoGrouping(()=>{
-              let child = foucsNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
+              let child = focusNote.createChildNote({content:res,markdown:true})
               child.focusInMindMap(0.5)
             })
             MNUtil.waitHUD("✅ Create child note")
           }
           break;
         case "toExcerpt":
-          if (foucsNote) {
+          if (focusNote) {
             ocrUtils.undoGrouping(()=>{
-              // foucsNote.textFirst = true
-              foucsNote.excerptTextMarkdown = true
-              foucsNote.excerptText =  res
+              // focusNote.textFirst = true
+              focusNote.excerptTextMarkdown = true
+              focusNote.excerptText =  res
               MNUtil.waitHUD("✅ Set to excerpt")
             })
-            MNUtil.postNotification("OCRFinished", {action:"toExcerpt",noteId:foucsNote.noteId,result:res})
+            MNUtil.postNotification("OCRFinished", {action:"toExcerpt",noteId:focusNote.noteId,result:res})
           }else{
             MNUtil.copy(res)
           }
           break;
         case "toTitle":
-          if (foucsNote) {
+          if (focusNote) {
             MNUtil.undoGrouping(()=>{
-              foucsNote.noteTitle = res
+              focusNote.noteTitle = res
               MNUtil.waitHUD("✅ Set to title")
             })
-            MNUtil.postNotification("OCRFinished", {action:"toTitle",noteId:foucsNote.noteId,result:res})
+            MNUtil.postNotification("OCRFinished", {action:"toTitle",noteId:focusNote.noteId,result:res})
           }else{
             MNUtil.showHUD("Please select a note first")
           }
@@ -935,7 +961,7 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
     //   }
     //   return
     // }
-    // let foucsNote = ocrUtils.getFocusNote()
+    // let focusNote = ocrUtils.getFocusNote()
     // // let regexp = new RegExp("(\[\\)|(\\\])", "g")
     // // MNUtil.copyJSON(self.res)
     // let md = self.res.pages[0].md
@@ -948,15 +974,15 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
     // let convertText = md
     // .replace(/(\\\[\s?)|(\s?\\\])/g, '$$') // Replace display math mode delimiters
     // .replace(/(\\\(\s?)|(\s?\\\))/g, '$') // Replace inline math mode opening delimiter
-    // if (self.toExcerpt && foucsNote) {
+    // if (self.toExcerpt && focusNote) {
     //   ocrUtils.undoGrouping(()=>{
-    //     foucsNote.excerptText =  convertText
+    //     focusNote.excerptText =  convertText
     //   })
     //   return
     // }
-    // if (foucsNote) {
+    // if (focusNote) {
     //   ocrUtils.undoGrouping(()=>{
-    //     foucsNote.appendMarkdownComment(convertText)
+    //     focusNote.appendMarkdownComment(convertText)
     //   })
     // }
     // } catch (error) {
@@ -1130,8 +1156,8 @@ ocrController.prototype.refreshView = function (source){
       this.PDFOCRFileButton.hidden = true
       this.PDFOCRCopyButton.hidden = true
       this.OCRCommentButton.hidden = false
-      this.OCROptionButton.hidden = false
-      this.OCRExcerptButton.hidden = false
+      // this.OCROptionButton.hidden = false
+      // this.OCRExcerptButton.hidden = false
       this.OCRCopyButton.hidden = false
       this.OCRChildButton.hidden = false
       this.OCREditorButton.hidden = false
@@ -1158,8 +1184,8 @@ ocrController.prototype.refreshView = function (source){
       this.OCRClearButton.hidden = true
       this.rotationButton.hidden = true
       this.OCRCommentButton.hidden = true
-      this.OCROptionButton.hidden = true
-      this.OCRExcerptButton.hidden = true
+      // this.OCROptionButton.hidden = true
+      // this.OCRExcerptButton.hidden = true
       this.OCRChildButton.hidden = true
       this.OCREditorButton.hidden = true
       this.OCRTitleButton.hidden = true
@@ -1195,9 +1221,9 @@ ocrController.prototype.refreshView = function (source){
       this.PDFOCRFileButton.hidden = true
       this.PDFOCRCopyButton.hidden = true
       this.OCRCommentButton.hidden = false
-      this.OCROptionButton.hidden = false
+      // this.OCROptionButton.hidden = false
       this.OCRCopyButton.hidden = false
-      this.OCRExcerptButton.hidden = false
+      // this.OCRExcerptButton.hidden = false
       this.apikeyInput.hidden = false
       this.pasteKeyButton.hidden = false
       this.clearButton.hidden = false
@@ -1262,9 +1288,9 @@ ocrController.prototype.refreshView = function (source){
       this.PDFOCRFileButton.hidden = true
       this.PDFOCRCopyButton.hidden = true
       this.OCRCommentButton.hidden = false
-      this.OCROptionButton.hidden = false
+      // this.OCROptionButton.hidden = false
       this.OCRCopyButton.hidden = false
-      this.OCRExcerptButton.hidden = false
+      // this.OCRExcerptButton.hidden = false
       this.apikeyInput.hidden = true
       this.pasteKeyButton.hidden = true
       this.clearButton.hidden = true

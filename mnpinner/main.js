@@ -14,6 +14,8 @@ JSB.newAddon = function(mainPath){
   // 加载视图控制器类定义（iOS UIViewController 的 JavaScript 实现）
   // 此时只是加载类定义，实例会在需要时通过 pinnerController.new() 创建
   JSB.require('webviewController');
+  // 加载设置控制器类定义
+  // JSB.require('settingController');
   // 使用 JSB.defineClass 定义一个继承自 JSExtension 的插件类
   // 格式：'类名 : 父类名'
   let MNPinnerClass = JSB.defineClass('MNPinner : JSExtension', 
@@ -168,7 +170,7 @@ JSB.newAddon = function(mainPath){
           image: 'logo.png',          // 按钮图标
           object: self,               // 响应对象（this）
           selector: 'toggleAddon:',   // 点击时调用的方法
-          checked: self.toggled       // 是否显示选中状态
+          checked: false              // 不显示选中状态（直接打开面板，无状态切换）
         };
       } else {
         if (pinnerUtils.pinnerController) {
@@ -192,22 +194,20 @@ JSB.newAddon = function(mainPath){
           self.addonBar = button.superview.superview
           pinnerUtils.addonBar = self.addonBar
         }
-        self.toggled = !self.toggled
-        MNUtil.refreshAddonCommands()
 
-        let commandTable = [
-          self.tableItem('🗄️   卡片固定库', 'openPinnerLibrary:'),
-          self.tableItem('📥   导入配置', 'importConfig:'),
-          self.tableItem('📤   导出配置', 'exportConfig:'),
-        ];
+        pinnerUtils.ensureView(pinnerUtils.pinnerController.view)
 
-        // 显示菜单
-        self.menuPopoverController = MNUtil.getPopoverAndPresent(
-          button,        // 触发按钮
-          commandTable,  // 菜单项
-          200,          // 宽度
-          0             // 箭头方向（0=自动）
-        );
+        // ✅ 新增：确保子视图已初始化
+        if (!pinnerUtils.pinnerController.focusCardScrollView) {
+          MNUtil.log("子视图尚未初始化，延迟 0.15 秒后重试")
+          MNUtil.delay(0.15).then(() => {
+            self.openPinnerLibrary()
+          })
+          return
+        }
+
+        // 直接打开面板
+        self.openPinnerLibrary()
       } catch (error) {
         MNUtil.showHUD(error);
         pinnerUtils.addErrorLog(error, "toggleAddon")
@@ -253,6 +253,12 @@ JSB.newAddon = function(mainPath){
    *    @param {string|number} position - 位置（必需）
    *                                      可选值："top"、"bottom"、具体索引数字
    *
+   * 7. pinPage - 添加文档页面到 Pages 分区
+   *    @param {string} docMd5 - 文档MD5（必需，需要URL编码）
+   *    @param {number} pageIndex - 页码，从0开始（必需）
+   *    @param {string} title - 自定义标题（可选，需要URL编码，默认为"文档名 - 第X页"）
+   *    @param {string} note - 备注（可选，需要URL编码）
+   *
    * 使用示例：
    *
    * // 添加卡片到focus分区顶部
@@ -266,6 +272,9 @@ JSB.newAddon = function(mainPath){
    *
    * // 兼容旧版本的临时置顶
    * marginnote4app://addon/mnpinner?action=temporarilyPin&id=NOTE111&title=临时卡片
+   *
+   * // 添加文档页面到 Pages 分区
+   * marginnote4app://addon/mnpinner?action=pinPage&docMd5=ABC123DEF456&pageIndex=5&title=重要章节&note=需要复习的内容
    *
    * 注意事项：
    * 1. 所有包含中文或特殊字符的参数必须使用 encodeURIComponent 进行URL编码
@@ -300,7 +309,7 @@ JSB.newAddon = function(mainPath){
                 }
                 let sectionName = pinnerConfig.getSectionDisplayName(section)
                 let positionText = position === "top" ? "顶部" : (position === "bottom" ? "底部" : `位置${position}`)
-                MNUtil.showHUD(`已添加到${sectionName}${positionText}: ${title}`)
+                // MNUtil.showHUD(`已添加到${sectionName}${positionText}: ${title}`)
               }
               break;
 
@@ -350,7 +359,135 @@ JSB.newAddon = function(mainPath){
                 }
                 let posSectionName = pinnerConfig.getSectionDisplayName(posSection)
                 let posText = posPosition === "top" ? "顶部" : (posPosition === "bottom" ? "底部" : `位置${posPosition}`)
-                MNUtil.showHUD(`已添加到${posSectionName}${posText}: ${posTitle}`)
+                // MNUtil.showHUD(`已添加到${posSectionName}${posText}: ${posTitle}`)
+              }
+              break;
+
+            case "pinPage":  // 添加文档页面到 Pages 分区（兼容旧版，默认添加到 pages 分区）
+              try {
+                let docMd5 = decodeURIComponent(config.params.docMd5 || config.params.docmd5 || "")
+                let pageIndex = parseInt(config.params.pageIndex || config.params.pageindex || "0")
+                let pageTitle = config.params.title ? decodeURIComponent(config.params.title) : ""
+                let pageNoteText = config.params.note ? decodeURIComponent(config.params.note) : ""
+
+                // 验证 docMd5 参数
+                if (!docMd5) {
+                  MNUtil.showHUD("缺少docMd5参数")
+                  break
+                }
+
+                // 验证页码是否为有效数字
+                if (isNaN(pageIndex) || pageIndex < 0) {
+                  MNUtil.showHUD("页码无效")
+                  break
+                }
+
+                // 验证文档和页码范围
+                let docInfo = pinnerConfig.getDocInfo(docMd5)
+                if (!docInfo.doc) {
+                  MNUtil.showHUD("文档不存在")
+                  break
+                }
+                if (pageIndex > docInfo.lastPageIndex) {
+                  MNUtil.showHUD(`页码超出范围(0-${docInfo.lastPageIndex})`)
+                  break
+                }
+
+                // 添加页面
+                if (pinnerConfig.addPagePin(docMd5, pageIndex, pageTitle, pageNoteText)) {
+                  if (pinnerUtils.pinnerController) {
+                    pinnerUtils.pinnerController.refreshView("pagesView")
+                  }
+                  // MNUtil.showHUD(`已添加到 Pages: ${pageTitle || `第${pageIndex+1}页`}`)
+                }
+              } catch (error) {
+                pinnerUtils.addErrorLog(error, "onAddonBroadcast:pinPage")
+                MNUtil.showHUD("添加页面失败: " + error.message)
+              }
+              break;
+
+            case "pinCardToSection":  // 添加 Card 到指定分区
+              try {
+                let cardNoteId = decodeURIComponent(config.params.id || config.params.noteId || "")
+                let cardSection = config.params.section || "midway"
+                let cardPosition = config.params.position || "top"
+                let cardTitle = config.params.title ? decodeURIComponent(config.params.title) : ""
+
+                if (!cardNoteId) {
+                  MNUtil.showHUD("缺少卡片ID参数")
+                  break
+                }
+
+                // 获取卡片标题
+                let cardNote = MNNote.new(cardNoteId)
+                if (!cardNote) {
+                  MNUtil.showHUD("卡片不存在")
+                  break
+                }
+
+                let finalTitle = cardTitle || cardNote.noteTitle || "未命名卡片"
+
+                // 使用统一的 addPin 方法
+                let cardPin = pinnerConfig.createCardPin(cardNoteId, finalTitle)
+                if (pinnerConfig.addPin(cardPin, cardSection, cardPosition)) {
+                  if (pinnerUtils.pinnerController) {
+                    pinnerUtils.pinnerController.refreshView(cardSection + "View")
+                  }
+                  let sectionName = pinnerConfig.getSectionDisplayName(cardSection)
+                  MNUtil.showHUD(`已 Pin 卡片到 ${sectionName}: ${finalTitle}`)
+                }
+              } catch (error) {
+                pinnerUtils.addErrorLog(error, "onAddonBroadcast:pinCardToSection")
+                MNUtil.showHUD("Pin 卡片失败: " + error.message)
+              }
+              break;
+
+            case "pinPageToSection":  // 添加 Page 到指定分区
+              try {
+                let pageDocMd5 = decodeURIComponent(config.params.docMd5 || config.params.docmd5 || "")
+                let pagePageIndex = parseInt(config.params.pageIndex || config.params.pageindex || "0")
+                let pageSection = config.params.section || "midway"
+                let pagePosition = config.params.position || "top"
+                let pagePageTitle = config.params.title ? decodeURIComponent(config.params.title) : ""
+                let pageNote = config.params.note ? decodeURIComponent(config.params.note) : ""
+
+                if (!pageDocMd5) {
+                  MNUtil.showHUD("缺少docMd5参数")
+                  break
+                }
+
+                if (isNaN(pagePageIndex) || pagePageIndex < 0) {
+                  MNUtil.showHUD("页码无效")
+                  break
+                }
+
+                // 验证文档和页码范围
+                let pageDocInfo = pinnerConfig.getDocInfo(pageDocMd5)
+                if (!pageDocInfo.doc) {
+                  MNUtil.showHUD("文档不存在")
+                  break
+                }
+                if (pagePageIndex > pageDocInfo.lastPageIndex) {
+                  MNUtil.showHUD(`页码超出范围(0-${pageDocInfo.lastPageIndex})`)
+                  break
+                }
+
+                // 优先使用文件路径，兜底使用文档标题
+                let docName = (pageDocInfo.doc.pathFile && pageDocInfo.doc.pathFile.lastPathComponent) || pageDocInfo.doc.docTitle || "未知文档"
+                let finalPageTitle = pagePageTitle || `${docName} - 第${pagePageIndex + 1}页`
+
+                // 使用统一的 addPin 方法
+                let pagePin = pinnerConfig.createPagePin(pageDocMd5, pagePageIndex, finalPageTitle, pageNote)
+                if (pinnerConfig.addPin(pagePin, pageSection, pagePosition)) {
+                  if (pinnerUtils.pinnerController) {
+                    pinnerUtils.pinnerController.refreshView(pageSection + "View")
+                  }
+                  let sectionName = pinnerConfig.getSectionDisplayName(pageSection)
+                  MNUtil.showHUD(`已 Pin 页面到 ${sectionName}: ${finalPageTitle}`)
+                }
+              } catch (error) {
+                pinnerUtils.addErrorLog(error, "onAddonBroadcast:pinPageToSection")
+                MNUtil.showHUD("Pin 页面失败: " + error.message)
               }
               break;
 
@@ -368,43 +505,6 @@ JSB.newAddon = function(mainPath){
       }
     },
 
-    /**
-     * 打开设置面板
-     * 这是整个视图显示流程的入口
-     * @param {UIButton} button - 菜单中的设置按钮
-     */
-    openPinnerLibrary: function(button) {
-      // MNUtil.showHUD("打开设置界面")
-      // 重置插件图标的选中状态
-      self.toggled = false
-      // 刷新插件栏，更新图标状态
-      MNUtil.refreshAddonCommands()
-      self.closeMenu()
-      try {
-        // 这是 iOS 的机制，用于确保键盘正确隐藏
-        MNUtil.delay(0.2).then(()=>{
-          MNUtil.studyView.becomeFirstResponder(); //For dismiss keyboard on iOS
-        })
-        pinnerUtils.ensureView(pinnerUtils.pinnerController.view)
-        
-
-        // 第一次打开时，设置面板的初始位置和大小
-        if (self.isFirst) {
-          // MNUtil.showHUD("First")
-          // 设置面板的位置（同时设置 frame 和 currentFrame）
-          pinnerUtils.setFrame(pinnerUtils.pinnerController, self.firstFrame)
-          pinnerUtils.pinnerController.show(self.firstFrame)
-          self.isFirst = false;
-        } else {
-          // MNUtil.showHUD("Not First")
-          pinnerUtils.pinnerController.show(pinnerUtils.pinnerController.lastFrame)
-        }
-        // 默认显示focus分区
-        pinnerUtils.pinnerController.switchView("focusView")
-      } catch (error) {
-        pinnerUtils.addErrorLog(error, "openSetting")
-      }
-    },
 
     // 生命周期测试
 
@@ -483,19 +583,42 @@ JSB.newAddon = function(mainPath){
     },
   });
 
-  MNPinnerClass.prototype.openPinnerLibrary = function() {
-    if (pinnerUtils.pinnerController.lastFrame) {
-      pinnerUtils.pinnerController.show(pinnerUtils.pinnerController.lastFrame)
-      // 显示默认分区
+  /**
+   * 打开 Pinner 面板
+   * 统一的面板打开方法（原型方法）
+   * @param {UIButton} button - 可选，触发按钮（兼容参数，实际未使用）
+   */
+  MNPinnerClass.prototype.openPinnerLibrary = function(button) {
+    try {
+      // iOS 机制：确保键盘正确隐藏
+      MNUtil.delay(0.2).then(() => {
+        MNUtil.studyView.becomeFirstResponder()
+      })
+
+      // 确保视图已创建
+      pinnerUtils.ensureView(pinnerUtils.pinnerController.view)
+
+      // 第一次打开：使用预设位置
+      if (self.isFirst) {
+        pinnerUtils.setFrame(pinnerUtils.pinnerController, self.firstFrame)
+        pinnerUtils.pinnerController.show(self.firstFrame)
+        self.isFirst = false
+      } else {
+        // 后续打开：恢复上次位置
+        pinnerUtils.pinnerController.show(pinnerUtils.pinnerController.lastFrame)
+      }
+
+      // 默认显示 focus 分区
       pinnerUtils.pinnerController.switchView("focusView")
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "openPinnerLibrary")
     }
   }
 
   MNPinnerClass.prototype.init = function(mainPath) {
-    // 插件栏图标的选中状态
-    this.toggled = false
+    // 首次打开标记
     this.isFirst = true
-    this.firstFrame = {x:50, y:50, width:450, height: 200} 
+    this.firstFrame = {x:50, y:50, width:450, height: 200}
     if (!this.initialized) {
       pinnerUtils.init(mainPath)
       pinnerConfig.init(mainPath)
@@ -504,26 +627,10 @@ JSB.newAddon = function(mainPath){
   }
 
   MNPinnerClass.prototype.closeMenu = function() {
-    // 关闭菜单
+    // 关闭菜单（保留兼容性，虽然当前版本不再使用弹出菜单）
     if (this.menuPopoverController) {
       this.menuPopoverController.dismissPopoverAnimated(true);
     }
-  }
-  
-  /**
-   * 导入配置
-   */
-  MNPinnerClass.prototype.importConfig = function() {
-    this.closeMenu()
-    pinnerConfig.importFromFile()
-  }
-  
-  /**
-   * 导出配置
-   */
-  MNPinnerClass.prototype.exportConfig = function() {
-    this.closeMenu()
-    pinnerConfig.exportToFile()
   }
 
   MNPinnerClass.prototype.tableItem = function (title, selector, param = "", checked = false) {

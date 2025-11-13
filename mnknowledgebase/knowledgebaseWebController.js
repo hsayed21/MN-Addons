@@ -100,7 +100,7 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
 
       // 拦截自定义 scheme
       if (config && config.scheme === "mnknowledgebase") {
-        self.executeAction(config)  // 委托给集中处理方法
+        self.executeAction(config, true)  // 委托给集中处理方法
         return false
       }
 
@@ -122,13 +122,14 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
     // 标记 WebView 已加载完成
     self.webViewLoaded = true
     MNUtil.log("webViewLoaded 设置为 true")
-    
+
     // 🆕 新增：如果窗口已经显示，立即刷新数据
     // 这解决了首次打开时数据不刷新的问题
-    if (!self.view.hidden) {
-      MNUtil.log("窗口已显示，立即刷新数据")
-      MNUtil.delay(0.1).then(() => {
-        self.refreshAllData()
+    // 只对搜索界面执行自动刷新，评论管理器由 openCommentManager 独立控制
+    if (!self.view.hidden && self.currentHTMLType === 'search') {
+      MNUtil.log("搜索界面已显示，立即刷新数据")
+      MNUtil.delay(0.1).then(async () => {
+        await self.refreshAllData()
       })
     }
   },
@@ -327,6 +328,13 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
 knowledgebaseWebController.prototype.loadHTMLFile = function() {
   try {
     MNUtil.log("=== loadHTMLFile 开始 ===")
+
+    // 如果当前已经是 search 类型且已加载，直接返回
+    if (this.currentHTMLType === 'search' && this.webViewLoaded) {
+      MNUtil.log("【优化】search.html 已加载，跳过重复加载")
+      return
+    }
+
     let htmlPath = KnowledgeBaseConfig.mainPath + "/search.html"
     MNUtil.log("HTML 路径: " + htmlPath)
 
@@ -344,11 +352,50 @@ knowledgebaseWebController.prototype.loadHTMLFile = function() {
     MNUtil.log("NSURLRequest 创建成功")
 
     this.webView.loadRequest(request)
+    this.currentHTMLType = 'search'  // 标记当前加载的 HTML 类型
+    this.webViewLoaded = false  // 重置加载标志
     MNUtil.log("loadRequest 调用成功,等待加载完成...")
   } catch (error) {
     MNUtil.showHUD("加载 HTML 失败: " + error)
     MNUtil.log("加载 HTML 错误: " + error)
     MNUtil.copyJSON(error)
+  }
+}
+
+/**
+ * 加载评论管理器 HTML 文件
+ */
+knowledgebaseWebController.prototype.loadCommentManagerHTML = function() {
+  try {
+    KnowledgeBaseUtils.log("开始加载", "loadCommentManagerHTML")
+
+    // 如果当前已经是 comment-manager 类型且已加载，直接返回
+    if (this.currentHTMLType === 'comment-manager' && this.webViewLoaded) {
+      KnowledgeBaseUtils.log("【优化】comment-manager.html 已加载，跳过重复加载", "loadCommentManagerHTML")
+      return
+    }
+
+    let htmlPath = KnowledgeBaseConfig.mainPath + "/comment-manager.html"
+    KnowledgeBaseUtils.log("HTML 路径: " + htmlPath, "loadCommentManagerHTML")
+
+    // 检查文件是否存在
+    if (!MNUtil.isfileExists(htmlPath)) {
+      KnowledgeBaseUtils.log("HTML 文件不存在", "loadCommentManagerHTML")
+      MNUtil.showHUD("HTML 文件不存在: " + htmlPath)
+      return
+    }
+
+    let htmlURL = NSURL.fileURLWithPath(htmlPath)
+    let request = NSURLRequest.requestWithURL(htmlURL)
+
+    this.webView.loadRequest(request)
+    this.currentHTMLType = 'comment-manager'  // 标记当前加载的 HTML 类型
+    this.webViewLoaded = false  // 重置加载标志
+    KnowledgeBaseUtils.log("loadRequest 调用成功，等待加载完成", "loadCommentManagerHTML")
+  } catch (error) {
+    MNUtil.showHUD("加载评论管理器 HTML 失败: " + error)
+    KnowledgeBaseUtils.log("加载失败: " + error, "loadCommentManagerHTML")
+    KnowledgeBaseUtils.addErrorLog(error, "loadCommentManagerHTML")
   }
 }
 
@@ -363,29 +410,34 @@ knowledgebaseWebController.prototype.loadHTMLFile = function() {
  * @param {string} config.host - 动作名称
  * @param {Object} config.params - 参数对象
  */
-knowledgebaseWebController.prototype.executeAction = async function(config) {
+knowledgebaseWebController.prototype.executeAction = async function(config, closedWebView = false) {
   try {
     let targetNoteId = config.params.id
     let targetNote = MNNote.new(targetNoteId)
     let focusNote = MNNote.getFocusNote()
+    let success = false
     if (!targetNote) { return }
     switch (config.host) {
       case "focusCardInMindMap":
         // 定位卡片到脑图
         await this.focusCardInMindMap(targetNoteId)
+        success = true
         break
 
       case "focusCardInFloatMindMap":
         // 聚焦到文档位置
         await this.focusCardInFloatMindMap(targetNoteId)
+        success = true
         break
 
       case "copyMarkdownLink":  // 调用 copyMarkdownLinkWithQuickPhrases 复制卡片行内链接
         await this.copyMarkdownLink(targetNoteId)
+        success = true
         break;
 
       case "copyNoteURL":  // 复制卡片 URL
         await this.copyNoteURL(targetNoteId)
+        success = true
         break;
 
       case 'mergeFocusNoteToTargetNoteExcerptPart':
@@ -398,6 +450,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
           focusNote.title = ""
           focusNote.mergeInto(targetNote);
           KnowledgeBaseTemplate.autoMoveNewContentToField(targetNote, "摘录");
+          success = true
         })
         break;
 
@@ -408,8 +461,10 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
             return 
           }
           focusNote.title = ""
+          KnowledgeBaseTemplate.retainFieldContentByName(focusNote, "摘录区");
           focusNote.mergeInto(targetNote);
           KnowledgeBaseTemplate.autoMoveNewContentToField(targetNote, "摘录");
+          success = true
         })
         break;
 
@@ -421,6 +476,8 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
           }
           focusNote.appendNoteLink(targetNote, "Both")
           KnowledgeBaseTemplate.removeDuplicateLinksInLastField(targetNote)  // 链接去重
+          focusNote.focusInMindMap(0.5)
+          success = true
         })
         break;
 
@@ -431,17 +488,51 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
             return 
           }
           targetNote.addChild(focusNote);
+          success = true
         })
         break;
 
       case 'moveFocusNoteToTargetNoteAsChildAndLocate':
-         MNUtil.undoGrouping(()=>{
+        MNUtil.undoGrouping(()=>{
           if (!focusNote) {
             MNUtil.showHUD("请先选中一个卡片")
-            return 
+            return
           }
           targetNote.addChild(focusNote);
           focusNote.focusInMindMap(0.5)
+          success = true
+        })
+        break;
+
+      case 'moveFocusNoteToTargetNoteAsChildAndMakeNote':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return
+          }
+          targetNote.addChild(focusNote);
+
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(focusNote)
+          KnowledgeBaseTemplate.makeNote(processedNote, false, false, false)
+
+          success = true
+        })
+        break;
+
+      case 'moveFocusNoteToTargetNoteAsChildAndMakeNoteAndLocate':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return
+          }
+          targetNote.addChild(focusNote);
+
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(focusNote)
+          KnowledgeBaseTemplate.makeNote(processedNote, false, false, true)
+
+          // 定位到 focusNote
+          focusNote.focusInMindMap(0.5)
+          success = true
         })
         break;
 
@@ -455,6 +546,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
           // await MNUtil.delay(2)
           if (classificationNote) {
             classificationNote.addChild(focusNote);
+            success = true
           } else {
             MNLog.log("未找到新卡片");
           }
@@ -472,6 +564,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
           let classificationNote = await KnowledgeBaseTemplate.addTemplate(targetNote, false);
           if (classificationNote) {
             classificationNote.addChild(focusNote);
+            success = true
             focusNote.focusInMindMap(0.5)
           } else {
             MNLog.log("未找到新卡片");
@@ -486,13 +579,125 @@ knowledgebaseWebController.prototype.executeAction = async function(config) {
         await this.refreshAllData()
         MNUtil.showHUD("数据刷新完成")
         break;
+      case "reopenSearchView":
+        // 重新打开搜索界面（完整重载）
+        // 将 currentHTMLType 设为 null，强制触发完整的 WebView 重载
+        this.currentHTMLType = null;
+        this.hide();
+        await MNUtil.delay(0.3);
+        await global.MNKnowledgeBaseInstance.openSearchWebView();
+        success = true;
+        break;
       case "ready":
         // HTML 初始化完成信号
         MNUtil.showHUD("知识库搜索已就绪")
         break
 
+      case "htmlLog":
+        // HTML 前端发送的日志
+        let message = config.params.message || "无消息"
+        MNLog.log(message)
+        break
+
+      // ========================================
+      // 评论管理器 Bridge 方法
+      // ========================================
+
+      case "loadCommentData":
+        // 加载指定卡片的评论数据
+        await this.loadCommentData(config.params.noteId)
+        success = true
+        break
+
+      case "moveCommentsToField":
+        // 移动评论到字段
+        await this.moveCommentsToField(
+          config.params.noteId,
+          config.params.indexArr,
+          config.params.fieldName,
+          config.params.toBottom
+        )
+        success = true
+        break
+
+      case "moveComments":
+        // 移动评论到指定索引
+        KnowledgeBaseUtils.log("收到 moveComments 请求", "executeAction")
+        KnowledgeBaseUtils.log("原始参数", "executeAction", config.params)
+
+        try {
+          // 解析参数（注意：HTML 发送的是 id，不是 noteId）
+          const moveNoteId = config.params.id
+          const moveIndexArr = JSON.parse(config.params.indexArr)
+          const moveTargetIndex = parseInt(config.params.targetIndex)
+
+          KnowledgeBaseUtils.log("解析后参数", "executeAction", {
+            moveNoteId,
+            moveIndexArr,
+            moveTargetIndex
+          })
+
+          await this.moveComments(moveNoteId, moveIndexArr, moveTargetIndex)
+          success = true
+        } catch (error) {
+          KnowledgeBaseUtils.log("moveComments 失败: " + error.message, "executeAction")
+          MNUtil.showHUD("移动失败: " + error.message)
+        }
+        break
+
+      case "deleteComments":
+        // 删除评论
+        KnowledgeBaseUtils.log("收到 deleteComments 请求", "executeAction")
+        KnowledgeBaseUtils.log("原始参数", "executeAction", config.params)
+
+        try {
+          const deleteNoteId = config.params.id
+          const deleteIndexArr = JSON.parse(config.params.indexArr)
+
+          KnowledgeBaseUtils.log("解析后参数", "executeAction", {
+            deleteNoteId,
+            deleteIndexArr
+          })
+
+          await this.deleteComments(deleteNoteId, deleteIndexArr)
+          success = true
+        } catch (error) {
+          KnowledgeBaseUtils.log("deleteComments 失败: " + error.message, "executeAction")
+          MNUtil.showHUD("删除失败: " + error.message)
+        }
+        break
+
+      case "extractComments":
+        // 提取评论创建子卡片
+        KnowledgeBaseUtils.log("收到 extractComments 请求", "executeAction")
+        KnowledgeBaseUtils.log("原始参数", "executeAction", config.params)
+
+        try {
+          const extractNoteId = config.params.id
+          const extractIndexArr = JSON.parse(config.params.indexArr)
+
+          KnowledgeBaseUtils.log("解析后参数", "executeAction", {
+            extractNoteId,
+            extractIndexArr
+          })
+
+          await this.extractComments(extractNoteId, extractIndexArr)
+          success = true
+        } catch (error) {
+          KnowledgeBaseUtils.log("extractComments 失败: " + error.message, "executeAction")
+          MNUtil.showHUD("提取失败: " + error.message)
+        }
+        break
+
       default:
         MNUtil.showHUD("未知动作: " + config.host)
+    }
+    if (closedWebView && success) {
+      if (this.addonBar) {
+        this.hide(this.addonBar.frame)
+      } else {
+        this.hide()
+      }
     }
   } catch (error) {
     MNUtil.showHUD("执行动作失败: " + error)
@@ -716,6 +921,8 @@ knowledgebaseWebController.prototype.refreshSearchResults = async function(resul
  * @param {Object} endFrame - 最终位置和大小（可选）
  */
 knowledgebaseWebController.prototype.show = async function(beginFrame, endFrame) {
+  MNLog.log("【show() 开始】beginFrame=" + (beginFrame ? "有" : "无") + ", endFrame=" + (endFrame ? "有" : "无"))
+  
   let targetFrame = endFrame || { x: 50, y: 50, width: 420, height: 600 }
   let studyFrame = MNUtil.studyView.frame
 
@@ -731,22 +938,28 @@ knowledgebaseWebController.prototype.show = async function(beginFrame, endFrame)
   }
   this.view.layer.opacity = 0.2
   this.view.hidden = false
+  MNLog.log("【show()】设置 hidden=false，开始动画")
 
   // 动画显示
   MNUtil.animate(() => {
     this.view.layer.opacity = 1.0
     this.view.frame = targetFrame
   }).then(async () => {
+    MNLog.log("【show()】动画完成，触发 bringSubviewToFront")
     MNUtil.studyView.bringSubviewToFront(this.view)
 
-    // 显示完成后自动刷新数据（确保 WebView 已加载）
-    if (this.webViewLoaded) {
-      MNUtil.log("WebView 已加载，开始自动刷新数据")
+    // 显示完成后自动刷新数据（仅限搜索界面）
+    // 评论管理器由 openCommentManager 独立控制数据加载
+    if (this.webViewLoaded && this.currentHTMLType === 'search') {
+      MNLog.log("【show()】搜索界面已加载，开始自动刷新数据")
       await this.refreshAllData()
+      MNLog.log("【show()】refreshAllData 完成")
     } else {
-      MNUtil.log("WebView 尚未加载，跳过自动刷新")
+      MNLog.log("【show()】非搜索界面或 WebView 尚未加载，跳过自动刷新")
     }
   })
+  
+  MNLog.log("【show() 返回】异步操作已启动")
 }
 
 /**
@@ -791,6 +1004,7 @@ knowledgebaseWebController.prototype.init = function() {
   this.onAnimate = false
   this.lastTapTime = 0
   this.moveDate = 0
+  this.currentHTMLType = null  // 'search' 或 'comment-manager'
 
   if (!this.lastFrame) {
     this.lastFrame = this.view.frame
@@ -1118,3 +1332,295 @@ knowledgebaseWebController.prototype.refreshAllData = async function() {
     KnowledgeBaseUtils.addErrorLog(error, "refreshAllData")
   }
 }
+
+// ========================================
+// 评论管理器 Bridge 方法实现
+// ========================================
+
+/**
+ * 加载指定卡片的评论数据
+ * @param {string} noteId - 卡片ID
+ */
+knowledgebaseWebController.prototype.loadCommentData = async function(noteId) {
+  try {
+    KnowledgeBaseUtils.log("开始执行", "loadCommentData")
+    KnowledgeBaseUtils.log("noteId: " + noteId, "loadCommentData")
+
+    // 清理旧的定时器，防止快速切换卡片时累积多个调用
+    if (this.viewTimer) {
+      this.viewTimer.invalidate()
+      this.viewTimer = undefined
+      KnowledgeBaseUtils.log("已清理旧的定时器", "loadCommentData")
+    }
+
+    // 获取卡片
+    const note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    // 调用 main.js 中的数据准备方法
+    if (typeof global.MNKnowledgeBaseInstance !== 'undefined' &&
+        global.MNKnowledgeBaseInstance.prepareCommentDataForManager) {
+      const commentData = global.MNKnowledgeBaseInstance.prepareCommentDataForManager(note)
+
+      if (commentData) {
+        // 将数据发送到 HTML 端（改为即时执行，避免延迟累积）
+        const dataJson = JSON.stringify(commentData)
+        const script = `loadDataFromNative(${dataJson})`
+        await this.runJavaScript(script)  // 不再使用延迟
+
+        KnowledgeBaseUtils.log("评论数据已发送到 HTML 端", "loadCommentData")
+      } else {
+        MNUtil.showHUD("准备评论数据失败")
+      }
+    } else {
+      KnowledgeBaseUtils.log("错误: MNKnowledgeBaseInstance 或 prepareCommentDataForManager 方法不存在", "loadCommentData")
+      MNUtil.showHUD("插件实例未就绪")
+    }
+  } catch (error) {
+    KnowledgeBaseUtils.log("发生错误: " + error.message, "loadCommentData")
+    MNUtil.showHUD("加载评论数据失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "loadCommentData")
+  }
+}
+
+/**
+ * 移动评论到字段
+ * @param {string} noteId - 卡片ID
+ * @param {Array} indexArr - 要移动的评论索引数组
+ * @param {string} fieldName - 目标字段名称
+ * @param {boolean} toBottom - 是否移动到字段底部
+ */
+knowledgebaseWebController.prototype.moveCommentsToField = async function(noteId, indexArr, fieldName, toBottom) {
+  try {
+    KnowledgeBaseUtils.log("开始执行", "moveCommentsToField")
+    KnowledgeBaseUtils.log("noteId: " + noteId, "moveCommentsToField")
+    KnowledgeBaseUtils.log("indexArr: " + JSON.stringify(indexArr), "moveCommentsToField")
+    KnowledgeBaseUtils.log("fieldName: " + fieldName, "moveCommentsToField")
+    KnowledgeBaseUtils.log("toBottom: " + toBottom, "moveCommentsToField")
+
+    // 获取卡片
+    const note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    // 调用移动方法
+    MNUtil.undoGrouping(() => {
+      try {
+        KnowledgeBaseTemplate.moveCommentsArrToField(note, indexArr, fieldName, toBottom)
+        note.refresh()
+        MNUtil.showHUD(`成功移动 ${indexArr.length} 项评论到 ${fieldName}`)
+        KnowledgeBaseUtils.log("评论移动成功", "moveCommentsToField")
+      } catch (error) {
+        MNUtil.showHUD("移动失败: " + error.message)
+        KnowledgeBaseUtils.log("移动评论失败: " + error, "moveCommentsToField")
+        throw error
+      }
+    })
+
+    // 刷新数据
+    await this.loadCommentData(noteId)
+
+  } catch (error) {
+    KnowledgeBaseUtils.log("发生错误: " + error.message, "moveCommentsToField")
+    MNUtil.showHUD("移动评论失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "moveCommentsToField")
+  }
+}
+
+/**
+ * 移动评论到指定索引位置
+ * @param {string} noteId - 卡片ID
+ * @param {Array} indexArr - 要移动的评论索引数组
+ * @param {number} targetIndex - 目标索引位置
+ */
+knowledgebaseWebController.prototype.moveComments = async function(noteId, indexArr, targetIndex) {
+  try {
+    KnowledgeBaseUtils.log("开始执行", "moveComments")
+    KnowledgeBaseUtils.log("参数", "moveComments", {
+      noteId,
+      indexArr,
+      targetIndex,
+      indexArrType: typeof indexArr,
+      targetIndexType: typeof targetIndex
+    })
+
+    // 获取卡片
+    const note = MNNote.new(noteId)
+    if (!note) {
+      KnowledgeBaseUtils.log("未找到卡片", "moveComments", { noteId })
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    KnowledgeBaseUtils.log("找到卡片", "moveComments", { noteTitle: note.noteTitle })
+
+    // 调用真实 API（参考 utils.js:6958-6968）
+    MNUtil.undoGrouping(() => {
+      try {
+        note.moveCommentsByIndexArr(indexArr, targetIndex)
+        note.refresh()
+        MNUtil.showHUD(`成功移动 ${indexArr.length} 项评论`)
+        KnowledgeBaseUtils.log("移动成功", "moveComments")
+      } catch (error) {
+        MNUtil.showHUD("移动失败: " + error.message)
+        KnowledgeBaseUtils.log("移动失败", "moveComments", { error: error.message })
+        throw error
+      }
+    })
+
+    // 刷新数据
+    await this.loadCommentData(noteId)
+
+  } catch (error) {
+    KnowledgeBaseUtils.log("发生错误", "moveComments", { error: error.message })
+    MNUtil.showHUD("移动评论失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "moveComments")
+  }
+}
+
+/**
+ * 删除评论
+ * @param {string} noteId - 卡片ID
+ * @param {Array} indexArr - 要删除的评论索引数组
+ */
+knowledgebaseWebController.prototype.deleteComments = async function(noteId, indexArr) {
+  try {
+    KnowledgeBaseUtils.log("开始执行", "deleteComments")
+    KnowledgeBaseUtils.log("参数", "deleteComments", {
+      noteId,
+      indexArr,
+      indexArrType: typeof indexArr
+    })
+
+    // 获取卡片
+    const note = MNNote.new(noteId)
+    if (!note) {
+      KnowledgeBaseUtils.log("未找到卡片", "deleteComments", { noteId })
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    KnowledgeBaseUtils.log("找到卡片", "deleteComments", { noteTitle: note.noteTitle })
+
+    // 调用真实 API（参考 utils.js:7077-7090）
+    MNUtil.undoGrouping(() => {
+      try {
+        note.removeCommentsByIndexArr(indexArr)
+        note.refresh()
+        MNUtil.showHUD(`成功删除 ${indexArr.length} 项评论`)
+        KnowledgeBaseUtils.log("删除成功", "deleteComments")
+      } catch (error) {
+        MNUtil.showHUD("删除失败: " + error.message)
+        KnowledgeBaseUtils.log("删除失败", "deleteComments", { error: error.message })
+        throw error
+      }
+    })
+
+    // 刷新数据
+    await this.loadCommentData(noteId)
+
+  } catch (error) {
+    KnowledgeBaseUtils.log("发生错误", "deleteComments", { error: error.message })
+    MNUtil.showHUD("删除评论失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "deleteComments")
+  }
+}
+
+/**
+ * 提取评论创建子卡片（参考 utils.js:7096-7160）
+ * @param {string} noteId - 卡片ID
+ * @param {Array} indexArr - 要提取的评论索引数组
+ */
+knowledgebaseWebController.prototype.extractComments = async function(noteId, indexArr) {
+  try {
+    KnowledgeBaseUtils.log("开始执行", "extractComments")
+    KnowledgeBaseUtils.log("参数", "extractComments", {
+      noteId,
+      indexArr,
+      indexArrType: typeof indexArr
+    })
+
+    // 获取卡片
+    const note = MNNote.new(noteId)
+    if (!note) {
+      KnowledgeBaseUtils.log("未找到卡片", "extractComments", { noteId })
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    KnowledgeBaseUtils.log("找到卡片", "extractComments", { noteTitle: note.noteTitle })
+
+    let extractResultNote
+
+    // 调用真实 API（参考 utils.js:7096-7160）
+    MNUtil.undoGrouping(() => {
+      try {
+        extractResultNote = KnowledgeBaseTemplate.extractComments(note, indexArr)
+
+        // 刷新显示
+        extractResultNote.refresh()
+        note.refresh()
+
+        MNUtil.showHUD(`成功提取 ${indexArr.length} 项评论为新卡片`)
+        KnowledgeBaseUtils.log("提取成功", "extractComments")
+
+        // 在脑图中聚焦新创建的卡片
+        MNUtil.focusNoteInMindMapById(extractResultNote.noteId, 0.5)
+
+      } catch (error) {
+        MNUtil.showHUD("提取失败: " + error.message)
+        KnowledgeBaseUtils.log("提取失败", "extractComments", { error: error.message })
+        throw error
+      }
+    })
+
+    // 询问是否删除原评论（简化版，不询问制卡）
+    if (extractResultNote) {
+      await MNUtil.delay(0.5)
+
+      // 使用简单的确认对话框
+      UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+        "提取完成",
+        `已成功提取 ${indexArr.length} 项评论到新卡片。\n\n是否从原卡片中删除这些评论？`,
+        0,
+        "保留原评论",
+        ["删除原评论"],
+        (alert, buttonIndex) => {
+          if (buttonIndex === 1) {
+            // 用户选择删除原评论
+            MNUtil.undoGrouping(() => {
+              try {
+                // 先清理被提取内容中链接对应卡片的反向链接
+                KnowledgeBaseTemplate.cleanupExtractedContentLinks(note, indexArr)
+
+                // 删除原评论
+                note.removeCommentsByIndexArr(indexArr)
+                note.refresh()
+
+                MNUtil.showHUD("已删除原卡片中的评论")
+                KnowledgeBaseUtils.log("已删除原评论", "extractComments")
+              } catch (error) {
+                MNUtil.showHUD("删除原评论失败: " + error.message)
+                KnowledgeBaseUtils.log("删除原评论失败", "extractComments", { error: error.message })
+              }
+            })
+          }
+
+          // 刷新数据（无论是否删除都需要刷新）
+          this.loadCommentData(noteId)
+        }
+      )
+    }
+
+  } catch (error) {
+    KnowledgeBaseUtils.log("发生错误", "extractComments", { error: error.message })
+    MNUtil.showHUD("提取评论失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "extractComments")
+  }
+}
+

@@ -670,7 +670,6 @@ class MNNote {
   get docTitle()         // 文档标题
   get noteBook()         // 所属笔记本
   get isOCR()            // 是否 OCR 笔记
-  get mindmapBranchColor() // 脑图分支颜色
   
   // === 辅助属性 ===
   get MNComments()       // 评论对象数组 (MNComment 实例)

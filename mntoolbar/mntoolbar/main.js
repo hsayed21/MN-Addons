@@ -887,20 +887,6 @@ try {
         }
         MNUtil.refreshAddonCommands()
       },
-      // 夏大鱼羊增加：卡片的预处理
-      togglePreprocess: function () {
-        self.checkPopoverController()
-        toolbarConfig.togglePreprocess()
-      },
-      // 夏大鱼羊结束
-
-      // 夏大鱼羊增加：粗读模式
-      toggleRoughReading: function () {
-        self.checkPopoverController()
-        toolbarConfig.toggleRoughReading()
-      },
-      // 夏大鱼羊结束
-
       openDocument:function (button) {
         if (typeof MNUtil === 'undefined') return
         // let self = getMNToolbarClass()
@@ -959,8 +945,6 @@ try {
             self.tableItem('🛠️   Direction   '+(toolbarConfig.vertical()?'↕️':'↔️'), selector,"fixed"),
             self.tableItem('🌟   Dynamic   ', "toggleDynamic",undefined,toolbarConfig.dynamic),
             self.tableItem('🌟   Direction   '+(toolbarConfig.vertical(true)?'↕️':'↔️'), selector,"dynamic"),
-            self.tableItem('🗂️   卡片预处理模式  ',"togglePreprocess", undefined, toolbarConfig.windowState.preprocess),
-            self.tableItem('📖   粗读模式  ',"toggleRoughReading", undefined, toolbarConfig.windowState.roughReading),
             self.tableItem('📄   Document', 'openDocument:'),
             self.tableItem('🔄   Manual Sync','manualSync:'),
             self.tableItem('🎨   Refresh Color','refreshColor:')

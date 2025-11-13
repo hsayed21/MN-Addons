@@ -1,28 +1,364 @@
-class KnowledgeBaseTemplate {
+// ============================================
+// 📋 配置数据区（集中管理所有可自定义配置）
+// ============================================
+/**
+ * 知识库搜索配置
+ * 包含类型预设、同义词组、排除词组等搜索相关配置
+ */
+const kbSearchConfig = {
   /**
-   * 粗读根目录
+   * 同义词组配置（用于搜索扩展）
+   * ⭐ 这是用户经常手动维护的核心配置之一
+   *
+   * @typedef {Object} SynonymGroup
+   * @property {string[]} words - 同义词列表，组内的词会被视为等价
+   * @property {boolean} [partialReplacement=false] - 是否启用部分替换模式
+   *   - true: 支持字符级别的替换，如 ||x|| ↔ ‖x‖
+   *   - false: 仅支持完整词匹配
+   *   - 示例：{"words": ["||", "‖"], "partialReplacement": true}
+   *     → 搜索 ||x|| 时会扩展为 ‖x‖，反之亦然
+   *
+   * @property {boolean} [patternMode=false] - 是否启用模式匹配模式
+   *   - true: 支持 {{}} 占位符，可以匹配任意内容
+   *   - false: 普通同义词匹配
+   *   - 示例：{"words": ["稠{{}}集", "稠密{{}}集"], "patternMode": true}
+   *     → "稠开集" 会扩展为 "稠密开集"
+   *
+   * @property {boolean} [caseSensitive=false] - 是否大小写敏感
+   *   - true: 严格区分大小写
+   *   - false: 忽略大小写
+   *   - 示例：{"words": ["Span", "span"], "caseSensitive": true}
+   *     → "Span" 和 "span" 会被视为不同的词
+   *
+   * @property {string[]} [contextTriggers] - 上下文触发词
+   *   - 仅在标题包含这些触发词时才启用该同义词组
+   *   - 用于避免误匹配（如"正交"和"正交集"）
+   *   - 示例：{"words": ["元素", "向量"], "contextTriggers": ["内积空间", "Hilbert 空间"]}
+   *     → 只在标题包含"内积空间"或"Hilbert 空间"时才将"元素"和"向量"视为同义词
+   *
+   * @property {string} [contextMode="any"] - 上下文匹配模式
+   *   - "any": 满足任意一个触发词即可
+   *   - "all": 需要满足所有触发词
+   *
+   * @property {string} [id] - 同义词组的唯一标识符（可选，用于调试和管理）
+   * @property {boolean} [enabled=true] - 是否启用该同义词组（可选，默认启用）
+   *
+   * @example
+   * // 基础同义词组（完整词匹配）
+   * {"words": ["两两不同", "两两不等", "互不相等"]}
+   *
+   * @example
+   * // 部分替换模式（字符级别替换）
+   * {"words": ["||", "‖"], "partialReplacement": true}
+   * // 搜索 "||f(x)||" 时会自动扩展为 "‖f(x)‖"
+   *
+   * @example
+   * // 模式匹配模式（占位符替换）
+   * {"words": ["一列{{}}的并", "{{}}的可列并"], "patternMode": true}
+   * // "一列开集的并" 会扩展为 "开集的可列并"
+   *
+   * @example
+   * // 上下文敏感的同义词
+   * {
+   *   "words": ["元素", "向量"],
+   *   "partialReplacement": true,
+   *   "caseSensitive": true,
+   *   "contextTriggers": ["内积空间", "Hilbert 空间"],
+   *   "contextMode": "any"
+   * }
    */
-  static roughReadingRootNoteIds = {
-    "定义": "38ACB470-803E-4EE8-B7DD-1BF4722AB0FE",
-    "命题": "D6F7EA72-DDD1-495B-8DF5-5E2559C5A982",
-    "例子": "9BAEB3FF-318E-48BD-92E4-66727427EDD5",
-    "反例": "AE530B71-E758-47CA-8C88-A59E5D287CBD",
-    "问题": "C58ED58F-56BE-47F8-8F6B-1D76FF6212F8",
-    "思想方法": "A4A7B09E-D124-4192-9804-C074718E399C",
-    "研究进展": "7D37A27B-9964-4552-9F64-684DA0F10270",
-  }
+  synonymGroups: [
+    {
+      "words": ["闭凸包","凸包的闭包", "凸组合的闭包"],
+    },
+    {
+      "words": ["凸{{}}集", "{{}}凸集"],
+      "patternMode": true
+    },
+    {
+      "words": ["属于{{}}内部", "是{{}}内点"],
+      "patternMode": true
+    },
+    {
+      "words": ["为", "是"],
+      "partialReplacement": true,
+    },
+    {
+      "words": ["两两不同", "两两不等", "互不相等", "各不相同", "各不相等", "互异", "两两不一样"],
+      "partialReplacement":  false,
+    },
+    {
+      "words": ["||", "‖"],
+      "partialReplacement": true,
+    },
+    {
+      "words": ["表示为", "表示成", "写成", "写为"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["扩张", "延拓"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["线性闭包", "闭线性扩张", "闭线性张成", "span 闭包"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["复可测函数", "可测复函数"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["实可测函数", "可测实函数"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["像空间", "值域"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["是全空间", "等于全空间"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["自己", "自身"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["并", "并上", "并集"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["交", "交上", "交集"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["一列{{}}的并", "{{}}的可列并"],
+      "partialReplacement": false,
+      "patternMode": true
+    },
+    {
+      "words": ["稠{{}}集", "稠密{{}}集","{{}}稠集","{{}}稠密集"],
+      "partialReplacement": false,
+      "patternMode": true
+    },
+    {
+      "words": ["不相交", "交集为空", "互不相交", "交为空", "交集为零", "交集为空集"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["[ab]", "[a,b]", "[a, b]"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["[01]", "[0,1]", "[0, 1]"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["第二纲空间", "第二纲的空间"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["第一纲空间", "第一纲的空间"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["子开集", "开子集"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["子闭集", "闭子集"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["子开球", "开子球"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["子闭球", "闭子球"],
+      "partialReplacement": false,
+    },
+    {
+      "words": ["存在内点","包含内点","有内点", "内部非空"],
+    },
+    {
+      "words": ["无{{}}", "没有{{}}"],
+      "partialReplacement": false,
+      "patternMode": true
+    },
+    {
+      "words": ["闭包点", "接触点", "粘着点"],
+      "partialReplacement": true,
+    },
+    {
+      "words": ["不是{{}}", "非{{}}"],
+      "partialReplacement": true,
+      "patternMode": true
+    },
+    { "id": "group_1754759704820", "words": ["⇔", "等价", "等价刻画", "等价条件", "当且仅当", "等价于"] },
+    { "id": "group_1754814563774", "words": ["依范数收敛", "按范数收敛"] },
+    { "id": "group_1754911082498", "words": ["𝕋", "单位圆周"] },
+    { "id": "group_1754913614715", "words": ["严格正", "严格非负"] },
+    { "id": "group_1754913687682", "words": ["为零", "为0", "等于零", "等于0", "=0", "为 0", "等于 0"], "partialReplacement": true },
+    { "id": "group_1754918691589", "words": ["非零", "不是零", "不等于零", "≠0", "≠ 0", "非0", "非 0", "不是0", "不是 0", "不等于0", "不等于 0", "0≠", "0 ≠"] },
+    { "id": "group_1754967275234", "words": ["傅立叶", "傅里叶", "Fourier", "fourier"], "partialReplacement": true },
+    { "id": "group_1754968276839", "words": ["⊂", "⊆", "子集", "包含于", "包含在"], "partialReplacement": true },
+    { "id": "group_1754968768370", "words": ["实数", "实数域", "实情形"] },
+    { "id": "group_1754979122102", "words": ["径向极限", "边界值函数", "边界函数"] },
+    { "id": "group_1755230758417", "words": ["有限", "<∞", "小于无穷", "小于∞"] },
+    { "id": "group_1755231235279", "words": ["比较判别法", "比值判别法"] },
+    { "id": "group_1755313248014", "words": ["-∞<", "大于负无穷", ">-∞"] },
+    { "id": "group_1755328808715", "words": ["为1", "等于1", "=1", "= 1", "为 1", "等于 1"] },
+    { "id": "group_1755330305335", "words": ["柯西", "Cauchy", "cauchy"], "partialReplacement": true },
+    { "id": "group_1755333690290", "words": ["Blaschke 积", "Blaschke 乘积"] },
+    { "id": "group_1755568637659", "words": ["对数", "log", "ln"], "partialReplacement": true },
+    { "id": "group_1755574929841", "words": ["小于等于", "不超过", "≤"] },
+    { "id": "group_1755837688967", "words": ["Laplace", "Laplacian", "拉普拉斯"], "partialReplacement": true },
+    { "id": "group_1755838481600", "words": ["开右半平面", "ℂ₊", "ℍ₊"], "partialReplacement": true },
+    { "id": "group_1755867678146", "words": ["<0", "小于零", "小于 0", "< 0", "小于0"] },
+    { "id": "group_1755871359287", "words": ["几乎处处", "a.e."] },
+    { "id": "group_1755871688608", "words": ["等于", "相等", "相同", "一致", "一样", "就是", "同一个"] },
+    { "id": "group_1756092698001", "words": ["非零复同态", "非零可乘线性泛函"] },
+    { "id": "group_1756108949936", "words": ["映射为", "被映成", "被映为", "映为", "映成", "映到"] },
+    { "id": "group_1756109335070", "words": ["→0", "趋于零", "趋于 0", "趋于0", "收敛到0", "收敛到零", "收敛到 0", "到零", "到0", "到 0"], "partialReplacement": true },
+    { "id": "group_1756111643605", "words": ["化归为", "化归到", "归结为", "归结到", "化归成", "归结成"] },
+    { "id": "group_1756113664796", "words": ["弱收敛极限", "弱极限", "w极限", "w 极限"] },
+    { "id": "group_1756128051903", "words": ["列紧的", "列紧集"], "partialReplacement": true },
+    { "id": "group_1756182536173", "words": ["自反的", "自反空间"], "partialReplacement": true },
+    { "id": "group_1756187328315", "words": ["级数展开", "级数表示"], "partialReplacement": true },
+    { "id": "group_1756189859522", "words": ["非负", "大于等于零", "大于等于0", "大于等于 0"] },
+    { "id": "group_1756194705074", "words": ["Bergman 核", "Bergman 再生核"] },
+    { "id": "group_1756211764991", "words": ["相乘", "乘起来", "乘以", "乘积"] },
+    { "id": "group_1756555538247", "words": ["弱收敛", "⇀"] },
+    { "id": "group_1756630934460", "words": ["Gelfand 表示", "Gelfand 映射"], "partialReplacement": true },
+    { "id": "group_1756631329614", "words": ["可数无限维", "可列无限维", "可数无穷维", "可列无穷维"] },
+    { "id": "group_1756631743105", "words": ["标准正交", "规范正交"], "partialReplacement": true },
+    { "id": "group_1756711035245", "words": ["Ker", "ker", "零空间", "核空间", "核"], "partialReplacement": true },
+    { "id": "group_1756996762450", "words": ["正交集", "正交系"], "partialReplacement": true },
+    { "id": "group_1757052040708", "words": ["正交", "垂直", "正交于", "垂直于"] },
+    { "id": "group_1757055108773", "words": ["一列规范正交集", "一列标准正交集", "规范正交列", "标准正交列"] },
+    { "id": "group_1757061618814", "words": ["{0}", "零向量的单点集"] },
+    { "id": "group_1757077322983", "words": ["闭集", "闭子集"], "contextTriggers": ["子集"], "contextMode": "any" },
+    { "id": "group_1757077335882", "words": ["开子集", "开集"], "contextTriggers": ["子集"], "contextMode": "any" },
+    { "id": "group_1757077345680", "words": ["紧集", "紧子集"], "contextTriggers": ["子集"], "contextMode": "any" },
+    { "id": "group_1757088664654", "words": ["元素", "向量"], "partialReplacement": true, "caseSensitive": true, "contextTriggers": ["内积空间", "Hilbert 空间", "赋范线性空间", "Banach 空间", "线性空间"], "contextMode": "any" },
+    { "id": "group_1757143821142", "words": ["正交补", "^⊥"], "caseSensitive": true },
+    { "id": "group_1757164613329", "words": ["至多是可数", "至多可数", "至多可列", "至多是可列"] },
+    { "id": "group_1757337332491", "words": ["Span", "span", "线性扩张", "线性张成"], "caseSensitive": true },
+    { "id": "group_1757419393384", "words": ["非负整数", "∈ℕ"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1757420940564", "words": ["任意", "任取", "任意一个", "任取一个", "每个", "每一个"], "caseSensitive": true },
+    { "id": "group_1757471519968", "words": ["σ 代数", "σ代数", "σ-代数", "σ-algebra", "σ algebra"], "partialReplacement": true },
+    { "id": "group_1757487049845", "words": ["范数极限", "强极限"] },
+    { "id": "group_1757666483247", "words": ["非空", "非空集", "不是空集", "不空", "不等于空集", "≠∅", "≠ ∅"], "caseSensitive": true },
+    { "id": "group_1757673809311", "words": ["集代数", "布尔代数"], "caseSensitive": true },
+    { "id": "group_1757675563901", "words": ["空集", "∅"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1757675577813", "words": ["属于", "∈", "包含"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1757755186225", "words": ["无限", "∞", "无穷"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1757755714989", "words": ["补封闭", "补集封闭", "补运算封闭", "补集运算封闭"] },
+    { "id": "group_1757938639733", "words": ["T₄ 空间", "T₄ 正规空间", "满足 T₁ 和 T₄ 公理的正规空间", "满足 T₂ 和 T₄ 公理的正规空间", "满足 T₁ 和 T₄ 公理的空间", "满足 T₂ 和 T₄ 公理的空间"], "caseSensitive": true },
+    { "id": "group_1758009495957", "words": ["{{}}封闭", "{{}}运算封闭"], "patternMode": true, "caseSensitive": true },
+    { "id": "group_1758012441679", "words": ["单位模长", "模长等于1", "模长等于一", "模长等于 1", "模长为1", "模长为 1"], "caseSensitive": true },
+    { "id": "group_1758087954345", "words": ["稀疏", "疏朗", "无处稠密"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758159036915", "words": ["复同态", "可乘线性泛函"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758188346528", "words": ["闭集", "闭子集"] },
+    { "id": "group_1758286476524", "words": ["线性单射", "单射线性"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758286494590", "words": ["线性满射", "满射线性"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758287463421", "words": ["中的{{}}集", "{{}}子集"], "patternMode": true, "caseSensitive": true },
+    { "id": "group_1758291189939", "words": ["中集合", "中的集合", "的子集", "中的子集"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758353425664", "words": ["TVS", "拓扑线性空间", "拓扑向量空间", "线性拓扑空间"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758370279950", "words": ["有限测度", "测度有限"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758448942673", "words": ["任意个集合", "任意多个集合", "一族集合", "集合族"], "partialReplacement": true },
+    { "id": "group_1758454305523", "words": ["算子复合{{}}算子", "算子乘以{{}}算子"], "patternMode": true, "caseSensitive": true },
+    { "id": "group_1758513747838", "words": ["等势", "基数相等", "基数相同"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758513869003", "words": ["扩张", "延拓"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758528115814", "words": ["Hilbert-Schmidt", "Hilbert–Schmidt"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758530473198", "words": ["*理想", "* 理想", "*-理想", "∗-理想", "∗理想", "∗ 理想"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758885172459", "words": ["变元", "变量"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758886170428", "words": ["复数域", "复数集", "复平面", "ℂ"], "partialReplacement": true },
+    { "id": "group_1758980638734", "words": ["柯西列", "Cauchy 列", "柯西序列", "Cauchy 序列"], "partialReplacement": true, "caseSensitive": true },
+    { "id": "group_1758982023604", "words": ["收敛", "趋于", "逼近"], "partialReplacement": true, "caseSensitive": true }
+  ],
+
+  /**
+   * 排除词组配置（用于搜索过滤）
+   */
+  exclusionGroups: [
+    {
+      "triggerWords": ["𝔻", "开单位圆盘", "单位圆盘"],
+      "excludeWords": ["闭单位圆盘"]
+    },
+    {
+      "triggerWords": ["包含", "包含了"],
+      "excludeWords": ["包含于", "包含在"]
+    },
+    {
+      "triggerWords": ["开右半平面", "ℂ₊"],
+      "excludeWords": ["右半平面"]
+    },
+    {
+      "triggerWords": ["正交集", "正交子集"],
+      "excludeWords": ["规范正交集", "标准正交集"]
+    },
+    {
+      "triggerWords": ["正交"],
+      "excludeWords": ["正交集", "正交补", "正交投影", "正交分解"]
+    },
+    {
+      "triggerWords": ["ℝ"],
+      "excludeWords": ["ℝ²", "ℝ³", "ℝⁿ", "ℝᵐ", "R²", "R³", "Rⁿ", "Rᵐ"]
+    }
+  ],
+
+    /**
+   * 搜索类型预设
+   */
+  typePresets: {
+    all: {
+      name: "全部类型",
+      types: ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题", "思路", "总结"],
+      icon: "🔍"
+    },
+    definitionsAndClassifications: {
+      name: "定义与归类",
+      types: ["定义", "归类"],
+      icon: "📒"
+    },
+    definitions: {
+      name: "仅定义",
+      types: ["定义"],
+      icon: "📘"
+    },
+    classifications: {
+      name: "仅归类",
+      types: ["归类"],
+      icon: "📁"
+    },
+    knowledge: {
+      name: "知识点卡片",
+      types: ["定义", "命题", "例子", "反例", "思想方法"],
+      icon: "📚"
+    }
+  },
+};
+
+
+/**
+ * 知识库模板配置
+ * 包含卡片类型、模板ID、字段映射等核心配置
+ */
+const kbTemplateConfig = {
   /**
    * 单条 HtmlComment 的模板卡片 id
    */
-  static singleHtmlCommentTemplateNoteIds = {
+  singleHtmlCommentTemplateNoteIds: {
     "证明": "749B2770-77A9-4D3D-9F6F-8B2EE21615AB",
     "原理": "86F237E5-7BA3-4182-A9B9-A135D34CDC3A",
     "反例": "C33F6700-747F-48FF-999E-3783D596B0CF",
-  }
+  },
+
   /**
    * 卡片类型
-   * 
-   * refName: “xxx”：“yyy”相关 zz 里的 zz
+   *
+   * refName: "xxx"："yyy"相关 zz 里的 zz
    * prefixName: 【xxx：yyyy】zzz 里的 xxx
    * englishName: 对应的英文翻译
    * templateNoteId: 对应模板卡片的 ID
@@ -30,7 +366,7 @@ class KnowledgeBaseTemplate {
    * colorIndex: 对应的卡片颜色索引
    * fields: 字段
    */
-  static types = {
+  types: {
     定义: {
       refName: '定义',
       prefixName: '定义',
@@ -233,15 +569,255 @@ class KnowledgeBaseTemplate {
         "相关链接"
       ]
     },
-  }
+  },
 
   /**
    * 关键词到卡片类型的映射表
    */
-  static keywordTypeMapping = {
+  keywordTypeMapping: {
     "基本性质": "命题",
     "判定": "命题"
+  },
+
+  /**
+   * 链接词快捷短语列表（代码层面管理）
+   * 支持 {{}} 占位符，会自动替换为输入框的内容
+   * 例如：短语 "作为{{}}特例" + 输入 "度量空间" → "作为度量空间特例"
+   *       短语 "作为{{}}特例" + 输入为空 → "作为特例"
+   */
+  inlineLinkPhrases: [
+    "作为{{}}的特例",
+    "{{}}情形",
+    "因此",
+  ],
+
+  /**
+   * 知识点卡片类型
+   */
+  knowledgeNoteTypes: [
+    "定义",
+    "命题",
+    "例子",
+    "反例",
+    "思想方法",
+    "问题",
+    "思路",
+    "总结"
+  ],
+
+  /**
+   * 卡片类型与默认移动字段的映射关系
+   *
+   * 定义了每种卡片类型的新内容应该移动到哪个字段下
+   * 用于 mergeTemplateAndAutoMoveNoteContent 和 autoMoveNewContentByType 等函数
+   */
+  typeDefaultFieldMap: {
+    "定义": "摘录",
+    "命题": "证明",
+    "反例": "反例",
+    "例子": "证明",
+    "思想方法": "原理",
+    "归类": "相关思考",
+    "问题": "研究脉络",
+    "思路": "具体尝试",
+    "作者": "个人信息",
+    "文献": "文献信息",
+    "论文": "文献信息",
+    "书作": "文献信息",
+    "研究进展": "进展详情",
+    "总结": "要点列举"
+  },
+
+  /**
+   * 字段别名映射表
+   *
+   * 将逻辑字段名映射到不同卡片类型的实际字段名
+   * 主要用于处理同一性质但不同命名的字段（如"证明"字段在不同卡片类型中的对应字段）
+   *
+   * 结构: { 逻辑字段名: { 卡片类型: 实际字段名 } }
+   */
+  fieldAliasMapping: {
+    "证明": {
+      "命题": "证明",
+      "例子": "证明",
+      "反例": "反例",
+      "思想方法": "原理"
+    }
+    // 可扩展其他需要别名的字段
+  },
+
+  /**
+   * 思路链接字段映射（部分卡片类型在添加思路链接时使用不同的字段）
+   */
+  ideaLinkFieldMap: {
+    "命题": "证明",
+    "例子": "证明",
+    "反例": "反例",
+    "思想方法": "原理",
+    "问题": "研究思路"  // 注意：这里是"研究思路"而不是默认的"研究脉络"
   }
+};
+
+
+/**
+ * OCR 后处理配置
+ * 用于修正 AI OCR 的常见错误输出
+ */
+const kbOCRConfig = {
+  /**
+   * OCR 结果后处理正则替换规则
+   * ⭐ 这是用户经常手动维护的核心配置之一
+   */
+  postProcessingRules: [
+    {
+      pattern: /\^∞/g,
+      replacement: '∞',
+      description: '移除积分/求和上限中不必要的 ^'
+    },
+    {
+      pattern: /\s*φ|Φ\s*/g,
+      replacement: 'ϕ',
+      description: '统一 phi 字符为直立形式 (U+03D5)'
+    },
+    {
+      pattern: /∑/g,
+      replacement: 'Σ',
+      description: '求和符号用小的'
+    },
+    {
+      pattern: /\s*(⊂|∪|∩|⊆|⊇|∈|∉|⊄|⊅)\s*/g,
+      replacement: '$1',
+      description: '去掉集合运算符两边的空格'
+    },
+    {
+      pattern: /\s*(≤|≥|≠|≈|≡|∝|∼|≃|≅|≈)\s*/g,
+      replacement: '$1',
+      description: '去掉比较运算符两边的空格'
+    },
+    {
+      pattern: "\s*，|,\s*",
+      replacement: ", ",
+      description: ""
+    },
+    {
+      pattern: "\s*:\s*",
+      replacement: ": ",
+      description: ""
+    },
+    {
+      pattern: "\{?(∂𝔻)\}?",
+      replacement: "𝕋",
+    },
+
+    // === 定理编号处理规则（按复杂度从高到低排列）===
+    // 1. 处理带名称+内容的完整格式（最优先）
+    {
+      pattern: /^(Theorem|Lemma|Corollary|Proposition|Definition|Example)\s+\d+(?:\.\d+)*\s*\(([^)]+)\)[:.:]?\s*(.+)/i,
+      replacement: '$3; $2',
+      description: '移除英文定理编号，将括号名称移到末尾'
+    },
+    {
+      pattern: /^(定理|引理|推论|命题|定义|例子)\s*\d+(?:\.\d+)*\s*[（(]([^)）]+)[)）][:.:]?\s*(.+)/,
+      replacement: '$3; $2',
+      description: '移除中文定理编号，将括号名称移到末尾'
+    },
+
+    // 2. 处理仅有名称无内容的格式
+    {
+      pattern: /^(Theorem|Lemma|Corollary|Proposition|Definition|Example)\s+\d+(?:\.\d+)*\s*\(([^)]+)\)[:.:]?\s*$/i,
+      replacement: '$2',
+      description: '仅保留英文定理名称（无后续内容）'
+    },
+    {
+      pattern: /^(定理|引理|推论|命题|定义|例子)\s*\d+(?:\.\d+)*\s*[（(]([^)）]+)[)）][:.:]?\s*$/,
+      replacement: '$2',
+      description: '仅保留中文定理名称（无后续内容）'
+    },
+
+    // 3. 移除纯编号（兜底规则）
+    {
+      pattern: /^(定理|引理|推论|命题|例子|例|反例|注释|注|练习|习题|问题|题)\s*\d+(?:\.\d+)*[:.:]?\s*/,
+      replacement: '',
+      description: '移除中文定理类纯编号'
+    },
+    {
+      pattern: /^(Theorem|Lemma|Corollary|Proposition|Example|Counterexample|Remark|Exercise|Problem)\s+\d+(?:\.\d+)*[:.:]?\s*/i,
+      replacement: '',
+      description: '移除英文定理类纯编号'
+    },
+    {
+      pattern: "C_ϕ",
+      replacement: "Cᵩ",
+    },
+    {
+      pattern: "lim‾",
+      replacement: "limsup",
+      description: ""
+    },
+    {
+      pattern: "如果",
+      replacement: "若",
+    },
+    {
+      pattern: "那么",
+      replacement: "则",
+    },
+    {
+      pattern: /[。，、；：！？,.;:!?\s]+$/g,
+      replacement: "",
+      description: "移除文本末尾的标点符号和空格"
+    },
+    {
+      pattern: "可证明|证明|可知",
+      replacement: "则",
+    },
+    {
+      pattern: "₁≤ₖ≤ₙ",
+      replacement: "_{1≤k≤n}",
+    },
+    {
+      pattern: "",
+      replacement: "",
+    },
+  ]
+};
+
+// ============================================
+// 📦 类定义区（使用上面的配置）
+// ============================================
+
+class KnowledgeBaseTemplate {
+  /**
+   * 单条 HtmlComment 的模板卡片 id
+   */
+  static singleHtmlCommentTemplateNoteIds = kbTemplateConfig.singleHtmlCommentTemplateNoteIds;
+
+  /**
+   * 卡片类型
+   */
+  static types = kbTemplateConfig.types;
+
+  /**
+   * 关键词到卡片类型的映射表
+   */
+  static keywordTypeMapping = kbTemplateConfig.keywordTypeMapping;
+
+  /**
+   * 链接词快捷短语列表
+   */
+  static inlineLinkPhrases = kbTemplateConfig.inlineLinkPhrases;
+
+  /**
+   * 卡片类型缓存 - 用于优化 getNoteType 性能
+   * 使用 WeakMap 避免内存泄漏
+   */
+  static noteTypeCache = new WeakMap();
+
+  /**
+   * 归类父卡片缓存 - 用于优化 getFirstClassificationParentNote 性能
+   * 使用 WeakMap 避免内存泄漏
+   */
+  static classificationParentCache = new WeakMap();
 
   /**
    * 根据用户输入文本智能识别卡片类型
@@ -260,43 +836,16 @@ class KnowledgeBaseTemplate {
   /**
    * 知识点卡片类型
    */
-  static knowledgeNoteTypes = [
-    "定义",
-    "命题",
-    "例子",
-    "反例",
-    "思想方法",
-    "问题",
-    "思路",
-    "总结"
-  ]
+  static knowledgeNoteTypes = kbTemplateConfig.knowledgeNoteTypes;
 
   /**
    * 卡片类型与默认移动字段的映射关系
-   * 
-   * 定义了每种卡片类型的新内容应该移动到哪个字段下
-   * 用于 mergeTemplateAndAutoMoveNoteContent 和 autoMoveNewContentByType 等函数
    */
-  static typeDefaultFieldMap = {
-    "定义": "相关思考",
-    "命题": "证明",
-    "反例": "反例",
-    "例子": "证明",
-    "思想方法": "原理",
-    "归类": "相关思考",
-    "问题": "研究脉络",
-    "思路": "具体尝试",
-    "作者": "个人信息",
-    "文献": "文献信息",
-    "论文": "文献信息",
-    "书作": "文献信息",
-    "研究进展": "进展详情",
-    "总结": "要点列举"
-  }
+  static typeDefaultFieldMap = kbTemplateConfig.typeDefaultFieldMap;
 
   /**
    * 获取卡片类型对应的默认字段
-   * 
+   *
    * @param {string} noteType - 卡片类型
    * @returns {string} 默认字段名，如果类型未定义则返回空字符串
    */
@@ -305,16 +854,39 @@ class KnowledgeBaseTemplate {
   }
 
   /**
-   * 思路链接字段映射（部分卡片类型在添加思路链接时使用不同的字段）
+   * 字段别名映射表
    */
-  static ideaLinkFieldMap = {
-    "命题": "证明",
-    "例子": "证明",
-    "反例": "反例",
-    "思想方法": "原理",
-    "问题": "研究思路"  // 注意：这里是"研究思路"而不是默认的"研究脉络"
+  static fieldAliasMapping = kbTemplateConfig.fieldAliasMapping;
+
+  /**
+   * 根据卡片类型解析实际字段名
+   *
+   * 使用字段别名映射表将逻辑字段名转换为该卡片类型对应的实际字段名
+   * 如果没有映射关系，返回原字段名
+   *
+   * @param {string} logicalFieldName - 逻辑字段名（如"证明"）
+   * @param {string} noteType - 卡片类型（如"命题"、"反例"等）
+   * @returns {string} 实际字段名
+   *
+   * @example
+   * resolveFieldName("证明", "反例")  // 返回 "反例"
+   * resolveFieldName("证明", "命题")  // 返回 "证明"
+   * resolveFieldName("相关思考", "命题")  // 返回 "相关思考"（无映射，返回原值）
+   */
+  static resolveFieldName(logicalFieldName, noteType) {
+    // 检查是否有别名映射
+    const aliasMap = this.fieldAliasMapping[logicalFieldName];
+    if (aliasMap && aliasMap[noteType]) {
+      return aliasMap[noteType];
+    }
+    // 没有映射，返回原字段名
+    return logicalFieldName;
   }
 
+  /**
+   * 思路链接字段映射
+   */
+  static ideaLinkFieldMap = kbTemplateConfig.ideaLinkFieldMap;
 
   /**
    * 根据颜色索引获取卡片类型（粗读模式使用）
@@ -340,35 +912,111 @@ class KnowledgeBaseTemplate {
   /**
    * 制卡（只支持非摘录版本）
    */
-  static makeCard(note, addToReview = true, reviewEverytime = true, focusInMindMap = true) {
-    this.renewNote(note) // 处理旧卡片
-    this.mergeTemplateAndAutoMoveNoteContent(note) // 合并模板卡片并自动移动内容
-    this.templateMergedCardMake(note)
-    if (addToReview) {
-      this.addToReview(note, reviewEverytime) // 加入复习
-    }
-    if (focusInMindMap) {
-      MNUtil.undoGrouping(()=>{
-        note.focusInMindMap()
-      })
+  static makeCard(note, addToReview = true, reviewEverytime = true) {
+    try {
+      // KnowledgeBaseUtils.log("开始执行 makeCard", "makeCard", {
+      //   noteId: note.noteId,
+      //   noteTitle: note.noteTitle
+      // })
+
+      this.renewNote(note) // 处理旧卡片
+      // KnowledgeBaseUtils.log("完成 renewNote", "makeCard", {
+      //   step: "renewNote",
+      //   noteId: note.noteId
+      // })
+
+      this.mergeTemplateAndAutoMoveNoteContent(note) // 合并模板卡片并自动移动内容
+      // KnowledgeBaseUtils.log("完成 mergeTemplateAndAutoMoveNoteContent", "makeCard", {
+      //   step: "mergeTemplateAndAutoMoveNoteContent",
+      //   noteId: note.noteId
+      // })
+
+      this.templateMergedCardMake(note)
+      // KnowledgeBaseUtils.log("完成 templateMergedCardMake", "makeCard", {
+      //   step: "templateMergedCardMake",
+      //   noteId: note.noteId
+      // })
+
+      if (addToReview) {
+        this.addToReview(note, reviewEverytime) // 加入复习
+        // KnowledgeBaseUtils.log("完成 addToReview", "makeCard", {
+        //   step: "addToReview",
+        //   noteId: note.noteId,
+        //   reviewEverytime: reviewEverytime
+        // })
+      }
+
+      // KnowledgeBaseUtils.log("makeCard 执行完成", "makeCard", {
+      //   noteId: note.noteId
+      // })
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "makeCard")
     }
   }
 
   /**
    * 已合并模板的卡片制卡
-   * 
+   *
    * 暂不在这处理复习
-   * @param note 
+   * @param note
    */
   static templateMergedCardMake(note) {
+    // KnowledgeBaseUtils.log("开始执行 templateMergedCardMake", "templateMergedCardMake", {
+    //   noteId: note.noteId,
+    //   noteTitle: note.noteTitle
+    // })
+
     this.changeTitle(note) // 修改卡片标题
+    // KnowledgeBaseUtils.log("完成 changeTitle", "templateMergedCardMake", {
+    //   step: "changeTitle",
+    //   noteId: note.noteId
+    // })
+
     this.changeNoteColor(note) // 修改卡片颜色
+    // KnowledgeBaseUtils.log("完成 changeNoteColor", "templateMergedCardMake", {
+    //   step: "changeNoteColor",
+    //   noteId: note.noteId
+    // })
+
     this.linkParentNote(note) // 链接广义的父卡片（可能是链接归类卡片）
+    // KnowledgeBaseUtils.log("完成 linkParentNote", "templateMergedCardMake", {
+    //   step: "linkParentNote",
+    //   noteId: note.noteId
+    // })
+
     this.autoMoveNewContent(note) // 自动移动新内容到对应字段
+    // KnowledgeBaseUtils.log("完成 autoMoveNewContent", "templateMergedCardMake", {
+    //   step: "autoMoveNewContent",
+    //   noteId: note.noteId
+    // })
+
     this.moveTaskCardLinksToRelatedField(note) // 移动任务卡片链接到"相关链接"字段
+    // KnowledgeBaseUtils.log("完成 moveTaskCardLinksToRelatedField", "templateMergedCardMake", {
+    //   step: "moveTaskCardLinksToRelatedField",
+    //   noteId: note.noteId
+    // })
+
     this.moveSummaryLinksToTop(note) // 移动总结链接到卡片最上方
+    // KnowledgeBaseUtils.log("完成 moveSummaryLinksToTop", "templateMergedCardMake", {
+    //   step: "moveSummaryLinksToTop",
+    //   noteId: note.noteId
+    // })
+
     this.handleDefinitionPropositionLinks(note) // 处理定义-命题/例子之间的链接
+    // KnowledgeBaseUtils.log("完成 handleDefinitionPropositionLinks", "templateMergedCardMake", {
+    //   step: "handleDefinitionPropositionLinks",
+    //   noteId: note.noteId
+    // })
+
     this.refreshNotes(note) // 刷新卡片
+    // KnowledgeBaseUtils.log("完成 refreshNotes", "templateMergedCardMake", {
+    //   step: "refreshNotes",
+    //   noteId: note.noteId
+    // })
+
+    // KnowledgeBaseUtils.log("templateMergedCardMake 执行完成", "templateMergedCardMake", {
+    //   noteId: note.noteId
+    // })
   }
 
   /**
@@ -434,27 +1082,171 @@ class KnowledgeBaseTemplate {
     }
   }
 
+
+  /**
+   * 是否已经链接广义父卡片了
+   */
+  static ifLinkParentNote(note) {
+    let linkHtmlCommentObj = this.parseNoteComments(note).htmlCommentsObjArr.find(htmlObj => ["相关链接", "相关链接：","所属", "所属："].includes(htmlObj.text))
+    return linkHtmlCommentObj.excludingFieldBlockIndexArr??linkHtmlCommentObj.excludingFieldBlockIndexArr.length > 0
+  } 
+
   /**
    * 一键制卡（支持摘录版本）
    */
-  static makeNote(note, addToReview = true, reviewEverytime = true, focusInMindMap = true) {
-    if (note.excerptText) {
-      let newnote = this.toNoExcerptVersion(note)
-      newnote.focusInMindMap(0.5)
-      MNUtil.delay(0.5).then(()=>{
-        note = MNNote.getFocusNote()
-        MNUtil.delay(0.5).then(()=>{
-          this.makeCard(note, addToReview, reviewEverytime, focusInMindMap) // 制卡
+  static makeNote(note, addToReview = true, reviewEverytime = true, focus = true) {
+    try {
+      // const startTime = Date.now();
+      // KnowledgeBaseUtils.log("开始执行 makeNote", "makeNote", {
+      //   noteId: note.noteId,
+      //   noteTitle: note.noteTitle,
+      //   classificationMode: KnowledgeBaseConfig.config.classificationMode,
+      //   preProcessMode: KnowledgeBaseConfig.config.preProcessMode,
+      //   timestamp: startTime
+      // })
+
+      if (KnowledgeBaseConfig.config.classificationMode) {
+        // 归类模式：快速创建归类卡片
+        // const classificationStartTime = Date.now();
+        // KnowledgeBaseUtils.log("进入归类模式", "makeNote", {
+        //   noteId: note.noteId,
+        //   elapsedMs: Date.now() - startTime
+        // })
+
+        // 🚀 性能优化：提前获取类型，后续方法会从缓存获取，避免重复查找
+        const noteType = this.getNoteType(note);
+        // KnowledgeBaseUtils.log("归类模式：获取卡片类型", "makeNote", {
+        //   noteId: note.noteId,
+        //   noteType: noteType
+        // })
+
+        this.changeTitle(note, true, noteType)  // 传递类型，避免内部重新查找
+        // KnowledgeBaseUtils.log("归类模式：完成 changeTitle", "makeNote", {
+        //   noteId: note.noteId,
+        //   stepDurationMs: Date.now() - classificationStartTime
+        // })
+
+        // const colorStartTime = Date.now();
+        this.changeNoteColor(note, true)
+        // KnowledgeBaseUtils.log("归类模式：完成 changeNoteColor", "makeNote", {
+        //   noteId: note.noteId,
+        //   stepDurationMs: Date.now() - colorStartTime
+        // })
+
+        // const mergeStartTime = Date.now();
+        this.mergeTemplateAndAutoMoveNoteContent(note)
+        // KnowledgeBaseUtils.log("归类模式：完成 mergeTemplateAndAutoMoveNoteContent", "makeNote", {
+        //   noteId: note.noteId,
+        //   stepDurationMs: Date.now() - mergeStartTime
+        // })
+
+        if (this.ifLinkParentNote(note)) {
+          // const linkStartTime = Date.now();
+          this.linkParentNote(note, false) // 链接广义的父卡片（可能是链接归类卡片）此时主要考虑同时属于多张父卡片的情形
+          // KnowledgeBaseUtils.log("归类模式：完成 linkParentNote", "makeNote", {
+          //   noteId: note.noteId,
+          //   stepDurationMs: Date.now() - linkStartTime
+          // })
+        }
+
+        // KnowledgeBaseUtils.log("归类模式执行完成", "makeNote", {
+        //   noteId: note.noteId,
+        //   totalDurationMs: Date.now() - startTime
+        // })
+        return
+      }
+
+      // 检查是否启用预处理模式
+      if (KnowledgeBaseConfig.config.preProcessMode) {
+        // 预处理模式：简化的制卡流程
+        // const preProcessStartTime = Date.now();
+        // KnowledgeBaseUtils.log("进入预处理模式", "makeNote", {
+        //   noteId: note.noteId,
+        //   elapsedMs: Date.now() - startTime
+        // })
+
+        MNUtil.undoGrouping(() => {
+          // const processStartTime = Date.now();
+          let processedNote = this.processNote(note)
+          // KnowledgeBaseUtils.log("预处理模式：完成 processNote", "makeNote", {
+          //   noteId: note.noteId,
+          //   processedNoteId: processedNote.noteId,
+          //   noteType: this.getNoteType(processedNote),
+          //   stepDurationMs: Date.now() - processStartTime
+          // })
+
+          switch (this.getNoteType(processedNote, directly)) {
+            case "定义":
+              // const makeCardStartTime = Date.now();
+              this.makeCard(processedNote, true, true)
+              // KnowledgeBaseUtils.log("预处理模式：完成 makeCard（定义）", "makeNote", {
+              //   noteId: processedNote.noteId,
+              //   stepDurationMs: Date.now() - makeCardStartTime
+              // })
+              break;
+            default:
+              this.changeTitle(processedNote, true)
+              this.mergeTemplateAndAutoMoveNoteContent(processedNote)
+              break;
+          }
+
+          if (KnowledgeBaseConfig.config.classAutoPinMode) {
+            pinnerUtils.pinCard(processedNote.noteId, { section: "class"})
+          }
+          if (focus) { processedNote.focusInMindMap(0.3) }
+          // KnowledgeBaseUtils.log("预处理模式：完成 focusInMindMap", "makeNote", {
+          //   noteId: processedNote.noteId
+          // })
         })
-        MNUtil.undoGrouping(()=>{
-          // this.refreshNote(note)
-          this.refreshNotes(note)
-          // this.addToReview(note, true) // 加入复习
-        })
+
+        // KnowledgeBaseUtils.log("预处理模式执行完成", "makeNote", {
+        //   noteId: note.noteId,
+        //   totalDurationMs: Date.now() - startTime
+        // })
+        return
+      }
+
+
+      // 正常模式：完整制卡流程
+      // const normalModeStartTime = Date.now();
+      // KnowledgeBaseUtils.log("进入正常模式", "makeNote", {
+      //   noteId: note.noteId,
+      //   elapsedMs: Date.now() - startTime
+      // })
+
+      MNUtil.undoGrouping(() => {
+        // const processStartTime = Date.now();
+        let processedNote = this.processNote(note)
+        // KnowledgeBaseUtils.log("正常模式：完成 processNote", "makeNote", {
+        //   noteId: note.noteId,
+        //   processedNoteId: processedNote.noteId,
+        //   stepDurationMs: Date.now() - processStartTime
+        // })
+
+        // const makeCardStartTime = Date.now();
+        this.makeCard(processedNote, addToReview, reviewEverytime)
+        // KnowledgeBaseUtils.log("正常模式：完成 makeCard", "makeNote", {
+        //   noteId: processedNote.noteId,
+        //   addToReview: addToReview,
+        //   reviewEverytime: reviewEverytime,
+        //   stepDurationMs: Date.now() - makeCardStartTime
+        // })
+        if (KnowledgeBaseConfig.config.classAutoPinMode) {
+          pinnerUtils.pinCard(processedNote.noteId, { section: "class"})
+        }
+        if (focus) { processedNote.focusInMindMap(0.4) }
+        // KnowledgeBaseUtils.log("正常模式：完成 focusInMindMap", "makeNote", {
+        //   noteId: processedNote.noteId
+        // })
       })
-    } else {
-      this.makeCard(note, addToReview, reviewEverytime) // 制卡
-      this.refreshNotes(note)
+
+      // KnowledgeBaseUtils.log("正常模式执行完成", "makeNote", {
+      //   noteId: note.noteId,
+      //   totalDurationMs: Date.now() - startTime
+      // })
+    } catch (error) {
+      MNUtil.showHUD(`❌ 制卡失败: ${error.message}`);
+      KnowledgeBaseUtils.addErrorLog(error, "makeNote")
     }
   }
 
@@ -733,6 +1525,9 @@ class KnowledgeBaseTemplate {
     // 移动内容到默认字段
     this.moveCommentsArrToField(note, moveIndexArr, defaultField);
     
+    if (!["证明", "反例", "原理"].includes(this.normalizeFieldName(defaultField))) {
+      return
+    }
     // 处理之前提取的 MarginNote 链接
     if (marginNoteLinks.length > 0) {
       this.processExtractedMarginNoteLinks(note, marginNoteLinks);
@@ -817,13 +1612,14 @@ class KnowledgeBaseTemplate {
    * @param {Array<{text: string, url: string}>} marginNoteLinks - 已提取的链接数组
    */
   static processExtractedMarginNoteLinks(note, marginNoteLinks) {
-    // 定义允许链接的目标字段
-    const allowedTargetFields = [
+    // 定义允许链接的目标字段（标准化后的名称，无冒号）
+    const normalizedAllowedFields = [
       "相关链接",
-      "相关链接：",
-      "应用：",
       "应用"
     ];
+    
+    let successCount = 0;
+    let skippedCount = 0;
     
     // 处理每个找到的 MarginNote 链接
     marginNoteLinks.forEach(linkInfo => {
@@ -840,10 +1636,19 @@ class KnowledgeBaseTemplate {
           return;
         }
         
-        // 检查目标卡片的最后一个字段是否在允许列表中
-        let targetLastField = this.getLastFieldOfNote(targetNote);
+        // 获取目标卡片的所有 HTML 评论字段
+        let htmlCommentsTextArr = this.parseNoteComments(targetNote).htmlCommentsTextArr;
         
-        if (!targetLastField || !allowedTargetFields.includes(targetLastField)) {
+        // 检查目标卡片中是否存在任何允许的字段（使用标准化后的字段名比较）
+        let hasAllowedField = htmlCommentsTextArr.some(fieldText => {
+          let normalizedFieldText = this.normalizeFieldName(fieldText);
+          return normalizedAllowedFields.some(allowedField => 
+            normalizedFieldText.includes(allowedField)
+          );
+        });
+        
+        if (!hasAllowedField) {
+          skippedCount++;
           return;
         }
         
@@ -853,10 +1658,27 @@ class KnowledgeBaseTemplate {
         // 对目标卡片的最后一个字段进行链接去重
         this.removeDuplicateLinksInLastField(targetNote);
         
+        successCount++;
+        
       } catch (error) {
-        // 忽略错误
+        // 记录错误并继续处理其他链接
+        KnowledgeBaseUtils.addErrorLog(
+          `处理反向链接时发生错误：${error.message}`, 
+          "processExtractedMarginNoteLinks",
+          { error: error.stack }
+        );
       }
     });
+    
+    // 如果有跳过的链接，显示提示
+    if (skippedCount > 0 && successCount === 0) {
+      MNUtil.showHUD(`⚠️ ${skippedCount} 个链接因目标卡片缺少"相关链接"或"应用"字段而未建立反向链接`);
+    } else if (successCount > 0) {
+      this.log(
+        `反向链接处理完成：成功 ${successCount} 个，跳过 ${skippedCount} 个`, 
+        "processExtractedMarginNoteLinks"
+      );
+    }
   }
 
   /**
@@ -933,11 +1755,10 @@ class KnowledgeBaseTemplate {
   /**
    * 转化为非摘录版本
    */
-  static toNoExcerptVersion(note){
-    if (note.parentNote) {
+  static toNoExcerptVersion(note, inputParentNote){
+    let parentNote = inputParentNote || note.parentNote
+    if (parentNote) {
       if (note.excerptText) { // 把摘录内容的检测放到 toNoExcerptVersion 的内部
-        let parentNote = note.parentNote
-        
         let config = {
           title: note.noteTitle,
           content: "",
@@ -948,9 +1769,13 @@ class KnowledgeBaseTemplate {
         let newNote = parentNote.createChildNote(config)
         
         note.noteTitle = ""
+
+        let index = note.indexInBrotherNotes
         
         // 将旧卡片合并到新卡片中
         note.mergeInto(newNote)
+
+        newNote.moveTo(index)
       
         return newNote; // 返回新卡片
       } else {
@@ -958,259 +1783,516 @@ class KnowledgeBaseTemplate {
       }
     } else {
       MNUtil.showHUD("没有父卡片，无法进行非摘录版本的转换！")
+      return note
     }
+  }
+
+  // ============================================
+  // 🚀 性能优化：临时缓存辅助函数
+  // ============================================
+
+  /**
+   * 获取缓存的卡片类型
+   *
+   * @param {MNNote} note - 卡片对象
+   * @param {Object} cache - 缓存对象
+   * @returns {string|undefined} 卡片类型
+   */
+  static getCachedNoteType(note, cache) {
+    if (!cache || !cache.noteTypes) {
+      // 如果没有缓存，直接调用原函数
+      return this.getNoteType(note, true);
+    }
+
+    const cacheKey = note.noteId;
+    if (cache.noteTypes.has(cacheKey)) {
+      return cache.noteTypes.get(cacheKey);
+    }
+
+    // 使用 directly=true 避免递归调用 getFirstClassificationParentNote
+    const type = this.getNoteType(note, true);
+    cache.noteTypes.set(cacheKey, type);
+    return type;
+  }
+
+  /**
+   * 获取缓存的归类父卡片
+   *
+   * @param {MNNote} note - 卡片对象
+   * @param {Object} cache - 缓存对象
+   * @returns {MNNote|null} 归类父卡片
+   */
+  static getCachedClassificationParent(note, cache) {
+    if (!cache || !cache.classificationParent) {
+      // 如果没有缓存，调用原函数
+      return this.getFirstClassificationParentNote(note);
+    }
+
+    const cacheKey = note.noteId;
+    if (cache.classificationParent.has(cacheKey)) {
+      return cache.classificationParent.get(cacheKey);
+    }
+
+    const parent = this.getFirstClassificationParentNoteOptimized(note, cache);
+    cache.classificationParent.set(cacheKey, parent);
+    return parent;
+  }
+
+  /**
+   * 获取缓存的解析评论对象
+   *
+   * @param {MNNote} note - 卡片对象
+   * @param {Object} cache - 缓存对象
+   * @returns {Object} 解析后的评论对象
+   */
+  static getCachedParsedComments(note, cache) {
+    if (!cache || !cache.parsedComments) {
+      // 如果没有缓存，直接调用原函数
+      return this.parseNoteComments(note);
+    }
+
+    const cacheKey = note.noteId;
+    if (cache.parsedComments.has(cacheKey)) {
+      return cache.parsedComments.get(cacheKey);
+    }
+
+    const parsed = this.parseNoteComments(note);
+    cache.parsedComments.set(cacheKey, parsed);
+    return parsed;
+  }
+
+  /**
+   * 优化版的归类父卡片查找（使用缓存）
+   *
+   * @param {MNNote} note - 当前卡片
+   * @param {Object} cache - 缓存对象
+   * @returns {MNNote|null} 找到的归类父卡片，未找到返回 null
+   */
+  static getFirstClassificationParentNoteOptimized(note, cache) {
+    let parentNote = note.parentNote;
+    let depth = 0;
+
+    while (parentNote) {
+      depth++;
+      // 使用缓存版本获取类型，避免重复计算
+      const parentType = this.getCachedNoteType(parentNote, cache);
+      if (parentType === "归类") {
+        // KnowledgeBaseUtils.log("找到归类父卡片（优化版）", "getFirstClassificationParentNoteOptimized", {
+        //   noteId: note.noteId,
+        //   classificationParentNoteId: parentNote.noteId,
+        //   classificationParentNoteTitle: parentNote.noteTitle,
+        //   traversalDepth: depth
+        // });
+        return parentNote;
+      }
+      parentNote = parentNote.parentNote;
+    }
+
+    // KnowledgeBaseUtils.log("未找到归类父卡片（优化版）", "getFirstClassificationParentNoteOptimized", {
+    //   noteId: note.noteId,
+    //   traversalDepth: depth
+    // });
+
+    return null;
+  }
+
+  /**
+   * 从解析的评论对象中获取指定字段下的所有链接
+   *
+   * @param {Object} commentsObj - parseNoteComments 返回的对象
+   * @param {string[]} fieldNames - 字段名称数组，如 ["所属", "包含", "相关链接"]
+   * @returns {Array} 字段下的链接对象数组，每个对象包含 {index, link, text}
+   */
+  static getLinksInFields(commentsObj, fieldNames) {
+    const linksInFields = [];
+
+    if (!commentsObj || !commentsObj.htmlCommentsObjArr || !commentsObj.linksObjArr) {
+      return linksInFields;
+    }
+
+    // 遍历所有 HTML 字段
+    for (let htmlObj of commentsObj.htmlCommentsObjArr) {
+      // 检查字段名称是否在目标字段列表中
+      const isTargetField = fieldNames.some(field => htmlObj.text.includes(field));
+
+      if (isTargetField && htmlObj.excludingFieldBlockIndexArr) {
+        // 找出这个字段下的所有链接
+        for (let linkObj of commentsObj.linksObjArr) {
+          if (htmlObj.excludingFieldBlockIndexArr.includes(linkObj.index)) {
+            linksInFields.push(linkObj);
+          }
+        }
+      }
+    }
+
+    return linksInFields;
   }
 
   /**
    * 链接广义的父卡片（可能是链接归类卡片）
-   * 
+   *
    * 支持清理旧链接：当卡片移动位置导致父卡片改变时，会自动删除与旧父卡片的链接
+   * 支持累次叠加：通过 accumulate 参数控制是否保留旧的父卡片链接
+   *
+   * @param {MNNote} note - 要处理的卡片
+   * @param {boolean} force - 是否强制清理旧链接（默认 true）
+   * @param {boolean} accumulate - 是否累次叠加模式（不删除旧链接，默认 false）
    */
-  static linkParentNote(note) {
+  static linkParentNote(note, force = true, accumulate = false) {
+    // ============================================
+    // 🚀 性能优化：创建临时缓存对象
+    // ============================================
+    const cache = {
+      noteTypes: new Map(),
+      parsedComments: new Map(),
+      classificationParent: new Map()
+    };
+
+    // 一次性获取并缓存当前卡片类型
+    const noteType = this.getCachedNoteType(note, cache);
+
+    // KnowledgeBaseUtils.log("开始执行 linkParentNote（优化版）", "linkParentNote", {
+    //   noteId: note.noteId,
+    //   noteType: noteType,
+    //   force: force,
+    //   accumulate: accumulate
+    // })
+
     /**
      * 不处理的类型
      */
-    let excludingTypes = ["思路", "总结", "研究进展"];
-    if (excludingTypes.includes(this.getNoteType(note))) {
+    const excludingTypes = ["思路", "总结", "研究进展"];
+    if (excludingTypes.includes(noteType)) {
+      // KnowledgeBaseUtils.log("跳过不处理的类型", "linkParentNote", {
+      //   noteType: noteType
+      // })
       return; // 不处理
     }
 
-    let parentNote = note.parentNote
+    const parentNote = note.parentNote;
     if (parentNote) {
+      // 获取并缓存父卡片类型
+      const parentNoteType = this.getCachedNoteType(parentNote, cache);
+
       // 获取卡片类型，确定链接移动的目标字段
-      let parentNoteInNoteTargetField  // 父卡片在 note 中的链接最终要到的字段
-      let ifParentNoteInNoteTargetFieldToBottom = false // 父卡片在 note 中的链接最终要到的是否是字段的底部
-      let noteInParentNoteTargetField // note 在父卡片中的链接最终要到的字段
-      let ifNoteInParentNoteTargetFieldToBottom = false // note 在父卡片中的链接最终要到的是否是字段的底部
-      
+      let parentNoteInNoteTargetField;  // 父卡片在 note 中的链接最终要到的字段
+      let ifParentNoteInNoteTargetFieldToBottom = false; // 父卡片在 note 中的链接最终要到的是否是字段的底部
+      let noteInParentNoteTargetField; // note 在父卡片中的链接最终要到的字段
+      let ifNoteInParentNoteTargetFieldToBottom = false; // note 在父卡片中的链接最终要到的是否是字段的底部
+
       // 用于实际链接操作的父卡片变量
-      let actualParentNote = parentNote
-      
-      switch (this.getNoteType(note)) {
+      let actualParentNote = parentNote;
+
+      switch (noteType) {
         case "归类":
-          if (this.getNoteType(parentNote) !== "归类") {
-            switch (this.getNoteType(parentNote)) {
+          if (parentNoteType !== "归类") {
+            switch (parentNoteType) {
               case "定义":
-                parentNoteInNoteTargetField = "所属"
-                ifParentNoteInNoteTargetFieldToBottom = false
-                noteInParentNoteTargetField = "相关链接"
-                ifNoteInParentNoteTargetFieldToBottom = true
+                parentNoteInNoteTargetField = "所属";
+                ifParentNoteInNoteTargetFieldToBottom = false;
+                noteInParentNoteTargetField = "相关链接";
+                ifNoteInParentNoteTargetFieldToBottom = true;
                 break;
               default:
-                parentNoteInNoteTargetField = "所属"
-                ifParentNoteInNoteTargetFieldToBottom = false
-                noteInParentNoteTargetField = "相关链接"
-                ifNoteInParentNoteTargetFieldToBottom = true
+                parentNoteInNoteTargetField = "所属";
+                ifParentNoteInNoteTargetFieldToBottom = false;
+                noteInParentNoteTargetField = "相关链接";
+                ifNoteInParentNoteTargetFieldToBottom = true;
                 break;
             }
           } else {
             // 父卡片为归类卡片
-            parentNoteInNoteTargetField = "所属"
-            ifParentNoteInNoteTargetFieldToBottom = false
-            noteInParentNoteTargetField = "包含"
-            ifNoteInParentNoteTargetFieldToBottom = true 
+            parentNoteInNoteTargetField = "所属";
+            ifParentNoteInNoteTargetFieldToBottom = false;
+            noteInParentNoteTargetField = "包含";
+            ifNoteInParentNoteTargetFieldToBottom = true;
           }
           break;
         default:
-          // 对于非归类卡片，使用第一个归类父卡片
-          let classificationParentNote = this.getFirstClassificationParentNote(note);
+          // 对于非归类卡片，使用第一个归类父卡片（使用缓存版本）
+          // KnowledgeBaseUtils.log("开始查找归类父卡片（使用缓存）", "linkParentNote", {
+          //   noteId: note.noteId
+          // })
+
+          const classificationParentNote = this.getCachedClassificationParent(note, cache);
+
+          // KnowledgeBaseUtils.log("完成查找归类父卡片", "linkParentNote", {
+          //   noteId: note.noteId,
+          //   found: !!classificationParentNote,
+          //   classificationParentNoteId: classificationParentNote?.noteId
+          // })
+
           if (classificationParentNote) {
-            actualParentNote = classificationParentNote
-            parentNoteInNoteTargetField = "相关链接"
-            ifParentNoteInNoteTargetFieldToBottom = false
-            noteInParentNoteTargetField = "包含"
-            ifNoteInParentNoteTargetFieldToBottom = true 
+            actualParentNote = classificationParentNote;
+            parentNoteInNoteTargetField = "相关链接";
+            ifParentNoteInNoteTargetFieldToBottom = false;
+            noteInParentNoteTargetField = "包含";
+            ifNoteInParentNoteTargetFieldToBottom = true;
           } else {
             // 如果没有找到归类父卡片，直接返回，不处理
-            return
+            return;
           }
           break;
       }
 
-      /**
-       * 清理旧链接：删除与其他父卡片的链接
-       */
-      this.cleanupOldParentLinks(note, actualParentNote)
+      // 清理旧链接（如果需要且不是累次叠加模式）
+      if (force && !accumulate) {
+        /**
+         * 清理旧链接：删除与其他父卡片的链接
+         */
+        // KnowledgeBaseUtils.log("开始 cleanupOldParentLinks（非累次叠加）", "linkParentNote", {
+        //   noteId: note.noteId,
+        //   actualParentNoteId: actualParentNote.noteId
+        // })
+
+        this.cleanupOldParentLinks(note, actualParentNote, cache);
+
+        // KnowledgeBaseUtils.log("完成 cleanupOldParentLinks", "linkParentNote", {
+        //   noteId: note.noteId
+        // })
+      } else if (accumulate) {
+        // KnowledgeBaseUtils.log("累次叠加模式：跳过清理旧链接", "linkParentNote", {
+        //   noteId: note.noteId
+        // })
+      }
 
       /**
        * 先保证有链接（在确定目标字段后再添加链接）
        */
       let parentNoteInNoteIndex = this.getNoteIndexInAnotherNote(actualParentNote, note)
       let noteInParentNoteIndex = this.getNoteIndexInAnotherNote(note, actualParentNote)
-      
+
+      // KnowledgeBaseUtils.log("查找链接索引完成", "linkParentNote", {
+      //   noteId: note.noteId,
+      //   parentNoteInNoteIndex: parentNoteInNoteIndex,
+      //   noteInParentNoteIndex: noteInParentNoteIndex
+      // })
+
       // 如果没有链接，先添加链接
       if (parentNoteInNoteIndex == -1) {
         note.appendNoteLink(actualParentNote, "To")
         // 重新获取索引（因为添加了链接）
         parentNoteInNoteIndex = this.getNoteIndexInAnotherNote(actualParentNote, note)
+
+        // KnowledgeBaseUtils.log("添加父卡片链接到 note", "linkParentNote", {
+        //   noteId: note.noteId,
+        //   newIndex: parentNoteInNoteIndex
+        // })
       }
       if (noteInParentNoteIndex == -1) {
         actualParentNote.appendNoteLink(note, "To")
         // 重新获取索引（因为添加了链接）
         noteInParentNoteIndex = this.getNoteIndexInAnotherNote(note, actualParentNote)
+
+        // KnowledgeBaseUtils.log("添加 note 链接到父卡片", "linkParentNote", {
+        //   noteId: note.noteId,
+        //   newIndex: noteInParentNoteIndex
+        // })
       }
+
+      // KnowledgeBaseUtils.log(`linkParentNote: parentNoteInNoteIndex=${parentNoteInNoteIndex}, noteInParentNoteIndex=${noteInParentNoteIndex}`, "linkParentNote", {linkParentNote:this.ifLinkParentNote(note)})
 
       // 最后进行移动（确保索引是最新的）
       if (parentNoteInNoteIndex !== -1 && parentNoteInNoteTargetField) {
+        // KnowledgeBaseUtils.log("开始移动父卡片链接到目标字段", "linkParentNote", {
+        //   noteId: note.noteId,
+        //   targetField: parentNoteInNoteTargetField,
+        //   index: parentNoteInNoteIndex
+        // })
+
         this.moveCommentsArrToField(note, [parentNoteInNoteIndex], parentNoteInNoteTargetField, ifParentNoteInNoteTargetFieldToBottom)
+
+        // KnowledgeBaseUtils.log("完成移动父卡片链接", "linkParentNote", {
+        //   noteId: note.noteId
+        // })
       }
       if (noteInParentNoteIndex !== -1 && noteInParentNoteTargetField) {
+        // KnowledgeBaseUtils.log("开始移动 note 链接到父卡片目标字段", "linkParentNote", {
+        //   noteId: note.noteId,
+        //   targetField: noteInParentNoteTargetField,
+        //   index: noteInParentNoteIndex
+        // })
+
         this.moveCommentsArrToField(actualParentNote, [noteInParentNoteIndex], noteInParentNoteTargetField, ifNoteInParentNoteTargetFieldToBottom)
+
+        // KnowledgeBaseUtils.log("完成移动 note 链接到父卡片", "linkParentNote", {
+        //   noteId: note.noteId
+        // })
       }
+
+      // KnowledgeBaseUtils.log("linkParentNote 执行完成", "linkParentNote", {
+      //   noteId: note.noteId
+      // })
     }
   }
 
   /**
-   * 清理旧的父卡片链接
-   * 
-   * 删除当前卡片和其他父卡片之间的相互链接（保留与当前父卡片的链接）
-   * 
+   * 清理旧的父卡片链接（简化优化版）
+   *
+   * 策略：只清理特定字段下指向其他归类卡片的链接
+   *
    * @param {MNNote} note - 当前卡片
    * @param {MNNote} currentParentNote - 当前的父卡片，不会被删除
+   * @param {Object} cache - 缓存对象（可选）
    */
-  static cleanupOldParentLinks(note, currentParentNote) {
-    // 获取当前卡片中的所有链接
-    let noteCommentsObj = this.parseNoteComments(note)
-    let linksInNote = noteCommentsObj.linksObjArr
-    
-    // 性能优化：先过滤出可能需要清理的链接
-    // 跳过在"应用"字段下的链接，因为它们不太可能是父卡片链接
-    let htmlCommentsObjArr = noteCommentsObj.htmlCommentsObjArr
-    let applicationFieldObj = null
-    
-    // 查找"应用"字段
-    for (let i = 0; i < htmlCommentsObjArr.length; i++) {
-      if (htmlCommentsObjArr[i].text === "应用" || htmlCommentsObjArr[i].text === "应用：") {
-        applicationFieldObj = htmlCommentsObjArr[i]
-        break
-      }
+  static cleanupOldParentLinks(note, currentParentNote, cache = null) {
+    // KnowledgeBaseUtils.log("开始执行 cleanupOldParentLinks（简化优化版）", "cleanupOldParentLinks", {
+    //   noteId: note.noteId,
+    //   currentParentNoteId: currentParentNote?.noteId,
+    //   hasCache: !!cache
+    // });
+
+    // 1. 获取卡片类型
+    const noteType = cache ?
+      this.getCachedNoteType(note, cache) :
+      this.getNoteType(note, true);
+
+    // 2. 根据卡片类型动态决定要清理的字段
+    // 归类卡片："所属"存放上级归类，"包含"存放子卡片，"相关链接"存放相关链接
+    // 其他卡片：只有"相关链接"字段可能有父归类链接
+    const targetFields = noteType === "归类"
+      ? ["所属", "相关链接"]      // 归类卡片：保护"包含"字段
+      : ["相关链接"];             // 其他卡片：只清理"相关链接"
+
+    // KnowledgeBaseUtils.log("确定要清理的字段", "cleanupOldParentLinks", {
+    //   noteId: note.noteId,
+    //   noteType: noteType,
+    //   targetFields: targetFields
+    // });
+
+    // 1. 使用缓存版本解析评论
+    const commentsObj = cache ?
+      this.getCachedParsedComments(note, cache) :
+      this.parseNoteComments(note);
+
+    // KnowledgeBaseUtils.log("完成解析评论", "cleanupOldParentLinks", {
+    //   noteId: note.noteId,
+    //   totalLinks: commentsObj.linksObjArr.length
+    // });
+
+    // 2. 获取目标字段下的所有链接
+    const linksInTargetFields = this.getLinksInFields(commentsObj, targetFields);
+
+    if (linksInTargetFields.length === 0) {
+      // KnowledgeBaseUtils.log("目标字段下没有链接，提前返回", "cleanupOldParentLinks", {
+      //   noteId: note.noteId
+      // });
+      return;
     }
-    
-    // 过滤链接：排除"应用"字段下的链接
-    let potentialParentLinks = linksInNote
-    if (applicationFieldObj) {
-      let applicationFieldRange = applicationFieldObj.excludingFieldBlockIndexArr
-      potentialParentLinks = linksInNote.filter(linkObj => {
-        // 如果链接在"应用"字段的范围内，则跳过
-        return !applicationFieldRange.includes(linkObj.index)
-      })
-    }
-    
-    // 如果过滤后没有链接需要检查，直接返回
-    if (potentialParentLinks.length === 0) {
-      return
-    }
-    
-    // 性能优化：如果链接太多，只处理前20个
-    const MAX_LINKS_TO_CHECK = 20
-    if (potentialParentLinks.length > MAX_LINKS_TO_CHECK) {
-      potentialParentLinks = potentialParentLinks.slice(0, MAX_LINKS_TO_CHECK)
-    }
-    
-    // 收集需要删除的旧父卡片链接（先收集，后删除，避免索引混乱）
-    let oldParentNotesToCleanup = []
-    
-    potentialParentLinks.forEach(linkObj => {
+
+    // KnowledgeBaseUtils.log("找到目标字段下的链接", "cleanupOldParentLinks", {
+    //   noteId: note.noteId,
+    //   linkCount: linksInTargetFields.length
+    // });
+
+    // 3. 收集需要删除的旧父卡片链接
+    const linksToRemove = [];
+
+    for (let linkObj of linksInTargetFields) {
       try {
-        // 从链接 URL 中提取 noteId
-        let targetNoteId = linkObj.link.match(/marginnote[34]app:\/\/note\/([^\/]+)/)?.[1]
-        if (targetNoteId) {
-          // 检查这个链接是否指向一个可能的父卡片
-          let targetNote = MNNote.new(targetNoteId, false) // 不弹出警告
-          if (!targetNote) return
-          
-          // 保护规则：
-          // 1. 排除当前要链接的父卡片
-          if (currentParentNote && targetNoteId === currentParentNote.noteId) {
-            return
-          }
-          
-          // 2. 保护直接的父子关系（即使不是归类卡片）
-          if (note.parentNote && targetNoteId === note.parentNote.noteId) {
-            return // 保留与直接父卡片的链接
-          }
-          
-          // 3. 保护子卡片到当前卡片的链接
+        // 提取链接的目标 noteId
+        const targetNoteId = linkObj.link.match(/marginnote[34]app:\/\/note\/([^\/]+)/)?.[1];
+        if (!targetNoteId) continue;
+
+        // 保护当前父卡片
+        if (currentParentNote && targetNoteId === currentParentNote.noteId) {
+          continue;
+        }
+
+        // 获取目标卡片
+        const targetNote = MNNote.new(targetNoteId, false);
+        if (!targetNote) continue;
+
+        // 使用缓存版本获取目标卡片类型
+        const targetType = cache ?
+          this.getCachedNoteType(targetNote, cache) :
+          this.getNoteType(targetNote, true);
+
+        // 只清理指向归类卡片的链接
+        if (targetType === "归类") {
+          // 检查目标卡片是否是当前卡片的子卡片
+          // 如果是子卡片，不应该清理这个链接（例如：定义卡片 A 有归类子卡片 B）
           if (targetNote.parentNote && targetNote.parentNote.noteId === note.noteId) {
-            return // 保留与直接子卡片的链接
+            // KnowledgeBaseUtils.log("跳过清理子卡片链接", "cleanupOldParentLinks", {
+            //   noteId: note.noteId,
+            //   childNoteId: targetNoteId
+            // });
+            continue;
           }
-          
-          // 只有当目标卡片是潜在的父卡片时，才考虑清理
-          if (this.isPotentialParentNote(targetNote, note)) {
-            // 4. 重要保护：检查链接是否在 linkParentNote 使用的特定字段下
-            // 只清理那些通过 linkParentNote 创建的链接（在"所属"、"包含"、"相关链接"字段下）
-            let isInParentNoteField = this.isLinkInParentNoteFields(linkObj.index, noteCommentsObj)
-            
-            if (!isInParentNoteField) {
-              // 如果链接不在 linkParentNote 的特定字段下，说明可能是用户手动创建的
-              return // 不清理这个链接
-            }
-            
-            // 额外检查：如果对方也有链接回来，且也不在特定字段下，这是用户创建的双向链接
-            let targetHasLinkBack = false
-            let targetLinkInParentField = false
-            try {
-              let targetNoteCommentsObj = this.parseNoteComments(targetNote)
-              let targetLinks = targetNoteCommentsObj.linksObjArr
-              let targetLinkObj = targetLinks.find(link => {
-                let linkId = link.link.match(/marginnote[34]app:\/\/note\/([^\/]+)/)?.[1]
-                return linkId === note.noteId
-              })
-              
-              if (targetLinkObj) {
-                targetHasLinkBack = true
-                targetLinkInParentField = this.isLinkInParentNoteFields(targetLinkObj.index, targetNoteCommentsObj)
-              }
-            } catch (e) {
-              // 忽略错误
-            }
-            
-            // 如果双方都有链接但都不在特定字段下，保护这个双向链接
-            if (targetHasLinkBack && !targetLinkInParentField) {
-              return // 不清理这个链接
-            }
-            
-            // 只有在特定字段下的链接才会被清理
-            oldParentNotesToCleanup.push({
-              targetNote: targetNote,
-              linkText: linkObj.link,
-              linkIndex: linkObj.index
-            })
-          }
+
+          linksToRemove.push({
+            targetNote: targetNote,
+            linkText: linkObj.link
+          });
+
+          // KnowledgeBaseUtils.log("标记待删除链接", "cleanupOldParentLinks", {
+          //   noteId: note.noteId,
+          //   targetNoteId: targetNoteId,
+          //   targetType: targetType
+          // });
         }
       } catch (error) {
         // 忽略解析错误，继续处理其他链接
+        // KnowledgeBaseUtils.log("解析链接时出错", "cleanupOldParentLinks", {
+        //   error: error.message
+        // });
       }
-    })
-    
-    // 执行清理：删除双向链接
-    if (oldParentNotesToCleanup.length > 0) {
-      oldParentNotesToCleanup.forEach(cleanup => {
-        try {
-          // 删除当前卡片中指向旧父卡片的链接（按文本删除，避免索引问题）
-          this.removeCommentsByText(note, cleanup.linkText)
-          
-          // 删除旧父卡片中指向当前卡片的链接
-          this.removeLinkToNote(cleanup.targetNote, note.noteId)
-        } catch (error) {
-          // 忽略错误，继续处理
-        }
-      })
     }
+
+    // KnowledgeBaseUtils.log("完成收集待清理链接", "cleanupOldParentLinks", {
+    //   noteId: note.noteId,
+    //   totalToRemove: linksToRemove.length
+    // });
+
+    // 4. 执行清理：删除双向链接
+    if (linksToRemove.length > 0) {
+      for (let removal of linksToRemove) {
+        try {
+          // 删除当前卡片中指向旧父卡片的链接
+          this.removeCommentsByText(note, removal.linkText);
+
+          // 删除旧父卡片中指向当前卡片的链接
+          this.removeLinkToNote(removal.targetNote, note.noteId);
+
+          // KnowledgeBaseUtils.log("成功删除双向链接", "cleanupOldParentLinks", {
+          //   noteId: note.noteId,
+          //   removedTargetId: removal.targetNote.noteId
+          // });
+        } catch (error) {
+          // 忽略错误，继续处理下一个
+          // KnowledgeBaseUtils.log("删除链接时出错", "cleanupOldParentLinks", {
+          //   error: error.message
+          // });
+        }
+      }
+
+      // KnowledgeBaseUtils.log("完成执行清理", "cleanupOldParentLinks", {
+      //   noteId: note.noteId,
+      //   cleanedCount: linksToRemove.length
+      // });
+    } else {
+      // KnowledgeBaseUtils.log("没有需要清理的链接", "cleanupOldParentLinks", {
+      //   noteId: note.noteId
+      // });
+    }
+
+    // KnowledgeBaseUtils.log("cleanupOldParentLinks 执行完成", "cleanupOldParentLinks", {
+    //   noteId: note.noteId
+    // });
   }
 
   /**
    * 判断一个卡片是否可能是另一个卡片的父卡片
-   * 
+   *
    * @param {MNNote} potentialParent - 可能的父卡片
    * @param {MNNote} childNote - 子卡片
    * @returns {boolean} - 是否是潜在的父卡片
    */
   static isPotentialParentNote(potentialParent, childNote) {
-    if (!potentialParent || !childNote) return false
-    
+    if (!potentialParent || !childNote) return false;
+
     // 首先检查是否真的在祖先链中（实际的父子关系）
-    let current = childNote.parentNote
+    let current = childNote.parentNote;
     while (current) {
       if (current.noteId === potentialParent.noteId) {
         return true // 找到了真实的父卡片关系
@@ -1954,15 +3036,30 @@ class KnowledgeBaseTemplate {
    * 处理旧卡片
    */
   static renewNote(note) {
+    // KnowledgeBaseUtils.log("开始执行 renewNote", "renewNote", {
+    //   noteId: note.noteId,
+    //   noteTitle: note.noteTitle,
+    //   isOldTemplate: this.isOldTemplateCard(note)
+    // })
+
     // 首先判断并处理旧模板卡片
     if (this.isOldTemplateCard(note)) {
       let newNote = this.processOldTemplateCard(note);
       this.changeTitle(newNote)
+      // KnowledgeBaseUtils.log("完成处理旧模板卡片", "renewNote", {
+      //   step: "processOldTemplateCard",
+      //   newNoteId: newNote.noteId
+      // })
       return newNote
     }
-    
+
     let newNote = this.toNoExcerptVersion(note)
-    
+    // KnowledgeBaseUtils.log("完成 toNoExcerptVersion ⭐", "renewNote", {
+    //   step: "toNoExcerptVersion",
+    //   newNoteId: newNote.noteId,
+    //   commentsCount: newNote.comments.length
+    // })
+
     // 处理链接相关问题
     // this.convertLinksToNewVersion(note)
     // this.cleanupBrokenLinks(note)
@@ -1971,33 +3068,67 @@ class KnowledgeBaseTemplate {
     // note.cleanupBrokenLinks()
     // note.fixMergeProblematicLinks()
     this.renewLinks(newNote)
-    
+    // KnowledgeBaseUtils.log("完成 renewLinks ⭐", "renewNote", {
+    //   step: "renewLinks",
+    //   noteId: newNote.noteId
+    // })
+
     // 处理空的"关键词："字段
     this.processEmptyKeywordField(newNote)
-    
+    // KnowledgeBaseUtils.log("完成 processEmptyKeywordField", "renewNote", {
+    //   step: "processEmptyKeywordField",
+    //   noteId: newNote.noteId
+    // })
+
     // 处理不同类型转换时的第一个字段替换
     this.replaceFirstFieldIfNeeded(newNote)
+    // KnowledgeBaseUtils.log("完成 replaceFirstFieldIfNeeded", "renewNote", {
+    //   step: "replaceFirstFieldIfNeeded",
+    //   noteId: newNote.noteId
+    // })
 
-    // 去掉一些评论，比如“- ”
+    // 去掉一些评论，比如"- "
     this.removeUnnecessaryComments(newNote)
+    // KnowledgeBaseUtils.log("完成 removeUnnecessaryComments", "renewNote", {
+    //   step: "removeUnnecessaryComments",
+    //   noteId: newNote.noteId
+    // })
 
-    // 检测是否包含“应用”字段，但“应用”字段不是最后一个字段，如果不是最后一个字段，则将其移动到最后
+    // 检测是否包含"应用"字段，但"应用"字段不是最后一个字段，如果不是最后一个字段，则将其移动到最后
     this.moveApplicationFieldToEnd(newNote)
-    
+    // KnowledgeBaseUtils.log("完成 moveApplicationFieldToEnd", "renewNote", {
+    //   step: "moveApplicationFieldToEnd",
+    //   noteId: newNote.noteId
+    // })
+
     switch (this.getNoteType(newNote)) {
       case "归类":
         /**
-         * 去掉归类卡片的标题中的“xx”：“yy” 里的 xx
+         * 去掉归类卡片的标题中的"xx"："yy" 里的 xx
          */
         let titleParts = this.parseNoteTitle(newNote);
-        if (/^“[^”]*”：“[^”]*”\s*相关[^“]*$/.test(newNote.title)) {
-          newNote.title = `“${titleParts.content}”相关${titleParts.type}`;
+        if (/^"[^"]*"："[^"]*"\s*相关[^"]*$/.test(newNote.title)) {
+          newNote.title = `"${titleParts.content}"相关${titleParts.type}`;
         }
+        // KnowledgeBaseUtils.log("完成归类卡片标题处理", "renewNote", {
+        //   step: "classificationTitleProcessing",
+        //   noteId: newNote.noteId,
+        //   newTitle: newNote.title
+        // })
         break;
       case "定义":
         this.moveRelatedConceptsToRelatedThoughts(newNote);
+        // KnowledgeBaseUtils.log("完成 moveRelatedConceptsToRelatedThoughts", "renewNote", {
+        //   step: "moveRelatedConceptsToRelatedThoughts",
+        //   noteId: newNote.noteId
+        // })
         break;
     }
+
+    // KnowledgeBaseUtils.log("renewNote 执行完成", "renewNote", {
+    //   noteId: newNote.noteId,
+    //   finalCommentsCount: newNote.comments.length
+    // })
 
     return newNote
   }
@@ -2188,13 +3319,13 @@ class KnowledgeBaseTemplate {
    * []强制修改前缀
    * []如果有补充内容，则不修改前缀，防止条件内容被清除
    */
-  static changeTitle(note, forced = false) {
+  static changeTitle(note, forced = false, inputType = null) {
     /**
      * 不在制卡时修改卡片标题的类型
      * 
      * 归类：因为取消了以前的“xx”：“yy” 里的 xx，只用链接来考虑所属，所以不需要涉及改变标题
      */
-    let noteType = this.getNoteType(note)
+    let noteType = inputType?inputType:this.getNoteType(note)
     
     let excludingTypes = ["思路", "作者", "研究进展", "论文", "书作", "文献"];
     if (!excludingTypes.includes(noteType)) {
@@ -2214,6 +3345,7 @@ class KnowledgeBaseTemplate {
             let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
             // 生成新的前缀内容（不包含【】）
             let newPrefixContent = this.createChildNoteTitlePrefixContent(classificationNote);
+            
             
             // 解析当前笔记的标题
             let noteTitleParts = this.parseNoteTitle(note);
@@ -2245,12 +3377,13 @@ class KnowledgeBaseTemplate {
             let finalPrefix;
             if (shouldUpdatePrefix) {
               // 使用新前缀
-              finalPrefix = this.createTitlePrefix(classificationNoteTitleParts.type, newPrefixContent);
+              finalPrefix = this.createTitlePrefix(inputType?inputType:classificationNoteTitleParts.type, newPrefixContent);
             } else {
               // 保留现有前缀
-              finalPrefix = this.createTitlePrefix(noteTitleParts.type || classificationNoteTitleParts.type, noteTitleParts.prefixContent);
+              finalPrefix = this.createTitlePrefix(inputType?inputType:noteTitleParts.type || classificationNoteTitleParts.type, noteTitleParts.prefixContent);
             }
             
+
             // 定义类 noteTitleParts.content 前要加 `; `
             if (noteType === "定义") {
               note.title = finalPrefix + '; ' + noteTitleParts.content;
@@ -2265,6 +3398,13 @@ class KnowledgeBaseTemplate {
     note.title = Pangu.spacing(note.title)
 
     KnowledgeBaseIndexer.addToIncrementalIndex(note)
+
+    // 🚀 性能优化：修改标题后清除类型缓存，因为标题改变可能导致类型判断改变
+    this.noteTypeCache.delete(note);
+    // KnowledgeBaseUtils.log("清除卡片类型缓存", "changeTitle", {
+    //   noteId: note.noteId,
+    //   noteTitle: note.noteTitle
+    // })
   }
 
   /**
@@ -2688,29 +3828,66 @@ class KnowledgeBaseTemplate {
    * 获取第一个归类卡片的父爷卡片
    */
   static getFirstClassificationParentNote(note) {
+    // KnowledgeBaseUtils.log("开始执行 getFirstClassificationParentNote", "getFirstClassificationParentNote", {
+    //   noteId: note.noteId,
+    //   noteTitle: note.noteTitle
+    // })
+
+    // 🚀 性能优化：检查缓存
+    if (this.classificationParentCache.has(note)) {
+      const cached = this.classificationParentCache.get(note);
+      // KnowledgeBaseUtils.log("使用缓存的归类父卡片", "getFirstClassificationParentNote", {
+      //   noteId: note.noteId,
+      //   cached: cached ? cached.noteId : null
+      // })
+      return cached;
+    }
+
     let parentNote = note.parentNote;
+    let depth = 0;
+
     while (parentNote) {
+      depth++;
       // 直接调用 getNoteType，不传递 depth
       // 因为这是在遍历父节点链，不是递归调用
       if (this.getNoteType(parentNote) === "归类") {
+        // KnowledgeBaseUtils.log("找到归类父卡片", "getFirstClassificationParentNote", {
+        //   noteId: note.noteId,
+        //   classificationParentNoteId: parentNote.noteId,
+        //   classificationParentNoteTitle: parentNote.noteTitle,
+        //   traversalDepth: depth
+        // })
+
+        // 🚀 性能优化：存入缓存
+        this.classificationParentCache.set(note, parentNote);
+
         return parentNote;
       }
       parentNote = parentNote.parentNote;
     }
+
+    // KnowledgeBaseUtils.log("未找到归类父卡片", "getFirstClassificationParentNote", {
+    //   noteId: note.noteId,
+    //   traversalDepth: depth
+    // })
+
+    // 🚀 性能优化：缓存 null 结果（避免重复查找）
+    this.classificationParentCache.set(note, null);
+
     return null;
   }
 
   /**
    * 【非摘录版本】初始状态合并模板卡片后自动移动卡片的内容
    */
-  static mergeTemplateAndAutoMoveNoteContent(note) {
+  static mergeTemplateAndAutoMoveNoteContent(note, directly) {
     // 特殊处理：如果只有一条评论且是手写类型，直接合并模板不移动内容
     if (note.MNComments.length === 1) {
       let commentType = note.MNComments[0].type;
       if (commentType === "drawingComment" || 
           commentType === "imageCommentWithDrawing" || 
           commentType === "mergedImageCommentWithDrawing") {
-        MNUtil.log("🖊️ 检测到单个手写评论，直接合并模板，不移动内容");
+        // MNUtil.log("🖊️ 检测到单个手写评论，直接合并模板，不移动内容");
         this.mergeTemplate(note);
         return;
       }
@@ -2720,7 +3897,7 @@ class KnowledgeBaseTemplate {
     const typeWhitelist = []; // 暂时为空，后续可以添加需要排除的卡片类型
     
     // 获取卡片类型
-    let noteType = this.getNoteType(note);
+    let noteType = this.getNoteType(note, directly);
     
     // 检查是否为特殊情况：只有合并图片和链接
     let isSpecialCase = false;
@@ -2758,15 +3935,14 @@ class KnowledgeBaseTemplate {
     let marginNoteLinks = [];
     if (moveIndexArr.length > 0) {
       marginNoteLinks = this.extractMarginNoteLinksFromComments(note, moveIndexArr);
-      MNUtil.log(`🔍 在合并模板前找到 ${marginNoteLinks.length} 个 MarginNote 链接`);
+      // MNUtil.log(`🔍 在合并模板前找到 ${marginNoteLinks.length} 个 MarginNote 链接`);
     }
     
     let ifTemplateMerged = this.mergeTemplate(note)
 
+    // 使用映射表获取默认字段
+    let field = this.getDefaultFieldForType(noteType);
     if (!ifTemplateMerged) {
-      // 使用映射表获取默认字段
-      let field = this.getDefaultFieldForType(noteType);
-      
       // 特殊处理：将链接移动到最底下
       if (isSpecialCase) {
         note.moveCommentsByIndexArr(moveIndexArr, note.comments.length);
@@ -2776,10 +3952,14 @@ class KnowledgeBaseTemplate {
         }
       }
     }
+
+    if (!["证明", "反例", "原理"].includes(this.normalizeFieldName(field))) {
+      return
+    }
     
     // 处理之前提取的 MarginNote 链接
     if (marginNoteLinks.length > 0) {
-      MNUtil.log("🔗 开始处理合并模板前提取的 MarginNote 链接...");
+      // MNUtil.log("🔗 开始处理合并模板前提取的 MarginNote 链接...");
       this.processExtractedMarginNoteLinks(note, marginNoteLinks);
     }
   }
@@ -2811,7 +3991,8 @@ class KnowledgeBaseTemplate {
    */
   static mergeTitleLinkWords(targetNote, sourceNote) {
     // 如果任一卡片没有标题，不处理
-    if (!targetNote.noteTitle || !sourceNote.noteTitle) {
+    if (!sourceNote.noteTitle) {
+      KnowledgeBaseUtils.log("sourceNote 没有标题", "mergeTitleLinkWords")
       return;
     }
 
@@ -2893,19 +4074,7 @@ class KnowledgeBaseTemplate {
       // 收集需要检查的卡片
       const notesToCheck = new Set();
 
-      // 1. 添加源卡片的父卡片
-      if (sourceNote.parentNote) {
-        notesToCheck.add(sourceNote.parentNote.noteId);
-      }
-
-      // 2. 添加源卡片的子卡片
-      if (sourceNote.childNotes && sourceNote.childNotes.length > 0) {
-        sourceNote.childNotes.forEach(child => {
-          if (child) notesToCheck.add(child.noteId);
-        });
-      }
-
-      // 3. 添加源卡片链接到的卡片（通过 linkComment）
+      //   添加源卡片链接到的卡片（通过 linkComment）
       sourceNote.MNComments.forEach(comment => {
         if (comment.type === "linkComment") {
           const linkedNoteId = comment.text.toNoteId();
@@ -2915,7 +4084,7 @@ class KnowledgeBaseTemplate {
         }
       });
 
-      // 4. 添加源卡片 markdown 中链接到的卡片
+      //   添加源卡片 markdown 中链接到的卡片
       sourceNote.MNComments.forEach(comment => {
         if (comment.type === "markdownComment") {
           // 提取 markdown 中的所有链接
@@ -2952,8 +4121,7 @@ class KnowledgeBaseTemplate {
             const oldText = comment.text;
             const newText = oldText.replace(new RegExp(sourceNoteURL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), targetNoteURL);
             if (oldText !== newText) {
-              note.removeCommentByIndex(idx);
-              note.insertCommentByIndex(idx, { text: newText, type: "markdownComment" });
+              comment.text = newText;
               updateCount++;
               hasUpdates = true;
             }
@@ -2974,310 +4142,6 @@ class KnowledgeBaseTemplate {
     return updateCount;
   }
 
-  /**
-   * 合并知识卡片
-   * 将 sourceNote (B) 的内容按字段合并到 targetNote (A) 中
-   *
-   * 注意：
-   * - "相关链接"字段的内容会被删除，不参与合并
-   * - 支持特殊字段映射（如思想方法的"原理"→命题的"证明"）
-   * - 会自动处理字段名中的多余冒号
-   *
-   * @param {MNNote} targetNote - 目标卡片 (A)，保留的卡片
-   * @param {MNNote} sourceNote - 源卡片 (B)，将被合并的卡片
-   */
-  static renewKnowledgeNotes_old(targetNote, sourceNote) {
-    try {
-      MNUtil.log("=".repeat(50));
-      MNUtil.log("🔀 开始 renewKnowledgeNotes 合并知识卡片");
-      MNUtil.log(`📍 目标卡片(保留): ${targetNote.noteTitle || "无标题"} | ID: ${targetNote.noteId}`);
-      MNUtil.log(`📍 源卡片(将合并): ${sourceNote.noteTitle || "无标题"} | ID: ${sourceNote.noteId}`);
-      MNUtil.log(`📍 源卡片 URL: ${sourceNote.noteURL}`);
-      MNUtil.log(`📍 目标卡片 URL: ${targetNote.noteURL}`);
-
-      // 记录源卡片的所有链接
-      MNUtil.log("📋 源卡片的链接评论:");
-      sourceNote.MNComments.forEach((comment, idx) => {
-        if (comment.type === "linkComment") {
-          let linkedNoteId = comment.text.toNoteId();
-          let linkedNote = MNNote.new(linkedNoteId, false);
-          MNUtil.log(`  [${idx}] 链接到: ${linkedNote?.noteTitle || "未知"} | ID: ${linkedNoteId}`);
-        }
-      });
-
-      // 记录源卡片的 markdown 内容
-      MNUtil.log("📝 源卡片的 Markdown 评论:");
-      sourceNote.MNComments.forEach((comment, idx) => {
-        if (comment.type === "markdownComment") {
-          MNUtil.log(`  [${idx}] ${comment.text.substring(0, 200)}${comment.text.length > 200 ? '...' : ''}`);
-        }
-      });
-
-      // 先预处理一下 sourceNote
-      sourceNote.convertLinksToNewVersion()
-      sourceNote.cleanupBrokenLinks()
-      sourceNote.fixMergeProblematicLinks()
-
-      // 去掉一些评论，比如"- "
-      this.removeUnnecessaryComments(sourceNote)
-      
-      // 1. 先处理标题合并（在任何其他操作之前）
-      this.mergeTitleLinkWords(targetNote, sourceNote);
-      
-      // 2. 获取两个卡片的类型
-      const targetType = this.getNoteType(targetNote);
-      const sourceType = this.getNoteType(sourceNote);
-      
-      MNUtil.log(`📋 目标卡片类型: ${targetType || '未知'}, 源卡片类型: ${sourceType || '未知'}`);
-      
-      // 3. 使用 ifTemplateMerged 判断源卡片是否有字段结构
-      const sourceHasTemplate = this.ifTemplateMerged(sourceNote);
-      
-      // 4. 使用 undoGrouping 包装所有修改操作
-      MNUtil.undoGrouping(() => {
-        // 清除源卡片的标题
-        sourceNote.noteTitle = "";
-        
-        // 根据是否有模板分别处理
-        if (!sourceHasTemplate) {
-          // 无字段结构的特殊处理
-          MNUtil.log("📝 源卡片无字段结构，将内容移动到摘录区");
-
-          // 在合并前更新所有反向链接
-          this.updateAllIncomingLinks(sourceNote.noteURL, targetNote.noteURL);
-
-          // 执行合并
-          sourceNote.mergeInto(targetNote);
-
-          // 将新内容移动到摘录区
-          this.autoMoveNewContentToField(targetNote, "摘录", true, false);
-
-          // 刷新卡片显示
-          targetNote.refresh();
-
-          MNUtil.showHUD("✅ 知识卡片合并完成（内容已移至摘录区）");
-          return;
-        }
-        
-        // 有字段结构的处理 - 采用逐字段处理策略
-        // 解析源卡片的评论结构
-        const sourceCommentsObj = this.parseNoteComments(sourceNote);
-        const sourceHtmlComments = sourceCommentsObj.htmlCommentsObjArr;
-        
-        // 建立字段映射关系
-        const fieldMapping = this.buildFieldMapping(sourceType, targetType);
-        
-        // 记录所有已处理的内容索引
-        const processedIndices = new Set();
-
-        // 在处理字段之前，先更新所有反向链接
-        // 这样即使字段为空也会执行链接更新
-        this.updateAllIncomingLinks(sourceNote.noteURL, targetNote.noteURL);
-
-        // 逐个处理每个字段（不要一次性删除所有字段标记）
-        sourceHtmlComments.forEach(htmlComment => {
-          try {
-            // 标准化字段名（去除多余的冒号）
-            const fieldName = this.normalizeFieldName(htmlComment.text);
-            
-            // 跳过"相关链接"字段
-            if (fieldName === "相关链接") {
-              MNUtil.log(`⏭️ 跳过"相关链接"字段`);
-              // 记录相关链接字段的所有索引（包括标记和内容）
-              processedIndices.add(htmlComment.index);
-              htmlComment.excludingFieldBlockIndexArr.forEach(idx => {
-                processedIndices.add(idx);
-              });
-              return;
-            }
-            
-            // 获取字段内容的索引（不包括字段标记本身）
-            const contentIndices = htmlComment.excludingFieldBlockIndexArr;
-            
-            // 记录已处理的索引
-            processedIndices.add(htmlComment.index); // 字段标记本身
-            contentIndices.forEach(idx => processedIndices.add(idx)); // 字段内容
-            
-            if (contentIndices.length === 0) {
-              MNUtil.log(`ℹ️ 字段 "${fieldName}" 无内容，跳过`);
-              return;
-            }
-            
-            // 确定目标字段名
-            const targetFieldName = fieldMapping[fieldName] || fieldName;
-            
-            MNUtil.log(`📋 处理字段 "${fieldName}" → "${targetFieldName}": ${contentIndices.length} 条内容`);
-            
-            // 在克隆和合并之前，先维护链接关系
-            // 将其他卡片中指向源卡片B的链接替换为指向目标卡片A
-            contentIndices.forEach(index => {
-              const comment = sourceNote.MNComments[index];
-              if (comment && comment.type === "linkComment") {
-                const linkedNote = MNNote.new(comment.text);
-                if (linkedNote) {
-                  // 找到被链接卡片C中所有指向源卡片B的链接
-                  const sourceLinkIndices = linkedNote.getLinkCommentsIndexArr(sourceNote.noteURL);
-                  if (sourceLinkIndices.length > 0) {
-                    MNUtil.log(`🔗 在卡片 ${linkedNote.noteId} 中找到 ${sourceLinkIndices.length} 个指向源卡片的链接，正在替换...`);
-                    // 直接替换为指向目标卡片A的链接
-                    sourceLinkIndices.forEach(linkIndex => {
-                      linkedNote.replaceWithMarkdownComment(targetNote.noteURL, linkIndex);
-                    });
-                    linkedNote.refresh();
-                  }
-                }
-              }
-            });
-            
-            // 记录合并前目标卡片的评论数量
-            const targetCommentsCountBefore = targetNote.comments.length;
-            
-            // 克隆源卡片用于提取字段内容（借鉴 performExtract 的思路）
-            const tempNote = sourceNote.clone();
-            tempNote.noteTitle = "";
-            
-            // 删除子卡片（如果有的话）
-            if (tempNote.childNotes && tempNote.childNotes.length > 0) {
-              for (let i = tempNote.childNotes.length - 1; i >= 0; i--) {
-                tempNote.childNotes[i].removeFromParent();
-              }
-            }
-            
-            // 只保留当前字段的内容
-            const allIndices = Array.from({length: tempNote.comments.length}, (_, i) => i);
-            const indicesToDelete = allIndices.filter(i => !contentIndices.includes(i));
-            
-            // 从后往前删除，避免索引变化
-            indicesToDelete.sort((a, b) => b - a);
-            indicesToDelete.forEach(index => {
-              tempNote.removeCommentByIndex(index);
-            });
-            
-            // 将提取的内容合并到目标卡片
-            tempNote.mergeInto(targetNote);
-            
-            // 计算新增内容的索引（新内容被添加到目标卡片的末尾）
-            const newContentIndices = [];
-            const newContentCount = contentIndices.length;
-            for (let i = 0; i < newContentCount; i++) {
-              newContentIndices.push(targetCommentsCountBefore + i);
-            }
-            
-            // 立即将新内容移动到对应的目标字段
-            if (newContentIndices.length > 0) {
-              // 先检查目标字段是否存在
-              const targetFieldIndex = targetNote.getIncludingHtmlCommentIndex(targetFieldName);
-              
-              if (targetFieldIndex !== -1) {
-                // 移动内容到目标字段
-                this.moveCommentsArrToField(targetNote, newContentIndices, targetFieldName, true);
-              }
-              
-              
-              MNUtil.log(`✅ 已将 ${newContentIndices.length} 条内容移动到 "${targetFieldName}" 字段`);
-            }
-            
-          } catch (fieldError) {
-            MNUtil.log(`⚠️ 处理字段 "${htmlComment.text}" 时出错: ${fieldError.message}`);
-            // 继续处理下一个字段
-          }
-        });
-        
-        // 处理摘录区：源卡片中未被处理的内容就是摘录区
-        const allSourceIndices = Array.from({length: sourceNote.comments.length}, (_, i) => i);
-        const excerptIndices = allSourceIndices.filter(i => !processedIndices.has(i));
-        
-        if (excerptIndices.length > 0) {
-          MNUtil.log(`📝 处理摘录区: ${excerptIndices.length} 条内容`);
-          
-          // 在处理摘录区内容之前，同样维护链接关系
-          excerptIndices.forEach(index => {
-            const comment = sourceNote.MNComments[index];
-            if (comment && comment.type === "linkComment") {
-              const linkedNote = MNNote.new(comment.text);
-              if (linkedNote) {
-                // 找到被链接卡片中所有指向源卡片B的链接
-                const sourceLinkIndices = linkedNote.getLinkCommentsIndexArr(sourceNote.noteURL);
-                if (sourceLinkIndices.length > 0) {
-                  MNUtil.log(`🔗 摘录区：在卡片 ${linkedNote.noteId} 中找到 ${sourceLinkIndices.length} 个指向源卡片的链接，正在替换...`);
-                  // 直接替换为指向目标卡片A的链接
-                  sourceLinkIndices.forEach(linkIndex => {
-                    linkedNote.replaceWithMarkdownComment(targetNote.noteURL, linkIndex);
-                  });
-                  linkedNote.refresh();
-                }
-              }
-            }
-          });
-          
-          // 记录合并前的评论数量
-          const targetCommentsCountBefore = targetNote.comments.length;
-          
-          // 克隆源卡片处理摘录区
-          const tempNote = sourceNote.clone();
-          tempNote.noteTitle = "";
-          
-          // 删除子卡片（如果有的话）
-          if (tempNote.childNotes && tempNote.childNotes.length > 0) {
-            for (let i = tempNote.childNotes.length - 1; i >= 0; i--) {
-              tempNote.childNotes[i].removeFromParent();
-            }
-          }
-          
-          // 删除已处理的内容，只保留摘录区
-          const indicesToDelete = Array.from(processedIndices).sort((a, b) => b - a);
-          indicesToDelete.forEach(index => {
-            tempNote.removeCommentByIndex(index);
-          });
-          
-          // 合并到目标卡片
-          tempNote.mergeInto(targetNote);
-          
-          // 计算新增内容的索引并移动到摘录区
-          const newContentIndices = [];
-          const excerptContentCount = excerptIndices.length;
-          for (let i = 0; i < excerptContentCount; i++) {
-            newContentIndices.push(targetCommentsCountBefore + i);
-          }
-          
-          this.moveCommentsArrToField(targetNote, newContentIndices, "摘录区", true);
-          MNUtil.log(`✅ 已将摘录区内容移动到目标卡片的摘录区`);
-        }
-        
-        // 所有内容处理完成后，删除源卡片
-        try {
-          sourceNote.delete(false); // false 表示不删除子孙卡片
-          MNUtil.log("✅ 已删除源卡片");
-        } catch (deleteError) {
-          MNLog.error(`⚠️ 删除源卡片失败: ${deleteError.message}`);
-          // 不影响合并结果，继续执行
-        }
-        
-        // 刷新目标卡片显示
-        targetNote.refresh();
-
-        // 记录合并后的状态
-        MNUtil.log("✅ 合并后目标卡片的 Markdown 评论:");
-        targetNote.MNComments.forEach((comment, idx) => {
-          if (comment.type === "markdownComment") {
-            MNUtil.log(`  [${idx}] ${comment.text.substring(0, 200)}${comment.text.length > 200 ? '...' : ''}`);
-          }
-        });
-      });
-
-      MNUtil.showHUD("✅ 知识卡片合并完成");
-      MNUtil.log("✅ 知识卡片合并完成");
-      MNUtil.log("=".repeat(50));
-      
-    } catch (error) {
-      MNUtil.showHUD("❌ 合并知识卡片时出错: " + error.message);
-      MNUtil.log({
-        level: "error",
-        message: "合并知识卡片失败: " + error.message,
-        source: "KnowledgeBaseTemplate.renewKnowledgeNotes"
-      });
-    }
-  }
 
   /**
    * 【新版本】合并知识卡片 - 重新设计的实现
@@ -3299,7 +4163,8 @@ class KnowledgeBaseTemplate {
       sourceNote.cleanupBrokenLinks();
       sourceNote.fixMergeProblematicLinks();
       this.removeUnnecessaryComments(sourceNote);
-
+      
+      KnowledgeBaseUtils.log("合并标题链接词", "renewKnowledgeNotes")
       // 2. 合并标题链接词
       this.mergeTitleLinkWords(targetNote, sourceNote);
 
@@ -3309,6 +4174,7 @@ class KnowledgeBaseTemplate {
       const fieldMapping = this.buildFieldMapping(sourceType, targetType);
 
       MNUtil.undoGrouping(() => {
+        KnowledgeBaseUtils.log("开始执行", "renewKnowledgeNotes")
         // 4. 【关键】在任何内容操作前，先更新所有指向源卡片的链接
         this.updateAllIncomingLinks(sourceNote.noteURL, targetNote.noteURL);
 
@@ -3318,6 +4184,7 @@ class KnowledgeBaseTemplate {
 
         // 6. 如果没有字段结构，直接合并到摘录区
         if (!sourceHtmlComments || sourceHtmlComments.length === 0) {
+          KnowledgeBaseUtils.log("无字段结构", "renewKnowledgeNotes")
           sourceNote.noteTitle = "";
           sourceNote.mergeInto(targetNote);
           this.autoMoveNewContentToField(targetNote, "摘录", true, false);
@@ -3332,7 +4199,7 @@ class KnowledgeBaseTemplate {
         // 处理每个字段
         sourceHtmlComments.forEach(htmlComment => {
           const fieldName = this.normalizeFieldName(htmlComment.text);
-
+          KnowledgeBaseUtils.log("开始处理字段" + fieldName, "renewKnowledgeNotes")
           // 记录已处理的索引
           processedIndices.add(htmlComment.index);
           htmlComment.excludingFieldBlockIndexArr.forEach(idx => processedIndices.add(idx));
@@ -3344,31 +4211,33 @@ class KnowledgeBaseTemplate {
 
           // 确定目标字段名
           const targetFieldName = fieldMapping[fieldName] || fieldName;
-          const contentIndices = htmlComment.excludingFieldBlockIndexArr;
 
-          if (contentIndices.length === 0) {
+          if (htmlComment.excludingFieldBlockIndexArr.length === 0) {
             return;
           }
 
-          // 使用新的直接移动方法
-          this.moveContentDirectly(sourceNote, targetNote, contentIndices, targetFieldName);
+          this.extractComments(sourceNote, htmlComment.excludingFieldBlockIndexArr).mergeInto(targetNote);
+          this.cleanupExtractedContentLinks(sourceNote, htmlComment.excludingFieldBlockIndexArr);
+          sourceNote.removeCommentsByIndexArr(htmlComment.includingFieldBlockIndexArr)
+          this.autoMoveNewContentToField(targetNote, targetFieldName, true, false);
+          KnowledgeBaseUtils.log("结束处理字段" + fieldName, "renewKnowledgeNotes")
         });
 
-        // 8. 处理摘录区（未被字段包含的内容）
-        const allIndices = Array.from({length: sourceNote.comments.length}, (_, i) => i);
-        const excerptIndices = allIndices.filter(i => !processedIndices.has(i));
-
-        if (excerptIndices.length > 0) {
-          this.moveContentDirectly(sourceNote, targetNote, excerptIndices, "摘录");
-        }
-
-        // 9. 删除源卡片（此时应该已经为空）
-        if (sourceNote.comments.length === 0) {
+        if (sourceNote.comments.length > 0) {
+          // 还剩摘录区
+          KnowledgeBaseUtils.log("合并摘录区", "renewKnowledgeNotes")
+          this.retainFieldContentByName(sourceNote, "摘录")
+          sourceNote.title = ""
+          sourceNote.mergeInto(targetNote);
+          this.autoMoveNewContentToField(targetNote, "摘录", true, false);
+        } else {
+          KnowledgeBaseUtils.log("删除卡片", "renewKnowledgeNotes")
           sourceNote.delete(false);
         }
 
         // 10. 刷新目标卡片
         targetNote.refresh();
+        targetNote.focusInMindMap(0.4)
       });
 
       MNUtil.showHUD("✅ 知识卡片合并完成");
@@ -3376,83 +4245,6 @@ class KnowledgeBaseTemplate {
     } catch (error) {
       MNUtil.copyJSON(error);
       MNUtil.showHUD("❌ 合并失败，请查看日志");
-    }
-  }
-
-  /**
-   * 直接从源卡片移动内容到目标卡片的指定字段
-   * 使用创建新卡片的方式，避免 clone 带来的链接问题
-   *
-   * @param {MNNote} sourceNote - 源卡片
-   * @param {MNNote} targetNote - 目标卡片
-   * @param {Array<number>} indices - 要移动的评论索引
-   * @param {string} targetFieldName - 目标字段名
-   */
-  static moveContentDirectly(sourceNote, targetNote, indices, targetFieldName) {
-    if (!indices || indices.length === 0) return;
-
-    try {
-      // 记录目标卡片合并前的评论数
-      const beforeCount = targetNote.comments.length;
-
-      // 创建一个临时卡片作为载体
-      // 使用 createNote 而不是 clone，避免链接问题
-      const tempNote = MNNote.createWithTitleAndNotebook("", targetNote.notebookId);
-
-      // 按顺序复制要移动的评论到临时卡片
-      const sortedIndices = [...indices].sort((a, b) => a - b);
-      sortedIndices.forEach((index, i) => {
-        const comment = sourceNote.comments[index];
-        if (comment) {
-          // 根据评论类型添加到临时卡片
-          if (comment.type === "TextNote") {
-            tempNote.appendTextComment(comment.text);
-          } else if (comment.type === "HtmlNote") {
-            tempNote.appendHtmlComment(comment.text);
-          } else if (comment.type === "LinkNote") {
-            // 对于链接评论，保留原始文本内容
-            tempNote.appendTextComment(comment.text || "");
-          } else if (comment.type === "PaintNote") {
-            // 图片/手写暂时无法完全复制，标记处理
-            tempNote.appendTextComment(`[图片/手写 - Index ${index}]`);
-          } else if (comment.type === "AudioNote") {
-            tempNote.appendTextComment(`[音频 - Index ${index}]`);
-          }
-        }
-      });
-
-      // 将临时卡片的内容合并到目标卡片
-      if (tempNote.comments.length > 0) {
-        tempNote.mergeInto(targetNote);
-      }
-
-      // 删除临时卡片
-      tempNote.delete(false);
-
-      // 从源卡片删除已移动的评论（从后向前删除）
-      const indicesToDelete = [...indices].sort((a, b) => b - a);
-      indicesToDelete.forEach(index => {
-        sourceNote.removeCommentByIndex(index);
-      });
-
-      // 计算新增内容的索引
-      const newCount = targetNote.comments.length - beforeCount;
-      const newIndices = [];
-      for (let i = 0; i < newCount; i++) {
-        newIndices.push(beforeCount + i);
-      }
-
-      // 移动到指定字段
-      if (newIndices.length > 0) {
-        if (targetFieldName === "摘录") {
-          this.autoMoveNewContentToField(targetNote, "摘录", true, false);
-        } else {
-          this.moveCommentsArrToField(targetNote, newIndices, targetFieldName, true);
-        }
-      }
-
-    } catch (error) {
-      // 静默处理错误，避免中断主流程
     }
   }
 
@@ -3565,8 +4357,12 @@ class KnowledgeBaseTemplate {
   /**
    * 修改卡片颜色
    */
-  static changeNoteColor(note) {
-    note.colorIndex = this.types[this.getNoteType(note)].colorIndex;
+  static changeNoteColor(note, inputType = null) {
+    if (inputType && this.types[inputType]) {
+      note.colorIndex = this.types[inputType].colorIndex;
+    } else {
+      note.colorIndex = this.types[this.getNoteType(note)].colorIndex;
+    }
   }
 
   /**
@@ -3736,6 +4532,54 @@ class KnowledgeBaseTemplate {
     })
   }
 
+  static createChildNoteWithTitle(note, title, colorIndex = note.colorIndex) {
+    let config = {
+      title: title,
+      content: "",
+      markdown: true,
+      color: colorIndex
+    }
+    // 创建新兄弟卡片，标题为旧卡片的标题
+    return note.createChildNote(config)
+  }
+
+  /**
+   * 基于 note 的标题生成两张同标题的卡片
+   * 
+   * 场景：note 是一个“等价刻画/充要条件”命题，需要生成充分性和必要性两个卡片
+   *   
+   * @param {MNNote} note 
+   */
+  static createEquivalenceNotes(note) {
+    MNUtil.undoGrouping(()=>{
+      try {
+        let sufficiencyNote = MNNote.clone(this.types.命题.templateNoteId);
+        let neccessaryNote = MNNote.clone(this.types.命题.templateNoteId);
+
+        sufficiencyNote.title = this.getFirstTitleLinkWord(note)
+        neccessaryNote.title = this.getFirstTitleLinkWord(note)
+
+        sufficiencyNote.colorIndex = this.types.命题.colorIndex
+        neccessaryNote.colorIndex = this.types.命题.colorIndex
+
+        sufficiencyNote.appendMarkdownComment("- [逆命题](" + neccessaryNote.noteURL + ")也成立: [等价刻画](" + note.noteURL + ")")
+        neccessaryNote.appendMarkdownComment("- [逆命题](" + sufficiencyNote.noteURL + ")也成立: [等价刻画](" + note.noteURL + ")")
+        this.autoMoveNewContentToField(sufficiencyNote, "相关思考", true, false)
+        this.autoMoveNewContentToField(neccessaryNote, "相关思考", true, false)
+
+        note.appendNoteLink(sufficiencyNote, "To")
+        note.appendNoteLink(neccessaryNote, "To")
+
+        this.moveCommentsArrToField(note, "Y, Z", "证明")
+
+        note.addChild(sufficiencyNote)
+        note.addChild(neccessaryNote)
+      } catch (error) {
+        MNUtil.showHUD(error);
+      }
+    })
+  }
+
   /**
    * 根据卡片类型确定思路链接内容要移动到哪个字段下
    */
@@ -3766,20 +4610,32 @@ class KnowledgeBaseTemplate {
 
   /**
    * 获取卡片类型
-   * 
-   * 目前是靠卡片标题来判断
+   *
    * @param {MNNote} note - 要判断类型的卡片
-   * @param {boolean} useColorFallback - 是否在无法从标题/归类卡片判断时使用颜色判断（粗读模式使用）
+   * @param {boolean} directly - 是否只基于卡片自身标题判断（不向上查找）
+   * @param {boolean} bycolor - directly = true 时是否通过颜色判断（仅在直接判断失败时使用）
    * @returns {string|undefined} 卡片类型
    */
-  static getNoteType(note, useColorFallback = false) {
+  static getNoteType(note, directly = false, bycolor = true) {
     // 防御性检查
     if (!note) {
+      KnowledgeBaseUtils.log(`返回 undefined 原因：无卡片`, "getNoteType");
       return undefined;
     }
-    
-    let noteType
+
+    // 🚀 性能优化：检查缓存（仅在非 directly 模式下使用缓存）
+    if (!directly && this.noteTypeCache.has(note)) {
+      const cached = this.noteTypeCache.get(note);
+      // 检查缓存是否还有效（标题未变）
+      if (cached && cached.title === (note.title || "")) {
+        return cached.type;
+      }
+    }
+
+    let noteType = null;
     let title = note.title || "";
+    let match
+    let matchResult
     /**
      * 如果是
      * "xxx"："yyy"相关 zz
@@ -3795,21 +4651,21 @@ class KnowledgeBaseTemplate {
        * 【xx：yy】zz
        * 则根据 xx 作为 prefixName 在 types 搜索类型
        */
-      let match = title.match(/^【(.{2,4})\s*(?:>>|：)\s*.*】(.*)/)
-      let matchResult
+      match = title.match(/^【(.{2,4})\s*(?:>>|：)\s*.*】(.*)/)
       if (match) {
         matchResult = match[1].trim();
       } else {
         match = title.match(/^【(.*)】(.*)/)
         if (match) {
           matchResult = match[1].trim();
-        } else {
-          // 从标题判断不了的话，就从卡片的归类卡片来判断
-          let classificationNote = this.getFirstClassificationParentNote(note);
-          if (classificationNote) {
-            let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
-            matchResult = classificationNoteTitleParts.type;
-          }
+        }
+      }
+      if (!matchResult && !directly) {
+        // 从标题判断不了的话，就从卡片的归类卡片来判断
+        let classificationNote = this.getFirstClassificationParentNote(note);
+        if (classificationNote) {
+          let classificationNoteTitleParts = this.parseNoteTitle(classificationNote);
+          matchResult = classificationNoteTitleParts.type;
         }
       }
       for (let typeKey in this.types) {
@@ -3821,9 +4677,19 @@ class KnowledgeBaseTemplate {
       }
     }
 
-    // 粗读模式：如果无法从标题或归类卡片判断，尝试根据颜色判断
-    if (useColorFallback && note.colorIndex !== undefined) {
-      noteType = this.getNoteTypeByColor(note.colorIndex);
+    if (!noteType && directly) {
+      // 如果还是获取不到的话，就尝试用颜色判断
+      if (bycolor) {
+        noteType = this.getNoteTypeByColor(note.colorIndex);
+      }
+    }
+
+    // 🚀 性能优化：存入缓存（仅在非 directly 模式下缓存）
+    if (!directly && noteType) {
+      this.noteTypeCache.set(note, {
+        title: note.title || "",
+        type: noteType
+      });
     }
 
     return noteType || undefined;
@@ -4189,38 +5055,81 @@ class KnowledgeBaseTemplate {
   }
 
   /**
-   * 通过弹窗来精准修改单个 HtmlMarkdown 评论的类型
+   * 通过弹窗来修改评论类型或将普通评论转换为 HtmlMarkdown 评论
    */
   static changeHtmlMarkdownCommentTypeByPopup(note) {
-    let htmlMarkdownCommentsTextArr = this.parseNoteComments(note).htmlMarkdownCommentsTextArr;
-    let htmlMarkdownCommentsObjArr = this.parseNoteComments(note).htmlMarkdownCommentsObjArr;
-    
-    if (htmlMarkdownCommentsTextArr.length === 0) {
-      MNUtil.showHUD("当前笔记没有 HtmlMarkdown 评论");
+    // 1. 收集所有可转换的评论
+    const allConvertibleComments = [];
+
+    note.MNComments.forEach((comment, index) => {
+      if (!comment) return;
+
+      // 跳过特殊类型：HtmlComment（字段）和 linkComment
+      if (comment.type === 'HtmlComment' || comment.type === 'linkComment') {
+        return;
+      }
+
+      let text = comment.text || "";
+      let hasLeadingDash = text.startsWith("- ");
+      let cleanText = hasLeadingDash ? text.substring(2) : text;
+
+      if (HtmlMarkdownUtils.isHtmlMDComment(cleanText)) {
+        // HtmlMarkdown 评论
+        let type = HtmlMarkdownUtils.getSpanType(cleanText);
+        let content = HtmlMarkdownUtils.getSpanTextContent(cleanText);
+
+        allConvertibleComments.push({
+          index: index,
+          isHtmlMD: true,
+          type: type,
+          content: content,
+          displayText: (hasLeadingDash ? "- " : "") + `[${type}] ${content}`,
+          hasLeadingDash: hasLeadingDash
+        });
+      } else if (cleanText.trim()) {
+        // 普通文本评论（排除空评论）
+        let displayContent = cleanText.length > 30 ? cleanText.substring(0, 30) + "..." : cleanText;
+        allConvertibleComments.push({
+          index: index,
+          isHtmlMD: false,
+          content: cleanText,
+          displayText: (hasLeadingDash ? "- " : "") + `[文本] ${displayContent}`,
+          hasLeadingDash: hasLeadingDash
+        });
+      }
+    });
+
+    if (allConvertibleComments.length === 0) {
+      MNUtil.showHUD("当前笔记没有可转换的评论");
       return;
     }
 
+    // 2. 显示评论选择弹窗
     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "选择要修改类型的 HtmlMarkdown 评论",
-      "请选择要修改的评论",
+      "选择要转换的评论",
+      "可以修改 HtmlMarkdown 评论类型或将文本评论转换为 HtmlMarkdown",
       0,
       "取消",
-      htmlMarkdownCommentsTextArr,
+      allConvertibleComments.map(c => c.displayText),
       (alert, buttonIndex) => {
         if (buttonIndex === 0) {
           return; // 取消
         }
-        
-        let selectedCommentObj = htmlMarkdownCommentsObjArr[buttonIndex - 1];
-        let currentType = selectedCommentObj.type;
-        
+
+        let selectedComment = allConvertibleComments[buttonIndex - 1];
+
         // 获取所有可用的类型选项
         let availableTypes = Object.keys(HtmlMarkdownUtils.icons);
         let typeDisplayTexts = availableTypes.map(type => `${HtmlMarkdownUtils.icons[type]} ${type}`);
-        
+
+        // 3. 显示类型选择弹窗
+        let promptMessage = selectedComment.isHtmlMD
+          ? `当前类型：${HtmlMarkdownUtils.icons[selectedComment.type]} ${selectedComment.type}\n\n请选择要转换成的类型：`
+          : "这是一个文本评论，请选择要转换成的类型：";
+
         UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
           "选择目标类型",
-          `当前类型：${HtmlMarkdownUtils.icons[currentType]} ${currentType}\n\n请选择要转换成的类型：`,
+          promptMessage,
           0,
           "取消",
           typeDisplayTexts,
@@ -4228,36 +5137,50 @@ class KnowledgeBaseTemplate {
             if (typeButtonIndex === 0) {
               return; // 取消
             }
-            
+
             let targetType = availableTypes[typeButtonIndex - 1];
-            
-            if (targetType === currentType) {
+
+            // 检查是否与当前类型相同（仅对 HtmlMarkdown 评论）
+            if (selectedComment.isHtmlMD && targetType === selectedComment.type) {
               MNUtil.showHUD("目标类型与当前类型相同，无需修改");
               return;
             }
-            
+
             MNUtil.undoGrouping(() => {
               try {
-                let comments = note.MNComments;
-                let targetComment = comments[selectedCommentObj.index];
-                let content = selectedCommentObj.content;
-                let hasLeadingDash = selectedCommentObj.hasLeadingDash;
-                
-                // 生成新的 HtmlMarkdown 文本
-                let newHtmlMarkdownText = HtmlMarkdownUtils.createHtmlMarkdownText(content, targetType);
-                
-                // 如果原来有前导破折号，保持前导破折号
-                if (hasLeadingDash) {
+                let targetComment = note.MNComments[selectedComment.index];
+                let newHtmlMarkdownText;
+
+                // 4. 根据目标类型创建评论
+                const numberedTypes = ['case', 'step'];
+                if (numberedTypes.includes(targetType)) {
+                  // 使用带序号的创建方法
+                  newHtmlMarkdownText = HtmlMarkdownUtils.createNumberedHtmlText(
+                    selectedComment.content,
+                    targetType,
+                    null,  // number 参数为 null，自动计算
+                    note   // 传入 note 用于自动计算序号
+                  );
+                } else {
+                  // 使用普通创建方法
+                  newHtmlMarkdownText = HtmlMarkdownUtils.createHtmlMarkdownText(
+                    selectedComment.content,
+                    targetType
+                  );
+                }
+
+                // 保持前导破折号
+                if (selectedComment.hasLeadingDash) {
                   newHtmlMarkdownText = "- " + newHtmlMarkdownText;
                 }
-                
+
                 // 更新评论文本
                 targetComment.text = newHtmlMarkdownText;
-                
-                // MNUtil.showHUD(`已将类型从 ${currentType} 改为 ${targetType}`);
-                
+
+                MNUtil.showHUD(`✅ 已转换为 ${targetType} 类型`);
+
               } catch (error) {
-                MNUtil.showHUD("修改失败：" + error.toString());
+                MNUtil.showHUD("转换失败：" + error.toString());
               }
             });
           }
@@ -4374,67 +5297,81 @@ class KnowledgeBaseTemplate {
   /**
    * 仅保留指定字段下的内容（不通过弹窗）
    * 删除其他所有内容（包括字段本身）
-   * 
+   *
    * @param {MNNote} note - 要操作的笔记对象
-   * @param {string} fieldName - 要保留内容的字段名称
+   * @param {string} fieldName - 要保留内容的字段名称，支持"摘录区"/"摘录"保留摘录区内容
    * @returns {boolean} 操作是否成功
-   * 
+   *
    * @example
    * // 仅保留"证明"字段下的内容
    * let success = KnowledgeBaseTemplate.retainFieldContentByName(note, "证明");
-   * 
+   *
    * @example
    * // 仅保留"相关链接"字段下的内容
    * KnowledgeBaseTemplate.retainFieldContentByName(note, "相关链接");
+   *
+   * @example
+   * // 仅保留摘录区的内容（第一个字段之前的 mergedImageComment）
+   * KnowledgeBaseTemplate.retainFieldContentByName(note, "摘录区");
+   * KnowledgeBaseTemplate.retainFieldContentByName(note, "摘录");
    */
   static retainFieldContentByName(note, fieldName) {
-    let commentsObj = this.parseNoteComments(note);
-    let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
-    
-    // 查找指定名称的字段
-    let targetFieldObj = null;
-    for (let fieldObj of htmlCommentsObjArr) {
-      if (fieldObj.text.includes(fieldName)) {
-        targetFieldObj = fieldObj;
-        break;
+    let retainIndices = [];
+
+    // 特殊处理：摘录区
+    if (fieldName === "摘录区" || fieldName === "摘录") {
+      retainIndices = this.getExcerptBlockIndexArr(note, true);
+
+      if (retainIndices.length === 0) {
+        // MNUtil.showHUD(`摘录区没有内容`);
+        if (note.comments.length > 0 ) {
+          note.removeCommentsByIndexArr(Array.from({length: note.comments.length}, (_, i) => i));
+        }
+        return true;
       }
-    }
-    
-    if (!targetFieldObj) {
-      MNUtil.showHUD(`未找到字段"${fieldName}"`);
-      return false;
-    }
-    
-    // 获取要保留的内容索引（不包括字段本身）
-    let retainIndices = targetFieldObj.excludingFieldBlockIndexArr;
-    
-    if (retainIndices.length === 0) {
-      MNUtil.showHUD(`字段"${fieldName}"下没有内容`);
-      return false;
+
+      // 摘录区处理逻辑与字段处理相同，跳到后面统一处理
+    } else {
+      // 常规字段处理
+      let commentsObj = this.parseNoteComments(note);
+      let htmlCommentsObjArr = commentsObj.htmlCommentsObjArr;
+
+      // 查找指定名称的字段
+      let targetFieldObj = null;
+      for (let fieldObj of htmlCommentsObjArr) {
+        if (fieldObj.text.includes(fieldName)) {
+          targetFieldObj = fieldObj;
+          break;
+        }
+      }
+
+      if (!targetFieldObj) {
+        MNUtil.showHUD(`未找到字段"${fieldName}"`);
+        return false;
+      }
+
+      // 获取要保留的内容索引（不包括字段本身）
+      retainIndices = targetFieldObj.excludingFieldBlockIndexArr;
+
+      if (retainIndices.length === 0) {
+        MNUtil.showHUD(`字段"${fieldName}"下没有内容`);
+        return false;
+      }
     }
     
     MNUtil.undoGrouping(() => {
       try {
-        // 获取所有评论的索引
-        let allIndices = Array.from({length: note.comments.length}, (_, i) => i);
-        
-        // 计算要删除的索引（所有索引减去要保留的索引）
-        let deleteIndices = allIndices.filter(index => !retainIndices.includes(index));
-        
-        // 从后向前删除（避免索引变化问题）
-        deleteIndices.sort((a, b) => b - a);
-        
-        let deletedCount = 0;
-        deleteIndices.forEach(index => {
-          note.removeCommentByIndex(index);
-          deletedCount++;
-        });
-        
+        // 计算要删除的内容数量
+        let inverseIndices = this.getInverseCommentsIndexArr(note, retainIndices);
+        let deletedCount = inverseIndices.length;
+
+        note.removeCommentsByIndexArr(inverseIndices);
+
         // 刷新卡片显示
         note.refresh();
-        
-        MNUtil.showHUD(`已删除 ${deletedCount} 条内容，保留了"${fieldName}"字段下的 ${retainIndices.length} 条内容`);
-        
+
+        MNUtil.showHUD(`已删除 ${deletedCount} 条内容，保留了"${fieldName}"的 ${retainIndices.length} 条内容`, 0.5);
+
         MNUtil.log({
           level: "info",
           message: `保留字段内容操作完成 - 字段：${fieldName}，保留：${retainIndices.length} 条，删除：${deletedCount} 条`,
@@ -4453,6 +5390,20 @@ class KnowledgeBaseTemplate {
     });
     
     return true;
+  }
+
+  /**
+   * 获取 note 的 indexArr 的反选 indexArr
+   */
+  static getInverseCommentsIndexArr(note, indexArr) {
+    try {
+      // 获取所有评论的索引
+      let allIndices = Array.from({length: note.comments.length}, (_, i) => i);
+
+      return allIndices.filter(index => !indexArr.includes(index));
+    } catch (error) {
+      MNUtil.showHUD("获取反选索引失败：" + error.toString());
+    }
   }
 
   /**
@@ -6916,7 +7867,7 @@ class KnowledgeBaseTemplate {
    * // 将新内容移动到摘录区
    * KnowledgeBaseTemplate.autoMoveNewContentToField(note, "摘录区");
    */
-  static autoMoveNewContentToField(note, field, toBottom = true, showEmptyHUD = true) {
+  static autoMoveNewContentToField(note, field, toBottom = true, handleInlineLink = true, showEmptyHUD = false) {
     // 自动获取要移动的内容索引
     let indexArr = this.autoGetNewContentToMoveIndexArr(note);
     
@@ -6944,9 +7895,21 @@ class KnowledgeBaseTemplate {
       MNUtil.showHUD(`未找到字段"${field}"，请检查字段名称`);
       return [];
     }
+
+    // 在移动之前先提取 markdown 链接
+    let marginNoteLinks = this.extractMarginNoteLinksFromComments(note, indexArr);
     
     // 执行移动操作
     this.moveCommentsArrToField(note, indexArr, field, toBottom);
+
+    if (!["证明", "反例", "原理"].includes(this.normalizeFieldName(field))) {
+      return
+    }
+
+    // 处理之前提取的 MarginNote 链接
+    if (marginNoteLinks.length > 0 && handleInlineLink) {  // 定义类型不处理
+      this.processExtractedMarginNoteLinks(note, marginNoteLinks);
+    }
     
     return indexArr;
   }
@@ -7020,31 +7983,43 @@ class KnowledgeBaseTemplate {
 
   /**
    * 移动评论到指定字段
-   * 
+   *
+   * **支持字段别名**：会根据卡片类型自动解析逻辑字段名到实际字段名
+   * 例如，使用 "证明" 作为字段名时：
+   * - 命题/例子卡片 → 实际移动到 "证明" 字段
+   * - 反例卡片 → 实际移动到 "反例" 字段
+   * - 思想方法卡片 → 实际移动到 "原理" 字段
+   *
    * @param {MNNote} note - 要操作的笔记对象
    * @param {Array|string} indexArr - 要移动的评论索引数组或字符串（支持 "1,3-5,Y,Z" 格式）
-   * @param {string} field - 目标字段名称。特殊字段：
+   * @param {string} field - 目标字段名称（支持逻辑字段名）。特殊字段：
    *                         - "摘录" 或 "摘录区" - 移动到卡片最上方的摘录区域
+   *                         - "证明" - 根据卡片类型自动解析为 "证明"/"反例"/"原理"
    *                         - 其他字段名 - 移动到对应的 HTML 字段下
    * @param {boolean} [toBottom=true] - 是否移动到字段底部，false 则移动到字段顶部（摘录区除外）
-   * 
+   *
    * @example
    * // 移动到摘录区
    * KnowledgeBaseTemplate.moveCommentsArrToField(note, [1,2,3], "摘录区");
-   * 
-   * @example  
-   * // 移动到"证明"字段顶部
-   * KnowledgeBaseTemplate.moveCommentsArrToField(note, "1-3", "证明", false);
+   *
+   * @example
+   * // 使用字段别名 - 统一使用 "证明"，会自动根据卡片类型解析
+   * KnowledgeBaseTemplate.moveCommentsArrToField(反例Note, "1-3", "证明");  // 实际移动到 "反例" 字段
+   * KnowledgeBaseTemplate.moveCommentsArrToField(命题Note, "1-3", "证明");  // 实际移动到 "证明" 字段
    */
   static moveCommentsArrToField(note, indexArr, field, toBottom = true) {
+    // 【新增】根据卡片类型解析实际字段名（支持字段别名）
+    const noteType = this.getNoteType(note);
+    const resolvedField = this.resolveFieldName(field, noteType);
+
     let getHtmlCommentsTextArrForPopup = this.getHtmlCommentsTextArrForPopup(note);
     let commentsIndexArrToMove = this.getCommentsIndexArrToMoveForPopup(note);
 
     let targetIndex = -1
-    
+
     // 标准化字段名称，支持"摘录"和"摘录区"的简写
-    let normalizedField = field;
-    if (field === "摘录" || field === "摘录区") {
+    let normalizedField = resolvedField;  // 【修改】使用解析后的字段名
+    if (resolvedField === "摘录" || resolvedField === "摘录区") {
       normalizedField = "摘录区";  // 统一为"摘录区"以匹配"----------【摘录区】----------"
     }
     
@@ -7062,7 +8037,7 @@ class KnowledgeBaseTemplate {
       // 此时要判断是否是最后一个字段，因为最后一个字段没有弄到弹窗里，所以上面的处理排除了最后一个字段
       let htmlCommentsTextArr = this.parseNoteComments(note).htmlCommentsTextArr;
       if (htmlCommentsTextArr.length>0) {
-        if (htmlCommentsTextArr[htmlCommentsTextArr.length - 1].includes(field)) {
+        if (htmlCommentsTextArr[htmlCommentsTextArr.length - 1].includes(normalizedField)) {  // 【修改】使用 normalizedField 而不是 field
           if (toBottom) {
             targetIndex = note.comments.length; // 移动到卡片最底端
           } else {
@@ -7170,7 +8145,7 @@ class KnowledgeBaseTemplate {
     let autoContentIndices = this.autoGetNewContentToMoveIndexArr(note);
     
     if (autoContentIndices.length === 0) {
-      MNUtil.showHUD("没有检测到可移动的新内容");
+      // MNUtil.showHUD("没有检测到可移动的新内容");
       return;
     }
     
@@ -7553,14 +8528,20 @@ class KnowledgeBaseTemplate {
   
   /**
    * 获取 Note 的摘录区的 indexArr
+   * 
+   * all: 是否是所有，包括可能存在的文本评论
    */
-  static getExcerptBlockIndexArr(note) {
+  static getExcerptBlockIndexArr(note, all = false) {
     let indexArr = []
     let endIndex = this.parseNoteComments(note).htmlCommentsObjArr[0]?.index? this.parseNoteComments(note).htmlCommentsObjArr[0].index : -1;
     switch (endIndex) {
       case 0:
         break;
       case -1: // 此时没有 html 评论
+        if (all) {
+          indexArr = Array.from({length: note.comments.length}, (_, i) => i)
+          break;
+        }
         for (let i = 0; i < note.comments.length-1; i++) {
           let comment = note.MNComments[i]
           if (i == 0) {
@@ -7578,6 +8559,10 @@ class KnowledgeBaseTemplate {
         }
         break;
       default:
+        if (all)  {
+          indexArr = Array.from({length: endIndex}, (_, i) => i)
+          break;
+        }
         for (let i = 0; i < endIndex; i++) {
           let comment = note.MNComments[i]
           if (comment.type == "mergedImageComment") {
@@ -7667,305 +8652,6 @@ class KnowledgeBaseTemplate {
     return indexArr
   }
 
-
-  // static addTemplate(note, focusLastNote = true) {
-  //   let type
-  //   let contentInTitle
-  //   let titleParts = this.parseNoteTitle(note)
-  //   switch (this.getNoteType(note)) {
-  //     case "归类":
-  //       contentInTitle = titleParts.content
-  //       break;
-  //     default:
-  //       contentInTitle = titleParts.prefixContent + "｜" + titleParts.titleLinkWordsArr[0];
-  //       break;
-  //   }
-  //   MNUtil.copy(contentInTitle)
-  //   let lastClassificationNote
-  //   try {
-  //     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-  //       "增加模板",
-  //       // "请输入标题并选择类型\n注意向上下层添加模板时\n标题是「增量」输入",
-  //       "请输入标题并选择类型",
-  //       2,
-  //       "取消",
-  //       // ["向下层增加模板", "增加概念衍生层级","增加兄弟层级模板","向上层增加模板", "最顶层（淡绿色）", "专题"],
-  //       [
-  //         "连续向下「顺序」增加模板",  // 1
-  //         "连续向下「倒序」增加模板",  // 2
-  //         "增加兄弟层级模板",  // 3
-  //         "向上层增加模板",  // 4
-  //       ],
-  //       (alert, buttonIndex) => {
-  //         let userInputTitle = alert.textFieldAtIndex(0).text;
-  //         switch (buttonIndex) {
-  //           case 4:
-  //             try {
-  //               /* 向上增加模板 */
-                
-  //               // 获取当前卡片类型和父卡片
-  //               let noteType = this.parseNoteTitle(note).type
-  //               let parentNote = note.parentNote
-                
-  //               if (!noteType) {
-  //                 MNUtil.showHUD("无法识别当前卡片类型");
-  //                 return;
-  //               }
-                
-  //               // 智能识别类型（仅用于标题）
-  //               let intelligentType = this.getTypeFromInputText(userInputTitle);
-  //               let titleType = intelligentType || noteType;  // 标题中显示的类型
-  //               let templateNoteId = this.types["归类"].templateNoteId;  // 始终使用归类模板
-                
-  //               MNUtil.undoGrouping(() => {
-  //                 // 1. 创建新的归类卡片
-  //                 let newClassificationNote = MNNote.clone(templateNoteId);
-  //                 newClassificationNote.note.noteTitle = `“${userInputTitle}”相关${titleType}`;
-                  
-  //                 // 3. 建立层级关系：新卡片作为父卡片的子卡片
-  //                 parentNote.addChild(newClassificationNote.note);
-                  
-  //                 // 4. 移动选中卡片：从原位置移动到新卡片下
-  //                 newClassificationNote.addChild(note.note);
-                  
-  //                 // 5. 使用 this API 处理链接关系
-  //                 this.linkParentNote(newClassificationNote);
-  //                 this.linkParentNote(note);
-                  
-  //                 // 6. 聚焦到新创建的卡片
-  //                 if (focusLastNote) {
-  //                   newClassificationNote.focusInMindMap(0.5);
-  //                 }
-
-  //                 lastClassificationNote = newClassificationNote;
-  //               });
-                
-  //             } catch (error) {
-  //               MNUtil.showHUD(`向上增加模板失败: ${error.message || error}`);
-  //             }
-  //             break;
-  //           case 3:
-  //             // 增加兄弟层级模板
-  //             type = this.parseNoteTitle(note).type
-  //             if (type) {
-  //               // 智能识别类型（仅用于标题）
-  //               let intelligentType = this.getTypeFromInputText(userInputTitle);
-  //               let titleType = intelligentType || type;  // 标题中显示的类型
-                
-  //               // 分割输入，支持通过//创建多个兄弟卡片链
-  //               let titlePartsArray = userInputTitle.split("//")
-                
-  //               MNUtil.undoGrouping(()=>{
-  //                 let lastNote = null
-                  
-  //                 // 创建第一个兄弟卡片（始终使用归类模板）
-  //                 let firstNote = MNNote.clone(this.types["归类"].templateNoteId)
-  //                 firstNote.noteTitle = "“" + titlePartsArray[0] + "”相关" + titleType
-  //                 note.parentNote.addChild(firstNote.note)
-  //                 this.linkParentNote(firstNote)
-  //                 lastNote = firstNote
-                  
-  //                 // 如果有更多部分，创建子卡片链
-  //                 let previousTitle = titlePartsArray[0]  // 记录上一个标题
-  //                 for (let i = 1; i < titlePartsArray.length; i++) {
-  //                   let childNote = MNNote.clone(this.types["归类"].templateNoteId)
-  //                   // 累积标题：上一个标题 + 当前部分
-  //                   let accumulatedTitle = previousTitle + titlePartsArray[i]
-  //                   childNote.noteTitle = "“" + accumulatedTitle + "”相关" + titleType
-  //                   lastNote.addChild(childNote.note)
-  //                   this.linkParentNote(childNote)
-  //                   lastNote = childNote
-  //                   previousTitle = accumulatedTitle  // 更新上一个标题
-  //                 }
-                  
-  //                 // 聚焦最后创建的卡片
-  //                 if (focusLastNote && lastNote) {
-  //                   lastNote.focusInMindMap(0.5)
-  //                 }
-  //                 lastClassificationNote = lastNote
-  //               })
-  //             }
-  //             break
-  //           case 2: // 连续向下「倒序」增加模板
-  //             /**
-  //              * 通过//来分割标题，增加一连串的归类卡片
-  //              * 比如：赋范空间上的//有界//线性//算子
-  //              * 依次增加：赋范空间上的算子、赋范空间上的线性算子、赋范空间上的有界线性算子
-  //              */
-  //             try {
-  //               let titlePartsArray = userInputTitle.split("//")
-  //               let titlesArray = []
-  //               if (titlePartsArray.length > 1) {
-  //                 // 生成倒序组合
-  //                 // 把 item1+itemn, item1+itemn-1+itemn, item1+itemn-2+itemn-1+itemn, ... , item1+item2+item3+...+itemn 依次加入数组
-  //                 // 比如 "赋范空间上的//有界//线性//算子" 得到的 titlePartsArray 是
-  //                 // ["赋范空间上的", "有界", "线性", "算子"]
-  //                 // 则 titleArray = ["赋范空间上的算子", "赋范空间上的线性算子", "赋范空间上的有界线性算子"]
-  //                 const prefix = titlePartsArray[0];
-  //                 let changedTitlePart = titlePartsArray[titlePartsArray.length-1]
-  //                 for (let i = titlePartsArray.length-1 ; i >= 1 ; i--) {
-  //                   if  (i < titlePartsArray.length-1) {
-  //                     changedTitlePart = titlePartsArray[i] + changedTitlePart
-  //                   }
-  //                   titlesArray.push(prefix + changedTitlePart)
-  //                 }
-  //               }
-  //               let type
-  //               let lastNote = note
-  //               switch (this.getNoteType(note)) {
-  //                 case "归类":
-  //                   let defaultType = this.parseNoteTitle(note).type  // 默认类型
-  //                   MNUtil.undoGrouping(()=>{
-  //                     titlesArray.forEach(title => {
-  //                       // 对每个标题尝试智能识别
-  //                       let intelligentType = this.getTypeFromInputText(title);
-  //                       let finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
-  //                       let newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
-  //                       lastNote = newClassificationNote
-  //                     })
-  //                     if (focusLastNote) {
-  //                       lastNote.focusInMindMap(0.3)
-  //                     }
-  //                     lastClassificationNote =  lastNote
-  //                   })
-  //                   break;
-  //                 default:
-  //                   // 智能识别类型
-  //                   let intelligentType = this.getTypeFromInputText(userInputTitle);
-  //                   if (intelligentType) {
-  //                     type = intelligentType;
-  //                     // 直接执行创建逻辑，无需弹窗选择
-  //                     MNUtil.undoGrouping(() => {
-  //                       titlesArray.forEach(title => {
-  //                         let newClassificationNote = this.createClassificationNote(lastNote, title, type);
-  //                         lastNote = newClassificationNote;
-  //                       });
-  //                       if (focusLastNote) {
-  //                         lastNote.focusInMindMap(0.3);
-  //                       }
-  //                       lastClassificationNote = lastNote;
-  //                     });
-  //                   } else {
-  //                     // 原有的弹窗选择逻辑
-  //                     let typeArr = ["定义","命题","例子","反例","思想方法","问题"]
-  //                     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-  //                       "增加归类卡片",
-  //                       "选择类型",
-  //                       0,
-  //                       "取消",
-  //                       typeArr,
-  //                       (alert, buttonIndex) => {
-  //                         if (buttonIndex == 0) { return }
-  //                         type = typeArr[buttonIndex-1]
-  //                         MNUtil.undoGrouping(()=>{
-  //                           titlesArray.forEach(title => {
-  //                           let newClassificationNote = this.createClassificationNote(lastNote, title, type)
-  //                             lastNote = newClassificationNote
-  //                           })
-  //                           if (focusLastNote) {
-  //                             lastNote.focusInMindMap(0.3)
-  //                           }
-  //                           lastClassificationNote = lastNote
-  //                         })
-  //                       })
-  //                   }
-  //                   break;
-  //               }
-  //             } catch (error) {
-  //               MNUtil.showHUD(`连续向下倒序增加模板失败: ${error.message || error}`);
-  //             }
-  //             break;
-  //           case 1: // 连续向下「顺序」增加模板
-  //             /**
-  //              * 通过//来分割标题，增加一连串的归类卡片（顺序，与case2倒序不同）
-  //              * 比如：赋范空间上的有界线性算子//的判定//：充分条件
-  //              * -> 赋范空间上的有界线性算子、赋范空间上的有界线性算子的判定、赋范空间上的有界线性算子的判定：充分条件
-  //              */
-  //             try {
-  //               let titlePartsArray = userInputTitle.split("//")
-  //               let titlesArray = []
-  //               titlesArray.push(titlePartsArray[0]) // 添加第一个部分
-  //               if (titlePartsArray.length > 1) {
-  //                 // 生成顺序组合
-  //                 for (let i = 1; i < titlePartsArray.length; i++) {
-  //                   titlesArray.push(titlesArray[i-1] + titlePartsArray[i])
-  //                 }
-  //               }
-  //               let type
-  //               let lastNote = note
-  //               switch (this.getNoteType(note)) {
-  //                 case "归类":
-  //                   let defaultType = this.parseNoteTitle(note).type  // 默认类型
-  //                   MNUtil.undoGrouping(()=>{
-  //                     titlesArray.forEach(title => {
-  //                       // 对每个标题尝试智能识别
-  //                       let intelligentType = this.getTypeFromInputText(title);
-  //                       let finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
-  //                       let newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
-  //                       lastNote = newClassificationNote
-  //                     })
-  //                     if (focusLastNote) {
-  //                       lastNote.focusInMindMap(0.3)
-  //                     }
-  //                     lastClassificationNote = lastNote
-  //                   })
-  //                   break;
-  //                 default:
-  //                   // 智能识别类型
-  //                   let intelligentType = this.getTypeFromInputText(userInputTitle);
-  //                   if (intelligentType) {
-  //                     type = intelligentType;
-  //                     // 直接执行创建逻辑，无需弹窗选择
-  //                     MNUtil.undoGrouping(() => {
-  //                       titlesArray.forEach(title => {
-  //                         let newClassificationNote = this.createClassificationNote(lastNote, title, type);
-  //                         lastNote = newClassificationNote;
-  //                       });
-  //                       if (focusLastNote) {
-  //                         lastNote.focusInMindMap(0.3);
-  //                       }
-  //                       lastClassificationNote = lastNote;
-  //                     });
-  //                   } else {
-  //                     // 原有的弹窗选择逻辑
-  //                     let typeArr = ["定义","命题","例子","反例","思想方法","问题"]
-  //                     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-  //                       "增加归类卡片",
-  //                       "选择类型",
-  //                       0,
-  //                       "取消",
-  //                       typeArr,
-  //                       (alert, buttonIndex) => {
-  //                         if (buttonIndex == 0) { return }
-  //                         type = typeArr[buttonIndex-1]
-  //                         MNUtil.undoGrouping(()=>{
-  //                           titlesArray.forEach(title => {
-  //                           let newClassificationNote = this.createClassificationNote(lastNote, title, type)
-  //                             lastNote = newClassificationNote
-  //                           })
-  //                           if (focusLastNote) {
-  //                             lastNote.focusInMindMap(0.3)
-  //                           }
-  //                           lastClassificationNote = lastNote
-  //                         })
-  //                       })
-  //                   }
-  //                   break;
-  //               }
-  //             } catch (error) {
-  //               MNUtil.showHUD(`连续向下顺序增加模板失败: ${error.message || error}`);
-  //             }
-  //             break;
-  //         }
-  //       }
-  //     )
-
-  //     return lastClassificationNote
-  //   } catch (error) {
-  //     MNUtil.showHUD(error);
-  //   }
-  // }
-
   static async addTemplate(note, focusLastNote = true) {
     let type, noteType, intelligentType, titleType, finalType
     let defaultType = this.parseNoteTitle(note).type  // 默认类型
@@ -7976,6 +8662,7 @@ class KnowledgeBaseTemplate {
     let typeArr = ["定义", "命题", "例子", "反例", "思想方法", "问题"]
     let titlesArray = []
     let contentInTitle
+    let childNotes = note.childNotes
     switch (this.getNoteType(note)) {
       case "归类":
         contentInTitle = titleParts.content
@@ -7996,6 +8683,7 @@ class KnowledgeBaseTemplate {
           "增加兄弟层级模板",  // 3
           "向上层增加模板",  // 4
         ],
+        { default: contentInTitle }
       )
       let userInputTitle = userInputRes.input
       // 分割输入，支持通过//创建多个兄弟卡片链
@@ -8003,9 +8691,6 @@ class KnowledgeBaseTemplate {
       let previousTitle = titlePartsArray[0]  // 记录上一个标题
       let changedTitlePart = titlePartsArray[titlePartsArray.length-1]
       switch (userInputRes.button) {
-        case 0:
-          MNUtil.showHUD("取消增加模板")
-          break;
         case 4:
           try {
             /* 向上增加模板 */
@@ -8037,7 +8722,10 @@ class KnowledgeBaseTemplate {
             // 5. 使用 this API 处理链接关系
             this.linkParentNote(newClassificationNote);
             this.linkParentNote(note);
-            
+
+            // 5.1 添加到增量索引
+            KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote);
+
             // 6. 聚焦到新创建的卡片
             if (focusLastNote) {
               newClassificationNote.focusInMindMap(0.5);
@@ -8063,10 +8751,12 @@ class KnowledgeBaseTemplate {
               // 创建第一个兄弟卡片（始终使用归类模板）
               let firstNote = MNNote.clone(this.types["归类"].templateNoteId)
               firstNote.noteTitle = "“" + titlePartsArray[0] + "”相关" + titleType
-              note.parentNote.addChild(firstNote.note)
+              note.parentNote.addChild(firstNote)
               this.linkParentNote(firstNote)
+              KnowledgeBaseIndexer.addToIncrementalIndex(firstNote)
               lastNote = firstNote
-              
+              firstNote.moveTo(note.indexInBrotherNotes + 1)
+
               // 如果有更多部分，创建子卡片链
               for (let i = 1; i < titlePartsArray.length; i++) {
                 let childNote = MNNote.clone(this.types["归类"].templateNoteId)
@@ -8075,6 +8765,7 @@ class KnowledgeBaseTemplate {
                 childNote.noteTitle = "“" + accumulatedTitle + "”相关" + titleType
                 lastNote.addChild(childNote.note)
                 this.linkParentNote(childNote)
+                KnowledgeBaseIndexer.addToIncrementalIndex(childNote)
                 lastNote = childNote
                 previousTitle = accumulatedTitle  // 更新上一个标题
               }
@@ -8116,7 +8807,8 @@ class KnowledgeBaseTemplate {
                     // 对每个标题尝试智能识别
                     intelligentType = this.getTypeFromInputText(title);
                     finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
-                    newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
+                    newClassificationNote = this.createClassificationNoteAsChildNote(lastNote, title, finalType)
+                    KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                     lastNote = newClassificationNote
                   })
                   if (focusLastNote) {
@@ -8133,7 +8825,8 @@ class KnowledgeBaseTemplate {
                   // 直接执行创建逻辑，无需弹窗选择
                   MNUtil.undoGrouping(() => {
                     titlesArray.forEach(title => {
-                      newClassificationNote = this.createClassificationNote(lastNote, title, type);
+                      newClassificationNote = this.createClassificationNoteAsChildNote(lastNote, title, type);
+                      KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote);
                       lastNote = newClassificationNote;
                     });
                     if (focusLastNote) {
@@ -8150,7 +8843,8 @@ class KnowledgeBaseTemplate {
                   if (userInputRes === 0) { return; }
                   type = typeArr[userInputRes - 1]
                   titlesArray.forEach(title => {
-                    newClassificationNote = this.createClassificationNote(lastNote, title, type)
+                    newClassificationNote = this.createClassificationNoteAsChildNote(lastNote, title, type)
+                    KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                     lastNote = newClassificationNote
                   })
                   if (focusLastNote) {
@@ -8185,9 +8879,13 @@ class KnowledgeBaseTemplate {
                   // 对每个标题尝试智能识别
                   intelligentType = this.getTypeFromInputText(title);
                   finalType = intelligentType || defaultType;  // 优先使用智能识别的类型
-                  newClassificationNote = this.createClassificationNote(lastNote, title, finalType)
+                  newClassificationNote = this.createClassificationNoteAsChildNote(lastNote, title, finalType)
+                  KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                   lastNote = newClassificationNote
                 })
+                if (childNotes.length == 1 && this.getNoteType(childNotes[0]) !== "归类") {  // 不是归类卡片的最后一张，自动移动到新的归类卡片下方
+                  lastNote.addChild(childNotes[0])
+                }
                 if (focusLastNote) {
                   lastNote.focusInMindMap(0.3)
                 }
@@ -8199,7 +8897,8 @@ class KnowledgeBaseTemplate {
                 if (intelligentType) {
                   type = intelligentType;
                   titlesArray.forEach(title => {
-                    newClassificationNote = this.createClassificationNote(lastNote, title, type);
+                    newClassificationNote = this.createClassificationNoteAsChildNote(lastNote, title, type);
+                    KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote);
                     lastNote = newClassificationNote;
                   });
                   if (focusLastNote) {
@@ -8219,7 +8918,8 @@ class KnowledgeBaseTemplate {
                   type = typeArr[userInputRes - 1]
                   // KnowledgeBaseUtils.log(type, "addTemplate:type")
                   titlesArray.forEach(title => {
-                    newClassificationNote = this.createClassificationNote(lastNote, title, type)
+                    newClassificationNote = this.createClassificationNoteAsChildNote(lastNote, title, type)
+                    KnowledgeBaseIndexer.addToIncrementalIndex(newClassificationNote)
                     lastNote = newClassificationNote
                   })
                   if (focusLastNote) {
@@ -8248,6 +8948,7 @@ class KnowledgeBaseTemplate {
         }
       });
       // 明确返回创建的分类卡片（如果有），以便外部 await 可以接收到
+      KnowledgeBaseConfig.config.lastClassificationNoteId = lastClassificationNote ? lastClassificationNote.noteId : null;
       return lastClassificationNote;
     } catch (error) {
       KnowledgeBaseUtils.log(error, "addTemplate")
@@ -8256,12 +8957,80 @@ class KnowledgeBaseTemplate {
   }
 
 
-  static createClassificationNote(note, title, type) {
-    let templateNote = MNNote.clone(this.types["归类"].templateNoteId);
+  /**
+   * simpleTemplate: 没有“相关思考”字段
+   */
+  static createClassificationNoteAsChildNote(note, title, type, linkParentNote = true, simpleTemplate = false) {
+    let templateNote = simpleTemplate?MNNote.clone("marginnote4app://note/14C17839-C256-4D3C-A611-726C5B6C1A04"):MNNote.clone(this.types["归类"].templateNoteId);
     templateNote.noteTitle = `“${title}”相关${type}`;
     note.addChild(templateNote.note);
-    this.linkParentNote(templateNote);
+    if (linkParentNote) { this.linkParentNote(templateNote); }
     return templateNote;
+  }
+
+  /**
+   * 将选中的卡片变成归类卡片
+   * 
+   * directly: 直接转换，不借助弹窗处理
+   */
+  static async convertNoteToClassificationNote(note, directly = true, linkParentNote = true, preprocessNote = true) {
+    if (!note) { return undefined }
+    // KnowledgeBaseUtils.log("处理前标题为：" + note.title, "convertNoteToClassificationNote")
+    let preprocessedNote
+    if (preprocessNote) {
+      preprocessedNote = this.toNoExcerptVersion(note)
+    } else {
+      preprocessedNote = note
+    }
+    // KnowledgeBaseUtils.log("处理卡片后标题为：" + preprocessedNote.title, "convertNoteToClassificationNote")
+    let titleContent = preprocessedNote.title
+    // KnowledgeBaseUtils.log("处理卡片后 titleContent 为：" + titleContent, "convertNoteToClassificationNote")
+    let intelligentType = this.getTypeFromInputText(titleContent);
+    let type = intelligentType || (
+      this.parseNoteTitle(preprocessedNote.parentNote).type
+    )
+
+    if (!directly) {
+      MNUtil.copy(
+        (this.parseNoteTitle(preprocessedNote.parentNote).content || "")
+        + 
+        "｜" + titleContent
+      )
+      let input = await MNUtil.userInput(
+        "输入要生成的归类卡片标题",
+        "",
+        [
+          "取消",
+          "确定"
+        ]
+      )
+      switch (input.button) {
+        case 0:
+          break;
+        case 1:
+          titleContent = input.input
+          break;
+      }
+    }
+
+    // KnowledgeBaseUtils.log("准备设置标题前 titleContent 为：" + titleContent, "convertNoteToClassificationNote")
+    let finalTitle = "“" + titleContent + "”相关" + type 
+    let templateNote = MNNote.clone(this.types["归类"].templateNoteId)
+    MNUtil.undoGrouping(()=>{
+      preprocessedNote.parentNote.addChild(templateNote)
+      preprocessedNote.title = ""
+      preprocessedNote.mergeInto(templateNote)
+      this.autoMoveNewContentToField(templateNote, "摘录")
+      templateNote.title = finalTitle
+      this.changeNoteColor(templateNote, '归类')
+      if (linkParentNote) {
+        this.linkParentNote(templateNote)
+      }
+    })
+
+    KnowledgeBaseIndexer.addToIncrementalIndex(templateNote)
+
+    return templateNote
   }
 
   /**
@@ -8276,78 +9045,51 @@ class KnowledgeBaseTemplate {
   }
 
   /**
-   * 加载链接词快捷短语配置
-   * @returns {string[]} 快捷短语数组
+   * 处理快捷短语中的占位符
+   * @param {string} phrase - 包含 {{}} 占位符的短语
+   * @param {string} inputText - 用户输入的文本
+   * @returns {string} - 替换后的短语
+   *
+   * @example
+   * processPhrasePlaceholder("作为{{}}特例", "度量空间") // 返回 "作为度量空间特例"
+   * processPhrasePlaceholder("作为{{}}特例", "") // 返回 "作为特例"
+   * processPhrasePlaceholder("因此", "任意文本") // 返回 "因此"
    */
-  static loadLinkPhrasesConfig() {
-    try {
-      const configKey = "KnowledgeBaseTemplate_LinkPhrases";
-      const defaultPhrases = [
-        "因此",
-        "作为特例"
-      ];
-      
-      // 从 NSUserDefaults 加载
-      const savedConfig = NSUserDefaults.standardUserDefaults().objectForKey(configKey);
-      if (savedConfig) {
-        try {
-          const parsed = JSON.parse(savedConfig);
-          // 确保返回的是数组
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        } catch (e) {
-          // 解析失败，返回默认值
-          MNUtil.log("Failed to parse saved link phrases config");
-        }
-      }
-      
-      // 如果没有保存的配置或解析失败，返回默认值并保存
-      this.saveLinkPhrasesConfig(defaultPhrases);
-      return defaultPhrases;
-    } catch (error) {
-      MNUtil.log("Error loading link phrases config: " + error.toString());
-      return ["作为特例", "因此"];
+  static processPhrasePlaceholder(phrase, inputText) {
+    // 如果短语不包含占位符，直接返回
+    if (!phrase.includes("{{}}")) {
+      return phrase;
     }
-  }
 
-  /**
-   * 保存链接词快捷短语配置
-   * @param {string[]} phrases - 快捷短语数组
-   * @returns {boolean} 是否保存成功
-   */
-  static saveLinkPhrasesConfig(phrases) {
-    try {
-      const configKey = "KnowledgeBaseTemplate_LinkPhrases";
-      // 过滤空字符串并去重
-      const cleanPhrases = [...new Set(phrases.filter(p => p && p.trim()))];
-      NSUserDefaults.standardUserDefaults().setObjectForKey(
-        JSON.stringify(cleanPhrases), 
-        configKey
-      );
-      return true;
-    } catch (error) {
-      MNUtil.log("Error saving link phrases config: " + error.toString());
-      return false;
+    // 获取实际要填充的内容（去除前后空格）
+    const fillText = (inputText || "").trim();
+
+    // 如果没有输入内容，移除占位符
+    if (!fillText) {
+      return phrase.replace(/{{}}/g, "");
     }
+
+    // 替换占位符为输入内容
+    return phrase.replace(/{{}}/g, fillText);
   }
 
   /**
    * 复制 Markdown 格式的卡片链接（带快捷短语功能）
    * @param {MNNote} note - 要生成链接的卡片
+   * @param {string|null} prefilledText - 预填充的文本
    */
   static copyMarkdownLinkWithQuickPhrases(note, prefilledText = null) {
     if (!note) {
       MNUtil.showHUD("❌ 请先选择一个卡片");
       return;
     }
-    
+
     // 获取默认链接词（如果没有预填充文本）
-    const defaultLinkWord = prefilledText|| "";
-    
-    // 加载快捷短语
-    let phrases = this.loadLinkPhrasesConfig();
-    
+    const defaultLinkWord = prefilledText || "";
+
+    // 使用静态配置的快捷短语
+    const phrases = this.inlineLinkPhrases;
+
     // 构建选项列表
     let menuOptions = [];
 
@@ -8361,11 +9103,7 @@ class KnowledgeBaseTemplate {
     phrases.forEach(phrase => {
       menuOptions.push(`📝 ${phrase}`);
     });
-    
-    // 添加分隔线和管理选项
-    menuOptions.push("────────────────");
-    menuOptions.push("⚙️ 管理快捷短语");
-    
+
     // 显示带输入框的对话框
     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
       "复制 Markdown 链接",
@@ -8375,10 +9113,10 @@ class KnowledgeBaseTemplate {
       menuOptions,
       (alert, buttonIndex) => {
         if (buttonIndex === 0) return; // 取消
-        
+
         const selectedIndex = buttonIndex - 1;
         const inputText = alert.textFieldAtIndex(0).text;
-        
+
         if (selectedIndex === 0) {
           // 点击"确定"按钮
           const linkWord = inputText && inputText.trim() ? inputText : defaultLinkWord;
@@ -8402,285 +9140,25 @@ class KnowledgeBaseTemplate {
           }
 
         } else if (selectedIndex <= phrases.length + 1) {
-          // 选择了快捷短语，直接使用并复制
+          // 选择了快捷短语
           const selectedPhrase = phrases[selectedIndex - 2];
-          const mdLink = `[${selectedPhrase}](${note.noteURL})`;
+
+          // 处理占位符（新增）
+          const processedPhrase = this.processPhrasePlaceholder(selectedPhrase, inputText);
+
+          const mdLink = `[${processedPhrase}](${note.noteURL})`;
           MNUtil.copy(mdLink);
           MNUtil.showHUD(`✅ 已复制: ${mdLink}`);
-
-        } else if (menuOptions[selectedIndex] === "⚙️ 管理快捷短语") {
-          // 管理快捷短语
-          this.manageLinkPhrases(() => {
-            // 管理完成后重新显示主菜单，保持之前的输入
-            this.copyMarkdownLinkWithQuickPhrases(note, inputText);
-          });
         }
       }
     );
-    
+
     // 设置输入框的默认值
     MNUtil.delay(0.1).then(() => {
       if (UIAlertView.currentAlert) {
         UIAlertView.currentAlert.textFieldAtIndex(0).text = defaultLinkWord;
       }
     });
-  }
-
-  /**
-   * 显示手动输入对话框
-   * @private
-   */
-  static showLinkWordInputDialog(note) {
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "输入链接词",
-      "请输入自定义的链接词",
-      2, // 输入框样式
-      "取消",
-      ["确定"],
-      (alert, buttonIndex) => {
-        if (buttonIndex === 1) {
-          let linkWord = alert.textFieldAtIndex(0).text;
-          // 如果没有输入，使用第一个标题链接词
-          if (!linkWord || !linkWord.trim()) {
-            linkWord = this.getFirstTitleLinkWord(note);
-          }
-          
-          if (linkWord) {
-            const mdLink = `[${linkWord}](${note.noteURL})`;
-            MNUtil.copy(mdLink);
-            MNUtil.showHUD(`✅ 已复制: ${mdLink}`);
-            
-            // 不再自动询问是否添加到快捷短语
-          }
-        }
-      }
-    );
-  }
-
-  /**
-   * 询问是否添加到快捷短语
-   * @private
-   */
-  static askToAddPhrase(phrase) {
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "添加到快捷短语？",
-      `是否将 "${phrase}" 添加到快捷短语列表？`,
-      0,
-      "否",
-      ["是"],
-      (alert, buttonIndex) => {
-        if (buttonIndex === 1) {
-          let phrases = this.loadLinkPhrasesConfig();
-          if (!phrases.includes(phrase)) {
-            phrases.unshift(phrase); // 添加到开头
-            if (phrases.length > 20) {
-              phrases.pop(); // 限制最多20个
-            }
-            if (this.saveLinkPhrasesConfig(phrases)) {
-              MNUtil.showHUD("✅ 已添加到快捷短语");
-            }
-          }
-        }
-      }
-    );
-  }
-
-  /**
-   * 管理链接词快捷短语
-   * @param {Function} callback - 完成后的回调函数
-   */
-  static manageLinkPhrases(callback) {
-    let phrases = this.loadLinkPhrasesConfig();
-    
-    let menuOptions = [
-      "➕ 添加新短语",
-      "➖ 删除短语",
-      "🔄 恢复默认短语",
-      "📋 查看所有短语"
-    ];
-    
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "管理快捷短语",
-      `当前有 ${phrases.length} 个快捷短语`,
-      0,
-      "返回",
-      menuOptions,
-      (alert, buttonIndex) => {
-        if (buttonIndex === 0) {
-          // 返回
-          if (callback) callback();
-          return;
-        }
-        
-        const selectedOption = menuOptions[buttonIndex - 1];
-        
-        switch (selectedOption) {
-          case "➕ 添加新短语":
-            this.addNewPhrase(callback);
-            break;
-            
-          case "➖ 删除短语":
-            this.deletePhrase(callback);
-            break;
-            
-          case "🔄 恢复默认短语":
-            this.restoreDefaultPhrases(callback);
-            break;
-            
-          case "📋 查看所有短语":
-            this.viewAllPhrases(callback);
-            break;
-        }
-      }
-    );
-  }
-
-  /**
-   * 添加新的快捷短语
-   * @private
-   */
-  static addNewPhrase(callback) {
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "添加新短语",
-      "请输入新的快捷短语",
-      2, // 输入框样式
-      "取消",
-      ["添加"],
-      (alert, buttonIndex) => {
-        if (buttonIndex === 1) {
-          const newPhrase = alert.textFieldAtIndex(0).text;
-          if (newPhrase && newPhrase.trim()) {
-            let phrases = this.loadLinkPhrasesConfig();
-            if (!phrases.includes(newPhrase.trim())) {
-              phrases.unshift(newPhrase.trim());
-              if (phrases.length > 20) {
-                phrases.pop(); // 限制最多20个
-              }
-              if (this.saveLinkPhrasesConfig(phrases)) {
-                MNUtil.showHUD(`✅ 已添加: ${newPhrase}`);
-              }
-            } else {
-              MNUtil.showHUD("⚠️ 该短语已存在");
-            }
-          }
-        }
-        // 返回管理界面
-        this.manageLinkPhrases(callback);
-      }
-    );
-  }
-
-  /**
-   * 删除快捷短语
-   * @private
-   */
-  static deletePhrase(callback) {
-    let phrases = this.loadLinkPhrasesConfig();
-    
-    if (phrases.length === 0) {
-      MNUtil.showHUD("没有可删除的短语");
-      this.manageLinkPhrases(callback);
-      return;
-    }
-    
-    // 为每个短语添加序号
-    const numberedPhrases = phrases.map((phrase, index) => `${index + 1}. ${phrase}`);
-    
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "选择要删除的短语",
-      "点击短语将其删除",
-      0,
-      "返回",
-      numberedPhrases,
-      (alert, buttonIndex) => {
-        if (buttonIndex === 0) {
-          // 返回
-          this.manageLinkPhrases(callback);
-          return;
-        }
-        
-        const indexToDelete = buttonIndex - 1;
-        const deletedPhrase = phrases[indexToDelete];
-        
-        phrases.splice(indexToDelete, 1);
-        if (this.saveLinkPhrasesConfig(phrases)) {
-          MNUtil.showHUD(`✅ 已删除: ${deletedPhrase}`);
-        }
-        
-        // 继续显示删除界面
-        this.deletePhrase(callback);
-      }
-    );
-  }
-
-  /**
-   * 恢复默认短语列表
-   * @private
-   */
-  static restoreDefaultPhrases(callback) {
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "恢复默认短语？",
-      "这将替换当前的所有快捷短语",
-      0,
-      "取消",
-      ["确认恢复"],
-      (alert, buttonIndex) => {
-        if (buttonIndex === 1) {
-          const defaultPhrases = [
-            "作为特例", 
-            "因此", 
-            "参见", 
-            "根据", 
-            "证明", 
-            "应用于", 
-            "等价于", 
-            "推广到",
-            "由此可得",
-            "进一步",
-            "类比",
-            "对比"
-          ];
-          
-          if (this.saveLinkPhrasesConfig(defaultPhrases)) {
-            MNUtil.showHUD("✅ 已恢复默认短语列表");
-          }
-        }
-        
-        // 返回管理界面
-        this.manageLinkPhrases(callback);
-      }
-    );
-  }
-
-  /**
-   * 查看所有短语
-   * @private
-   */
-  static viewAllPhrases(callback) {
-    let phrases = this.loadLinkPhrasesConfig();
-    
-    if (phrases.length === 0) {
-      MNUtil.showHUD("短语列表为空");
-      this.manageLinkPhrases(callback);
-      return;
-    }
-    
-    // 将短语列表转换为带序号的字符串
-    const phraseList = phrases.map((phrase, index) => 
-      `${index + 1}. ${phrase}`
-    ).join("\n");
-    
-    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "所有快捷短语",
-      phraseList,
-      0,
-      "返回",
-      [],
-      (alert, buttonIndex) => {
-        // 返回管理界面
-        this.manageLinkPhrases(callback);
-      }
-    );
   }
 
   /**
@@ -11496,8 +11974,10 @@ class KnowledgeBaseTemplate {
               break;
               
             default:
-              // 直接替换
-              variant = variant.replace(word, replacement);
+              // 全局替换所有出现（重要：确保 ||x|| 中的两个 || 都被替换）
+              const escapedWord = this.escapeRegex(word);
+              const globalRegex = new RegExp(escapedWord, 'g');
+              variant = variant.replace(globalRegex, replacement);
           }
           
           if (variant !== keyword) {
@@ -11642,7 +12122,13 @@ class KnowledgeBaseTemplate {
           // 添加组内所有词
           group.words.forEach(word => expandedKeywords.add(word));
         }
-        
+
+        // 局部替换（支持 ||x|| → ‖x‖）
+        if (group.partialReplacement) {
+          const partialVariants = this.generatePartialReplacements(keyword, group);
+          partialVariants.forEach(variant => expandedKeywords.add(variant));
+        }
+
         // 检查模式匹配
         if (group.patternMode) {
           const patternVariants = this.generatePatternVariants(keyword, group);
@@ -12062,29 +12548,49 @@ class KnowledgeBaseTemplate {
           let shouldExclude = false;
           
           if (exclusionInfo.groups.length > 0) {
-            // 优化：直接分析排除词组（与索引构建时的逻辑一致）
+            // ========================================
+            // 🔍 搜索时的排除词匹配逻辑（旧版本实现）
+            // ========================================
+            //
+            // 🔄 兼容性说明：
+            // 这是旧版本的搜索实现，与 search.html 中的新实现逻辑相同。
+            // 同样使用 affectedTriggers 字段判断是否排除。
+            //
+            // 判断流程：
+            // 1. 实时分析卡片的排除词组（与索引构建时逻辑一致）
+            // 2. 遍历用户搜索激活的排除词组（activeGroup）
+            // 3. 检查卡片的排除词组（cardGroup）
+            // 4. 关键检查：用户搜索的触发词是否在卡片的 affectedTriggers 中
+            //
+            // 两个关键字段的区别：
+            // - activeGroup.triggerWords：用户搜索激活的触发词（来自搜索查询）
+            // - cardGroup.affectedTriggers：卡片中被污染的触发词（来自实时分析）
+            //
             const applicableGroups = KnowledgeBaseIndexer.analyzeExclusionGroups(searchText);
-            
+
             if (applicableGroups.length > 0) {
               // 检查是否有激活的排除词组需要排除这张卡片
               for (const activeGroup of exclusionInfo.groups) {
                 for (const cardGroup of applicableGroups) {
+                  // 检查是否为同一个排除词组（通过 ID 或 triggerWords 比对）
                   if (cardGroup.groupId === activeGroup.id) {
-                    // 检查触发词是否在受影响的触发词列表中
-                    const hasAffectedTrigger = activeGroup.triggerWords.some(trigger => 
+                    // 🎯 核心判断：用户搜索的触发词是否在卡片的污染列表中
+                    // 只有当"用户搜索的触发词"在"卡片被污染的触发词"中时，才排除卡片
+                    const hasAffectedTrigger = activeGroup.triggerWords.some(trigger =>
                       cardGroup.affectedTriggers.includes(trigger)
                     );
-                    
+
                     if (hasAffectedTrigger) {
-                      shouldExclude = true;
+                      shouldExclude = true;  // ❌ 应该排除（完全污染）
                       MNUtil.log(`❌ 排除卡片: "${title}" (匹配排除组 "${cardGroup.groupName}")`);
                       break;
                     }
+                    // ✅ 否则保留（部分污染或无污染）
                   }
                 }
                 if (shouldExclude) break;
               }
-              
+
               if (!shouldExclude && applicableGroups.length > 0) {
                 MNUtil.log(`✅ 保留卡片: "${title}" (虽包含排除词但触发词独立存在)`);
               }
@@ -14932,30 +15438,98 @@ class KnowledgeBaseTemplate {
   /**
    * 卡片的预处理
    */
-  static preprocessNote(note) {
+  static processNote(note) {
+    // KnowledgeBaseUtils.log("开始执行 processNote", "processNote", {
+    //   noteId: note.noteId,
+    //   noteTitle: note.noteTitle,
+    //   isOldTemplate: this.isOldTemplateCard(note),
+    //   ifTemplateMerged: this.ifTemplateMerged(note)
+    // })
+
     if (this.isOldTemplateCard(note)) {
-      // MNUtil.showHUD("旧卡片")
+      // 分支 A：旧模板卡片
+      // KnowledgeBaseUtils.log("进入旧模板卡片分支", "processNote", {
+      //   noteId: note.noteId
+      // })
+
       let newNote = this.renewNote(note)
+      // KnowledgeBaseUtils.log("完成 renewNote（旧模板）", "processNote", {
+      //   step: "renewNote",
+      //   noteId: note.noteId,
+      //   newNoteId: newNote.noteId
+      // })
+
       this.changeTitle(newNote)
+      // KnowledgeBaseUtils.log("完成 changeTitle（旧模板）", "processNote", {
+      //   step: "changeTitle",
+      //   noteId: newNote.noteId
+      // })
+
       this.changeNoteColor(newNote)
+      // KnowledgeBaseUtils.log("完成 changeNoteColor（旧模板）", "processNote", {
+      //   step: "changeNoteColor",
+      //   noteId: newNote.noteId
+      // })
+
       return newNote
     } else {
       if (this.ifTemplateMerged(note)) {
-        // MNUtil.showHUD("模板！")
+        // 分支 B：已合并模板（重点瓶颈分支）
+        // KnowledgeBaseUtils.log("进入已合并模板分支", "processNote", {
+        //   noteId: note.noteId
+        // })
+
         this.renewNote(note)
+        // KnowledgeBaseUtils.log("完成 renewNote（已合并模板）", "processNote", {
+        //   step: "renewNote",
+        //   noteId: note.noteId
+        // })
+
         this.changeTitle(note)
+        // KnowledgeBaseUtils.log("完成 changeTitle（已合并模板）", "processNote", {
+        //   step: "changeTitle",
+        //   noteId: note.noteId
+        // })
+
         this.changeNoteColor(note)
+        // KnowledgeBaseUtils.log("完成 changeNoteColor（已合并模板）", "processNote", {
+        //   step: "changeNoteColor",
+        //   noteId: note.noteId
+        // })
+
         this.linkParentNote(note)
+        // KnowledgeBaseUtils.log("完成 linkParentNote（已合并模板）⭐", "processNote", {
+        //   step: "linkParentNote",
+        //   noteId: note.noteId
+        // })
+
         this.autoMoveNewContent(note) // 自动移动新内容到对应字段
+        // KnowledgeBaseUtils.log("完成 autoMoveNewContent（已合并模板）", "processNote", {
+        //   step: "autoMoveNewContent",
+        //   noteId: note.noteId
+        // })
+
         return note
       } else {
-        // MNUtil.showHUD("不是模板")
+        // 分支 C：新卡片
+        // KnowledgeBaseUtils.log("进入新卡片分支", "processNote", {
+        //   noteId: note.noteId
+        // })
+
         this.changeTitle(note)
         this.changeNoteColor(note)
         note.convertLinksToNewVersion()
         note.cleanupBrokenLinks()
         note.fixMergeProblematicLinks()
-        return this.toNoExcerptVersion(note)
+
+        let result = this.toNoExcerptVersion(note)
+        // KnowledgeBaseUtils.log("完成 toNoExcerptVersion（新卡片）", "processNote", {
+        //   step: "toNoExcerptVersion",
+        //   noteId: note.noteId,
+        //   resultNoteId: result.noteId
+        // })
+
+        return result
       }
     }
   }
@@ -15024,6 +15598,57 @@ class KnowledgeBaseTemplate {
       )
     }
   }
+
+  /**
+   * 把归类卡片转为定义卡片
+   */
+  static convertClassificationNoteToDefinitionNote(note) {
+    try {
+      if (!this.getNoteType(note) === "归类") {
+        MNUtil.showHUD("❌ 只能转换归类卡片");
+        return;
+      }
+      let parsedTitle = this.parseNoteTitle(note)
+      note.title = parsedTitle.content
+    
+      /**
+       * 替换“包含”字段为"相关链接"
+       */
+
+      let includingHtmlCommentIndex = note.getIncludingHtmlCommentIndex("包含")
+
+      note.removeCommentByIndex(includingHtmlCommentIndex)
+
+      this.cloneAndMergeById(note, "marginnote4app://note/557824A5-AD9F-4D5E-8254-3DA8C6F9D2B8")
+
+      note.moveComment(note.comments.length - 1, includingHtmlCommentIndex)
+
+      // 最后再删，防止影响前面
+      let deleteCommentIndexArr = this.getHtmlCommentIncludingFieldBlockIndexArr(note, "所属")
+      note.removeCommentsByIndexArr(deleteCommentIndexArr)
+
+      this.changeTitle(note, false, "定义") // 修改卡片标题
+      this.changeNoteColor(note, "定义") // 修改卡片颜色
+      this.linkParentNote(note) // 链接广义的父卡片（可能是链接归类卡片）
+      this.refreshNotes(note) // 刷新卡片
+
+      return note
+    } catch (error) {
+      MNLog.error(error, "KnowledgeBaseTemplate: convertClassificationNoteToDefinitionNote");
+    }
+  }
+
+  static mergeIntoSummaryNote(note) {
+    let summaryNote = note.parentNote
+    if (summaryNote.title == "summary" || summaryNote.title == "Summary") {
+      MNUtil.undoGrouping(()=>{
+        summaryNote.title = note.title
+        note.title = ""
+        summaryNote.colorIndex = note.colorIndex
+        note.mergeInto(summaryNote)
+      })
+    }
+  }
 }
 
 /**
@@ -15082,17 +15707,22 @@ class KnowledgeBaseIndexer {
    * 构建搜索索引（异步分片版本）
    * @param {Array<string>|MNNote} rootNotes - 根卡片
    * @param {Array<string>} targetTypes - 目标卡片类型数组，如 ["定义", "命题", "归类"]
+   * @param {string} mode - 索引模式: "light" (轻量，默认) 或 "full" (全量，含同义词扩展)
    * @returns {Promise<Object>} 包含metadata的主索引对象
    */
-  static async buildSearchIndex(rootNotes, targetTypes = ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题"]) {
+  static async buildSearchIndex(rootNotes, targetTypes = ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题"], mode = "light") {
+    // 显示构建提示
+    MNUtil.showHUD(`正在构建${mode === "full" ? "全量" : "轻量"}索引...`);
+
     const BATCH_SIZE = 500;  // 降低到 500，更频繁地清理内存
     const TEMP_FILE_PREFIX = "kb-index-temp-";
     const PART_SIZE = 5000;  // 每个最终分片包含 5000 个卡片
-    
+
     const manifest = {
       metadata: {
         version: "3.0",  // 新版本号
         lastUpdated: new Date().toISOString(),
+        updateTime: Math.floor(Date.now() / 1000),  // 🆕 添加秒级时间戳
         totalCards: 0,
         targetTypes: targetTypes,
         partSize: PART_SIZE,
@@ -15126,7 +15756,13 @@ class KnowledgeBaseIndexer {
           descendants: descendants
         });
       }
-      
+
+      // 🆕 全量模式启动提示：告知用户同义词扩展会耗时较长
+      if (mode === "full") {
+        MNUtil.showHUD("🔄 全量模式：将进行同义词扩展（耗时较长，请耐心等待）");
+        await MNUtil.delay(2);  // 给用户 2 秒阅读时间
+      }
+
       // 显示初始进度
       this.showProgressHUD(0, totalEstimatedCount, "开始构建索引");
       
@@ -15138,7 +15774,7 @@ class KnowledgeBaseIndexer {
         if (!processedIds.has(rootNote.noteId)) {
           const noteType = KnowledgeBaseTemplate.getNoteType(rootNote);
           if (noteType && targetTypes.includes(noteType)) {
-            const entry = this.buildIndexEntry(rootNote);
+            const entry = this.buildIndexEntry(rootNote, mode);
             if (entry) {
               currentBatch.push(entry);
               validCount++;
@@ -15198,8 +15834,8 @@ class KnowledgeBaseIndexer {
             processedIds.add(noteId);
             continue;
           }
-          
-          const entry = this.buildIndexEntry(mnNote);
+
+          const entry = this.buildIndexEntry(mnNote, mode);
           if (entry) {
             currentBatch.push(entry);
             validCount++;
@@ -15207,11 +15843,15 @@ class KnowledgeBaseIndexer {
           
           processedIds.add(noteId);
           processedCount++;
-          
+
           // 每处理 100 个节点更新一次进度
           if (processedCount % 100 === 0) {
-            this.showProgressHUD(processedCount, totalEstimatedCount, 
-                                `处理中... (${tempFileCount} 个临时文件)`);
+            // 🆕 全量模式提示同义词扩展
+            const message = mode === "full"
+              ? `处理中（含同义词扩展）... (${tempFileCount} 个临时文件)`
+              : `处理中... (${tempFileCount} 个临时文件)`;
+
+            this.showProgressHUD(processedCount, totalEstimatedCount, message);
           }
         }
         
@@ -15235,22 +15875,27 @@ class KnowledgeBaseIndexer {
       }
       
       // 合并临时文件到最终分片
-      MNUtil.showHUD("正在合并索引文件...");
-      await this.mergeTempFilesToParts(manifest);
-      
+      MNUtil.showHUD(`正在合并${mode === "full" ? "全量" : "轻量"}索引文件...`);
+      await this.mergeTempFilesToParts(manifest, mode);
+
       // 清理临时文件
       await this.cleanupTempFiles(manifest.metadata.tempFiles);
-      
+
       // 更新元数据
       manifest.metadata.totalCards = validCount;
-      
+
       // 保存主索引文件
-      await this.saveIndexManifest(manifest);
+      await this.saveIndexManifest(manifest, mode);
 
       // 清空增量索引（全局索引已包含所有卡片）
       this.clearIncrementalIndex();
 
-      MNUtil.showHUD(`索引构建完成：共 ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
+      // 🆕 保存当前构建的索引模式到配置（确保 WebView 能正确加载）
+      KnowledgeBaseConfig.config.searchIndexMode = mode;
+      KnowledgeBaseConfig.save();
+      MNUtil.log(`✅ 已将搜索索引模式设置为: ${mode}`);
+
+      MNUtil.showHUD(`${mode === "full" ? "全量" : "轻量"}索引构建完成：共 ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
 
     } catch (error) {
       // 清理临时文件
@@ -15269,10 +15914,12 @@ class KnowledgeBaseIndexer {
    * 构建单个卡片的索引条目
    * @private
    * @param {MNNote} note - 要建立索引的卡片
+   * @param {string} mode - 索引模式: "light" (轻量) 或 "full" (全量，含同义词扩展)
    */
-  static buildIndexEntry(note) {
+  static buildIndexEntry(note, mode = "light") {
     // 基本防御性检查
     if (!note || !note.noteId) {
+      KnowledgeBaseUtils.log(`防御性检查没通过`, "buildIndexEntry");
       return null;
     }
 
@@ -15291,6 +15938,7 @@ class KnowledgeBaseIndexer {
 
       // ✅ 过滤掉 noteType 为 undefined 的卡片
       if (!noteType) {
+        // KnowledgeBaseUtils.log(`跳过无类型卡片: ${note.noteId}`, "buildIndexEntry");
         return null;
       }
 
@@ -15318,17 +15966,48 @@ class KnowledgeBaseIndexer {
         entry.keywords = keywordsContent;
       }
 
-      // 构建搜索文本
+      // 构建搜索文本（基础版本）
       entry.searchText = this.buildSearchText(parsedTitle, noteType, keywordsContent);
+
+      // 🆕 全量模式：扩展同义词
+      if (mode === "full") {
+        entry.searchText = this.expandSearchTextWithSynonyms(entry.searchText);
+      }
 
       // ✅ 过滤掉搜索文本为空或只有类型名的卡片
       // 移除类型名后，如果没有实质性内容，则过滤掉
       const searchTextWithoutType = entry.searchText.replace(new RegExp(`^${noteType}\\s*`, 'i'), '').trim();
       if (!searchTextWithoutType) {
+        // KnowledgeBaseUtils.log('移除类型名后，如果没有实质性内容', "KnowledgeBaseIndexer: buildIndexEntry");
         return null;
       }
 
-      // 添加排除词组信息（用于搜索时过滤）
+      // ========================================
+      // 📦 预处理排除词组信息（性能优化）
+      // ========================================
+      //
+      // 在索引构建阶段，预先分析每张卡片的排除词污染情况，避免搜索时重复计算。
+      //
+      // 为什么需要预处理？
+      // 1. 性能优化：索引构建时计算一次，搜索时直接使用（避免重复分析）
+      // 2. 数据一致性：确保索引和搜索使用相同的排除逻辑
+      // 3. 可追溯性：可在调试时查看每张卡片的排除词信息
+      //
+      // entry.excludedGroups 数据结构：
+      // [
+      //   {
+      //     triggerWords: ["𝔻", "开单位圆盘", "单位圆盘"],  // 完整触发词列表（组识别）
+      //     excludeWords: ["闭单位圆盘"],                  // 卡片包含的排除词
+      //     affectedTriggers: ["单位圆盘"]                // 被污染的触发词（排除依据）
+      //   }
+      // ]
+      //
+      // 搜索时的使用逻辑：
+      // - 用户搜索"单位圆盘"时，激活该排除词组
+      // - 系统检查卡片的 affectedTriggers 是否包含"单位圆盘"
+      // - 如果包含，则排除该卡片（完全污染）
+      // - 如果不包含，则保留该卡片（部分污染或无污染）
+      //
       const applicableGroups = this.analyzeExclusionGroups(entry.searchText);
       if (applicableGroups.length > 0) {
         entry.excludedGroups = applicableGroups;
@@ -15338,6 +16017,7 @@ class KnowledgeBaseIndexer {
 
     } catch (error) {
       // 静默失败，返回 null（不索引出错的卡片）
+      KnowledgeBaseUtils.addErrorLog(error, "KnowledgeBaseIndexer: buildIndexEntry");
       return null;
     }
   }
@@ -15387,6 +16067,67 @@ class KnowledgeBaseIndexer {
     const finalText = `${typeInfo}${searchableContent} ${keywordsForSearch}`.trim().toLowerCase();
 
     return finalText;
+  }
+
+  /**
+   * 扩展搜索文本（索引时预处理同义词）
+   * 用于全量索引模式，在构建索引时预先展开所有同义词
+   *
+   * @param {string} text - 原始搜索文本
+   * @returns {string} 扩展后的搜索文本（包含所有同义词）
+   *
+   * @example
+   * expandSearchTextWithSynonyms("两两不同 集合")
+   * // 返回: "两两不同 两两不等 互不相等 各不相同 集合"
+   */
+  static expandSearchTextWithSynonyms(text) {
+    if (!text || !text.trim()) return text;
+
+    try {
+      const expandedWords = new Set();
+      const groups = SynonymManager.getSynonymGroups();
+
+      // 🆕 新逻辑：使用子串匹配而非精确词匹配
+      // 遍历所有同义词组，检查文本是否包含该组中的任意词
+      groups.forEach(group => {
+        const foundWord = group.words.find(word =>
+          text.toLowerCase().includes(word.toLowerCase())
+        );
+
+        if (foundWord) {
+          // 如果找到匹配，添加该组的所有同义词
+          group.words.forEach(syn => {
+            if (syn && syn.trim()) {
+              expandedWords.add(syn.toLowerCase());
+            }
+          });
+
+          // 生成局部替换变体（支持 ||x|| → ‖x‖）
+          if (group.partialReplacement) {
+            const partialVariants = KnowledgeBaseTemplate.generatePartialReplacements(text, group);
+            partialVariants.forEach(variant => {
+              if (variant && variant.trim()) {
+                // 将文本变体拆分为单词，逐个添加到集合中（避免完整句子造成重复）
+                const words = variant.split(/\s+/).filter(w => w.length > 0);
+                words.forEach(word => expandedWords.add(word.toLowerCase()));
+              }
+            });
+          }
+        }
+      });
+
+      // 添加原始文本的所有词（保留原有内容）
+      const originalWords = text.split(/\s+/).filter(w => w.length > 0);
+      originalWords.forEach(word => expandedWords.add(word));
+
+      // 将扩展后的词汇重新组合（使用空格分隔）
+      return Array.from(expandedWords).join(" ");
+
+    } catch (error) {
+      // 扩展失败时返回原文本
+      KnowledgeBaseUtils.addErrorLog(error, "KnowledgeBaseIndexer: expandSearchTextWithSynonyms");
+      return text;
+    }
   }
 
   /**
@@ -15469,10 +16210,48 @@ class KnowledgeBaseIndexer {
   }
 
   /**
-   * 分析文本中适用的排除词组
-   * @param {string} searchText - 要分析的搜索文本
-   * @param {Array} exclusionGroups - 预加载的排除词组（可选）
-   * @returns {Array} 包含适用的排除词组信息
+   * 分析搜索文本中的排除词组，识别"完全污染"和"部分污染"情况
+   *
+   * @description
+   * 该方法扫描卡片的搜索文本，判断是否包含排除词，并区分两种污染情况：
+   *
+   * **完全污染（Complete Pollution）**：
+   * - 卡片文本包含排除词，且触发词在移除排除词后消失
+   * - 示例：卡片包含"闭单位圆盘"，移除后"单位圆盘"不独立存在
+   * - 结果：该卡片应被排除（触发词完全依附于排除词）
+   *
+   * **部分污染（Partial Pollution）**：
+   * - 卡片文本包含排除词，但触发词仍独立存在
+   * - 示例：卡片同时包含"闭单位圆盘"和独立的"单位圆盘"
+   * - 结果：该卡片应保留（触发词有独立出现）
+   *
+   * 返回的对象中包含两个关键字段：
+   * - **triggerWords**: 该排除词组的所有触发词（完整列表，用于组识别）
+   * - **affectedTriggers**: 受到污染的触发词列表（仅包含完全污染的触发词）
+   *
+   * @param {string} searchText - 要分析的搜索文本（小写）
+   * @param {Array} [exclusionGroups=null] - 预加载的排除词组（可选，不传则自动获取）
+   *
+   * @returns {Array<Object>} 适用的排除词组数组，每个对象包含：
+   * @returns {string[]} return[].triggerWords - 该组的所有触发词（完整列表）
+   * @returns {string[]} return[].excludeWords - 匹配到的排除词列表
+   * @returns {string[]} return[].affectedTriggers - 受污染的触发词（完全污染，需排除）
+   *
+   * @example
+   * // 场景1：完全污染
+   * const text1 = "闭单位圆盘的性质";
+   * const result1 = analyzeExclusionGroups(text1);
+   * // result1[0].triggerWords = ["𝔻", "开单位圆盘", "单位圆盘"]
+   * // result1[0].affectedTriggers = ["单位圆盘"]  // 被完全污染
+   *
+   * // 场景2：部分污染（触发词独立存在）
+   * const text2 = "闭单位圆盘是单位圆盘的闭包";
+   * const result2 = analyzeExclusionGroups(text2);
+   * // result2[0].triggerWords = ["𝔻", "开单位圆盘", "单位圆盘"]
+   * // result2[0].affectedTriggers = []  // 触发词独立存在，不排除
+   *
+   * @see shouldExcludeCard - 使用该方法判断是否排除卡片
+   * @see buildIndexEntry - 在索引构建时调用，预处理卡片的排除信息
    */
   static analyzeExclusionGroups(searchText, exclusionGroups = null) {
     const applicableGroups = [];
@@ -15492,26 +16271,31 @@ class KnowledgeBaseIndexer {
       }
 
       if (containsExcludeWord) {
-        // 检查触发词是否独立存在（排除词被替换后）
+        // 🔑 关键逻辑：检查触发词是否独立存在（通过移除排除词来判断）
+        // 例如：文本"闭单位圆盘"，移除"闭"后剩余"单位圆盘"，说明"单位圆盘"被污染
         let tempText = searchText;
         for (const excludeWord of matchedExcludeWords) {
+          // 将排除词替换为占位符，模拟"移除排除词"的效果
           tempText = tempText.replace(new RegExp(excludeWord.toLowerCase(), 'gi'), '###EXCLUDED###');
         }
 
-        // 记录哪些触发词会被这个组影响
+        // 🎯 分析触发词的污染情况
+        // affectedTriggers: 记录被完全污染的触发词（移除排除词后消失）
         const affectedTriggers = [];
         for (const trigger of group.triggerWords) {
-          // 触发词不独立存在，说明会被排除
+          // ❌ 触发词在移除排除词后消失 → 完全污染，需排除
           if (!tempText.includes(trigger.toLowerCase())) {
             affectedTriggers.push(trigger);
           }
+          // ✅ 触发词在移除排除词后仍存在 → 部分污染或独立存在，保留
         }
 
+        // 只有存在完全污染的触发词时，才记录该组
         if (affectedTriggers.length > 0) {
           applicableGroups.push({
-            triggerWords: group.triggerWords,
-            excludeWords: matchedExcludeWords,
-            affectedTriggers: affectedTriggers
+            triggerWords: group.triggerWords,      // 完整触发词列表（用于组识别）
+            excludeWords: matchedExcludeWords,    // 匹配到的排除词
+            affectedTriggers: affectedTriggers    // 受污染的触发词（排除依据）
           });
         }
       }
@@ -15542,53 +16326,73 @@ class KnowledgeBaseIndexer {
   /**
    * 合并临时文件到最终分片
    * @param {Object} manifest - 主索引对象
+   * @param {string} mode - 索引模式: "light" (轻量) 或 "full" (全量)
    */
-  static async mergeTempFilesToParts(manifest) {
-    const PART_SIZE = 5000;
+  static async mergeTempFilesToParts(manifest, mode = "light") {
+    const PART_SIZE = mode === "full" ? 3000 : 5000;  // 全量模式减少分片大小
     let currentPart = [];
     let partNumber = 1;
-    
+
+    // 🆕 获取总文件数，用于进度显示
+    const totalTempFiles = manifest.metadata.tempFiles.length;
+
     try {
-      for (const tempFileName of manifest.metadata.tempFiles) {
+      // 🆕 显示合并阶段初始提示
+      this.showProgressHUD(70, 100, `开始合并 ${totalTempFiles} 个临时文件...`);
+      await MNUtil.delay(0.5);  // 短暂延迟确保 HUD 显示
+
+      for (let i = 0; i < totalTempFiles; i++) {
+        const tempFileName = manifest.metadata.tempFiles[i];
         const tempFilePath = MNUtil.tempFolder + "/" + tempFileName;
-        
+
+        // 🆕 显示详细合并进度（70% - 95% 区间）
+        const mergeProgress = 70 + (i / totalTempFiles) * 25;
+        this.showProgressHUD(
+          Math.round(mergeProgress),
+          100,
+          `合并文件 ${i + 1}/${totalTempFiles}`
+        );
+
         // 读取临时文件
         const tempData = MNUtil.readJSON(tempFilePath);
         if (!tempData || !tempData.data) continue;
-        
+
         // 添加到当前分片
         for (const entry of tempData.data) {
           currentPart.push(entry);
-          
+
           // 检查是否需要保存分片
           if (currentPart.length >= PART_SIZE) {
-            await this.saveIndexPart(currentPart, partNumber);
+            const { filename, sizeMB } = await this.saveIndexPart(currentPart, partNumber, mode);
             manifest.parts.push({
               partNumber: partNumber,
-              filename: `kb-search-index-part-${partNumber}.json`,
-              cardCount: currentPart.length
+              filename: filename,
+              cardCount: currentPart.length,
+              sizeMB: sizeMB  // 记录文件大小
             });
-            
+
             currentPart = [];
             partNumber++;
-            
-            MNUtil.showHUD(`正在生成第 ${partNumber} 个分片...`);
+
+            // 🔧 移除此处的简单 HUD，因为循环开始已显示详细进度条
+            // MNUtil.showHUD(`正在生成第 ${partNumber} 个分片...`);
           }
         }
       }
-      
+
       // 保存最后一个分片
       if (currentPart.length > 0) {
-        await this.saveIndexPart(currentPart, partNumber);
+        const { filename, sizeMB } = await this.saveIndexPart(currentPart, partNumber, mode);
         manifest.parts.push({
           partNumber: partNumber,
-          filename: `kb-search-index-part-${partNumber}.json`,
-          cardCount: currentPart.length
+          filename: filename,
+          cardCount: currentPart.length,
+          sizeMB: sizeMB  // 记录文件大小
         });
       }
-      
+
       manifest.metadata.totalParts = partNumber;
-      
+
     } catch (error) {
       MNLog.error(error, "KnowledgeBaseIndexer: mergeTempFilesToParts");
       throw error;
@@ -15618,20 +16422,33 @@ class KnowledgeBaseIndexer {
   
   /**
    * 保存索引分片
+   * @param {Array} partData - 分片数据
+   * @param {number} partNumber - 分片编号
+   * @param {string} mode - 索引模式: "light" (轻量) 或 "full" (全量)
+   * @returns {Object} - 返回 { filename, sizeMB }
    */
-  static async saveIndexPart(partData, partNumber) {
+  static async saveIndexPart(partData, partNumber, mode = "light") {
     try {
-      const filename = `kb-search-index-part-${partNumber}.json`;
+      const filename = `kb-search-index-${mode}-part-${partNumber}.json`;
       const filepath = MNUtil.dbFolder + "/data/" + filename;
-      
+
       const partContent = {
         partNumber: partNumber,
         data: partData,
-        count: partData.length
+        count: partData.length,
+        mode: mode  // 记录模式
       };
-      
+
+      // 检测文件大小
+      const jsonString = JSON.stringify(partContent);
+      const sizeMB = jsonString.length / (1024 * 1024);
+
+      if (sizeMB > 10) {
+        MNUtil.showHUD(`⚠️ 警告：分片 ${partNumber} 大小 ${sizeMB.toFixed(2)} MB`);
+      }
+
       MNUtil.writeJSON(filepath, partContent);
-      return filename;
+      return { filename, sizeMB };
     } catch (error) {
       MNUtil.showHUD("保存分片失败: " + error.message);
       MNLog.error(error, "KnowledgeBaseIndexer: saveIndexPart");
@@ -15641,10 +16458,19 @@ class KnowledgeBaseIndexer {
   
   /**
    * 保存主索引文件
+   * @param {Object} manifest - 索引清单对象
+   * @param {string} mode - 索引模式: "light" (轻量) 或 "full" (全量)
+   * @returns {string} - 文件路径
    */
-  static async saveIndexManifest(manifest) {
+  static async saveIndexManifest(manifest, mode = "light") {
     try {
-      const filepath = MNUtil.dbFolder + "/data/kb-search-index-manifest.json";
+      const filepath = MNUtil.dbFolder + `/data/kb-search-index-${mode}-manifest.json`;
+      // 在 manifest 中添加模式标记
+      manifest.metadata = manifest.metadata || {};
+      manifest.metadata.mode = mode;
+      // 更新时间戳为索引完成时间
+      manifest.metadata.updateTime = Math.floor(Date.now() / 1000);  // 秒级时间戳
+      manifest.metadata.lastUpdated = new Date().toISOString();  // ISO 格式
       MNUtil.writeJSON(filepath, manifest);
       return filepath;
     } catch (error) {
@@ -15656,13 +16482,41 @@ class KnowledgeBaseIndexer {
   
   /**
    * 加载主索引文件
+   * @param {string} mode - 索引模式: "light" (轻量) 或 "full" (全量)
+   * @param {boolean} fallbackToLight - 如果 full 模式加载失败，是否降级到 light 模式
+   * @returns {Object|null} - 索引清单对象，加载失败返回 null
    */
-  static loadIndexManifest() {
+  static loadIndexManifest(mode = "light", fallbackToLight = true) {
     try {
-      const filepath = MNUtil.dbFolder + "/data/kb-search-index-manifest.json";
-      return MNUtil.readJSON(filepath);
+      const filepath = MNUtil.dbFolder + `/data/kb-search-index-${mode}-manifest.json`;
+      const manifest = MNUtil.readJSON(filepath);
+
+      if (manifest) {
+        return manifest;
+      }
+
+      // 如果未找到且启用降级
+      if (!manifest && mode === "full" && fallbackToLight) {
+        MNUtil.showHUD("未找到全量索引，使用轻量索引");
+        const lightPath = MNUtil.dbFolder + "/data/kb-search-index-light-manifest.json";
+        return MNUtil.readJSON(lightPath);
+      }
+
+      return null;
     } catch (error) {
-      MNLog.error(error, "KnowledgeBaseIndexer: loadIndexManifest");
+      MNLog.error(error, `KnowledgeBaseIndexer: loadIndexManifest (mode: ${mode})`);
+
+      // 降级逻辑
+      if (mode === "full" && fallbackToLight) {
+        try {
+          MNUtil.showHUD("全量索引加载失败，降级到轻量索引");
+          const lightPath = MNUtil.dbFolder + "/data/kb-search-index-light-manifest.json";
+          return MNUtil.readJSON(lightPath);
+        } catch (fallbackError) {
+          MNLog.error(fallbackError, "KnowledgeBaseIndexer: loadIndexManifest fallback failed");
+        }
+      }
+
       return null;
     }
   }
@@ -16833,45 +17687,9 @@ class KnowledgeBaseSearcher {
  */
 class SearchConfig {
   /**
-   * 预定义的搜索类型组合
+   * 预定义的搜索类型组合（引用配置对象）
    */
-  static typePresets = {
-    all: {
-      name: "全部类型",
-      types: ["定义", "命题", "例子", "反例", "归类", "思想方法", "问题", "思路", "总结"],
-      icon: "🔍"
-    },
-    definitionsAndClassifications: {
-      name: "定义与归类",
-      types: ["定义", "归类"],
-      icon: "📒"
-    },
-    definitions: {
-      name: "仅定义",
-      types: ["定义"],
-      icon: "📘"
-    },
-    classifications: {
-      name: "仅归类",
-      types: ["归类"],
-      icon: "📁"
-    },
-    knowledge: {
-      name: "知识点卡片",
-      types: ["定义", "命题", "例子", "反例", "思想方法"],
-      icon: "📚"
-    },
-    // problems: {
-    //   name: "问题与思路",
-    //   types: ["问题", "思路"],
-    //   icon: "💡"
-    // },
-    // proofs: {
-    //   name: "命题相关",
-    //   types: ["命题", "例子", "反例"],
-    //   icon: "🔢"
-    // }
-  };
+  static typePresets = kbSearchConfig.typePresets;
 
   /**
    * 获取可索引的所有类型列表
@@ -16920,173 +17738,7 @@ class SynonymManager {
   /**
    * 默认同义词组（精简结构）
    */
-  static synonymGroups = [
-    // {
-    //   "words": ["", ""],
-    //   "partialReplacement": false,
-    // },
-    {
-      "words": ["是全空间", "等于全空间"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["自己", "自身"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["并", "并上", "并集"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["交", "交上", "交集"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["一列{{}}的并", "{{}}的可列并"],
-      "partialReplacement": false,
-      "patternMode": true
-    },
-    {
-      "words": ["稠{{}}集", "稠密{{}}集","{{}}稠集","{{}}稠密集"],
-      "partialReplacement": false,
-      "patternMode": true
-    },
-    {
-      "words": ["不相交", "交集为空", "互不相交", "交为空", "交集为零", "交集为空集"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["[ab]", "[a,b]", "[a, b]"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["[01]", "[0,1]", "[0, 1]"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["第二纲空间", "第二纲的空间"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["第一纲空间", "第一纲的空间"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["子开集", "开子集"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["子闭集", "闭子集"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["子开球", "开子球"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["子闭球", "闭子球"],
-      "partialReplacement": false,
-    },
-    {
-      "words": ["存在内点","包含内点","有内点", "内部非空"],
-    },
-    {
-      "words": ["无{{}}", "没有{{}}"],
-      "partialReplacement": false,
-      "patternMode": true
-    },
-    {
-      "words": ["闭包点", "接触点", "粘着点"],
-      "partialReplacement": true,
-    },
-    {
-      "words": ["不是{{}}", "非{{}}"],
-      "partialReplacement": true,
-      "patternMode": true
-    },
-    { "id": "group_1754759704820", "words": ["⇔", "等价", "等价刻画", "等价条件", "当且仅当", "等价于"] },
-    { "id": "group_1754814563774", "words": ["依范数收敛", "按范数收敛"] },
-    { "id": "group_1754911082498", "words": ["𝕋", "单位圆周"] },
-    { "id": "group_1754913614715", "words": ["严格正", "严格非负"] },
-    { "id": "group_1754913687682", "words": ["为零", "为0", "等于零", "等于0", "=0", "为 0", "等于 0"], "partialReplacement": true },
-    { "id": "group_1754918691589", "words": ["非零", "不是零", "不等于零", "≠0", "≠ 0", "非0", "非 0", "不是0", "不是 0", "不等于0", "不等于 0", "0≠", "0 ≠"] },
-    { "id": "group_1754967275234", "words": ["傅立叶", "傅里叶", "Fourier", "fourier"], "partialReplacement": true },
-    { "id": "group_1754968276839", "words": ["⊂", "⊆", "子集", "包含于", "包含在"], "partialReplacement": true },
-    { "id": "group_1754968768370", "words": ["实数", "实数域", "实情形"] },
-    { "id": "group_1754979122102", "words": ["径向极限", "边界值函数", "边界函数"] },
-    { "id": "group_1755230758417", "words": ["有限", "<∞", "小于无穷", "小于∞"] },
-    { "id": "group_1755231235279", "words": ["比较判别法", "比值判别法"] },
-    { "id": "group_1755313248014", "words": ["-∞<", "大于负无穷", ">-∞"] },
-    { "id": "group_1755328808715", "words": ["为1", "等于1", "=1", "= 1", "为 1", "等于 1"] },
-    { "id": "group_1755330305335", "words": ["柯西", "Cauchy", "cauchy"], "partialReplacement": true },
-    { "id": "group_1755333690290", "words": ["Blaschke 积", "Blaschke 乘积"] },
-    { "id": "group_1755568637659", "words": ["对数", "log", "ln"], "partialReplacement": true },
-    { "id": "group_1755574929841", "words": ["小于等于", "不超过", "≤"] },
-    { "id": "group_1755837688967", "words": ["Laplace", "Laplacian", "拉普拉斯"], "partialReplacement": true },
-    { "id": "group_1755838481600", "words": ["开右半平面", "ℂ₊", "ℍ₊"], "partialReplacement": true },
-    { "id": "group_1755867678146", "words": ["<0", "小于零", "小于 0", "< 0", "小于0"] },
-    { "id": "group_1755871359287", "words": ["几乎处处", "a.e."] },
-    { "id": "group_1755871688608", "words": ["等于", "相等", "相同", "一致", "一样", "就是", "同一个"] },
-    { "id": "group_1756092698001", "words": ["非零复同态", "非零可乘线性泛函"] },
-    { "id": "group_1756108949936", "words": ["映射为", "被映成", "被映为", "映为", "映成", "映到"] },
-    { "id": "group_1756109335070", "words": ["→0", "趋于零", "趋于 0", "趋于0", "收敛到0", "收敛到零", "收敛到 0", "到零", "到0", "到 0"], "partialReplacement": true },
-    { "id": "group_1756111643605", "words": ["化归为", "化归到", "归结为", "归结到", "化归成", "归结成"] },
-    { "id": "group_1756113664796", "words": ["弱收敛极限", "弱极限", "w极限", "w 极限"] },
-    { "id": "group_1756128051903", "words": ["列紧的", "列紧集"], "partialReplacement": true },
-    { "id": "group_1756182536173", "words": ["自反的", "自反空间"], "partialReplacement": true },
-    { "id": "group_1756187328315", "words": ["级数展开", "级数表示"], "partialReplacement": true },
-    { "id": "group_1756189859522", "words": ["非负", "大于等于零", "大于等于0", "大于等于 0"] },
-    { "id": "group_1756194705074", "words": ["Bergman 核", "Bergman 再生核"] },
-    { "id": "group_1756211764991", "words": ["相乘", "乘起来", "乘以", "乘积"] },
-    { "id": "group_1756555538247", "words": ["弱收敛", "⇀"] },
-    { "id": "group_1756630934460", "words": ["Gelfand 表示", "Gelfand 映射"], "partialReplacement": true },
-    { "id": "group_1756631329614", "words": ["可数无限维", "可列无限维", "可数无穷维", "可列无穷维"] },
-    { "id": "group_1756631743105", "words": ["标准正交", "规范正交"], "partialReplacement": true },
-    { "id": "group_1756711035245", "words": ["Ker", "ker", "零空间", "核空间", "核"], "partialReplacement": true },
-    { "id": "group_1756996762450", "words": ["正交集", "正交系"], "partialReplacement": true },
-    { "id": "group_1757052040708", "words": ["正交", "垂直", "正交于", "垂直于"] },
-    { "id": "group_1757055108773", "words": ["一列规范正交集", "一列标准正交集", "规范正交列", "标准正交列"] },
-    { "id": "group_1757061618814", "words": ["{0}", "零向量的单点集"] },
-    { "id": "group_1757077322983", "words": ["闭集", "闭子集"], "contextTriggers": ["子集"], "contextMode": "any" },
-    { "id": "group_1757077335882", "words": ["开子集", "开集"], "contextTriggers": ["子集"], "contextMode": "any" },
-    { "id": "group_1757077345680", "words": ["紧集", "紧子集"], "contextTriggers": ["子集"], "contextMode": "any" },
-    { "id": "group_1757088664654", "words": ["元素", "向量"], "partialReplacement": true, "caseSensitive": true, "contextTriggers": ["内积空间", "Hilbert 空间", "赋范线性空间", "Banach 空间", "线性空间"], "contextMode": "any" },
-    { "id": "group_1757143821142", "words": ["正交补", "^⊥"], "caseSensitive": true },
-    { "id": "group_1757164613329", "words": ["至多是可数", "至多可数", "至多可列", "至多是可列"] },
-    { "id": "group_1757337332491", "words": ["Span", "span", "线性扩张", "线性张成"], "caseSensitive": true },
-    { "id": "group_1757419393384", "words": ["非负整数", "∈ℕ"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1757420940564", "words": ["任意", "任取", "任意一个", "任取一个", "每个", "每一个"], "caseSensitive": true },
-    { "id": "group_1757471519968", "words": ["σ 代数", "σ代数", "σ-代数", "σ-algebra", "σ algebra"], "partialReplacement": true },
-    { "id": "group_1757487049845", "words": ["范数极限", "强极限"] },
-    { "id": "group_1757666483247", "words": ["非空", "非空集", "不是空集", "不空", "不等于空集", "≠∅", "≠ ∅"], "caseSensitive": true },
-    { "id": "group_1757673809311", "words": ["集代数", "布尔代数"], "caseSensitive": true },
-    { "id": "group_1757675563901", "words": ["空集", "∅"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1757675577813", "words": ["属于", "∈"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1757755186225", "words": ["无限", "∞", "无穷"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1757755714989", "words": ["补封闭", "补集封闭", "补运算封闭", "补集运算封闭"] },
-    { "id": "group_1757938639733", "words": ["T₄ 空间", "T₄ 正规空间", "满足 T₁ 和 T₄ 公理的正规空间", "满足 T₂ 和 T₄ 公理的正规空间", "满足 T₁ 和 T₄ 公理的空间", "满足 T₂ 和 T₄ 公理的空间"], "caseSensitive": true },
-    { "id": "group_1758009495957", "words": ["{{}}封闭", "{{}}运算封闭"], "patternMode": true, "caseSensitive": true },
-    { "id": "group_1758012441679", "words": ["单位模长", "模长等于1", "模长等于一", "模长等于 1", "模长为1", "模长为 1"], "caseSensitive": true },
-    { "id": "group_1758087954345", "words": ["稀疏", "疏朗", "无处稠密"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758159036915", "words": ["复同态", "可乘线性泛函"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758188346528", "words": ["闭集", "闭子集"] },
-    { "id": "group_1758286476524", "words": ["线性单射", "单射线性"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758286494590", "words": ["线性满射", "满射线性"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758287463421", "words": ["中的{{}}集", "{{}}子集"], "patternMode": true, "caseSensitive": true },
-    { "id": "group_1758291189939", "words": ["中集合", "中的集合", "的子集", "中的子集"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758353425664", "words": ["TVS", "拓扑线性空间", "拓扑向量空间", "线性拓扑空间"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758370279950", "words": ["有限测度", "测度有限"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758448942673", "words": ["任意个集合", "任意多个集合", "一族集合", "集合族"], "partialReplacement": true },
-    { "id": "group_1758454305523", "words": ["算子复合{{}}算子", "算子乘以{{}}算子"], "patternMode": true, "caseSensitive": true },
-    { "id": "group_1758513747838", "words": ["等势", "基数相等", "基数相同"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758513869003", "words": ["扩张", "延拓"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758528115814", "words": ["Hilbert-Schmidt", "Hilbert–Schmidt"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758530473198", "words": ["*理想", "* 理想", "*-理想", "∗-理想", "∗理想", "∗ 理想"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758885172459", "words": ["变元", "变量"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758886170428", "words": ["复数域", "复数集", "复平面", "ℂ"], "partialReplacement": true },
-    { "id": "group_1758980638734", "words": ["柯西列", "Cauchy 列", "柯西序列", "Cauchy 序列"], "partialReplacement": true, "caseSensitive": true },
-    { "id": "group_1758982023604", "words": ["收敛", "趋于", "逼近"], "partialReplacement": true, "caseSensitive": true }
-  ];
+  static synonymGroups = kbSearchConfig.synonymGroups;
   
   // 获取所有同义词组（合并默认和用户自定义）
   static getSynonymGroups() {
@@ -17135,33 +17787,8 @@ class SynonymManager {
 
 // 排除词管理器
 class ExclusionManager {
-  // 默认排除词组数据（从word.md导入，精简结构）
-  static exclusionGroups = [
-    {
-      "triggerWords": ["𝔻", "开单位圆盘", "单位圆盘"],
-      "excludeWords": ["闭单位圆盘"]
-    },
-    {
-      "triggerWords": ["包含", "包含了"],
-      "excludeWords": ["包含于", "包含在"]
-    },
-    {
-      "triggerWords": ["开右半平面", "ℂ₊"],
-      "excludeWords": ["右半平面"]
-    },
-    {
-      "triggerWords": ["正交集", "正交子集"],
-      "excludeWords": ["规范正交集", "标准正交集"]
-    },
-    {
-      "triggerWords": ["正交"],
-      "excludeWords": ["正交集", "正交补", "正交投影", "正交分解"]
-    },
-    {
-      "triggerWords": ["ℝ"],
-      "excludeWords": ["ℝ²", "ℝ³", "ℝⁿ", "ℝᵐ", "R²", "R³", "Rⁿ", "Rᵐ"]
-    }
-  ];
+  // 默认排除词组数据（引用配置对象）
+  static exclusionGroups = kbSearchConfig.exclusionGroups;
 
   // 获取所有排除词组
   static getExclusionGroups() {
@@ -17188,6 +17815,7 @@ class IntermediateKnowledgeIndexer {
         version: "1.0",
         type: "intermediate", // 标记为中间知识库
         lastUpdated: new Date().toISOString(),
+        updateTime: Math.floor(Date.now() / 1000),  // 🆕 添加秒级时间戳
         totalCards: 0,
         partSize: PART_SIZE,
         totalParts: 0,
@@ -17285,8 +17913,10 @@ class IntermediateKnowledgeIndexer {
           processedIds.add(noteId);
           processedCount++;
 
-          if (processedCount % 250 === 0) {
-            MNUtil.showHUD(`处理中间知识... ${processedCount}/${totalEstimatedCount}`);
+          // 🔧 统一为每 100 个节点更新进度（与主知识库保持一致）
+          if (processedCount % 100 === 0) {
+            this.showProgressHUD(processedCount, totalEstimatedCount,
+                                `处理中间知识... (${tempFileCount} 个临时文件)`);
           }
         }
 
@@ -17723,6 +18353,10 @@ class IntermediateKnowledgeIndexer {
   static async saveIndexManifest(manifest) {
     try {
       const filepath = MNUtil.dbFolder + "/data/intermediate-kb-index-manifest.json";
+      // 更新时间戳为索引完成时间
+      manifest.metadata = manifest.metadata || {};
+      manifest.metadata.updateTime = Math.floor(Date.now() / 1000);  // 秒级时间戳
+      manifest.metadata.lastUpdated = new Date().toISOString();  // ISO 格式
       MNUtil.writeJSON(filepath, manifest);
     } catch (error) {
       MNLog.error(error, "IntermediateKnowledgeIndexer: saveIndexManifest");
@@ -17914,6 +18548,7 @@ class KnowledgeBaseUtils {
   static log(message, source, detail, level = "INFO"){
     MNUtil.log({message:message, detail:detail, source:"MN KnowledgeBase:" + source , level:level})
   }
+  
   static addErrorLog(error, source, info){
     MNUtil.showHUD("MN KnowledgeBase Error ("+source+"): "+error)
     let tem = {source:source,time:(new Date(Date.now())).toString()}
@@ -18003,6 +18638,140 @@ class KnowledgeBaseNetwork {
 - 下标、上标与基础字符无空格：x₁, y²
 `
 
+  /**
+   * OCR 序号统一转换规则
+   * 将各种序号格式统一转换为带圈数字
+   */
+  static OCRNumberingRules = `
+## 序号统一转换规则
+
+**核心原则**：将所有序号格式统一转换为带圈数字，保持输出格式一致性。
+
+### 转换规则
+
+#### 1. 阿拉伯数字序号
+- \`1.\` \`2.\` \`3.\` → ① ② ③
+- \`(1)\` \`(2)\` \`(3)\` → ① ② ③
+- \`1)\` \`2)\` \`3)\` → ① ② ③
+
+#### 2. 罗马数字序号（小写）
+- \`(i)\` \`(ii)\` \`(iii)\` → ① ② ③
+- \`(iv)\` \`(v)\` \`(vi)\` → ④ ⑤ ⑥
+- \`(vii)\` \`(viii)\` \`(ix)\` \`(x)\` → ⑦ ⑧ ⑨ ⑩
+- \`i.\` \`ii.\` \`iii.\` → ① ② ③
+
+#### 3. 罗马数字序号（大写）
+- \`(I)\` \`(II)\` \`(III)\` → ① ② ③
+- \`(IV)\` \`(V)\` \`(VI)\` → ④ ⑤ ⑥
+- \`I.\` \`II.\` \`III.\` → ① ② ③
+
+#### 4. 字母序号（小写）
+- \`(a)\` \`(b)\` \`(c)\` → ① ② ③
+- \`a)\` \`b)\` \`c)\` → ① ② ③
+- \`a.\` \`b.\` \`c.\` → ① ② ③
+
+#### 5. 字母序号（大写）
+- \`(A)\` \`(B)\` \`(C)\` → ① ② ③
+- \`A)\` \`B)\` \`C)\` → ① ② ③
+- \`A.\` \`B.\` \`C.\` → ① ② ③
+
+### 带圈数字字符集
+- 1-20：① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ ⑪ ⑫ ⑬ ⑭ ⑮ ⑯ ⑰ ⑱ ⑲ ⑳
+- 21-50：㉑ ㉒ ㉓ ㉔ ㉕ ㉖ ㉗ ㉘ ㉙ ㉚ ㉛ ㉜ ㉝ ㉞ ㉟ ㊱ ㊲ ㊳ ㊴ ㊵ ㊶ ㊷ ㊸ ㊹ ㊺ ㊻ ㊼ ㊽ ㊾ ㊿
+
+### 处理示例
+
+**示例 1：证明步骤**
+- 输入：1. 首先证明充分性 2. 然后证明必要性
+- ✅ 输出：① 首先证明充分性 ② 然后证明必要性
+
+**示例 2：定理条件**
+- 输入：(i) f 是连续的 (ii) f 是可微的
+- ✅ 输出：① f 是连续的 ② f 是可微的
+
+**示例 3：分类讨论**
+- 输入：(a) 当 x>0 时 (b) 当 x<0 时
+- ✅ 输出：① 当 x>0 时 ② 当 x<0 时
+
+### 注意事项
+- 保持序号的顺序对应关系
+- 如果原文使用不同层级的序号（如 1. (a) (i)），统一转换为带圈数字
+- 序号后的内容保持不变
+- 如果序号超过 50，继续使用阿拉伯数字格式（如 51. 52.）
+`
+
+  /**
+   * OCR 人名处理规则
+   * 所有 OCR 提示词共享的人名处理规范
+   */
+  static OCRNameHandlingRules = `
+**人名处理规则**：
+- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
+- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
+- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
+- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
+- ✅ 常见数学家人名示例：
+  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
+  - Banach, Hilbert, Sobolev, Schwartz, Hölder
+  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+`
+
+  /**
+   * OCR 空格处理规则
+   * 所有 OCR 提示词共享的空格处理规范
+   */
+  static OCRSpaceHandlingRules = `
+**规则 A：数学公式内紧凑，移除多余空格**
+---
+❌ 错误：|a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|)
+✅ 正确：|a+b|/(1+|a+b|)≤|a|/(1+|a|)
+---
+
+**规则 B：文本间保留必要空格**
+---
+❌ 错误：Theorem1.1(StrongLaw)
+✅ 正确：Theorem 1.1 (Strong Law)
+
+❌ 错误：设a,b∈R,则有
+✅ 正确：设 a, b∈R, 则有
+---
+`
+
+  /**
+   * OCR 常用术语对照表
+   * 中英文数学术语对照
+   */
+  static OCRTerminologyMapping = `
+**常用术语对照**：
+- Theorem → 定理 | Lemma → 引理 | Corollary → 推论 | Proposition → 命题
+- Definition → 定义 | Proof → 证明 | Example → 例子 | Exercise → 练习
+- Limit → 极限 | Convergence → 收敛 | Derivative → 导数 | Integral → 积分
+- Continuous → 连续 | Differentiable → 可微 | Measurable → 可测
+`
+
+  /**
+   * OCR 结果后处理正则替换规则
+   */
+  static OCRPostProcessingRules = kbOCRConfig.postProcessingRules;
+
+  /**
+   * 对 OCR 结果进行后处理
+   * @param {string} ocrResult - OCR 原始结果
+   * @returns {string} 处理后的结果
+   */
+  static postProcessOCRResult(ocrResult) {
+    if (!ocrResult) return ocrResult
+
+    let result = ocrResult
+
+    // 依次应用所有替换规则
+    this.OCRPostProcessingRules.forEach(rule => {
+      result = result.replace(rule.pattern, rule.replacement)
+    })
+
+    return result
+  }
+
   static get OCRDirectlyPrompt() {
     return `
 # 数学文本 OCR 提示词
@@ -18044,83 +18813,77 @@ class KnowledgeBaseNetwork {
 
 ## 处理规则
 
-### 1. 数学符号（优先级递减）
-**✅ 优先使用 Unicode**：
-- 上标：x², x³, xⁿ
-- 根式：√2, ∛8
-- 运算符：±, ×, ÷, ≠, ≤, ≥, ≈
-- 希腊字母：α, β, γ, δ, ε, θ, λ, μ, π, σ, ω
-- 微积分：∫, ∑, ∏, ∂, ∇, ∞, lim
+### 1. 空格处理
 
-**⚠️ LaTeX 仅作后备**（仅当 Unicode 不可用时，用 $ 包裹）：
-- 复杂分数、矩阵、高级算子
+${this.OCRSpaceHandlingRules}
 
-### 2. 文本格式
-- **上标**：¹²³⁴⁵⁶⁷⁸⁹⁰ / ᵃᵇᶜᵈᵉ
-- **下标**：₀₁₂₃₄₅₆₇₈₉ / ₐₑₕᵢⱼₖ
-- **粗体/斜体**：仅当图片中明确标示时使用 **粗体** 和 *斜体*
-
-### 3. 空格处理
-
-**规则 A：数学公式内紧凑，移除多余空格**
----
-❌ 错误：|a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|)
-✅ 正确：|a+b|/(1+|a+b|)≤|a|/(1+|a|)
----
-
-**规则 B：文本间保留必要空格**
----
-❌ 错误：Theorem1.1(StrongLaw)
-✅ 正确：Theorem 1.1 (Strong Law)
-
-❌ 错误：设a,b∈R,则有
-✅ 正确：设 a, b∈R, 则有
----
-
-### 4. 翻译规则
+### 2. 翻译规则
 
 **核心原则**：
 - ✅ 使用标准数学教材术语（如高等教育出版社数学词汇）
 - ✅ 公式保持原样，仅翻译描述性文字
 - ✅ 根据数学分支（分析/代数/几何等）选择恰当术语
-- ❌ 去掉开头标记（如 "例子 2"、"定理 1.2"）
+- ❌ 去掉数学陈述的编号标记（完全删除，不保留）
 - ❌ 去掉末尾标点
 
 **定理名称格式**（用分号分隔中文、英文）：
     示例：如果……, 则范数一致有界; 一致有界原理; uniformly bounded principle
 
-**人名处理规则**：
-- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
-- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
-- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
-- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
-- ✅ 常见数学家人名示例：
-  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
-  - Banach, Hilbert, Sobolev, Schwartz, Hölder
-  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+${this.OCRNameHandlingRules}
 
-**常用术语对照**：
-- Theorem → 定理 | Lemma → 引理 | Corollary → 推论 | Proposition → 命题
-- Definition → 定义 | Proof → 证明 | Example → 例子 | Exercise → 练习
-- Limit → 极限 | Convergence → 收敛 | Derivative → 导数 | Integral → 积分
-- Continuous → 连续 | Differentiable → 可微 | Measurable → 可测
+${this.OCRTerminologyMapping}
 
-## Unicode 快速参考
+### 3. 标记移除规则 ⚠️
 
-**常用符号**：
-- 分数：½ ⅓ ⅔ ¼ ¾ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
-- 运算符：± × ÷ ≈ ≠ ≤ ≥ ∝ ∴ ∵ ∈ ∉ ⊂ ⊃ ∪ ∩ ∧ ∨
-- 希腊字母：α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω
-- 微积分：∫ ∬ ∭ ∮ ∂ ∇ ∞ ∑ ∏ lim
-- 几何：° ∠ ⊥ ∥ △ ◯ □ ◇
+**核心原则**：完全删除数学陈述的编号标记，这些标记对内容理解没有帮助。
 
-**组合字符**（用 Unicode 组合符）：
-- 带帽 (^)：â b̂ ĉ x̂ ŷ / α̂ β̂ γ̂ / Â B̂ Ĉ
-- 上划线 (¯)：ā b̄ c̄ x̄ ȳ / ᾱ β̄ γ̄ / Ā B̄ C̄
-- 波浪 (~)：ã b̃ c̃ x̃ ỹ / α̃ β̃ γ̃ / Ã B̃ C̃
-- 点 (·)：ȧ ḃ ċ ẋ ẏ / α̇ β̇ γ̇ / Ȧ Ḃ Ċ
+**需要移除的标记类型**：
+
+#### 定理类标记
+- ❌ 定理 2.24、Theorem 1.1、定理 1
+- ❌ 引理 3.5、Lemma 2.3、引理 2
+- ❌ 推论 1.12、Corollary 4.2、推论 3
+- ❌ 命题 5.7、Proposition 6.1、命题 4
+
+#### 例题类标记
+- ❌ 例子 2、Example 3.4、例 1
+- ❌ 反例 1.3、Counterexample 2
+- ❌ 注释 4、Remark 2.1、注 3
+
+#### 练习类标记
+- ❌ 练习 1.2、Exercise 3.5、习题 4
+- ❌ 问题 2.3、Problem 5.1、题 6
+
+**正确处理示例**：
+
+**示例 1：定理编号**
+- 输入图片：Theorem 2.24 (Cauchy Criterion): A sequence converges if...
+- ❌ 错误：定理 2.24 (Cauchy 准则): 序列收敛当且仅当...
+- ✅ 正确：序列收敛当且仅当...; Cauchy 准则; Cauchy Criterion
+
+**示例 2：推论编号**
+- 输入图片：推论 1.12: 若 f 连续，则...
+- ❌ 错误：推论 1.12: 若 f 连续，则...
+- ✅ 正确：若 f 连续，则...: If f is continuous, then...
+
+**示例 3：练习编号**
+- 输入图片：Exercise 1.2: Prove that...
+- ❌ 错误：练习 1.2: 证明...
+- ✅ 正确：证明...: Prove that...
+
+**示例 4：例子编号**
+- 输入图片：例子 3: 设 f(x) = x²
+- ❌ 错误：例子 3: 设 f(x) = x²
+- ✅ 正确：设 f(x) = x²: Let f(x) = x²
+
+**⚠️ 特别注意**：
+- 编号包括单个数字（如 "定理 1"）和带小数点的数字（如 "定理 2.24"）
+- 需要移除标记词 + 编号，但保留括号中的定理名称（如 "Cauchy 准则"）
+- 标记可能在开头或内容前，都要识别并移除
 
 ${this.OCRCorrectionRules}
+
+${this.OCRNumberingRules}
 
 ## 最终检查清单
 1. 所有下标、上标是否使用了正确的 Unicode 字符
@@ -18228,22 +18991,18 @@ LaTeX 会自动处理公式内的间距：
 - 已是中文的保持原样
 - 英文数学术语翻译为标准中文（参考高教出版社数学词典）
 - 公式符号保持原样，仅翻译描述性文字
-- 去掉例题编号、定理编号等标记
+- 去掉数学陈述的编号标记（完全删除，不保留）
 - 去掉末尾标点
 
-**人名处理规则**：
-- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
-- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
-- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
-- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
-- ✅ 常见数学家人名示例：
-  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
-  - Banach, Hilbert, Sobolev, Schwartz, Hölder
-  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+${this.OCRNameHandlingRules}
 
-**示例**：
-- Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...
-- Example 2.3: Let f be ... → 设 $f$ 为 ...
+**标记移除示例**：
+- Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...（移除 "Theorem 1.1"）
+- Example 2.3: Let f be ... → 设 $f$ 为 ...（移除 "Example 2.3"）
+- 推论 1.12: 若 f 连续 → 若 $f$ 连续（移除 "推论 1.12"）
+- 练习 1.2: 证明... → 证明...（移除 "练习 1.2"）
+
+${this.OCRNumberingRules}
 `
 
   static OCRExtractConceptPrompt = `
@@ -18263,12 +19022,27 @@ LaTeX 会自动处理公式内的间距：
 
 ### 关键标志词定位法
 **第一步：找到定义标志词**
-- ✅ 定义标志词：**称**、**叫做**、**定义为**、**是**、**为**、**记作**
+- ✅ 定义标志词：**称**、**叫做**、**定义为**、**记作**
+  - **特殊说明**："**是**"、"**为**" 仅在特定结构中作为定义标志词：
+    - ✅ "则称...是..."、"叫做...是..."、"定义...为..." → 提取
+    - ❌ "设 X 是度量空间"、"f 为映射"（前置条件中的系词） → 不提取
 - ❌ 前置标志词：**设**、**假设**、**若**、**给定**、**令**、**已知**
 
 **第二步：只提取标志词之后的内容**
 - 定义标志词**之前**的概念 → ❌ 不提取（这些是前置/背景概念）
 - 定义标志词**之后**的概念 → ✅ 提取（这才是被定义的新概念）
+
+**⚠️ 特别注意："若...则称..."句式**
+- 在 **"若...则称..."** 结构中，整个"若...则"是一个条件定义句式
+- **"若"到"则"之间**的所有内容都是前置条件 → ❌ 不提取
+- **"则称/则叫做/则是"之后**的内容才是被定义概念 → ✅ 提取
+- 示例："若 [条件], 则称 [概念]" → 只提取 [概念]
+
+**第三步：理解句子结构，区分条件和结论**
+- ✅ 理解句子的逻辑结构：前置背景 → 条件 → 定义
+- ❌ 不要简单地提取所有出现的数学术语
+- ✅ 只提取"结论部分"（定义标志词之后）的概念
+- ❌ 忽略"前置部分"和"条件部分"的所有概念
 
 ### 正反对比示例
 
@@ -18304,6 +19078,42 @@ LaTeX 会自动处理公式内的间距：
 ✅ 正确输出：紧算子; compact operator
 ❌ 错误输出：Banach 空间; Banach space; 紧算子; compact operator
 
+**示例 4：同分布（用户实际案例 - "若...则称..."句式）**
+
+输入：设 (ξ₁,⋯,ξₙ), (η₁,⋯,ηₙ) 是概率空间 (Ω,𝒜,ℙ) 上的两个随机向量, 若它们具有相同的分布函数, 则称它们是同分布的.
+
+分析：
+- "设 (ξ₁,⋯,ξₙ), (η₁,⋯,ηₙ) 是概率空间上的两个随机向量" → ❌ 前置条件（"设"关键词）
+- "若它们具有相同的分布函数" → ❌ 前置条件（"若...则"结构的条件部分）
+- "则称它们是同分布的" → ✅ 定义标志词"则称"之后的内容
+
+✅ 正确输出：同分布; identically distributed
+❌ 错误输出：概率空间; probability space; 随机向量; random vector; 分布函数; distribution function; 同分布; identically distributed
+
+**⚠️ 关键点**：在"若...则称..."句式中，"若"到"则"之间的**所有内容**（包括"概率空间"、"随机向量"、"分布函数"）都是前置条件，必须全部忽略！
+
+**示例 5：嵌套定义（一句话定义多个概念）**
+
+输入：称算子 T 为线性算子或线性映射，如果对任意 α, β ∈ ℂ 和 x, y ∈ X，有 T(αx+βy) = αTx + βTy.
+
+分析：
+- "称算子 T 为线性算子或线性映射" → ✅ 定义标志词"称...为"之后，包含两个等价名称
+- 提取所有等价名称
+
+✅ 正确输出：线性算子; linear operator; 线性映射; linear mapping
+❌ 错误输出：线性算子; linear operator（遗漏了别名）
+
+**示例 6：证明过程（无被定义概念）**
+
+输入：证明：由 f 的连续性，对于 ε>0，存在 δ>0 使得当 |x-x₀|<δ 时，|f(x)-f(x₀)|<ε. 因此结论成立.
+
+分析：
+- 这是证明过程，没有定义标志词
+- 只是在使用已知概念（连续性）进行推理
+
+✅ 正确输出：无
+❌ 错误输出：连续性; continuity（这不是被定义的概念）
+
 ## 输出格式
 
 标准格式（分号分隔，中英文交替）：
@@ -18325,13 +19135,20 @@ LaTeX 会自动处理公式内的间距：
 常见的定义句式模板：
 - "我们**称** [概念] 为 [名称], 如果..." → 提取 [名称]
 - "**定义** [名称] 为满足...的 [概念]" → 提取 [名称]
-- "若 [条件], 则**称** [概念] 为 [名称]" → 提取 [名称]
 - "就**称** [概念] **是** [名称]" → 提取 [名称]
 - "[概念] **叫做** [名称]" → 提取 [名称]
+
+**⚠️ 条件定义句式（重点）**：
+- **"若 [条件], 则称 [概念] 为 [名称]"** → 只提取 [名称]
+  - "若"到"则"之间的全部内容都是前置条件，必须忽略
+  - 只有"则称/则叫做/则是"之后的内容才提取
+- **"设 [前置], 若 [条件], 则称 [名称]"** → 只提取 [名称]
+  - "设"之后和"若"到"则"之间的所有概念都是背景/条件，不提取
 
 **示例**：
 - "我们称实数列 {xₙ} 是 Cauchy 列, 如果..." → Cauchy 列; Cauchy sequence
 - "若函数 f 在点 a 的某邻域内可微, 则称 f 在 a 处可微" → 可微函数; differentiable function
+- "设 X 是度量空间, 若映射 f 满足..., 则称 f 是一致连续的" → 一致连续; uniformly continuous
 
 ### 模式 2：定理/命题句式
 定理通常有专有名称：
@@ -18354,18 +19171,11 @@ LaTeX 会自动处理公式内的间距：
 
 ## 提取规则
 
-### 0. 区分被定义概念与前置概念（最重要）
-- ✅ **只提取**定义标志词（称、叫做、定义为、是、为）**之后**的概念
-- ❌ **忽略**前置标志词（设、假设、若、给定、令）**之后**的概念
-- ✅ 理解句子结构，区分"条件"和"结论"
-- ❌ 不要简单地提取所有数学术语
-
 ### 1. 概念识别
 - ✅ 提取被定义的核心数学概念（函数、空间、算子、定理等）
 - ✅ 包含所有等价名称和别名
 - ❌ 不提取例子编号（如 "例 2.1"）
 - ❌ 不提取章节标号（如 "定理 3.5"）
-- ❌ 不提取前置条件中的概念
 
 ### 2. 中英文配对
 - 优先使用图片中已有的翻译
@@ -18400,10 +19210,16 @@ LaTeX 会自动处理公式内的间距：
 
 ## 注意事项
 1. 仅输出概念名称，不输出定义内容
-2. 去掉所有标点符号（除分号外）
+2. 标点符号处理：
+   - 概念名称**之间**用分号分隔
+   - 概念名称**内部**的空格、连字符保留（如"Cauchy 列"、"一致连续"）
+   - 去掉概念名称**前后**的标点符号（如句号、逗号）
 3. 中文和英文名称必须一一对应
 4. 若有多个等价名称，全部列出
 5. 保持术语的标准性和专业性
+6. **特殊情况**：若图片中没有定义/定理，只是证明过程、例子或其他内容，输出"无"
+
+${this.OCRNumberingRules}
 `
 
   static get OCRDirectlyNoTransPrompt() {
@@ -18451,80 +19267,26 @@ LaTeX 会自动处理公式内的间距：
 
 ## 处理规则
 
-### 1. 数学符号（优先级递减）
-**✅ 优先使用 Unicode**：
-- 上标：x², x³, xⁿ
-- 根式：√2, ∛8
-- 运算符：±, ×, ÷, ≠, ≤, ≥, ≈
-- 希腊字母：α, β, γ, δ, ε, θ, λ, μ, π, σ, ω
-- 微积分：∫, ∑, ∏, ∂, ∇, ∞, lim
+### 1. 空格处理
 
-**⚠️ LaTeX 仅作后备**（仅当 Unicode 不可用时，用 $ 包裹）：
-- 复杂分数、矩阵、高级算子
+${this.OCRSpaceHandlingRules}
 
-### 2. 文本格式
-- **上标**：¹²³⁴⁵⁶⁷⁸⁹⁰ / ᵃᵇᶜᵈᵉ
-- **下标**：₀₁₂₃₄₅₆₇₈₉ / ₐₑₕᵢⱼₖ
-- **粗体/斜体**：仅当图片中明确标示时使用 **粗体** 和 *斜体*
-
-### 3. 空格处理
-
-**规则 A：数学公式内紧凑，移除多余空格**
----
-❌ 错误：|a + b| / (1 + |a + b|) ≤ |a| / (1 + |a|)
-✅ 正确：|a+b|/(1+|a+b|)≤|a|/(1+|a|)
----
-
-**规则 B：文本间保留必要空格**
----
-❌ 错误：定理1.1(强大数定律)
-✅ 正确：定理 1.1 (强大数定律)
-
-❌ 错误：设a,b∈R,则有
-✅ 正确：设 a, b∈R, 则有
----
-
-### 4. 翻译规则
+### 2. 翻译规则
 
 **核心原则**：
 - ✅ 使用标准数学教材术语（如高等教育出版社数学词汇）
 - ✅ 公式保持原样，仅翻译描述性文字
 - ✅ 根据数学分支（分析/代数/几何等）选择恰当术语
-- ❌ 去掉开头标记（如 "Example 2"、"Theorem 1.2"）
+- ❌ 去掉数学陈述的编号标记（完全删除，不保留）
 - ❌ 去掉末尾标点
 
-**人名处理规则**：
-- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
-- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
-- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
-- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
-- ✅ 常见数学家人名示例：
-  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
-  - Banach, Hilbert, Sobolev, Schwartz, Hölder
-  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+${this.OCRNameHandlingRules}
 
-**常用术语对照**：
-- Theorem → 定理 | Lemma → 引理 | Corollary → 推论 | Proposition → 命题
-- Definition → 定义 | Proof → 证明 | Example → 例子 | Exercise → 练习
-- Limit → 极限 | Convergence → 收敛 | Derivative → 导数 | Integral → 积分
-- Continuous → 连续 | Differentiable → 可微 | Measurable → 可测
-
-## Unicode 快速参考
-
-**常用符号**：
-- 分数：½ ⅓ ⅔ ¼ ¾ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
-- 运算符：± × ÷ ≈ ≠ ≤ ≥ ∝ ∴ ∵ ∈ ∉ ⊂ ⊃ ∪ ∩ ∧ ∨
-- 希腊字母：α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω
-- 微积分：∫ ∬ ∭ ∮ ∂ ∇ ∞ ∑ ∏ lim
-- 几何：° ∠ ⊥ ∥ △ ◯ □ ◇
-
-**组合字符**（用 Unicode 组合符）：
-- 带帽 (^)：â b̂ ĉ x̂ ŷ / α̂ β̂ γ̂ / Â B̂ Ĉ
-- 上划线 (¯)：ā b̄ c̄ x̄ ȳ / ᾱ β̄ γ̄ / Ā B̄ C̄
-- 波浪 (~)：ã b̃ c̃ x̃ ỹ / α̃ β̃ γ̃ / Ã B̃ C̃
-- 点 (·)：ȧ ḃ ċ ẋ ẏ / α̇ β̇ γ̇ / Ȧ Ḃ Ċ
+${this.OCRTerminologyMapping}
 
 ${this.OCRCorrectionRules}
+
+${this.OCRNumberingRules}
 
 ## 最终检查清单
 1. 所有下标、上标是否使用了正确的 Unicode 字符
@@ -18654,23 +19416,19 @@ LaTeX 会自动处理公式内的间距：
 - 已是中文的保持原样
 - 英文数学术语翻译为标准中文（参考高教出版社数学词典）
 - 公式符号保持原样，仅翻译描述性文字
-- 去掉例题编号、定理编号等标记
+- 去掉数学陈述的编号标记（完全删除，不保留）
 - 去掉末尾标点
 
-**人名处理规则**：
-- ✅ 人名始终保持原文拼写：Clark, Aleksandrov, Fourier, Cauchy
-- ✅ 专业术语中的人名保持原文：Clark measure → Clark 测度（不是"克拉克测度"）
-- ✅ 句子中的人名保持原文：由 Clark 研究（不是"由克拉克研究"）
-- ✅ 人名所有格保持原文：Clark's theorem → Clark 定理
-- ✅ 常见数学家人名示例：
-  - Fourier, Laplace, Cauchy, Riemann, Lebesgue
-  - Banach, Hilbert, Sobolev, Schwartz, Hölder
-  - Clark, Aleksandrov, Kolmogorov, Chebyshev
+${this.OCRNameHandlingRules}
 
-**示例**：
-- Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...
-- Example 2.3: Let f be ... → 设 $f$ 为 ...
-- Definition: A function f is continuous if ... → 若 ..., 则函数 $f$ 是连续的
+**标记移除示例**：
+- Theorem 1.1 (Strong Law): If ... → 强大数定律：若 ...（移除 "Theorem 1.1"）
+- Example 2.3: Let f be ... → 设 $f$ 为 ...（移除 "Example 2.3"）
+- Definition 2.5: A function f is continuous if ... → 若 ..., 则函数 $f$ 是连续的（移除 "Definition 2.5"）
+- 推论 1.12: 若 f 连续 → 若 $f$ 连续（移除 "推论 1.12"）
+- 练习 1.2: 证明... → 证明...（移除 "练习 1.2"）
+
+${this.OCRNumberingRules}
 `
 
   static OCRExtractConceptNoTransPrompt = `
@@ -18785,6 +19543,8 @@ LaTeX 会自动处理公式内的间距：
 2. 去掉所有标点符号（除分号外）
 3. 若有多个等价中文名称，全部列出
 4. 保持术语的标准性和专业性
+
+${this.OCRNumberingRules}
 `
 
   static OCRSummarizePrompt = `
@@ -18894,6 +19654,8 @@ LaTeX 会自动处理公式内的间距：
 
 ${this.OCRCorrectionRules}
 
+${this.OCRNumberingRules}
+
 ## 最终检查清单
 1. 疑问句是否已转换为陈述句
 2. 冗余信息是否已删除
@@ -18982,6 +19744,8 @@ ${this.OCRCorrectionRules}
 
 ${this.OCRCorrectionRules}
 
+${this.OCRNumberingRules}
+
 ## 最终检查清单
 1. 疑问句是否已转换为陈述句
 2. 冗余信息是否已删除
@@ -18990,10 +19754,10 @@ ${this.OCRCorrectionRules}
 5. Unicode 符号是否正确使用
 `
 
-  static async OCRToTitle(note, mode = 1, needTranslation = undefined) {
+  static async OCRToTitle(note, mode = 1, needTranslation = undefined, place = "all") {
     let imageData = ocrUtils.getImageFromNote(note)
     if (!imageData) {
-      MNUtil.showHUD("No image found")
+      // MNUtil.showHUD("No image found")
       return
     }
     let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
@@ -19037,6 +19801,9 @@ ${this.OCRCorrectionRules}
     switch (mode) {
       case 1:
         // 模式1：直接OCR - 使用专用模型，未设置时回退到通用模型
+        if (note.colorIndex === KnowledgeBaseTemplate.types["定义"].colorIndex) {
+          return false  // 定义卡片不进行 OCR
+        }
         ocrModel = KnowledgeBaseConfig.config.excerptOCRModelForMode1 || KnowledgeBaseConfig.config.excerptOCRModel;
         break;
       case 2:
@@ -19062,9 +19829,23 @@ ${this.OCRCorrectionRules}
     }
 
     let result = await this.OCR(compressedImageData, ocrModel, prompt)
+    // 应用 OCR 后处理规则
+    result = this.postProcessOCRResult(result)
     if (result) {
       MNUtil.undoGrouping(()=>{
-        note.title = result.trim()
+        let titleParts = KnowledgeBaseTemplate.parseNoteTitle(note)
+        switch (place) {
+          case "all":
+            note.title = result.trim()
+            break;
+          case "firstTitleLinkWord":
+            note.title = titleParts.type?'【' + titleParts.type + ' >> ' + titleParts.prefixContent + '】' + result.trim() + "; " +  titleParts.content : result.trim() + "; " +  titleParts.content
+            break;
+          case "lastTitleLinkWord":
+            note.title = note.title + "; " +  result.trim()
+            break;
+        }
+        KnowledgeBaseUtils.log("Set note title via OCR: "+result, "OCRToTitle")
         return true
       })
     } else {
@@ -19218,6 +19999,7 @@ ${this.OCRCorrectionRules}
       } else {
         return undefined
       }
+
       let convertedText = ocrResult
         .replace(/\$\$\n?/g, '$$$\n')
         .replace(/(\\\[\s*\n?)|(\s*\\\]\n?)/g, '$$$\n')
@@ -19229,6 +20011,108 @@ ${this.OCRCorrectionRules}
     } catch (error) {
       KnowledgeBaseUtils.addErrorLog(error, "ChatGPTVision")
       return undefined
+    }
+  }
+
+  /**
+   * 通过事件通知调用 MNAI（更高级）
+   * @param {string} text - 要处理的文本
+   * @returns {Promise<string|null>} AI 生成的结果文本，失败返回 null
+   *
+   * @description
+   * 使用 NSNotificationCenter 广播机制调用 MNAI 插件。
+   * 发送请求后会轮询等待 AI 生成完成，最多等待 30 秒。
+   *
+   * MNAI 插件会监听 "customChat" 事件，通过 customAsk 方法处理请求。
+   * 生成的内容最终存储在 chatAIUtils.notifyController.lastResponse 中。
+   *
+   * @example
+   * const result = await KnowledgeBaseNetwork.callMNAIWithNotification("请帮我翻译这段文字");
+   * if (result) {
+   *   console.log("AI 结果：", result);
+   * }
+   */
+  static async callMNAIWithNotification(text) {
+    try {
+      // 检查 MNAI 是否已加载
+      if (typeof chatAIUtils === "undefined") {
+        MNUtil.showHUD("❌ 请先安装并打开 MNAI 插件");
+        return null;
+      }
+
+      MNUtil.showHUD("正在发送到 AI 处理...");
+
+      // 发送请求到 MNAI
+      MNUtil.postNotification("customChat", {
+        user: text
+      });
+
+      // 等待一小段时间让 MNAI 开始处理
+      await MNUtil.delay(0.5);
+
+      // 轮询等待结果
+      const maxAttempts = 60;  // 最多等待 30 秒（60 * 0.5）
+      const pollInterval = 0.5; // 每 0.5 秒检查一次
+      let AIResult = null;
+
+      for (let i = 0; i < maxAttempts; i++) {
+        // 检查 notifyController 是否存在
+        if (chatAIUtils && chatAIUtils.notifyController) {
+          const controller = chatAIUtils.notifyController;
+
+          // 优先检查 lastResponse（生成完成后的最终结果）
+          // MNAI 在 finish() 中会将 response 保存到 lastResponse 然后清空 response
+          if (controller.lastResponse && controller.lastResponse.trim()) {
+            MNUtil.showHUD("✅ 获取到 AI 结果");
+            KnowledgeBaseUtils.log("获取到 lastResponse: " + controller.lastResponse.substring(0, 50) + "...", "callMNAIWithNotification");
+
+            // 延迟 0.5 秒后自动关闭通知窗口
+            // 让用户有时间看到成功提示
+            if (controller.checkAutoClose) {
+              controller.checkAutoClose(true, 0.5);
+            } else if (controller.hide) {
+              // 备用：如果 checkAutoClose 不可用，直接调用 hide
+              setTimeout(() => {
+                controller.hide();
+              }, 500);
+            }
+            AIResult = controller.lastResponse;
+            controller.lastResponse = "";
+            return AIResult;
+          }
+
+          // 备用检查：在某些情况下 response 可能还未被清空
+          // 这种情况较少见，但保留以防万一
+          if (!controller.connection && controller.response && controller.response.trim()) {
+            MNUtil.showHUD("✅ 获取到 AI 结果（备用）");
+            KnowledgeBaseUtils.log("获取到 response: " + controller.response.substring(0, 50) + "...", "callMNAIWithNotification");
+
+            // 同样关闭窗口
+            if (controller.checkAutoClose) {
+              controller.checkAutoClose(true, 0.5);
+            } else if (controller.hide) {
+              setTimeout(() => {
+                controller.hide();
+              }, 500);
+            }
+
+            AIResult = controller.lastResponse;
+            controller.lastResponse = "";
+            return AIResult;
+          }
+        }
+        // 继续等待
+        await MNUtil.delay(pollInterval);
+      }
+
+      // 超时
+      MNUtil.showHUD("❌ 获取 AI 结果超时（30秒）");
+      return null;
+
+    } catch (error) {
+      MNUtil.showHUD("❌ 调用 MNAI 失败: " + error.message);
+      KnowledgeBaseUtils.addErrorLog(error, "callMNAIWithNotification");
+      return null;
     }
   }
 }
@@ -19272,6 +20156,29 @@ class KnowledgeBaseConfig {
     "GPT-5",
     "GPT-5-mini",
     "GPT-5-nano",
+    // 🆕 新增 Qwen 视觉系列
+    "qwen3-vl-plus",
+    "qwen3-omni-flash",
+    "qwen/qwen3-vl-235b-a22b-instruct",
+    "qwen/qwen3-vl-235b-a22b-thinking",
+    // 🆕 新增 Moonshot 完整系列
+    "kimi-latest",
+    "moonshot-v1-8k",
+    "moonshot-v1-32k",
+    "moonshot-v1-128k",
+    "moonshot-v1-8k-vision-preview",
+    "moonshot-v1-32k-vision-preview",
+    "moonshot-v1-128k-vision-preview",
+    "moonshot-v1-auto",
+    // 🆕 新增 Doubao 详细版本
+    "doubao-seed-1-6-thinking-250715",
+    "doubao-seed-1-6-thinking-250615",
+    "doubao-seed-1-6-250615",
+    "doubao-seed-1-6-flash-250715",
+    "doubao-seed-1-6-flash-250615",
+    "doubao-seed-1-6-vision-250815",
+    // 🆕 新增 GLM 高级版本
+    "pro/thudm/glm-4.1v-9b-thinking",
   ];
   // 默认摘录 OCR 模型常量，避免在多个位置重复字面量
   static DEFAULT_EXCERPT_OCR_MODEL = "doubao-seed-1-6";
@@ -19286,6 +20193,16 @@ class KnowledgeBaseConfig {
       excerptOCRModelForMode1: "doubao-seed-1-6",        // 模式1：直接OCR
       excerptOCRModelForMode2: "Doc2X",                  // 模式2：Markdown格式（Doc2X专为数学公式优化）
       excerptOCRModelForMode3: "doubao-seed-1-6",        // 模式3：概念提取
+
+      // 卡片预处理模式
+      preProcessMode: false,  // 是否启用预处理模式（默认关闭）
+      classificationMode: false,  // 归类模式
+      classAutoPinMode: false,
+
+      // 🆕 搜索索引模式配置
+      searchIndexMode: "light",  // 索引模式: "light" (轻量，默认) 或 "full" (全量，含同义词扩展)
+      lastIndexMode: "light",    // 记录上次构建的索引模式
+      autoRebuildOnConfigChange: false  // 配置变更时是否自动提示重建索引
     }
   }
   
@@ -19329,6 +20246,47 @@ class KnowledgeBaseConfig {
   static save() {
     NSUserDefaults.standardUserDefaults().setObjectForKey(this.config, "MNKnowledgeBase_config")
   }
+
+  /**
+   * 获取当前搜索索引模式
+   * @returns {string} "light" 或 "full"
+   */
+  static getSearchIndexMode() {
+    return this.getConfig("searchIndexMode") || "light";
+  }
+
+  /**
+   * 设置搜索索引模式
+   * @param {string} mode - "light" 或 "full"
+   */
+  static setSearchIndexMode(mode) {
+    if (mode !== "light" && mode !== "full") {
+      MNUtil.showHUD("❌ 无效的索引模式，只能是 light 或 full");
+      return;
+    }
+    this.config.searchIndexMode = mode;
+    this.save();
+  }
+
+  /**
+   * 记录上次构建的索引模式
+   * @param {string} mode - "light" 或 "full"
+   */
+  static recordLastIndexMode(mode) {
+    this.config.lastIndexMode = mode;
+    this.save();
+  }
+
+  /**
+   * 检查索引模式是否改变
+   * @returns {boolean} 如果当前配置的模式与上次构建的不同，返回 true
+   */
+  static hasIndexModeChanged() {
+    const currentMode = this.getSearchIndexMode();
+    const lastMode = this.getConfig("lastIndexMode") || "light";
+    return currentMode !== lastMode;
+  }
+
   static remove(key) {
     NSUserDefaults.standardUserDefaults().removeObjectForKey(key)
   }
@@ -19355,6 +20313,8 @@ class HtmlMarkdownUtils {
     method: '✨',
     check: '🔍',
     sketch: '✏️',
+    case: '📋',
+    step: '👣',
   };
   static prefix = {
     danger: '',
@@ -19376,6 +20336,8 @@ class HtmlMarkdownUtils {
     method: '方法：',
     check: 'CHECK',
     sketch: 'SKETCH',
+    case: '',  // 序号将动态生成
+    step: '',  // 序号将动态生成
   };
   static styles = {
     // 格外注意
@@ -19402,11 +20364,13 @@ class HtmlMarkdownUtils {
     check: 'font-weight:600;color:#34A853;background:#E6F7EE;border:2px solid #34A853;border-radius:4px;padding:4px 8px;display:inline-block;box-shadow:0 1px 2px rgba(52,168,83,0.2);margin:0 2px;line-height:1.3;vertical-align:baseline;position:relative;',
     // 草稿/手绘
     sketch: 'background:transparent;color:#5D4037;display:inline-block;border-bottom:2px dotted #FF9800;padding:0 4px 2px;margin:0 2px;line-height:1.2;vertical-align:baseline;position:relative;font-size:0.9em;font-style:italic;',
-    // 等价证明
-    // 蕴含关系
+    // 案例
+    case: 'font-weight:600;color:#2563EB;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:2px solid #3B82F6;border-radius:8px;padding:8px 16px;display:inline-block;box-shadow:0 2px 4px rgba(37,99,235,0.2);margin:4px 0;',
+    // 步骤
+    step: 'font-weight:500;color:#059669;background:#ECFDF5;border-left:4px solid #10B981;padding:6px 12px;display:inline-block;border-radius:0 4px 4px 0;margin:4px 0;',
   };
   // 定义即使内容为空也要输出的类型白名单
-  static emptyContentWhitelist = ['check'];
+  static emptyContentWhitelist = ['check', 'sketch'];
   
   static createHtmlMarkdownText(text, type = 'none') {
     // 对于白名单中的类型，特殊处理
@@ -19430,7 +20394,18 @@ class HtmlMarkdownUtils {
     } else {
       // 如果内容为空且类型不在白名单中，返回空字符串
       if (!handledText) {
-        return '';
+        handledText = ' ';
+        // switch (type) {
+        //   case "sketch":
+        //     handledText = ":"
+        //     break;
+        // }
+      } else {
+        switch (type) {
+          case "sketch":
+            handledText = ": " + handledText
+            break;
+        }
       }
       // 防御性编程：确保 icons 和 prefix 不会返回 undefined
       const icon = this.icons[type] || '';
@@ -19854,183 +20829,6 @@ class HtmlMarkdownUtils {
   }
 
   /**
-   * 批量调整所有 HtmlMarkdown 评论的层级
-   * 
-   * @param {MNNote} note - 要处理的卡片
-   * @param {string} direction - 调整方向："up"（上移）或"down"（下移）
-   * @returns {number} 调整的评论数量
-   */
-  static adjustAllHtmlMDLevels(note, direction = "down") {
-    if (!note || !note.MNComments) return 0;
-    
-    let adjustedCount = 0;
-    let comments = note.MNComments;
-    
-    MNUtil.undoGrouping(() => {
-      comments.forEach((comment, index) => {
-        if (!comment || !comment.text) return;
-        
-        // 处理可能的前导 "- "
-        let text = comment.text;
-        let hasLeadingDash = false;
-        if (text.startsWith("- ")) {
-          hasLeadingDash = true;
-          text = text.substring(2);
-        }
-        
-        // 检查是否是 HtmlMarkdown 评论
-        if (!HtmlMarkdownUtils.isHtmlMDComment(text)) return;
-        
-        let type = HtmlMarkdownUtils.getSpanType(text);
-        let content = HtmlMarkdownUtils.getSpanTextContent(text);
-        
-        // 检查是否是层级类型
-        if (!HtmlMarkdownUtils.isLevelType(type)) return;
-        
-        // 根据方向获取新的层级类型
-        let newType;
-        if (direction === "up") {
-          newType = HtmlMarkdownUtils.getSpanLastLevelType(type);
-        } else {
-          newType = HtmlMarkdownUtils.getSpanNextLevelType(type);
-        }
-        
-        // 如果层级没有变化（已到边界），跳过
-        if (newType === type) return;
-        
-        // 创建新的 HtmlMarkdown 文本
-        let newHtmlText = HtmlMarkdownUtils.createHtmlMarkdownText(content, newType);
-        
-        // 保持前导破折号
-        if (hasLeadingDash) {
-          newHtmlText = "- " + newHtmlText;
-        }
-        
-        // 更新评论
-        comment.text = newHtmlText;
-        adjustedCount++;
-      });
-    });
-    
-    return adjustedCount;
-  }
-
-  /**
-   * 根据指定的最高级别调整所有层级
-   * 
-   * @param {MNNote} note - 要处理的卡片
-   * @param {string} targetHighestLevel - 目标最高级别（如 "goal", "level1", "level2" 等）
-   * @returns {Object} 返回调整结果 {adjustedCount: 数量, originalHighest: 原最高级, targetHighest: 目标最高级}
-   */
-  static adjustHtmlMDLevelsByHighest(note, targetHighestLevel) {
-    if (!note || !note.MNComments) {
-      return { adjustedCount: 0, originalHighest: null, targetHighest: targetHighestLevel };
-    }
-    
-    // 定义层级顺序映射（数字越小层级越高）
-    const levelOrder = {
-      'goal': 0,
-      'level1': 1,
-      'level2': 2,
-      'level3': 3,
-      'level4': 4,
-      'level5': 5
-    };
-    
-    // 验证目标层级是否有效
-    if (!(targetHighestLevel in levelOrder)) {
-      MNUtil.showHUD(`无效的目标层级: ${targetHighestLevel}`);
-      return { adjustedCount: 0, originalHighest: null, targetHighest: targetHighestLevel };
-    }
-    
-    // 收集所有层级类型的 HtmlMarkdown 评论
-    let levelComments = [];
-    let comments = note.MNComments;
-    
-    comments.forEach((comment, index) => {
-      if (!comment || !comment.text) return;
-      
-      // 处理前导 "- "
-      let text = comment.text;
-      let hasLeadingDash = false;
-      if (text.startsWith("- ")) {
-        hasLeadingDash = true;
-        text = text.substring(2);
-      }
-      
-      if (!HtmlMarkdownUtils.isHtmlMDComment(text)) return;
-      
-      let type = HtmlMarkdownUtils.getSpanType(text);
-      let content = HtmlMarkdownUtils.getSpanTextContent(text);
-      
-      if (!HtmlMarkdownUtils.isLevelType(type)) return;
-      
-      levelComments.push({
-        index: index,
-        comment: comment,
-        type: type,
-        content: content,
-        hasLeadingDash: hasLeadingDash,
-        order: levelOrder[type]
-      });
-    });
-    
-    if (levelComments.length === 0) {
-      MNUtil.showHUD("没有找到层级类型的 HtmlMarkdown 评论");
-      return { adjustedCount: 0, originalHighest: null, targetHighest: targetHighestLevel };
-    }
-    
-    // 找出当前最高层级（order 值最小的）
-    let currentHighestOrder = Math.min(...levelComments.map(item => item.order));
-    let currentHighestLevel = Object.keys(levelOrder).find(key => levelOrder[key] === currentHighestOrder);
-    
-    // 计算需要调整的偏移量
-    let targetOrder = levelOrder[targetHighestLevel];
-    let offset = targetOrder - currentHighestOrder;
-    
-    if (offset === 0) {
-      MNUtil.showHUD(`当前最高级已经是 ${targetHighestLevel}`);
-      return { adjustedCount: 0, originalHighest: currentHighestLevel, targetHighest: targetHighestLevel };
-    }
-    
-    // 批量调整所有层级
-    let adjustedCount = 0;
-    
-    MNUtil.undoGrouping(() => {
-      levelComments.forEach(item => {
-        let newOrder = item.order + offset;
-        
-        // 确保不超出边界
-        if (newOrder < 0) newOrder = 0;
-        if (newOrder > 5) newOrder = 5;
-        
-        // 找到对应的新层级类型
-        let newType = Object.keys(levelOrder).find(key => levelOrder[key] === newOrder);
-        
-        if (newType && newType !== item.type) {
-          // 创建新的 HtmlMarkdown 文本
-          let newHtmlText = HtmlMarkdownUtils.createHtmlMarkdownText(item.content, newType);
-          
-          // 保持前导破折号
-          if (item.hasLeadingDash) {
-            newHtmlText = "- " + newHtmlText;
-          }
-          
-          // 更新评论
-          item.comment.text = newHtmlText;
-          adjustedCount++;
-        }
-      });
-    });
-    
-    return {
-      adjustedCount: adjustedCount,
-      originalHighest: currentHighestLevel,
-      targetHighest: targetHighestLevel
-    };
-  }
-
-  /**
    * 增加上一级评论
    */
   static addLastLevelHtmlMDComment(note, text, type) {
@@ -20364,9 +21162,27 @@ class HtmlMarkdownUtils {
                       // HtmlMarkdownUtils.addSameLevelHtmlMDComment(parentNode, rawTextFromTitle, typeForCurrentNodeTitleInParentComment);
                       // 或者，如果更倾向于直接使用 appendMarkdownComment:
                       if (typeof parentNode.appendMarkdownComment === 'function') {
-                          parentNode.appendMarkdownComment(
-                              HtmlMarkdownUtils.createHtmlMarkdownText(rawTextFromTitle, typeForCurrentNodeTitleInParentComment)
-                          );
+                          // 检查是否是需要序号的类型（case, step）
+                          const numberedTypes = ['case', 'step'];
+                          let commentHtml;
+
+                          if (numberedTypes.includes(typeForCurrentNodeTitleInParentComment)) {
+                              // 使用带序号的创建方法
+                              commentHtml = HtmlMarkdownUtils.createNumberedHtmlText(
+                                  rawTextFromTitle,
+                                  typeForCurrentNodeTitleInParentComment,
+                                  null,  // number 参数为 null，自动计算
+                                  parentNode  // 传入 parentNode 用于自动计算序号
+                              );
+                          } else {
+                              // 使用普通创建方法
+                              commentHtml = HtmlMarkdownUtils.createHtmlMarkdownText(
+                                  rawTextFromTitle,
+                                  typeForCurrentNodeTitleInParentComment
+                              );
+                          }
+
+                          parentNode.appendMarkdownComment(commentHtml);
                       } else {
                           MNUtil.warn(`parentNode ${parentNode.id} 上未找到 appendMarkdownComment 方法。`);
                       }
@@ -20945,4 +21761,423 @@ class HtmlMarkdownUtils {
   /**
    * 导入证明模板配置
    */
+
+  /**
+   * ========== Case/Step 带序号评论功能 ==========
+   */
+
+  /**
+   * 获取笔记中某类型的下一个序号
+   * @param {MNNote} note - 笔记对象
+   * @param {string} typePrefix - 类型前缀，如 "Case", "Step" 等
+   * @returns {number} 下一个可用的序号
+   */
+  static getNextNumberForType(note, typePrefix) {
+    const pattern = new RegExp(`${typePrefix}\\s*(\\d+)`, 'gi');
+    let maxNumber = 0;
+
+    // 遍历所有评论查找最大序号
+    const comments = note.comments || note.MNComments || [];
+    for (const comment of comments) {
+      if (comment && comment.text) {
+        const matches = [...comment.text.matchAll(pattern)];
+        for (const match of matches) {
+          const num = parseInt(match[1]);
+          if (num > maxNumber) maxNumber = num;
+        }
+      }
+    }
+
+    return maxNumber + 1;
+  }
+
+  /**
+   * 创建带序号的 HTML 文本
+   * @param {string} text - 内容文本
+   * @param {string} type - 类型（如 'case', 'step'）
+   * @param {number} number - 序号（可选，不提供则自动计算）
+   * @param {MNNote} note - 笔记对象（用于自动计算序号）
+   * @returns {string} 格式化后的 HTML 文本
+   */
+  static createNumberedHtmlText(text, type, number, note) {
+    // 支持的带序号类型配置
+    const numberedTypes = {
+      'case': { prefix: 'Case', icon: '📋' },
+      'step': { prefix: 'Step', icon: '👣' },
+    };
+
+    // 如果不是带序号的类型，使用原有方法
+    if (!numberedTypes[type]) {
+      return this.createHtmlMarkdownText(text, type);
+    }
+
+    const config = numberedTypes[type];
+
+    // 如果没有提供序号，自动计算
+    if (!number && note) {
+      number = this.getNextNumberForType(note, config.prefix);
+    }
+
+    // 如果还是没有序号，默认为 1
+    if (!number) {
+      number = 1;
+    }
+
+    // 构建带序号的文本
+    const formattedText = `${config.prefix} ${number}: ${typeof Pangu !== 'undefined' ? Pangu.spacing(text) : text}`;
+
+    // 使用对应的样式
+    const style = this.styles[type] || '';
+    const icon = this.icons[type] || config.icon;
+
+    return `<span id="${type}" style="${style}">${icon} ${formattedText}</span>`;
+  }
+
+  /**
+   * 添加带序号的 Case 评论
+   * @param {MNNote} note - 笔记对象
+   * @param {string} text - 评论内容
+   * @param {number} customNumber - 自定义序号（可选）
+   * @returns {number} 使用的序号
+   */
+  static addCaseComment(note, text, customNumber) {
+    const number = customNumber || this.getNextNumberForType(note, 'Case');
+    const htmlText = this.createNumberedHtmlText(text, 'case', number, note);
+    note.appendMarkdownComment(htmlText);
+    return number;
+  }
+
+  /**
+   * 添加带序号的 Step 评论
+   * @param {MNNote} note - 笔记对象
+   * @param {string} text - 评论内容
+   * @param {number} customNumber - 自定义序号（可选）
+   * @returns {number} 使用的序号
+   */
+  static addStepComment(note, text, customNumber) {
+    const number = customNumber || this.getNextNumberForType(note, 'Step');
+    const htmlText = this.createNumberedHtmlText(text, 'step', number, note);
+    note.appendMarkdownComment(htmlText);
+    return number;
+  }
+
+  /**
+   * 通用的添加带序号评论方法
+   * @param {MNNote} note - 笔记对象
+   * @param {string} text - 评论内容
+   * @param {string} type - 类型（'case', 'step' 等）
+   * @param {number} customNumber - 自定义序号（可选）
+   * @returns {number} 使用的序号
+   */
+  static addNumberedComment(note, text, type, customNumber) {
+    // 获取类型对应的前缀
+    const numberedTypes = {
+      'case': 'Case',
+      'step': 'Step'
+    };
+
+    const prefix = numberedTypes[type];
+    if (!prefix) {
+      // 如果不是带序号的类型，使用普通方法
+      note.appendMarkdownComment(this.createHtmlMarkdownText(text, type));
+      return null;
+    }
+
+    const number = customNumber || this.getNextNumberForType(note, prefix);
+    const htmlText = this.createNumberedHtmlText(text, type, number, note);
+    note.appendMarkdownComment(htmlText);
+    return number;
+  }
+}
+
+
+
+// https://github.com/vinta/pangu.js
+// CJK is short for Chinese, Japanese, and Korean.
+//
+// CJK includes following Unicode blocks:
+// \u2e80-\u2eff CJK Radicals Supplement
+// \u2f00-\u2fdf Kangxi Radicals
+// \u3040-\u309f Hiragana
+// \u30a0-\u30ff Katakana
+// \u3100-\u312f Bopomofo
+// \u3200-\u32ff Enclosed CJK Letters and Months
+// \u3400-\u4dbf CJK Unified Ideographs Extension A
+// \u4e00-\u9fff CJK Unified Ideographs
+// \uf900-\ufaff CJK Compatibility Ideographs
+//
+// For more information about Unicode blocks, see
+// http://unicode-table.com/en/
+// https://github.com/vinta/pangu
+//
+// all J below does not include \u30fb
+const CJK =
+  "\u2e80-\u2eff\u2f00-\u2fdf\u3040-\u309f\u30a0-\u30fa\u30fc-\u30ff\u3100-\u312f\u3200-\u32ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff"
+// ANS is short for Alphabets, Numbers, and Symbols.
+//
+// A includes A-Za-z\u0370-\u03ff
+// N includes 0-9
+// S includes `~!@#$%^&*()-_=+[]{}\|;:'",<.>/?
+//
+// some S below does not include all symbols
+// the symbol part only includes ~ ! ; : , . ? but . only matches one character
+const CONVERT_TO_FULLWIDTH_CJK_SYMBOLS_CJK = new RegExp(
+  `([${CJK}])[ ]*([\\:]+|\\.)[ ]*([${CJK}])`,
+  "g"
+)
+const CONVERT_TO_FULLWIDTH_CJK_SYMBOLS = new RegExp(
+  `([${CJK}])[ ]*([~\\!;,\\?]+)[ ]*`,
+  "g"
+)
+const DOTS_CJK = new RegExp(`([\\.]{2,}|\u2026)([${CJK}])`, "g")
+const FIX_CJK_COLON_ANS = new RegExp(`([${CJK}])\\:([A-Z0-9\\(\\)])`, "g")
+// the symbol part does not include '
+const CJK_QUOTE = new RegExp(`([${CJK}])([\`"\u05f4])`, "g")
+const QUOTE_CJK = new RegExp(`([\`"\u05f4])([${CJK}])`, "g")
+const FIX_QUOTE_ANY_QUOTE = /([`"\u05f4]+)[ ]*(.+?)[ ]*([`"\u05f4]+)/g
+const CJK_SINGLE_QUOTE_BUT_POSSESSIVE = new RegExp(`([${CJK}])('[^s])`, "g")
+const SINGLE_QUOTE_CJK = new RegExp(`(')([${CJK}])`, "g")
+const FIX_POSSESSIVE_SINGLE_QUOTE = new RegExp(
+  `([A-Za-z0-9${CJK}])( )('s)`,
+  "g"
+)
+const HASH_ANS_CJK_HASH = new RegExp(
+  `([${CJK}])(#)([${CJK}]+)(#)([${CJK}])`,
+  "g"
+)
+const CJK_HASH = new RegExp(`([${CJK}])(#([^ ]))`, "g")
+const HASH_CJK = new RegExp(`(([^ ])#)([${CJK}])`, "g")
+// the symbol part only includes + - * / = & | < >
+const CJK_OPERATOR_ANS = new RegExp(
+  `([${CJK}])([\\+\\-\\*\\/=&\\|<>])([A-Za-z0-9])`,
+  "g"
+)
+const ANS_OPERATOR_CJK = new RegExp(
+  `([A-Za-z0-9])([\\+\\-\\*\\/=&\\|<>])([${CJK}])`,
+  "g"
+)
+const FIX_SLASH_AS = /([/]) ([a-z\-_\./]+)/g
+const FIX_SLASH_AS_SLASH = /([/\.])([A-Za-z\-_\./]+) ([/])/g
+// the bracket part only includes ( ) [ ] { } < > “ ”
+const CJK_LEFT_BRACKET = new RegExp(`([${CJK}])([\\(\\[\\{<>\u201c])`, "g")
+const RIGHT_BRACKET_CJK = new RegExp(`([\\)\\]\\}<>\u201d])([${CJK}])`, "g")
+const FIX_LEFT_BRACKET_ANY_RIGHT_BRACKET =
+  /([\(\[\{<\u201c]+)[ ]*(.+?)[ ]*([\)\]\}>\u201d]+)/
+const ANS_CJK_LEFT_BRACKET_ANY_RIGHT_BRACKET = new RegExp(
+  `([A-Za-z0-9${CJK}])[ ]*([\u201c])([A-Za-z0-9${CJK}\\-_ ]+)([\u201d])`,
+  "g"
+)
+const LEFT_BRACKET_ANY_RIGHT_BRACKET_ANS_CJK = new RegExp(
+  `([\u201c])([A-Za-z0-9${CJK}\\-_ ]+)([\u201d])[ ]*([A-Za-z0-9${CJK}])`,
+  "g"
+)
+const AN_LEFT_BRACKET = /([A-Za-z0-9])([\(\[\{])/g
+const RIGHT_BRACKET_AN = /([\)\]\}])([A-Za-z0-9])/g
+const CJK_ANS = new RegExp(
+  `([${CJK}])([A-Za-z\u0370-\u03ff0-9@\\$%\\^&\\*\\-\\+\\\\=\\|/\u00a1-\u00ff\u2150-\u218f\u2700—\u27bf])`,
+  "g"
+)
+const ANS_CJK = new RegExp(
+  `([A-Za-z\u0370-\u03ff0-9~\\$%\\^&\\*\\-\\+\\\\=\\|/!;:,\\.\\?\u00a1-\u00ff\u2150-\u218f\u2700—\u27bf])([${CJK}])`,
+  "g"
+)
+const S_A = /(%)([A-Za-z])/g
+const MIDDLE_DOT = /([ ]*)([\u00b7\u2022\u2027])([ ]*)/g
+const BACKSAPCE_CJK = new RegExp(`([${CJK}]) ([${CJK}])`, "g")
+const SUBSCRIPT_CJK = /([\u2080-\u2099])(?=[\u4e00-\u9fa5])/g
+// 上标 https://rupertshepherd.info/resource_pages/superscript-letters-in-unicode
+const SUPERSCRIPT_CJK = /([\u2070-\u209F\u1D56\u1D50\u207F\u1D4F\u1D57])(?=[\u4e00-\u9fa5])/g
+// 特殊字符
+// \u221E: ∞
+const SPECIAL = /([\u221E])(?!\s|[\(\[])/g  // (?!\s) 是为了当后面没有空格才加空格，防止出现多个空格
+class Pangu {
+  version
+  static convertToFullwidth(symbols) {
+    return symbols
+      .replace(/~/g, "～")
+      .replace(/!/g, "！")
+      .replace(/;/g, "；")
+      .replace(/:/g, "：")
+      .replace(/,/g, "，")
+      .replace(/\./g, "。")
+      .replace(/\?/g, "？")
+  }
+  static toFullwidth(text) {
+    let newText = text
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const that = this
+    newText = newText.replace(
+      CONVERT_TO_FULLWIDTH_CJK_SYMBOLS_CJK,
+      (match, leftCjk, symbols, rightCjk) => {
+        const fullwidthSymbols = that.convertToFullwidth(symbols)
+        return `${leftCjk}${fullwidthSymbols}${rightCjk}`
+      }
+    )
+    newText = newText.replace(
+      CONVERT_TO_FULLWIDTH_CJK_SYMBOLS,
+      (match, cjk, symbols) => {
+        const fullwidthSymbols = that.convertToFullwidth(symbols)
+        return `${cjk}${fullwidthSymbols}`
+      }
+    )
+    return newText
+  }
+  static spacing(text) {
+    let newText = text
+    // https://stackoverflow.com/questions/4285472/multiple-regex-replace
+    newText = newText.replace(DOTS_CJK, "$1 $2")
+    newText = newText.replace(FIX_CJK_COLON_ANS, "$1：$2")
+    newText = newText.replace(CJK_QUOTE, "$1 $2")
+    newText = newText.replace(QUOTE_CJK, "$1 $2")
+    newText = newText.replace(FIX_QUOTE_ANY_QUOTE, "$1$2$3")
+    newText = newText.replace(CJK_SINGLE_QUOTE_BUT_POSSESSIVE, "$1 $2")
+    newText = newText.replace(SINGLE_QUOTE_CJK, "$1 $2")
+    newText = newText.replace(FIX_POSSESSIVE_SINGLE_QUOTE, "$1's") // eslint-disable-line quotes
+    newText = newText.replace(HASH_ANS_CJK_HASH, "$1 $2$3$4 $5")
+    newText = newText.replace(CJK_HASH, "$1 $2")
+    newText = newText.replace(HASH_CJK, "$1 $3")
+    newText = newText.replace(CJK_OPERATOR_ANS, "$1 $2 $3")
+    newText = newText.replace(ANS_OPERATOR_CJK, "$1 $2 $3")
+    newText = newText.replace(FIX_SLASH_AS, "$1$2")
+    newText = newText.replace(FIX_SLASH_AS_SLASH, "$1$2$3")
+    newText = newText.replace(CJK_LEFT_BRACKET, "$1 $2")
+    newText = newText.replace(RIGHT_BRACKET_CJK, "$1 $2")
+    newText = newText.replace(FIX_LEFT_BRACKET_ANY_RIGHT_BRACKET, "$1$2$3")
+    newText = newText.replace(
+      ANS_CJK_LEFT_BRACKET_ANY_RIGHT_BRACKET,
+      "$1 $2$3$4"
+    )
+    newText = newText.replace(
+      LEFT_BRACKET_ANY_RIGHT_BRACKET_ANS_CJK,
+      "$1$2$3 $4"
+    )
+    newText = newText.replace(AN_LEFT_BRACKET, "$1 $2")
+    newText = newText.replace(RIGHT_BRACKET_AN, "$1 $2")
+    newText = newText.replace(CJK_ANS, "$1 $2")
+    newText = newText.replace(ANS_CJK, "$1 $2")
+    newText = newText.replace(S_A, "$1 $2")
+    // newText = newText.replace(MIDDLE_DOT, "・")
+    // 去中文间的空格
+    newText = newText.replace(BACKSAPCE_CJK, "$1$2")
+    // 去掉下标和中文之间的空格
+    newText = newText.replace(SUBSCRIPT_CJK, "$1 ")
+    newText = newText.replace(SUPERSCRIPT_CJK, "$1 ")
+    /* 特殊处理 */
+    // 特殊字符
+    newText = newText.replace(SPECIAL, "$1 ")
+    // 处理 C[a,b] 这种单独字母紧跟括号的情形，不加空格
+    newText = newText.replace(/([A-Za-z])\s([\(\[\{])/g, "$1$2")
+    newText = newText.replace(/([\)\]\}])\s([A-Za-z])/g, "$1$2")
+    // ”后面不加空格
+    newText = newText.replace(/”\s/g, "”")
+    // · 左右的空格去掉
+    newText = newText.replace(/\s*·\s*/g, "·")
+    // - 左右的空格去掉
+    newText = newText.replace(/\s*-\s*/g, "-")
+    // ∞ 后面的只保留一个空格，而不是直接去掉
+    newText = newText.replace(/∞\s+/g, "∞ ")
+    newText = newText.replace(/∞\s*}/g, "∞}")
+    newText = newText.replace(/∞\s*\)/g, "∞)")
+    newText = newText.replace(/∞\s*\]/g, "∞]")
+    newText = newText.replace(/∞\s*】/g, "∞】")
+    newText = newText.replace(/∞\s*）/g, "∞）")
+    newText = newText.replace(/∞\s*”/g, "∞”")
+    newText = newText.replace(/∞\s*_/g, "∞_")
+    // 大求和符号改成小求和符号
+    newText = newText.replace(/∑/g, "Σ")
+    // 处理一下 弱* w* 这种空格
+    newText = newText.replace(/([弱A-Za-z])\s*\*/g, "$1*")
+    newText = newText.replace(/\*\s*\*/g, "**")
+    // 把 等价刻画/充要条件 中间的 / 两边的空格去掉
+    newText = newText.replace(/\s*\/\s*/g, '/')
+    // 处理括号后面的空格
+    newText = newText.replace(/\]\s*([A-Za-z])/g, "] $1")
+    // 去掉 ∈ 前面的空格
+    newText = newText.replace(/\s*∈\s*/g, "∈")
+    newText = newText.replace(/\|\|/g, "‖")
+
+
+    // 处理标点符号
+    newText = newText.replace(/\s*,\s*/g, ", ")
+    newText = newText.replace(/\s*:\s*/g, ": ")
+
+    newText = newText.replace(/ᵩ,\s*/g, "ᵩ,")
+    return newText
+  }
+}
+
+class KnowledgeBaseClassUtils {
+  static async makeNoteAfterProcessNewExcerpt (note, addToReview = false) {
+    let type = KnowledgeBaseTemplate.getNoteTypeByColor(note.colorIndex)
+    switch (type) {
+      case "归类":
+        await this.createClassificationNoteAfterProcessNewExcerpt(note)
+        break;
+      default:
+        let parentNote = note.parentNote
+        let parentNoteType =  KnowledgeBaseTemplate.getNoteType(parentNote)
+        let brotherIndex = note.indexInBrotherNotes
+        if (
+          parentNoteType &&
+          parentNoteType == "归类" &&
+          KnowledgeBaseTemplate.parseNoteTitle(parentNote).type == type
+        ) {
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(note)
+          KnowledgeBaseTemplate.makeNote(processedNote, addToReview)
+          //   KnowledgeBaseUtils.log("完整制卡", "onProcessNewExcerpt - 归类模式", {
+          //   brotherIndex: brotherIndex,
+          //   "父卡片": processedNote.parentNote.title,
+          // })
+          // parentNote.addChild(processedNote)
+          processedNote.moveTo(brotherIndex)
+          processedNote.focusInMindMap(0.5)
+        } else {
+          // KnowledgeBaseUtils.log("只能转为非摘录 不制卡", "onProcessNewExcerpt - 归类模式", {"1" : parentNoteType, "2 ": 
+          // parentNoteType == "归类", "3 ":
+          // KnowledgeBaseTemplate.parseNoteTitle(parentNote).type, 4:type})
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(note)
+          processedNote.focusInMindMap(0.3)
+        }
+        break;
+    }
+  }
+  static async createClassificationNoteAfterProcessNewExcerpt (note) {
+    let parentNote = note.parentNote
+    if (!parentNote) { return }
+    // KnowledgeBaseUtils.log("处理前卡片的标题为" + note.title, "onProcessNewExcerpt - 归类模式")
+    if ( note.colorIndex !== KnowledgeBaseTemplate.types.归类.colorIndex ) { return }
+    let finalParentNote
+    if (KnowledgeBaseTemplate.getNoteType(parentNote)) {
+      if (parentNote.childNotes.length > 1) {  // 因为此时自己也算子卡片了，所以从 1 开始算
+        finalParentNote = parentNote.childNotes[parentNote.childNotes.length - 2] // 获取上一个兄弟卡片
+      } else {
+        finalParentNote = parentNote
+      }
+      note.moveTo(finalParentNote)
+      let convertedNote = await KnowledgeBaseTemplate.convertNoteToClassificationNote(note, true, true)
+      MNUtil.undoGrouping(()=>{
+        convertedNote.focusInMindMap(0.3)
+      })
+    } else {
+      // 此时表示摘录为独立卡片了
+      let convertedNote = await KnowledgeBaseTemplate.convertNoteToClassificationNote(note, true, false)
+      if (convertedNote) {
+        MNUtil.undoGrouping(()=>{
+          convertedNote.focusInMindMap(0.3)
+        })
+      }
+    }
+  }
+  static async createClassificationNoteAfterTextEditingInMindMap (note) {
+    let parentNote = note.parentNote
+    let lastClassificationNote
+    if (!parentNote || (
+      !KnowledgeBaseTemplate.getNoteType(parentNote)
+    )) {
+      lastClassificationNote = await KnowledgeBaseTemplate.convertNoteToClassificationNote(note, true, false, false)
+    } else {
+      lastClassificationNote = await KnowledgeBaseTemplate.convertNoteToClassificationNote(note, true, true, false)
+    }
+    lastClassificationNote.focusInMindMap(0.2)
+  }
 }

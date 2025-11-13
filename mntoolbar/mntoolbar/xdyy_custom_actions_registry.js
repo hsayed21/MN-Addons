@@ -131,6 +131,7 @@ function registerAllCustomActions() {
 
   // HTML 设置
   const htmlSetting = [
+    { title: "SKETCH: ✍️", type: "sketch" },
     { title: "注: 📝", type: "remark" },
     { title: "方法: ✔", type: "method" },
     { title: "关键: 🔑", type: "key" },
@@ -139,7 +140,6 @@ function registerAllCustomActions() {
     { title: "特别注意: ❗❗❗", type: "danger" },
     { title: "Case: 📋", type: "case" },
     { title: "Step: 👣", type: "step" },
-    { title: "SKETCH: ✍️", type: "sketch" },
     { title: "目标: 🎯", type: "goal" },
     { title: "level1: 🚩", type: "level1" },
     { title: "level2: ▸", type: "level2" },
@@ -2408,7 +2408,7 @@ function registerAllCustomActions() {
             try {
               const inputText = alert.textFieldAtIndex(0).text;
               if (inputText && inputText.trim()) {
-                const number = KnowledgeBaseTemplate.addCaseComment(focusNote, inputText.trim());
+                const number = HtmlMarkdownUtils.addCaseComment(focusNote, inputText.trim());
                 MNUtil.showHUD(`✅ 已添加 Case ${number}`);
               }
             } catch (error) {
@@ -2436,7 +2436,7 @@ function registerAllCustomActions() {
             try {
               const inputText = alert.textFieldAtIndex(0).text;
               if (inputText && inputText.trim()) {
-                const number = KnowledgeBaseTemplate.addStepComment(focusNote, inputText.trim());
+                const number = HtmlMarkdownUtils.addStepComment(focusNote, inputText.trim());
                 MNUtil.showHUD(`✅ 已添加 Step ${number}`);
               }
             } catch (error) {
@@ -3116,7 +3116,40 @@ function registerAllCustomActions() {
 
           const parentNote = focusNote.parentNote;
 
+          focusNote.title = ""
           // 合并子卡片到父卡片
+          focusNote.mergeInto(parentNote);
+
+          // 延迟一下确保合并完成
+          MNUtil.delay(0.1).then(() => {
+            // 将父卡片的最新评论移动到摘录区
+            KnowledgeBaseTemplate.autoMoveNewContentToField(parentNote, "摘录");
+            MNUtil.showHUD("✅ 已合并到父卡片并移动评论到摘录");
+          });
+        } catch (error) {
+          MNUtil.showHUD(`❌ 操作失败: ${error.message}`);
+        }
+      });
+    },
+  );
+
+  global.registerCustomAction(
+    "mergeExerptAreToParentAndMoveCommentToExcerpt",
+    async function (context) {
+      const { button, des, focusNote, focusNotes, self } = context;
+      MNUtil.undoGrouping(() => {
+        try {
+          // 检查是否有父卡片
+          if (!focusNote.parentNote) {
+            MNUtil.showHUD("❌ 当前卡片没有父卡片");
+            return;
+          }
+
+          const parentNote = focusNote.parentNote;
+
+          focusNote.title = ""
+          // 合并子卡片到父卡片
+          KnowledgeBaseTemplate.retainFieldContentByName(focusNote, "摘录区");
           focusNote.mergeInto(parentNote);
 
           // 延迟一下确保合并完成
@@ -3146,7 +3179,7 @@ function registerAllCustomActions() {
           }
 
           const parentNote = focusNote.parentNote;
-
+          focusNote.title = ""
           // 合并子卡片到父卡片
           focusNote.mergeInto(parentNote);
 
@@ -3748,16 +3781,8 @@ function registerAllCustomActions() {
     },
   );
 
-  // ifExceptVersion
-  // showColorIndex
-  // showCommentType
-  // linksConvertToMN4Type
-  // addThought
-  // addThoughtPoint
-  // reappendAllLinksInNote
-  // upwardMergeWithStyledComments
   global.registerCustomAction(
-    "upwardMergeWithStyledComments",
+    "upwardMergeWithStyledCommentsAndMove",
     async function (context) {
       const { button, des, focusNote, focusNotes, self } = context;
       MNUtil.undoGrouping(() => {
@@ -3809,6 +3834,59 @@ function registerAllCustomActions() {
     },
   );
 
+  global.registerCustomAction(
+    "upwardMergeWithStyledComments",
+    async function (context) {
+      const { button, des, focusNote, focusNotes, self } = context;
+      MNUtil.undoGrouping(() => {
+        try {
+          // 先检查是否有子卡片包含标题
+          const hasTitle = HtmlMarkdownUtils.hasDescendantWithTitle(focusNote);
+          
+          if (!hasTitle) {
+            // 如果没有任何子卡片有标题，直接合并，不需要选择样式
+            HtmlMarkdownUtils.upwardMergeWithStyledComments(focusNote);
+            MNUtil.showHUD("✅ 子卡片已合并");
+          } else {
+            // 如果有子卡片有标题，显示样式选择弹窗
+            UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+              "选择「当前卡片」下一层的层级",
+              "然后会依次递减",
+              0,
+              "取消",
+              levelHtmlSettingTitles,
+              (alert, buttonIndex) => {
+                try {
+                  MNUtil.undoGrouping(() => {
+                    // 按钮索引从1开始（0是取消按钮）
+                    const selectedIndex = buttonIndex - 1;
+
+                    if (
+                      selectedIndex >= 0 &&
+                      selectedIndex < levelHtmlSetting.length
+                    ) {
+                      const selectedType = levelHtmlSetting[selectedIndex].type;
+                      HtmlMarkdownUtils.upwardMergeWithStyledComments(
+                        focusNote,
+                        selectedType,
+                      );
+                    }
+                  });
+                } catch (error) {
+                  MNUtil.showHUD(error);
+                }
+              },
+            );
+          }
+        } catch (error) {
+          MNUtil.showHUD(error);
+        }
+      });
+    },
+  );
+
+
+
   // mergeInParentNoteWithPopup
   global.registerCustomAction(
     "mergeInParentNoteWithPopup",
@@ -3854,6 +3932,17 @@ function registerAllCustomActions() {
     MNUtil.undoGrouping(() => {
       try {
         focusNote.mergeInto(focusNote.parentNote);
+      } catch (error) {
+        MNUtil.showHUD(error);
+      }
+    });
+  });
+
+  global.registerCustomAction("mergeInSummaryParentNote", async function (context) {
+    const { focusNote } = context;
+    MNUtil.undoGrouping(() => {
+      try {
+        KnowledgeBaseTemplate.mergeIntoSummaryNote(focusNote)
       } catch (error) {
         MNUtil.showHUD(error);
       }
@@ -4153,19 +4242,10 @@ function registerAllCustomActions() {
 
   // makeNote
   global.registerCustomAction("makeNote", async function (context) {
-    const { button, des, focusNote, focusNotes, self } = context;
+    const { focusNote } = context;
     MNUtil.undoGrouping(() => {
       try {
-        if (toolbarConfig.windowState.roughReading) {
-          // 粗读模式：使用颜色判断类型，不加入复习，自动移动到根目录
-          toolbarUtils.roughReadingMakeNote(focusNote);
-        } else if (toolbarConfig.windowState.preprocess) {
-          let processedNote = KnowledgeBaseTemplate.preprocessNote(focusNote)
-          processedNote.focusInMindMap(0.4);
-        } else {
-          // 正常模式：完整制卡流程
-          KnowledgeBaseTemplate.makeNote(focusNote);
-        }
+        KnowledgeBaseTemplate.makeNote(focusNote);
       } catch (error) {
         MNUtil.showHUD(error);
       }
@@ -4176,15 +4256,15 @@ function registerAllCustomActions() {
   global.registerCustomAction("doubleClickMakeNote", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
     MNUtil.undoGrouping(() => {
-      KnowledgeBaseTemplate.makeNote(focusNote, false);
+      KnowledgeBaseTemplate.makeCard(focusNote, false);
     });
   });
 
-    global.registerCustomAction("sendNotesToInboxArea", async function (context) {
+  global.registerCustomAction("sendNotesToInboxArea", async function (context) {
     const { focusNotes } = context;
     MNUtil.undoGrouping(() => {
       try {
-        let rootNote = MNNote.new("marginnote4app://note/74785805-661C-4836-AFA6-C85697056B0C");
+        let rootNote = MNNote.new("marginnote4app://note/B48C92CF-A5FD-442A-BF8C-53E1E801F05D");
         focusNotes.forEach((note) => {
           rootNote.addChild(note);
         })
@@ -4194,11 +4274,11 @@ function registerAllCustomActions() {
     })
   })
 
-  global.registerCustomAction("sendNotesToRoughReadingArea", async function (context) {
+  global.registerCustomAction("sendNotesToThinkingArea", async function (context) {
     const { focusNotes } = context;
     MNUtil.undoGrouping(() => {
       try {
-        let rootNote = MNNote.new(KnowledgeBaseTemplate.roughReadingRootNoteIds["命题"]);
+        let rootNote = MNNote.new("marginnote4app://note/8438D1B0-0950-4356-A213-719A11055040");
         focusNotes.forEach((note) => {
           rootNote.addChild(note);
         })
@@ -4208,20 +4288,6 @@ function registerAllCustomActions() {
     })
   })
 
-  global.registerCustomAction("sendNotesToRoughReadingAreaAndFocus", async function (context) {
-    const { focusNotes } = context;
-    MNUtil.undoGrouping(() => {
-      try {
-        let rootNote = MNNote.new(KnowledgeBaseTemplate.roughReadingRootNoteIds["命题"]);
-        focusNotes.forEach((note) => {
-          rootNote.addChild(note);
-        })
-        focusNotes[0].focusInMindMap(0.3);
-      } catch (error) {
-        MNUtil.showHUD(error);
-      }
-    })
-  })
 
   // replaceFieldContentByPopup
   global.registerCustomAction(
@@ -4827,177 +4893,6 @@ function registerAllCustomActions() {
   );
 
   // 搜索定义卡片目录
-  global.registerCustomAction("searchDefinition", async function (context) {
-    const { button, des, focusNote, focusNotes, self } = context;
-    try {
-      // 调用定义卡片目录功能
-      await KnowledgeBaseTemplate.showDefinitionCatalog();
-    } catch (error) {
-      MNUtil.showHUD("搜索失败: " + error.message);
-      if (typeof toolbarUtils !== "undefined") {
-        toolbarUtils.addErrorLog(error, "searchDefinition");
-      }
-    }
-  });
-
-  // // 搜索笔记功能
-  // global.registerCustomAction("searchNotes", async function (context) {
-  //   const { button, des, focusNote, focusNotes, self } = context;
-  //   try {
-  //     // 直接调用 KnowledgeBaseTemplate 中的搜索对话框方法
-  //     // await KnowledgeBaseTemplate.showSearchDialog();
-  //     // 异步加载搜索器
-  //     const searcher = await KnowledgeBaseSearcher.loadFromFile();
-  //     if (!searcher) {
-  //       MNUtil.showHUD("索引未找到，请先更新搜索索引");
-  //       return;
-  //     }
-      
-  //     const types = SearchConfig.getTypesByPreset('all');
-      
-  //     // 显示搜索对话框，使用知识卡片类型
-  //     // 传递 true 作为 focusMode，表示正常的搜索（将在选中后显示操作菜单）
-  //     KnowledgeBaseSearcher.showSearchDialog(searcher, {
-  //       enableTypeSelection: false,  // 禁用类型选择
-  //       defaultTypes: types,
-  //       presetKey: 'all'
-  //     }, true);
-  //   } catch (error) {
-  //     MNUtil.showHUD("搜索失败: " + error.message);
-  //     if (typeof toolbarUtils !== "undefined") {
-  //       toolbarUtils.addErrorLog(error, "searchNotes");
-  //     }
-  //   }
-  // });
-
-  // 管理搜索根目录
-  global.registerCustomAction("manageSearchRoots", async function (context) {
-    const { button, des, focusNote, focusNotes, self } = context;
-    try {
-      // 直接调用 KnowledgeBaseTemplate 中的完整功能
-      const result = await KnowledgeBaseTemplate.showRootManagementDialog();
-      if (result) {
-        MNUtil.showHUD("✅ 根目录管理成功");
-      }
-    } catch (error) {
-      MNUtil.showHUD("管理失败: " + error.message);
-      if (typeof toolbarUtils !== "undefined") {
-        toolbarUtils.addErrorLog(error, "manageSearchRoots");
-      }
-    }
-  });
-
-  global.registerCustomAction("showSearchBoard", async function (context) {
-    try {
-      // 显示搜索面板
-      KnowledgeBaseTemplate.showSearchBoard();
-    } catch (error) {}
-  });
-
-  global.registerCustomAction("clearSearchBoard", async function (context) {
-    try {
-      // 清除搜索面板
-      KnowledgeBaseTemplate.clearSearchBoard();
-    } catch (error) {}
-  });
-
-  // manageSynonymGroups - 管理同义词组
-  global.registerCustomAction("manageSynonymGroups", async function (context) {
-    const { button, des, focusNote, focusNotes, self } = context;
-    try {
-      // 调用同义词组管理界面
-      await KnowledgeBaseTemplate.manageSynonymGroups();
-    } catch (error) {
-      MNUtil.showHUD("管理同义词组失败: " + error.message);
-    }
-  });
-
-  // manageExclusionGroups - 管理排除词组
-  global.registerCustomAction("manageExclusionGroups", async function (context) {
-    const { button, des, focusNote, focusNotes, self } = context;
-    try {
-      // 调用排除词组管理界面
-      await KnowledgeBaseTemplate.manageExclusionGroups();
-    } catch (error) {
-      MNUtil.showHUD("管理排除词组失败: " + error.message);
-    }
-  });
-
-  // exportSearchConfig - 导出搜索配置
-  global.registerCustomAction("exportSearchConfig", async function (context) {
-    const { button, des, focusNote, focusNotes, self } = context;
-    try {
-      // 调用 KnowledgeBaseTemplate 中的导出配置对话框
-      await KnowledgeBaseTemplate.showExportConfigDialog();
-    } catch (error) {
-      MNUtil.showHUD("导出配置失败: " + error.message);
-      if (typeof toolbarUtils !== "undefined") {
-        toolbarUtils.addErrorLog(error, "exportSearchConfig");
-      }
-    }
-  });
-
-  // importSearchConfig - 导入搜索配置
-  global.registerCustomAction("importSearchConfig", async function (context) {
-    const { button, des, focusNote, focusNotes, self } = context;
-    try {
-      // 调用 KnowledgeBaseTemplate 中的导入配置对话框
-      await KnowledgeBaseTemplate.showImportConfigDialog();
-    } catch (error) {
-      MNUtil.showHUD("导入配置失败: " + error.message);
-      if (typeof toolbarUtils !== "undefined") {
-        toolbarUtils.addErrorLog(error, "importSearchConfig");
-      }
-    }
-  });
-
-  // showSearchSettings - 搜索设置
-  global.registerCustomAction("showSearchSettings", async function (context) {
-    const { button, des, focusNote, focusNotes, self } = context;
-    try {
-      // 调用 KnowledgeBaseTemplate 中的搜索设置对话框
-      await KnowledgeBaseTemplate.showSearchSettingsDialog();
-    } catch (error) {
-      MNUtil.showHUD("搜索设置失败: " + error.message);
-      if (typeof toolbarUtils !== "undefined") {
-        toolbarUtils.addErrorLog(error, "showSearchSettings");
-      }
-    }
-  });
-  
-  // adjustRootOrder - 调整根目录顺序
-  global.registerCustomAction("adjustRootOrder", async function(context) {
-    const { button, des, focusNote, focusNotes, self } = context;
-    try {
-      if (typeof KnowledgeBaseTemplate !== "undefined" && KnowledgeBaseTemplate.showRootOrderDialog) {
-        await KnowledgeBaseTemplate.showRootOrderDialog();
-      } else {
-        MNUtil.showHUD("❌ 该功能需要 MNUtils 支持");
-      }
-    } catch (error) {
-      MNUtil.showHUD("调整顺序失败: " + error.message);
-      if (typeof toolbarUtils !== "undefined") {
-        toolbarUtils.addErrorLog(error, "adjustRootOrder");
-      }
-    }
-  });
-
-  // manageRootGroups - 管理根目录群组
-  global.registerCustomAction("manageRootGroups", async function(context) {
-    const { button, des, focusNote, focusNotes, self } = context;
-    try {
-      if (typeof KnowledgeBaseTemplate !== "undefined" && KnowledgeBaseTemplate.manageRootGroups) {
-        await KnowledgeBaseTemplate.manageRootGroups();
-      } else {
-        MNUtil.showHUD("❌ 该功能需要 MNUtils 支持");
-      }
-    } catch (error) {
-      MNUtil.showHUD("群组管理失败: " + error.message);
-      if (typeof toolbarUtils !== "undefined") {
-        toolbarUtils.addErrorLog(error, "manageRootGroups");
-      }
-    }
-  });
 
   global.registerCustomAction("codeMergeTemplate", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
@@ -5580,6 +5475,27 @@ function registerAllCustomActions() {
     });
   })
 
+  global.registerCustomAction("pinCurrentPageToPages", async function(context) {
+    // 获取当前文档和页码
+    let docController = MNUtil.currentDocController
+    if (!docController) {
+      MNUtil.showHUD("请先打开一个文档");
+      return;
+    }
+
+    let docMd5 = docController.docMd5
+    let pageIndex = docController.currPageIndex  // 当前页面索引（从0开始）
+    let docName = docController.document.pathFile.lastPathComponent
+
+    // 生成默认标题
+    let defaultTitle = `${docName} - 第${pageIndex + 1}页`
+
+    // 发送通知到 mnpinner
+    MNUtil.postNotification("AddonBroadcast", {
+      message: `mnpinner?action=pinPage&docMd5=${encodeURIComponent(docMd5)}&pageIndex=${pageIndex}&title=${encodeURIComponent(defaultTitle)}`
+    });
+  })
+
   global.registerCustomAction("focusLastChildNote", async function(context) {
     const { focusNote } = context;
       if (focusNote) {
@@ -5620,6 +5536,7 @@ function registerAllCustomActions() {
       let brotherNote = focusNote.brotherNotes[focusNote.indexInBrotherNotes - 1]
       if (brotherNote) {
         MNUtil.undoGrouping(()=>{
+          focusNote.title = ""
           focusNote.mergeInto(brotherNote)
           KnowledgeBaseTemplate.autoMoveNewContentToField(brotherNote, "摘录")
           brotherNote.focusInMindMap(0.3)
@@ -5633,6 +5550,7 @@ function registerAllCustomActions() {
       if (focusNote.childNotes && focusNote.childNotes.length > 0) {
         let lastChild = focusNote.childNotes[focusNote.childNotes.length - 1]
         MNUtil.undoGrouping(()=>{
+          lastChild.title = ""
           lastChild.mergeInto(focusNote)
           KnowledgeBaseTemplate.autoMoveNewContentToField(focusNote, "摘录")
           focusNote.focusInMindMap(0.3)
@@ -5645,6 +5563,7 @@ function registerAllCustomActions() {
   /**
    * 搜索 - 打开知识库可视化搜索界面
    * 通过插件通信调用 mnknowledgebase 的 openSearchWebView 方法
+   * 默认进入输入模式并清除已选预设，提供最佳的搜索体验
    */
   global.registerCustomAction("searchNotesInWebview", async function(context) {
     const { focusNote } = context;
@@ -5656,7 +5575,7 @@ function registerAllCustomActions() {
       MNUtil.postNotification("AddonBroadcast", { message });
 
       // 显示提示
-      MNUtil.showHUD("正在打开知识库搜索...");
+      // MNUtil.showHUD("正在打开知识库搜索...");
 
     } catch (error) {
       MNUtil.showHUD("打开知识库搜索失败: " + error.message);
@@ -5709,14 +5628,40 @@ function registerAllCustomActions() {
     }
   })
 
-  global.registerCustomAction("ocrMode1NoTranslation", async function(context) {
+  global.registerCustomAction("ocrMode1NoTranslationReplaceTitle", async function(context) {
     const { focusNote } = context;
     try {
       if (!focusNote) {
         MNUtil.showHUD("请先选中一张卡片");
         return;
       }
-      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 1, false);
+      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 1, false, "all");
+    } catch (error) {
+      MNUtil.showHUD("模式1原文版 OCR 失败: " + error.message);
+    }
+  })
+
+  global.registerCustomAction("ocrMode1NoTranslationAddToFirstHeaderLink", async function(context) {
+    const { focusNote } = context;
+    try {
+      if (!focusNote) {
+        MNUtil.showHUD("请先选中一张卡片");
+        return;
+      }
+      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 1, false, "firstTitleLinkWord");
+    } catch (error) {
+      MNUtil.showHUD("模式1原文版 OCR 失败: " + error.message);
+    }
+  })
+
+  global.registerCustomAction("ocrMode1NoTranslationAddToLastHeaderLink", async function(context) {
+    const { focusNote } = context;
+    try {
+      if (!focusNote) {
+        MNUtil.showHUD("请先选中一张卡片");
+        return;
+      }
+      await KnowledgeBaseNetwork.OCRToTitle(focusNote, 1, false, "lastTitleLinkWord");
     } catch (error) {
       MNUtil.showHUD("模式1原文版 OCR 失败: " + error.message);
     }
@@ -5775,6 +5720,135 @@ function registerAllCustomActions() {
       MNUtil.showHUD("模式3原文版 OCR 失败: " + error.message);
     }
   })
+
+  global.registerCustomAction("mergeIntoParentNoteAndMoveToProofArea", async function(context) {
+      const { focusNote } = context;
+      MNUtil.undoGrouping(()=>{
+        try {
+          let parentNote = focusNote.parentNote
+          if (!parentNote) {
+            MNUtil.showHUD("当前卡片没有父卡片，无法合并");
+            return;
+          }
+          if (KnowledgeBaseTemplate.getNoteType(focusNote, true, false)) {
+
+            return 
+          } // 不合并知识点卡片，防止点错
+          focusNote.mergeInto(parentNote)
+          KnowledgeBaseTemplate.autoMoveNewContentToField(parentNote, "证明");
+        } catch (error) {
+          MNUtil.showHUD(error);
+        }
+      })
+    }
+  )
+
+  global.registerCustomAction("keepExcerptAreaAndTitleAndMakeCard", async function(context) {
+      const { focusNote } = context;
+      MNUtil.undoGrouping(()=>{
+        try {
+          KnowledgeBaseTemplate.retainFieldContentByName(focusNote, "摘录区");
+          title = KnowledgeBaseTemplate.removeTitlePrefix(focusNote)
+          KnowledgeBaseTemplate.makeCard(focusNote)
+        } catch (error) {
+          MNUtil.showHUD(error);
+        }
+      })
+    }
+  )
+
+  global.registerCustomAction("keepExcerptAreaAndTitle", async function(context) {
+      const { focusNote } = context;
+      MNUtil.undoGrouping(()=>{
+        try {
+          KnowledgeBaseTemplate.retainFieldContentByName(focusNote, "摘录区");
+          focusNote.title = KnowledgeBaseTemplate.removeTitlePrefix(focusNote)
+        } catch (error) {
+          MNUtil.showHUD(error);
+        }
+      })
+    }
+  )
+
+  global.registerCustomAction("keepExcerptAreaWithoutTitle", async function(context) {
+      const { focusNote } = context;
+      MNUtil.undoGrouping(()=>{
+        try {
+          KnowledgeBaseTemplate.retainFieldContentByName(focusNote, "摘录区");
+          focusNote.title = ""
+        } catch (error) {
+          MNUtil.showHUD(error);
+        }
+      })
+    }
+  )
+
+  global.registerCustomAction("convertClassificationNoteToDefinitionNote", async function(context) {
+      const { focusNote } = context;
+      MNUtil.undoGrouping(()=>{
+        try {
+          KnowledgeBaseTemplate.convertClassificationNoteToDefinitionNote(focusNote);
+          KnowledgeBaseTemplate.addToReview(focusNote);
+        } catch (error) {
+          MNUtil.showHUD(error);
+        }
+      })
+    }
+  )
+
+   global.registerCustomAction("searchDefinition", async function (context) {
+    const { button, des, focusNote, focusNotes, self } = context;
+    try {
+      // 调用定义卡片目录功能
+      await KnowledgeBaseTemplate.showDefinitionCatalog();
+    } catch (error) {
+      MNUtil.showHUD("搜索失败: " + error.message);
+      if (typeof toolbarUtils !== "undefined") {
+        toolbarUtils.addErrorLog(error, "searchDefinition");
+      }
+    }
+  });
+
+  global.registerCustomAction("createEquivalenceNotes", async function(context) {
+    const { focusNote } = context;
+    KnowledgeBaseTemplate.createEquivalenceNotes(focusNote);
+  })
+
+  global.registerCustomAction("convertToClassificationNoteDirectly", async function(context) {
+    const { focusNote } = context;
+    MNUtil.undoGrouping(()=>{
+      KnowledgeBaseTemplate.convertNoteToClassificationNote(focusNote);
+    })
+  })
+
+  global.registerCustomAction("convertToClassificationNoteWithPopup", async function(context) {
+    const { focusNote } = context;
+    MNUtil.undoGrouping(()=>{
+      KnowledgeBaseTemplate.convertNoteToClassificationNote(focusNote, false);
+    })
+  })
+
+  global.registerCustomAction("addTemplate", async function(context) {
+    const { focusNote } = context;
+    KnowledgeBaseTemplate.addTemplate(focusNote);
+  })
+
+  global.registerCustomAction("addDefinitionNoteAsParentNote", async function(context) {
+    const { focusNote } = context;
+    try {
+      let classificationNote = await KnowledgeBaseTemplate.addTemplate(focusNote);
+      KnowledgeBaseTemplate.convertClassificationNoteToDefinitionNote(classificationNote);
+      classificationNote.focusInMindMap(0.4)
+      KnowledgeBaseTemplate.addToReview(classificationNote);
+    } catch (error) {
+      MNUtil.showHUD("addDefinitionNoteAsParentNote: " + error.message);
+    }
+  })
+  // global.registerCustomAction("", async function(context) {
+  //   const { focusNote } = context;
+  // })
+
+
 
 
 }

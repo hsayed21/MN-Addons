@@ -408,18 +408,39 @@ function registerAllMenuTemplates() {
           action: "copyFocusNotesURLArr",
           menuTitle: "复制卡片 URL",
         },
+        "⬇️ 修改标题",
+        {
+          action: "removeTitlePrefix",
+          menuTitle: "    去掉卡片前缀",
+        },
+        {
+          action: "forceUpdateTitlePrefix",
+          menuTitle: "    ⚡ 强制修改标题前缀",
+        },
         "---",
         {
+          action: "keepExcerptAreaAndTitle",
+          menuTitle: "只保留「摘录区」和 ✅「标题」",
+        },
+        {
+          action: "keepExcerptAreaWithoutTitle",
+          menuTitle: "只保留「摘录区」❌「标题」",
+        },
+        {
           action: "clearContentKeepExcerptWithTitle",
-          menuTitle: "只保留摘录和标题",
+          menuTitle: "只保留「摘录」和 ✅「标题」",
         },
         {
           action: "clearContentKeepExcerpt",
-          menuTitle: "只保留摘录，无标题",
+          menuTitle: "只保留摘录 ❌ 无标题",
         },
         {
           action: "renewKnowledgeNoteIntoParentNote",
           menuTitle: "🔀 合并重复知识点",
+        },
+        {
+          action: "mergeInSummaryParentNote",
+          menuTitle: "🔀 合并到父「Summary」卡片",
         },
         {
           action: "mergeInParentNote",
@@ -440,6 +461,10 @@ function registerAllMenuTemplates() {
         {
           action: "removeAllClassificationNotes",
           menuTitle: "❌ 删除归类子孙卡片，保留知识点",
+        },
+        {
+          action: "updateDescentNotesPrefixes",
+          menuTitle: "🔄 更新「子孙卡片」前缀和链接",
         },
         {
           action: "fixBrokenLinks",
@@ -475,12 +500,8 @@ function registerAllMenuTemplates() {
               menuTitle: "⇨ Inbox",
             },
             {
-              action: "sendNotesToRoughReadingArea",
-              menuTitle: "⇨ 粗读区",
-            },
-            {
-              action: "sendNotesToRoughReadingAreaAndFocus",
-              menuTitle: "⇨ 粗读区 & 定位",
+              action: "sendNotesToThinkingArea",
+              menuTitle: "⇨ 思考区",
             },
             {
               action: "toBeIndependent",
@@ -544,7 +565,7 @@ function registerAllMenuTemplates() {
             },
             {
               action: "mergeApplicationFieldInParentNote",
-              menuTitle: "    合并应用字段到父卡片",
+              menuTitle: "    合并「应用」字段到父卡片",
             },
             {
               action: "mergeInParentNoteWithPopup",
@@ -596,15 +617,6 @@ function registerAllMenuTemplates() {
           action: "renewExcerptInParentNoteByFocusNote",
           menuTitle: "    摘录替换掉父卡片的摘录",
         },
-        "⬇️ 修改标题",
-        {
-          action: "removeTitlePrefix",
-          menuTitle: "    去掉卡片前缀",
-        },
-        {
-          action: "forceUpdateTitlePrefix",
-          menuTitle: "    ⚡ 强制修改标题前缀",
-        },
         "ℹ️ 获取卡片信息",
         {
           action: "copyFocusNotesIdArr",
@@ -619,12 +631,28 @@ function registerAllMenuTemplates() {
     action: "moveToExcerptPartBottom",
     onLongPress: {
       action: "menu",
-      menuWidth: 300,
+      menuWidth: 350,
       menuItems: [
         "✂️ 修改",
         {
           action: "renewExcerptInParentNoteByFocusNote",
-          menuTitle: "    摘录替换掉父卡片的摘录",
+          menuTitle: "    选中的卡片摘录替换掉父卡片的摘录",
+        },
+        {
+          action: "keepExcerptAreaAndTitle",
+          menuTitle: "    只保留「摘录区」和 ✅「标题」",
+        },
+        {
+          action: "keepExcerptAreaWithoutTitle",
+          menuTitle: "    只保留「摘录区」❌ 无标题",
+        },
+        {
+          action: "clearContentKeepExcerptWithTitle",
+          menuTitle: "    只保留「摘录」和 ✅「标题」",
+        },
+        {
+          action: "clearContentKeepExcerpt",
+          menuTitle: "    只保留摘录 ❌ 无标题",
         },
         "⬇️ 移动",
         {
@@ -633,12 +661,12 @@ function registerAllMenuTemplates() {
         },
         "☯️ 合并",
         {
-          "action": "mergeLastChildToExcerpt",
-          "menuTitle": "    合并最后一张子卡片到摘录区",
+          action: "mergeLastChildToExcerpt",
+          menuTitle: "    合并最后一张子卡片到摘录区",
         },
         {
-          "action": "mergeToPreviousBrotherExcerpt",
-          "menuTitle": "    合并到前一张兄弟卡片的摘录区",
+          action: "mergeToPreviousBrotherExcerpt",
+          menuTitle: "    合并到前一张兄弟卡片的摘录区",
         },
         {
           action: "mergeToParentAndMoveCommentToExcerpt",
@@ -647,6 +675,10 @@ function registerAllMenuTemplates() {
         {
           action: "mergeToParentAndMoveCommentToTop",
           menuTitle: "    合并到父卡片并移动到最顶端",
+        },
+        {
+          action: "mergeExerptAreToParentAndMoveCommentToExcerpt",
+          menuTitle: "    合并「摘录区」到父卡片并移动评论到摘录",
         },
       ],
     },
@@ -677,6 +709,22 @@ function registerAllMenuTemplates() {
           menuTitle: "    只保留摘录和标题后制卡",
         },
         {
+          action: "keepExcerptAreaAndTitleAndMakeCard",
+          menuTitle: "    只保留「摘录区」和标题后制卡",
+        },
+        {
+          action: "convertClassificationNoteToDefinitionNote",
+          menuTitle: "    归类卡片 ⇒ 定义卡片",
+        },
+        {
+          action: "convertToClassificationNoteDirectly",
+          menuTitle: "    直接转为归类卡片",
+        },
+        {
+          action: "convertToClassificationNoteWithPopup",
+          menuTitle: "    弹窗 + 转为归类卡片",
+        },
+        {
           action: "menu",
           menuTitle: "➡️ 文献制卡",
           menuItems: [
@@ -702,11 +750,6 @@ function registerAllMenuTemplates() {
             },
           ],
         },
-        "⚙️ 处理卡片",
-        {
-          action: "upwardMergeWithStyledComments",
-          menuTitle: "    将子卡片作为证明要点合并 ⇒ 移动到证明区",
-        },
         "🪄 生成卡片",
         {
           action: "addNewIdeaNote",
@@ -723,6 +766,10 @@ function registerAllMenuTemplates() {
         {
           action: "addNewCounterexampleNote",
           menuTitle: "    生成「反例」卡片",
+        },
+        {
+          action: "createEquivalenceNotes",
+          menuTitle: "    生成「充分性」和「必要性」卡片",
         },
       ],
     },
@@ -780,22 +827,39 @@ function registerAllMenuTemplates() {
           action: "checkProofInReview",
           menuTitle: "检查证明区中链接对应的卡片是否加入复习",
         },
-        // "⇔ 等价证明",
-        // {
-        //   action: "addEquivalenceProof",
-        //   menuTitle: "    添加等价证明",
-        // },
-        // {
-        //   action: "manageProofTemplates",
-        //   menuTitle: "    管理证明模板",
-        // },
         {
           action: "extractProofContentAndSplitComments",
           menuTitle: "提取证明字段内容并拆分评论为独立卡片",
         },
         {
           action: "upwardMergeWithStyledComments",
-          menuTitle: "将子卡片作为证明要点合并 ⇒ 移动到证明区",
+          menuTitle: "将子卡片作为证明要点合并 ⇒ ❌ 不移动",
+        },
+        {
+          action: "upwardMergeWithStyledCommentsAndMove",
+          menuTitle: "将子卡片作为证明要点合并 ⇒ ✅ 移动到证明区",
+        },
+        {
+          action: "mergeIntoParentNoteAndMoveToProofArea",
+          menuTitle: "合并到父卡片 ⇒ 移动到证明区",
+        },
+        "⬇️ 移动最后 1️⃣ 条评论",
+        {
+          action: "moveLastCommentToProofAreaTop",
+          menuTitle: "    🔝 移动到证明区顶部",
+        },
+        {
+          action: "moveLastCommentToProofAreaBottom",
+          menuTitle: "    ▼ 移动到证明区底部",
+        },
+        "⬇️ 移动最后 2️⃣ 条评论",
+        {
+          action: "moveLastTwoCommentsToProofAreaTop",
+          menuTitle: "    🔝 移动到证明区顶部",
+        },
+        {
+          action: "moveLastTwoCommentsToProofAreaBottom",
+          menuTitle: "    ▼ 移动到证明区底部",
         },
         "🔍 OCR",
         {
@@ -851,59 +915,13 @@ function registerAllMenuTemplates() {
     onLongPress: {
       // 长按：显示菜单
       action: "menu",
-      menuWidth: 350,
+      menuWidth: 300,
       menuItems: [
         "🔍 搜索功能",
         {
-          action: "showSearchBoard",
-          menuTitle: "    📋 打开搜索看板",
-        },
-        {
-          action: "clearSearchBoard",
-          menuTitle: "    🗑 清除搜索看板",
-        },
-        {
           action: "searchDefinition",
           menuTitle: "    📚 搜索上层定义卡片的目录",
-        },
-        
-        "📁 根目录管理",
-        {
-          action: "manageSearchRoots",
-          menuTitle: "    📝 管理根目录列表",
-        },
-        {
-          action: "adjustRootOrder",
-          menuTitle: "    ↕️ 调整根目录顺序",
-        },
-        {
-          action: "manageRootGroups",
-          menuTitle: "    ⚡ 管理根目录群组",
-        },
-        
-        "⚙️ 搜索配置",
-        {
-          action: "showSearchSettings",
-          menuTitle: "    🎯 基础搜索设置",
-        },
-        {
-          action: "manageSynonymGroups",
-          menuTitle: "    📝 同义词组管理",
-        },
-        {
-          action: "manageExclusionGroups",
-          menuTitle: "    🚫 排除词组管理",
-        },
-        
-        "📊 配置同步",
-        {
-          action: "exportSearchConfig",
-          menuTitle: "    📤 导出搜索配置",
-        },
-        {
-          action: "importSearchConfig",
-          menuTitle: "    📥 导入搜索配置",
-        },
+        }
       ],
     },
   });
@@ -981,6 +999,11 @@ function registerAllMenuTemplates() {
           action: "temporarilyPinFocusNoteWithTitle",
           menuTitle: "✏️ 自定义标题后添加",
         },
+        "---",
+        {
+          action: "pinCurrentPageToPages",
+          menuTitle: "📄 Pin 当前文档页面",
+        },
         {
           action: "showPinBoard",
           menuTitle: "📋 打开 Pin 卡片库",
@@ -1014,8 +1037,16 @@ function registerAllMenuTemplates() {
               menuTitle: "🌐 翻译版（中英对照）",
             },
             {
-              action: "ocrMode1NoTranslation",
-              menuTitle: "📄 原文版（仅中文）",
+              action: "ocrMode1NoTranslationReplaceTitle",
+              menuTitle: "📄 原文版（仅中文） → 替换标题",
+            },
+            {
+              action: "ocrMode1NoTranslationAddToFirstHeaderLink",
+              menuTitle: "📄 原文版（仅中文） → 加到第一个标题链接词",
+            },
+            {
+              action: "ocrMode1NoTranslationAddToLastHeaderLink",
+              menuTitle: "📄 原文版（仅中文） → 加到最后一个标题链接词",
             },
           ],
         },
@@ -1062,6 +1093,20 @@ function registerAllMenuTemplates() {
               menuTitle: "    • 其他 → 直接 OCR",
             },
           ],
+        },
+      ]
+    }
+  });
+
+  global.registerMenuTemplate("menu_addTemplate", {
+    action: "addTemplate",
+    onLongPress: {
+      action: "menu",
+      menuWidth: 350,
+      menuItems: [
+        {
+          action: "addDefinitionNoteAsParentNote",
+          menuTitle: "向上增加定义卡片",
         },
       ]
     }

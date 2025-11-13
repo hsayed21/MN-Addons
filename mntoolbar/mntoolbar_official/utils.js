@@ -161,7 +161,7 @@ class toolbarUtils {
   static previousNoteId
   static errorLog = []
   static version
-  
+  static chatAIOutputCache = ""
   static currentNoteId
   static currentSelection
   static isSubscribe = false
@@ -307,6 +307,9 @@ class toolbarUtils {
       // case "showUtils":
       //   menuItems = ["target"]
       //   break;
+      case "checkCondition":
+        menuItems = ["condition","textToCheck","textToMatch","color","onTrue","onFalse"]
+        break;
       case "loadImageToExcalidraw":
         menuItems = ["method","source"]
         break;
@@ -401,7 +404,7 @@ class toolbarUtils {
         menuItems = ["target","tags","tag"]
         break;
       case "searchInDict":
-        menuItems = ["target"]
+        menuItems = ["target","searchOrder"]
         break;
       case "setColor":
         menuItems = ["color","fillPattern","followAutoStyle","usingCommand","asTitleForNewNote","sendToMindmapForNewNote","wordThreshold"]
@@ -443,7 +446,7 @@ class toolbarUtils {
         menuItems = ["followButton"]
         break;
       case "chatAI":
-        menuItems = ["target","prompt","user","system","numberOfPrompts"]
+        menuItems = ["target","prompt","user","system","numberOfPrompts","waitForResponse","hideMessage"]
         break;
       default:
         break;
@@ -458,7 +461,7 @@ class toolbarUtils {
       menuItems = menuItems.filter(item=>!keys.includes(item))
       return menuItems.map(item=>prefix+item)
     }else{
-      menuItems = menuItems.concat(["onLongPress","onFinish","description"])
+      menuItems = menuItems.concat(["onLongPress","onFinish","description","hideForAI"])
       menuItems = menuItems.filter(item=>!keys.includes(item))
       return menuItems
     }
@@ -476,6 +479,12 @@ class toolbarUtils {
         break;
       case "onConfirm":
         config.onConfirm = {action:""}
+        break;
+      case "onTrue":
+        config.onTrue = {action:""}
+        break;
+      case "onFalse":
+        config.onFalse = {action:""}
         break;
       case "tags":
         config.tags = []
@@ -497,6 +506,9 @@ class toolbarUtils {
       case "sendToMindmapForNewNote":
       case "usingCommand":
       case "audioAutoPlay":
+      case "waitForResponse":
+      case "hideMessage":
+      case "hideForAI":
         config[item] = true
         break;
       case "wordThreshold":
@@ -793,6 +805,17 @@ try {
     MNUtil.showHUD('标题已复制')
     return true
   }
+  static async getChatAIOutput() {
+    if (typeof chatAIUtils === "undefined") {
+      MNUtil.showHUD("Install MN ChatAI First!")
+      return ""
+    }
+    let text = await chatAIUtils.getCurrentResponse()
+    if (text && text.trim()) {
+      this.chatAIOutputCache = text.trim()
+    }
+    return this.chatAIOutputCache
+  }
 
   static async copy(des) {
     try {
@@ -808,12 +831,7 @@ try {
           }
           break
         case "chatAIOutput":
-          if (typeof chatAIUtils === "undefined") {
-            MNUtil.showHUD("Install MN ChatAI First!")
-            element = ""
-          }else{
-            element = await chatAIUtils.notifyController.getTextForAction()
-          }
+          element = await this.getChatAIOutput()
           break;
         case "selectionText":
           if (MNUtil.currentSelection.onSelection) {
@@ -1319,7 +1337,7 @@ try {
       config.currentDocAttach = editorUtils.getAttachContentByMD5(MNUtil.currentDocmd5)
     }
     if (hasChatAIOutput && chatAIUtils) {
-      config.chatAIOutput = await chatAIUtils.notifyController.getTextForAction()
+      config.chatAIOutput = await this.getChatAIOutput()
     }
     if (toolbarSandbox.hasGlobalVar()) {
       config.globalVar = toolbarSandbox.getGlobalVarObject()
@@ -1376,26 +1394,31 @@ try {
    */
   static getNotesByRange(range){
     if (range === undefined) {
+      //默认只返回选中的单卡片
       return [MNNote.getFocusNote()]
+    }
+    let validRanges = ["currentNotes","childNotes","descendants","descendantNotes"]
+    if (!validRanges.includes(range)) {
+      MNUtil.showHUD("Invalid range: "+range)
+      return []
+    }
+    let focusNotes = MNNote.getFocusNotes()
+    if (focusNotes.length === 0) {
+      MNUtil.showHUD("No notes found")
+      return []
     }
     switch (range) {
       case "currentNotes":
-        return MNNote.getFocusNotes()
+        return focusNotes
       case "childNotes":
         let childNotes = []
-        MNNote.getFocusNotes().map(note=>{
+        focusNotes.map(note=>{
           childNotes = childNotes.concat(note.childNotes)
         })
         return childNotes
       case "descendants":
       case "descendantNotes"://所有后代节点
         let descendantNotes = []
-        // let descendantNotes = []
-        let focusNotes = MNNote.getFocusNotes()
-        if (focusNotes.length === 0) {
-          MNUtil.showHUD("No notes found")
-          return []
-        }
         let topLevelNotes = this.buildHierarchy(focusNotes).map(o=>MNNote.new(o.id))
         // let notesWithoutDescendants = focusNotes.filter(note=>!note.hasDescendantNodes)
         topLevelNotes.map(note=>{
@@ -2127,8 +2150,8 @@ try {
     if (hasCurrentDocAttach && editorUtils) {
       config.currentDocAttach = editorUtils.getAttachContentByMD5(MNUtil.currentDocmd5)
     }
-    if (hasChatAIOutput && this.chatAIOutput) {
-      config.chatAIOutput = this.chatAIOutput
+    if (hasChatAIOutput && this.chatAIOutputCache) {
+      config.chatAIOutput = this.chatAIOutputCache
     }
     if (toolbarSandbox.hasGlobalVar()) {
       config.globalVar = toolbarSandbox.getGlobalVarObject()
@@ -2539,7 +2562,7 @@ try {
           MNUtil.showHUD("Install MN ChatAI First!")
           return
         }
-        markdown = await chatAIUtils.notifyController.getTextForAction()
+        markdown = await this.getChatAIOutput()
         break;
       default:
         break;
@@ -2799,6 +2822,105 @@ try {
   }
   /**
    * 
+   * @param {MNNote|MbBookNote} note 
+   * @returns 
+   */
+  static noteHasExcerptText(note) {
+    //当摘要文本存在且没有评论时,不管是否是图片摘录,都返回true
+    if (note.excerptText && note.excerptText.trim() && (note.comments.length === 0)) {
+      return true
+    }
+    //考虑到可能存在图片摘要，因此要么图片摘要不存在，要么图片摘要已被转为文本
+    let isBlankNote = MNUtil.isBlankNote(note)//指有图片摘录但图片分辨率为1x1的空白图片
+    if (isBlankNote) {
+      return note.excerptText && note.excerptText !== ""
+    }
+    return note.excerptText && note.excerptText !== "" && (!note.excerptPic || note.textFirst)
+  }
+  /**
+   * 
+   * @param {MbBookNote|MNNote} note 
+   * @param {number[]} order 
+   * @returns {string}
+   */
+  static getTextForSearch(note,order = [2,1,3]) {
+    let text
+    for (let index = 0; index < order.length; index++) {
+      const element = order[index];
+      switch (element) {
+        case 1:
+          if (note.noteTitle && note.noteTitle !== "") {
+            text = note.noteTitle
+          }
+          break;
+        case 2:
+          if (MNUtil.isBlankNote(note)) {//单独处理留白笔记
+            text = note.excerptText??""
+          }else if (this.noteHasExcerptText(note)) {
+            text = note.excerptText
+          }
+          //如果都不满足，此时text依然为undefined
+          break;
+        case 3:
+          let commentText
+          //用find主要是保证得到想要的元素之后就会直接返回，而不是继续执行
+          //但是find处理不了异步的情况
+          note.comments.find(comment=>{
+            switch (comment.type) {
+              case "TextNote":
+                if (/^marginnote\dapp:\/\//.test(comment.text)) {
+                  return false
+                }else{
+                  commentText = comment.text
+                  return true
+                }
+              case "HtmlNote":
+                commentText = comment.text
+                return true
+              case "LinkNote":
+                if (comment.q_hpic && !note.textFirst) {
+                  return false
+                }else{
+                  commentText = comment.q_htext
+                  return true
+                }
+              default:
+                return false
+            }
+          })
+          if (commentText && commentText.length) {
+            text = commentText
+          }
+          break;
+        default:
+          break;
+      }
+      if (text) {
+        return text
+      }
+    }
+    return undefined
+  }
+  static getSearchOrder(searchOrder) {
+    switch (searchOrder) {
+      case "Title → Excerpt → Comment":
+        return [1,2,3]
+      case "Title → Comment → Excerpt":
+        return [1,3,2]
+      case "Excerpt → Title → Comment":
+        return [2,1,3]
+      case "Excerpt → Comment → Title":
+        return [2,3,1]
+      case "Comment → Title → Excerpt":
+        return [3,1,2]
+      case "Comment → Excerpt → Title":
+        return [3,2,1]
+      default:
+        return [2,1,3]
+    }
+  }
+  /**
+   * 
    * @param {object} des 
    * @param {UIButton|undefined} button 
    * @returns 
@@ -2809,16 +2931,8 @@ try {
     if (!textSelected) {
       let focusNote = MNNote.getFocusNote()
       if (focusNote) {
-        if (focusNote.excerptText) {
-          textSelected = focusNote.excerptText
-        }else if (focusNote.noteTitle) {
-          textSelected = focusNote.noteTitle
-        }else{
-          let firstComment = focusNote.comments.filter(comment=>comment.type === "TextNote")[0]
-          if (firstComment) {
-            textSelected = firstComment.text
-          }
-        }
+        let searchOrder = des.searchOrder ? this.getSearchOrder(des.searchOrder) : [2,1,3]
+        textSelected = this.getTextForSearch(focusNote,searchOrder)
       }
     }
     if (textSelected) {
@@ -2986,14 +3100,27 @@ try {
    * @param {UIButton|undefined} button 
    * @returns 
    */
-  static chatAI(des,button){
+  static async chatAI(des,button){
+    if (!des || !Object.keys(des).length) {
+      MNUtil.postNotification("customChat",{})
+      return
+    }
+    this.chatAIOutputCache = ""
+    let option = {}
     switch (des.target) {
       case "openFloat":
         MNUtil.postNotification("chatAIOpenFloat", {beginFrame:button.convertRectToView(button.bounds,MNUtil.studyView)})
         return;
       case "currentPrompt":
-        MNUtil.postNotification("customChat",{})
-        return;
+        // if (des.waitForResponse) {
+        //   let res = await chatAIUtils.ask({})
+        //   if (res && res.trim()) {
+        //     this.chatAIOutputCache = res.trim()
+        //   }
+        // }else{
+        //   MNUtil.postNotification("customChat",{})
+        // }
+        break;
       case "stopOutput":
         if (typeof chatAIUtils === "undefined") {
           return;
@@ -3011,25 +3138,50 @@ try {
       default:
         break;
     }
-    if (!des || !Object.keys(des).length) {
-      MNUtil.postNotification("customChat",{})
-      return
-    }
+
 
     if (des.prompt) {
-      MNUtil.postNotification("customChat",{prompt:des.prompt})
-      return
+      option.prompt = des.prompt
+      // if (des.waitForResponse) {
+      //   let res = await chatAIUtils.ask({prompt:des.prompt})
+      //   if (res && res.trim()) {
+      //     this.chatAIOutputCache = res.trim()
+      //   }
+      // }else{
+      //   MNUtil.postNotification("customChat",{prompt:des.prompt})
+      // }
+      // return
     }
     if(des.user){
       let question = {user:des.user}
       if (des.system) {
         question.system = des.system
       }
-      MNUtil.postNotification("customChat",question)
-      // MNUtil.showHUD("Not supported yet...")
-      return;
+      option = question
+      // if (des.waitForResponse) {
+      //   let res = await chatAIUtils.ask(question)
+      //   if (res && res.trim()) {
+      //     this.chatAIOutputCache = res.trim()
+      //   }
+      // }else{
+      //   MNUtil.postNotification("customChat",question)
+      // }
+      // return;
     }
-    MNUtil.postNotification("customChat",{})
+    if ("hideMessage" in des) {
+      option.showHUD = !des.hideMessage
+    }
+    //留到最后统一处理
+    if (des.waitForResponse) {
+      let res = await chatAIUtils.ask(option)
+      if (res && res.trim()) {
+        this.chatAIOutputCache = res.trim()
+      }
+    }else{
+      //只发出通知，不等待响应完成
+      MNUtil.postNotification("customChat",option)
+    }
+    return
     // MNUtil.showHUD("No valid argument!")
   }
   /**
@@ -4551,6 +4703,132 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
       })
     })
   }
+  static async checkCondition(des){
+  try {
+    let condition = des.condition
+    let textToCheck = des.textToCheck ?? ""
+    let textToMatch = des.textToMatch ?? ""
+    let focusNote = ("note" in des && MNUtil.noteExists(des.note))?MNNote.new(des.note):MNNote.getFocusNote()
+    let isMatch = false
+    switch (condition) {
+      case "isMuiltpleNotesSelected":
+        let focusNotes = MNNote.getFocusNotes()
+        isMatch = focusNotes.length > 1
+        break;
+      case "hasFocusNote":
+        isMatch = !!MNNote.getFocusNote()
+        break;
+      case "noteColorEquals":
+        let color = des.color
+        isMatch = focusNote.colorIndex === color
+        break;
+      case "noteHasTitle":
+        isMatch = focusNote && focusNote.noteTitle
+        break;
+      case "noteHasComment":
+        isMatch = focusNote && focusNote.comments.length > 0
+        break;
+      case "noteHasChildNotes":
+        isMatch = focusNote && focusNote.childNotes.length > 0
+        break;
+      case "noteTitleStartsWith":
+        isMatch = focusNote && focusNote.noteTitle && focusNote.noteTitle.startsWith(textToMatch)
+      case "noteTitleEndsWith":
+        isMatch = focusNote && focusNote.noteTitle && focusNote.noteTitle.endsWith(textToMatch)
+      case "noteTitleIncludes":
+        isMatch = focusNote && focusNote.noteTitle && focusNote.noteTitle.includes(textToMatch)
+        break;
+      case "noteTitleEquals":
+        isMatch = focusNote && focusNote.noteTitle && focusNote.noteTitle === textToMatch
+        break;
+      case "clipboardHasText":
+        isMatch = MNUtil.clipboardText && MNUtil.clipboardText.trim()
+        break;
+      case "clipboardTextEquals":
+        isMatch = MNUtil.clipboardText && MNUtil.clipboardText.trim() === textToMatch
+        break;
+      case "clipboardTextIncludes":
+        isMatch = MNUtil.clipboardText && MNUtil.clipboardText.trim().includes(textToMatch)
+        break;
+      case "clipboardTextStartsWith":
+        isMatch = MNUtil.clipboardText && MNUtil.clipboardText.trim().startsWith(textToMatch)
+        break;
+      case "clipboardTextEndsWith":
+        isMatch = MNUtil.clipboardText && MNUtil.clipboardText.trim().endsWith(textToMatch)
+        break;
+      case "clipboardHasImage":
+        isMatch = !!MNUtil.clipboardImage
+        break;
+      case "hasSelection":
+        isMatch = MNUtil.currentSelection.onSelection
+        break;
+      case "hasSelectionImage":
+        isMatch = MNUtil.currentSelection.onSelection && !MNUtil.currentSelection.isText
+        break;
+      case "hasSelectionText":
+        isMatch = MNUtil.currentSelection.onSelection && MNUtil.currentSelection.isText
+        break;
+      case "selectionTextEquals":
+        isMatch = MNUtil.currentSelection.text && MNUtil.currentSelection.text.trim() === textToMatch
+        break;
+      case "selectionTextIncludes":
+        isMatch = MNUtil.currentSelection.text && MNUtil.currentSelection.text.trim().includes(textToMatch)
+        break;
+      case "selectionTextStartsWith":
+        isMatch = MNUtil.currentSelection.text && MNUtil.currentSelection.text.trim().startsWith(textToMatch)
+        break;
+      case "selectionTextEndsWith":
+        isMatch = MNUtil.currentSelection.text && MNUtil.currentSelection.text.trim().endsWith(textToMatch)
+        break;
+      case "textNotEmpty":
+        textToCheck = await this.render(textToCheck)
+        isMatch = !!textToCheck.trim()
+        break;
+      case "textEquals":
+        textToCheck = await this.render(textToCheck)
+        isMatch = textToCheck.trim() && textToCheck === textToMatch
+        break;
+      case "textIncludes":
+        textToCheck = await this.render(textToCheck)
+        isMatch = textToCheck.trim() && textToCheck.includes(textToMatch)
+        break;
+      case "textStartsWith":
+        textToCheck = await this.render(textToCheck)
+        isMatch = textToCheck.trim() && textToCheck.startsWith(textToMatch)
+        break;
+      case "textEndsWith":
+        textToCheck = await this.render(textToCheck)
+        isMatch = textToCheck.trim() && textToCheck.endsWith(textToMatch)
+        break;
+      default:
+        break;
+    }
+    if (isMatch) {
+      if ("onTrue" in des) {
+        await this.customActionByDes(des.onTrue)
+      }
+    }else{
+      if ("onFalse" in des) {
+        await this.customActionByDes(des.onFalse)
+      }
+    }
+    return true
+    // let condition = des.condition
+    // let color = des.color
+    // let onTrue = des.onTrue
+    // let onFalse = des.onFalse
+    // let focusNote = MNNote.getFocusNote()
+    // let focusNotes = MNNote.getFocusNotes()
+    // let focusNote = MNNote.getFocusNote()
+    
+  } catch (error) {
+    toolbarUtils.addErrorLog(error, "checkCondition")
+    if ("onError" in des) {
+      await this.customActionByDes(des.onError)
+    }
+    return false
+  }
+  }
   static showUtils(des){
     subscriptionUtils.subscriptionController.show()
     // MNUtil.showHUD("showUtils")
@@ -5907,7 +6185,7 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
       return
     }
     if (typeof chatAIUtils !== "undefined") {
-      this.chatAIOutput = await chatAIUtils.notifyController.getTextForAction()
+      await this.getChatAIOutput()
     }
     let focusNote = MNNote.getFocusNote()
     let targetNotes = []
@@ -5919,6 +6197,10 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
     toolbarUtils.log(des.action)
     // MNUtil.log(des.action)
     switch (des.action) {
+      case "checkCondition":
+        this.checkCondition(des)
+        await MNUtil.delay(0.1)
+        break;
       case "showUtils":
         this.showUtils(des)
         await MNUtil.delay(0.1)
@@ -6249,11 +6531,7 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         break;
       case "link":
         let linkType = des.linkType ?? "Both"
-        let targetUrl = des.target
-        if (targetUrl === "{{clipboardText}}") {
-          targetUrl = MNUtil.clipboardText
-        }
-        // MNUtil.showHUD(targetUrl)
+        let targetUrl = await this.render(des.target)
         let targetNote = MNNote.new(targetUrl)
         MNUtil.undoGrouping(()=>{
           if (targetNote) {
@@ -6345,6 +6623,10 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         }
         let targetMode = des.targetMode ?? "toggle"
         targetNotes = this.getNotesByRange(des.range ?? "currentNotes")
+        if (targetNotes.length === 0) {
+          MNUtil.showHUD("No notes found")
+          break;
+        }
         MNUtil.undoGrouping(()=>{
           targetNotes.forEach(note=>{
             switch (targetMode) {
@@ -6377,7 +6659,7 @@ static async customActionByDes(des,button,controller,checkSubscribe = true) {//�
         await MNUtil.delay(0.1)
         break;
       case "chatAI":
-        this.chatAI(des,button)
+        await this.chatAI(des,button)
         await MNUtil.delay(0.1)
         break
       case "search":
@@ -7669,10 +7951,10 @@ static template(action) {
   let config = {action:action}
   switch (action) {
     case "cloneAndMerge":
-      config.target = toolbarUtils.version.version+"app://note/xxxx"
+      config.target = MNUtil.appVersion().version+"app://note/xxxx"
       break
     case "link":
-      config.target = toolbarUtils.version.version+"app://note/xxxx"
+      config.target = MNUtil.appVersion().version+"app://note/xxxx"
       config.type = "Both"
       break
     case "clearContent":
@@ -7692,7 +7974,7 @@ static template(action) {
       config.target = "title"
       break
     case "showInFloatWindow":
-      config.target = toolbarUtils.version+"app://note/xxxx"
+      config.target = MNUtil.appVersion().version+"app://note/xxxx"
       break
     case "addChildNote":
       config.title = "title"
@@ -7923,7 +8205,12 @@ static getDescriptionById(actionKey){
   if (actionKey in toolbarConfig.actions) {
     des = toolbarConfig.actions[actionKey].description
   }else{
-    des = toolbarConfig.getActions()[actionKey].description
+    let defaultActions = toolbarConfig.getActions()
+    if (actionKey in defaultActions) {
+      des = defaultActions[actionKey].description
+    }else{
+      return undefined
+    }
   }
   if (MNUtil.isValidJSON(des)) {
     let desObject = JSON.parse(des)

@@ -16,7 +16,11 @@
       "mcp__serena__list_dir",
       "mcp__serena__get_symbols_overview",
       "mcp__filesystem__read_text_file",
-      "mcp__serena__find_file"
+      "mcp__serena__find_file",
+      "Read(//Users/xiakangwei/Nutstore/Obsidian/IOTO/1-输入/碎片笔记/MarginNote/**)",
+      "mcp__serena__get_current_config",
+      "Bash(find:*)",
+      "mcp__serena__initial_instructions"
     ],
     "deny": [],
     "ask": []
