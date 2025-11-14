@@ -2164,10 +2164,9 @@ JSB.newAddon = function(mainPath){
       // 如果 HTML 已正确加载，直接显示窗口（无需重新加载）
       if (!needReload) {
         MNLog.log("【优化分支】search.html 已加载，直接显示窗口")
-        await controller.show(
-          null,
-          { x: 50, y: 50, width: 800, height: 800 }
-        )
+
+        // 不传 endFrame，让 show() 方法自动恢复上次保存的大小
+        await controller.show()
         MNLog.log("【显示完成】窗口已显示")
         return
       }
@@ -2180,10 +2179,9 @@ JSB.newAddon = function(mainPath){
 
       // 显示窗口
       MNLog.log("【显示窗口】调用 show() 方法")
-      await controller.show(
-        null,
-        { x: 50, y: 50, width: 800, height: 800 }
-      )
+
+      // 不传 endFrame，让 show() 方法自动恢复上次保存的大小
+      await controller.show()
       MNLog.log("【显示完成】show() 方法返回")
 
       MNLog.log("【openSearchWebView 结束】成功")

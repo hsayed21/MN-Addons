@@ -1175,7 +1175,7 @@ class KnowledgeBaseTemplate {
           //   stepDurationMs: Date.now() - processStartTime
           // })
 
-          switch (this.getNoteType(processedNote, directly)) {
+          switch (this.getNoteType(processedNote, true)) {
             case "定义":
               // const makeCardStartTime = Date.now();
               this.makeCard(processedNote, true, true)
@@ -1672,12 +1672,7 @@ class KnowledgeBaseTemplate {
     
     // 如果有跳过的链接，显示提示
     if (skippedCount > 0 && successCount === 0) {
-      MNUtil.showHUD(`⚠️ ${skippedCount} 个链接因目标卡片缺少"相关链接"或"应用"字段而未建立反向链接`);
-    } else if (successCount > 0) {
-      this.log(
-        `反向链接处理完成：成功 ${successCount} 个，跳过 ${skippedCount} 个`, 
-        "processExtractedMarginNoteLinks"
-      );
+      // MNUtil.showHUD(`⚠️ ${skippedCount} 个链接因目标卡片缺少"相关链接"或"应用"字段而未建立反向链接`);
     }
   }
 
@@ -8714,10 +8709,12 @@ class KnowledgeBaseTemplate {
             newClassificationNote.note.noteTitle = `“${userInputTitle}”相关${titleType}`;
             
             // 3. 建立层级关系：新卡片作为父卡片的子卡片
-            parentNote.addChild(newClassificationNote.note);
+            parentNote.addChild(newClassificationNote);
+
+            newClassificationNote.moveTo(note.indexInBrotherNotes + 1)
             
             // 4. 移动选中卡片：从原位置移动到新卡片下
-            newClassificationNote.addChild(note.note);
+            newClassificationNote.addChild(note);
             
             // 5. 使用 this API 处理链接关系
             this.linkParentNote(newClassificationNote);
@@ -20202,7 +20199,10 @@ class KnowledgeBaseConfig {
       // 🆕 搜索索引模式配置
       searchIndexMode: "light",  // 索引模式: "light" (轻量，默认) 或 "full" (全量，含同义词扩展)
       lastIndexMode: "light",    // 记录上次构建的索引模式
-      autoRebuildOnConfigChange: false  // 配置变更时是否自动提示重建索引
+      autoRebuildOnConfigChange: false,  // 配置变更时是否自动提示重建索引
+
+      // 🆕 自动关闭模式
+      autoCloseMode: true  // 默认启用自动关闭（搜索界面）
     }
   }
   
@@ -20275,6 +20275,24 @@ class KnowledgeBaseConfig {
   static recordLastIndexMode(mode) {
     this.config.lastIndexMode = mode;
     this.save();
+  }
+
+  /**
+   * 获取自动关闭模式
+   * @returns {boolean}
+   */
+  static getAutoCloseMode() {
+    return this.getConfig("autoCloseMode");
+  }
+
+  /**
+   * 设置自动关闭模式
+   * @param {boolean} enabled
+   */
+  static setAutoCloseMode(enabled) {
+    this.config.autoCloseMode = enabled;
+    this.save();
+    MNUtil.log(`【KnowledgeBaseConfig】autoCloseMode 已保存: ${enabled}`);
   }
 
   /**

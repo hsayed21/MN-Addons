@@ -1933,6 +1933,7 @@
     </div>
     <div class="topbar-actions">
       <span id="indexModeBadge" class="index-mode-badge"></span>
+      <button id="autoCloseModeBtn" class="btn" type="button" title="切换自动关闭模式">📌 自动关闭</button>
       <button id="toggleFiltersBtn" class="btn ghost filter-toggle" type="button" aria-expanded="true">收起筛选</button>
       <button id="refreshBtn" class="btn" type="button">🔄 刷新</button>
       <button id="clearBtn" class="btn" type="button">清空</button>
@@ -2792,7 +2793,9 @@
         activeExclusions: null,  // 当前激活的排除词信息
         // 索引模式状态
         indexMode: null,  // 当前索引模式："full"（全量）、"light"（轻量）、"legacy"（旧版）
-        metadata: null  // 完整的 metadata 对象（包含 updateTime, totalCards 等）
+        metadata: null,  // 完整的 metadata 对象（包含 updateTime, totalCards 等）
+        // 自动关闭模式状态
+        autoCloseMode: true  // 默认启用自动关闭（执行操作后自动关闭窗口）
       };
 
       // 暴露到 window 以便调试和原生层访问
@@ -2913,6 +2916,32 @@
         }
       }
 
+      // 切换自动关闭模式
+      function toggleAutoCloseMode() {
+        state.autoCloseMode = !state.autoCloseMode;
+
+        // 通知原生层（原生层会保存到 NSUserDefaults）
+        const url = `mnknowledgebase://setAutoCloseMode?enabled=${state.autoCloseMode}`;
+        window.location.href = url;
+
+        // 更新按钮显示
+        updateAutoCloseModeButton();
+      }
+
+      // 更新自动关闭模式按钮的显示状态
+      function updateAutoCloseModeButton() {
+        const btn = document.getElementById('autoCloseModeBtn');
+        if (!btn) return;
+
+        if (state.autoCloseMode) {
+          btn.textContent = '📌 自动关闭';
+          btn.title = '当前：执行操作后自动关闭窗口\n点击切换为：保持打开';
+        } else {
+          btn.textContent = '📍 保持打开';
+          btn.title = '当前：执行操作后保持窗口打开\n点击切换为：自动关闭';
+        }
+      }
+
       // ========== 初始化 ==========
 
       function init() {
@@ -2939,6 +2968,9 @@
         if (window.AIHelper && typeof window.AIHelper.init === 'function') {
           window.AIHelper.init();
         }
+
+        // 3. 更新按钮显示状态
+        updateAutoCloseModeButton();
       }
 
       // 等待 DOM 就绪后统一初始化
@@ -3324,6 +3356,12 @@
         dom.clearBtn.addEventListener('click', handleClearFilters);
         dom.clearPresetsBtn?.addEventListener('click', handleClearPresets);
         dom.clearNegativesBtn?.addEventListener('click', handleClearNegatives);
+
+        // 自动关闭模式切换按钮
+        const autoCloseModeBtn = document.getElementById('autoCloseModeBtn');
+        if (autoCloseModeBtn) {
+          autoCloseModeBtn.addEventListener('click', toggleAutoCloseMode);
+        }
 
         // Sidebar 按钮事件（双击触发，防止误触）
         const sidebarButtons = [

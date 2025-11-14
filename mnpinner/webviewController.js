@@ -152,6 +152,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         buttonX += 100
       }
 
+      if (self.toolbarTransferButton) {
+        self.toolbarTransferButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+        buttonX += 100
+      }
+
       // 更新滚动内容大小
       self.toolbarScrollView.contentSize = {width: buttonX + 10, height: buttonHeight}
 
@@ -962,28 +967,73 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       let currentValue = pinnerConfig.settings.showCheckbox || false
       let newValue = !currentValue
 
-      // 更新设置并保存
-      pinnerConfig.settings.showCheckbox = newValue
-      pinnerConfig.save()
-
-      // 更新按钮文字
-      self.showCheckboxButton.setTitleForState(
-        `显示多选框: ${newValue ? "✅" : "❌"}`,
-        0
-      )
-
-      // 如果关闭多选框，自动清空所有选择
-      if (!newValue) {
-        self.clearSelection()
-      }
-
-      // 刷新当前分区视图（重新创建卡片行）
-      let currentViewName = self.currentSection + "View"
-      self.refreshView(currentViewName)
+      // 使用统一方法更新状态
+      self.setShowCheckbox(newValue)
 
       MNUtil.showHUD(newValue ? "多选框已显示" : "多选框已隐藏")
     } catch (error) {
       pinnerUtils.addErrorLog(error, "toggleShowCheckbox")
+    }
+  },
+
+  /**
+   * 恢复默认配置
+   * 清除本地缓存的分区配置，使用代码中的默认配置
+   */
+  resetSectionConfigs: async function() {
+    try {
+      // 确认对话框
+      let confirmed = await MNUtil.confirm(
+        "恢复默认配置",
+        "将清除自定义的分区配置，恢复为代码默认值。\n\n⚠️ 分区内的数据不会丢失。\n\n确定要继续吗？"
+      )
+
+      if (!confirmed) return
+
+      // 清除缓存
+      NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_sectionConfigs")
+
+      // 调用重置方法
+      SectionRegistry.resetToDefault()
+
+      SectionRegistry.saveToStorage()
+
+      // 刷新界面
+      self.settingViewLayout()
+
+      MNUtil.showHUD("✅ 已恢复为默认配置")
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "resetSectionConfigs")
+      MNUtil.showHUD("❌ 重置失败")
+    }
+  },
+
+  /**
+   * 切换开发者模式（总是使用代码配置）
+   */
+  toggleAlwaysUseCodeConfig: function() {
+    try {
+      let currentValue = pinnerConfig.settings.alwaysUseCodeConfig || false
+      let newValue = !currentValue
+
+      // 更新设置
+      pinnerConfig.settings.alwaysUseCodeConfig = newValue
+      pinnerConfig.saveSettings()
+
+      // 更新按钮文字
+      self.alwaysUseCodeConfigButton.setTitleForState(
+        `开发者模式: ${newValue ? "✅" : "❌"}`,
+        0
+      )
+
+      if (newValue) {
+        MNUtil.showHUD("✅ 已启用开发者模式\n重新加载插件后生效")
+      } else {
+        MNUtil.showHUD("已关闭开发者模式")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "toggleAlwaysUseCodeConfig")
     }
   },
 
@@ -2656,14 +2706,22 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         return
       }
 
-      let card = pins[index]
-      if (!card) {
-        MNUtil.showHUD("卡片数据已失效")
+      let pin = pins[index]
+      if (!pin) {
+        MNUtil.showHUD("Pin 数据已失效")
         return
       }
 
-      // 使用复合 key 存储选择状态
-      let key = section + "-" + card.noteId
+      // 根据 Pin 类型生成唯一的复合 key
+      let key
+      if (pin.type === "page") {
+        key = `${section}-page-${pin.docMd5}-${pin.pageIndex}`
+      } else if (pin.type === "clipboard") {
+        key = `${section}-clipboard-${pin.pinnedAt}`
+      } else {
+        // card 类型或没有 type 字段（兼容旧数据）
+        key = `${section}-card-${pin.noteId}`
+      }
 
       if (self.selectedCards.has(key)) {
         // 已选中，取消选择
@@ -2672,9 +2730,16 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       } else {
         // 未选中，添加选择
         self.selectedCards.set(key, {
-          noteId: card.noteId,
-          title: card.title || "未命名卡片",
-          section: section
+          type: pin.type || "card",
+          noteId: pin.noteId,
+          docMd5: pin.docMd5,
+          pageIndex: pin.pageIndex,
+          text: pin.text,
+          pinnedAt: pin.pinnedAt,
+          title: pin.title || "未命名",
+          note: pin.note,
+          section: section,
+          rawPin: pin  // 保留原始对象，用于转移操作
         })
         button.setTitleForState("☑️", 0)
       }
@@ -2699,12 +2764,20 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       // 检查是否有选中卡片
       let selectedCards = self.getSelectedCards()
       if (selectedCards.length === 0) {
-        MNUtil.showHUD("请先选中至少一张卡片")
+        MNUtil.showHUD("请先选中至少一个项目")
+        return
+      }
+
+      // 过滤掉 Page 类型（按用户需求自动跳过）
+      let validCards = selectedCards.filter(card => card.type !== "page")
+      
+      if (validCards.length === 0) {
+        MNUtil.showHUD("所选项目中没有可导出的内容（Page 类型已跳过）")
         return
       }
 
       // 默认标题
-      let defaultTitle = `链接集合 (${selectedCards.length} 个)`
+      let defaultTitle = `链接集合 (${validCards.length} 个)`
 
       // 显示带输入框和选项的对话框
       const alert = UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
@@ -2742,8 +2815,14 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
               // 添加 URL 列表作为文本评论
               MNUtil.undoGrouping(()=>{
-                selectedCards.forEach(card => {
-                  newNote.appendTextComment("marginnote4app://note/" + card.noteId)
+                validCards.forEach(card => {
+                  if (card.type === "clipboard") {
+                    // Clipboard 类型：导出纯文本
+                    newNote.appendTextComment(card.text || "")
+                  } else {
+                    // Card 类型：导出 URL
+                    newNote.appendTextComment("marginnote4app://note/" + card.noteId)
+                  }
                 })
 
                 newNote.refresh()
@@ -2752,7 +2831,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
               // 聚焦到新卡片
               newNote.focusInMindMap(0.3)
 
-              MNUtil.showHUD(`✅ 已导出 ${selectedCards.length} 个链接`)
+              MNUtil.showHUD(`✅ 已导出 ${validCards.length} 个项目`)
 
             } else if (buttonIndex === 2) {
               // 📌 添加到当前卡片
@@ -2764,14 +2843,18 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
               MNUtil.undoGrouping(()=>{
                 // 生成 URL 列表并添加到当前卡片评论
-                selectedCards.forEach(card => {
-                  focusNote.appendTextComment("marginnote4app://note/" + card.noteId)
+                validCards.forEach(card => {
+                  if (card.type === "clipboard") {
+                    focusNote.appendTextComment(card.text || "")
+                  } else {
+                    focusNote.appendTextComment("marginnote4app://note/" + card.noteId)
+                  }
                 })
 
                 focusNote.refresh()
               })
 
-              // MNUtil.showHUD(`✅ 已添加 ${selectedCards.length} 个链接到当前卡片`)
+              MNUtil.showHUD(`✅ 已添加 ${validCards.length} 个项目到当前卡片`)
             }
 
             // 清空选择状态并刷新界面
@@ -2819,12 +2902,20 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       // 检查是否有选中卡片
       let selectedCards = self.getSelectedCards()
       if (selectedCards.length === 0) {
-        MNUtil.showHUD("请先选中至少一张卡片")
+        MNUtil.showHUD("请先选中至少一个项目")
+        return
+      }
+
+      // 过滤掉 Page 类型（按用户需求自动跳过）
+      let validCards = selectedCards.filter(card => card.type !== "page")
+      
+      if (validCards.length === 0) {
+        MNUtil.showHUD("所选项目中没有可导出的内容（Page 类型已跳过）")
         return
       }
 
       // 默认标题
-      let defaultTitle = `链接集合 (${selectedCards.length} 个)`
+      let defaultTitle = `链接集合 (${validCards.length} 个)`
 
       // 显示带输入框和选项的对话框
       const alert = UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
@@ -2839,11 +2930,19 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
             // 生成 Markdown 链接列表内容
             let markdownLines = []
-            selectedCards.forEach((card, index) => {
-              let url = "marginnote4app://note/" + card.noteId
-              let displayTitle = card.title || "未命名卡片"
-              let line = `${index + 1}. [${displayTitle}](${url})`
-              markdownLines.push(line)
+            validCards.forEach((card, index) => {
+              if (card.type === "clipboard") {
+                // Clipboard 类型：纯文本，不带链接
+                let displayTitle = card.title || "未命名文本"
+                let line = `${index + 1}. ${card.text || displayTitle}`
+                markdownLines.push(line)
+              } else {
+                // Card 类型：Markdown 链接
+                let url = "marginnote4app://note/" + card.noteId
+                let displayTitle = card.title || "未命名卡片"
+                let line = `${index + 1}. [${displayTitle}](${url})`
+                markdownLines.push(line)
+              }
             })
             let content = markdownLines.join("\n")
 
@@ -2879,7 +2978,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
               // 聚焦到新卡片
               newNote.focusInMindMap(0.3)
 
-              MNUtil.showHUD(`✅ 已导出 ${selectedCards.length} 个链接`)
+              MNUtil.showHUD(`✅ 已导出 ${validCards.length} 个项目`)
 
             } else if (buttonIndex === 2) {
               // 📌 添加到当前卡片
@@ -2895,7 +2994,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
                 focusNote.refresh()
               })
 
-              // MNUtil.showHUD(`✅ 已添加 ${selectedCards.length} 个链接到当前卡片`)
+              MNUtil.showHUD(`✅ 已添加 ${validCards.length} 个项目到当前卡片`)
             }
 
             // 清空选择状态并刷新界面
@@ -2932,6 +3031,113 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     }
   },
 
+  /**
+   * 批量转移选中的 Pin 到指定分区
+   * @param {UIButton} button - 触发的按钮
+   */
+  transferSelectedPins: async function(button) {
+    try {
+      // 检查是否有选中项
+      let selectedCards = self.getSelectedCards()
+      if (selectedCards.length === 0) {
+        MNUtil.showHUD("请先选中至少一个项目")
+        return
+      }
+
+      // 获取当前分区
+      let currentSection = self.currentSection
+      
+      // 获取所有可用分区（排除当前分区）
+      let currentViewMode = self.currentViewMode
+      let allSections = SectionRegistry.getOrderedKeys(currentViewMode)
+      
+      // 构建分区选项列表（排除当前分区，但仍显示以灰色提示）
+      let sectionOptions = []
+      let sectionKeys = []
+      
+      allSections.forEach(sectionKey => {
+        let config = SectionRegistry.getConfig(sectionKey)
+        if (config) {
+          let displayName = config.displayName || sectionKey
+          let icon = config.icon || ""
+          
+          if (sectionKey === currentSection) {
+            // 当前分区：灰色显示，不可选
+            sectionOptions.push(`${icon} ${displayName} (当前)`)
+          } else {
+            sectionOptions.push(`${icon} ${displayName}`)
+          }
+          sectionKeys.push(sectionKey)
+        }
+      })
+
+      // 显示分区选择对话框
+      let selected = await MNUtil.userSelect(
+        `批量转移 (已选 ${selectedCards.length} 项)`,
+        "请选择目标分区",
+        sectionOptions
+      )
+
+      // 用户取消
+      if (selected === 0) return
+
+      // 获取选中的分区索引（selected - 1，因为返回值从1开始）
+      let selectedIndex = selected - 1
+      let targetSection = sectionKeys[selectedIndex]
+
+      // 检查是否选择了当前分区
+      if (targetSection === currentSection) {
+        MNUtil.showHUD("无法转移到当前分区")
+        return
+      }
+
+      // 执行批量转移
+      let successCount = 0
+      let failCount = 0
+      let affectedSections = new Set([currentSection, targetSection])
+
+      MNUtil.undoGrouping(() => {
+        selectedCards.forEach(card => {
+          let success = pinnerConfig.transferPin(
+            card.rawPin,
+            card.section,
+            targetSection
+          )
+
+          if (success) {
+            successCount++
+          } else {
+            failCount++
+          }
+        })
+      })
+
+      // 显示结果
+      if (failCount === 0) {
+        MNUtil.showHUD(`✅ 已转移 ${successCount} 个项目到 ${SectionRegistry.getDisplayName(targetSection)}`)
+      } else {
+        MNUtil.showHUD(`⚠️ 成功 ${successCount} 个，失败 ${failCount} 个`)
+      }
+
+      // 使用统一方法关闭多选模式（会自动清空选择、更新按钮、刷新视图）
+      self.setShowCheckbox(false)
+
+      // 刷新受影响的分区（setShowCheckbox 已刷新当前分区，这里刷新其他受影响的分区）
+      affectedSections.forEach(section => {
+        if (section !== self.currentSection) {
+          self.refreshSectionCards(section)
+        }
+      })
+
+      // 如果当前分区是源分区，可能需要切换到目标分区
+      // 这里保持在当前分区，让用户自己切换
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "transferSelectedPins")
+      MNUtil.showHUD("转移失败: " + error.message)
+    }
+  },
+
   // ========== Toolbar 按钮方法（selector 绑定） ==========
 
   /**
@@ -2939,7 +3145,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   changeViewMode: function(sender) {
     try {
-      pinnerUtils.log("🔔 changeViewMode 被调用", "changeViewMode")
       self.checkPopover()
 
       let commandTable = [
@@ -2990,7 +3195,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   refreshCurrentView: function(sender) {
     try {
-      pinnerUtils.log("🔔 refreshCurrentView 被调用", "refreshCurrentView")
       if (self.currentSection) {
         self.refreshSectionCards(self.currentSection)
         MNUtil.showHUD("✓ 已刷新")
@@ -3007,7 +3211,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   showSortMenu: function(sender) {
     try {
-      pinnerUtils.log("🔔 showSortMenu 被调用", "showSortMenu")
       self.checkPopover()
 
       let commandTable = [
@@ -3073,6 +3276,38 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 // ========== 原型方法 ==========
 
 // ========== 多选功能辅助方法 ==========
+  /**
+   * 统一的多选框状态管理方法
+   * 集中处理：配置更新、按钮文字同步、选择清空、视图刷新
+   * @param {boolean} value - 是否显示多选框
+   */
+pinnerController.prototype.setShowCheckbox = function(value) {
+  try {
+    // 更新配置
+    pinnerConfig.settings.showCheckbox = value
+    pinnerConfig.save()
+
+    // 同步更新按钮文字（如果按钮已创建）
+    if (this.showCheckboxButton) {
+      this.showCheckboxButton.setTitleForState(
+        `显示多选框: ${value ? "✅" : "❌"}`,
+        0
+      )
+    }
+
+    // 如果关闭，清空选择
+    if (!value) {
+      this.clearSelection()
+    }
+
+    // 刷新视图
+    let currentViewName = this.currentSection + "View"
+    this.refreshView(currentViewName)
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "setShowCheckbox")
+  }
+}
+
 
 /**
  * 清空所有选择
@@ -3118,6 +3353,13 @@ pinnerController.prototype.updateExportButtonsState = function() {
       this.toolbarExportMarkdownButton.enabled = count > 0
       let title = count > 0 ? `📝 导出 (${count})` : "📝 导出"
       this.toolbarExportMarkdownButton.setTitleForState(title, 0)
+    }
+
+    // 新增：更新转移按钮状态
+    if (this.toolbarTransferButton) {
+      this.toolbarTransferButton.enabled = count > 0
+      let title = count > 0 ? `🔄 转移 (${count})` : "🔄 转移"
+      this.toolbarTransferButton.setTitleForState(title, 0)
     }
   } catch (error) {
     pinnerUtils.addErrorLog(error, "updateExportButtonsState")
@@ -3533,32 +3775,21 @@ pinnerController.prototype.settingViewLayout = function () {
   }
 }
 pinnerController.prototype.refreshLayout = function () {
-  // 刷新当前显示的分区视图
-  // Pin 视图分区
-  if (!this.focusView.hidden) {
-    this.layoutSectionView("focus")
-  }
-  if (!this.midwayView.hidden) {
-    this.layoutSectionView("midway")
-  }
-  if (!this.toOrganizeView.hidden) {
-    this.layoutSectionView("toOrganize")
-  }
-  // Task 视图分区
-  if (!this.taskTodayView.hidden) {
-    this.layoutSectionView("taskToday")
-  }
-  if (!this.taskTomorrowView.hidden) {
-    this.layoutSectionView("taskTomorrow")
-  }
-  if (!this.taskThisWeekView.hidden) {
-    this.layoutSectionView("taskThisWeek")
-  }
-  if (!this.taskTodoView.hidden) {
-    this.layoutSectionView("taskTodo")
-  }
-  if (!this.taskDailyTaskView.hidden) {
-    this.layoutSectionView("taskDailyTask")
+  try {
+    // 配置驱动：从 SectionRegistry 获取所有分区键名
+    let allSectionKeys = SectionRegistry.getOrderedKeys()
+
+    // 遍历所有分区，刷新未隐藏的视图
+    allSectionKeys.forEach(key => {
+      let viewName = key + "View"
+
+      // 如果视图存在且未隐藏，则刷新布局
+      if (this[viewName] && !this[viewName].hidden) {
+        this.layoutSectionView(key)
+      }
+    })
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "refreshLayout")
   }
 }
 /**
@@ -3799,10 +4030,17 @@ pinnerController.prototype.createToolbarButtons = function() {
     })
     buttonX += 100
 
+    // 8. 转移按钮（新增）
+    this.createButton("toolbarTransferButton", "transferSelectedPins:", "toolbarScrollView")
+    this.toolbarTransferButton.frame = {x: buttonX, y: 0, width: 95, height: buttonHeight}
+    this.toolbarTransferButton.enabled = false  // 初始禁用
+    MNButton.setConfig(this.toolbarTransferButton, {
+      color: "#c678dd", alpha: 0.8, opacity: 1.0, title: "🔄 转移", radius: 6, font: 14
+    })
+    buttonX += 100
+
     // 设置滚动视图的内容大小（支持水平滚动）
     this.toolbarScrollView.contentSize = {width: buttonX + 10, height: buttonHeight}
-
-    pinnerUtils.log("✅ 工具栏按钮创建完成，总宽度: " + buttonX, "createToolbarButtons")
   } catch (error) {
     pinnerUtils.addErrorLog(error, "createToolbarButtons")
     MNUtil.showHUD("❌ 工具栏创建失败: " + error)
@@ -3896,8 +4134,7 @@ pinnerController.prototype.refreshView = function (targetView) {
       MNUtil.log(`refresh ${targetView}`)
       this.refreshSectionCards(sectionKey)
     } else {
-      // 不是标准分区
-      pinnerUtils.log(`refreshView: ${targetView} 不需要刷新或不存在`, "refreshView")
+      // 不是标准分区，不需要刷新
     }
   } catch (error) {
     pinnerUtils.addErrorLog(error, "refreshView")
@@ -3946,20 +4183,15 @@ pinnerController.prototype.switchViewMode = function (targetMode) {
     // 切换到目标模式
     this.currentViewMode = targetMode
 
-    // 显示目标模式的默认视图
-    let targetView
-    if (targetMode === "pin") {
-      // Pin 模式默认显示第一个分区
-      let firstConfig = SectionRegistry.getAllByMode("pin")[0]
-      targetView = firstConfig ? firstConfig.key + "View" : "focusView"
-    } else if (targetMode === "task") {
-      // Task 模式默认显示第一个分区
-      let firstConfig = SectionRegistry.getAllByMode("task")[0]
-      targetView = firstConfig ? firstConfig.key + "View" : "taskTodayView"
-    } else if (targetMode === "custom") {
-      // Custom 模式默认显示第一个分区
-      let firstConfig = SectionRegistry.getAllByMode("custom")[0]
-      targetView = firstConfig ? firstConfig.key + "View" : "custom1View"
+    // 配置驱动：显示目标模式的默认视图（第一个分区）
+    let configs = SectionRegistry.getAllByMode(targetMode)
+    let targetView = configs.length > 0 ? configs[0].key + "View" : null
+
+    // 如果没有找到配置（理论上不会发生），使用全局回退
+    if (!targetView) {
+      pinnerUtils.log(`⚠️ 没有找到 ${targetMode} 模式的分区配置，使用全局回退`, "switchViewMode")
+      let allConfigs = SectionRegistry.getOrderedKeys()
+      targetView = allConfigs.length > 0 ? allConfigs[0] + "View" : "focusView"
     }
 
     // 切换到目标视图
@@ -4297,20 +4529,38 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
 
   // 获取总数：如果传入了 totalCount 使用它，否则根据 section 获取
   let total = totalCount !== undefined ? totalCount : pinnerConfig.getPins(section).length
-  // MNLog.log(`createPageRow: index=${index}, section=${section}, totalCount传入=${totalCount}, 实际total=${total}`)
-  // MNLog.log(`  创建的是: docMd5=${page.docMd5.substring(0,8)}, pageIndex=${page.pageIndex}`)
+
+  let xOffset = 5  // 起始 x 坐标
+
+  // ===== 新增：勾选框按钮 =====
+  let showCheckbox = pinnerConfig.settings.showCheckbox || false
+  if (showCheckbox) {
+    let checkboxButton = UIButton.buttonWithType(0)
+    
+    // 生成复合 key 检查是否已选中
+    let key = `${section}-page-${page.docMd5}-${page.pageIndex}`
+    let isSelected = this.selectedCards.has(key)
+    
+    checkboxButton.setTitleForState(isSelected ? "☑️" : "☐", 0)
+    checkboxButton.titleLabel.font = UIFont.systemFontOfSize(18)
+    checkboxButton.frame = {x: xOffset, y: 7, width: 30, height: 30}
+    checkboxButton.tag = index
+    checkboxButton.section = section
+    checkboxButton.addTargetActionForControlEvents(this, "toggleCardSelection:", 1 << 6)
+    rowView.addSubview(checkboxButton)
+    
+    xOffset += 35  // 为勾选框留出空间
+  }
+  // ===== 勾选框结束 =====
 
   // 上移按钮
   let moveUpButton = UIButton.buttonWithType(0)
   moveUpButton.setTitleForState("⬆️", 0)
-  moveUpButton.frame = {x: 5, y: 7, width: 30, height: 30}
+  moveUpButton.frame = {x: xOffset, y: 7, width: 30, height: 30}
   moveUpButton.layer.cornerRadius = 5
-  moveUpButton.tag = index  // ✅ 只保存索引
+  moveUpButton.tag = index
   moveUpButton.section = section
   moveUpButton.addTargetActionForControlEvents(this, "movePageUp:", 1 << 6)
-
-  // 验证按钮属性
-  // MNLog.log(`创建上移按钮: tag=${moveUpButton.tag}, section=${moveUpButton.section}`)
 
   if (index === 0) {
     moveUpButton.enabled = false
@@ -4319,18 +4569,17 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
     moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
   }
   rowView.addSubview(moveUpButton)
+  xOffset += 35
 
   // 下移按钮
   let moveDownButton = UIButton.buttonWithType(0)
   moveDownButton.setTitleForState("⬇️", 0)
-  moveDownButton.frame = {x: 40, y: 7, width: 30, height: 30}
+  moveDownButton.frame = {x: xOffset, y: 7, width: 30, height: 30}
   moveDownButton.layer.cornerRadius = 5
-  moveDownButton.tag = index  // ✅ 只保存索引
+  moveDownButton.tag = index
   moveDownButton.section = section
   moveDownButton.addTargetActionForControlEvents(this, "movePageDown:", 1 << 6)
 
-  // 验证按钮属性
-  // MNLog.log(`创建下移按钮: tag=${moveDownButton.tag}, section=${moveDownButton.section}`)
   if (index === total - 1) {
     moveDownButton.enabled = false
     moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
@@ -4338,26 +4587,27 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
     moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
   }
   rowView.addSubview(moveDownButton)
+  xOffset += 35
 
   // 定位按钮（跳转到页面）
   let focusButton = UIButton.buttonWithType(0)
   focusButton.setTitleForState("📍", 0)
-  focusButton.frame = {x: 75, y: 7, width: 30, height: 30}
+  focusButton.frame = {x: xOffset, y: 7, width: 30, height: 30}
   focusButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
   focusButton.layer.cornerRadius = 5
-  focusButton.tag = index  // ✅ 只保存索引
+  focusButton.tag = index
   focusButton.section = section
-  focusButton.addTargetActionForControlEvents(this, "focusCardTapped:", 1 << 6)  // ✅ 统一使用 focusCardTapped
-  // ✅ 添加长按手势 - 页面长按也跳转到页面（与短按相同）
+  focusButton.addTargetActionForControlEvents(this, "focusCardTapped:", 1 << 6)
   MNButton.addLongPressGesture(focusButton, this, "onLongPressFocusButton:", 0.5)
   rowView.addSubview(focusButton)
+  xOffset += 35
 
   // 添加标题
   let titleButton = UIButton.buttonWithType(0)
   titleButton.setTitleForState(`📄 ${page.title || "未命名页面"}`, 0)
   titleButton.titleLabel.font = UIFont.systemFontOfSize(15)
-  titleButton.frame = {x: 110, y: 5, width: width - 160, height: 35}
-  titleButton.tag = index  // ✅ 只保存索引
+  titleButton.frame = {x: xOffset, y: 5, width: width - xOffset - 50, height: 35}
+  titleButton.tag = index
   titleButton.section = section
   titleButton.addTargetActionForControlEvents(this, "pageItemTapped:", 1 << 6)
   // 设置颜色表示可点击
@@ -4372,9 +4622,9 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
   deleteButton.frame = {x: width - 40, y: 7, width: 30, height: 30}
   deleteButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 0.8)
   deleteButton.layer.cornerRadius = 5
-  deleteButton.tag = index  // ✅ 只保存索引
+  deleteButton.tag = index
   deleteButton.section = section
-  deleteButton.addTargetActionForControlEvents(this, "deleteCard:", 1 << 6)  // ✅ 统一使用 deleteCard
+  deleteButton.addTargetActionForControlEvents(this, "deleteCard:", 1 << 6)
   rowView.addSubview(deleteButton)
 
   return rowView
@@ -4412,6 +4662,27 @@ pinnerController.prototype.createClipboardRow = function(clipboard, index, width
     rowView.section = section
     
     let xOffset = 5
+    
+    // ===== 新增：勾选框按钮 =====
+    let showCheckbox = pinnerConfig.settings.showCheckbox || false
+    if (showCheckbox) {
+      let checkboxButton = UIButton.buttonWithType(0)
+      
+      // 生成复合 key 检查是否已选中
+      let key = `${section}-clipboard-${clipboard.pinnedAt}`
+      let isSelected = this.selectedCards.has(key)
+      
+      checkboxButton.setTitleForState(isSelected ? "☑️" : "☐", 0)
+      checkboxButton.titleLabel.font = UIFont.systemFontOfSize(18)
+      checkboxButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+      checkboxButton.tag = index
+      checkboxButton.section = section
+      checkboxButton.addTargetActionForControlEvents(this, "toggleCardSelection:", 1 << 6)
+      rowView.addSubview(checkboxButton)
+      
+      xOffset += UI_CONSTANTS.BUTTON_SPACING
+    }
+    // ===== 勾选框结束 =====
     
     // 1. 上移按钮
     let moveUpButton = UIButton.buttonWithType(0)
@@ -4644,8 +4915,6 @@ pinnerController.prototype.updateToolbarButtonsForSection = function(section) {
       let title = selectedCount > 0 ? `📝 导出 (${selectedCount})` : "📝 导出"
       this.toolbarExportMarkdownButton.setTitleForState(title, 0)
     }
-
-    pinnerUtils.log(`工具栏按钮已更新（分区：${section}）`, "updateToolbarButtonsForSection")
   } catch (error) {
     pinnerUtils.addErrorLog(error, "updateToolbarButtonsForSection")
   }
@@ -4783,7 +5052,27 @@ pinnerController.prototype.createPreferencesView = function() {
       font: 15
     })
 
-    pinnerUtils.log("设置窗口创建完成", "createPreferencesView")
+    // 分区配置管理 - 恢复默认配置按钮
+    this.createButton("resetSectionConfigsButton", "resetSectionConfigs:", "preferencesContentView")
+    MNButton.setConfig(this.resetSectionConfigsButton, {
+      color: "#e06c75",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: "🔄 恢复默认配置",
+      font: 15
+    })
+
+    // 开发者选项 - 总是使用代码配置开关
+    this.createButton("alwaysUseCodeConfigButton", "toggleAlwaysUseCodeConfig:", "preferencesContentView")
+    let alwaysUseCodeConfig = pinnerConfig.settings.alwaysUseCodeConfig || false
+    MNButton.setConfig(this.alwaysUseCodeConfigButton, {
+      color: "#c678dd",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: `开发者模式: ${alwaysUseCodeConfig ? "✅" : "❌"}`,
+      font: 15
+    })
+
   } catch (error) {
     pinnerUtils.addErrorLog(error, "createPreferencesView")
   }
@@ -4867,6 +5156,18 @@ pinnerController.prototype.preferencesViewLayout = function() {
       yOffset += buttonHeight + buttonSpacing
     }
 
+    // 恢复默认配置按钮
+    if (this.resetSectionConfigsButton) {
+      this.resetSectionConfigsButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
+      yOffset += buttonHeight + buttonSpacing
+    }
+
+    // 开发者模式开关
+    if (this.alwaysUseCodeConfigButton) {
+      this.alwaysUseCodeConfigButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
+      yOffset += buttonHeight + buttonSpacing
+    }
+
   } catch (error) {
     pinnerUtils.addErrorLog(error, "preferencesViewLayout")
   }
@@ -4943,8 +5244,6 @@ pinnerController.prototype.recreateSectionTabs = function() {
 
     // 2. 重新创建标签按钮（复用现有逻辑）
     this.createAllSectionTabs()
-
-    pinnerUtils.log("标签按钮已重新创建", "recreateSectionTabs")
   } catch (error) {
     pinnerUtils.addErrorLog(error, "recreateSectionTabs")
     MNUtil.showHUD("刷新标签失败: " + error.message)

@@ -14,8 +14,13 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
       // 初始化状态
       self.init()
 
-      // 设置初始 frame
-      self.view.frame = {x: 50, y: 30, width: 720, height: 720}
+      // 设置初始 frame - 尝试从 userDefaults 恢复上次的窗口大小
+      let savedFrameStr = NSUserDefaults.standardUserDefaults().objectForKey("KB_WindowFrame")
+      let initialFrame = savedFrameStr
+        ? JSON.parse(savedFrameStr)
+        : {x: 50, y: 30, width: 720, height: 720}
+
+      self.view.frame = initialFrame
       self.lastFrame = self.view.frame
       self.currentFrame = self.view.frame
 
@@ -60,6 +65,11 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
         return
       }
 
+      // 如果按钮还未创建，跳过布局
+      if (!self.moveButton || !self.closeButton || !self.resizeButton || !self.webView) {
+        return
+      }
+
       let viewFrame = self.view.bounds
       let width = viewFrame.width
       let height = viewFrame.height
@@ -95,11 +105,23 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
 
   webViewShouldStartLoadWithRequestNavigationType: function(webView, request, type) {
     try {
-  
+
       let config = MNUtil.parseURL(request)
 
       // 拦截自定义 scheme
       if (config && config.scheme === "mnknowledgebase") {
+        // 特殊处理：自动关闭模式切换
+        if (config.host === "setAutoCloseMode") {
+          let enabled = !!config.params.enabled
+
+          // ✅ 使用 KnowledgeBaseConfig 统一管理
+          KnowledgeBaseConfig.setAutoCloseMode(enabled)
+          self.autoCloseMode = enabled
+
+          MNUtil.showHUD(enabled ? "已启用自动关闭" : "已禁用自动关闭")
+          return false
+        }
+
         self.executeAction(config, true)  // 委托给集中处理方法
         return false
       }
@@ -122,6 +144,25 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
     // 标记 WebView 已加载完成
     self.webViewLoaded = true
     MNUtil.log("webViewLoaded 设置为 true")
+
+    // 🆕 同步 autoCloseMode 状态到 WebView
+    MNUtil.delay(0.15).then(() => {
+      try {
+        let script = `
+          if (typeof state !== 'undefined' && state.autoCloseMode !== undefined) {
+            state.autoCloseMode = ${self.autoCloseMode};
+            if (typeof updateAutoCloseModeButton === 'function') {
+              updateAutoCloseModeButton();
+            }
+            console.log('[autoCloseMode] 已从 Native 同步状态: ' + ${self.autoCloseMode});
+          }
+        `
+        self.webView.evaluateJavaScript(script)
+        MNUtil.log(`【同步状态】已向 WebView 发送同步脚本: ${self.autoCloseMode}`)
+      } catch (error) {
+        MNUtil.log("【同步状态】失败: " + error)
+      }
+    })
 
     // 🆕 新增：如果窗口已经显示，立即刷新数据
     // 这解决了首次打开时数据不刷新的问题
@@ -317,6 +358,23 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
       }
       if (gesture.state === 3) {
         MNUtil.studyView.bringSubviewToFront(self.view)
+
+        // 保存调整后的窗口大小（与 hide() 方法中的逻辑一致）
+        try {
+          let currentFrame = self.view.frame
+          let frameToSave = {
+            x: currentFrame.x,
+            y: currentFrame.y,
+            width: currentFrame.width,
+            height: currentFrame.height
+          }
+          NSUserDefaults.standardUserDefaults().setObjectForKey(
+            JSON.stringify(frameToSave),
+            "KB_WindowFrame"
+          )
+        } catch (error) {
+          MNLog.log("【onResizeGesture】保存窗口大小失败: " + error)
+        }
       }
     } catch (error) {
       MNUtil.showHUD("调整大小失败: " + error)
@@ -692,7 +750,8 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
       default:
         MNUtil.showHUD("未知动作: " + config.host)
     }
-    if (closedWebView && success) {
+    // 执行成功后关闭窗口（如果需要且自动关闭模式已启用）
+    if (closedWebView && success && this.autoCloseMode) {
       if (this.addonBar) {
         this.hide(this.addonBar.frame)
       } else {
@@ -922,8 +981,21 @@ knowledgebaseWebController.prototype.refreshSearchResults = async function(resul
  */
 knowledgebaseWebController.prototype.show = async function(beginFrame, endFrame) {
   MNLog.log("【show() 开始】beginFrame=" + (beginFrame ? "有" : "无") + ", endFrame=" + (endFrame ? "有" : "无"))
-  
-  let targetFrame = endFrame || { x: 50, y: 50, width: 420, height: 600 }
+
+  // 如果没有指定 endFrame，尝试加载上次保存的窗口位置
+  let savedFrame = null
+  if (!endFrame) {
+    try {
+      let savedFrameStr = NSUserDefaults.standardUserDefaults().objectForKey("KB_WindowFrame")
+      if (savedFrameStr) {
+        savedFrame = JSON.parse(savedFrameStr)
+      }
+    } catch (error) {
+      MNLog.log("【show()】加载窗口 frame 失败: " + error)
+    }
+  }
+
+  let targetFrame = endFrame || savedFrame || { x: 50, y: 50, width: 420, height: 600 }
   let studyFrame = MNUtil.studyView.frame
 
   // 约束 frame 在屏幕范围内
@@ -974,6 +1046,22 @@ knowledgebaseWebController.prototype.hide = function(frame) {
   }
   this.view.frame = preFrame
 
+  // 保存窗口 frame 到 userDefaults（用于下次打开时恢复）
+  try {
+    let frameToSave = {
+      x: preFrame.x,
+      y: preFrame.y,
+      width: preFrame.width,
+      height: preFrame.height
+    }
+    NSUserDefaults.standardUserDefaults().setObjectForKey(
+      JSON.stringify(frameToSave),
+      "KB_WindowFrame"
+    )
+  } catch (error) {
+    MNLog.log("【hide()】保存窗口 frame 失败: " + error)
+  }
+
   // 标记动画状态
   this.onAnimate = true
 
@@ -1005,6 +1093,10 @@ knowledgebaseWebController.prototype.init = function() {
   this.lastTapTime = 0
   this.moveDate = 0
   this.currentHTMLType = null  // 'search' 或 'comment-manager'
+
+  // 🆕 从 KnowledgeBaseConfig 读取自动关闭模式
+  this.autoCloseMode = KnowledgeBaseConfig.getAutoCloseMode()
+  MNUtil.log(`【init】读取的 autoCloseMode: ${this.autoCloseMode}`)
 
   if (!this.lastFrame) {
     this.lastFrame = this.view.frame

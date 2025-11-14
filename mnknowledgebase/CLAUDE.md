@@ -1,3 +1,4 @@
+> 严禁自己创造 API，严禁使用任何在当前项目中未出现过的 API。
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
