@@ -3714,32 +3714,21 @@ pinnerController.prototype.settingViewLayout = function () {
   }
 }
 pinnerController.prototype.refreshLayout = function () {
-  // 刷新当前显示的分区视图
-  // Pin 视图分区
-  if (!this.focusView.hidden) {
-    this.layoutSectionView("focus")
-  }
-  if (!this.midwayView.hidden) {
-    this.layoutSectionView("midway")
-  }
-  if (!this.toOrganizeView.hidden) {
-    this.layoutSectionView("toOrganize")
-  }
-  // Task 视图分区
-  if (!this.taskTodayView.hidden) {
-    this.layoutSectionView("taskToday")
-  }
-  if (!this.taskTomorrowView.hidden) {
-    this.layoutSectionView("taskTomorrow")
-  }
-  if (!this.taskThisWeekView.hidden) {
-    this.layoutSectionView("taskThisWeek")
-  }
-  if (!this.taskTodoView.hidden) {
-    this.layoutSectionView("taskTodo")
-  }
-  if (!this.taskDailyTaskView.hidden) {
-    this.layoutSectionView("taskDailyTask")
+  try {
+    // 配置驱动：从 SectionRegistry 获取所有分区键名
+    let allSectionKeys = SectionRegistry.getOrderedKeys()
+
+    // 遍历所有分区，刷新未隐藏的视图
+    allSectionKeys.forEach(key => {
+      let viewName = key + "View"
+
+      // 如果视图存在且未隐藏，则刷新布局
+      if (this[viewName] && !this[viewName].hidden) {
+        this.layoutSectionView(key)
+      }
+    })
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "refreshLayout")
   }
 }
 /**
@@ -4133,20 +4122,15 @@ pinnerController.prototype.switchViewMode = function (targetMode) {
     // 切换到目标模式
     this.currentViewMode = targetMode
 
-    // 显示目标模式的默认视图
-    let targetView
-    if (targetMode === "pin") {
-      // Pin 模式默认显示第一个分区
-      let firstConfig = SectionRegistry.getAllByMode("pin")[0]
-      targetView = firstConfig ? firstConfig.key + "View" : "focusView"
-    } else if (targetMode === "task") {
-      // Task 模式默认显示第一个分区
-      let firstConfig = SectionRegistry.getAllByMode("task")[0]
-      targetView = firstConfig ? firstConfig.key + "View" : "taskTodayView"
-    } else if (targetMode === "custom") {
-      // Custom 模式默认显示第一个分区
-      let firstConfig = SectionRegistry.getAllByMode("custom")[0]
-      targetView = firstConfig ? firstConfig.key + "View" : "custom1View"
+    // 配置驱动：显示目标模式的默认视图（第一个分区）
+    let configs = SectionRegistry.getAllByMode(targetMode)
+    let targetView = configs.length > 0 ? configs[0].key + "View" : null
+
+    // 如果没有找到配置（理论上不会发生），使用全局回退
+    if (!targetView) {
+      pinnerUtils.log(`⚠️ 没有找到 ${targetMode} 模式的分区配置，使用全局回退`, "switchViewMode")
+      let allConfigs = SectionRegistry.getOrderedKeys()
+      targetView = allConfigs.length > 0 ? allConfigs[0] + "View" : "focusView"
     }
 
     // 切换到目标视图
