@@ -1506,38 +1506,46 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     try {
       self.checkPopover()  // 关闭当前菜单
 
-      // ✅ 从 param 对象获取数据
-      let card = param.card
+      // ✅ 从 param 对象获取数据（兼容 card 和 clipboard 两种类型）
+      let item = param.card || param.clipboard
       let currentSection = param.section || self.currentSection
       let button = param.button  // 用于弹窗定位
 
-      let noteId = card.noteId
-      if (!noteId) {
-        MNUtil.showHUD("无法获取卡片ID")
+      if (!item) {
+        MNUtil.showHUD("无法获取项目数据")
         return
       }
 
-      // 获取所有分区，排除当前分区
-      let sections = pinnerConfig.getSectionNames()
-      let targetSections = sections.filter(s => s !== currentSection)
+      // 获取唯一标识（noteId 或完整的 clipboard 对象）
+      let itemId = item.noteId || item
+      if (!itemId) {
+        MNUtil.showHUD("无法获取项目ID")
+        return
+      }
+
+      // ✅ 获取所有分区（已按 order 排序），排除当前分区
+      let allSections = SectionRegistry.getOrderedKeys()
+      let targetSections = allSections.filter(s => s !== currentSection)
 
       if (targetSections.length === 0) {
         MNUtil.showHUD("没有可转移的分区")
         return
       }
 
-      // 创建转移菜单
+      // ✅ 创建转移菜单（显示图标和分区名称）
       let commandTable = targetSections.map(section => {
-        let displayName = pinnerConfig.getSectionDisplayName(section)
-        let transferParam = { noteId: noteId, fromSection: currentSection, toSection: section }
-        return self.tableItem(`➡️  ${displayName}`, "transferCard:", transferParam)
+        let config = SectionRegistry.getConfig(section)
+        let icon = config ? config.icon : "📋"
+        let displayName = config ? config.displayName : section
+        let transferParam = { itemId: itemId, fromSection: currentSection, toSection: section }
+        return self.tableItem(`${icon} ${displayName}`, "transferCard:", transferParam)
       })
 
       // 显示菜单
       self.popoverController = MNUtil.getPopoverAndPresent(
         button,
         commandTable,
-        150,
+        200,  // 增加宽度以容纳图标和较长的分区名称
         1
       )
     } catch (error) {
@@ -1547,17 +1555,23 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
-   * 执行卡片转移
+   * 执行卡片转移（兼容 noteId 和 itemId 参数）
    */
   transferCard: function(param) {
     try {
       self.checkPopover()
 
-      let { noteId, fromSection, toSection } = param
+      // ✅ 兼容新旧参数名（itemId 或 noteId）
+      let itemId = param.itemId || param.noteId
+      let { fromSection, toSection } = param
 
-      if (pinnerConfig.transferPin(noteId, fromSection, toSection)) {
+      if (pinnerConfig.transferPin(itemId, fromSection, toSection)) {
         // 刷新源分区视图
         self.refreshSectionCards(fromSection)
+
+        // 显示成功提示
+        let targetDisplayName = SectionRegistry.getDisplayName(toSection)
+        MNUtil.showHUD(`✅ 已转移到 ${targetDisplayName}`)
 
         // 根据参数决定是否切换到目标分区
         // 默认不切换（可以后续添加参数控制）
@@ -1591,32 +1605,34 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         return
       }
 
-      // 获取所有分区，排除当前分区
-      let sections = pinnerConfig.getSectionNames()
-      let targetSections = sections.filter(s => s !== currentSection)
+      // ✅ 获取所有分区（已按 order 排序），排除当前分区
+      let allSections = SectionRegistry.getOrderedKeys()
+      let targetSections = allSections.filter(s => s !== currentSection)
 
       if (targetSections.length === 0) {
         MNUtil.showHUD("没有可转移的分区")
         return
       }
 
-      // 创建转移菜单
+      // ✅ 创建转移菜单（显示图标和分区名称）
       let commandTable = targetSections.map(section => {
-        let displayName = pinnerConfig.getSectionDisplayName(section)
+        let config = SectionRegistry.getConfig(section)
+        let icon = config ? config.icon : "📋"
+        let displayName = config ? config.displayName : section
         let transferParam = {
           docMd5: docMd5,
           pageIndex: pageIndex,
           fromSection: currentSection,
           toSection: section
         }
-        return self.tableItem(`➡️  ${displayName}`, "transferPagePin:", transferParam)
+        return self.tableItem(`${icon} ${displayName}`, "transferPagePin:", transferParam)
       })
 
       // 显示菜单
       self.popoverController = MNUtil.getPopoverAndPresent(
         button,
         commandTable,
-        150,
+        200,  // 增加宽度以容纳图标和较长的分区名称
         1
       )
     } catch (error) {
