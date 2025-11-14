@@ -282,61 +282,35 @@ class SectionRegistry {
       order: 1,
       description: "重点关注的卡片"
     }],
-    ["midway", {
-      key: "midway",
-      displayName: "中间知识",
+    ["mostImportant", {
+      key: "taskMostImportant",
+      displayName: "首要任务",
       viewMode: "pin",
-      color: "#61afef",
-      icon: "📚",
+      color: "#ef61c7ff",
+      icon: "🐸",
       order: 2,
-      description: "待进一步处理的知识"
+      description: "今日最重要的事"
     }],
-    ["toOrganize", {
-      key: "toOrganize",
-      displayName: "待整理",
-      viewMode: "pin",
-      color: "#98c379",
-      icon: "📥",
-      order: 3,
-      description: "需要整理的零散内容"
-    }],
-    ["class", {
-      key: "class",
-      displayName: "Class",
-      viewMode: "pin",
-      color: "#e5c07b",
-      icon: "🎓",
-      order: 4,
-      description: "课程相关内容"
-    }],
-    ["exerciseClass", {
-      key: "exerciseClass",
-      displayName: "习题课",
-      viewMode: "pin",
-      color: "#e5c07b",
-      icon: "🎓",
-      order: 5,
-      description: "习题课"
-    }],
-    ["literatureReading", {
-      key: "literatureReading",
-      displayName: "文献阅读",
-      viewMode: "pin",
-      color: "#e5c07b",
-      icon: "📖",
-      order: 6,
-      description: "文献阅读"
-    }],
-
-    // Task 视图分区
     ["taskToday", {
       key: "taskToday",
       displayName: "Today",
-      viewMode: "task",
+      viewMode: "pin",
       color: "#e06c75",
       icon: "📅",
-      order: 1,
+      order: 3,
       description: "今天要处理的任务"
+    }],
+
+
+    // Task 视图分区
+    ["taskTodo", {
+      key: "taskTodo",
+      displayName: "TODO",
+      viewMode: "task",
+      color: "#56b6c2",
+      icon: "✅",
+      order: 0,
+      description: "待办事项"
     }],
     ["taskTomorrow", {
       key: "taskTomorrow",
@@ -344,7 +318,7 @@ class SectionRegistry {
       viewMode: "task",
       color: "#d19a66",
       icon: "📆",
-      order: 2,
+      order: 1,
       description: "明天的任务"
     }],
     ["taskThisWeek", {
@@ -353,37 +327,118 @@ class SectionRegistry {
       viewMode: "task",
       color: "#c678dd",
       icon: "📊",
-      order: 3,
+      order: 2,
       description: "本周任务"
     }],
-    ["taskTodo", {
-      key: "taskTodo",
-      displayName: "TODO",
+    ["taskNextWeek", {
+      key: "taskNextWeek",
+      displayName: "Next Week",
       viewMode: "task",
-      color: "#56b6c2",
-      icon: "✅",
-      order: 4,
-      description: "待办事项"
+      color: "#c678dd",
+      icon: "📊",
+      order: 3,
+      description: "下周任务"
     }],
-    ["taskDailyTask", {
-      key: "taskDailyTask",
-      displayName: "日拱一卒",
+    ["taskThisMonth", {
+      key: "taskThisMonth",
+      displayName: "This Month",
       viewMode: "task",
-      color: "#98c379",
-      icon: "🏃",
+      color: "#c678dd",
+      icon: "📊",
+      order: 4,
+      description: "本月任务"
+    }],
+    ["taskNextMonth", {
+      key: "taskNextMonth",
+      displayName: "Next Month",
+      viewMode: "task",
+      color: "#c678dd",
+      icon: "📊",
       order: 5,
-      description: "每日坚持的任务"
+      description: "下月任务"
     }],
 
-    ["custom1", {
-      key: "custom1",
-      displayName: "Custom 1",
+    // ["custom1", {
+    //   key: "custom1",
+    //   displayName: "Custom 1",
+    //   viewMode: "custom",
+    //   color: "#98c379",
+    //   icon: "🏃",
+    //   order: 2,
+    //   description: "默认自定义分区 1"
+    // }],
+    // ["custom2", {
+    //   key: "custom2",
+    //   displayName: "Custom 2：？？",
+    //   viewMode: "custom",
+    //   color: "#98c379",
+    //   icon: "🏃",
+    //   order: 1,
+    //   description: "默认自定义分区 2"
+    // }],
+    ["taskDailyTask/Courses", {
+      key: "taskDailyTask/Courses",
+      displayName: "日拱一卒：课程学习",
       viewMode: "custom",
       color: "#98c379",
       icon: "🏃",
       order: 1,
-      description: "默认自定义分区 1"
-    }]
+      description: "每日坚持的任务"
+    }],
+    ["taskDailyTask/Reading", {
+      key: "taskDailyTask/Reading",
+      displayName: "日拱一卒：精读",
+      viewMode: "custom",
+      color: "#98c379",
+      icon: "🏃",
+      order: 2,
+      description: "每日坚持的任务"
+    }],
+    ["taskDailyTask/Framework", {
+      key: "taskDailyTask/Framework",
+      displayName: "日拱一卒：MN 框架整理",
+      viewMode: "custom",
+      color: "#98c379",
+      icon: "🏃",
+      order: 3,
+      description: "每日坚持的任务"
+    }],
+    ["class", {
+      key: "class",
+      displayName: "Class",
+      viewMode: "custom",
+      color: "#e5c07b",
+      icon: "🎓",
+      order: 4,
+      description: "上课"
+    }],
+    ["toOrganize", {
+      key: "toOrganize",
+      displayName: "待整理",
+      viewMode: "custom",
+      color: "#98c379",
+      icon: "📥",
+      order: 5,
+      description: "需要整理的零散内容"
+    }],
+    ["literatureReading", {
+      key: "literatureReading",
+      displayName: "文献阅读",
+      viewMode: "custom",
+      color: "#e5c07b",
+      icon: "📖",
+      order: 6,
+      description: "文献阅读"
+    }],
+    ["exerciseClass", {
+      key: "exerciseClass",
+      displayName: "习题课",
+      viewMode: "custom",
+      color: "#e5c07b",
+      icon: "🎓",
+      order: 7,
+      description: "习题课"
+    }],
   ])
 
   /**
@@ -589,6 +644,12 @@ class SectionRegistry {
    */
   static loadFromStorage() {
     try {
+      // ✅ 开发者模式：跳过加载，直接使用代码配置
+      if (pinnerConfig.settings && pinnerConfig.settings.alwaysUseCodeConfig) {
+        pinnerUtils.log("开发者模式：使用代码配置", "SectionRegistry:loadFromStorage")
+        return true
+      }
+
       let jsonData = NSUserDefaults.standardUserDefaults().objectForKey("MNPinner_sectionConfigs")
 
       if (!jsonData) {
@@ -646,34 +707,7 @@ class SectionRegistry {
           icon: "📌",
           order: 1,
           description: "重点关注的卡片"
-        }],
-        ["midway", {
-          key: "midway",
-          displayName: "中间知识",
-          viewMode: "pin",
-          color: "#61afef",
-          icon: "📚",
-          order: 2,
-          description: "待进一步处理的知识"
-        }],
-        ["toOrganize", {
-          key: "toOrganize",
-          displayName: "待整理",
-          viewMode: "pin",
-          color: "#98c379",
-          icon: "📥",
-          order: 3,
-          description: "需要整理的零散内容"
-        }],
-        ["class", {
-          key: "class",
-          displayName: "Class",
-          viewMode: "pin",
-          color: "#e5c07b",
-          icon: "🎓",
-          order: 4,
-          description: "课程相关内容"
-        }],
+        }]
 
         // Task 视图分区
         ["taskToday", {
@@ -711,15 +745,6 @@ class SectionRegistry {
           icon: "✅",
           order: 4,
           description: "待办事项"
-        }],
-        ["taskDailyTask", {
-          key: "taskDailyTask",
-          displayName: "日拱一卒",
-          viewMode: "task",
-          color: "#98c379",
-          icon: "🏃",
-          order: 5,
-          description: "每日坚持的任务"
         }],
 
         // Custom 视图分区
@@ -805,7 +830,8 @@ class pinnerConfig {
       lastSection: "focus",        // 上次的分区
       clipboardTitleStrategy: "truncate",  // 剪贴板标题生成策略：truncate（截取） 或 firstLine（首行）
       clipboardTitleLength: 30,    // 剪贴板标题截取长度（默认30字符）
-      showCheckbox: false          // 是否显示多选框（默认隐藏）
+      showCheckbox: false,         // 是否显示多选框（默认隐藏）
+      alwaysUseCodeConfig: false   // 总是使用代码中的默认配置（开发者模式）
     }
   }
 
