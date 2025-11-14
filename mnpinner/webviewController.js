@@ -4954,10 +4954,19 @@ pinnerController.prototype.createPreferencesView = function() {
     this.preferencesTabView.layer.cornerRadius = 10
     this.preferencesView.addSubview(this.preferencesTabView)
 
-    // 3. 创建内容区域
+    // 3. 创建可滚动内容区域
+    this.preferencesContentScrollView = UIScrollView.new()
+    this.preferencesContentScrollView.backgroundColor = UIColor.clearColor()
+    this.preferencesContentScrollView.bounces = true
+    this.preferencesContentScrollView.alwaysBounceVertical = true
+    this.preferencesContentScrollView.showsVerticalScrollIndicator = true
+    this.preferencesContentScrollView.layer.cornerRadius = 8
+    this.preferencesView.addSubview(this.preferencesContentScrollView)
+
+    // 创建内容容器(放在滚动视图内)
     this.preferencesContentView = UIView.new()
     this.preferencesContentView.backgroundColor = UIColor.clearColor()
-    this.preferencesView.addSubview(this.preferencesContentView)
+    this.preferencesContentScrollView.addSubview(this.preferencesContentView)
 
     // 4. 创建标签按钮（简化版，只有一个"常规"标签）
     this.createButton("generalTabButton", null, "preferencesTabView")
@@ -5121,8 +5130,8 @@ pinnerController.prototype.preferencesViewLayout = function() {
       this.closePreferencesButton.frame = {x: width - 50, y: 2, width: 35, height: 30}
     }
 
-    // 内容区域布局
-    this.preferencesContentView.frame = {x: 10, y: 55, width: width - 22, height: height - 95}
+    // 滚动视图布局
+    this.preferencesContentScrollView.frame = {x: 10, y: 55, width: width - 22, height: height - 95}
 
     // 设置项按钮布局（自动跳过 hidden 的按钮）
     let yOffset = 20
@@ -5182,6 +5191,23 @@ pinnerController.prototype.preferencesViewLayout = function() {
     if (this.alwaysUseCodeConfigButton) {
       this.alwaysUseCodeConfigButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
       yOffset += buttonHeight + buttonSpacing
+    }
+
+    // 计算内容总高度并设置滚动区域
+    let contentHeight = yOffset + 10  // yOffset 此时是最后一个按钮的底部位置，加上底部边距
+
+    // 设置内容容器的实际大小
+    this.preferencesContentView.frame = {
+      x: 0,
+      y: 0,
+      width: width - 22,
+      height: contentHeight
+    }
+
+    // 设置滚动视图的可滚动内容大小
+    this.preferencesContentScrollView.contentSize = {
+      width: width - 22,
+      height: contentHeight
     }
 
   } catch (error) {
