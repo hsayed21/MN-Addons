@@ -282,8 +282,8 @@ class SectionRegistry {
       order: 1,
       description: "重点关注的卡片"
     }],
-    ["mostImportant", {
-      key: "taskMostImportant",
+    ["taskTodayMostImportant", {
+      key: "taskTodayMostImportant",
       displayName: "首要任务",
       viewMode: "pin",
       color: "#ef61c7ff",
@@ -291,14 +291,32 @@ class SectionRegistry {
       order: 2,
       description: "今日最重要的事"
     }],
+    ["taskTodayMustFinish", {
+      key: "taskTodayMustFinish",
+      displayName: "今日必须完成",
+      viewMode: "pin",
+      color: "#e06c75",
+      icon: "❗️",
+      order: 3,
+      description: "今天计划要处理的任务"
+    }],
     ["taskToday", {
       key: "taskToday",
       displayName: "Today",
       viewMode: "pin",
       color: "#e06c75",
       icon: "📅",
-      order: 3,
-      description: "今天要处理的任务"
+      order: 4,
+      description: "今天计划要处理的任务"
+    }],
+    ["taskTomorrow", {
+      key: "taskTomorrow",
+      displayName: "Tomorrow",
+      viewMode: "pin",
+      color: "#d19a66",
+      icon: "📆",
+      order: 5,
+      description: "明天的任务"
     }],
 
 
@@ -309,18 +327,10 @@ class SectionRegistry {
       viewMode: "task",
       color: "#56b6c2",
       icon: "✅",
-      order: 0,
+      order: 1,
       description: "待办事项"
     }],
-    ["taskTomorrow", {
-      key: "taskTomorrow",
-      displayName: "Tomorrow",
-      viewMode: "task",
-      color: "#d19a66",
-      icon: "📆",
-      order: 1,
-      description: "明天的任务"
-    }],
+
     ["taskThisWeek", {
       key: "taskThisWeek",
       displayName: "This Week",
