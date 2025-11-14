@@ -977,6 +977,67 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
+   * 恢复默认配置
+   * 清除本地缓存的分区配置，使用代码中的默认配置
+   */
+  resetSectionConfigs: async function() {
+    try {
+      // 确认对话框
+      let confirmed = await MNUtil.confirm(
+        "恢复默认配置",
+        "将清除自定义的分区配置，恢复为代码默认值。\n\n⚠️ 分区内的数据不会丢失。\n\n确定要继续吗？"
+      )
+
+      if (!confirmed) return
+
+      // 清除缓存
+      NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_sectionConfigs")
+
+      // 调用重置方法
+      SectionRegistry.resetToDefault()
+
+      SectionRegistry.saveToStorage()
+
+      // 刷新界面
+      self.settingViewLayout()
+
+      MNUtil.showHUD("✅ 已恢复为默认配置")
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "resetSectionConfigs")
+      MNUtil.showHUD("❌ 重置失败")
+    }
+  },
+
+  /**
+   * 切换开发者模式（总是使用代码配置）
+   */
+  toggleAlwaysUseCodeConfig: function() {
+    try {
+      let currentValue = pinnerConfig.settings.alwaysUseCodeConfig || false
+      let newValue = !currentValue
+
+      // 更新设置
+      pinnerConfig.settings.alwaysUseCodeConfig = newValue
+      pinnerConfig.saveSettings()
+
+      // 更新按钮文字
+      self.alwaysUseCodeConfigButton.setTitleForState(
+        `开发者模式: ${newValue ? "✅" : "❌"}`,
+        0
+      )
+
+      if (newValue) {
+        MNUtil.showHUD("✅ 已启用开发者模式\n重新加载插件后生效")
+      } else {
+        MNUtil.showHUD("已关闭开发者模式")
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "toggleAlwaysUseCodeConfig")
+    }
+  },
+
+  /**
    * 统一的标签页切换处理方法（配置驱动）
    * 替代所有重复的 xxxTabTapped 方法
    * @param {UIButton} button - 点击的按钮，包含 viewName 元数据
@@ -4991,6 +5052,27 @@ pinnerController.prototype.createPreferencesView = function() {
       font: 15
     })
 
+    // 分区配置管理 - 恢复默认配置按钮
+    this.createButton("resetSectionConfigsButton", "resetSectionConfigs:", "preferencesContentView")
+    MNButton.setConfig(this.resetSectionConfigsButton, {
+      color: "#e06c75",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: "🔄 恢复默认配置",
+      font: 15
+    })
+
+    // 开发者选项 - 总是使用代码配置开关
+    this.createButton("alwaysUseCodeConfigButton", "toggleAlwaysUseCodeConfig:", "preferencesContentView")
+    let alwaysUseCodeConfig = pinnerConfig.settings.alwaysUseCodeConfig || false
+    MNButton.setConfig(this.alwaysUseCodeConfigButton, {
+      color: "#c678dd",
+      alpha: 0.8,
+      opacity: 1.0,
+      title: `开发者模式: ${alwaysUseCodeConfig ? "✅" : "❌"}`,
+      font: 15
+    })
+
   } catch (error) {
     pinnerUtils.addErrorLog(error, "createPreferencesView")
   }
@@ -5071,6 +5153,18 @@ pinnerController.prototype.preferencesViewLayout = function() {
     // 多选框显示开关
     if (this.showCheckboxButton) {
       this.showCheckboxButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
+      yOffset += buttonHeight + buttonSpacing
+    }
+
+    // 恢复默认配置按钮
+    if (this.resetSectionConfigsButton) {
+      this.resetSectionConfigsButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
+      yOffset += buttonHeight + buttonSpacing
+    }
+
+    // 开发者模式开关
+    if (this.alwaysUseCodeConfigButton) {
+      this.alwaysUseCodeConfigButton.frame = {x: 10, y: yOffset, width: buttonWidth, height: buttonHeight}
       yOffset += buttonHeight + buttonSpacing
     }
 
