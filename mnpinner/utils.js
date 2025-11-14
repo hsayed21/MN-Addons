@@ -258,6 +258,605 @@ class pinnerUtils {
 
 
 /**
+ * 视图模式注册中心
+ * 集中管理所有视图模式的元数据配置
+ *
+ * 核心职责：
+ * 1. 集中管理视图模式的元数据（名称、图标、顺序等）
+ * 2. 支持自动注册未知视图模式（使用默认配置）
+ * 3. 提供排序和查询接口
+ *
+ * @class ViewModeRegistry
+ */
+class ViewModeRegistry {
+  /**
+   * 视图模式配置表
+   *
+   * 数据结构：
+   * - key: 视图模式标识（用于代码引用）
+   * - displayName: 显示名称（用于界面展示）
+   * - icon: 图标（Emoji）
+   * - order: 显示顺序（数字越小越靠前）
+   * - description: 描述信息
+   */
+  static viewModes = new Map([
+    ["pin", {
+      key: "pin",
+      displayName: "Pin",
+      icon: "📌",
+      order: 1,
+      description: "固定卡片和文档页面"
+    }],
+    ["task", {
+      key: "task",
+      displayName: "Task",
+      icon: "📋",
+      order: 2,
+      description: "任务管理视图"
+    }],
+    ["custom", {
+      key: "custom",
+      displayName: "Custom",
+      icon: "🎨",
+      order: 3,
+      description: "用户自定义视图"
+    }],
+    // 测试用：添加 daily 视图
+    ["daily", {
+      key: "daily",
+      displayName: "Daily",
+      icon: "☀️",
+      order: 4,
+      description: "日常事务视图"
+    }]
+  ])
+
+  /**
+   * 默认配置（用于自动注册未知视图模式）
+   */
+  static defaultConfig = {
+    icon: "📁",
+    order: 999,
+    description: "自动注册的视图"
+  }
+
+  /**
+   * 获取视图模式配置
+   * @param {string} key - 视图模式标识
+   * @returns {Object|undefined} 配置对象，如果不存在返回 undefined
+   */
+  static getConfig(key) {
+    return this.viewModes.get(key)
+  }
+
+  /**
+   * 获取所有视图模式（按 order 排序）
+   * @returns {Array<Object>} 排序后的配置数组
+   */
+  static getAll() {
+    return Array.from(this.viewModes.values())
+      .sort((a, b) => a.order - b.order)
+  }
+
+  /**
+   * 获取排序后的视图模式键名
+   * @returns {Array<string>} 排序后的键名数组
+   */
+  static getOrderedKeys() {
+    return this.getAll().map(config => config.key)
+  }
+
+  /**
+   * 检查视图模式是否存在
+   * @param {string} key - 视图模式标识
+   * @returns {boolean}
+   */
+  static has(key) {
+    return this.viewModes.has(key)
+  }
+
+  /**
+   * 自动注册未知视图模式
+   *
+   * 当遇到未注册的 viewMode 时，自动创建配置并注册
+   *
+   * @param {string} key - 视图模式标识
+   * @param {string} [displayName] - 显示名称（可选，默认使用 key）
+   * @returns {Object} 注册后的配置对象
+   */
+  static autoRegister(key, displayName) {
+    // 如果已存在，直接返回
+    if (this.has(key)) {
+      return this.getConfig(key)
+    }
+
+    // 创建新配置
+    let config = {
+      key: key,
+      displayName: displayName || key,
+      icon: this.defaultConfig.icon,
+      order: this.defaultConfig.order,
+      description: this.defaultConfig.description
+    }
+
+    // 注册到 Map
+    this.viewModes.set(key, config)
+
+    // 记录日志
+    pinnerUtils.log(`自动注册视图模式: ${key}`, "ViewModeRegistry")
+
+    return config
+  }
+
+  /**
+   * 获取显示名称
+   * @param {string} key - 视图模式标识
+   * @returns {string} 显示名称，如果不存在返回 key
+   */
+  static getDisplayName(key) {
+    let config = this.getConfig(key)
+    return config ? config.displayName : key
+  }
+
+  /**
+   * 获取图标
+   * @param {string} key - 视图模式标识
+   * @returns {string} 图标 Emoji
+   */
+  static getIcon(key) {
+    let config = this.getConfig(key)
+    return config ? config.icon : this.defaultConfig.icon
+  }
+}
+
+/**
+ * 数据迁移管理器
+ * 自动检测分区配置变更并迁移数据
+ *
+ * 核心职责：
+ * 1. 检测分区配置变更（新增、删除、重命名）
+ * 2. 自动迁移数据到新的分区
+ * 3. 处理孤儿数据（配置已删除但数据仍存在）
+ * 4. 记录迁移日志，支持调试和回滚
+ *
+ * @class MigrationManager
+ */
+class MigrationManager {
+  /**
+   * 检测并执行迁移
+   * @returns {Object} {migrated: boolean, operations: Array}
+   */
+  static checkAndMigrate() {
+    try {
+      pinnerUtils.log("=== 开始迁移检测 ===", "MigrationManager:checkAndMigrate")
+      let operations = []
+
+      // Step 1: 检测分区配置变更
+      pinnerUtils.log("Step 1: 检测分区配置变更", "MigrationManager:checkAndMigrate")
+      let changes = this.detectConfigChanges()
+      pinnerUtils.log(`配置变更: ${JSON.stringify({
+        added: changes.added.length,
+        removed: changes.removed.length,
+        renamed: changes.renamed.length,
+        modified: changes.modified.length
+      })}`, "MigrationManager:checkAndMigrate")
+
+      // Step 2: 检测数据孤儿
+      pinnerUtils.log("Step 2: 检测数据孤儿", "MigrationManager:checkAndMigrate")
+      let orphans = this.detectOrphanData()
+      pinnerUtils.log(`孤立数据: ${orphans.length} 个`, "MigrationManager:checkAndMigrate")
+
+      // Step 3: 生成迁移计划
+      pinnerUtils.log("Step 3: 生成迁移计划", "MigrationManager:checkAndMigrate")
+      let plan = this.generateMigrationPlan(changes, orphans)
+      pinnerUtils.log(`迁移计划: ${plan.operations.length} 个操作`, "MigrationManager:checkAndMigrate")
+
+      // Step 4: 执行迁移
+      if (plan.operations.length > 0) {
+        pinnerUtils.log("Step 4: 执行迁移操作", "MigrationManager:checkAndMigrate")
+        operations = this.executeMigration(plan)
+        pinnerUtils.log(`已执行 ${operations.length} 个迁移操作`, "MigrationManager:checkAndMigrate")
+
+        // Step 5: 保存迁移记录
+        this.saveMigrationLog(operations)
+      } else {
+        pinnerUtils.log("无需迁移", "MigrationManager:checkAndMigrate")
+      }
+
+      pinnerUtils.log("=== 迁移检测完成 ===", "MigrationManager:checkAndMigrate")
+      return {
+        migrated: operations.length > 0,
+        operations: operations
+      }
+    } catch (error) {
+      pinnerUtils.log(`迁移检测出错: ${error.message}`, "MigrationManager:checkAndMigrate")
+      pinnerUtils.addErrorLog(error, "MigrationManager:checkAndMigrate")
+      return { migrated: false, operations: [], error: error.message }
+    }
+  }
+
+  /**
+   * 检测配置变更
+   */
+  static detectConfigChanges() {
+    // 获取上次的配置快照
+    let lastSnapshot = this.loadConfigSnapshot()
+    pinnerUtils.log(`上次快照: ${lastSnapshot.length} 个分区`, "MigrationManager:detectConfigChanges")
+
+    // 获取当前的配置
+    let currentConfigs = Array.from(SectionRegistry.sections.values())
+    pinnerUtils.log(`当前配置: ${currentConfigs.length} 个分区`, "MigrationManager:detectConfigChanges")
+
+    let changes = {
+      added: [],      // 新增的分区
+      removed: [],    // 删除的分区
+      renamed: [],    // 重命名的分区
+      modified: []    // 修改的分区（viewMode 变更等）
+    }
+
+    // 检测新增和删除
+    let currentKeys = new Set(currentConfigs.map(c => c.key))
+    let lastKeys = new Set(lastSnapshot.map(c => c.key))
+
+    // 新增
+    currentConfigs.forEach(config => {
+      if (!lastKeys.has(config.key)) {
+        changes.added.push(config)
+      }
+    })
+
+    // 删除
+    lastSnapshot.forEach(config => {
+      if (!currentKeys.has(config.key)) {
+        changes.removed.push(config)
+      }
+    })
+
+    // 检测重命名（启发式算法）
+    changes.renamed = this.detectRenames(changes.added, changes.removed)
+
+    // 检测修改（viewMode 变更）
+    currentConfigs.forEach(current => {
+      let last = lastSnapshot.find(c => c.key === current.key)
+      if (last && last.viewMode !== current.viewMode) {
+        changes.modified.push({
+          key: current.key,
+          oldViewMode: last.viewMode,
+          newViewMode: current.viewMode
+        })
+      }
+    })
+
+    return changes
+  }
+
+  /**
+   * 检测重命名（启发式算法）
+   *
+   * 规则：
+   * 1. 如果新增分区和删除分区的 displayName 完全相同 → 重命名（高置信度）
+   * 2. 如果新增分区和删除分区的 viewMode + order 相同 → 可能重命名（中等置信度）
+   * 3. 如果新增分区和删除分区同时只有一个 → 假设为重命名（低置信度）
+   */
+  static detectRenames(addedConfigs, removedConfigs) {
+    let renames = []
+
+    // 规则 1：displayName 完全匹配
+    addedConfigs.forEach(added => {
+      let matched = removedConfigs.find(removed =>
+        removed.displayName === added.displayName
+      )
+
+      if (matched) {
+        renames.push({
+          oldKey: matched.key,
+          newKey: added.key,
+          confidence: "high",
+          reason: "displayName 匹配"
+        })
+      }
+    })
+
+    // 规则 2：viewMode + order 匹配
+    let unmatchedAdded = addedConfigs.filter(a =>
+      !renames.some(r => r.newKey === a.key)
+    )
+    let unmatchedRemoved = removedConfigs.filter(r =>
+      !renames.some(rn => rn.oldKey === r.key)
+    )
+
+    unmatchedAdded.forEach(added => {
+      let matched = unmatchedRemoved.find(removed =>
+        removed.viewMode === added.viewMode &&
+        removed.order === added.order
+      )
+
+      if (matched) {
+        renames.push({
+          oldKey: matched.key,
+          newKey: added.key,
+          confidence: "medium",
+          reason: "viewMode + order 匹配"
+        })
+      }
+    })
+
+    // 规则 3：唯一的新增和删除
+    unmatchedAdded = unmatchedAdded.filter(a =>
+      !renames.some(r => r.newKey === a.key)
+    )
+    unmatchedRemoved = unmatchedRemoved.filter(r =>
+      !renames.some(rn => rn.oldKey === r.key)
+    )
+
+    if (unmatchedAdded.length === 1 && unmatchedRemoved.length === 1) {
+      renames.push({
+        oldKey: unmatchedRemoved[0].key,
+        newKey: unmatchedAdded[0].key,
+        confidence: "low",
+        reason: "唯一的新增和删除"
+      })
+    }
+
+    return renames
+  }
+
+  /**
+   * 检测孤儿数据
+   */
+  static detectOrphanData() {
+    let orphans = []
+
+    // 遍历所有数据分区
+    for (let key in pinnerConfig.sections) {
+      let pins = pinnerConfig.sections[key]
+
+      // 如果有数据但配置不存在 → 孤儿数据
+      if (pins.length > 0 && !SectionRegistry.has(key)) {
+        orphans.push({
+          key: key,
+          count: pins.length,
+          data: pins
+        })
+      }
+    }
+
+    return orphans
+  }
+
+  /**
+   * 生成迁移计划
+   */
+  static generateMigrationPlan(changes, orphans) {
+    let operations = []
+
+    // 1. 重命名迁移（优先级最高）
+    changes.renamed.forEach(rename => {
+      operations.push({
+        type: "rename",
+        from: rename.oldKey,
+        to: rename.newKey,
+        confidence: rename.confidence,
+        reason: rename.reason
+      })
+    })
+
+    // 2. 孤儿数据迁移（回退到默认分区）
+    orphans.forEach(orphan => {
+      // 如果不是重命名导致的孤儿
+      if (!operations.some(op => op.type === "rename" && op.from === orphan.key)) {
+        operations.push({
+          type: "orphan",
+          from: orphan.key,
+          to: this.getDefaultSection(),
+          count: orphan.count
+        })
+      }
+    })
+
+    // 3. viewMode 变更不需要迁移数据，只需记录日志
+    changes.modified.forEach(mod => {
+      operations.push({
+        type: "viewModeChange",
+        key: mod.key,
+        oldViewMode: mod.oldViewMode,
+        newViewMode: mod.newViewMode
+      })
+    })
+
+    return { operations }
+  }
+
+  /**
+   * 执行迁移
+   */
+  static executeMigration(plan) {
+    let results = []
+
+    plan.operations.forEach(op => {
+      try {
+        switch (op.type) {
+          case "rename":
+            this.migrateRename(op)
+            results.push({...op, status: "success"})
+            break
+
+          case "orphan":
+            this.migrateOrphan(op)
+            results.push({...op, status: "success"})
+            break
+
+          case "viewModeChange":
+            // 只记录日志，不迁移数据
+            pinnerUtils.log(
+              `视图模式变更: ${op.key} (${op.oldViewMode} → ${op.newViewMode})`,
+              "MigrationManager:viewModeChange"
+            )
+            results.push({...op, status: "logged"})
+            break
+        }
+      } catch (error) {
+        results.push({
+          ...op,
+          status: "failed",
+          error: error.message
+        })
+      }
+    })
+
+    // 保存数据
+    if (results.some(r => r.status === "success")) {
+      pinnerConfig.save()
+    }
+
+    return results
+  }
+
+  /**
+   * 执行重命名迁移
+   */
+  static migrateRename(operation) {
+    let { from, to, confidence } = operation
+
+    // 获取旧数据
+    let oldData = pinnerConfig.sections[from] || []
+
+    if (oldData.length === 0) {
+      return  // 没有数据，跳过
+    }
+
+    // 如果置信度不是高，记录警告
+    if (confidence !== "high") {
+      pinnerUtils.log(
+        `⚠️ 低置信度迁移: ${from} → ${to} (${confidence})`,
+        "MigrationManager:migrateRename"
+      )
+    }
+
+    // 初始化新分区（如果不存在）
+    if (!pinnerConfig.sections[to]) {
+      pinnerConfig.sections[to] = []
+    }
+
+    // 合并数据到新分区
+    pinnerConfig.sections[to].push(...oldData)
+
+    // 清空旧分区
+    pinnerConfig.sections[from] = []
+
+    pinnerUtils.log(
+      `✅ 迁移完成: ${from} → ${to} (${oldData.length} 项)`,
+      "MigrationManager:migrateRename"
+    )
+  }
+
+  /**
+   * 执行孤儿数据迁移
+   */
+  static migrateOrphan(operation) {
+    let { from, to, count } = operation
+
+    // 获取孤儿数据
+    let orphanData = pinnerConfig.sections[from] || []
+
+    // 初始化目标分区（如果不存在）
+    if (!pinnerConfig.sections[to]) {
+      pinnerConfig.sections[to] = []
+    }
+
+    // 合并到目标分区（底部）
+    pinnerConfig.sections[to].push(...orphanData)
+
+    // 删除孤儿分区
+    delete pinnerConfig.sections[from]
+
+    pinnerUtils.log(
+      `✅ 孤儿数据迁移: ${from} → ${to} (${count} 项)`,
+      "MigrationManager:migrateOrphan"
+    )
+
+    // 提示用户
+    MNUtil.showHUD(`已将 ${count} 项从"${from}"迁移到"${SectionRegistry.getConfig(to).displayName}"`)
+  }
+
+  /**
+   * 获取默认分区（pin 视图的第一个分区）
+   */
+  static getDefaultSection() {
+    let pinSections = SectionRegistry.getAllByMode("pin")
+    return pinSections.length > 0 ? pinSections[0].key : "focus"
+  }
+
+  /**
+   * 保存配置快照（用于下次检测变更）
+   */
+  static saveConfigSnapshot() {
+    let configs = Array.from(SectionRegistry.sections.values())
+    let snapshot = configs.map(c => ({
+      key: c.key,
+      displayName: c.displayName,
+      viewMode: c.viewMode,
+      order: c.order
+    }))
+
+    NSUserDefaults.standardUserDefaults().setObjectForKey(
+      JSON.stringify(snapshot),
+      "MNPinner_configSnapshot"
+    )
+  }
+
+  /**
+   * 加载配置快照
+   */
+  static loadConfigSnapshot() {
+    let snapshotJson = NSUserDefaults.standardUserDefaults().objectForKey("MNPinner_configSnapshot")
+
+    if (!snapshotJson) {
+      return []
+    }
+
+    try {
+      return JSON.parse(snapshotJson)
+    } catch (error) {
+      pinnerUtils.log("配置快照解析失败", "MigrationManager:loadConfigSnapshot")
+      return []
+    }
+  }
+
+  /**
+   * 保存迁移日志
+   */
+  static saveMigrationLog(operations) {
+    let log = {
+      timestamp: Date.now(),
+      operations: operations
+    }
+
+    // 读取历史日志
+    let historyJson = NSUserDefaults.standardUserDefaults().objectForKey("MNPinner_migrationHistory")
+    let history = []
+
+    if (historyJson) {
+      try {
+        history = JSON.parse(historyJson)
+      } catch (error) {
+        pinnerUtils.log("迁移历史解析失败", "MigrationManager:saveMigrationLog")
+      }
+    }
+
+    // 添加新日志（保留最近 10 次）
+    history.unshift(log)
+    history = history.slice(0, 10)
+
+    // 保存
+    NSUserDefaults.standardUserDefaults().setObjectForKey(
+      JSON.stringify(history),
+      "MNPinner_migrationHistory"
+    )
+  }
+}
+
+/**
  * 分区配置注册中心
  * 集中管理所有视图分区的配置信息
  *
@@ -368,6 +967,35 @@ class SectionRegistry {
       description: "下月任务"
     }],
 
+    // Daily 视图分区（测试用）
+    ["dailyMorning", {
+      key: "dailyMorning",
+      displayName: "Morning",
+      viewMode: "daily",
+      color: "#ffd166",
+      icon: "🌅",
+      order: 1,
+      description: "早晨例行事项"
+    }],
+    ["dailyAfternoon", {
+      key: "dailyAfternoon",
+      displayName: "Afternoon",
+      viewMode: "daily",
+      color: "#06ffa5",
+      icon: "☀️",
+      order: 2,
+      description: "下午安排"
+    }],
+    ["dailyEvening", {
+      key: "dailyEvening",
+      displayName: "Evening",
+      viewMode: "daily",
+      color: "#118ab2",
+      icon: "🌙",
+      order: 3,
+      description: "晚间活动"
+    }],
+
     // ["custom1", {
     //   key: "custom1",
     //   displayName: "Custom 1",
@@ -466,9 +1094,24 @@ class SectionRegistry {
    * @returns {Array} 配置对象数组
    */
   static getAllByMode(mode) {
-    return Array.from(this.sections.values())
+    // ✅ 添加参数验证
+    if (!mode || typeof mode !== 'string') {
+      pinnerUtils.log(`无效的视图模式 "${mode}"，使用默认值 "pin"`, "SectionRegistry:getAllByMode")
+      mode = "pin"
+    }
+
+    // 自动注册未知视图模式
+    if (!ViewModeRegistry.has(mode)) {
+      pinnerUtils.log(`检测到未知视图模式 "${mode}"，自动注册`, "SectionRegistry:getAllByMode")
+      ViewModeRegistry.autoRegister(mode)
+    }
+
+    let sections = Array.from(this.sections.values())
       .filter(section => section.viewMode === mode)
       .sort((a, b) => a.order - b.order)
+
+    pinnerUtils.log(`获取视图 "${mode}" 的分区: ${sections.length} 个`, "SectionRegistry:getAllByMode")
+    return sections
   }
 
   /**
@@ -480,13 +1123,21 @@ class SectionRegistry {
     let configs = mode
       ? this.getAllByMode(mode)
       : Array.from(this.sections.values()).sort((a, b) => {
-          // 先按 viewMode 排序（pin < task），再按 order 排序
-          if (a.viewMode !== b.viewMode) {
-            return a.viewMode === 'pin' ? -1 : 1
+          // ✅ 使用映射表改进排序逻辑
+          const modeOrder = { 'pin': 1, 'task': 2, 'custom': 3, 'daily': 4 }
+          const aOrder = modeOrder[a.viewMode] || 999
+          const bOrder = modeOrder[b.viewMode] || 999
+
+          if (aOrder !== bOrder) {
+            return aOrder - bOrder
           }
           return a.order - b.order
         })
-    return configs.map(c => c.key)
+
+    // ✅ 过滤空值，确保 config 和 key 存在
+    return configs
+      .filter(c => c && c.key)
+      .map(c => c.key)
   }
 
   /**
@@ -717,7 +1368,7 @@ class SectionRegistry {
           icon: "📌",
           order: 1,
           description: "重点关注的卡片"
-        }]
+        }],
 
         // Task 视图分区
         ["taskToday", {
@@ -1049,7 +1700,26 @@ class pinnerConfig {
       this.resizeImage = this.mainPath + "/resize.png"
 
       // 加载分区配置（从 NSUserDefaults 恢复用户自定义）
+      pinnerUtils.log("加载分区配置", "pinnerConfig:init")
       SectionRegistry.loadFromStorage()
+
+      // 执行迁移检测和数据迁移
+      pinnerUtils.log("开始执行迁移检测", "pinnerConfig:init")
+      let migrationResult = MigrationManager.checkAndMigrate()
+
+      if (migrationResult.migrated) {
+        pinnerUtils.log(
+          `执行了 ${migrationResult.operations.length} 个迁移操作`,
+          "pinnerConfig:init"
+        )
+
+        // 保存配置快照（用于下次检测）
+        MigrationManager.saveConfigSnapshot()
+      } else {
+        pinnerUtils.log("无需迁移，保存当前配置快照", "pinnerConfig:init")
+        // 首次运行或无变更，保存快照
+        MigrationManager.saveConfigSnapshot()
+      }
 
       // 初始化自定义视图配置
       this.ensureCustomConfig()

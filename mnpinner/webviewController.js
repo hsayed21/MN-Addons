@@ -428,18 +428,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       // 正常模式下显示功能菜单
       let commandTable = []
 
-      // 根据当前视图模式添加切换选项
-      if (self.currentViewMode === "pin") {
-        commandTable.push({title:'🔄  切换到 Task 视图', object:self, selector:'switchViewMode:', param:"task"})
-        commandTable.push({title:'🎨  切换到自定义视图', object:self, selector:'switchViewMode:', param:"custom"})
-      } else if (self.currentViewMode === "task") {
-        commandTable.push({title:'🔄  切换到 Pin 视图', object:self, selector:'switchViewMode:', param:"pin"})
-        commandTable.push({title:'🎨  切换到自定义视图', object:self, selector:'switchViewMode:', param:"custom"})
-      } else if (self.currentViewMode === "custom") {
-        commandTable.push({title:'🔄  切换到 Pin 视图', object:self, selector:'switchViewMode:', param:"pin"})
-        commandTable.push({title:'🔄  切换到 Task 视图', object:self, selector:'switchViewMode:', param:"task"})
-      }
-
       // 添加设置入口
       commandTable.push({title:'⚙️  偏好设置', object:self, selector:'openSettings:', param:button})
 
@@ -767,8 +755,13 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   changeDefaultViewMode: function() {
     try {
       let currentMode = pinnerConfig.settings.defaultViewMode || "pin"
-      let modes = ["pin", "task", "custom"]
-      let modeNames = ["Pin 视图", "Task 视图", "自定义视图"]
+
+      // 从 ViewModeRegistry 动态获取所有视图模式
+      let allViewModes = ViewModeRegistry.getOrderedKeys()
+      let modeNames = allViewModes.map(mode => {
+        let config = ViewModeRegistry.getConfig(mode)
+        return `${config.icon} ${config.displayName} 视图`
+      })
 
       UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
         "选择默认视图模式",
@@ -780,7 +773,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
           try {
             if (buttonIndex === 0) return  // 取消
 
-            let selectedMode = modes[buttonIndex - 1]
+            let selectedMode = allViewModes[buttonIndex - 1]
             pinnerConfig.settings.defaultViewMode = selectedMode
             pinnerConfig.save()
 
@@ -3062,9 +3055,9 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       // 获取当前分区
       let currentSection = self.currentSection
-      
-      // 获取所有可用分区（排除当前分区）
-      let currentViewMode = self.currentViewMode
+
+      // ✅ 获取所有可用分区（添加默认值防止 undefined）
+      let currentViewMode = self.currentViewMode || "pin"
       let allSections = SectionRegistry.getOrderedKeys(currentViewMode)
       
       // 构建分区选项列表（排除当前分区，但仍显示以灰色提示）
@@ -3163,29 +3156,20 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     try {
       self.checkPopover()
 
-      let commandTable = [
-        {
-          title: '📌 Pin 视图',
-          object: self,
-          selector: 'switchViewModeTo:',
-          param: 'pin',
-          checked: self.currentViewMode === 'pin'
-        },
-        {
-          title: '✅ Task 视图',
-          object: self,
-          selector: 'switchViewModeTo:',
-          param: 'task',
-          checked: self.currentViewMode === 'task'
-        },
-        {
-          title: '🎨 自定义视图',
-          object: self,
-          selector: 'switchViewModeTo:',
-          param: 'custom',
-          checked: self.currentViewMode === 'custom'
-        }
-      ]
+      // 从 ViewModeRegistry 动态生成菜单
+      let allViewModes = ViewModeRegistry.getOrderedKeys()
+      pinnerUtils.log(`可用视图模式: ${allViewModes.join(', ')}`, "changeViewMode")
+
+      let commandTable = allViewModes.map(mode => {
+        let config = ViewModeRegistry.getConfig(mode)
+        // ✅ 使用 tableItem 方法确保参数正确传递
+        return self.tableItem(
+          `${config.icon} ${config.displayName} 视图`,
+          'switchViewModeTo:',
+          mode,
+          self.currentViewMode === mode
+        )
+      })
 
       self.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable, 200, 1)
     } catch (error) {
@@ -3199,6 +3183,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   switchViewModeTo: function(mode) {
     try {
       self.checkPopover()
+      pinnerUtils.log(`切换到视图模式: ${mode}`, "switchViewModeTo")
       // 调用现有的 switchViewMode 方法
       self.switchViewMode(mode)
     } catch (error) {
@@ -3660,7 +3645,18 @@ pinnerController.prototype.creatTextView = function (superview="view", color="#c
   view.textColor = UIColor.blackColor()
   view.delegate = this
   view.bounces = true
-  this[superview].addSubview(view)
+
+  // ✅ 添加防御性检查
+  if (this[superview]) {
+    this[superview].addSubview(view)
+  } else {
+    pinnerUtils.addErrorLog(
+      new Error(`superview "${superview}" is undefined in creatTextView`),
+      "creatTextView"
+    )
+    throw new Error(`superview "${superview}" is undefined`)
+  }
+
   return view
 }
 
@@ -3668,7 +3664,17 @@ pinnerController.prototype.createView = function (viewName, superview="view", co
   this[viewName] = UIView.new()
   this[viewName].backgroundColor = MNUtil.hexColorAlpha(color,alpha)
   this[viewName].layer.cornerRadius = 12
-  this[superview].addSubview(this[viewName])
+
+  // ✅ 添加防御性检查
+  if (this[superview]) {
+    this[superview].addSubview(this[viewName])
+  } else {
+    pinnerUtils.addErrorLog(
+      new Error(`superview "${superview}" is undefined in createView for "${viewName}"`),
+      "createView"
+    )
+    throw new Error(`superview "${superview}" is undefined`)
+  }
 }
 
 pinnerController.prototype.setFrame = function (frame) {
@@ -3717,6 +3723,12 @@ pinnerController.prototype.init = function () {
 
 pinnerController.prototype.settingViewLayout = function () {
   try {
+    // ✅ 早期返回检查
+    if (!this.settingView) {
+      pinnerUtils.log("settingView 未创建，跳过布局", "settingViewLayout")
+      return
+    }
+
     let viewFrame = this.view.bounds
     let width = viewFrame.width+10
     let height = viewFrame.height  // 恢复原始逻辑，不在这里减去工具栏高度
@@ -3753,7 +3765,9 @@ pinnerController.prototype.settingViewLayout = function () {
     })
 
     // 配置驱动：显示并布局当前模式的标签按钮
-    let configs = SectionRegistry.getAllByMode(this.currentViewMode)
+    // ✅ 添加默认值防止 undefined
+    let currentViewMode = this.currentViewMode || "pin"
+    let configs = SectionRegistry.getAllByMode(currentViewMode)
 
     configs.forEach(config => {
       let buttonName = config.key + "TabButton"
@@ -3769,15 +3783,18 @@ pinnerController.prototype.settingViewLayout = function () {
     // 设置内容大小（超出 frame 时自动启用滚动）
     this.tabView.contentSize = {width: tabX + 10, height: 30}
 
-    // 布局关闭按钮
-    settingFrame.y = 20
-    settingFrame.x = this.tabView.frame.width + 5
-    settingFrame.width = 30
-    this.closeButton.frame = settingFrame
+    // ✅ 布局关闭按钮（添加防御性检查）
+    if (this.closeButton) {
+      settingFrame.y = 20
+      settingFrame.x = this.tabView.frame.width + 5
+      settingFrame.width = 30
+      this.closeButton.frame = settingFrame
+    }
 
-    // 布局调整大小按钮
-    // resizeButton 自身高度 30
-    this.resizeButton.frame = {x: this.view.bounds.width - 30, y: this.view.bounds.height - 40, width: 30, height: 30}
+    // ✅ 布局调整大小按钮（添加防御性检查）
+    if (this.resizeButton) {
+      this.resizeButton.frame = {x: this.view.bounds.width - 30, y: this.view.bounds.height - 40, width: 30, height: 30}
+    }
 
     // 配置驱动：根据当前显示的视图布局子视图
     allSectionKeys.forEach(key => {
@@ -3856,24 +3873,19 @@ pinnerController.prototype.createSectionTabButton = function (config, radius, is
 pinnerController.prototype.createAllSectionTabs = function () {
   let radius = 10
 
-  // 获取所有分区配置（按 order 排序）
-  let pinConfigs = SectionRegistry.getAllByMode("pin")
-  let taskConfigs = SectionRegistry.getAllByMode("task")
-  let customConfigs = SectionRegistry.getAllByMode("custom")
+  // ✅ 动态获取所有已注册的视图模式
+  let allViewModes = ViewModeRegistry.getOrderedKeys()
 
-  // 创建 Pin 视图的标签按钮
-  pinConfigs.forEach((config, index) => {
-    this.createSectionTabButton(config, radius, index === 0)
-  })
+  // 为每个视图模式创建标签按钮
+  let isFirstButton = true
+  allViewModes.forEach(mode => {
+    let configs = SectionRegistry.getAllByMode(mode)
 
-  // 创建 Task 视图的标签按钮
-  taskConfigs.forEach((config, index) => {
-    this.createSectionTabButton(config, radius, false)
-  })
-
-  // 创建 Custom 视图的标签按钮
-  customConfigs.forEach((config, index) => {
-    this.createSectionTabButton(config, radius, false)
+    configs.forEach((config, index) => {
+      // 只有第一个按钮需要设置为选中状态
+      this.createSectionTabButton(config, radius, isFirstButton)
+      isFirstButton = false
+    })
   })
 }
 
@@ -3881,12 +3893,15 @@ pinnerController.prototype.createAllSectionTabs = function () {
  * 创建所有分区的视图容器（配置驱动）
  */
 pinnerController.prototype.createAllSectionViewContainers = function () {
+  // ✅ 动态获取所有已注册的视图模式
+  let allViewModes = ViewModeRegistry.getOrderedKeys()
+
   // 获取所有分区配置
-  let allConfigs = [
-    ...SectionRegistry.getAllByMode("pin"),
-    ...SectionRegistry.getAllByMode("task"),
-    ...SectionRegistry.getAllByMode("custom")
-  ]
+  let allConfigs = []
+  allViewModes.forEach(mode => {
+    let configs = SectionRegistry.getAllByMode(mode)
+    allConfigs.push(...configs)
+  })
 
   // 创建每个分区的视图容器
   allConfigs.forEach((config, index) => {
@@ -3898,6 +3913,13 @@ pinnerController.prototype.createAllSectionViewContainers = function () {
 
 pinnerController.prototype.createSettingView = function () {
   try {
+    // ✅ 确保 this.view 已初始化
+    if (!this.view) {
+      let error = new Error("this.view is undefined in createSettingView")
+      pinnerUtils.addErrorLog(error, "createSettingView")
+      throw error
+    }
+
     /**
      * settingView 配置
      */
@@ -3955,8 +3977,19 @@ pinnerController.prototype.createButton = function (buttonName, targetAction, su
   if (targetAction) {
     this[buttonName].addTargetActionForControlEvents(this, targetAction, 1 << 6);
   }
+
+  // ✅ 添加防御性检查
   if (superview) {
-    this[superview].addSubview(this[buttonName])
+    if (this[superview]) {
+      this[superview].addSubview(this[buttonName])
+    } else {
+      pinnerUtils.addErrorLog(
+        new Error(`superview "${superview}" is undefined in createButton for "${buttonName}"`),
+        "createButton"
+      )
+      // 回退到默认行为
+      this.view.addSubview(this[buttonName]);
+    }
   } else {
     this.view.addSubview(this[buttonName]);
   }
@@ -4070,7 +4103,18 @@ pinnerController.prototype.createScrollview = function (superview="view", color=
   scrollview.bounces = true
   scrollview.layer.cornerRadius = 8
   scrollview.backgroundColor = MNUtil.hexColorAlpha(color,alpha)
-  this[superview].addSubview(scrollview)
+
+  // ✅ 添加防御性检查
+  if (this[superview]) {
+    this[superview].addSubview(scrollview)
+  } else {
+    pinnerUtils.addErrorLog(
+      new Error(`superview "${superview}" is undefined in createScrollview`),
+      "createScrollview"
+    )
+    throw new Error(`superview "${superview}" is undefined`)
+  }
+
   return scrollview
 }
 /**
@@ -4083,7 +4127,9 @@ pinnerController.prototype.switchView = function (targetView) {
     let allViews, allButtons, sectionMap
 
     // 配置驱动：从 SectionRegistry 获取当前模式的所有分区
-    let configs = SectionRegistry.getAllByMode(this.currentViewMode)
+    // ✅ 添加默认值防止 undefined
+    let currentViewMode = this.currentViewMode || "pin"
+    let configs = SectionRegistry.getAllByMode(currentViewMode)
 
     allViews = configs.map(c => c.key + "View")
     allButtons = configs.map(c => c.key + "TabButton")
@@ -4170,13 +4216,9 @@ pinnerController.prototype.switchViewMode = function (targetMode) {
     // 隐藏当前模式的所有视图和按钮
     let currentViews, currentButtons
 
-    if (this.currentViewMode === "pin" || this.currentViewMode === "task") {
-      // 从 SectionRegistry 获取当前模式的所有分区
+    // ✅ 改进逻辑：只要 currentViewMode 存在就获取配置
+    if (this.currentViewMode) {
       let currentConfigs = SectionRegistry.getAllByMode(this.currentViewMode)
-      currentViews = currentConfigs.map(c => c.key + "View")
-      currentButtons = currentConfigs.map(c => c.key + "TabButton")
-    } else if (this.currentViewMode === "custom") {
-      let currentConfigs = SectionRegistry.getAllByMode("custom")
       currentViews = currentConfigs.map(c => c.key + "View")
       currentButtons = currentConfigs.map(c => c.key + "TabButton")
     }
