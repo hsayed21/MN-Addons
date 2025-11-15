@@ -1021,7 +1021,7 @@ class SectionRegistry {
     }],
     ["daily/Framework/doing", {
       key: "daily/Framework/doing",
-      displayName: "框架整理(doing)",
+      displayName: "框架整理(ing)",
       viewMode: "daily",
       color: "#98c379",
       icon: "🏃",
