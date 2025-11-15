@@ -3375,36 +3375,59 @@ pinnerController.prototype.jumpToPageByData = async function (card) {
     let docMd5 = card.docMd5
     let pageIndex = card.pageIndex
 
-    // 验证参数存在
-    if (!docMd5 || pageIndex === undefined) {
-      MNUtil.showHUD("缺少页面信息")
+    // ✅ 增强参数验证
+    if (!card) {
+      MNUtil.showHUD("页面数据为空")
+      pinnerUtils.addErrorLog(new Error("Card data is null"), "jumpToPageByData")
       return
     }
 
-    // 验证文档存在
+    if (!docMd5) {
+      MNUtil.showHUD("缺少文档信息")
+      pinnerUtils.addErrorLog(new Error("docMd5 is missing"), "jumpToPageByData", { card })
+      return
+    }
+
+    if (pageIndex === undefined || pageIndex === null) {
+      MNUtil.showHUD("缺少页码信息")
+      pinnerUtils.addErrorLog(new Error("pageIndex is missing"), "jumpToPageByData", { card })
+      return
+    }
+
+    // ✅ 先尝试打开文档，确保文档加载
+    if (docMd5 !== MNUtil.currentDocMd5) {
+      MNUtil.openDoc(docMd5)
+
+      // 确保文档视图可见
+      if (MNUtil.docMapSplitMode === 0) {
+        MNUtil.docMapSplitMode = 1  // 从纯脑图切换到分割模式
+      }
+
+      // ✅ 增加等待时间，确保文档完全加载（从 0.01 改为 0.5 秒）
+      await MNUtil.delay(0.5)
+    }
+
+    // ✅ 文档打开后再验证（此时文档应该已加载）
     let docInfo = pinnerConfig.getDocInfo(docMd5)
     if (!docInfo.doc) {
-      MNUtil.showHUD("文档不存在")
+      MNUtil.showHUD("文档加载失败，请重试")
+      pinnerUtils.addErrorLog(
+        new Error("Document failed to load"),
+        "jumpToPageByData",
+        { docMd5, pageIndex, title: card.title }
+      )
       return
     }
 
     // 验证页码范围
     if (pageIndex < 0 || pageIndex > docInfo.lastPageIndex) {
       MNUtil.showHUD(`页码超出范围(0-${docInfo.lastPageIndex})`)
+      pinnerUtils.addErrorLog(
+        new Error("Page index out of range"),
+        "jumpToPageByData",
+        { docMd5, pageIndex, lastPageIndex: docInfo.lastPageIndex }
+      )
       return
-    }
-
-    // 打开文档（如果不是当前文档）
-    if (docMd5 !== MNUtil.currentDocMd5) {
-      MNUtil.openDoc(docMd5)
-
-      // 确保文档视图可见（参考 mnsnipaste 的实现）
-      if (MNUtil.docMapSplitMode === 0) {
-        MNUtil.docMapSplitMode = 1  // 从纯脑图切换到分割模式
-      }
-
-      // 等待文档加载（优化：参考 mnsnipaste 使用 0.01 秒）
-      await MNUtil.delay(0.01)
     }
 
     // 跳转到指定页面

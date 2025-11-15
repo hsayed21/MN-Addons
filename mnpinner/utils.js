@@ -2914,6 +2914,16 @@ class pinnerConfig {
   static getDocInfo(docMd5) {
     let doc = MNUtil.getDocById(docMd5)
     if (!doc) {
+      // ✅ 添加详细的错误日志，便于追踪文档加载问题
+      pinnerUtils.addErrorLog(
+        new Error("Document not found or not loaded"),
+        "getDocInfo",
+        {
+          docMd5,
+          currentDocMd5: MNUtil.currentDocMd5,
+          timestamp: new Date().toISOString()
+        }
+      )
       return { doc: null, pageCount: 0, lastPageIndex: -1 }
     }
     let pageCount = doc.pageCount

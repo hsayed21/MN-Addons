@@ -461,14 +461,26 @@ JSB.newAddon = function(mainPath){
                   break
                 }
 
-                // 验证文档和页码范围
+                // ✅ 增强验证：确保文档存在且已加载
                 let pageDocInfo = pinnerConfig.getDocInfo(pageDocMd5)
                 if (!pageDocInfo.doc) {
-                  MNUtil.showHUD("文档不存在")
+                  MNUtil.showHUD("文档未加载或不存在，请先打开文档")
+                  pinnerUtils.addErrorLog(
+                    new Error("Document not found or not loaded"),
+                    "pinPageToSection",
+                    { docMd5: pageDocMd5, pageIndex: pagePageIndex }
+                  )
                   break
                 }
+
+                // ✅ 验证页码范围
                 if (pagePageIndex > pageDocInfo.lastPageIndex) {
                   MNUtil.showHUD(`页码超出范围(0-${pageDocInfo.lastPageIndex})`)
+                  pinnerUtils.addErrorLog(
+                    new Error("Page index out of range"),
+                    "pinPageToSection",
+                    { docMd5: pageDocMd5, pageIndex: pagePageIndex, lastPageIndex: pageDocInfo.lastPageIndex }
+                  )
                   break
                 }
 
