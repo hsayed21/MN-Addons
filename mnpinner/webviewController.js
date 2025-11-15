@@ -986,13 +986,72 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       // 清除缓存
       NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_sectionConfigs")
 
-      // 调用重置方法
+      // 获取旧的分区列表（用于销毁视图）
+      let oldSectionKeys = SectionRegistry.getOrderedKeys()
+
+      // 调用重置方法（恢复到 static sections 的完整配置）
       SectionRegistry.resetToDefault()
 
+      // 保存到存储
       SectionRegistry.saveToStorage()
 
-      // 刷新界面
+      // ✅ 关键修复：销毁所有旧的分区视图和标签按钮
+      oldSectionKeys.forEach(section => {
+        let viewName = section + "View"
+        let scrollViewName = section + "CardScrollView"
+        let cardRowsName = section + "CardRows"
+        let buttonName = section + "TabButton"
+
+        // 移除卡片行视图
+        if (self[cardRowsName]) {
+          self[cardRowsName].forEach(view => {
+            view.removeFromSuperview()
+          })
+          self[cardRowsName] = null
+        }
+
+        // 移除滚动视图
+        if (self[scrollViewName]) {
+          self[scrollViewName].removeFromSuperview()
+          self[scrollViewName] = null
+        }
+
+        // 移除分区视图
+        if (self[viewName]) {
+          self[viewName].removeFromSuperview()
+          self[viewName] = null
+        }
+
+        // 移除标签按钮
+        if (self[buttonName]) {
+          self[buttonName].removeFromSuperview()
+          self[buttonName] = null
+        }
+      })
+
+      // ✅ 关键修复：重新创建所有标签按钮（根据新配置）
+      self.createAllSectionTabs()
+
+      // ✅ 关键修复：重新创建所有分区视图容器
+      self.createAllSectionViewContainers()
+
+      // ✅ 关键修复：重新创建所有分区的卡片滚动视图
+      self.createSectionViews()
+
+      // 重置当前视图模式和分区
+      self.currentViewMode = "pin"  // 恢复到默认的 pin 视图
+      self.currentSection = "focus"  // 恢复到默认的 focus 分区
+
+      // 刷新当前分区的卡片
+      self.refreshSectionCards("focus")
+
+      // 刷新界面布局
       self.settingViewLayout()
+
+      // 同步更新设置面板布局
+      if (self.preferencesView) {
+        self.preferencesViewLayout()
+      }
 
       MNUtil.showHUD("✅ 已恢复为默认配置")
 

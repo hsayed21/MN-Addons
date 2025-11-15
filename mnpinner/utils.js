@@ -866,10 +866,17 @@ class MigrationManager {
  */
 class SectionRegistry {
   /**
-   * 所有分区的配置信息
-   * 使用 Map 而不是普通对象，避免原型链问题
+   * 获取默认分区配置（工厂方法）
+   * 每次调用都返回一个新的 Map 实例，确保默认配置不被修改
+   *
+   * ⚠️ 重要：这是唯一的配置定义源，所有配置都从这里获取
+   * - 初始化时使用此方法创建 sections
+   * - 重置配置时使用此方法恢复默认值
+   *
+   * @returns {Map} 默认分区配置的副本
    */
-  static sections = new Map([
+  static getDefaultSections() {
+    return new Map([
     // Pin 视图分区
     ["focus", {
       key: "focus",
@@ -1076,8 +1083,16 @@ class SectionRegistry {
       icon: "🎓",
       order: 4,
       description: "习题课"
-    }],
-  ])
+    }]
+    ])
+  }
+
+  /**
+   * 当前分区配置
+   * 使用 Map 而不是普通对象，避免原型链问题
+   * 初始化为默认配置的副本
+   */
+  static sections = this.getDefaultSections()
 
   /**
    * 获取单个分区配置
@@ -1349,114 +1364,21 @@ class SectionRegistry {
   }
 
   /**
-   * 重置为默认配置（代码中定义的配置）
-   * 删除 NSUserDefaults 中的数据，然后重新加载
+   * 重置为默认配置
+   * 删除存储的自定义配置，恢复到 getDefaultSections() 定义的默认值
+   *
+   * ✅ 单一数据源：所有默认配置都来自 getDefaultSections() 方法
+   * 不需要在此方法中重复定义配置
    */
   static resetToDefault() {
     try {
+      // 删除存储的自定义配置
       NSUserDefaults.standardUserDefaults().removeObjectForKey("MNPinner_sectionConfigs")
 
-      // 重新初始化 sections Map（恢复代码中的默认值）
-      // 由于 Map 是静态定义的，我们需要手动重置每个值
-      this.sections = new Map([
-        // Pin 视图分区
-        ["focus", {
-          key: "focus",
-          displayName: "Focus",
-          viewMode: "pin",
-          color: "#457bd3",
-          icon: "📌",
-          order: 1,
-          description: "重点关注的卡片"
-        }],
+      // ✅ 从工厂方法获取默认配置的全新副本
+      this.sections = this.getDefaultSections()
 
-        // Task 视图分区
-        ["taskToday", {
-          key: "taskToday",
-          displayName: "Today",
-          viewMode: "task",
-          color: "#e06c75",
-          icon: "📅",
-          order: 1,
-          description: "今天要处理的任务"
-        }],
-        ["taskTomorrow", {
-          key: "taskTomorrow",
-          displayName: "Tomorrow",
-          viewMode: "task",
-          color: "#d19a66",
-          icon: "📆",
-          order: 2,
-          description: "明天的任务"
-        }],
-        ["taskThisWeek", {
-          key: "taskThisWeek",
-          displayName: "This Week",
-          viewMode: "task",
-          color: "#c678dd",
-          icon: "📊",
-          order: 3,
-          description: "本周任务"
-        }],
-        ["taskTodo", {
-          key: "taskTodo",
-          displayName: "TODO",
-          viewMode: "task",
-          color: "#56b6c2",
-          icon: "✅",
-          order: 4,
-          description: "待办事项"
-        }],
-
-        // Custom 视图分区
-        ["custom1", {
-          key: "custom1",
-          displayName: "自定义 1",
-          viewMode: "custom",
-          color: "#98c379",
-          icon: "📌",
-          order: 1,
-          description: "自定义分区 1"
-        }],
-        ["custom2", {
-          key: "custom2",
-          displayName: "自定义 2",
-          viewMode: "custom",
-          color: "#61afef",
-          icon: "📌",
-          order: 2,
-          description: "自定义分区 2"
-        }],
-        ["custom3", {
-          key: "custom3",
-          displayName: "自定义 3",
-          viewMode: "custom",
-          color: "#c678dd",
-          icon: "📌",
-          order: 3,
-          description: "自定义分区 3"
-        }],
-        ["custom4", {
-          key: "custom4",
-          displayName: "自定义 4",
-          viewMode: "custom",
-          color: "#e5c07b",
-          icon: "📌",
-          order: 4,
-          description: "自定义分区 4"
-        }],
-        ["custom5", {
-          key: "custom5",
-          displayName: "自定义 5",
-          viewMode: "custom",
-          color: "#56b6c2",
-          icon: "📌",
-          order: 5,
-          description: "自定义分区 5"
-        }]
-      ])
-
-      pinnerUtils.log("配置已重置为默认值", "SectionRegistry:resetToDefault")
+      pinnerUtils.log("配置已重置为默认值（来自 getDefaultSections）", "SectionRegistry:resetToDefault")
       return true
     } catch (error) {
       pinnerUtils.addErrorLog(error, "SectionRegistry:resetToDefault")
