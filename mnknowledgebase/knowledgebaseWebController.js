@@ -534,7 +534,9 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
           }
           focusNote.appendNoteLink(targetNote, "Both")
           KnowledgeBaseTemplate.removeDuplicateLinksInLastField(targetNote)  // 链接去重
-          focusNote.focusInMindMap(0.5)
+          if (KnowledgeBaseConfig.config.autoCloseMode) {
+            focusNote.focusInMindMap(0.4)
+          }
           success = true
         })
         break;
