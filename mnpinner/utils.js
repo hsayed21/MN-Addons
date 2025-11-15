@@ -287,28 +287,27 @@ class ViewModeRegistry {
       order: 1,
       description: "固定卡片和文档页面"
     }],
+    ["daily", {
+      key: "daily",
+      displayName: "日拱一卒",
+      icon: "☀️",
+      order: 2,
+      description: "日拱一卒视图"
+    }],
     ["task", {
       key: "task",
       displayName: "Task",
       icon: "📋",
-      order: 2,
+      order: 3,
       description: "任务管理视图"
     }],
     ["custom", {
       key: "custom",
       displayName: "Custom",
       icon: "🎨",
-      order: 3,
+      order: 4,
       description: "用户自定义视图"
     }],
-    // 测试用：添加 daily 视图
-    ["daily", {
-      key: "daily",
-      displayName: "Daily",
-      icon: "☀️",
-      order: 4,
-      description: "日常事务视图"
-    }]
   ])
 
   /**
@@ -897,7 +896,7 @@ class SectionRegistry {
       color: "#e06c75",
       icon: "❗️",
       order: 3,
-      description: "今天计划要处理的任务"
+      description: "今天必须完成的任务，降低完成预期，以完成为主，先完成再完美"
     }],
     ["taskToday", {
       key: "taskToday",
@@ -967,87 +966,88 @@ class SectionRegistry {
       description: "下月任务"
     }],
 
-    // Daily 视图分区（测试用）
-    ["dailyMorning", {
-      key: "dailyMorning",
-      displayName: "Morning",
+    // ["dailyMorning", {
+    //   key: "dailyMorning",
+    //   displayName: "Morning",
+    //   viewMode: "daily",
+    //   color: "#ffd166",
+    //   icon: "🌅",
+    //   order: 1,
+    //   description: "早晨例行事项"
+    // }],
+    // ["dailyAfternoon", {
+    //   key: "dailyAfternoon",
+    //   displayName: "Afternoon",
+    //   viewMode: "daily",
+    //   color: "#06ffa5",
+    //   icon: "☀️",
+    //   order: 2,
+    //   description: "下午安排"
+    // }],
+    // ["dailyEvening", {
+    //   key: "dailyEvening",
+    //   displayName: "Evening",
+    //   viewMode: "daily",
+    //   color: "#118ab2",
+    //   icon: "🌙",
+    //   order: 3,
+    //   description: "晚间活动"
+    // }],
+
+    ["daily/Courses", {
+      key: "daily/Courses",
+      displayName: "课程学习",
       viewMode: "daily",
-      color: "#ffd166",
-      icon: "🌅",
+      color: "#98c379",
+      icon: "🏃",
       order: 1,
-      description: "早晨例行事项"
+      description: "把上课的内容还是要好好消化掉"
     }],
-    ["dailyAfternoon", {
-      key: "dailyAfternoon",
-      displayName: "Afternoon",
+    ["daily/Reading/doing", {
+      key: "daily/Reading/doing",
+      displayName: "精读(ing)",
       viewMode: "daily",
-      color: "#06ffa5",
-      icon: "☀️",
+      color: "#98c379",
+      icon: "🏃",
       order: 2,
-      description: "下午安排"
+      description: "正在精读的"
     }],
-    ["dailyEvening", {
-      key: "dailyEvening",
-      displayName: "Evening",
+    ["daily/Framework/doing", {
+      key: "daily/Framework/doing",
+      displayName: "框架整理(doing)",
       viewMode: "daily",
-      color: "#118ab2",
-      icon: "🌙",
+      color: "#98c379",
+      icon: "🏃",
       order: 3,
-      description: "晚间活动"
+      description: "进行中的框架整理"
+    }],
+    ["daily/Reading/pending", {
+      key: "daily/Reading/pending",
+      displayName: "精读(Inbox)",
+      viewMode: "daily",
+      color: "#98c379",
+      icon: "🏃",
+      order: 4,
+      description: "计划精读的"
+    }],
+    ["daily/Framework/pending", {
+      key: "daily/Framework/pending",
+      displayName: "框架整理(Inbox)",
+      viewMode: "daily",
+      color: "#98c379",
+      icon: "🏃",
+      order: 5,
+      description: "计划进行框架整理的"
     }],
 
-    // ["custom1", {
-    //   key: "custom1",
-    //   displayName: "Custom 1",
-    //   viewMode: "custom",
-    //   color: "#98c379",
-    //   icon: "🏃",
-    //   order: 2,
-    //   description: "默认自定义分区 1"
-    // }],
-    // ["custom2", {
-    //   key: "custom2",
-    //   displayName: "Custom 2：？？",
-    //   viewMode: "custom",
-    //   color: "#98c379",
-    //   icon: "🏃",
-    //   order: 1,
-    //   description: "默认自定义分区 2"
-    // }],
-    ["taskDailyTask/Courses", {
-      key: "taskDailyTask/Courses",
-      displayName: "日拱一卒：课程学习",
-      viewMode: "custom",
-      color: "#98c379",
-      icon: "🏃",
-      order: 1,
-      description: "每日坚持的任务"
-    }],
-    ["taskDailyTask/Reading", {
-      key: "taskDailyTask/Reading",
-      displayName: "日拱一卒：精读",
-      viewMode: "custom",
-      color: "#98c379",
-      icon: "🏃",
-      order: 2,
-      description: "每日坚持的任务"
-    }],
-    ["taskDailyTask/Framework", {
-      key: "taskDailyTask/Framework",
-      displayName: "日拱一卒：MN 框架整理",
-      viewMode: "custom",
-      color: "#98c379",
-      icon: "🏃",
-      order: 3,
-      description: "每日坚持的任务"
-    }],
+
     ["class", {
       key: "class",
       displayName: "Class",
       viewMode: "custom",
       color: "#e5c07b",
       icon: "🎓",
-      order: 4,
+      order: 1,
       description: "上课"
     }],
     ["toOrganize", {
@@ -1056,7 +1056,7 @@ class SectionRegistry {
       viewMode: "custom",
       color: "#98c379",
       icon: "📥",
-      order: 5,
+      order: 2,
       description: "需要整理的零散内容"
     }],
     ["literatureReading", {
@@ -1065,7 +1065,7 @@ class SectionRegistry {
       viewMode: "custom",
       color: "#e5c07b",
       icon: "📖",
-      order: 6,
+      order: 3,
       description: "文献阅读"
     }],
     ["exerciseClass", {
@@ -1074,7 +1074,7 @@ class SectionRegistry {
       viewMode: "custom",
       color: "#e5c07b",
       icon: "🎓",
-      order: 7,
+      order: 4,
       description: "习题课"
     }],
   ])
