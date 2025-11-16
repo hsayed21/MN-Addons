@@ -1,54 +1,55 @@
 class SnipasteHistoryManager {
-  constructor() {
-    this.history = []; // 存储历史记录
-    this.currentIndex = -1; // 当前索引位置
-  }
+
+  static history = []; // 存储历史记录
+  static currentIndex = -1; // 当前索引位置
+  static recordedIds = []; // 存储已记录的ID
 
   /**
    * 添加历史记录
    * @param {string} type - 记录类型
    * @param {string|number} id - 记录ID
-   * @param {string} content
+   * @param {object} detail - 记录详情
+   * @returns {boolean} 是否成功添加
    */
-  addRecord(type, id, content) {
-    // 如果在历史记录中间添加新记录，则删除后面的记录
-    if (this.currentIndex < this.history.length - 1) {
-      this.history = this.history.slice(0, this.currentIndex + 1);
+  static addRecord(type, id, detail) {
+    // // 如果在历史记录中间添加新记录，则删除后面的记录
+    // if (this.currentIndex < this.history.length - 1) {
+    //   this.history = this.history.slice(0, this.currentIndex + 1);
+    // }
+    if (this.recordedIds.includes(id)) {
+      return false
     }
-    
-    this.history.push({ type, id ,content});
-    this.currentIndex = this.history.length - 1;
+    this.recordedIds.push(id)
+    this.history.unshift({ type, id ,detail})
+    return true
+    // this.history.push({ type, id ,content});
+    // this.currentIndex = this.history.length - 1;
   }
-
-  /**
-   * 向前导航
-   * @returns {object|null} 返回前一条记录，如果没有则返回null
-   */
-  goBack() {
-    if (this.currentIndex > 0) {
-      this.currentIndex--;
-      return this.history[this.currentIndex];
-    }
-    return null;
+  static copy(){
+    MNUtil.copy(this.history)
   }
-
   /**
-   * 向后导航
-   * @returns {object|null} 返回后一条记录，如果没有则返回null
+   * 
+   * @param {string} id 
+   * @param {NSData} imageData 
    */
-  goForward() {
-    if (this.currentIndex < this.history.length - 1) {
-      this.currentIndex++;
-      return this.history[this.currentIndex];
-    }
-    return null;
+  static saveImageById(id,imageData){
+    imageData.writeToFileAtomically(MNUtil.cacheFolder+"/"+id+".jpg", false)
+  }
+  /**
+   * 
+   * @param {string} id 
+   * @returns {NSData}
+   */
+  static getImageById(id){
+    return MNUtil.getFile(MNUtil.cacheFolder+"/"+id+".jpg")
   }
 
   /**
    * 获取当前记录
    * @returns {object|null} 返回当前记录，如果没有则返回null
    */
-  getCurrent() {
+  static getCurrent() {
     if (this.currentIndex >= 0 && this.currentIndex < this.history.length) {
       return this.history[this.currentIndex];
     }
@@ -58,33 +59,15 @@ class SnipasteHistoryManager {
   /**
    * 清空历史记录
    */
-  clear() {
+  static clear() {
     this.history = [];
     this.currentIndex = -1;
   }
 }
 
-// // 使用示例
-// const historyManager = new HistoryManager();
-
-// // 添加记录
-// historyManager.addRecord('page', 1);
-// historyManager.addRecord('page', 2);
-// historyManager.addRecord('product', 'abc123');
-
-// // 导航测试
-// console.log(historyManager.goBack()); // { type: 'page', id: 2 }
-// console.log(historyManager.goBack()); // { type: 'page', id: 1 }
-// console.log(historyManager.goForward()); // { type: 'page', id: 2 }
-// console.log(historyManager.goForward()); // { type: 'product', id: 'abc123' }
-
-// // 添加新记录会截断后面的历史
-// historyManager.addRecord('category', 5);
-// console.log(historyManager.goBack()); // { type: 'product', id: 'abc123' }
-// console.log(historyManager.goForward()); // { type: 'category', id: 5 }
-
 class snipasteUtils{
   static errorLog = []
+  static initilized = false
   /**
    * 
    * @param {string} fullPath 
@@ -111,6 +94,28 @@ class snipasteUtils{
         resolve()
       })
     })
+  }
+  /**
+   * 
+   * @param {string} message 
+   * @param {any} detail 
+   * @param {["INFO","ERROR","WARNING","DEBUG"]} level 
+   */
+  static log(message,detail,level = "INFO"){
+    MNUtil.log({message:message,detail:detail,source:"MN Snipaste",level:level})
+  }
+  static init(mainPath){
+    if (this.initilized) {
+      return
+    }
+    this.mainPath = mainPath
+    this.offset = {}
+    if (MNUtil.isIOS()) {
+      this.offset = {top:50}
+    }else{
+      this.offset = {top:35}
+    }
+    this.initilized = true
   }
   static showHUD(message,duration=2) {
     let app = Application.sharedInstance()
@@ -259,6 +264,10 @@ class snipasteUtils{
     this.addErrorLog(error, "importPDFFromBase64")
     return undefined
   }
+  }
+  static getImageSize(imageData){
+    let image = UIImage.imageWithData(imageData)
+    return image.size
   }
   /**
    * 该方法会弹出文件选择窗口以选择要导入的文档
@@ -409,6 +418,7 @@ class snipasteUtils{
         color: ${textColor};
       }
       .comment {
+        white-space: pre-line;
         padding-left: 10px;
         padding-right: 10px;
         cursor: grab;
@@ -951,217 +961,10 @@ static getFullMermaindHTML(content) {
       detail:tem
     })
   }
-}
-
-
-function shouldPrevent(currentURL,requestURL,type) {
-  let firstCheck = Application.sharedInstance().osType === 0 && (type===0 || /^https:\/\/m.inftab.com/.test(currentURL))
-  if (firstCheck) {
-    let blacklist = ["^https?://www.bilibili.com","^https?://m.bilibili.com","^https?://space.bilibili.com","^https?://t.bilibili.com","^https?://www.wolai.com","^https?://flowus.com","^https?://www.notion.so"]
-    if (blacklist.some(url=>RegExp(url).test(requestURL))) {
-      return true
+  static getLatestSelection(){
+    if (MNUtil.focusHistory.length > 0) {
+      return MNUtil.focusHistory.at(-1)
     }
-  }
-  return false
-}
-
-function showHUD(message,duration=2) {
-  let focusWindow = Application.sharedInstance().focusWindow
-  Application.sharedInstance().showHUD(message,focusWindow,duration)
-}
-function getImage(path,scale=2) {
-  return UIImage.imageWithDataScale(NSData.dataWithContentsOfFile(path), scale)
-}
-
-function setLocalDataByKey(value,key) {
-  NSUserDefaults.standardUserDefaults().setObjectForKey(value,key)
-  NSUserDefaults.standardUserDefaults().synchronize()
-}
-
-function getLocalDataByKey(key) {
-  return NSUserDefaults.standardUserDefaults().objectForKey(key)
-}
-
-function getLocalDataByKeyDefault(key,defaultValue) {
-  let value = NSUserDefaults.standardUserDefaults().objectForKey(key)
-  if (value === undefined) {
-    NSUserDefaults.standardUserDefaults().setObjectForKey(defaultValue,key)
-    return defaultValue
-  }
-  return value
-}
-
-function addObserver(object,target,notification) {
-  NSNotificationCenter.defaultCenter().addObserverSelectorName(object, target, notification);
-}
-function removeObservers(object,notifications) {
-  notifications.forEach(notification=>{
-    NSNotificationCenter.defaultCenter().removeObserverName(object, notification);
-  })
-}
-
-function getPopoverAndPresent(sender,commandTable,width=100) {
-  var menuController = MenuController.new();
-  menuController.commandTable = commandTable
-  menuController.rowHeight = 35;
-  menuController.preferredContentSize = {
-    width: width,
-    height: menuController.rowHeight * menuController.commandTable.length
-  };
-  var popoverController = new UIPopoverController(menuController);
-  let focusWindow = Application.sharedInstance().focusWindow
-  var studyController = Application.sharedInstance().studyController(focusWindow);
-  var r = sender.convertRectToView(sender.bounds,studyController.view);
-  popoverController.presentPopoverFromRect(r, studyController.view, 1 << 1, true);
-  return popoverController
-}
-
-function calcDistance(vec1,vec2) {
-  let dis = 0
-  for (let i = 0; i < 1024; i++) {
-    dis = dis+Math.pow((vec1[i]-vec2[i]),2)
-  }
-  return Math.sqrt(dis)
-} 
-
-function getMindmapNodes() {
-  let focusWindow = Application.sharedInstance().focusWindow
-  return Application.sharedInstance().studyController(focusWindow).notebookController.mindmapView.mindmapNodes;
-}
-
-function getSelectedNotes() {
-  let focusWindow = Application.sharedInstance().focusWindow
-  return Application.sharedInstance().studyController(focusWindow).notebookController.mindmapView.selViewLst.map(item=>item.note.note);
-}
-
-function getNotebookNotes(notebookid) {
-  let notebook = Database.sharedInstance().getNotebookById(notebookid)
-  return notebook.notes
-  // let focusWindow = Application.sharedInstance().focusWindow
-  // return Application.sharedInstance().studyController(focusWindow).notebookController.mindmapView.mindmapNodes;
-}
-
-function getNotebookFlashCards(notebookid) {
-  let notebook = Database.sharedInstance().getNotebookById(notebookid)
-  return notebook.notes.filter(note=>Database.sharedInstance().hasFlashcardByNoteId(note.noteId))
-  // let focusWindow = Application.sharedInstance().focusWindow
-  // return Application.sharedInstance().studyController(focusWindow).notebookController.mindmapView.mindmapNodes;
-}
-
-function vectorFormatter(vector) {
-  let formatted = vector.map(vec=>{
-    if (vec.doubleValue) {
-      return Number(vec.doubleValue().toFixed(2))
-    }else{
-      return Number(vec.toFixed(2))
-    }
-  })
-  return formatted
-}
-
-/**
- * 在数据来源控制为两位小数即可，其他地方不需要再调用vectorFormatter，会明显降低速度
- * @param {String} apikey
- * @param {String} text
- * @returns {Promise<number[]>}
- */
-async function getVec(apikey,text) {
-  let final_sign = getAuthorization(apikey)
-  let vector = await fetchEmbedding(final_sign,text)
-  if (!vector) {
-    showHUD("error")
     return undefined
   }
-  let nums = vectorFormatter(vector)
-  return nums
-}
-
-
-function hasVec(note) {
-  let comments = note.comments.filter(comment=>comment.type == "HtmlNote" && /^vector:\/\//.test(comment.text))
-  if (comments.length) {
-    return true
-  }else{
-    return false
-  }
-}
-
-
-function focusNote(note) {
-  let focusWindow = Application.sharedInstance().focusWindow
-  showHUD(note.noteId)
-  return Application.sharedInstance().studyController(focusWindow).focusNoteInMindMapById(note.noteId)
-}
-
-function getTextForSearch (note,order) {
-    let text
-    for (let index = 0; index < order.length; index++) {
-      const element = order[index];
-      switch (element) {
-        case 1:
-          if (note.noteTitle && note.noteTitle !== "") {
-            text = note.noteTitle
-          }
-          break;
-        case 2:
-          if (note.excerptText && note.excerptText !== "" && (!note.excerptPic || note.textFirst)) {
-            text = note.excerptText
-          }
-          break;
-        case 3:
-          let commentText
-          let comment = note.comments.find(comment=>{
-            switch (comment.type) {
-              case "TextNote":
-                if (/^marginnote\dapp:\/\//.test(comment.text)) {
-                  return false
-                }else{
-                  commentText = comment.text
-                  return true
-                }
-              case "HtmlNote":
-                commentText = comment.text
-                return true
-              case "LinkNote":
-                if (comment.q_hpic && !note.textFirst) {
-                  return false
-                }else{
-                  commentText = comment.q_htext
-                  return true
-                }
-              default:
-                return false
-            }
-          })
-          // let noteText  = note.comments.filter(comment=>comment.type === "TextNote" && !/^marginnote3app:\/\//.test(comment.text))
-          // if (noteText.length) {
-          //   text =  noteText[0].text
-          // }
-          if (commentText && commentText.length) {
-            // showHUD("comment")
-            text = commentText
-          }
-          break;
-        default:
-          break;
-      }
-      if (text) {
-        // showHUD(text)
-        return text
-      }
-    }
-  // showHUD("No text found")
-  return ""
-  }
-async function delay(time) {
-  return new Promise((resolve, reject) => {
-    NSTimer.scheduledTimerWithTimeInterval(time, false, function () {
-      resolve()
-    })
-  })
-}
-
-function studyController() {
-  let focusWindow = Application.sharedInstance().focusWindow
-  return Application.sharedInstance().studyController(focusWindow)
 }

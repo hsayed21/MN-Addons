@@ -386,7 +386,7 @@ class toolbarUtils {
         menuItems = ["target"]
         break;
       case "setContent":
-        menuItems = ["target","content","range","varName"]
+        menuItems = ["target","content","range","varName","commentIndex"]
         break;
       case "clearContent":
         menuItems = ["target","type","allowDeleteNote","range","index"]
@@ -1213,6 +1213,23 @@ try {
     )
     this.app.refreshAfterDBChanged(notebookId)
   }
+  /**
+   * Groups the specified function within an undo operation for the given notebook.
+   * 
+   * This method wraps the provided function within an undo operation for the specified notebook.
+   * It ensures that the function's changes can be undone as a single group. After the function is executed,
+   * it refreshes the application to reflect the changes.
+   * 
+   * @param {Function} f - The function to be executed within the undo group.
+   * @param {string} [notebookId=this.currentNotebookId] - The ID of the notebook for which the undo group is created.
+   */
+  static undoGroupingNotRefresh(f,notebookId = MNUtil.currentNotebookId){
+    UndoManager.sharedInstance().undoGrouping(
+      String(Date.now()),
+      notebookId,
+      f
+    )
+  }
   static openURL(url){
     if (!this.app) {
       this.app = Application.sharedInstance()
@@ -1354,6 +1371,87 @@ try {
     if (!regParts) throw ""
     return new RegExp(regParts[1], regParts[2])
   }
+  /**
+   * 
+   * @param {array<Object>} editConfigs
+   * @param {MNNote} note 
+   * @param {object} option 
+   */
+static applyEditByConfig(editConfigs,note,option = {}){
+  try {
+
+    let refresh = option.refresh ?? true
+    let undoGrouping = option.undoGrouping ?? true
+    if (editConfigs.length > 0) {
+      const editFunc = (editConfig)=>{
+        if ("deleteNote" in editConfig && editConfig.deleteNote) {
+          note.delete()
+          //没有必要做其他编辑
+          return true
+        }
+        if ("color" in editConfig) {
+          note.color = editConfig.color
+        }
+        if ("excerptText" in editConfig) {
+          note.excerptText = editConfig.excerptText
+        }
+        if ("excerptTextMarkdown" in editConfig) {
+          note.excerptTextMarkdown = editConfig.excerptTextMarkdown
+        }
+        if ("title" in editConfig) {
+          note.title = editConfig.title
+        }
+        if ("tags" in editConfig) {
+          note.appendTags(editConfig.tags)
+        }
+        if ("markdownComment" in editConfig) {
+          if ("markdownCommentIndex" in editConfig) {
+            note.appendMarkdownComment(editConfig.markdownComment, editConfig.markdownCommentIndex)
+          }else{
+            note.appendMarkdownComment(editConfig.markdownComment)
+          }
+        }
+        if ("textComment" in editConfig) {
+          if ("textCommentIndex" in editConfig) {
+            note.appendTextComment(editConfig.textComment, editConfig.textCommentIndex)
+          }else{
+            note.appendTextComment(editConfig.textComment)
+          }
+        }
+        if ("tagsToRemove" in editConfig) {
+          note.removeTags(editConfig.tagsToRemove)
+        }
+      }
+      if (undoGrouping) {
+        if (refresh) {
+          MNUtil.undoGrouping(()=>{
+            editConfigs.forEach(editConfig=>{
+              editFunc(editConfig)
+            })
+          })
+        }else{
+          this.undoGroupingNotRefresh(()=>{
+            editConfigs.forEach(editConfig=>{
+              editFunc(editConfig)
+            })
+          })
+        }
+      }else{
+        editConfigs.forEach(editConfig=>{
+          editFunc(editConfig)
+        })
+        if (refresh) {
+          MNUtil.refreshAfterDBChanged()
+        }
+      }
+    }
+    return true
+        
+  } catch (error) {
+    this.addErrorLog(error, "applyEditByConfig")
+    return false
+  }
+  }
 /**
  * 
  * @param {MNNote[]} notes 
@@ -1474,22 +1572,36 @@ try {
   /**
    * 
    * @param {MNNote|MbBookNote} note 
-   * @param {{target:string,type:string,index:number}} des 
+   * @param {{target:string,type:string,commentIndex:number}} des 
    */
-  static async setNoteContent(note,content,des){
+  static async getEditConfigOfSetContent(note,content,des){
     let target = des.target ?? "title"
+    let editConfigs = []
     // let replacedText = this.detectAndReplace(content,undefined,note)
     let replacedText = await this.render(content,{noteId:note.noteId})
     switch (target) {
       case "title":
-        note.noteTitle = replacedText
+        editConfigs.push({
+          title: replacedText
+        })
         break;
       case "excerpt":
       case "excerptText":
-        note.excerptText = replacedText
+        editConfigs.push({
+          excerptText: replacedText
+        })
         break;
       case "newComment":
-        note.appendTextComment(replacedText)
+        editConfigs.push({
+          textComment: replacedText,
+          textCommentIndex: des.commentIndex
+        })
+        break;
+      case "newMarkdownComment":
+        editConfigs.push({
+          markdownComment: replacedText,
+          markdownCommentIndex: des.commentIndex
+        })
         break;
       case "globalVar":
         let varName = des.varName
@@ -1505,6 +1617,7 @@ try {
         MNUtil.showHUD("Invalid target: "+target)
         break;
     }
+    return editConfigs
   }
   /**
    * 
@@ -1540,10 +1653,19 @@ try {
     let range = des.range ?? "currentNotes"
     let targetNotes = this.getNotesByRange(range)
     if (targetNotes.length) {
+      let editConfig = {}
+      for (let i = 0; i < targetNotes.length; i++) {
+        let note = targetNotes[i];
+        let editConfigs = await this.getEditConfigOfSetContent(note, des.content, des)
+        editConfig[note.noteId] = editConfigs
+      }
+
       MNUtil.undoGrouping(()=>{
-        targetNotes.forEach(note=>{
-          let content = des.content ?? "content"
-          this.setNoteContent(note, content,des)
+        targetNotes.forEach(n=>{
+          let editConfigs = editConfig[n.noteId]
+          if (editConfigs && editConfigs.length) {
+            toolbarUtils.applyEditByConfig(editConfigs, n, {undoGrouping: false, refresh: false})
+          }
         })
       })
     }else{
@@ -3911,11 +4033,9 @@ Image Text Extraction Specialist
     noteConfig.inMainMindMap = !noteConfig.childMindMap
     noteConfig.inChildMindMap = !!noteConfig.childMindMap
     if (opt.parent && note.parentNote) {
-      if (noteInfo && "parentLevel" in noteInfo) {
-        if (opt.parentLevel > 0) {
+      if ("parentLevel" in opt && opt.parentLevel > 0) {
       // MNUtil.log("Get parent: "+opt.parentLevel)
           noteConfig.parent = await this.getNoteObject(note.parentNote,{parentLevel:opt.parentLevel-1,parent:true,first:false})
-        }
       }else{
       // MNUtil.log("Get parent: "+opt.parentLevel)
         noteConfig.parent = await this.getNoteObject(note.parentNote,{first:false})
@@ -5770,7 +5890,7 @@ static getButtonFrame(button){
     vars.map(v=>{
       if (v.startsWith("note.")) {
         noteInfo.hasNote = true//只要有一个变量带note就行
-        if (v.startsWith("note.doc.content")) {
+        if (v.endsWith(".doc.content")) {
           noteInfo.hasNoteDoc = true
         }
         if (v.startsWith("note.childMindMap.")) {
@@ -5781,26 +5901,8 @@ static getButtonFrame(button){
         }
         if (v.startsWith("note.parent.")) {
           noteInfo.hasParent = true
-          if (v.startsWith("note.parent.parent.parent.")) {
-            noteInfo.parentLevel = 3
-            if (v.startsWith("note.parent.parent.parent.doc.content")) {
-              noteInfo.hasNoteDoc = true
-            }
-          }else if (v.startsWith("note.parent.parent.")) {
-            if (noteInfo.parentLevel !== 3) {//如果为3则不覆盖
-              noteInfo.parentLevel = 2
-            }
-            if (v.startsWith("note.parent.parent.doc.content")) {
-              noteInfo.hasNoteDoc = true
-            }
-          }else {
-            if (noteInfo.parentLevel < 2) {//如果小于2则不覆盖
-              noteInfo.parentLevel = 1
-            }
-            if (v.startsWith("note.parent.doc.content")) {
-              noteInfo.hasNoteDoc = true
-            }
-          }
+          let items = v.split(".").filter(item=>item === "parent")
+          noteInfo.parentLevel = items.length
         }
         if (v.startsWith("note.child.")) {
           noteInfo.hasChild = true
@@ -5943,6 +6045,7 @@ static isBlankNote(note){//指有图片摘录但图片分辨率为1x1的空白�
     let noteConfig = undefined
     let vars = this.parseVars(replaceText)
     let noteInfo = vars.noteInfo
+    MNUtil.log({message:"getNoteVarInfo",detail:noteInfo})
 
     let preConfig = {userInput:userInput,note:noteConfig,cursor:"{{cursor}}"}
     if (vars.hasTimer) {
@@ -5958,6 +6061,7 @@ static isBlankNote(note){//指有图片摘录但图片分辨率为1x1的空白�
       noteConfig = await this.getNoteObject(note,{
         noteInfo:noteInfo, parent:noteInfo.hasParent, child:noteInfo.hasChild,parentLevel:noteInfo.parentLevel
       })
+      MNUtil.log({message:"getNoteVarInfo",detail:noteConfig})
     }
     if (noteConfig) {
       preConfig.note = noteConfig

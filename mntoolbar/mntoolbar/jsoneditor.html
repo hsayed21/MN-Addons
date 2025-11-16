@@ -590,10 +590,11 @@ function getSchemaByActionName(actionName) {
       properties.target = stringEnum(["title","excerpt","appendTitle","appendExcerpt"])
       break;
     case "setContent":
-      properties.target = stringEnum(['title','excerpt','newComment','globalVar'])
+      properties.target = stringEnum(['title','excerpt','newComment','newMarkdownComment','globalVar'])
       properties.content = stringType()
       properties.range = stringEnum(['currentNotes','childNotes','descendantNotes'])
       properties.varName = stringType()
+      properties.commentIndex = numberType()
       break;
     case "clearContent":
       properties.target = stringEnum(['title','excerptText','comments','excerptTextAndComments'])

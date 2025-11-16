@@ -16,113 +16,7 @@ var snipasteController = JSB.defineClass('snipasteController : UIViewController 
     self.lastFrame = self.view.frame;
     self.currentFrame = self.view.frame
     self.moveDate = Date.now()
-
-    // >>> DeepL view >>>
-    self.webview = new UIWebView(self.view.bounds);
-    // NSUserDefaults.standardUserDefaults().setObjectForKey('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15',"UserAgent")
-
-    self.webview.backgroundColor = UIColor.clearColor()
-    self.webview.scalesPageToFit = true;
-    self.webview.autoresizingMask = (1 << 1 | 1 << 4);
-    self.webview.delegate = self;
-    // self.webview.setValueForKey("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15","User-Agent")
-    self.webview.scrollView.delegate = self;
-    self.webview.layer.cornerRadius = 15;
-    self.webview.layer.masksToBounds = true;
-
-    // >>> DeepL langauge button >>>
-    // self.webview.lanButton = UIButton.buttonWithType(0);
-    // <<< DeepL langauge button <<<
-    self.webview.hidden = true;
-    self.webview.lastOffset = 0;
-    self.view.addSubview(self.webview);
-    // <<< DeepL view <<<
-
-// >>> opacity button >>>
-    // self.webAppButton.titleLabel.font = UIFont.systemFontOfSize(12);
-    // <<< opacity button <<<
-    // >>> close button >>>
-    self.closeButton = UIButton.buttonWithType(0);
-    self.setButtonLayout(self.closeButton,"closeButtonTapped:")
-    self.closeButton.setTitleForState('✖️', 0);
-    self.closeButton.titleLabel.font = UIFont.systemFontOfSize(10);
-    // <<< close button <<<
-    // >>> max button >>>
-    self.maxButton = self.createButton("maxButtonTapped:")
-    self.maxButton.setTitleForState('➕', 0);
-    self.maxButton.titleLabel.font = UIFont.systemFontOfSize(10);
-    // <<< max button <<<
-
-    // >>> min button >>>
-    self.minButton = self.createButton("minButtonTapped:")
-    self.minButton.setTitleForState('➖', 0);
-    self.minButton.titleLabel.font = UIFont.systemFontOfSize(10);
-    // <<< min button <<<
-
-    // >>> screen button >>>
-    self.screenButton = UIButton.buttonWithType(0);
-    self.setButtonLayout(self.screenButton,"changeScreen:")
-    self.screenButton.setImageForState(self.screenImage,0)
-    // <<< screen button <<<
-    // >>> search button >>>
-    self.searchButton = UIButton.buttonWithType(0);
-    self.setButtonLayout(self.searchButton,"searchButtonTapped:")
-    self.searchButton.setImageForState(self.snipasteImage,0)
-
-    self.locButton = UIButton.buttonWithType(0);
-    self.setButtonLayout(self.locButton,"locButtonTapped:")
-    self.locButton.setImageForState(self.locImage,0)
-
-    self.linkButton = UIButton.buttonWithType(0);
-    self.setButtonLayout(self.linkButton,"linkButtonTapped:")
-    self.linkButton.setImageForState(self.linkImage,0)
-
-    // self.searchButton.setTitleForState('🔍', 0);
-    // <<< search button <<<
-    // >>> move button >>>
-    // self.moveButton = UIButton.buttonWithType(0);
-    self.moveButton = self.createButton("moveButtonTapped:")
-    self.setButtonLayout(self.moveButton)
-    // <<< move button <<<
-    // >>> goForward button >>>
-    self.goForwardButton = UIButton.buttonWithType(0);
-    self.setButtonLayout(self.goForwardButton,"goForwardButtonTapped:")
-    self.goForwardButton.setImageForState(self.goforwardImage,0)
-    // <<< goForward button <<<
-      // >>> goBack button >>>
-    self.goBackButton = UIButton.buttonWithType(0);
-    self.setButtonLayout(self.goBackButton,"goBackButtonTapped:")
-    self.goBackButton.setImageForState(self.gobackImage,0)
-    // <<< goBack button <<<
-
-    self.firstPageButton = UIButton.buttonWithType(0);
-    self.setButtonLayout(self.firstPageButton,"firstPageButtonTapped:")
-    self.firstPageButton.setImageForState(self.firstPageImage,0)
-
-    self.prevPageButton = UIButton.buttonWithType(0);
-    self.setButtonLayout(self.prevPageButton,"prevPageButtonTapped:")
-    self.prevPageButton.setImageForState(self.prevPageImage,0)
-
-    self.nextPageButton = UIButton.buttonWithType(0);
-    self.setButtonLayout(self.nextPageButton,"nextPageButtonTapped:")
-    self.nextPageButton.setImageForState(self.nextPageImage,0)
-
-    self.lastPageButton = UIButton.buttonWithType(0);
-    self.setButtonLayout(self.lastPageButton,"lastPageButtonTapped:")
-    self.lastPageButton.setImageForState(self.lastPageImage,0)
-
-    self.pageIndexButton = UIButton.buttonWithType(0);
-    self.setButtonLayout(self.pageIndexButton,"choosePageIndex:")
-
-    self.moveGesture = new UIPanGestureRecognizer(self,"onMoveGesture:")
-    self.moveButton.addGestureRecognizer(self.moveGesture)
-    self.moveGesture.view.hidden = false
-    self.moveGesture.addTargetAction(self,"onMoveGesture:")
-
-    self.resizeGesture = new UIPanGestureRecognizer(self,"onResizeGesture:")
-    self.screenButton.addGestureRecognizer(self.resizeGesture)
-    self.resizeGesture.view.hidden = false
-    self.resizeGesture.addTargetAction(self,"onResizeGesture:")
+    self.isFirst = true
   },
   viewWillAppear: function(animated) {
     self.webview.delegate = self;
@@ -169,10 +63,22 @@ viewWillLayoutSubviews: function() {
     self.searchButton.frame = {  x: xRight - 80,  y: yBottom - 35,  width: 35,  height: 30}
     self.locButton.frame = {  x: xRight - 120,  y: yBottom - 35,  width: 35,  height: 30,}
     self.linkButton.frame = {  x: xRight - 160,  y: yBottom - 35,  width: 35,  height: 30,}
-
-    self.goBackButton.frame = {  x: xLeft+6,  y: yBottom - 35,  width: 35,  height: 30,};
-    self.goForwardButton.frame = {  x: xLeft+41,  y: yBottom - 35,  width: 35,  height: 30,};
     self.webview.frame = {x:xLeft,y:yTop+8,width:viewFrame.width,height:viewFrame.height-8}
+    self.buttonScrollview.frame = {x:0,y:yBottom-35,width:xRight-165,height:35}
+    let x = 5
+    for (let i = 0; i < 5; i++) {
+      let buttonName = "historyButton" + (i+1)
+      if (self[buttonName] && !self[buttonName].hidden) {
+        if (i > 0) {
+          x = x + 105
+        }
+        self[buttonName].frame = {x:x,y:0,width:100,height:30}
+      }
+    }
+    // self.buttonScrollview.setContentOffsetAnimated({x:0,y:0},false)
+    // if (self.buttonScrollviewContentSize) {
+    //   self.buttonScrollview.contentSize = self.buttonScrollviewContentSize
+    // }
   },
   /**
    * 
@@ -224,8 +130,6 @@ viewWillLayoutSubviews: function() {
       // MNUtil.log("pageNo:"+self.pageNo)
       self.toPage(self.pageNo)
     }
-    self.goBackButton.hidden = !webView.canGoBack
-    self.goForwardButton.hidden = !webView.canGoForward
     if (self.focusNoteId) {
       self.locButton.hidden = false
       self.linkButton.hidden = false
@@ -243,21 +147,20 @@ viewWillLayoutSubviews: function() {
     // let scrollHeight = self.webview.scrollView.contentSize.height
     // self.webview.scrollView.setContentOffsetAnimated({x:0,y:scrollHeight-self.webview.frame.height},false)
     // await MNUtil.delay(0.05)
-    let res = await self.runJavaScript(`
-      document.body.scrollHeight;
-    `)
-    if (res) {
-        let offsetHeight = parseFloat(res)
+
+    let offsetHeight = await self.getWebviewHeight()
+    if (offsetHeight) {
         let viewFrame = self.view.frame
-        let windowHeight = MNUtil.studyView.bounds.height
-        if (viewFrame.y+offsetHeight+40 >= windowHeight) {
+        let windowHeight = MNUtil.studyHeight
+        if (viewFrame.y+offsetHeight+45 >= windowHeight) {
           viewFrame.height = windowHeight-viewFrame.y
         }else{
-          viewFrame.height = offsetHeight+40
+          viewFrame.height = offsetHeight+45
         }
-        if (viewFrame.height < 200) {
-          viewFrame.height = 200
+        if (viewFrame.height < 150) {
+          viewFrame.height = 150
         }
+        // MNUtil.copy(viewFrame)
         self.view.frame = viewFrame
         self.currentFrame = viewFrame
         if (self.view.hidden) {
@@ -296,7 +199,7 @@ viewWillLayoutSubviews: function() {
   webViewDidFailLoadWithError: function(webView, error) {
   },
   webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
-    let currentURL = webView.request.URL().absoluteString()
+    // let currentURL = webView.request.URL().absoluteString()
     let requestURL = request.URL().absoluteString()
     let config = MNUtil.parseURL(requestURL)
     let action = ""
@@ -1122,12 +1025,6 @@ exportToPDF()
           self.snipastePDFDev(docController.docMd5,pageNo)
         }
   },
-  goBackButtonTapped: function() {
-    self.webview.goBack();
-  },
-  goForwardButtonTapped: function() {
-    self.webview.goForward();
-  },
   closeButtonTapped: function() {
     self.hide()
     // self.view.hidden = true;
@@ -1215,7 +1112,11 @@ exportToPDF()
     }
     const frame = MNUtil.currentWindow.bounds
     self.lastFrame = self.view.frame
-    self.view.frame = {x:40,y:30,width:frame.width-80,height:frame.height-50}
+    if (MNUtil.isIOS()) {
+      self.view.frame = {x:5,y:snipasteUtils.offset.top,width:frame.width-10,height:frame.height-20-snipasteUtils.offset.top}
+    }else{
+      self.view.frame = {x:40,y:snipasteUtils.offset.top,width:frame.width-80,height:frame.height-20-snipasteUtils.offset.top}
+    }
     self.customMode = "full"
     self.custom = true;
     self.dynamic = false;
@@ -1314,19 +1215,14 @@ exportToPDF()
           self.minButton.hidden = false
           self.screenButton.hidden = false
           self.searchButton.hidden = false
-          self.goBackButton.hidden = true//!self.webview.canGoBack
-          self.goForwardButton.hidden = true//!self.webview.canGoForward
           self.view.setNeedsLayout()
         })
         self.miniMode = false
         return
       }
     }
-    if (y < 30) {
-      y = 30
-    }
+    y = MNUtil.constrain(y, snipasteUtils.offset.top, MNUtil.windowHeight-snipasteUtils.offset.top)
     if (self.custom) {
-
       self.customMode = "None"
       MNUtil.animate(()=>{
         self.view.frame = MNUtil.genFrame(x, y, self.lastFrame.width, self.lastFrame.height)
@@ -1501,6 +1397,64 @@ exportToPDF()
     self.toPage(self.pageNo)
 
     self.pageIndexButton.setTitleForState(index+1,0)
+  },
+  historyButtonTapped: function(button) {
+    let self = getSnipasteController()
+    let buttonName = button.id
+    let index = parseInt(buttonName.slice(-1))-1
+    let history = SnipasteHistoryManager.history[index]
+    if (history) {
+      let type = history.type
+      let detail = history.detail
+      let id = history.id
+      self.currentId = id
+      // MNUtil.log("historyButtonTapped",history)
+      switch (type) {
+        case "note":
+          self.snipasteNote(MNNote.new(id))
+          break;
+        case "image":
+          if (detail) {
+            let source = detail.source
+            // snipasteUtils.log("detail",detail)
+            switch (source) {
+              case "selection":
+                let imageData = SnipasteHistoryManager.getImageById(id)
+                self.snipasteFromImage(imageData)
+                self.pageIndex = detail.pageIndex
+                self.docMd5 = detail.docMd5
+                self.focusNoteId = undefined
+                break;
+              case "note":
+                self.snipasteNote(MNNote.new(id))
+                break;
+              default:
+                break;
+            }
+          }else{
+            let imageData = SnipasteHistoryManager.getImageById(id)
+            self.snipasteFromImage(imageData)
+            break;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    let latest5History = SnipasteHistoryManager.history.slice(0,5)
+    for (let i = 0; i < 5; i++) {
+      let id = latest5History[i].id
+      let buttonName = "historyButton" + (i+1)
+      if (self[buttonName] && id === self.currentId) {
+        MNButton.setColor(self[buttonName], "#457bd3", 0.8)
+      }else{
+        MNButton.setColor(self[buttonName], "#9bb2d6", 0.8)
+      }
+    }
+    // let history = self.history.find(item => item.id === buttonName)
+    // if (history) {
+    //   self.toPage(history.pageNo)
+    // }
   }
 });
 
@@ -1532,19 +1486,112 @@ snipasteController.prototype.init =function () {
     Application.sharedInstance().defaultTextColor,
     0.8
   );
+  this.createWebview()
+    // <<< opacity button <<<
+    // >>> close button >>>
+    this.closeButton = UIButton.buttonWithType(0);
+    this.setButtonLayout(this.closeButton,"closeButtonTapped:")
+    this.closeButton.setTitleForState('✖️', 0);
+    this.closeButton.titleLabel.font = UIFont.systemFontOfSize(10);
+    // <<< close button <<<
+    // >>> max button >>>
+    this.maxButton = this.createButton("maxButtonTapped:")
+    this.maxButton.setTitleForState('➕', 0);
+    this.maxButton.titleLabel.font = UIFont.systemFontOfSize(10);
+    // <<< max button <<<
+
+    // >>> min button >>>
+    this.minButton = this.createButton("minButtonTapped:")
+    this.minButton.setTitleForState('➖', 0);
+    this.minButton.titleLabel.font = UIFont.systemFontOfSize(10);
+    // <<< min button <<<
+
+
+
+    // >>> screen button >>>
+    this.screenButton = UIButton.buttonWithType(0);
+    this.setButtonLayout(this.screenButton,"changeScreen:")
+    this.screenButton.setImageForState(this.screenImage,0)
+    // <<< screen button <<<
+    // >>> search button >>>
+    this.searchButton = UIButton.buttonWithType(0);
+    this.setButtonLayout(this.searchButton,"searchButtonTapped:")
+    this.searchButton.setImageForState(this.snipasteImage,0)
+
+    this.locButton = UIButton.buttonWithType(0);
+    this.setButtonLayout(this.locButton,"locButtonTapped:")
+    this.locButton.setImageForState(this.locImage,0)
+
+    this.linkButton = UIButton.buttonWithType(0);
+    this.setButtonLayout(this.linkButton,"linkButtonTapped:")
+    this.linkButton.setImageForState(this.linkImage,0)
+
+    // this.searchButton.setTitleForState('🔍', 0);
+    // <<< search button <<<
+    // >>> move button >>>
+    // this.moveButton = UIButton.buttonWithType(0);
+    this.moveButton = this.createButton("moveButtonTapped:")
+    this.setButtonLayout(this.moveButton)
+    // <<< move button <<<
+
+    this.firstPageButton = UIButton.buttonWithType(0);
+    this.setButtonLayout(this.firstPageButton,"firstPageButtonTapped:")
+    this.firstPageButton.setImageForState(this.firstPageImage,0)
+
+    this.prevPageButton = UIButton.buttonWithType(0);
+    this.setButtonLayout(this.prevPageButton,"prevPageButtonTapped:")
+    this.prevPageButton.setImageForState(this.prevPageImage,0)
+
+    this.nextPageButton = UIButton.buttonWithType(0);
+    this.setButtonLayout(this.nextPageButton,"nextPageButtonTapped:")
+    this.nextPageButton.setImageForState(this.nextPageImage,0)
+
+    this.lastPageButton = UIButton.buttonWithType(0);
+    this.setButtonLayout(this.lastPageButton,"lastPageButtonTapped:")
+    this.lastPageButton.setImageForState(this.lastPageImage,0)
+
+    this.pageIndexButton = UIButton.buttonWithType(0);
+    this.setButtonLayout(this.pageIndexButton,"choosePageIndex:")
+
+    this.moveGesture = new UIPanGestureRecognizer(this,"onMoveGesture:")
+    this.moveButton.addGestureRecognizer(this.moveGesture)
+    this.moveGesture.view.hidden = false
+    this.moveGesture.addTargetAction(this,"onMoveGesture:")
+
+    this.resizeGesture = new UIPanGestureRecognizer(this,"onResizeGesture:")
+    this.screenButton.addGestureRecognizer(this.resizeGesture)
+    this.resizeGesture.view.hidden = false
+    this.resizeGesture.addTargetAction(this,"onResizeGesture:")
+
+    this.buttonScrollview = UIScrollView.new()
+    this.view.addSubview(this.buttonScrollview)
+    this.buttonScrollview.hidden = false
+    this.buttonScrollview.delegate = this
+    this.buttonScrollview.bounces = true
+    this.buttonScrollview.autoresizingMask = (1 << 1 | 1 << 4);
+    this.buttonScrollview.alwaysBounceVertical = false
+    this.buttonScrollview.layer.cornerRadius = 8
+    this.buttonScrollview.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",0.0)
+    // this.buttonScrollview.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",1.0)
+    this.buttonScrollview.alwaysBounceHorizontal = true
+    this.buttonScrollview.showsHorizontalScrollIndicator = false
 }
 
-/** @this {snipasteController} */
+/** 
+ * @param {string} targetAction 
+ * @param {string} superview 
+ * @this {snipasteController} 
+ * @returns {UIButton}
+ */
 snipasteController.prototype.createButton = function (targetAction,superview) {
     let button = UIButton.buttonWithType(0);
     button.autoresizingMask = (1 << 0 | 1 << 3);
     button.setTitleColorForState(UIColor.whiteColor(),0);
     button.setTitleColorForState(this.highlightColor, 1);
     button.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
-    button.layer.cornerRadius = 8;
+    button.layer.cornerRadius = 10;
     button.layer.masksToBounds = true;
     button.titleLabel.font = UIFont.systemFontOfSize(16);
-
     if (targetAction) {
       button.addTargetActionForControlEvents(this, targetAction, 1 << 6);
     }
@@ -1578,8 +1625,6 @@ snipasteController.prototype.hideAllButton = function () {
   this.searchButton.hidden = true
   this.locButton.hidden = true
   this.linkButton.hidden = true
-  this.goBackButton.hidden = true
-  this.goForwardButton.hidden = true
   this.firstPageButton.hidden = true
   this.pageIndexButton.hidden = true
   this.prevPageButton.hidden = true
@@ -1597,8 +1642,6 @@ snipasteController.prototype.showAllButton = function () {
   this.searchButton.hidden = false
   // this.locButton.hidden = false
   // this.linkButton.hidden = false
-  this.goBackButton.hidden = true
-  this.goForwardButton.hidden = true
 }
 
 /** @this {snipasteController} */
@@ -1873,9 +1916,17 @@ try {
  */
 snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoPlay = false) {
   this.htmlMode = true
+  if (snipasteUtils.isPureImageNote(focusNote)) {
+    let imageData = MNUtil.getMediaByHash(focusNote.excerptPic.paint)
+    this.focusNoteId = focusNote.noteId
+  // MNUtil.showHUD("Snipaste from note image")
+    this.snipasteFromImage(imageData,{source:"note",noteId:focusNote.noteId})
+    return;
+  }
   if (snipasteUtils.isPureHTMLComment(focusNote)) {
     let html = focusNote.comments[0].html
     this.snipasteHtml(html)
+    this.focusNoteId = focusNote.noteId
     return
   }
   this.mode = "note"
@@ -2090,6 +2141,7 @@ async function exportToPDF() {
   </html>`
   this.onSnipaste = true
   this.currentHTMLString = html
+  // MNUtil.copy(html)
   let data = NSData.dataWithStringEncoding(html,4)
   this.webview.loadDataMIMETypeTextEncodingNameBaseURL(data,"text/html","UTF-8",MNUtil.genNSURL(this.mainPath+"/"))
 
@@ -2104,6 +2156,11 @@ async function exportToPDF() {
     MNUtil.delay(0.1).then(()=>{
       this.audioControl("playOrPause")
     })
+  }
+  this.currentId = focusNote.noteId
+  let success = SnipasteHistoryManager.addRecord("note",this.currentId)
+  if (success) {
+    this.refreshHistoryButtons()
   }
 }
 snipasteController.prototype.audioControl = function (action) {
@@ -2304,8 +2361,8 @@ snipasteController.prototype.show = async function () {
   this.maxButton.hidden = true
   this.minButton.hidden = true
   this.webview.hidden = false
-  if (preFrame.y < 30) {
-    preFrame.y = 30
+  if (preFrame.y < snipasteUtils.offset.top) {
+    preFrame.y = snipasteUtils.offset.top
   }
   if (this.toolbarOn) {
     this.engineButton.hidden = true
@@ -2469,10 +2526,11 @@ snipasteController.prototype.getDataFromNote = function (note) {
     }
   return "\nEmpty note"
   }
-snipasteController.prototype.snipasteFromImage = function (imageData) {
+snipasteController.prototype.snipasteFromImage = function (imageData,detail) {
 // MNConnection.loadFile(this.webview,this.mainPath+"/pngToPDF.html",this.mainPath+"/")
   // MNUtil.log({message:"snipasteFromImage",detail:{pageIndex:self.pageIndex}})
   let base64 = imageData.base64Encoding()
+  let imgURL = `data:image/jpeg;base64,${base64}`
   let html = `<html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -2485,7 +2543,7 @@ snipasteController.prototype.snipasteFromImage = function (imageData) {
     }
   </style>
 </head>
-<body><img class="body" id="png-input" width="100%" src="data:image/jpeg;base64,${base64}"/>
+<body><img class="body" id="png-input" width="100%" src="${imgURL}"/>
 
     <script>
 ${snipasteUtils.getSubFuncScript()}
@@ -2499,11 +2557,35 @@ ${snipasteUtils.getSubFuncScript()}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </body>
 </html>`
+
 this.mode = "image"
+this.imageData = imageData
 try {
 // MNUtil.copy(html)
 this.webview.loadHTMLStringBaseURL(html)
-this.history.push({type:"image",base64:base64,id:MNUtil.MD5(base64)})
+let success = false
+if (detail) {
+  if (detail.noteId) {
+    this.currentId = detail.noteId
+    success = SnipasteHistoryManager.addRecord("image",this.currentId,detail)
+  }else{
+    this.currentId = MNUtil.MD5(base64)
+    success = SnipasteHistoryManager.addRecord("image",this.currentId,detail)
+    if (success) {
+      SnipasteHistoryManager.saveImageById(this.currentId,imageData)
+    }
+  }
+}else{
+  this.currentId = MNUtil.MD5(base64)
+  success = SnipasteHistoryManager.addRecord("image",this.currentId)
+  if (success) {
+    SnipasteHistoryManager.saveImageById(this.currentId,imageData)
+  }
+}
+if (success) {
+  this.refreshHistoryButtons()
+}
+// SnipasteHistoryManager.copy()
 if (this.view.hidden) {
   this.show()
 }
@@ -2718,5 +2800,103 @@ ${snipasteUtils.getSubFuncScript()}
 snipasteController.prototype.waitHUD = function (title,view = this.view) {
   MNUtil.waitHUD(title,view)
 }
+snipasteController.prototype.getWebviewHeight = async function () {
+try {
+
+  if (this.mode === "note") {
+    let heightString = await self.runJavaScript(`document.getElementsByClassName("body")[0].offsetHeight;`)
+    if (heightString) {
+      return parseFloat(heightString)+20
+    }
+  }
+  if (this.mode === "image") {
+    let imageSize = snipasteUtils.getImageSize(this.imageData)
+    let height = this.view.frame.width/imageSize.width*imageSize.height
+    return height
+  }
+  let res = await self.runJavaScript(`document.body.scrollHeight;`)
+  if (res) {
+    return parseFloat(res)
+  }
+  return 0
+} catch (error) {
+  snipasteUtils.addErrorLog(error, "getWebviewHeight")
+  return 0
+}
+}
 /** @type {UIWebView} */
 snipasteController.prototype.webview
+
+
+/** @this {snipasteController} */
+snipasteController.prototype.createWebview = function () {
+    if (this.webview) {
+      this.webview.removeFromSuperview()
+    }
+    this.webview = new UIWebView(this.view.bounds);
+    this.webview.backgroundColor = UIColor.whiteColor();
+    this.webview.scalesPageToFit = true;
+    this.webview.autoresizingMask = (1 << 1 | 1 << 4);
+    this.webview.delegate = this;
+    this.webview.scrollView.delegate = this;
+    this.webview.layer.cornerRadius = 15;
+    this.webview.layer.masksToBounds = true;
+    this.webview.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
+    this.webview.layer.borderWidth = 0
+    this.webview.hidden = true;
+    this.webview.lastOffset = 0;
+    this.view.addSubview(this.webview);
+}
+/** @this {snipasteController} */
+snipasteController.prototype.refreshHistoryButtons = function () {
+try {
+
+  let history = SnipasteHistoryManager.history
+  let targetAction = "historyButtonTapped:"
+  let superview = "buttonScrollview"
+  if (history.length) {
+    let latest5History = history.slice(0,5)
+    // SnipasteHistoryManager.copy()
+    // let contentWidth = 100
+    let x = 5
+    let recordedIds = latest5History.map(item => item.id)
+    SnipasteHistoryManager.recordedIds = recordedIds
+    for (let i = 0; i < latest5History.length; i++) {
+      let id = latest5History[i].id
+      let buttonName = "historyButton" + (i+1)
+      if (!this[buttonName]) {
+        this[buttonName] = this.createButton(targetAction, superview)
+      }
+      this[buttonName].setTitleForState(latest5History[i].type,0)
+      if (id === this.currentId) {
+        MNButton.setColor(this[buttonName], "#457bd3", 0.8)
+        // this[buttonName].layer.borderColor = UIColor.colorWithHexString("#9bb2d6")
+        // this[buttonName].layer.borderWidth = 3
+      }else{
+        MNButton.setColor(this[buttonName], "#9bb2d6", 0.8)
+        // this[buttonName].layer.borderWidth = 0
+      }
+      if (i > 0) {
+        x = x + 105
+      }
+      this[buttonName].frame = {x:x,y:0,width:100,height:30}
+      this[buttonName].hidden = false
+      this[buttonName].id = buttonName
+    }
+    this.buttonScrollview.contentSize = {width:x+100,height:35}
+    this.buttonScrollview.setContentOffsetAnimated({x:0,y:0},false)
+    this.buttonScrollviewContentSize = {width:x+100,height:35}
+    if (latest5History.length < 5) {//隐藏多余的按钮
+      for (let i = 5; i > latest5History.length; i--) {
+        let buttonName = "historyButton" + (i)
+        if (this[buttonName]) {
+          this[buttonName].hidden = true
+        }
+      }
+    }
+  }
+  
+} catch (error) {
+  snipasteUtils.addErrorLog(error, "refreshHistoryButtons")
+}
+}
