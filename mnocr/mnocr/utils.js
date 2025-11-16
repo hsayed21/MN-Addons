@@ -516,6 +516,32 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
   static log(message,detail,level = "INFO"){
     MNUtil.log({message:message,detail:detail,source:"MN OCR",level:level})
   }
+  /**
+   * 解析model格式,返回一个对象
+   * 这里的model是model:source格式的
+   * @param {string} model 
+   * @returns {{model:string}}
+   */
+  static parseModelConfig(model){
+    try {
+    let config = {}
+    // MNUtil.copy("Model: " + model)
+    let modelConfig = model.split(":").map(m=>m.trim())
+    if (modelConfig.length === 1 && modelConfig[0] !== "Default" && modelConfig[0] !== "Built-in") {
+      return {model:model}
+    }
+    if (modelConfig.length === 2) {
+      config.model = modelConfig[1]
+    }
+    if (modelConfig.length === 3) {
+      config.model = modelConfig[1]+":"+modelConfig[2]
+    }
+    return config
+    } catch (error) {
+      ocrUtils.addErrorLog(error, "parseModelConfig")
+      return undefined
+    }
+  }
 }
 
 class ocrNetwork {
@@ -729,19 +755,20 @@ static initRequestForChatGPT (apikey,url,model,temperature,funcIndices=[]) {
  * @param {string|NSData} imageData
  * @returns {Promise<Object>}
  */
- static async ChatGPTVision(imageData,source="GPT-4o") {
+ static async ChatGPTVision(imageData,source="GPT-4o",query = ocrConfig.getConfig("userPrompt")) {
   try {
+  let modelInfo = ocrConfig.modelSource(source)
   let key = subscriptionConfig.config.apikey
-  if (ocrConfig.modelSource(source).isFree) {
+  if (modelInfo.isFree) {
     key = 'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44'
   }
+  let modelName = modelInfo.model
   if (!key) {
     MNUtil.showHUD("No ChatGPT API key")
     return
   }
   MNUtil.waitHUD("OCR By "+source)
   let url = subscriptionConfig.config.url + "/v1/chat/completions"
-  let prompt = ocrConfig.getConfig("userPrompt")
   // let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
   let imageUrl = "data:image/jpeg;base64,"
   if (typeof imageData === "string") {
@@ -752,7 +779,7 @@ static initRequestForChatGPT (apikey,url,model,temperature,funcIndices=[]) {
   this.history = [
     {
       role:"system",
-      content:prompt
+      content:query
     },
     {
       role: "user", 
@@ -767,7 +794,6 @@ static initRequestForChatGPT (apikey,url,model,temperature,funcIndices=[]) {
     }
   ]
 
-  let modelName = ocrConfig.modelSource(source).model
   let request = this.initRequestForChatGPT(key, url, modelName, 0.1)
     let res = await this.sendRequest(request,"ChatGPTVision",false)
     // MNUtil.copy(res)
@@ -792,6 +818,75 @@ static initRequestForChatGPT (apikey,url,model,temperature,funcIndices=[]) {
     return undefined
   }
 }
+
+/**
+ * 允许直接传入base64图片,减少转换耗时
+ * @param {string|NSData} imageData
+ * @returns {Promise<Object>}
+ */
+ static async ChatGPTVisionForCustom(imageData,query = ocrConfig.getConfig("userPrompt")) {
+  try {
+  let modelInfo = chatAIConfig.parseModelConfig(ocrConfig.getConfig("customModel"))
+  ocrUtils.log("modelInfo: ",modelInfo)
+  let config = chatAIConfig.getConfigFromSource(modelInfo.source)
+  let key = config.key
+  let modelName = modelInfo.model
+  if (!key) {
+    MNUtil.showHUD("No API key")
+    return
+  }
+  MNUtil.waitHUD("OCR By "+modelName)
+  let url = modelInfo.url
+  // let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
+  let imageUrl = "data:image/jpeg;base64,"
+  if (typeof imageData === "string") {
+    imageUrl = imageUrl+imageData
+  }else{
+    imageUrl = imageUrl+imageData.base64Encoding()
+  }
+  this.history = [
+    {
+      role:"system",
+      content:query
+    },
+    {
+      role: "user", 
+      content: [
+        {
+          "type": "image_url",
+          "image_url": {
+            "url" : imageUrl
+          }
+        }
+      ]
+    }
+  ]
+
+  let request = this.initRequestForChatGPT(key, url, modelName, 0.1)
+    let res = await this.sendRequest(request,"ChatGPTVisionForCustom",false)
+    // MNUtil.copy(res)
+    let ocrResult
+    if (res.choices && res.choices.length) {
+      ocrResult = res.choices[0].message.content
+    }else{
+      return undefined
+    }
+    let convertedText = ocrResult
+      .replace(/\$\$\n?/g, '$$$\n')
+      .replace(/(\\\[\s*\n?)|(\s*\\\]\n?)/g, '$$$\n')
+      .replace(/(\\\(\s*)|(\s*\\\))/g, '$')
+      .replace(/```/g,'')
+      .replace(/<\|begin_of_box\|>/g,'')
+      .replace(/<\|end_of_box\|>/g,'')
+    return convertedText
+    
+  } catch (error) {
+    ocrUtils.addErrorLog(error, "ChatGPTVisionForCustom")
+    // MNUtil.confirm("OCR Error", "error")
+    return undefined
+  }
+}
+
 /**
  * 
  * @returns {Promise<Object>}
@@ -1229,6 +1324,10 @@ static async OCR(imageData,source = ocrConfig.getConfig("source"),buffer=true){
         })
       }
       break;
+    case "custom":
+      // ocrUtils.log("OCR By custom model")
+      res = await this.ChatGPTVisionForCustom(imageBase64)
+      break;
     default:
       if (ocrConfig.inModelSource(ocrSource)) {
         let beginTime = Date.now()
@@ -1256,6 +1355,68 @@ static async OCR(imageData,source = ocrConfig.getConfig("source"),buffer=true){
     return undefined
   }
 }
+
+static async readImage(imageData,query,options = {}){
+  try {
+  let ocrSource = ("source" in options) ? options.source : ocrConfig.getConfig("source")
+  let imageBase64 = (typeof imageData === "string") ? imageData : imageData.base64Encoding()
+  // MNUtil.showHUD(ocrSource)
+  let res = undefined;
+  //doc2x和simpleTex直接调用ocr方法，不支持query参数
+  switch (ocrSource) {
+    case "Doc2X":
+    case "doc2x":
+      res = await this.doc2xImgOCR(imageData)
+      if (res) {
+        ocrUtils.log({
+          source:"MN OCR",
+          message:"✅ OCR By Doc2X",
+          detail:res
+        })
+      }
+      break;
+    case "SimpleTex":
+    case "simpleTex":
+      res = await this.simpleTexOCR(imageData)
+      if (res) {
+        ocrUtils.log({
+          source:"MN OCR",
+          message:"✅ OCR By SimpleTex",
+          detail:res
+        })
+      }
+      break;
+    case "custom":
+      // ocrUtils.log("OCR By custom model")
+      res = await this.ChatGPTVisionForCustom(imageBase64)
+      break;
+    default:
+      if (ocrConfig.inModelSource(ocrSource)) {
+        let beginTime = Date.now()
+        res = await this.ChatGPTVision(imageBase64,ocrSource,query)
+        let endTime = Date.now()
+        let costTime = (endTime-beginTime)/1000
+        if (res) {
+          ocrUtils.log("✅ OCR By "+ocrSource+" ("+costTime.toFixed(2)+"s)",res)
+        }else{
+          ocrUtils.log("❌ OCR By "+ocrSource+" ("+costTime.toFixed(2)+"s)",res)
+          return undefined
+        }
+      }else{
+      MNUtil.showHUD("Unsupported source: "+ocrSource)
+      return undefined
+      }
+  }
+  MNUtil.stopHUD()
+  res = ocrUtils.action(ocrSource, res)
+  
+  return res
+  } catch (error) {
+    ocrUtils.addErrorLog(error, "ocrNetwork.OCR")
+    return undefined
+  }
+}
+
 static async PDFOCR(){
 try {
   
@@ -1345,6 +1506,31 @@ class ocrConfig {
   constructor(name) {
     this.name = name;
   }
+  static defaultUserPrompt = `—role—
+Image Text Extraction Specialist
+
+—goal—
+* For the given image, please directly output the text in the image.
+
+* For any formulas, you must enclose them with dollar signs.
+
+—constrain—
+* You are not allowed to output any content other than what is in the image.
+
+—role—
+Image Text Extraction Specialist
+
+—goal—
+* For the given image, please directly output the text in the image.
+
+* For any formulas, you must enclose them with dollar signs.
+* 
+—constrain—
+* You are not allowed to output any content other than what is in the image.
+
+—example—
+$\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{u}\\right)}$
+`
   static defaultConfig = {
     source:"SimpleTex",
     simpleTexApikey: "",
@@ -1362,15 +1548,8 @@ class ocrConfig {
     freeDay:0,
     subscriptionDaysRemain:0,
     openaiApikey:"",
-    userPrompt:`—role—
-Image Text Extraction Specialist
-
-—goal—
-For the given image, please directly output the text in the image.
-For any formulas, you must enclose them with dollar signs.
-
-—constrain—
-You are not allowed to output any content other than what is in the image.`,
+    userPrompt:this.defaultUserPrompt,
+    customModel:"",
     action:{}
   }
   static defaultFileIds = {}

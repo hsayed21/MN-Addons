@@ -180,12 +180,12 @@ var ocrController = JSB.defineClass('ocrController : UIViewController <NSURLConn
     self.promptInput.editable = true
 
     self.savePromptButton = self.createButton("savePrompt:","settingView")
-    MNButton.setTitle(self.savePromptButton,"Save", 15,true)
+    MNButton.setTitle(self.savePromptButton,"💾", 15,true)
     MNButton.setColor(self.savePromptButton, "#89a6d5",0.8)
     MNButton.setRadius(self.savePromptButton,8)
 
     self.resetPromptButton = self.createButton("resetPrompt:","settingView")
-    MNButton.setTitle(self.resetPromptButton,"Reset", 15,true)
+    MNButton.setTitle(self.resetPromptButton,"🔄", 15,true)
     MNButton.setColor(self.resetPromptButton, "#89a6d5",0.8)
     MNButton.setRadius(self.resetPromptButton,8)
 
@@ -193,6 +193,18 @@ var ocrController = JSB.defineClass('ocrController : UIViewController <NSURLConn
     MNButton.setTitle(self.saveActionButton,"Save", 14,true)
     MNButton.setColor(self.saveActionButton, "#89a6d5",0.8)
     MNButton.setRadius(self.saveActionButton,8)
+
+    self.customModelButton = self.createButton("changeCustomModel:","settingView")
+    let model = ocrConfig.getConfig("customModel")
+    if (model) {
+      let modelName = ocrConfig.getConfig("customModel")
+      let modelConfig = ocrUtils.parseModelConfig(modelName)
+      MNButton.setTitle(self.customModelButton,modelConfig.model, 14,true)
+    }else{
+      MNButton.setTitle(self.customModelButton,"Custom Model", 14,true)
+    }
+    MNButton.setColor(self.customModelButton, "#89a6d5",0.8)
+    MNButton.setRadius(self.customModelButton,8)
 
     self.pasteKeyButton = self.createButton("pasteApikey:","settingView")
     MNButton.setTitle(self.pasteKeyButton,"Paste", 14,true)
@@ -258,10 +270,11 @@ viewWillLayoutSubviews: function() {
     self.clearButton.frame = {x: viewFrame.width - 125 ,y: 50,width: 50,height: 25};
     self.apikeyInput.frame = {x: xLeft+15 ,y: 10,width: 230,height: 70};
     self.webviewInput.frame = {x: xLeft+15 ,y: 85,width: 230,height: 100};
-    self.promptInput.frame = {x: xLeft+15 ,y: 10,width: 230,height: 210};
+    self.promptInput.frame = {x: xLeft+10 ,y: 5,width: 240,height: 215};
     self.saveActionButton.frame = {x: viewFrame.width - 65 ,y: 155,width: 50,height: 25};
-    self.savePromptButton.frame = {x: viewFrame.width - 65 ,y: 225,width: 55,height: 30};
-    self.resetPromptButton.frame = {x: viewFrame.width - 130 ,y: 225,width: 60,height: 30};
+    self.customModelButton.frame = {x: 10 ,y: 225,width: viewFrame.width - 90,height: 30};
+    self.savePromptButton.frame = {x: viewFrame.width - 40 ,y: 225,width: 30,height: 30};
+    self.resetPromptButton.frame = {x: viewFrame.width - 75 ,y: 225,width: 30,height: 30};
   },
   scrollViewDidScroll: function() {
   },
@@ -283,6 +296,9 @@ viewWillLayoutSubviews: function() {
     menu.addMenuItem('📝 Doc2X PDF', selector,"doc2xpdf",source === "doc2xpdf")
     menu.addMenuItem('🏞️ Doc2X Image', selector,"doc2x",source === "doc2x")
     menu.addMenuItem('🏞️ SimpleTex', selector,"simpletex",source === "simpletex")
+    if (typeof chatAIUtils !== 'undefined') {
+      menu.addMenuItem('🔨 Custom Model', selector,"custom",source === "custom")
+    }
     if (ocrNetwork.isActivated()) {
       let activatedModels = ocrConfig.modelSource("activatedmodels")
       activatedModels.forEach(model => {
@@ -356,6 +372,99 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
   } catch (error) {
     MNUtil.showHUD(error)
   }
+  },
+  changeCustomModel: function (button) {
+    let self = getOcrController()
+    if (typeof chatAIUtils === 'undefined') {
+      MNUtil.showHUD("Please install MN ChatAI first")
+      return
+    }
+    // let customModel = ocrConfig.getConfig("customModel")
+    // MNUtil.showHUD("Change custom model")
+    try {
+      let modelName = ocrConfig.getConfig("customModel")
+      let allModels = chatAIConfig.allSource(false,true)
+      let menu = new Menu(button,self)
+      menu.width = 220
+      menu.rowHeight = 35
+      menu.preferredPosition = 2
+      let secondeSelector = 'changeCustomModelFromSource:'
+      allModels.map((m,index)=>{
+        if (chatAIConfig.hasAPIKeyInSource(m)) {
+          if (modelName.startsWith(m)) {
+            menu.addMenuItem("👉  "+m, secondeSelector,{source:m,button:button,index:index},true)
+            // commandTable.push(self.tableItem("👉  "+m,secondeSelector,{source:m,button:button,index:index},true))
+          }else{
+            menu.addMenuItem("➡️  "+m,secondeSelector,{source:m,button:button,index:index},false)
+            // commandTable.push(self.tableItem("➡️  "+m,secondeSelector,{source:m,button:button,index:index},false))
+          }
+        }
+      })
+      menu.show()
+      // self.popover(button, commandTable,220,0)
+    } catch (error) {
+      ocrUtils.addErrorLog(error, "changeCustomModel")
+    }
+  },
+  changeCustomModelFromSource: async function (params) {
+  try {
+    let self = getOcrController()
+    Menu.dismissCurrentMenu()
+    self.checkPopover()
+    let source = params.source
+    let button = params.button
+    let selectIndex = params.index
+    // MNUtil.showHUD("message"+selectIndex)
+    let selector = 'setCustomModel:'
+    let modelName = ocrConfig.getConfig("customModel")
+    let allModels = chatAIConfig.allSource(false,true)
+    
+    var commandTable = []
+    let secondSelector = 'changeCustomModelFromSource:'
+    let sourceModels = chatAIConfig.getAvailableModels(source)
+    let widths = []
+    allModels.map((m,index)=>{
+      if (chatAIConfig.hasAPIKeyInSource(m)) {
+        if (index === selectIndex) {
+          commandTable.push(self.tableItem("👇  "+m,"",{source:m,button:button},false))
+        }else if (modelName.startsWith(m)) {
+          commandTable.push(self.tableItem("👉  "+m,secondSelector,{source:m,button:button,index:index},true))
+        }else{
+          commandTable.push(self.tableItem("➡️  "+m,secondSelector,{source:m,button:button,index:index},false))
+        }
+      }
+    })
+    let tablesToInsert = sourceModels.map(model=>{
+      let m = "       🤖  "+model.split(": ")[1].trim()
+      widths.push(chatAIUtils.strCode(m))
+      return self.tableItem(m, selector,model,modelName === model)
+    })
+    commandTable.splice(selectIndex+1,0,...tablesToInsert)
+    self.popover(button, commandTable,Math.max(...widths)*9+30,2)
+    
+  } catch (error) {
+    ocrUtils.addErrorLog(error, "changeCustomModelFromSource")
+  }
+  },
+  setCustomModel: async function (model) {
+    let self = getOcrController()
+    let modelConfig = ocrUtils.parseModelConfig(model)
+    if (!chatAIUtils.isVisionModel(modelConfig.model)) {
+      MNUtil.confirm("MN OCR", "This model is not a vision model\n\n该模型不是视觉模型")
+      return
+    }
+    self.checkPopover()
+    Menu.dismissCurrentMenu()
+    // let config = model.split(":")
+    let currentModel = ocrConfig.getConfig("customModel")
+    if (currentModel === model) {
+      MNUtil.showHUD("No Change")
+      return
+    }
+    ocrConfig.config.customModel = model
+    ocrConfig.save()
+    MNUtil.showHUD("Set custom model: ["+modelConfig.model+"]")
+    MNButton.setTitle(self.customModelButton,modelConfig.model, 14,true)
   },
   pasteApikey: async function (params) {
     let apikey = ocrUtils.clipboardText().trim()
@@ -1090,13 +1199,14 @@ ocrController.prototype.creatTextView = function (superview="view",color="#c0bfb
  */
 ocrController.prototype.refreshView = function (source){
   if (!ocrNetwork.isActivated() && (source === "GPT-4o" || source === "GPT-4o-mini")) {
-    source = "Doc2X"
+    source = "doc2x"
     ocrConfig.config.source = source
     ocrConfig.save()
   }
   let aiMode = false
   switch (source) {
     case "Doc2X":
+    case "doc2x":
       this.moveButton.setTitleForState("Doc2X Image")
       this.apikeyInput.text = ocrConfig.getConfig("doc2xApikey")
       this.apikeyInput.hidden = false
@@ -1130,6 +1240,7 @@ ocrController.prototype.refreshView = function (source){
       this.saveActionButton.hidden = false
       break;
     case "Doc2XPDF":
+    case "doc2xpdf":
       this.moveButton.setTitleForState("Doc2X PDF")
       this.apikeyInput.text = ocrConfig.getConfig("doc2xApikey")
       this.imageCorrectionButton.hidden = true
@@ -1159,6 +1270,7 @@ ocrController.prototype.refreshView = function (source){
       this.saveActionButton.hidden = true
       break;
     case "SimpleTex":
+    case "simpletex":
       this.moveButton.setTitleForState("SimpleTex Image")
       this.apikeyInput.text = ocrConfig.getConfig("simpleTexApikey")
       this.rotationButton.hidden = false
@@ -1190,6 +1302,35 @@ ocrController.prototype.refreshView = function (source){
       this.savePromptButton.hidden = true
       this.resetPromptButton.hidden = true
       this.saveActionButton.hidden = false
+      break;
+    case "custom":
+      this.moveButton.setTitleForState("Custom Model")
+      this.rotationButton.hidden = true
+      this.imageCorrectionButton.hidden = true
+      this.PDFOCRClearButton.hidden = true
+      this.equationButton.hidden = true
+      this.OCRClearButton.hidden = false
+      this.OCRChildButton.hidden = false
+      this.OCREditorButton.hidden = false
+      this.OCRTitleButton.hidden = false
+      this.PDFOCREditorButton.hidden = true
+      this.PDFTranslateButton.hidden = true
+      this.PDFOCRExportButton.hidden = true
+      this.PDFOCRFileButton.hidden = true
+      this.PDFOCRCopyButton.hidden = true
+      this.OCRCommentButton.hidden = false
+      this.OCROptionButton.hidden = false
+      this.OCRCopyButton.hidden = false
+      this.OCRExcerptButton.hidden = false
+      this.apikeyInput.hidden = true
+      this.pasteKeyButton.hidden = true
+      this.clearButton.hidden = true
+      this.promptInput.hidden = false
+      this.webviewInput.hidden = true
+      this.savePromptButton.hidden = false
+      this.resetPromptButton.hidden = false
+      this.saveActionButton.hidden = true
+      this.customModelButton.hidden = false
       break;
     default:
       if (ocrConfig.inModelSource(source)) {
@@ -1228,6 +1369,7 @@ ocrController.prototype.refreshView = function (source){
       this.savePromptButton.hidden = false
       this.resetPromptButton.hidden = false
       this.saveActionButton.hidden = true
+      this.customModelButton.hidden = true
   }
 }
 
@@ -1359,4 +1501,15 @@ ocrController.prototype.tableItem = function (title,selector,param = "",checked 
  */
 ocrController.prototype.checkPopover = function () {
   if (this.popoverController) {this.popoverController.dismissPopoverAnimated(true);}
+}
+
+/**
+ * @this {ocrController}
+ * @param {*} sender 
+ * @param {*} commandTable 
+ * @param {*} width 
+ * @param {*} direction 
+ */
+ocrController.prototype.popover = function(sender,commandTable,width=200,direction=2){
+  this.popoverController = MNUtil.getPopoverAndPresent(sender,commandTable,width,direction)
 }
