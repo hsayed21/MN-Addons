@@ -11720,8 +11720,13 @@ class KnowledgeBaseTemplate {
       
       // 确保 MNComments 存在
       const comments = note.MNComments || [];
-      
+
       for (const comment of comments) {
+        // 添加防御性检查：确保 comment 和 comment.type 存在
+        if (!comment || !comment.type) {
+          continue;
+        }
+
         // 查找 HtmlComment/HtmlNote 类型且以"关键词"开头的评论
         if ((comment.type === "HtmlComment" || comment.type === "HtmlNote") && comment.text) {
           // 使用正则表达式匹配"关键词："或"关键词： "后的内容
@@ -11732,11 +11737,18 @@ class KnowledgeBaseTemplate {
           }
         }
       }
-      
+
       // 没有找到关键词字段
       return "";
     } catch (error) {
-      MNUtil.log(`getKeywordsFromNote error: ${error}`);
+      MNLog.log({
+        message: "getKeywordsFromNote 错误",
+        noteId: note?.noteId || "unknown",
+        hasMNComments: !!note?.MNComments,
+        commentsLength: note?.MNComments?.length || 0,
+        errorMessage: error.message,
+        errorStack: error.stack
+      });
       return "";
     }
   }
@@ -17807,6 +17819,8 @@ class IntermediateKnowledgeIndexer {
     const TEMP_FILE_PREFIX = "intermediate-kb-temp-";
     const PART_SIZE = 5000;
 
+    MNLog.log(`[中间知识库] buildSearchIndex 开始，输入根卡片数: ${rootNotes.length}`);
+
     const manifest = {
       metadata: {
         version: "1.0",
@@ -17827,6 +17841,7 @@ class IntermediateKnowledgeIndexer {
       let processedCount = 0;
       let validCount = 0;
       let totalEstimatedCount = 0;
+      let errorCount = 0;  // 添加错误计数
       const processedIds = new Set();
 
       // 缓存所有根节点
@@ -17846,6 +17861,8 @@ class IntermediateKnowledgeIndexer {
           descendants: descendants
         });
       }
+
+      MNLog.log(`[中间知识库] 收集到 ${totalEstimatedCount} 张后代卡片（包含根卡片）`);
 
       // 显示初始进度
       MNUtil.showHUD(`开始构建中间知识库索引（共 ${totalEstimatedCount} 张卡片）`);
@@ -17901,19 +17918,26 @@ class IntermediateKnowledgeIndexer {
             continue;
           }
 
-          const entry = this.buildIndexEntry(mnNote);
-          if (entry) {
-            currentBatch.push(entry);
-            validCount++;
+          try {
+            const entry = this.buildIndexEntry(mnNote);
+            if (entry) {
+              currentBatch.push(entry);
+              validCount++;
+            }
+          } catch (error) {
+            errorCount++;
+            // 每1000个错误记录一次
+            if (errorCount % 1000 === 0) {
+              MNLog.log(`[中间知识库] 累计错误: ${errorCount} 个，当前noteId: ${mnNote.noteId}`);
+            }
           }
 
           processedIds.add(noteId);
           processedCount++;
 
-          // 🔧 统一为每 100 个节点更新进度（与主知识库保持一致）
-          if (processedCount % 100 === 0) {
-            this.showProgressHUD(processedCount, totalEstimatedCount,
-                                `处理中间知识... (${tempFileCount} 个临时文件)`);
+          // 每1000个记录一次进度
+          if (processedCount % 1000 === 0) {
+            MNLog.log(`[中间知识库] 进度: ${processedCount}/${totalEstimatedCount}, 有效: ${validCount}, 错误: ${errorCount}`);
           }
         }
 
@@ -17945,6 +17969,8 @@ class IntermediateKnowledgeIndexer {
       // 更新元数据
       manifest.metadata.totalCards = validCount;
 
+      MNLog.log(`[中间知识库] 索引构建统计: 处理=${processedCount}, 有效=${validCount}, 跳过=${processedCount - validCount}`);
+
       // 保存主索引文件
       await this.saveIndexManifest(manifest);
 
@@ -17952,6 +17978,7 @@ class IntermediateKnowledgeIndexer {
       this.clearIncrementalIndex();
 
       MNUtil.showHUD(`中间知识库索引构建完成：共 ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
+      MNLog.log(`[中间知识库] ✅ 索引构建完成: ${validCount} 张卡片，${manifest.metadata.totalParts} 个分片`);
 
     } catch (error) {
       if (manifest.metadata.tempFiles && manifest.metadata.tempFiles.length > 0) {

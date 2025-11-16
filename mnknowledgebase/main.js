@@ -913,6 +913,8 @@ JSB.newAddon = function(mainPath){
           self.popoverController.dismissPopoverAnimated(true);
         }
 
+        MNLog.log("=== 中间知识库索引构建开始 ===");
+
         // 中间知识库根卡片ID数组
         // TODO: 这里需要配置你的中间知识库根卡片ID
         const intermediateRootIds = [
@@ -921,6 +923,8 @@ JSB.newAddon = function(mainPath){
           "marginnote4app://note/74785805-661C-4836-AFA6-C85697056B0C",
           "marginnote4app://note/B48C92CF-A5FD-442A-BF8C-53E1E801F05D", // 预备知识库
         ];
+
+        MNLog.log(`配置的根卡片ID: ${intermediateRootIds.length} 个`);
 
         // 验证根卡片
         const rootNotes = [];
@@ -931,8 +935,11 @@ JSB.newAddon = function(mainPath){
           }
         }
 
+        MNLog.log(`验证通过的根卡片: ${rootNotes.length} 个`);
+
         if (rootNotes.length === 0) {
           MNUtil.showHUD("中间知识库根卡片未配置或不存在！");
+          MNLog.log("❌ 所有根卡片验证失败");
           return;
         }
 
@@ -946,10 +953,14 @@ JSB.newAddon = function(mainPath){
         const manifest = await IntermediateKnowledgeIndexer.buildSearchIndex(rootNotes);
 
         // 检查结果
+        MNLog.log(`索引构建结果: totalCards=${manifest?.metadata?.totalCards || 0}, totalParts=${manifest?.metadata?.totalParts || 0}`);
+
         if (manifest && manifest.metadata && manifest.metadata.totalCards > 0) {
           MNUtil.showHUD(`中间知识库索引构建成功！共 ${manifest.metadata.totalCards} 张卡片，${manifest.metadata.totalParts} 个分片`);
+          MNLog.log("✅ 中间知识库索引构建成功");
         } else {
           MNUtil.showHUD("没有找到可索引的卡片");
+          MNLog.log("❌ 没有找到可索引的卡片");
         }
 
       } catch (error) {
