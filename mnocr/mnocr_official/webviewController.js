@@ -260,52 +260,38 @@ viewWillLayoutSubviews: function() {
   },
   scrollViewDidScroll: function() {
   },
-  changeSource:function (sender) {
+  changeSource:function (button) {
+  try {
+
     let self = getOcrController()
     self.checkPopover()
     let source = ocrConfig.getConfig("source")
     let selector = "changeSourceTo:"
-    let commandTable = [
-      self.tableItem('🆓 [Free] GLM-4V Flash', selector,"glm-4v-flash",source === "glm-4v-flash"),
-      self.tableItem('🆓 [Free] GLM-4.1V Thinking Flash', selector,"glm-4.1v-thinking-flash",source === "glm-4.1v-thinking-flash"),
-      self.tableItem('🆓 [Free] Gemini-2.0 Flash Lite', selector,"gemini-2.0-flash-lite",source === "gemini-2.0-flash-lite"),
-      self.tableItem('🆓 [Free] Gemini-2.5 Flash Lite', selector,"gemini-2.5-flash-lite",source === "gemini-2.5-flash-lite"),
-      self.tableItem('🆓 [Free] GPT-4.1 Nano', selector,"GPT-4.1-nano",source === "GPT-4.1-nano"),
-      self.tableItem('🆓 [Free] GPT-5 Nano', selector,"GPT-5-nano",source === "GPT-5-nano"),
-      self.tableItem('🆓 [Free] Doubao 1.6 Flash No Thinking', selector,"doubao-seed-1.6-flash-nothinking",source === "doubao-seed-1.6-flash-nothinking"),
-      self.tableItem('🆓 [Free] GLM-4.5V No Thinking', selector,"glm-4.5v-nothinking",source === "glm-4.5v-nothinking"),
-      self.tableItem('📝 Doc2X PDF', selector,"Doc2XPDF",source === "Doc2XPDF"),
-      self.tableItem('🏞️ Doc2X Image', selector,"Doc2X",source === "Doc2X"),
-      self.tableItem('🏞️ SimpleTex', selector,"SimpleTex",source === "SimpleTex"),
-    ];
+    let menu = Menu.new(button, self)
+    menu.preferredPosition = 1
+    menu.width = 340
+    let freeModels = ocrConfig.modelSource("freemodels")
+    freeModels.forEach(model => {
+      let title = ocrConfig.modelSource(model).title
+      menu.addMenuItem('🆓 [Free] '+title, selector, model, source === model)
+    })
+    menu.addMenuItem('📝 Doc2X PDF', selector,"doc2xpdf",source === "doc2xpdf")
+    menu.addMenuItem('🏞️ Doc2X Image', selector,"doc2x",source === "doc2x")
+    menu.addMenuItem('🏞️ SimpleTex', selector,"simpletex",source === "simpletex")
     if (ocrNetwork.isActivated()) {
-      commandTable.push(self.tableItem('🤖 GPT-5', selector,"GPT-5",source === "GPT-5"))
-      commandTable.push(self.tableItem('🤖 GPT-5 Mini', selector,"GPT-5-mini",source === "GPT-5-mini"))
-      commandTable.push(self.tableItem('🤖 GPT-4o', selector,"GPT-4o",source === "GPT-4o"))
-      commandTable.push(self.tableItem('🤖 GPT-4o Mini', selector,"GPT-4o-mini",source === "GPT-4o-mini"))
-      commandTable.push(self.tableItem('🤖 GPT-4.1', selector,"GPT-4.1",source === "GPT-4.1"))
-      commandTable.push(self.tableItem('🤖 GPT-4.1 Mini', selector,"GPT-4.1-mini",source === "GPT-4.1-mini"))
-      // commandTable.push({title:'🤖 Abab6.5s',object:self,selector:selector,param:"abab6.5s-chat",checked:source === "abab6.5s-chat"})
-      commandTable.push({title:'🤖 MiniMax-Text-01',object:self,selector:selector,param:"MiniMax-Text-01",checked:source === "MiniMax-Text-01"})
-      commandTable.push({title:'🤖 Doubao 1.6',object:self,selector:selector,param:"doubao-seed-1-6",checked:source === "doubao-seed-1-6"})
-      commandTable.push({title:'🤖 Doubao 1.6 No Thinking',object:self,selector:selector,param:"doubao-seed-1-6-nothinking",checked:source === "doubao-seed-1-6-nothinking"})
-      commandTable.push({title:'🤖 GLM-4.5V',object:self,selector:selector,param:"glm-4.5v",checked:source === "glm-4.5v"})
-      commandTable.push({title:'🤖 GLM-4V Plus',object:self,selector:selector,param:"glm-4v-plus",checked:source === "glm-4v-plus"})
-      commandTable.push({title:'🤖 Moonshot-v1',object:self,selector:selector,param:"Moonshot-v1",checked:source === "Moonshot-v1"})
-      commandTable.push({title:'🤖 Claude-3.5 Haiku',object:self,selector:selector,param:"claude-3-5-haiku",checked:source === "claude-3-5-haiku"})
-      commandTable.push({title:'🤖 Claude-3.7 Sonnet',object:self,selector:selector,param:"claude-3-7-sonnet",checked:source === "claude-3-7-sonnet"})
-      commandTable.push({title:'🤖 Claude-4 Sonnet',object:self,selector:selector,param:"claude-sonnet-4",checked:source === "claude-sonnet-4"})
-      commandTable.push({title:'🤖 Claude-4 Opus',object:self,selector:selector,param:"claude-opus-4",checked:source === "claude-opus-4"})
-      commandTable.push({title:'🤖 Gemini-2.0 Flash',object:self,selector:selector,param:"gemini-2.0-flash",checked:source === "gemini-2.0-flash"})
-      commandTable.push({title:'🤖 Gemini-2.5 Flash',object:self,selector:selector,param:"gemini-2.5-flash",checked:source === "gemini-2.5-flash"})
-      commandTable.push({title:'🤖 Gemini-2.5 Pro',object:self,selector:selector,param:"gemini-2.5-pro",checked:source === "gemini-2.5-pro"})
-      // commandTable.push({title:'🤖 Claude-3.5-Haiku',object:self,selector:selector,param:"claude-3-5-haiku-20241022",checked:source === "claude-3-5-haiku-20241022"})
+      let activatedModels = ocrConfig.modelSource("activatedmodels")
+      activatedModels.forEach(model => {
+        let title = ocrConfig.modelSource(model).title
+        menu.addMenuItem('🤖 '+title, selector, model, source === model)
+      })
     }
-    self.view.popoverController = MNUtil.getPopoverAndPresent(sender,commandTable,350,1)
-    // self.view.popoverController = ocrUtils.getPopoverAndPresent(sender,commandTable,200)
+    menu.show()
+  } catch (error) {
+    ocrUtils.addErrorLog(error, "changeSource")
+  }
   },
   changeSourceTo:function (source) {
-    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
+    Menu.dismissCurrentMenu()
     ocrConfig.config.source = source
     self.refreshView(source)
     ocrConfig.save()
@@ -1186,44 +1172,15 @@ ocrController.prototype.refreshView = function (source){
       this.resetPromptButton.hidden = true
       this.saveActionButton.hidden = false
       break;
-    case "abab6.5s-chat":
-    case "MiniMax-Text-01":
-    case "Moonshot-v1":
-    case "claude-3-5-sonnet-20241022":
-    case "claude-opus-4":
-    case "claude-sonnet-4":
-    case "claude-3-7-sonnet":
-    case "claude-3-5-haiku-20241022":
-    case "claude-3-5-haiku":
-    case "gemini-2.0-flash":
-    case "gemini-2.5-flash":
-    case "gemini-2.0-flash-lite":
-    case "gemini-2.5-flash-lite":
-    case "gemini-2.0-flash-exp":
-    case "gemini-2.0-pro":
-    case "gemini-2.5-pro":
-    case "glm-4v-plus":
-    case "glm-4v-flash":
-    case "glm-4.1v-thinking-flashx":
-    case "glm-4.1v-thinking-flash":
-    case "glm-4.5v":
-    case "glm-4.5v-nothinking":
-    case "GPT-4o":
-    case "GPT-4o-mini":
-    case "GPT-4.1":
-    case "GPT-4.1-mini":
-    case "GPT-4.1-nano":
-    case "GPT-5":
-    case "GPT-5-mini":
-    case "GPT-5-nano":
-    case "doubao-seed-1-6":
-    case "doubao-seed-1-6-nothinking":
-    case "doubao-seed-1.6-flash":
-    case "doubao-seed-1.6-flash-nothinking":
-      aiMode = true
-      this.moveButton.setTitleForState(ocrConfig.modelSource(source).title)
-      break;
     default:
+      if (ocrConfig.inModelSource(source)) {
+        aiMode = true
+        this.moveButton.setTitleForState(ocrConfig.modelSource(source).title)
+        break;
+      }else{
+        MNUtil.showHUD("Unsupported source: "+source)
+        return
+      }
       break;
   }
   if (aiMode) {

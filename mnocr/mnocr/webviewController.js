@@ -265,80 +265,38 @@ viewWillLayoutSubviews: function() {
   },
   scrollViewDidScroll: function() {
   },
-  changeSource:function (sender) {
+  changeSource:function (button) {
+  try {
+
     let self = getOcrController()
     self.checkPopover()
     let source = ocrConfig.getConfig("source")
     let selector = "changeSourceTo:"
-    let commandTable = [
-      self.tableItem('🆓 [Free] GLM-4V Flash', selector,"glm-4v-flash",source === "glm-4v-flash"),
-      self.tableItem('🆓 [Free] GLM-4.1V Thinking Flash', selector,"glm-4.1v-thinking-flash",source === "glm-4.1v-thinking-flash"),
-      self.tableItem('🆓 [Free] Gemini-2.0 Flash Lite', selector,"gemini-2.0-flash-lite",source === "gemini-2.0-flash-lite"),
-      self.tableItem('🆓 [Free] Gemini-2.5 Flash Lite', selector,"gemini-2.5-flash-lite",source === "gemini-2.5-flash-lite"),
-      self.tableItem('🆓 [Free] GPT-4.1 Nano', selector,"GPT-4.1-nano",source === "GPT-4.1-nano"),
-      self.tableItem('🆓 [Free] GPT-5 Nano', selector,"GPT-5-nano",source === "GPT-5-nano"),
-      self.tableItem('🆓 [Free] Doubao 1.6 Flash No Thinking', selector,"doubao-seed-1.6-flash-nothinking",source === "doubao-seed-1.6-flash-nothinking"),
-      self.tableItem('🆓 [Free] GLM-4.5V No Thinking', selector,"glm-4.5v-nothinking",source === "glm-4.5v-nothinking"),
-      self.tableItem('🏞️ SimpleTex', selector,"SimpleTex",source === "SimpleTex"),
-      self.tableItem('📝 Doc2X PDF', selector,"Doc2XPDF",source === "Doc2XPDF"),
-      self.tableItem('🏞️ Doc2X Image', selector,"Doc2X",source === "Doc2X"),
-    ];
+    let menu = Menu.new(button, self)
+    menu.preferredPosition = 1
+    menu.width = 340
+    let freeModels = ocrConfig.modelSource("freemodels")
+    freeModels.forEach(model => {
+      let title = ocrConfig.modelSource(model).title
+      menu.addMenuItem('🆓 [Free] '+title, selector, model, source === model)
+    })
+    menu.addMenuItem('📝 Doc2X PDF', selector,"doc2xpdf",source === "doc2xpdf")
+    menu.addMenuItem('🏞️ Doc2X Image', selector,"doc2x",source === "doc2x")
+    menu.addMenuItem('🏞️ SimpleTex', selector,"simpletex",source === "simpletex")
     if (ocrNetwork.isActivated()) {
-      commandTable.push({title:'🤖 Doubao 1.6 No Thinking',object:self,selector:selector,param:"doubao-seed-1-6-nothinking",checked:source === "doubao-seed-1-6-nothinking"})
-      commandTable.push(self.tableItem('🤖 GPT-5', selector,"GPT-5",source === "GPT-5"))
-      commandTable.push(self.tableItem('🤖 GPT-5 Mini', selector,"GPT-5-mini",source === "GPT-5-mini"))
-      commandTable.push(self.tableItem('🤖 GPT-4o', selector,"GPT-4o",source === "GPT-4o"))
-      commandTable.push(self.tableItem('🤖 GPT-4o Mini', selector,"GPT-4o-mini",source === "GPT-4o-mini"))
-      commandTable.push(self.tableItem('🤖 GPT-4.1', selector,"GPT-4.1",source === "GPT-4.1"))
-      commandTable.push(self.tableItem('🤖 GPT-4.1 Mini', selector,"GPT-4.1-mini",source === "GPT-4.1-mini"))
-      // commandTable.push({title:'🤖 Abab6.5s',object:self,selector:selector,param:"abab6.5s-chat",checked:source === "abab6.5s-chat"})
-      commandTable.push({title:'🤖 MiniMax-Text-01',object:self,selector:selector,param:"MiniMax-Text-01",checked:source === "MiniMax-Text-01"})
-      commandTable.push({title:'🤖 Doubao 1.6',object:self,selector:selector,param:"doubao-seed-1-6",checked:source === "doubao-seed-1-6"})
-      commandTable.push({title:'🤖 GLM-4.5V',object:self,selector:selector,param:"glm-4.5v",checked:source === "glm-4.5v"})
-      commandTable.push({title:'🤖 GLM-4V Plus',object:self,selector:selector,param:"glm-4v-plus",checked:source === "glm-4v-plus"})
-      commandTable.push({title:'🤖 Moonshot-v1',object:self,selector:selector,param:"Moonshot-v1",checked:source === "Moonshot-v1"})
-      commandTable.push({title:'🤖 Claude-3.5 Haiku',object:self,selector:selector,param:"claude-3-5-haiku",checked:source === "claude-3-5-haiku"})
-      commandTable.push({title:'🤖 Claude-3.7 Sonnet',object:self,selector:selector,param:"claude-3-7-sonnet",checked:source === "claude-3-7-sonnet"})
-      commandTable.push({title:'🤖 Claude-4 Sonnet',object:self,selector:selector,param:"claude-sonnet-4",checked:source === "claude-sonnet-4"})
-      commandTable.push({title:'🤖 Claude-4 Opus',object:self,selector:selector,param:"claude-opus-4",checked:source === "claude-opus-4"})
-      commandTable.push({title:'🤖 Gemini-2.0 Flash',object:self,selector:selector,param:"gemini-2.0-flash",checked:source === "gemini-2.0-flash"})
-      commandTable.push({title:'🤖 Gemini-2.5 Flash',object:self,selector:selector,param:"gemini-2.5-flash",checked:source === "gemini-2.5-flash"})
-      commandTable.push({title:'🤖 Gemini-2.5 Pro',object:self,selector:selector,param:"gemini-2.5-pro",checked:source === "gemini-2.5-pro"})
-
-      // 🆕 新增 Qwen 视觉系列
-      commandTable.push({title:'🤖 Qwen3-VL Plus',object:self,selector:selector,param:"qwen3-vl-plus",checked:source === "qwen3-vl-plus"})
-      commandTable.push({title:'🤖 Qwen3 Omni Flash',object:self,selector:selector,param:"qwen3-omni-flash",checked:source === "qwen3-omni-flash"})
-      commandTable.push({title:'🤖 Qwen3-VL 235B Instruct',object:self,selector:selector,param:"qwen/qwen3-vl-235b-a22b-instruct",checked:source === "qwen/qwen3-vl-235b-a22b-instruct"})
-      commandTable.push({title:'🤖 Qwen3-VL 235B Thinking',object:self,selector:selector,param:"qwen/qwen3-vl-235b-a22b-thinking",checked:source === "qwen/qwen3-vl-235b-a22b-thinking"})
-
-      // 🆕 新增 Moonshot 完整系列
-      commandTable.push({title:'🤖 Kimi Latest',object:self,selector:selector,param:"kimi-latest",checked:source === "kimi-latest"})
-      commandTable.push({title:'🤖 Moonshot V1 8K',object:self,selector:selector,param:"moonshot-v1-8k",checked:source === "moonshot-v1-8k"})
-      commandTable.push({title:'🤖 Moonshot V1 32K',object:self,selector:selector,param:"moonshot-v1-32k",checked:source === "moonshot-v1-32k"})
-      commandTable.push({title:'🤖 Moonshot V1 128K',object:self,selector:selector,param:"moonshot-v1-128k",checked:source === "moonshot-v1-128k"})
-      commandTable.push({title:'🤖 Moonshot V1 8K Vision',object:self,selector:selector,param:"moonshot-v1-8k-vision-preview",checked:source === "moonshot-v1-8k-vision-preview"})
-      commandTable.push({title:'🤖 Moonshot V1 32K Vision',object:self,selector:selector,param:"moonshot-v1-32k-vision-preview",checked:source === "moonshot-v1-32k-vision-preview"})
-      commandTable.push({title:'🤖 Moonshot V1 128K Vision',object:self,selector:selector,param:"moonshot-v1-128k-vision-preview",checked:source === "moonshot-v1-128k-vision-preview"})
-      commandTable.push({title:'🤖 Moonshot V1 Auto',object:self,selector:selector,param:"moonshot-v1-auto",checked:source === "moonshot-v1-auto"})
-
-      // 🆕 新增 Doubao 详细版本
-      commandTable.push({title:'🤖 Doubao 1.6 Thinking 0715',object:self,selector:selector,param:"doubao-seed-1-6-thinking-250715",checked:source === "doubao-seed-1-6-thinking-250715"})
-      commandTable.push({title:'🤖 Doubao 1.6 Thinking 0615',object:self,selector:selector,param:"doubao-seed-1-6-thinking-250615",checked:source === "doubao-seed-1-6-thinking-250615"})
-      commandTable.push({title:'🤖 Doubao 1.6 0615',object:self,selector:selector,param:"doubao-seed-1-6-250615",checked:source === "doubao-seed-1-6-250615"})
-      commandTable.push({title:'🆓 Doubao 1.6 Flash 0715',object:self,selector:selector,param:"doubao-seed-1-6-flash-250715",checked:source === "doubao-seed-1-6-flash-250715"})
-      commandTable.push({title:'🆓 Doubao 1.6 Flash 0615',object:self,selector:selector,param:"doubao-seed-1-6-flash-250615",checked:source === "doubao-seed-1-6-flash-250615"})
-      commandTable.push({title:'🤖 Doubao 1.6 Vision',object:self,selector:selector,param:"doubao-seed-1-6-vision-250815",checked:source === "doubao-seed-1-6-vision-250815"})
-
-      // 🆕 新增 GLM 高级版本
-      commandTable.push({title:'🤖 GLM-4.1V 9B Thinking',object:self,selector:selector,param:"pro/thudm/glm-4.1v-9b-thinking",checked:source === "pro/thudm/glm-4.1v-9b-thinking"})
-
-      // commandTable.push({title:'🤖 Claude-3.5-Haiku',object:self,selector:selector,param:"claude-3-5-haiku-20241022",checked:source === "claude-3-5-haiku-20241022"})
+      let activatedModels = ocrConfig.modelSource("activatedmodels")
+      activatedModels.forEach(model => {
+        let title = ocrConfig.modelSource(model).title
+        menu.addMenuItem('🤖 '+title, selector, model, source === model)
+      })
     }
-    self.view.popoverController = MNUtil.getPopoverAndPresent(sender,commandTable,350,1)
-    // self.view.popoverController = ocrUtils.getPopoverAndPresent(sender,commandTable,200)
+    menu.show()
+  } catch (error) {
+    ocrUtils.addErrorLog(error, "changeSource")
+  }
   },
   changeSourceTo:function (source) {
-    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
+    Menu.dismissCurrentMenu()
     ocrConfig.config.source = source
     self.refreshView(source)
     ocrConfig.save()
@@ -452,12 +410,12 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
   },
   clearBuffer: function (params) {
     ocrNetwork.OCRBuffer = {}
-    // let focusNote = ocrUtils.getFocusNote()
+    // let foucsNote = ocrUtils.getFocusNote()
     // // let imageData = ocrUtils.getImageForOCR()
     // let imageData = MNUtil.getDocImage(true,true)
     // if (!imageData) {
-    //   if (focusNote) {
-    //     imageData = ocrUtils.getImageFromNote(focusNote)
+    //   if (foucsNote) {
+    //     imageData = ocrUtils.getImageFromNote(foucsNote)
     //   }else{
     //     MNUtil.showHUD("No image found")
     //     return;
@@ -634,13 +592,13 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
   try {
     // let docSplitMode = MNUtil.studyController.docMapSplitMode
     // MNUtil.showHUD("message"+docSplitMode)
-    let focusNote = MNNote.getFocusNote()
+    let foucsNote = MNNote.getFocusNote()
 
     // let imageData = ocrUtils.getImageForOCR()
     let imageData = MNUtil.getDocImage(true,true)
     if (!imageData) {
-      if (focusNote) {
-        imageData = ocrUtils.getImageFromNote(focusNote)
+      if (foucsNote) {
+        imageData = ocrUtils.getImageFromNote(foucsNote)
       }else{
         MNUtil.showHUD("No image found")
         return;
@@ -660,14 +618,14 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
     let selection = MNUtil.currentSelection
     let actions2createNote = ["toExcerpt"]
     if (selection.onSelection && actions2createNote.includes(button.action)) {
-      focusNote = MNNote.fromSelection()
+      foucsNote = MNNote.fromSelection()
     }
     // MNUtil.copyJSON(res)
     if (res) {
       // ocrUtils.showHUD("Time usage: "+(Date.now()-self.currentTime)+" ms")
       switch (button.action) {
         case "toOption":
-          if (focusNote) {
+          if (foucsNote) {
             let userSelect = await MNUtil.userSelect("OCR Result", res, ["Copy","Comment","Excerpt","Editor","ChildNote"])
             switch (userSelect) {
               case 0:
@@ -678,19 +636,19 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
                 return;
               case 2:
                 MNUtil.undoGrouping(()=>{
-                  focusNote.appendMarkdownComment(res)
+                  foucsNote.appendMarkdownComment(res)
                   MNUtil.showHUD("✅ Append to comment")
                 })
-                MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:focusNote.noteId,result:res})
+                MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:foucsNote.noteId,result:res})
                 return;
               case 3:
                 ocrUtils.undoGrouping(()=>{
-                  // focusNote.textFirst = true
-                  focusNote.excerptTextMarkdown = true
-                  focusNote.excerptText =  res
+                  // foucsNote.textFirst = true
+                  foucsNote.excerptTextMarkdown = true
+                  foucsNote.excerptText =  res
                   MNUtil.showHUD("✅ Set to excerpt")
                 })
-                MNUtil.postNotification("OCRFinished", {action:"toExcerpt",noteId:focusNote.noteId,result:res})
+                MNUtil.postNotification("OCRFinished", {action:"toExcerpt",noteId:foucsNote.noteId,result:res})
                 return;
               case 4:
                 let beginFrame = self.view.frame
@@ -711,7 +669,7 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
                 return;
               case 5:
                 MNUtil.undoGrouping(()=>{
-                  let child = focusNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
+                  let child = foucsNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
                   child.focusInMindMap(0.5)
                 })
                 MNUtil.showHUD("✅ Create child note")
@@ -749,7 +707,7 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
                 MNUtil.undoGrouping(()=>{
                   let childmap = MNUtil.currentChildMap
                   if (childmap) {
-                    let child = focusNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
+                    let child = foucsNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
                     child.focusInMindMap(0.5)
                   }else{
                     let child = MNNote.new({excerptText:res,excerptTextMarkdown:true})
@@ -763,12 +721,12 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
             }
           }
         case "toComment":
-          if (focusNote) {
+          if (foucsNote) {
             MNUtil.undoGrouping(()=>{
-              focusNote.appendMarkdownComment(res)
+              foucsNote.appendMarkdownComment(res)
               MNUtil.waitHUD("✅ Append to comment")
             })
-            MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:focusNote.noteId,result:res})
+            MNUtil.postNotification("OCRFinished", {action:"toComment",noteId:foucsNote.noteId,result:res})
           }else{
             MNUtil.copy(res)
           }
@@ -795,34 +753,34 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
           MNUtil.postNotification("openInEditor", {content:res})
           break;
         case "toChild":
-          if (focusNote) {
+          if (foucsNote) {
             MNUtil.undoGrouping(()=>{
-              let child = focusNote.createChildNote({content:res,markdown:true})
+              let child = foucsNote.createChildNote({excerptText:res,excerptTextMarkdown:true})
               child.focusInMindMap(0.5)
             })
             MNUtil.waitHUD("✅ Create child note")
           }
           break;
         case "toExcerpt":
-          if (focusNote) {
+          if (foucsNote) {
             ocrUtils.undoGrouping(()=>{
-              // focusNote.textFirst = true
-              focusNote.excerptTextMarkdown = true
-              focusNote.excerptText =  res
+              // foucsNote.textFirst = true
+              foucsNote.excerptTextMarkdown = true
+              foucsNote.excerptText =  res
               MNUtil.waitHUD("✅ Set to excerpt")
             })
-            MNUtil.postNotification("OCRFinished", {action:"toExcerpt",noteId:focusNote.noteId,result:res})
+            MNUtil.postNotification("OCRFinished", {action:"toExcerpt",noteId:foucsNote.noteId,result:res})
           }else{
             MNUtil.copy(res)
           }
           break;
         case "toTitle":
-          if (focusNote) {
+          if (foucsNote) {
             MNUtil.undoGrouping(()=>{
-              focusNote.noteTitle = res
+              foucsNote.noteTitle = res
               MNUtil.waitHUD("✅ Set to title")
             })
-            MNUtil.postNotification("OCRFinished", {action:"toTitle",noteId:focusNote.noteId,result:res})
+            MNUtil.postNotification("OCRFinished", {action:"toTitle",noteId:foucsNote.noteId,result:res})
           }else{
             MNUtil.showHUD("Please select a note first")
           }
@@ -961,7 +919,7 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
     //   }
     //   return
     // }
-    // let focusNote = ocrUtils.getFocusNote()
+    // let foucsNote = ocrUtils.getFocusNote()
     // // let regexp = new RegExp("(\[\\)|(\\\])", "g")
     // // MNUtil.copyJSON(self.res)
     // let md = self.res.pages[0].md
@@ -974,15 +932,15 @@ $\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{
     // let convertText = md
     // .replace(/(\\\[\s?)|(\s?\\\])/g, '$$') // Replace display math mode delimiters
     // .replace(/(\\\(\s?)|(\s?\\\))/g, '$') // Replace inline math mode opening delimiter
-    // if (self.toExcerpt && focusNote) {
+    // if (self.toExcerpt && foucsNote) {
     //   ocrUtils.undoGrouping(()=>{
-    //     focusNote.excerptText =  convertText
+    //     foucsNote.excerptText =  convertText
     //   })
     //   return
     // }
-    // if (focusNote) {
+    // if (foucsNote) {
     //   ocrUtils.undoGrouping(()=>{
-    //     focusNote.appendMarkdownComment(convertText)
+    //     foucsNote.appendMarkdownComment(convertText)
     //   })
     // }
     // } catch (error) {
@@ -1233,44 +1191,15 @@ ocrController.prototype.refreshView = function (source){
       this.resetPromptButton.hidden = true
       this.saveActionButton.hidden = false
       break;
-    case "abab6.5s-chat":
-    case "MiniMax-Text-01":
-    case "Moonshot-v1":
-    case "claude-3-5-sonnet-20241022":
-    case "claude-opus-4":
-    case "claude-sonnet-4":
-    case "claude-3-7-sonnet":
-    case "claude-3-5-haiku-20241022":
-    case "claude-3-5-haiku":
-    case "gemini-2.0-flash":
-    case "gemini-2.5-flash":
-    case "gemini-2.0-flash-lite":
-    case "gemini-2.5-flash-lite":
-    case "gemini-2.0-flash-exp":
-    case "gemini-2.0-pro":
-    case "gemini-2.5-pro":
-    case "glm-4v-plus":
-    case "glm-4v-flash":
-    case "glm-4.1v-thinking-flashx":
-    case "glm-4.1v-thinking-flash":
-    case "glm-4.5v":
-    case "glm-4.5v-nothinking":
-    case "GPT-4o":
-    case "GPT-4o-mini":
-    case "GPT-4.1":
-    case "GPT-4.1-mini":
-    case "GPT-4.1-nano":
-    case "GPT-5":
-    case "GPT-5-mini":
-    case "GPT-5-nano":
-    case "doubao-seed-1-6":
-    case "doubao-seed-1-6-nothinking":
-    case "doubao-seed-1.6-flash":
-    case "doubao-seed-1.6-flash-nothinking":
-      aiMode = true
-      this.moveButton.setTitleForState(ocrConfig.modelSource(source).title)
-      break;
     default:
+      if (ocrConfig.inModelSource(source)) {
+        aiMode = true
+        this.moveButton.setTitleForState(ocrConfig.modelSource(source).title)
+        break;
+      }else{
+        MNUtil.showHUD("Unsupported source: "+source)
+        return
+      }
       break;
   }
   if (aiMode) {

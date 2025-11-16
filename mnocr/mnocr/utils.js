@@ -63,6 +63,12 @@ class ocrUtils {
       detail:JSON.stringify(this.errorLog,null,2)
     })
   }
+  static getLatestSelection(){
+    if (MNUtil.focusHistory.length > 0) {
+      return MNUtil.focusHistory.at(-1)
+    }
+    return undefined
+  }
   static appVersion() {
     let info = {}
     let version = parseFloat(this,this.app.appVersion)
@@ -267,10 +273,10 @@ class ocrUtils {
   }
   static getImageForOCR(){
     //先看文档有没有，没有就从笔记里找，再没有就从文档上的笔记找
-    let focusNote = ocrUtils.getFocusNote()
+    let foucsNote = ocrUtils.getFocusNote()
     let imageData = ocrUtils.currentDocController.imageFromSelection()
-    if (!imageData && focusNote) {
-      imageData = ocrUtils.getImageFromNote(focusNote)
+    if (!imageData && foucsNote) {
+      imageData = ocrUtils.getImageFromNote(foucsNote)
     }
     if (!imageData) {
       imageData = ocrUtils.currentDocController.imageFromFocusNote()
@@ -501,6 +507,15 @@ document.getElementById('code-block').addEventListener('compositionend', () => {
     }
     return true
   }
+  /**
+   * 
+   * @param {string} message 
+   * @param {any} detail 
+   * @param {["INFO","ERROR","WARNING","DEBUG"]} level 
+   */
+  static log(message,detail,level = "INFO"){
+    MNUtil.log({message:message,detail:detail,source:"MN OCR",level:level})
+  }
 }
 
 class ocrNetwork {
@@ -714,7 +729,7 @@ static initRequestForChatGPT (apikey,url,model,temperature,funcIndices=[]) {
  * @param {string|NSData} imageData
  * @returns {Promise<Object>}
  */
-static async ChatGPTVision(imageData,source="GPT-4o",prompt = ocrConfig.getConfig("userPrompt")) {
+ static async ChatGPTVision(imageData,source="GPT-4o") {
   try {
   let key = subscriptionConfig.config.apikey
   if (ocrConfig.modelSource(source).isFree) {
@@ -726,6 +741,7 @@ static async ChatGPTVision(imageData,source="GPT-4o",prompt = ocrConfig.getConfi
   }
   MNUtil.waitHUD("OCR By "+source)
   let url = subscriptionConfig.config.url + "/v1/chat/completions"
+  let prompt = ocrConfig.getConfig("userPrompt")
   // let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
   let imageUrl = "data:image/jpeg;base64,"
   if (typeof imageData === "string") {
@@ -1170,19 +1186,17 @@ static async OCRDev(question,source = ocrConfig.getConfig("source"),buffer=true)
     // ocrUtils.adder
   }
 }
-static async OCR(imageData,source = ocrConfig.getConfig("source"),buffer=true, prompt = ocrConfig.getConfig("userPrompt")){
+static async OCR(imageData,source = ocrConfig.getConfig("source"),buffer=true){
   try {
   let ocrSource = source
   let config = JSON.parse(JSON.stringify(ocrConfig.config))
   config.source = ocrSource
-  MNUtil.log(typeof imageData)
-  MNUtil.log("is imagedata: "+(imageData instanceof NSData))
   let imageBase64 = (typeof imageData === "string") ? imageData : imageData.base64Encoding()
   let strForMD5 = JSON.stringify(config)+imageBase64
   let MD5 = MNUtil.MD5(strForMD5)
-  MNUtil.log("MD5: "+MD5)
   if (buffer && (MD5 in this.OCRBuffer)) {
     MNUtil.waitHUD("Read from buffer...")
+    MNUtil.stopHUD(0.5)
     // let sourcesForAction = ["Doc2X","SimpleTex"]
     let res = this.OCRBuffer[MD5]
     res = ocrUtils.action(source, res)
@@ -1196,7 +1210,7 @@ static async OCR(imageData,source = ocrConfig.getConfig("source"),buffer=true, p
       res = await this.doc2xImgOCR(imageData)
       if (res) {
         this.OCRBuffer[MD5] = res
-        MNUtil.log({
+        ocrUtils.log({
           source:"MN OCR",
           message:"✅ OCR By Doc2X",
           detail:res
@@ -1208,86 +1222,30 @@ static async OCR(imageData,source = ocrConfig.getConfig("source"),buffer=true, p
       res = await this.simpleTexOCR(imageData)
       if (res) {
         this.OCRBuffer[MD5] = res
-        MNUtil.log({
+        ocrUtils.log({
           source:"MN OCR",
           message:"✅ OCR By SimpleTex",
           detail:res
         })
       }
       break;
-    case "glm-4v-plus":
-    case "glm-4v-flash":
-    case "glm-4.1v-thinking-flashx":
-    case "glm-4.1v-thinking-flash":
-    case "glm-4.5v":
-    case "glm-4.5v-nothinking":
-    case "abab6.5s-chat":
-    case "claude-3-5-sonnet-20241022":
-    case "claude-3-5-haiku-20241022":
-    case "claude-3-7-sonnet":
-    case "claude-opus-4":
-    case "claude-sonnet-4":
-    case "claude-3-5-haiku":
-    case "gemini-2.0-flash-exp":
-    case "gemini-2.0-flash-lite":
-    case "gemini-2.5-flash-lite":
-    case "gemini-2.0-flash":
-    case "gemini-2.5-flash":
-    case "gemini-2.5-pro":
-    case "gemini-2.0-pro":
-    case "GPT-4o":
-    case "GPT-4o-mini":
-    case "GPT-4.1":
-    case "GPT-4.1-mini":
-    case "GPT-4.1-nano":
-    case "GPT-5":
-    case "GPT-5-mini":
-    case "GPT-5-nano":
-    case "doubao-seed-1-6":
-    case "doubao-seed-1-6-nothinking":
-    case "doubao-seed-1.6-flash":
-    case "doubao-seed-1.6-flash-nothinking":
-    case "Moonshot-v1":
-    case "MiniMax-Text-01":
-    // 🆕 新增 Qwen 视觉系列
-    case "qwen3-vl-plus":
-    case "qwen3-omni-flash":
-    case "qwen/qwen3-vl-235b-a22b-instruct":
-    case "qwen/qwen3-vl-235b-a22b-thinking":
-    // 🆕 新增 Moonshot 完整系列
-    case "kimi-latest":
-    case "moonshot-v1-8k":
-    case "moonshot-v1-32k":
-    case "moonshot-v1-128k":
-    case "moonshot-v1-8k-vision-preview":
-    case "moonshot-v1-32k-vision-preview":
-    case "moonshot-v1-128k-vision-preview":
-    case "moonshot-v1-auto":
-    // 🆕 新增 Doubao 详细版本
-    case "doubao-seed-1-6-thinking-250715":
-    case "doubao-seed-1-6-thinking-250615":
-    case "doubao-seed-1-6-250615":
-    case "doubao-seed-1-6-flash-250715":
-    case "doubao-seed-1-6-flash-250615":
-    case "doubao-seed-1-6-vision-250815":
-    // 🆕 新增 GLM 高级版本
-    case "pro/thudm/glm-4.1v-9b-thinking":
-      let beginTime = Date.now()
-      res = await this.ChatGPTVision(imageBase64,ocrSource, prompt)
-      let endTime = Date.now()
-      let costTime = (endTime-beginTime)/1000
-      if (res) {
-        this.OCRBuffer[MD5] = res
-        MNUtil.log({
-          source:"MN OCR",
-          message:"✅ OCR By "+ocrSource+" ("+costTime.toFixed(2)+"s)",
-          detail:res
-        })
-      }
-      break;
     default:
+      if (ocrConfig.inModelSource(ocrSource)) {
+        let beginTime = Date.now()
+        res = await this.ChatGPTVision(imageBase64,ocrSource)
+        let endTime = Date.now()
+        let costTime = (endTime-beginTime)/1000
+        if (res) {
+          this.OCRBuffer[MD5] = res
+          ocrUtils.log("✅ OCR By "+ocrSource+" ("+costTime.toFixed(2)+"s)",res)
+        }else{
+          ocrUtils.log("❌ OCR By "+ocrSource+" ("+costTime.toFixed(2)+"s)",res)
+          return undefined
+        }
+      }else{
       MNUtil.showHUD("Unsupported source: "+ocrSource)
       return undefined
+      }
   }
   MNUtil.stopHUD()
   res = ocrUtils.action(source, res)
@@ -1317,6 +1275,7 @@ try {
   }
   if (ocrConfig.fileIds[docMd5] && MNUtil.isfileExists(MNUtil.dbFolder+"/"+docMd5+".json")) {
     MNUtil.waitHUD("Read from buffer...")
+    MNUtil.stopHUD(0.5)
     let res = MNUtil.readJSON(MNUtil.dbFolder+"/"+docMd5+".json")
     return res
   }
@@ -1377,6 +1336,9 @@ try {
   MNUtil.showHUD(error)
 }
 }
+
+
+
 }
 
 class ocrConfig {
@@ -1412,22 +1374,20 @@ You are not allowed to output any content other than what is in the image.`,
     action:{}
   }
   static defaultFileIds = {}
-  /**
-   * 
-   * @param {string} model 
-   * @returns 
-   */
-  static modelSource(model){
-    let config = {
+  static _modelSource = {
+      "freemodels":["glm-4v-flash","glm-4.1v-thinking-flash","gemini-2.0-flash-lite","gemini-2.5-flash-lite","gpt-4.1-nano","gpt-5-nano","doubao-seed-1.6-flash-nothinking","qwen3-vl-30b","qwen3-omni"],
+      "activatedmodels":["gpt-5","gpt-5-mini","gpt-4.1","gpt-4.1-mini","minimax-text-01","doubao-seed-1-6-nothinking","doubao-seed-1.6-lite-nothinking","doubao-seed-1-6-vision-nothinking","glm-4.5v-nothinking","claude-sonnet-4-5","claude-haiku-4-5","gemini-2.0-flash","gemini-2.5-flash","gemini-2.5-pro-minimal","kimi-latest","qwen3-vl-32b","qwen3-vl-235b"],
       "abab6.5s-chat":{title: "Abab6.5s",model:"abab6.5s-chat",isFree:false},
       "glm-4v-plus":{title: "GLM-4V Plus",model:"glm-4v-plus-0111",isFree:false},
       "glm-4v-flash":{title: "GLM-4V Flash",model:"glm-4v-flash",isFree:true},
       "glm-4.1v-thinking-flash":{title: "GLM-4.1V Thinking Flash",model:"glm-4.1v-thinking-flash",isFree:true},
       "glm-4.1v-thinking-flashx":{title: "GLM-4.1V Thinking FlashX",model:"glm-4.1v-thinking-flashx",isFree:true},
       "glm-4.5v":{title: "GLM-4.5V",model:"glm-4.5v",isFree:false},
-      "glm-4.5v-nothinking":{title: "GLM-4.5V No Thinking",model:"glm-4.5v-nothinking",isFree:true},
+      "glm-4.5v-nothinking":{title: "GLM-4.5V NoThinking",model:"glm-4.5v-nothinking",isFree:false},
       "claude-3-5-sonnet":{title: "Claude-3.5 Sonnet",model:"claude-3-5-sonnet-20241022",isFree:false},
       "claude-sonnet-4":{title: "Claude-4 Sonnet",model:"claude-sonnet-4",isFree:false},
+      "claude-sonnet-4-5":{title: "Claude-4.5 Sonnet",model:"claude-sonnet-4-5",isFree:false},
+      "claude-haiku-4-5":{title: "Claude-4.5 Haiku",model:"claude-haiku-4-5",isFree:false},
       "claude-opus-4":{title: "Claude-4 Opus",model:"claude-opus-4",isFree:false},
       "claude-3-7-sonnet":{title: "Claude-3.7 Sonnet",model:"claude-3-7-sonnet-20250219",isFree:false},
       "claude-3-5-sonnet-20241022":{title: "Claude-3.5 Sonnet",model:"claude-3-5-sonnet-20241022",isFree:false},
@@ -1437,10 +1397,12 @@ You are not allowed to output any content other than what is in the image.`,
       "gemini-2.5-flash":{title: "Gemini-2.5 Flash",model:"gemini-2.5-flash",isFree:false},
       "gemini-2.0-pro":{title: "Gemini-2.0 Pro",model:"gemini-2.0-pro-exp-02-05",isFree:false},
       "gemini-2.5-pro":{title: "Gemini-2.5 Pro",model:"gemini-2.5-pro-exp-03-25",isFree:false},
+      "gemini-2.5-pro-minimal":{title: "Gemini-2.5 Pro Minimal",model:"gemini-2.5-pro-minimal",isFree:false},
       "gemini-2.0-flash-lite":{title: "Gemini-2.0 Flash Lite",model:"gemini-2.0-flash-lite",isFree:true},
       "gemini-2.5-flash-lite":{title: "Gemini-2.5 Flash Lite",model:"gemini-2.5-flash-lite",isFree:true},
       "minimax-text-01":{title: "MiniMax-Text-01",model:"MiniMax-Text-01",isFree:false},
       "moonshot-v1":{title: "Moonshot V1",model:"moonshot-v1-8k-vision-preview",isFree:false},
+      "kimi-latest":{title: "Kimi Latest",model:"kimi-latest",isFree:false},
       "gpt-4o":{title: "GPT-4o",model:"gpt-4o-2024-08-06",isFree:false},
       "gpt-4o-mini":{title: "GPT-4o Mini",model:"gpt-4o-mini",isFree:false},
       "gpt-4.1":{title: "GPT-4.1",model:"gpt-4.1",isFree:false},
@@ -1450,44 +1412,42 @@ You are not allowed to output any content other than what is in the image.`,
       "gpt-5-mini":{title: "GPT-5 Mini",model:"gpt-5-mini",isFree:false},
       "gpt-5-nano":{title: "GPT-5 Nano",model:"gpt-5-nano",isFree:true},
       "doubao-seed-1-6":{title: "Doubao 1.6",model:"doubao-seed-1-6",isFree:false},
-      "doubao-seed-1-6-nothinking":{title: "Doubao 1.6 No Thinking",model:"doubao-seed-1-6-nothinking",isFree:false},
+      "doubao-seed-1-6-nothinking":{title: "Doubao 1.6 NoThinking",model:"doubao-seed-1-6-nothinking",isFree:false},
       "doubao-seed-1.6-flash":{title: "Doubao 1.6 Flash",model:"doubao-seed-1-6-flash",isFree:true},
-      "doubao-seed-1.6-flash-nothinking":{title: "Doubao 1.6 Flash No Thinking",model:"doubao-seed-1-6-flash-nothinking",isFree:true},
-
-      // ========== 🆕 新增 Qwen 视觉系列 ==========
-      "qwen3-vl-plus":{title: "Qwen3-VL Plus", model:"qwen3-vl-plus", isFree:false},
-      "qwen3-omni-flash":{title: "Qwen3 Omni Flash", model:"qwen3-omni-flash", isFree:false},
-      "qwen/qwen3-vl-235b-a22b-instruct":{title: "Qwen3-VL 235B Instruct", model:"qwen/qwen3-vl-235b-a22b-instruct", isFree:false},
-      "qwen/qwen3-vl-235b-a22b-thinking":{title: "Qwen3-VL 235B Thinking", model:"qwen/qwen3-vl-235b-a22b-thinking", isFree:false},
-
-      // ========== 🆕 新增 Moonshot (Kimi) 完整系列 ==========
-      "kimi-latest":{title: "Kimi Latest", model:"kimi-latest", isFree:false},
-      "moonshot-v1-8k":{title: "Moonshot V1 8K", model:"moonshot-v1-8k", isFree:false},
-      "moonshot-v1-32k":{title: "Moonshot V1 32K", model:"moonshot-v1-32k", isFree:false},
-      "moonshot-v1-128k":{title: "Moonshot V1 128K", model:"moonshot-v1-128k", isFree:false},
-      "moonshot-v1-8k-vision-preview":{title: "Moonshot V1 8K Vision", model:"moonshot-v1-8k-vision-preview", isFree:false},
-      "moonshot-v1-32k-vision-preview":{title: "Moonshot V1 32K Vision", model:"moonshot-v1-32k-vision-preview", isFree:false},
-      "moonshot-v1-128k-vision-preview":{title: "Moonshot V1 128K Vision", model:"moonshot-v1-128k-vision-preview", isFree:false},
-      "moonshot-v1-auto":{title: "Moonshot V1 Auto", model:"moonshot-v1-auto", isFree:false},
-
-      // ========== 🆕 新增 Doubao 详细版本 ==========
-      "doubao-seed-1-6-thinking-250715":{title: "Doubao 1.6 Thinking 0715", model:"doubao-seed-1-6-thinking-250715", isFree:false},
-      "doubao-seed-1-6-thinking-250615":{title: "Doubao 1.6 Thinking 0615", model:"doubao-seed-1-6-thinking-250615", isFree:false},
-      "doubao-seed-1-6-250615":{title: "Doubao 1.6 0615", model:"doubao-seed-1-6-250615", isFree:false},
-      "doubao-seed-1-6-flash-250715":{title: "Doubao 1.6 Flash 0715", model:"doubao-seed-1-6-flash-250715", isFree:true},
-      "doubao-seed-1-6-flash-250615":{title: "Doubao 1.6 Flash 0615", model:"doubao-seed-1-6-flash-250615", isFree:true},
-      "doubao-seed-1-6-vision-250815":{title: "Doubao 1.6 Vision", model:"doubao-seed-1-6-vision-250815", isFree:false},
-
-      // ========== 🆕 新增 GLM 高级版本 ==========
-      "pro/thudm/glm-4.1v-9b-thinking":{title: "GLM-4.1V 9B Thinking", model:"Pro/THUDM/GLM-4.1V-9B-Thinking", isFree:false},
+      "doubao-seed-1.6-flash-nothinking":{title: "Doubao 1.6 Flash NoThinking",model:"doubao-seed-1-6-flash-nothinking",isFree:true},
+      "doubao-seed-1.6-lite-nothinking":{title: "Doubao 1.6 Lite NoThinking",model:"doubao-seed-1-6-lite-nothinking",isFree:false},
+      "doubao-seed-1-6-vision-nothinking":{title: "Doubao 1.6 Vision NoThinking",model:"doubao-seed-1-6-vision-nothinking",isFree:false},
+      "deepseek-ocr":{title: "DeepSeek OCR",model:"deepseek-ocr",isFree:true},
+      "qwen3-vl-30b":{title: "Qwen3 VL 30B",model:"qwen3-vl-30b-a3b-instruct",isFree:true},
+      "qwen3-vl-32b":{title: "Qwen3 VL 32B",model:"qwen3-vl-32b",isFree:false},
+      "qwen3-vl-235b":{title: "Qwen3 VL 235B",model:"qwen3-vl-235b-a22b-instruct",isFree:false},
+      "qwen3-omni":{title: "Qwen3 Omni",model:"qwen3-omni",isFree:true},
     }
-    let tem = config[model.toLowerCase()]
+  /**
+   * 
+   * @param {string} model 
+   * @returns 
+   */
+  static modelSource(model){
+  try {
+
+    //key不代表实际的模型名，只是作为key，实际的模型名在model中，title为显示的模型名
+    let tem = this._modelSource[model.toLowerCase()]
     if (tem) {
       return tem
     }else{
       MNUtil.showHUD("Unknown source "+model)
       return {title:"Unknown source "+model,isFree:false}
     }
+    
+  } catch (error) {
+    ocrUtils.addErrorLog(error, "modelSource",model)
+    return {title:"Unknown source "+model,isFree:false}
+  }
+  }
+  static inModelSource(model){
+    let targetModel = model.toLowerCase()
+    return targetModel in this._modelSource
   }
   static init(){
     this.config = this.getByDefault("MNOCR", this.defaultConfig)
@@ -1505,6 +1465,9 @@ You are not allowed to output any content other than what is in the image.`,
   }
   static getConfig(key){
     if (this.config[key] !== undefined) {
+      if (key === "source") {
+        return this.config[key].toLowerCase()
+      }
       return this.config[key]
     }else{
       return this.defaultConfig[key]
