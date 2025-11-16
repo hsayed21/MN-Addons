@@ -280,6 +280,7 @@
 
     .pill-section--type {
       top: var(--topbar-height);
+      margin-top: 8px; /* 添加安全边距，防止被遮挡 */
     }
 
     .pill-section--classification {
@@ -1193,6 +1194,123 @@
 
     .scroll-to-top:active {
       transform: scale(0.95);
+    }
+
+    /* ========== 响应式优化：顶部按钮区域 ========== */
+
+    /* 中等屏幕（900px-1024px）：按钮紧凑化 */
+    @media (max-width: 1024px) and (min-width: 901px) {
+      .topbar-actions .btn {
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+
+      .index-mode-badge {
+        padding: 5px 10px;
+        font-size: 11px;
+      }
+    }
+
+    /* 中小屏幕（640px-900px）：按钮更紧凑，部分文字简化 */
+    @media (max-width: 900px) and (min-width: 641px) {
+      .topbar-actions {
+        gap: 6px;
+      }
+
+      .topbar-actions .btn {
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+
+      .index-mode-badge {
+        padding: 4px 8px;
+        font-size: 10px;
+      }
+
+      /* 刷新和清空按钮只保留 emoji */
+      #refreshBtn {
+        padding: 6px 8px;
+      }
+
+      #clearBtn {
+        padding: 6px 8px;
+      }
+    }
+
+    /* 窄屏（480px-640px）：按钮图标化 */
+    @media (max-width: 640px) and (min-width: 481px) {
+      .topbar-actions {
+        gap: 4px;
+        flex-wrap: nowrap; /* 防止换行 */
+        overflow-x: auto; /* 允许水平滚动作为备选 */
+      }
+
+      .topbar-actions .btn {
+        padding: 6px 8px;
+        font-size: 12px;
+        min-width: auto;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      /* 索引模式徽章紧凑显示 */
+      .index-mode-badge {
+        padding: 4px 6px;
+        font-size: 10px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      /* 为类型筛选器增加额外间距 */
+      .pill-section--type {
+        margin-top: 12px;
+      }
+    }
+
+    /* 超窄屏（<480px，适配 iPad 1/4 宽度）：极致紧凑 */
+    @media (max-width: 480px) {
+      .topbar {
+        padding: 8px 10px;
+      }
+
+      .topbar-main {
+        flex: 1;
+        min-width: 0; /* 允许收缩 */
+      }
+
+      .topbar-actions {
+        gap: 2px;
+        flex-wrap: nowrap; /* 绝对不换行 */
+        overflow-x: auto; /* 如果还是不够就允许水平滚动 */
+        flex-shrink: 0;
+        -webkit-overflow-scrolling: touch; /* iOS 流畅滚动 */
+        scrollbar-width: none; /* 隐藏滚动条（Firefox）*/
+      }
+
+      .topbar-actions::-webkit-scrollbar {
+        display: none; /* 隐藏滚动条（Webkit）*/
+      }
+
+      .topbar-actions .btn {
+        padding: 5px 6px;
+        font-size: 11px;
+        min-width: auto;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      /* 索引徽章：紧凑显示 */
+      .index-mode-badge {
+        padding: 3px 5px;
+        font-size: 9px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      /* 为类型筛选器增加更多间距，确保不被遮挡 */
+      .pill-section--type {
+        margin-top: 16px;
+      }
     }
 
     /* 响应式设计 - 中等屏幕（iPad 竖屏）*/
