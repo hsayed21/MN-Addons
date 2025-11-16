@@ -165,9 +165,18 @@ JSB.newAddon = function (mainPath) {
           chatAIUtils.notifyController.view.frame = currentFrame
           
         }
-        if (chatAIUtils.isMN4() && MNExtensionPanel.on && chatAIUtils.sideOutputController) {
-          chatAIUtils.sideOutputController.view.frame = {x:0,y:0,width:MNExtensionPanel.width,height:MNExtensionPanel.height}
-          chatAIUtils.sideOutputController.chatView.frame = {x:0,y:0,width:MNExtensionPanel.width,height:MNExtensionPanel.height}
+        if (chatAIUtils.sideOutputController) {
+          let sideOutputController = chatAIUtils.sideOutputController
+          if (sideOutputController.floatWindow) {
+            if (!sideOutputController.view.hidden) {
+              sideOutputController.view.frame = {x:0,y:0,width:MNUtil.studyWidth,height:MNUtil.studyHeight}
+              sideOutputController.panelWidth = MNUtil.studyWidth
+              sideOutputController.panelHeight = MNUtil.studyHeight
+            }
+          }else if (chatAIUtils.isMN4() && MNExtensionPanel.on){
+            sideOutputController.view.frame = {x:0,y:0,width:MNExtensionPanel.width,height:MNExtensionPanel.height}
+            sideOutputController.chatView.frame = {x:0,y:0,width:MNExtensionPanel.width,height:MNExtensionPanel.height}
+          }
         }
         if (chatAIUtils.dynamicController && !chatAIUtils.dynamicController.view.hidden && !chatAIUtils.dynamicController.onAnimate) {
           // let lastFrame = chatAIUtils.dynamicController.lastFrame
@@ -836,7 +845,8 @@ ${knowledge}
         }
       },
       openSetting:function (params) {
-        if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+        // if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+        Menu.dismissCurrentMenu()
         if (chatAIUtils.chatController.view.hidden) {
           if (chatAIUtils.chatController.isFirst) {
             // Application.sharedInstance().showHUD("first",self.window,2)
@@ -866,7 +876,8 @@ ${knowledge}
         if (self.window!==chatAIUtils.focusWindow) {
           return
         }
-        if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+        // if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+        Menu.dismissCurrentMenu()
         try {
           let selection = chatAIUtils.currentSelection
           if (selection.onSelection) {
@@ -882,7 +893,8 @@ ${knowledge}
         }
       },
       toggleTrigger: async function (params) {
-        if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+        // if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+        Menu.dismissCurrentMenu()
         let trigger = !chatAIConfig.config.autoAction
         MNUtil.showHUD(trigger?"✅  Enable trigger":"❌  Disable trigger")
         chatAIConfig.config.autoAction = trigger
@@ -890,12 +902,24 @@ ${knowledge}
         MNUtil.refreshAddonCommands()
       },
       openSideBar: async function (params) {
-        if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+        // if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+        Menu.dismissCurrentMenu()
         await chatAIUtils.openSideOutput()
         chatAIUtils.sideOutputController.openChatView()
       },
+      openSideOutputInFloatWindow: async function (params) {
+        // if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+        Menu.dismissCurrentMenu()
+        if (chatAIUtils.sideOutputController && !chatAIUtils.sideOutputController.floatWindow && MNExtensionPanel.on) {
+          MNUtil.toggleExtensionPanel()
+        }
+        await chatAIUtils.openSideOutputInFloatWindow()
+        chatAIUtils.sideOutputController.openChatView()
+        // chatAIUtils.sideOutputController.enableNavEv()
+      },
       toggleWindowLocation: function (origionalLoc) {
-        if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+        // if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+        Menu.dismissCurrentMenu()
         try {
         if (origionalLoc === 1) {
           chatAIConfig.config.notifyLoc = 0
@@ -1016,28 +1040,49 @@ ${knowledge}
         }else{
           beginFrame = MNUtil.genFrame(buttonFrame.x-300, buttonFrame.y, 40, 40)
         }
-        var commandTable = [
-          {title:'⚙️   Setting',object:self,selector:'openSetting:',param:[1,2,3]},
-          {title:'🤖   Float Window',object:self,selector:'openFloat:',param:beginFrame},
-          {title:'💬   Chat Mode',object:self,selector:'openSideBar:',param:[1,3,2]},
-          {title:'🔄   Manual Sync',object:self,selector:'syncConfig:',param:[1,2,3]},
-          {title:'↔️   Location: '+(chatAIConfig.config.notifyLoc?"Right":"Left"),object:self,selector:"toggleWindowLocation:",param:chatAIConfig.config.notifyLoc}
-        ];
+        let menu = Menu.new(button, self)
+        menu.width = 250
+        menu.addMenuItem('⚙️   Setting', 'openSetting:')
+        menu.addMenuItem('🤖   Float Window', 'openFloat:', beginFrame)
+        if (MNUtil.isIOS()) {
+          menu.addMenuItem('💬   Chat Mode', 'openSideBar:')
+        }else{
+          menu.addMenuItem('💬   Chat Mode (Side)', 'openSideBar:')
+          menu.addMenuItem('💬   Chat Mode (Float)', 'openSideOutputInFloatWindow:')
+        }
+        menu.addMenuItem('🔄   Manual Sync', 'syncConfig:')
+        menu.addMenuItem('↔️   Location: '+(chatAIConfig.config.notifyLoc?"Right":"Left"), 'toggleWindowLocation:', chatAIConfig.config.notifyLoc)
         let trigger = chatAIConfig.getConfig("autoAction") ? "✅":"❌"
-        commandTable.push({title:trigger+'   Trigger',object:self,selector:'toggleTrigger:',param:[1,2,3]})
+        menu.addMenuItem(trigger+'   Trigger', 'toggleTrigger:')
+        // var commandTable = [
+        //   {title:'⚙️   Setting',object:self,selector:'openSetting:',param:[1,2,3]},
+        //   {title:'🤖   Float Window',object:self,selector:'openFloat:',param:beginFrame},
+        //   {title:'💬   Chat Mode (Side)',object:self,selector:'openSideBar:',param:[1,3,2]},
+        //   {title:'💬   Chat Mode (Float)',object:self,selector:'openSideOutputInFloatWindow:',param:[1,3,2]},
+        //   {title:'🔄   Manual Sync',object:self,selector:'syncConfig:',param:[1,2,3]},
+        //   {title:'↔️   Location: '+(chatAIConfig.config.notifyLoc?"Right":"Left"),object:self,selector:"toggleWindowLocation:",param:chatAIConfig.config.notifyLoc}
+        // ];
+        // let trigger = chatAIConfig.getConfig("autoAction") ? "✅":"❌"
+        // commandTable.push({title:trigger+'   Trigger',object:self,selector:'toggleTrigger:',param:[1,2,3]})
     let promptKeys = chatAIConfig.config.promptNames
     if (promptKeys.length > 5) {
       promptKeys = promptKeys.slice(0,5)
     }
-    let promptTable = promptKeys.map(key=>{
-      return {title:"🚀   "+chatAIConfig.prompts[key].title,object:self,selector:'executePrompt:',param:key}
+    promptKeys.forEach(key=>{
+      menu.addMenuItem("🚀   "+chatAIConfig.prompts[key].title, 'executePrompt:', key)
     })
-    commandTable = commandTable.concat(promptTable)
+    // let promptTable = promptKeys.map(key=>{
+    //   return {title:"🚀   "+chatAIConfig.prompts[key].title,object:self,selector:'executePrompt:',param:key}
+    // })
+    // commandTable = commandTable.concat(promptTable)
     if (chatAIUtils.addonBar.frame.x < 100) {
-      self.popoverController = chatAIUtils.getPopoverAndPresent(button,commandTable,200,4)
+      menu.preferredPosition = 4
+      // self.popoverController = chatAIUtils.getPopoverAndPresent(button,commandTable,250,4)
     }else{
-      self.popoverController = chatAIUtils.getPopoverAndPresent(button,commandTable,200,0)
+      menu.preferredPosition = 0
+      // self.popoverController = chatAIUtils.getPopoverAndPresent(button,commandTable,250,0)
     }
+    menu.show()
     return
       },
     },

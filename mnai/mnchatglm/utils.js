@@ -149,7 +149,7 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
     }
     return this.args
   }
-  body(forMinimax = false) {
+  body() {
     let parameters = {
       "type": "object",
       "properties": this.getArgs(),
@@ -162,10 +162,6 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
     let funcStructure = {
       "name":this.name,
       "description":this.description
-    }
-    if (forMinimax) {
-      funcStructure.parameters = JSON.stringify(parameters)
-      return {"type":"function","function":funcStructure}
     }
     funcStructure.parameters = parameters
     return {"type":"function","function":funcStructure}
@@ -2111,6 +2107,9 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
           note = MNNote.new(matchNote)
         }
       }
+      if(!note){
+        note = MNNote.getFocusNote()
+      }
     }
     if (args.action) {//兼容原方法
       let message = await this._editNote(args,note)
@@ -2409,10 +2408,10 @@ ${indent}Markdown: ${args.markdown}\n`
               return `\n${indent}From: ${args.originalContent??""}
 ${indent}To: ${args.content??""}\n`
           case "setTitle":
-            if (args.content) {
+            if (args.content && args.content.trim() !== "") {
               return `\n${indent}Title: ${args.content ?? args.title ?? ""}\n`
             }
-            return ""
+            return `\n${indent}Title: {{emptyContent}}\n`
           case "setTitleWithOptions":
             if (args.titleOptions) {
               let optionsString = args.titleOptions.map((option,index)=>`  ${index+1}. ${option}`).join("\n")
@@ -3920,7 +3919,7 @@ In addition to the actionId, you can also provide additional arguments to replac
     }
     this.tools["UnkonwFunc"] = this.new("UnkonwFunc",{},"UnkonwFunc",false)
   }
-  static getToolsByIndex(indices,forMinimax = false) {
+  static getToolsByIndex(indices) {
   try {
 
     if (indices.length === 0) {
@@ -3932,7 +3931,7 @@ In addition to the actionId, you can also provide additional arguments to replac
       if (ind < toolNumber && ind >= 0) {
         let toolName = this.toolNames[ind]
         if (toolName in this.tools) {
-          funcStructures.push(this.tools[toolName].body(forMinimax))
+          funcStructures.push(this.tools[toolName].body())
         }
       }
     })
@@ -6359,17 +6358,22 @@ static async getInfoForDynamic() {
  * @returns {{results:Object[],usage:Object}}
  */
 static parseDataChunks(str) {
-  str = str.replace(/: OPENROUTER PROCESSING/g, '');
+  str = str.replace(/: OPENROUTER PROCESSING/g, '').trim();
 
   const regex = /data:\s*({[\s\S]*?})(?=\s*data:|$)/g;
   const results = [];//role,citation
+  // const strChunks = []
   let match;
   let usage = {};
   
   while ((match = regex.exec(str)) !== null) {
     // MNUtil.log({message:"match",detail:match})
       const jsonStr = match[1];
+      // strChunks.push(jsonStr)
     try {
+      if (jsonStr === '' || jsonStr === '[DONE]') {
+        continue;
+      }
       const data = JSON.parse(jsonStr);
       const delta = data.choices[0]?.delta;
       if (delta) {
@@ -6388,17 +6392,19 @@ static parseDataChunks(str) {
     let jsonStr = str.split("data:")[1]
     try {
       let data = this.getValidJSON(jsonStr)
-      const delta = data.choices[0]?.delta;
-      if (delta) {
+      if (data && data.choices && data.choices.length) {
+        const delta = data.choices[0]?.delta;
         results.push(delta);
+        chatAIUtils.log("parseFirstDataChunk")
       }
       if ("usage" in data) {
         usage = data.usage;
       }
     } catch (error) {
-      this.addErrorLog(error, "parseFirstDataChunk",jsonStr)
+      this.addErrorLog(error, "parseFirstDataChunk",{jsonStr:jsonStr,data:data})
     }
   }
+  // chatAIUtils.log("parseDataChunks", {results:results,strChunks:strChunks})
   return {results:results,usage:usage};
 }
   static parseData(originalText) {
@@ -7679,6 +7685,38 @@ code.hljs {
   static isSideOutputCreated(){
     return this.sideOutputController !== undefined
   }
+  static async openSideOutputInFloatWindow(){
+    try {
+    if (!this.isSideOutputCreated()) {
+        this.sideOutputController = sideOutputController.new();
+        this.sideOutputController.floatWindow = true
+        MNUtil.studyView.addSubview(this.sideOutputController.view)
+        let panelView = MNUtil.studyView
+        this.sideOutputController.view.hidden = false
+        this.sideOutputController.view.frame = {x:0,y:0,width:panelView.frame.width,height:panelView.frame.height}
+        this.sideOutputController.currentFrame = {x:0,y:0,width:panelView.frame.width,height:panelView.frame.height}
+        this.sideOutputController.view.layer.opacity = 0
+        await MNUtil.delay(0.2)
+        this.sideOutputController.view.layer.opacity = 0
+        MNUtil.animate(()=>{
+          this.sideOutputController.view.layer.opacity = 1
+        },0.25)
+    }else{
+      MNUtil.studyView.addSubview(this.sideOutputController.view)
+      this.sideOutputController.floatWindow = true
+      this.sideOutputController.view.hidden = false
+      this.sideOutputController.view.frame = {x:0,y:0,width:MNUtil.studyWidth,height:MNUtil.studyHeight}
+      this.sideOutputController.panelWidth = MNUtil.studyWidth
+      this.sideOutputController.panelHeight = MNUtil.studyHeight
+      this.sideOutputController.view.layer.opacity = 0
+      MNUtil.animate(()=>{
+        this.sideOutputController.view.layer.opacity = 1
+      },0.25)
+    }
+    } catch (error) {
+      this.addErrorLog(error, "openSideOutputInFloatWindow")
+    }
+  }
   static async openSideOutput(){
     if (this.isMN3()) {
       MNUtil.confirm("Only available in MN4+")
@@ -7688,6 +7726,7 @@ code.hljs {
 
     if (!this.isSideOutputCreated()) {
         this.sideOutputController = sideOutputController.new();
+        this.sideOutputController.floatWindow = false
         MNUtil.toggleExtensionPanel()
         MNExtensionPanel.show()
         MNExtensionPanel.addSubview("chatAISideOutputView", this.sideOutputController.view)
@@ -7699,6 +7738,14 @@ code.hljs {
         MNUtil.studyView.bringSubviewToFront(MNExtensionPanel.view)
         // MNUtil.toggleExtensionPanel()
     }else{
+      if (!MNExtensionPanel.on) {
+        MNUtil.toggleExtensionPanel()
+        MNExtensionPanel.show()
+      }
+      this.sideOutputController.floatWindow = false
+      this.sideOutputController.panelWidth = MNExtensionPanel.width
+      this.sideOutputController.panelHeight = MNExtensionPanel.height
+      MNExtensionPanel.addSubview("chatAISideOutputView", this.sideOutputController.view)
       MNExtensionPanel.show("chatAISideOutputView")
       MNUtil.studyView.bringSubviewToFront(MNExtensionPanel.view)
     }
@@ -9591,7 +9638,7 @@ class chatAIConfig {
     geminiUrl : 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     geminiModel : 0,
     miniMaxKey: "",
-    miniMaxUrl: "https://api.minimax.chat/v1/text/chatcompletion_v2",
+    miniMaxUrl: "https://api.minimaxi.com/v1/chat/completions",
     miniMaxModel: "abab6.5-chat",
     miniMaxGroup:"1827907340364431485",
     deepseekKey:"",
@@ -9624,6 +9671,12 @@ class chatAIConfig {
     qiniuKey:"",
     qiniuUrl:"https://openai.qiniu.com/v1/chat/completions",
     qiniuModel:"deepseek/deepseek-v3.1-terminus",
+    glmCodingKey:"",
+    glmCodingUrl:"https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+    glmCodingModel:"glm-4.6",
+    kimiCodingKey:"",
+    kimiCodingUrl:"https://api.kimi.com/coding/v1/chat/completions",
+    kimiCodingModel:"kimi-for-coding",
     dynamic:true,
     dynamicFunc : [],
     dynamicModel : "Default",
@@ -9837,9 +9890,16 @@ class chatAIConfig {
     "glm-z1-flash",
     "moonshotai/kimi-k2-instruct",
     "moonshotai/Kimi-K2-Instruct",
+    "moonshotai/kimi-k2-thinking",
     "Moonshot-Kimi-K2-Instruct",
+    "Pro/moonshotai/Kimi-K2-Instruct",
+    "Pro/moonshotai/Kimi-K2-Instruct-0905",
+    "moonshotai/Kimi-K2-Instruct-0905",
     "kimi-k2-0711-preview",
+    "kimi-k2-0905-preview",
     "kimi-k2-turbo-preview",
+    "kimi-k2-thinking",
+    "kimi-k2-thinking-turbo",
     "qwen3",
     "qwen3-thinking",
     "qwen/qwen3-next-80b-a3b-thinking",
@@ -9868,7 +9928,9 @@ class chatAIConfig {
     "Pro/deepseek-ai/DeepSeek-R1-0120",
     "Pro/deepseek-ai/DeepSeek-V3",
     "Pro/deepseek-ai/DeepSeek-V3-1226",
-    "Pro/moonshotai/Kimi-K2-Instruct",
+    "minimax/minimax-m2",
+    "MiniMaxAI/MiniMax-M2",
+    "MiniMax-M2"
   ]
 // 正则模式匹配（作为兜底 / 模糊匹配）
 static modelsWithoutVisionPatterns = [
@@ -9964,7 +10026,6 @@ static modelsWithoutVisionPatterns = [
   }
   static defaultModelConfig = {
   "OpenRouter":[
-        "openrouter/andromeda-alpha",
         "deepseek/deepseek-chat-v3.1:free",
         "deepseek/deepseek-chat-v3-0324:free",
         "deepseek/deepseek-r1:free",
@@ -10052,6 +10113,7 @@ static modelsWithoutVisionPatterns = [
         "baidu/ernie-4.5-21b-a3b-thinking",
         "meituan/longcat-flash-chat:free",
         "meituan/longcat-flash-chat",
+        "minimax/minimax-m2:free",
         "minimax/minimax-m1"
   ],
   "Qiniu":[
@@ -10078,11 +10140,12 @@ static modelsWithoutVisionPatterns = [
       "qwen3-next-80b-a3b-thinking",
       "qwen3-coder-480b-a35b-instruct",
       "MiniMax-M1",
+      "minimax/minimax-m2",
       "z-ai/glm-4.6",
       "glm-4.5",
       "glm-4.5-air",
       "kimi-k2",
-      "moonshotai/kimi-k2-0905",
+      "moonshotai/kimi-k2-thinking",
       "openai/gpt-5",
       "gpt-oss-20b",
       "gpt-oss-120b",
@@ -10103,6 +10166,8 @@ static modelsWithoutVisionPatterns = [
       "claude-4.5-sonnet"
   ],
   "PPIO": [
+    "minimax/minimax-m2",
+    "minimaxai/minimax-m1-80k",
     "deepseek/deepseek-v3.2-exp",
     "deepseek/deepseek-v3.1-terminus",
     "deepseek/deepseek-v3.1",
@@ -10115,6 +10180,7 @@ static modelsWithoutVisionPatterns = [
     "deepseek/deepseek-prover-v2-671b",
     "moonshotai/kimi-k2-instruct",
     "moonshotai/kimi-k2-0905",
+    "moonshotai/kimi-k2-thinking",
     "baidu/ernie-4.5-vl-424b-a47b",
     "baidu/ernie-4.5-300b-a47b-paddle",
     "zai-org/glm-4.6",
@@ -10140,31 +10206,33 @@ static modelsWithoutVisionPatterns = [
     "Pro/deepseek-ai/DeepSeek-V3.2-Exp",
     "Pro/deepseek-ai/DeepSeek-V3.1-Terminus",
     "Pro/deepseek-ai/DeepSeek-R1",
-    "Pro/deepseek-ai/DeepSeek-R1-0120",
     "Pro/deepseek-ai/DeepSeek-V3",
-    "Pro/deepseek-ai/DeepSeek-V3-1226",
     "Pro/moonshotai/Kimi-K2-Instruct-0905",
     "Pro/THUDM/GLM-4.1V-9B-Thinking",
+    "zai-org/GLM-4.6",
     "zai-org/GLM-4.5",
     "zai-org/GLM-4.5V",
     "zai-org/GLM-4.5-Air",
     "deepseek-ai/DeepSeek-V3.2-Exp",
     "deepseek-ai/DeepSeek-V3.1-Terminus",
     "deepseek-ai/DeepSeek-R1",
-    "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+    "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B",
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-    "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-    "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
     "deepseek-ai/DeepSeek-V3",
     "deepseek-ai/DeepSeek-V2.5",
     "deepseek-ai/deepseek-vl2",
     "stepfun-ai/step3",
     "moonshotai/Kimi-K2-Instruct-0905",
     "moonshotai/Kimi-Dev-72B",
+    "MiniMaxAI/MiniMax-M2",
     "MiniMaxAI/MiniMax-M1-80k",
     "Tongyi-Zhiwen/QwenLong-L1-32B",
+    "Qwen/Qwen3-VL-8B-Instruct",
+    "Qwen/Qwen3-VL-8B-Thinking",
+    "Qwen/Qwen3-VL-32B-Instruct",
+    "Qwen/Qwen3-VL-32B-Thinking",
     "Qwen/Qwen3-VL-30B-A3B-Instruct",
     "Qwen/Qwen3-VL-30B-A3B-Thinking",
     "Qwen/Qwen3-VL-235B-A22B-Instruct",
@@ -10176,17 +10244,11 @@ static modelsWithoutVisionPatterns = [
     "Qwen/Qwen3-235B-A22B-Instruct-2507",
     "Qwen/Qwen3-235B-A22B",
     "Qwen/Qwen3-30B-A3B",
+    "Qwen/Qwen3-30B-A3B-Instruct-2507",
+    "Qwen/Qwen3-30B-A3B-Thinking-2507",
     "Qwen/Qwen3-32B",
     "Qwen/Qwen3-14B",
     "Qwen/Qwen3-8B",
-    "Qwen/QwQ-32B",
-    "Qwen/QwQ-32B-Preview",
-    "Qwen/QVQ-72B-Preview",
-    "Qwen/Qwen2.5-Coder-32B-Instruct",
-    "Qwen/Qwen2.5-72B-Instruct-128K",
-    "Qwen/Qwen2.5-72B-Instruct",
-    "Qwen/Qwen2.5-32B-Instruct",
-    "Qwen/Qwen2-VL-72B-Instruct",
     "THUDM/GLM-Z1-32B-0414",
     "THUDM/GLM-4-32B-0414",
     "THUDM/GLM-Z1-9B-0414",
@@ -10199,33 +10261,51 @@ static modelsWithoutVisionPatterns = [
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
     "gemini-2.0-flash",
-    "gemini-2.0-flash-lite"
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-pro-minimal",
+    "gemini-2.5-pro-low",
+    "gemini-2.5-pro-medium",
+    "gemini-2.5-pro-high",
+    "gemini-2.5-flash-nothinking",
+    "gemini-2.5-flash-low",
+    "gemini-2.5-flash-medium",
+    "gemini-2.5-flash-high",
+    "gemini-2.5-flash-lite-nothinking",
+    "gemini-2.5-flash-lite-low",
+    "gemini-2.5-flash-lite-medium",
+    "gemini-2.5-flash-lite-high"
   ],
   "Volcengine": [
     "doubao-seed-1-6-thinking-250715",
     "doubao-seed-1-6-thinking-250615",
+    "doubao-seed-1-6-251015",
     "doubao-seed-1-6-250615",
+    "doubao-seed-1-6-lite-251015",
+    "doubao-seed-1-6-flash-250828",
     "doubao-seed-1-6-flash-250715",
     "doubao-seed-1-6-flash-250615",
     "doubao-seed-1-6-vision-250815",
-    "doubao-1-5-thinking-vision-pro-250428",
-    "doubao-1-5-thinking-pro-250415",
-    "doubao-1-5-thinking-pro-m-250415",
-    "doubao-1-5-thinking-pro-m-250428",
-    "doubao-1-5-pro-32k-250115",
-    "doubao-1-5-pro-256k-250115",
-    "doubao-1.5-vision-pro-250328",
-    "doubao-1-5-vision-pro-32k-250115",
-    "doubao-1.5-vision-lite-250315",
-    "doubao-1-5-lite-32k-250115",
     "deepseek-v3-1-terminus",
     "deepseek-v3-1-250821",
     "deepseek-v3-250324",
     "deepseek-r1-250120",
     "deepseek-r1-250528",
-    "moonshot-v1-8k",
-    "moonshot-v1-32k",
-    "moonshot-v1-128k"
+    "kimi-k2-250905",
+    "doubao-seed-1-6",
+    "doubao-seed-1-6-thinking",
+    "doubao-seed-1-6-nothinking",
+    "doubao-seed-1-6-low",
+    "doubao-seed-1-6-medium",
+    "doubao-seed-1-6-high",
+    "doubao-seed-1-6-lite",
+    "doubao-seed-1-6-lite-nothinking",
+    "doubao-seed-1-6-lite-low",
+    "doubao-seed-1-6-lite-medium",
+    "doubao-seed-1-6-lite-high",
+    "doubao-seed-1-6-flash",
+    "doubao-seed-1-6-flash-nothinking",
+    "doubao-seed-1-6-vision",
+    "doubao-seed-1-6-vision-nothinking"
   ],
   "Github": [
     "gpt-4.1",
@@ -10294,10 +10374,11 @@ static modelsWithoutVisionPatterns = [
     "deepseek-reasoner"
   ],
   "Minimax": [
+    "MiniMax-M2",
     "MiniMax-M1",
     "MiniMax-Text-01"
   ],
-  "ChatGLM": [
+  "GLMCoding": [
     "glm-4.6",
     "glm-4.5",
     "glm-4.5v",
@@ -10320,6 +10401,36 @@ static modelsWithoutVisionPatterns = [
     "glm-z1-airx",
     "glm-z1-flash"
   ],
+  "ChatGLM": [
+    "glm-4.6",
+    "glm-4.5",
+    "glm-4.5v",
+    "glm-4.5-air",
+    "glm-4.5-x",
+    "glm-4.5-airx",
+    "glm-4.5-flash",
+    "glm-4-plus",
+    "glm-4v-plus-0111",
+    "glm-4-air-250414",
+    "glm-4-airx",
+    "glm-4-long",
+    "glm-4-flash",
+    "glm-4-flash-250414",
+    "glm-4-flashX",
+    "glm-4v-flash",
+    "glm-4.1v-thinking-flash",
+    "glm-4.1v-thinking-flashx",
+    "glm-z1-air",
+    "glm-z1-airx",
+    "glm-z1-flash",
+    "glm-4.6-nothinking",
+    "glm-4.5-nothinking",
+    "glm-4.5v-nothinking",
+    "glm-4.5-x-nothinking",
+    "glm-4.5-airx-nothinking",
+    "glm-4.5-air-nothinking",
+    "glm-4.5-flash-nothinking"
+  ],
   "Claude": [
     "claude-3-haiku-20240307",
     "claude-3-sonnet-20240229",
@@ -10335,19 +10446,21 @@ static modelsWithoutVisionPatterns = [
     "claude-opus-4-1"
   ],
   "ModelScope":[
+      "MiniMax/MiniMax-M2",
       "moonshotai/Kimi-K2-Instruct-0905",
       "deepseek-ai/DeepSeek-V3.1",
       "meituan-longcat/LongCat-Flash-Chat",
       "ZhipuAI/GLM-4.6",
       "ZhipuAI/GLM-4.5",
-      "ZhipuAI/GLM-4.5V",
-      "ZhipuAI/GLM-4.5-Air",
       "ByteDance-Seed/Seed-OSS-36B-Instruct",
       "openai-mirror/gpt-oss-120b",
+      "Qwen/Qwen3-VL-8B-Instruct",
+      "Qwen/Qwen3-VL-30B-A3B-Instruct",
       "Qwen/Qwen3-VL-235B-A22B-Instruct",
       "Qwen/Qwen3-Next-80B-A3B-Instruct",
       "Qwen/Qwen3-Next-80B-A3B-Thinking",
       "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+      "Qwen/Qwen3-32B",
       "Qwen/Qwen3-235B-A22B-Thinking-2507",
       "Qwen/Qwen3-235B-A22B-Instruct-2507",
       "PaddlePaddle/ERNIE-4.5-21B-A3B-Thinking"
@@ -10357,6 +10470,8 @@ static modelsWithoutVisionPatterns = [
     "kimi-k2-0905-preview",
     "kimi-k2-0711-preview",
     "kimi-k2-turbo-preview",
+    "kimi-k2-thinking",
+    "kimi-k2-thinking-turbo",
     "moonshot-v1-8k",
     "moonshot-v1-32k",
     "moonshot-v1-128k",
@@ -10364,6 +10479,10 @@ static modelsWithoutVisionPatterns = [
     "moonshot-v1-8k-vision-preview",
     "moonshot-v1-32k-vision-preview",
     "moonshot-v1-128k-vision-preview"
+  ],
+  "KimiCoding":[
+    "kimi-for-coding",
+    "kimi-for-coding-thinking"
   ],
   "Subscription": [
     "gpt-5-chat-latest",
@@ -10393,6 +10512,7 @@ static modelsWithoutVisionPatterns = [
     "doubao-seed-1-6-lite",
     "doubao-seed-1-6-lite-nothinking",
     "doubao-seed-1-6-flash",
+    "MiniMax-M2",
     "MiniMax-Text-01",
     "qwen3-max",
     "qwen3",
@@ -10561,12 +10681,12 @@ static modelsWithoutVisionPatterns = [
     }
   }
   static backUp(){
-    MNUtil.log("chatAIConfig.backUp")
+    chatAIUtils.log("chatAIConfig.backUp")
     let totalConfig = this.getAllConfig()
     MNUtil.writeJSON(this.backUpFile, totalConfig)
   }
   static clearBackUp(){
-    MNUtil.log("chatAIConfig.clearBackUp")
+    chatAIUtils.log("chatAIConfig.clearBackUp")
     MNUtil.writeJSON(this.backUpFile, {})
   }
 /** 
@@ -12151,8 +12271,13 @@ static modelsWithoutVisionPatterns = [
     }
     return this.usage
   }
+  /**
+   * 通用模型源，指没有自定义模型，不需要特殊处理的源
+   */
+  static generalSource = ["ChatGLM","GLMCoding","KimiChat","KimiCoding","Minimax","Deepseek","SiliconFlow","PPIO","Github","Qwen","Volcengine","Gemini","Metaso","ModelScope","OpenRouter","Qiniu"]
   static allSource(withBuiltIn = false,checkKey = false){
-    let allSources = ['Subscription','ChatGPT','ChatGLM','KimiChat','Minimax','Deepseek','SiliconFlow','PPIO','Github','Qwen','Volcengine','Claude','Gemini','Metaso','ModelScope','OpenRouter','Qiniu','Custom']
+    let allSources = ['Subscription','ChatGPT'].concat(this.generalSource).concat(['Claude','Custom'])
+    // let allSources = ['Subscription','ChatGPT','ChatGLM','GLMCoding','KimiChat','Minimax','Deepseek','SiliconFlow','PPIO','Github','Qwen','Volcengine','Gemini','Metaso','ModelScope','OpenRouter','Qiniu','Claude','Custom']
     if (checkKey) {
       allSources = allSources.filter(source=>this.hasAPIKeyInSource(source))
     }
@@ -12167,10 +12292,14 @@ static modelsWithoutVisionPatterns = [
         return "deepseekKey"
       case "ChatGLM":
         return "apikey"
+      case "GLMCoding":
+        return "glmCodingKey"
       case "ChatGPT":
         return "openaiKey"
       case "KimiChat":
         return "moonshotKey"
+      case "KimiCoding":
+        return "kimiCodingKey"
       case "Minimax":
         return "miniMaxKey"
       case "Custom":
@@ -12215,21 +12344,7 @@ static modelsWithoutVisionPatterns = [
     }
     let modelConfig = (this.modelConfig && source in this.modelConfig)?this.modelConfig:this.defaultModelConfig
     switch (source) {
-      case "Volcengine":
-      case "SiliconFlow":
-      case "ModelScope":
-      case "PPIO":
-      case "Qiniu":
-      case "Github":
-      case "Metaso":
-      case "ChatGLM":
-      case "Gemini":
-      case "KimiChat":
       case "Claude":
-      case "Minimax":
-      case "Deepseek":
-      case "Qwen":
-      case "OpenRouter":
         return modelConfig[source]
       case "ChatGPT":
         models = modelConfig["ChatGPT"]
@@ -12249,6 +12364,10 @@ static modelsWithoutVisionPatterns = [
       case "Built-in":
         return [];
       default:
+        //通用源
+        if (this.generalSource.includes(source)) {
+          return modelConfig[source]
+        }
         chatAIUtils.addErrorLog("Unspported source: "+source, "modelNames")
         return []
     }
@@ -12287,22 +12406,8 @@ static modelsWithoutVisionPatterns = [
   }
   static setDynamicModel(source, model, save = true){
     switch (source) {
-      case "ChatGLM":
       case "Claude":
-      case "Gemini":
-      case "SiliconFlow":
-      case "ModelScope":
-      case "PPIO":
-      case "Qiniu":
-      case "OpenRouter":
-      case "Volcengine":
-      case "Github":
-      case "Metaso":
       case "ChatGPT":
-      case "KimiChat":
-      case "Minimax":
-      case "Deepseek":
-      case "Qwen":
       case "Custom":
       case "Subscription":
         if (!model) {
@@ -12314,6 +12419,13 @@ static modelsWithoutVisionPatterns = [
         this.config.dynamicModel = "Built-in"
         break;
       default:
+        if (this.generalSource.includes(source)) {
+          if (!model) {
+            model = this.getDefaultModel(source)
+          }
+          this.config.dynamicModel = source+": "+model
+          break;
+        }
         chatAIUtils.addErrorLog("Unspported source: "+source, "setDynamicModel")
         return;
     }
@@ -12330,6 +12442,9 @@ static modelsWithoutVisionPatterns = [
     switch (source) {
       case "ChatGLM":
         this.config.chatglmModel = model
+        break;
+      case "GLMCoding":
+        this.config.glmCodingModel = model
         break;
       case "Claude":
         this.config.claudeModel = model
@@ -12366,6 +12481,9 @@ static modelsWithoutVisionPatterns = [
         break;
       case "KimiChat":
         this.config.moonshotModel = model
+        break;
+      case "KimiCoding":
+        this.config.kimiCodingModel = model
         break;
       case "Minimax":
         this.config.miniMaxModel = model
@@ -12408,6 +12526,9 @@ static modelsWithoutVisionPatterns = [
       case "ChatGLM":
         model = this.getConfig("chatglmModel")
         break;
+      case "GLMCoding":
+        model = this.getConfig("glmCodingModel")
+        break;
       case "Claude":
         model = this.getConfig("claudeModel")
         break;
@@ -12444,6 +12565,9 @@ static modelsWithoutVisionPatterns = [
       case "KimiChat":
         model = this.getConfig("moonshotModel")
         break;
+      case "KimiCoding":
+        model = this.getConfig("kimiCodingModel")
+        break;
       case "Minimax":
         model = this.getConfig("miniMaxModel")
         break;
@@ -12460,7 +12584,8 @@ static modelsWithoutVisionPatterns = [
         model = this.getConfig("subscriptionModel")
         break;
       case "Built-in":
-        return undefined
+        let keyInfo = chatAIConfig.keys["key"+chatAIConfig.getConfig("tunnel")]
+        return keyInfo.model
       default:
         chatAIUtils.addErrorLog("Unspported source: "+source, "getDefaultModel")
         return undefined;
@@ -12523,6 +12648,9 @@ static modelsWithoutVisionPatterns = [
       case "ChatGLM":
         config.url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
         return config
+      case "GLMCoding":
+        config.url = "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions"
+        return config
       case "Claude":
         config.url = this.getConfig("claudeUrl")+"/v1/messages"
         return config
@@ -12562,8 +12690,11 @@ static modelsWithoutVisionPatterns = [
       case "KimiChat":
         config.url = "https://api.moonshot.cn/v1/chat/completions"
         return config
+      case "KimiCoding":
+        config.url = "https://api.kimi.com/coding/v1/chat/completions"
+        return config
       case "Minimax":
-        config.url = "https://api.minimax.chat/v1/text/chatcompletion_v2"
+        config.url = this.getConfig("miniMaxUrl")
         return config
       case "Deepseek":
         config.url = "https://api.deepseek.com/chat/completions"
@@ -12579,7 +12710,22 @@ static modelsWithoutVisionPatterns = [
         config.url = subscriptionConfig.config.url + "/v1/chat/completions"
         return config
       case "Built-in":
-        config.key = ""
+        let keyInfo = this.keys["key"+this.getConfig("tunnel")]
+        if (!keyInfo || !keyInfo.keys) {
+          config.key = ""
+          return config
+        }
+        let key = chatAIUtils.getRandomElement(keyInfo.keys)
+        if (key === "") {
+          config.key = ""
+          return config
+        }
+        if (keyInfo.useSubscriptionURL) {
+          config.url = subscriptionConfig.getConfig("url")+ "/v1/chat/completions"
+        }else{
+          config.url = keyInfo.url
+        }
+        config.key = key
         return config
       default:
         chatAIUtils.addErrorLog("Unspported source: "+source, "getConfigFromSource")
@@ -13931,7 +14077,21 @@ static async uploadWebDAVFile(url, username, password, fileContent) {
       return undefined
     }
 }
-
+static getOpenAIHeaders(apikey) {
+  let key = apikey
+  if (/,/.test(apikey)) {
+    let apikeys = apikey.split(",").map(item=>item.trim())
+    key = chatAIUtils.getRandomElement(apikeys)
+  }
+  return {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer "+key,
+    "Accept": "text/event-stream",
+    "HTTP-Referer":"https://github.com/RooVetGit/Roo-Cline",
+    "X-Title":"Roo Code",
+    "User-Agent":"RooCode/3.30.3"
+  }
+}
 /**
  * Initializes a request for ChatGPT using the provided configuration.
  * 
@@ -13996,37 +14156,277 @@ static initRequestForChatGPT (history,apikey,url,model,temperature,funcIndices=[
     MNUtil.confirm("MN ChatAI", `❌ APIKey not found!\n\nURL: ${url}\n\nModel: ${model}\n\nPlease check your settings.`)
     return
   }
-  let key = apikey
-  if (/,/.test(apikey)) {
-    let apikeys = apikey.split(",").map(item=>item.trim())
-    key = chatAIUtils.getRandomElement(apikeys)
-  }
-  const headers = {
-    "Content-Type": "application/json",
-    Authorization: "Bearer "+key,
-    Accept: "text/event-stream"
-  }
+  const headers = this.getOpenAIHeaders(apikey)
     // copyJSON(headers)
   let body = {
     "model":model,
     "messages":history,
     "stream":true
   }
+  body.temperature = temperature
+  let tools = chatAITool.getToolsByIndex(funcIndices)
+  if (tools.length) {
+    body.tools = tools
+    body.tool_choice = "auto"
+  }
+  const request = this.initRequest(url, {
+      method: "POST",
+      headers: headers,
+      timeout: 60,
+      json: body
+    })
+  return request
+}
+
+/**
+ * Initializes a request for ChatGPT using the provided configuration.
+ * 
+ * @param {Array} history - An array of messages to be included in the request.
+ * @param {string} apikey - The API key for authentication.
+ * @param {string} url - The URL endpoint for the API request.
+ * @param {string} model - The model to be used for the request.
+ * @param {number} temperature - The temperature parameter for the request.
+ * @param {Array<number>} funcIndices - An array of function indices to be included in the request.
+ * @throws {Error} If the API key is empty or if there is an error during the request initialization.
+ */
+static initRequestForVolcengine (history,apikey,url,model,temperature,funcIndices=[]) {
+  if (apikey.trim() === "") {
+    MNUtil.confirm("MN ChatAI", `❌ APIKey not found!\n\nURL: ${url}\n\nModel: ${model}\n\nPlease check your settings.`)
+    return
+  }
+  const headers = this.getOpenAIHeaders(apikey)
+    // copyJSON(headers)
+  let realModel = model
+  let extraBody = {}
+  switch (model) {
+    case "doubao-seed-1-6":
+      realModel = "doubao-seed-1-6-251015"
+      break;
+    case "doubao-seed-1-6-nothinking":
+      realModel = "doubao-seed-1-6-251015"
+      extraBody.reasoning_effort = "minimal"
+      break;
+    case "doubao-seed-1-6-minimal":
+      realModel = "doubao-seed-1-6-251015"
+      extraBody.reasoning_effort = "minimal"
+      break;
+    case "doubao-seed-1-6-low":
+      realModel = "doubao-seed-1-6-251015"
+      extraBody.reasoning_effort = "low"
+      break;
+    case "doubao-seed-1-6-medium":
+      realModel = "doubao-seed-1-6-251015"
+      extraBody.reasoning_effort = "medium"
+      break;
+    case "doubao-seed-1-6-high":
+      realModel = "doubao-seed-1-6-251015"
+      extraBody.reasoning_effort = "high"
+      break;
+    case "doubao-seed-1-6-thinking":
+      realModel = "doubao-seed-1-6-thinking-250715"
+      break;
+    case "doubao-seed-1-6-lite":
+      realModel = "doubao-seed-1-6-lite-251015"
+      break;
+    case "doubao-seed-1-6-lite-nothinking":
+      realModel = "doubao-seed-1-6-lite-251015"
+      extraBody.reasoning_effort = "minimal"
+      break;
+    case "doubao-seed-1-6-lite-minimal":
+      realModel = "doubao-seed-1-6-lite-251015"
+      extraBody.reasoning_effort = "minimal"
+      break;
+    case "doubao-seed-1-6-lite-low":
+      realModel = "doubao-seed-1-6-lite-251015"
+      extraBody.reasoning_effort = "low"
+      break;
+    case "doubao-seed-1-6-lite-medium":
+      realModel = "doubao-seed-1-6-lite-251015"
+      extraBody.reasoning_effort = "medium"
+      break;
+    case "doubao-seed-1-6-lite-high":
+      realModel = "doubao-seed-1-6-lite-251015"
+      extraBody.reasoning_effort = "high"
+      break;
+    case "doubao-seed-1-6-flash":
+      realModel = "doubao-seed-1-6-flash-250828"
+      break;
+    case "doubao-seed-1-6-flash-nothinking":
+      realModel = "doubao-seed-1-6-flash-250828"
+      extraBody.thinking = {"type":"disabled"}
+      break;
+    case "doubao-seed-1-6-vision":
+      realModel = "doubao-seed-1-6-vision-250815"
+      break;
+    case "doubao-seed-1-6-vision-nothinking":
+      realModel = "doubao-seed-1-6-vision-250815"
+      extraBody.thinking = {"type":"disabled"}
+      break;
+    default:
+      break;
+  }
+  let body = {
+    "model":realModel,
+    "messages":history,
+    "stream":true,
+    ...extraBody
+  }
+  body.temperature = temperature
+  let tools = chatAITool.getToolsByIndex(funcIndices)
+  if (tools.length) {
+    body.tools = tools
+    body.tool_choice = "auto"
+  }
+  const request = this.initRequest(url, {
+      method: "POST",
+      headers: headers,
+      timeout: 60,
+      json: body
+    })
+  return request
+}
+
+/**
+ * Initializes a request for ChatGPT using the provided configuration.
+ * 
+ * @param {Array} history - An array of messages to be included in the request.
+ * @param {string} apikey - The API key for authentication.
+ * @param {string} url - The URL endpoint for the API request.
+ * @param {string} model - The model to be used for the request.
+ * @param {number} temperature - The temperature parameter for the request.
+ * @param {Array<number>} funcIndices - An array of function indices to be included in the request.
+ * @throws {Error} If the API key is empty or if there is an error during the request initialization.
+ */
+static initRequestForChatGLM (history,apikey,url,model,temperature,funcIndices=[]) {
+  if (apikey.trim() === "") {
+    MNUtil.confirm("MN ChatAI", `❌ APIKey not found!\n\nURL: ${url}\n\nModel: ${model}\n\nPlease check your settings.`)
+    return
+  }
+  const headers = this.getOpenAIHeaders(apikey)
+  let realModel = model
+  let extraBody = {}
+  switch (model) {
+    case "glm-4.6-nothinking":
+      realModel = "glm-4.6"
+      extraBody.thinking = {"type":"disabled"}
+      extraBody.tool_stream = true
+      break;
+    case "glm-4.6":
+      realModel = "glm-4.6"
+      extraBody.tool_stream = true
+      break;
+    case "glm-4.5-nothinking":
+      realModel = "glm-4.5"
+      extraBody.thinking = {"type":"disabled"}
+      break;
+    case "glm-4.5v-nothinking":
+      realModel = "glm-4.5v"
+      extraBody.thinking = {"type":"disabled"}
+      break;
+    case "glm-4.5-x-nothinking":
+      realModel = "glm-4.5-x"
+      extraBody.thinking = {"type":"disabled"}
+      break;
+    case "glm-4.5-air-nothinking":
+      realModel = "glm-4.5-air"
+      extraBody.thinking = {"type":"disabled"}
+      break;
+    case "glm-4.5-airx-nothinking":
+      realModel = "glm-4.5-airx"
+      extraBody.thinking = {"type":"disabled"}
+      break;
+    case "glm-4.5-flash-nothinking":
+      realModel = "glm-4.5-flash"
+      extraBody.thinking = {"type":"disabled"}
+      break;
+    default:
+      break;
+  }
+    // copyJSON(headers)
+  let body = {
+    "model":realModel,
+    "messages":history,
+    "stream":true,
+    ...extraBody
+  }
+  body.temperature = temperature
+  let tools = chatAITool.getToolsByIndex(funcIndices)
+  if (tools.length) {
+    body.tools = tools
+    body.tool_choice = "auto"
+  }
+  const request = this.initRequest(url, {
+      method: "POST",
+      headers: headers,
+      timeout: 60,
+      json: body
+    })
+  return request
+}
+
+/**
+ * Initializes a request for ChatGPT using the provided configuration.
+ * 
+ * @param {Array} history - An array of messages to be included in the request.
+ * @param {string} apikey - The API key for authentication.
+ * @param {string} url - The URL endpoint for the API request.
+ * @param {string} model - The model to be used for the request.
+ * @param {number} temperature - The temperature parameter for the request.
+ * @param {Array<number>} funcIndices - An array of function indices to be included in the request.
+ * @throws {Error} If the API key is empty or if there is an error during the request initialization.
+ */
+static initRequestForKimiCoding (history,apikey,url,model,temperature,funcIndices=[]) {
+  if (apikey.trim() === "") {
+    MNUtil.confirm("MN ChatAI", `❌ APIKey not found!\n\nURL: ${url}\n\nModel: ${model}\n\nPlease check your settings.`)
+    return
+  }
+  const headers = this.getOpenAIHeaders(apikey)
+  let realModel = model
+  let extraBody = {}
+  switch (model) {
+    case "kimi-for-coding-thinking":
+      realModel = "kimi-for-coding"
+      extraBody = {
+        "reasoning_effort": "medium"
+      }
+      break;
+    case "kimi-for-coding-medium":
+      realModel = "kimi-for-coding"
+      extraBody = {
+        "reasoning_effort": "medium"
+      }
+      break;
+    case "kimi-for-coding-high":
+      realModel = "kimi-for-coding"
+      extraBody = {
+        "reasoning_effort": "high"
+      }
+      break;
+    case "kimi-for-coding-low":
+      realModel = "kimi-for-coding"
+      extraBody = {
+        "reasoning_effort": "low"
+      }
+      break;
+    default:
+      break;
+  }
+  // let modelFragment = model.split("-")
+  // chatAIUtils.log("modelFragment", modelFragment)
+    // copyJSON(headers)
+  let body = {
+    "model":realModel,
+    "messages":history,
+    "stream":true,
+    ...extraBody
+  }
   // if (model !== "deepseek-reasoner") {
-    body.temperature = temperature
-    if (url === "https://api.minimax.chat/v1/text/chatcompletion_v2") {
-      let tools = chatAITool.getToolsByIndex(funcIndices,true)
-      if (tools.length) {
-        body.tools = tools
-      }
-      body.max_tokens = 8000
-    }else{
-      let tools = chatAITool.getToolsByIndex(funcIndices,false)
-      if (tools.length) {
-        body.tools = tools
-        body.tool_choice = "auto"
-      }
-    }
+  body.temperature = temperature
+  let tools = chatAITool.getToolsByIndex(funcIndices)
+  if (tools.length) {
+    body.tools = tools
+    body.tool_choice = "auto"
+  }
   const request = this.initRequest(url, {
       method: "POST",
       headers: headers,
@@ -14052,30 +14452,17 @@ static initRequestForChatGPTWithoutStream (history,apikey,url,model,temperature,
     MNUtil.confirm("MN ChatAI", `❌ APIKey not found!\n\nURL: ${url}\n\nModel: ${model}\n\nPlease check your settings.`)
     return
   }
-  const headers = {
-    "Content-Type": "application/json",
-    Authorization: "Bearer "+apikey,
-    Accept: "text/event-stream"
-  }
-    // copyJSON(headers)
+  const headers = this.getOpenAIHeaders(apikey)
   let body = {
     "model":model,
     "messages":history
   }
   // if (model !== "deepseek-reasoner") {
     body.temperature = temperature
-    if (url === "https://api.minimax.chat/v1/text/chatcompletion_v2") {
-      let tools = chatAITool.getToolsByIndex(funcIndices,true)
-      if (tools.length) {
-        body.tools = tools
-      }
-      body.max_tokens = 8000
-    }else{
-      let tools = chatAITool.getToolsByIndex(funcIndices,false)
-      if (tools.length) {
-        body.tools = tools
-        body.tool_choice = "auto"
-      }
+    let tools = chatAITool.getToolsByIndex(funcIndices)
+    if (tools.length) {
+      body.tools = tools
+      body.tool_choice = "auto"
     }
   const request = this.initRequest(url, {
       method: "POST",
@@ -14102,7 +14489,7 @@ static initRequestForQwenWithoutStream (prompt,apikey,url,model) {
   const headers = {
     "Content-Type": "application/json",
     Authorization: "Bearer "+apikey,
-    Accept: "text/event-stream"
+    Accept: "application/json"
   }
     // copyJSON(headers)
   let body = {
@@ -14188,7 +14575,7 @@ static initRequestForCogView (prompt,apikey,url,model,size = "1024x1024") {
   const headers = {
     "Content-Type": "application/json",
     Authorization: "Bearer "+apikey,
-    Accept: "text/event-stream"
+    Accept: "application/json"
   }
     // copyJSON(headers)
   let body = {
@@ -14248,7 +14635,7 @@ static initRequestForClaude(history,apikey,url,model,temperature,funcIndices=[])
   } catch (error) {
       chatAIUtils.addErrorLog(error, "initRequestForClaude")
   }
-  }
+}
  
 /**
  * Initializes a request for ChatGPT using the provided configuration.
@@ -14276,33 +14663,79 @@ static initRequestForGemini (history,apikey,url,model,temperature,funcIndices=[]
     Authorization: "Bearer "+key,
     Accept: "text/event-stream"
   }
-    // copyJSON(headers)
-  let body = {
-    "model":model,
-    "messages":history,
-    "stream":true,
-    "extra_body": {
+  let realModel = model
+  let extraBody = {
         "google": {
           "thinking_config": {
             "include_thoughts": true
           }
         }
       }
+  switch (model) {
+    case "gemini-2.5-pro-minimal":
+      realModel = "gemini-2.5-pro"
+      extraBody.google.thinking_config.thinking_budget = 128
+      break;
+    case "gemini-2.5-pro-low":
+      realModel = "gemini-2.5-pro"
+      extraBody.google.thinking_config.thinking_budget = 1024
+      break;
+    case "gemini-2.5-pro-medium":
+      realModel = "gemini-2.5-pro"
+      extraBody.google.thinking_config.thinking_budget = 8192
+      break;
+    case "gemini-2.5-pro-high":
+      realModel = "gemini-2.5-pro"
+      extraBody.google.thinking_config.thinking_budget = 24576
+      break;
+    case "gemini-2.5-flash-nothinking":
+      realModel = "gemini-2.5-flash"
+      extraBody.google.thinking_config.thinking_budget = 0
+      break;
+    case "gemini-2.5-flash-low":
+      realModel = "gemini-2.5-flash"
+      extraBody.google.thinking_config.thinking_budget = 1024
+      break;
+    case "gemini-2.5-flash-medium":
+      realModel = "gemini-2.5-flash"
+      extraBody.google.thinking_config.thinking_budget = 8192
+      break;
+    case "gemini-2.5-flash-high":
+      realModel = "gemini-2.5-flash"
+      extraBody.google.thinking_config.thinking_budget = 24576
+      break;
+    case "gemini-2.5-flash-lite-nothinking":
+      realModel = "gemini-2.5-flash-lite"
+      extraBody.google.thinking_config.thinking_budget = 0
+      break;
+    case "gemini-2.5-flash-lite-low":
+      realModel = "gemini-2.5-flash-lite"
+      extraBody.google.thinking_config.thinking_budget = 1024
+      break;
+    case "gemini-2.5-flash-lite-medium":
+      realModel = "gemini-2.5-flash-lite"
+      extraBody.google.thinking_config.thinking_budget = 8192
+      break;
+    case "gemini-2.5-flash-lite-high":
+      realModel = "gemini-2.5-flash-lite"
+      extraBody.google.thinking_config.thinking_budget = 24576
+      break;
+    default:
+      break;
+  }
+    // copyJSON(headers)
+  let body = {
+    "model":realModel,
+    "messages":history,
+    "stream":true,
+    "extra_body": extraBody
   }
   // if (model !== "deepseek-reasoner") {
     body.temperature = temperature
-    if (url === "https://api.minimax.chat/v1/text/chatcompletion_v2") {
-      let tools = chatAITool.getToolsByIndex(funcIndices,true)
-      if (tools.length) {
-        body.tools = tools
-      }
-      body.max_tokens = 8000
-    }else{
-      let tools = chatAITool.getToolsByIndex(funcIndices,false)
-      if (tools.length) {
-        body.tools = tools
-        body.tool_choice = "auto"
-      }
+    let tools = chatAITool.getToolsByIndex(funcIndices)
+    if (tools.length) {
+      body.tools = tools
+      body.tool_choice = "auto"
     }
   const request = this.initRequest(url, {
       method: "POST",
@@ -14311,6 +14744,57 @@ static initRequestForGemini (history,apikey,url,model,temperature,funcIndices=[]
       json: body
     })
   return request
+}
+
+/**
+ * Generates a request for AI using the provided configuration.
+ * 
+ * @param {Array} history - An array of messages to be included in the request.
+ * @param {string} source - The source of the AI model. Used to get the key and url from the config.
+ * @param {string} model - The model to be used for the request.
+ * @param {number} temperature - The temperature parameter for the request.
+ * @param {Array<number>} funcIndices - An array of function indices to be included in the request.
+ * @throws {Error} If the API key is empty or if there is an error during the request initialization.
+ */
+static genRequestForAI(source,model,history,temperature,funcIndices=[]){
+  let request
+  let config = chatAIConfig.getConfigFromSource(source)
+  switch (source) {
+    case "ChatGPT":
+    case "Subscription":
+    case "Custom":
+      request = this.initRequestForChatGPT(history,config.key,config.url,model,temperature,funcIndices)
+      return request;
+    case "Volcengine":
+      request = this.initRequestForVolcengine(history,config.key,config.url,model,temperature,funcIndices)
+      return request;
+    case "ChatGLM":
+      request = this.initRequestForChatGLM(history,config.key,config.url,model,temperature,funcIndices)
+      return request;
+    case "Claude":
+      request = this.initRequestForClaude(history,config.key,config.url,model, temperature)
+      return request;
+    case "Gemini":
+      request = this.initRequestForGemini(history,config.key,config.url,model,temperature,funcIndices)
+      return request;
+    case "KimiCoding":
+      request = this.initRequestForKimiCoding(history,config.key,config.url,model,temperature,funcIndices)
+      return request;
+    case "Built-in":
+      if (!config.key) {
+        MNUtil.showHUD("No apikey for built-in mode!")
+        return undefined
+      }
+      request = this.initRequestForChatGPT(history,config.key,config.url,model,temperature,funcIndices)
+      return request;
+    default:
+      if (chatAIConfig.generalSource.includes(source)) {
+        request = this.initRequestForChatGPT(history,config.key,config.url,model,temperature,funcIndices)
+        return request;
+      }
+      MNUtil.showHUD("Unsupported source: "+source)
+      return undefined
+  }
 }
 }
 

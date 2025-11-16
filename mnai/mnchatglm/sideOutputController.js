@@ -21,8 +21,10 @@ try {
     self.panelWidth = 100
     self.hasRenderSearchResults = false
     self.preSelection = ""
+    self.panelWidth = self.getPanelWidth()
+    self.panelHeight = self.getPanelHeight()
+    self.view.frame = MNUtil.genFrame(chatAIUtils.getX(), chatAIUtils.getY(), self.panelWidth, 120)
     // self.view.frame = {x:chatAIUtils.getX(),y:chatAIUtils.getY(),width:MNExtensionPanel.width,height:120}
-    self.view.frame = MNUtil.genFrame(chatAIUtils.getX(), chatAIUtils.getY(), MNExtensionPanel.width, 120)
     self.lastFrame = self.view.frame;
     // self.currentFrame = self.view.frame
     self.history = []
@@ -51,7 +53,7 @@ try {
     // self.aiModelButton.backgroundColor = MNUtil.hexColorAlpha("#ffffff",0.8)
 
     let currentFrame = self.view.frame
-    currentFrame.width = MNExtensionPanel.width
+    currentFrame.width = self.getPanelWidth()
     self.currentFrame = currentFrame
     self.view.frame = currentFrame
     // self.setLayout()
@@ -100,7 +102,18 @@ try {
       MNUtil.stopHUD()
       delete self.connection
     }
-    MNUtil.toggleExtensionPanel()
+    if (self.floatWindow) {
+      // self.view.hidden = true
+      let preOpacity = self.view.layer.opacity
+      MNUtil.animate(()=>{
+        self.view.layer.opacity = 0
+      },0.25).then(()=>{
+        self.view.hidden = true
+        self.view.layer.opacity = preOpacity
+      })
+    }else{
+      MNUtil.toggleExtensionPanel()
+    }
   } catch (error) {
       chatAIUtils.addErrorLog(error, "closeButtonTapped")
   }
@@ -163,7 +176,11 @@ try {
     try {
     let menu = new Menu(button,self)
     menu.rowHeight = 35
-    menu.preferredPosition = 2
+    if (self.floatWindow) {
+      menu.preferredPosition = 1
+    }else{
+      menu.preferredPosition = 2
+    }
     menu.addMenuItem('📤  Export history to file', 'exportHistory:','file')
     if (chatAIUtils.isActivated()) {
       menu.addMenuItem('📤  Export history to ChatID', 'exportHistory:','chatId')
@@ -173,7 +190,13 @@ try {
       menu.addMenuItem('📥  Import history from ChatID', 'importHistory:','chatId')
     }
     menu.addMenuItem('🔄  Reload history', 'reloadHistory:')
-    // menu.addMenuItem('🔄  Reload webview', 'reloadWebview:')
+    if (!MNUtil.isIOS()) {
+      if (self.floatWindow) {
+        menu.addMenuItem('💬  Show in Sidebar', 'showInSidebar:')
+      }else{
+        menu.addMenuItem('💬  Show in Float Window', 'showInFloatWindow:')
+      }
+    }
     menu.show()
       
     } catch (error) {
@@ -181,8 +204,25 @@ try {
       chatAIUtils.addErrorLog(error, "moreButtonTapped")
     }
   },
+  showInSidebar: function () {
+    // let self = getSideOutputController()
+    Menu.dismissCurrentMenu()
+    if (!MNExtensionPanel.on) {
+      MNExtensionPanel.toggle()
+    }
+    chatAIUtils.openSideOutput()
+  },
+  showInFloatWindow: function () {
+    // let self = getSideOutputController()
+    Menu.dismissCurrentMenu()
+    MNExtensionPanel.toggle()
+    chatAIUtils.openSideOutputInFloatWindow()
+  },
   toggleNavEv: function () {
     let self = getSideOutputController()
+    if (self.floatWindow && self.view.frame.width > 800) {
+      return;
+    }
     self.toggleNavEv()
   },
   exportHistory: async function (params) {
@@ -255,7 +295,7 @@ try {
         self.waitHUD("📥 Downloading history...")
         data = await chatAIConfig.readEncryptedConfigFrom123(id)
         if (!data) {
-          self.showHUD("Invalid history file!")
+          self.showHUD("❌ Invalid history file!")
           return
         }
         self.waitHUD("📥 Importing history...")
@@ -356,11 +396,10 @@ try {
     self.resizeButton.hidden = true
     self.imageButton.hidden = true
     self.chatToken.hidden = true
-    let height = MNExtensionPanel.height
     self.miniMode = true
     self.lastChatToolbarFrame = self.chatToolbar.frame
     MNUtil.animate(()=>{
-      self.chatToolbar.frame = MNUtil.genFrame(5, height-240, 35, 35)
+      self.chatToolbar.frame = MNUtil.genFrame(5, self.panelHeight-240, 35, 35)
       self.chatModel.frame = MNUtil.genFrame(0, 0, 35, 35)
       self.chatModel.setTitleForState("",0)
       self.chatModel.setImageForState(chatAIConfig.editorImage,0)
@@ -730,33 +769,36 @@ try {
     }
   },
   onMoveGesture: async function (gesture) {
-    let referenceView = MNExtensionPanel.view
+    try {
 
-
+    let referenceView = (self.floatWindow) ? MNUtil.studyView : MNExtensionPanel.view
     if (gesture.state === 1) {
       self.originalLocationToMN = gesture.locationInView(referenceView)
       self.originalFrame = self.chatToolbar.frame
     }
     if (gesture.state === 2) {
       let locationToMN = gesture.locationInView(referenceView)
-      // let translation = gesture.translationInView(MNUtil.studyView)
       let locationDiff = {x:locationToMN.x - self.originalLocationToMN.x,y:locationToMN.y - self.originalLocationToMN.y}
       let frame = self.chatToolbar.frame
-      // frame.x = self.originalFrame.x + locationDiff.x
       frame.y = self.originalFrame.y + locationDiff.y
-      // if (MNExtensionPanel.width < 350) {
-      frame.x = 5
-      frame.width = MNExtensionPanel.width-10
-      // }else{
-      //   frame.x = MNUtil.constrain(frame.x, -200,MNExtensionPanel.width - 200)
-      // }
-      frame.y = MNUtil.constrain(frame.y, 5, MNExtensionPanel.height-70)
+      frame.x = self.originalFrame.x + locationDiff.x
+      if (self.floatWindow) {
+        frame.width = 400
+        frame.x = MNUtil.constrain(frame.x, 0, self.panelWidth-405)
+      }else{
+        frame.width = self.panelWidth-10
+        frame.x = 5
+      }
+      frame.y = MNUtil.constrain(frame.y, 5, self.panelHeight-70)
       self.chatToolbar.frame = frame
-      // self.setFrame(frame)
     }
     if (gesture.state === 3) {
       self.view.bringSubviewToFront(self.chatToolbar)
       self.setChatLayout()
+    }
+      
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "onMoveGesture")
     }
   },
   /**
@@ -1539,56 +1581,56 @@ try {
     this.temperature = config.temperature ?? 0.8
   }
   this.source = config.source
-  let request
-  switch (config.source) {
-    case "ChatGLM":
-    case "KimiChat":
-    case "Minimax":
-    case "Deepseek":
-    case "SiliconFlow":
-    case "ModelScope":
-    case "PPIO":
-    case "Qiniu":
-    case "OpenRouter":
-    case "Volcengine":
-    case "Github":
-    case "Metaso":
-    case "Qwen":
-    case "ChatGPT":
-    case "Subscription":
-    case "Custom":
-    case "Gemini":
-      request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
-      break;
-    case "Claude":
-      request = chatAINetwork.initRequestForClaude(this.history,config.key,config.url,config.model, this.temperature)
-      break;
-    case "Built-in":
-      //对内置模型而言，只能使用选择好的渠道，不能指定模型
-      let keyInfo = chatAIConfig.keys["key"+chatAIConfig.getConfig("tunnel")]
-      if (!keyInfo || !keyInfo.keys) {
-        MNUtil.showHUD("No apikey for built-in mode!")
-        return
-      }
-      // MNUtil.copyJSON(keyInfo)
-      let key = chatAIUtils.getRandomElement(keyInfo.keys)
-      if (key === "") {
-        MNUtil.showHUD("No apikey for built-in mode!")
-        return
-      }
-      if (keyInfo.useSubscriptionURL) {
-        let url = subscriptionConfig.getConfig("url")+ "/v1/chat/completions"
-        request =chatAINetwork.initRequestForChatGPT(this.history,key, url,keyInfo.model,this.temperature,this.funcIndices)
-      }else{
-        request =chatAINetwork.initRequestForChatGPT(this.history,key, keyInfo.url,keyInfo.model,this.temperature,this.funcIndices)
-      }
-      break;
-    default:
-      MNUtil.showHUD("Unsupported source: "+this.source)
-      return
+  let request = chatAINetwork.genRequestForAI(this.source,config.model,this.history,this.temperature,this.funcIndices)
+  // switch (config.source) {
+  //   case "ChatGPT":
+  //   case "Subscription":
+  //   case "Custom":
+  //     request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+  //     break;
+  //   case "Claude":
+  //     request = chatAINetwork.initRequestForClaude(this.history,config.key,config.url,config.model, this.temperature)
+  //     break;
+  //   case "Gemini":
+  //     request =chatAINetwork.initRequestForGemini(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+  //     break;
+  //   case "KimiCoding":
+  //     request = chatAINetwork.initRequestForKimiCoding(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+  //     break;
+  //   case "Built-in":
+  //     //对内置模型而言，只能使用选择好的渠道，不能指定模型
+  //     let keyInfo = chatAIConfig.keys["key"+chatAIConfig.getConfig("tunnel")]
+  //     if (!keyInfo || !keyInfo.keys) {
+  //       MNUtil.showHUD("No apikey for built-in mode!")
+  //       return
+  //     }
+  //     // MNUtil.copyJSON(keyInfo)
+  //     let key = chatAIUtils.getRandomElement(keyInfo.keys)
+  //     if (key === "") {
+  //       MNUtil.showHUD("No apikey for built-in mode!")
+  //       return
+  //     }
+  //     if (keyInfo.useSubscriptionURL) {
+  //       let url = subscriptionConfig.getConfig("url")+ "/v1/chat/completions"
+  //       request =chatAINetwork.initRequestForChatGPT(this.history,key, url,keyInfo.model,this.temperature,this.funcIndices)
+  //     }else{
+  //       request =chatAINetwork.initRequestForChatGPT(this.history,key, keyInfo.url,keyInfo.model,this.temperature,this.funcIndices)
+  //     }
+  //     break;
+  //   default:
+  //     if (chatAIConfig.generalSource.includes(this.source)) {
+  //       request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+  //       break;
+  //     }
+  //     MNUtil.showHUD("Unsupported source: "+this.source)
+  //     return
+  // }
+  if (request) {
+    this.sendStreamRequest(request)
+    chatAIUtils.lastTime = Date.now()
+  }else{
+    MNUtil.showHUD("❌ Faild to generate request for AI")
   }
-  this.sendStreamRequest(request)
-  chatAIUtils.lastTime = Date.now()
 } catch (error) {
   chatAIUtils.addErrorLog(error, "baseAsk")
 }
@@ -2024,13 +2066,22 @@ sideOutputController.prototype.setChatLayout = async function (heightOffset = 0)
     return
   }
   let viewFrame = this.view.frame
-  viewFrame.width = MNExtensionPanel.width
-  viewFrame.height = MNExtensionPanel.height
-  this.closeChatButton.frame = MNUtil.genFrame(5, viewFrame.height-40, 35, 35)
-  this.chatsNavButton.frame = MNUtil.genFrame(5, viewFrame.height-80, 35, 35)
-  this.newChatButton.frame = MNUtil.genFrame(5, viewFrame.height-120, 35, 35)
-  this.clearButton.frame = MNUtil.genFrame(5, viewFrame.height-160, 35, 35)
-  this.moreButton.frame = MNUtil.genFrame(5, viewFrame.height-200, 35, 35)
+  viewFrame.width = this.panelWidth
+  viewFrame.height = this.panelHeight
+  if (this.floatWindow) {
+    this.closeChatButton.frame = MNUtil.genFrame(this.panelWidth-40, 5, 35, 35)
+    this.newChatButton.frame = MNUtil.genFrame(this.panelWidth-40, 45, 35, 35)
+    this.clearButton.frame = MNUtil.genFrame(this.panelWidth-40, 85, 35, 35)
+    this.chatsNavButton.frame = MNUtil.genFrame(5, 5, 35, 35)
+    this.moreButton.frame = MNUtil.genFrame(this.panelWidth-80, 5, 35, 35)
+  }else{
+    this.closeChatButton.frame = MNUtil.genFrame(5, viewFrame.height-40, 35, 35)
+    this.newChatButton.frame = MNUtil.genFrame(5, viewFrame.height-120, 35, 35)
+    this.chatsNavButton.frame = MNUtil.genFrame(5, viewFrame.height-80, 35, 35)
+    this.moreButton.frame = MNUtil.genFrame(5, viewFrame.height-200, 35, 35)
+    this.clearButton.frame = MNUtil.genFrame(5, viewFrame.height-160, 35, 35)
+  }
+  this.chatsNavButton.hidden = this.floatWindow && this.panelWidth > 800
   if (this.chatWebview) {
     this.chatWebview.frame = MNUtil.genFrame(0, 0, viewFrame.width, viewFrame.height)
   }
@@ -2042,14 +2093,18 @@ sideOutputController.prototype.setChatLayout = async function (heightOffset = 0)
   // viewFrame.width = MNUtil.constrain(viewFrame.width, 0, 350)
   if (this.miniMode) {
     this.chatToolbar.frame = MNUtil.genFrame(5, viewFrame.height-240, 35, 35)
-
   }else{
     let toolbarFrame = this.chatToolbar.frame
-    toolbarFrame.y = MNUtil.constrain(toolbarFrame.y, 5, MNExtensionPanel.height-50)
+    toolbarFrame.y = MNUtil.constrain(toolbarFrame.y, 5, this.panelHeight-50)
     // toolbarFrame.x = MNUtil.constrain(toolbarFrame.x, 0, max)
-    toolbarFrame.width = viewFrame.width-10
+    if (this.floatWindow) {
+      toolbarFrame.x = MNUtil.constrain(toolbarFrame.x, 0, this.panelWidth-405)
+      toolbarFrame.width = 400
+    }else{
+      toolbarFrame.width = viewFrame.width-10
+      toolbarFrame.x = 5
+    }
     toolbarFrame.height = 45+inputFrame.height
-    toolbarFrame.x = 5
     this.chatToolbar.frame = toolbarFrame
     this.userInput.frame = MNUtil.genFrame(5,40, toolbarFrame.width-65, inputFrame.height)
     this.userReference.frame = MNUtil.genFrame(5,40, toolbarFrame.width-65, inputFrame.height)
@@ -2067,10 +2122,15 @@ sideOutputController.prototype.setChatLayout = async function (heightOffset = 0)
     this.minimizeButton.frame = MNUtil.genFrame(5,5, 30, 30)
   }
 
-  this.aiButton.frame = MNUtil.genFrame(5,-35,70,30)
   this.aiButton.hidden = chatAIUtils.isIOS()
+  if (this.floatWindow) {
+    this.aiButton.frame = MNUtil.genFrame(this.panelWidth-75,this.panelHeight-35,70,30)
+    this.view.bringSubviewToFront(this.aiButton)
+  }else{
+    this.aiButton.frame = MNUtil.genFrame(5,-35,30,30)
+  }
   this.preRound = this.round
-  this.panelWidth = MNExtensionPanel.width
+  this.panelWidth = this.getPanelWidth()
   } catch (error) {
     chatAIUtils.addErrorLog(error, "setChatLayout")
   }
@@ -2165,8 +2225,12 @@ try {
   var width    = viewFrame.width
   var height   = viewFrame.height
   viewFrame.height = viewFrame.height-30
-  this.toolbar.frame = MNUtil.genFrame(5, 5, MNExtensionPanel.width-10,30)
-  this.aiButton.frame = MNUtil.genFrame(5,-35,30,30)
+  this.toolbar.frame = MNUtil.genFrame(5, 5, this.panelWidth-10,30)
+  if (this.floatWindow) {
+    this.aiButton.frame = MNUtil.genFrame(this.panelWidth-75,5,70,30)
+  }else{
+    this.aiButton.frame = MNUtil.genFrame(5,-35,30,30)
+  }
   // this.aiModelButton.frame = MNUtil.genFrame(40,-35,100,30)
   this.screenButton.frame = MNUtil.genFrame(0,0,30,30)
   this.bigbangButton.frame = MNUtil.genFrame(35,0,30,30)
@@ -2177,7 +2241,7 @@ try {
   this.childButton.frame = MNUtil.genFrame(210,0,30,30) 
   this.reloadButton.frame = MNUtil.genFrame(245,0,30,30)
   this.chatButton.frame = MNUtil.genFrame(280,0,30,30) 
-  this.promptButton.frame = MNUtil.genFrame(315,0,MNExtensionPanel.width-320,30)
+  this.promptButton.frame = MNUtil.genFrame(315,0,this.panelWidth-320,30)
 } catch (error) {
   chatAIUtils.addErrorLog(error, "setLayout")
 }
@@ -2423,6 +2487,20 @@ sideOutputController.prototype.addToChatHistory = function (config) {
     return false
   }
 }
+sideOutputController.prototype.getPanelWidth = function () {
+  if (this.floatWindow) {
+    return MNUtil.studyWidth
+  }else{
+    return MNExtensionPanel.width
+  }
+}
+sideOutputController.prototype.getPanelHeight = function () {
+  if (this.floatWindow) {
+    return MNUtil.studyHeight
+  }else{
+    return MNExtensionPanel.height
+  }
+}
 /** 
  * @this {sideOutputController}
  */
@@ -2432,7 +2510,7 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
       return
     }
   try {
-    this.panelWidth = MNExtensionPanel.width
+    this.panelWidth = this.getPanelWidth()
     this.lastScrollTime = Date.now()
     if (params) {
       this.history = params.history
@@ -2505,7 +2583,7 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
     this.chatToolbar.backgroundColor = MNUtil.hexColorAlpha("#a2bdd7",0.2)
     this.view.addSubview(this.chatToolbar)
     let x = 50
-    if (MNExtensionPanel.width < 350) {
+    if (this.panelWidth < 350) {
       x = 0
     }
     this.chatToolbar.frame = MNUtil.genFrame(x, 300, 350, 85)
@@ -2610,9 +2688,10 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
     // this.resizeGesture.view.hidden = false
 
     var viewFrame = this.view.frame;
-    viewFrame.height = MNExtensionPanel.height
+    viewFrame.height = this.panelHeight
     this.view.frame = viewFrame
     this.currentFrame = viewFrame
+    this.view.hidden = false
 
     // await MNUtil.delay(0.1)
   } catch (error) {
@@ -2685,7 +2764,7 @@ sideOutputController.prototype.createTextviewResponse  = function () {
   this.textviewResponse.backgroundColor = MNUtil.hexColorAlpha("#ffffff",0.8)
   this.textviewResponse.textColor = UIColor.blackColor()
   this.textviewResponse.delegate = this
-  this.textviewResponse.contentSize = {width:MNExtensionPanel.width,height:120}
+  this.textviewResponse.contentSize = {width:this.panelWidth,height:120}
   this.textviewResponse.scrollEnabled = false
   this.textviewResponse.text = `Loading...`
 }
@@ -2702,7 +2781,7 @@ sideOutputController.prototype.createChatWebview = function (superview) {
   webview.delegate = this;
   // webview.setValueForKey("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15","User-Agent")
   webview.scrollView.delegate = this;
-  webview.layer.cornerRadius = 5;
+  webview.layer.cornerRadius = 10;
   webview.layer.masksToBounds = true;
   webview.layer.opacity = 1.0
   webview.scrollEnabled = false
@@ -2932,6 +3011,12 @@ try {
  */
 sideOutputController.prototype.toggleNavEv = function () {
   this.chatRunJavaScript(`toggleNavEv()`)
+}
+/**
+ * @this {sideOutputController}
+ */
+sideOutputController.prototype.enableNavEv = function () {
+  this.chatRunJavaScript(`enableNavEv()`)
 }
 /**
  * @this {sideOutputController}
@@ -3476,18 +3561,8 @@ sideOutputController.prototype.replaceInput = function (text,imageData=undefined
     }else{
       textView.setContentOffsetAnimated({x:0,y:size.height-inputFrame.height},true)
     }
-    // size.height = chatAIUtils.constrain(size.height, 51, MNExtensionPanel.height-45)
-    // inputFrame.custom = true
-    // // if (size.height > 85) {
-    // inputFrame.y = 40
-    //   // size.height = 85
-    // // }
-    // inputFrame.height = size.height
-    // textView.frame = inputFrame
     MNUtil.showHUD("Replace reference")
   }
-  // this.userInput.becomeFirstResponder()
-  // textView.becomeFirstResponder()
 }
 /**
  * @this {sideOutputController}

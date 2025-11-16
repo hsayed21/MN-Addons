@@ -4,8 +4,18 @@
 新增工具executePrompt，用于实现prompt路由
 
 修复一个解析响应的bug
-action新增 Save to Chat History，用于在prompt执行完成后自动保存至聊天模式
+action新增 Save to Chat History，用于在prompt执行完成后将结果自动保存至聊天模式
 改进聊天记录上传逻辑
+
+聊天模式新增浮动模式（目前只能全屏），可以和侧边栏模式互转
+改进视觉模型检测
+新增源GLM Coding和Kimi Coding
+
+修复minimax的函数调用问题
+改进函数调用稳定性
+新增模型路由功能,已支持Gemini，KimiCoding，ChatGLM，Volcengine
+
+修复上一版本模型路由功能带来的bug
 killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app"
 
 pgrep -x "MarginNote 4" > /dev/null && (killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app") || open "/Applications/MarginNote 4.app"

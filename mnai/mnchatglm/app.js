@@ -561,11 +561,19 @@ const textInputEvent = () => {
 };
 inputAreaEle.oninput = textInputEvent;
 
+const enableNavEv = () => {
+  let isShowNav = document.body.classList.contains("show-nav");
+  if (!isShowNav) {
+    document.body.classList.add("show-nav");
+  }
+}
+
 // 定义一个函数来根据窗口宽度来显示或隐藏导航栏
 const adjustNavBasedOnWidth = () => {
-  if (window.innerWidth > 900) {
-    const pinNav = localStorage.getItem("pinNav") === "true";
-    document.body.classList.toggle("show-nav", pinNav);
+  if (window.innerWidth > 800) {
+    enableNavEv();
+    // const pinNav = localStorage.getItem("pinNav") === "true";
+    // document.body.classList.toggle("show-nav", pinNav);
     return
   }
   if (window.innerWidth < 800) {
@@ -577,7 +585,7 @@ const adjustNavBasedOnWidth = () => {
 // window.addEventListener("load", adjustNavBasedOnWidth);
 
 // 窗口大小变化时也调用该函数
-// window.addEventListener("resize", adjustNavBasedOnWidth);
+window.addEventListener("resize", adjustNavBasedOnWidth);
 
 
 const toggleNavEv = () => {
@@ -586,6 +594,7 @@ const toggleNavEv = () => {
     localStorage.setItem("pinNav", isShowNav)
   }
 }
+
 document.body.addEventListener("mousedown", event => {
   if (event.target.className === "toggler") {
     toggleNavEv();

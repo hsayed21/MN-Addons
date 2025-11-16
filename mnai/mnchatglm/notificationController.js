@@ -1101,58 +1101,58 @@ try {
   }
   this.updateAIButton()
   this.source = config.source
-  let request
-  switch (config.source) {
-    case "ChatGLM":
-    case "KimiChat":
-    case "Minimax":
-    case "Deepseek":
-    case "SiliconFlow":
-    case "ModelScope":
-    case "PPIO":
-    case "Qiniu":
-    case "OpenRouter":
-    case "Github":
-    case "Metaso":
-    case "Qwen":
-    case "ChatGPT":
-    case "Subscription":
-    case "Custom":
-    case "Volcengine":
-      request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
-      break;
-    case "Gemini":
-      request =chatAINetwork.initRequestForGemini(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
-      break;
-    case "Claude":
-      request = chatAINetwork.initRequestForClaude(this.history,config.key,config.url,config.model, this.temperature)
-      break;
-    case "Built-in":
-      //对内置模型而言，只能使用选择好的渠道，不能指定模型
-      let keyInfo = chatAIConfig.keys["key"+chatAIConfig.getConfig("tunnel")]
-      if (!keyInfo || !keyInfo.keys) {
-        MNUtil.showHUD("No apikey for built-in mode!")
-        return
-      }
-      // MNUtil.copyJSON(keyInfo)
-      let key = chatAIUtils.getRandomElement(keyInfo.keys)
-      if (key === "") {
-        MNUtil.showHUD("No apikey for built-in mode!")
-        return
-      }
-      if (keyInfo.useSubscriptionURL) {
-        let url = subscriptionConfig.getConfig("url")+ "/v1/chat/completions"
-        request =chatAINetwork.initRequestForChatGPT(this.history,key, url,keyInfo.model,this.temperature,this.funcIndices)
-      }else{
-        request =chatAINetwork.initRequestForChatGPT(this.history,key, keyInfo.url,keyInfo.model,this.temperature,this.funcIndices)
-      }
-      break;
-    default:
-      chatAIUtils.addErrorLog("Unspported source: "+config.source, "baseAsk")
-      return
+  let request = chatAINetwork.genRequestForAI(this.source,config.model,this.history,this.temperature,this.funcIndices)
+
+  // let request
+  // switch (config.source) {
+  //   case "ChatGPT":
+  //   case "Subscription":
+  //   case "Custom":
+  //     request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+  //     break;
+  //   case "Gemini":
+  //     request =chatAINetwork.initRequestForGemini(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+  //     break;
+  //   case "Claude":
+  //     request = chatAINetwork.initRequestForClaude(this.history,config.key,config.url,config.model, this.temperature)
+  //     break;
+  //   case "KimiCoding":
+  //     request =chatAINetwork.initRequestForKimiCoding(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+  //     break;
+  //   case "Built-in":
+  //     //对内置模型而言，只能使用选择好的渠道，不能指定模型
+  //     let keyInfo = chatAIConfig.keys["key"+chatAIConfig.getConfig("tunnel")]
+  //     if (!keyInfo || !keyInfo.keys) {
+  //       MNUtil.showHUD("No apikey for built-in mode!")
+  //       return
+  //     }
+  //     // MNUtil.copyJSON(keyInfo)
+  //     let key = chatAIUtils.getRandomElement(keyInfo.keys)
+  //     if (key === "") {
+  //       MNUtil.showHUD("No apikey for built-in mode!")
+  //       return
+  //     }
+  //     if (keyInfo.useSubscriptionURL) {
+  //       let url = subscriptionConfig.getConfig("url")+ "/v1/chat/completions"
+  //       request =chatAINetwork.initRequestForChatGPT(this.history,key, url,keyInfo.model,this.temperature,this.funcIndices)
+  //     }else{
+  //       request =chatAINetwork.initRequestForChatGPT(this.history,key, keyInfo.url,keyInfo.model,this.temperature,this.funcIndices)
+  //     }
+  //     break;
+  //   default:
+  //     if (chatAIConfig.generalSource.includes(this.source)) {
+  //       request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+  //       break;
+  //     }
+  //     chatAIUtils.addErrorLog("Unspported source: "+config.source, "baseAsk")
+  //     return
+  // }
+  if (request) {
+    this.sendStreamRequest(request)
+    chatAIUtils.lastTime = Date.now()
+  }else{
+    MNUtil.showHUD("❌ Faild to generate request for AI")
   }
-  this.sendStreamRequest(request)
-  chatAIUtils.lastTime = Date.now()
 } catch (error) {
   chatAIUtils.addErrorLog(error, "baseAsk")
 }
@@ -3157,7 +3157,15 @@ try {
           prompt:this.currentPrompt,
           reasoningResponse:this.reasoningResponse
         }
-        await chatAIUtils.openSideOutput()
+        if (chatAIUtils.isSideOutputCreated()) {
+          if (chatAIUtils.sideOutputController.floatWindow) {
+            await chatAIUtils.openSideOutputInFloatWindow()
+          }else{
+            await chatAIUtils.openSideOutput()
+          }
+        }else{
+          await chatAIUtils.openSideOutput()
+        }
         chatAIUtils.sideOutputController.openChatView(config)
         return;
       case "saveToChatHistory":

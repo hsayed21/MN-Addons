@@ -194,11 +194,13 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController <N
     }
     menu.addMenuItem("💡  ChatGPT", selector,'ChatGPT',source =='ChatGPT')
     menu.addMenuItem("💡  ChatGLM", selector,'ChatGLM',source =='ChatGLM')
+    menu.addMenuItem("💡  GLM Coding", selector,'GLMCoding',source =='GLMCoding')
     menu.addMenuItem("🎶  Minimax", selector,'Minimax',source =='Minimax')
     menu.addMenuItem("🐳  Deepseek", selector,'Deepseek',source =='Deepseek')
     menu.addMenuItem("💡  SiliconFlow", selector,'SiliconFlow',source =='SiliconFlow')
     menu.addMenuItem("💡  ModelScope", selector,'ModelScope',source =='ModelScope')
     menu.addMenuItem("💡  KimiChat", selector,'KimiChat',source =='KimiChat')
+    menu.addMenuItem("💡  Kimi Coding", selector,'KimiCoding',source =='KimiCoding')
     menu.addMenuItem("💡  PPIO", selector,'PPIO',source =='PPIO')
     menu.addMenuItem("🐙  Github", selector,'Github',source =='Github')
     menu.addMenuItem("💡  Qwen", selector,'Qwen',source =='Qwen')
@@ -292,7 +294,6 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController <N
   try {
     let width = []
     let menu = new Menu(button,self)
-    menu.width = 200
     menu.rowHeight = 35
     menu.preferredPosition = 2
     
@@ -317,7 +318,7 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController <N
     if (source === "Subscription") {
       menu.addMenuItem("➕  More Models", "showMoreModels:")
     }
-    menu.width = Math.max(...width)*9+40
+    // menu.width = Math.max(...width)*9+40
     // MNUtil.showHUD(menu.width)
     menu.show()
   } catch (error) {
@@ -366,7 +367,7 @@ var chatglmController = JSB.defineClass('chatglmController : UIViewController <N
         return
       }
     };
-      if (!chatAIUtils.checkSubscribe(false)) {
+      if (!chatAIUtils.checkSubscribe(true)) {
         return
       }
     let content = await self.getWebviewContent()
@@ -1696,6 +1697,7 @@ ${self.knowledgeInput.text}
         // self.openURL("https://www.modelscope.cn/my/myaccesstoken")
         break;
       case "ChatGLM":
+      case "GLMCoding":
         confirm = await MNUtil.confirm("MN ChatAI", "是否已注册ChatGLM？",["未注册","已注册"])
         if (confirm) {
           self.openURL("https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys")
@@ -4158,23 +4160,9 @@ chatglmController.prototype.setModel = function (source) {
   let modelName = chatAIConfig.getDefaultModel(source)
   // MNUtil.copy(modelName)
   switch (source) {
-    case "ChatGLM":
     case "Claude":
-    case "SiliconFlow":
-    case "ModelScope":
-    case "PPIO":
-    case "Qiniu":
-    case "OpenRouter":
-    case "Volcengine":
-    case "Github":
-    case "Metaso":
-    case "Gemini":
     case "ChatGPT":
     case "Subscription":
-    case "KimiChat":
-    case "Minimax":
-    case "Deepseek":
-    case "Qwen":
       MNButton.setTitle(this.modelButton, modelName)
       break;
     case "Custom":
@@ -4187,6 +4175,10 @@ chatglmController.prototype.setModel = function (source) {
     case "Built-in":
       break;
     default:
+      if (chatAIConfig.generalSource.includes(source)) {
+        MNButton.setTitle(this.modelButton, modelName)
+        break;
+      }
       chatAIUtils.addErrorLog("Unspported source: "+source, "setModel")
       return
   }
@@ -4197,20 +4189,7 @@ chatglmController.prototype.setModel = function (source) {
   this.openAPIURLButton.frame = MNUtil.genFrame(realX, viewFrame.height-105, realWidth-10, 35)
   this.testAPIButton.frame = MNUtil.genFrame(realX, viewFrame.height-145, realWidth-10, 35)
   switch (source) {
-    case "ChatGLM":
     case "Claude":
-    case "KimiChat":
-    case "SiliconFlow":
-    case "ModelScope":
-    case "PPIO":
-    case "Qiniu":
-    case "OpenRouter":
-    case "Volcengine":
-    case "Github":
-    case "Metaso":
-    case "Minimax":
-    case "Qwen":
-    case "Deepseek":
       this.modelButton.frame = MNUtil.genFrame(realX,130,realWidth-10,35)
       break;
     case "ChatGPT":
@@ -4250,6 +4229,10 @@ chatglmController.prototype.setModel = function (source) {
     case "Built-in":
       break;
     default:
+      if (chatAIConfig.generalSource.includes(source)) {
+        this.modelButton.frame = MNUtil.genFrame(realX,130,realWidth-10,35)
+        break;
+      }
       chatAIUtils.addErrorLog("Unspported source: "+source, "setModel")
       return
   }
@@ -4278,7 +4261,6 @@ chatglmController.prototype.refreshView = function (targetView) {
 try {
   switch (targetView) {
     case "knowledgeView":
-      MNUtil.log("refresh knowledgeView")
       this.knowledgeInput.text = chatAIConfig.knowledge
       // this.settingView.bringSubviewToFront(this.knowledgeView)
       // this.knowledgeView.bringSubviewToFront(this.knowledgeInput)
@@ -4286,7 +4268,6 @@ try {
       // this.view
       break;
     case "advanceView":
-      MNUtil.log("refresh advanceView")
       let locInd = chatAIConfig.getConfig("notifyLoc")
       let locNames = ["Left","Right"]
       MNButton.setTitle(this.windowLocationButton, "Notification: "+locNames[locInd])
@@ -4890,57 +4871,58 @@ try {
     this.temperature = config.temperature ?? 0.8
   }
   this.source = config.source
-  let request
-  switch (config.source) {
-    case "ChatGLM":
-    case "KimiChat":
-    case "Minimax":
-    case "Deepseek":
-    case "SiliconFlow":
-    case "ModelScope":
-    case "PPIO":
-    case "Qiniu":
-    case "OpenRouter":
-    case "Github":
-    case "Metaso":
-    case "Qwen":
-    case "ChatGPT":
-    case "Subscription":
-    case "Custom":
-    case "Volcengine":
-      request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
-      break;
-    case "Gemini":
-      request =chatAINetwork.initRequestForGemini(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
-      break;
-    case "Claude":
-      request = chatAINetwork.initRequestForClaude(this.history,config.key,config.url,config.model, this.temperature)
-      break;
-    case "Built-in":
-      //对内置模型而言，只能使用选择好的渠道，不能指定模型
-      let keyInfo = chatAIConfig.keys["key"+chatAIConfig.getConfig("tunnel")]
-      if (!keyInfo || !keyInfo.keys) {
-        MNUtil.showHUD("No apikey for built-in mode!")
-        return
-      }
-      // MNUtil.copyJSON(keyInfo)
-      let key = chatAIUtils.getRandomElement(keyInfo.keys)
-      if (key === "") {
-        MNUtil.showHUD("No apikey for built-in mode!")
-        return
-      }
-      if (keyInfo.useSubscriptionURL) {
-        let url = subscriptionConfig.getConfig("url")+ "/v1/chat/completions"
-        request =chatAINetwork.initRequestForChatGPT(this.history,key, url,keyInfo.model,this.temperature,this.funcIndices)
-      }else{
-        request =chatAINetwork.initRequestForChatGPT(this.history,key, keyInfo.url,keyInfo.model,this.temperature,this.funcIndices)
-      }
-      break;
-    default:
-      chatAIUtils.addErrorLog("Unspported source: "+config.source, "baseAsk")
-      return
+  let request = chatAINetwork.genRequestForAI(this.source,config.model,this.history,this.temperature,this.funcIndices)
+
+  // let request
+  // switch (config.source) {
+  //   case "ChatGPT":
+  //   case "Subscription":
+  //   case "Custom":
+  //     request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+  //     break;
+  //   case "Gemini":
+  //     request =chatAINetwork.initRequestForGemini(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+  //     break;
+  //   case "Claude":
+  //     request = chatAINetwork.initRequestForClaude(this.history,config.key,config.url,config.model, this.temperature)
+  //     break;
+  //   case "KimiCoding":
+  //     request = chatAINetwork.initRequestForKimiCoding(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+  //     break;
+  //   case "Built-in":
+  //     //对内置模型而言，只能使用选择好的渠道，不能指定模型
+  //     let keyInfo = chatAIConfig.keys["key"+chatAIConfig.getConfig("tunnel")]
+  //     if (!keyInfo || !keyInfo.keys) {
+  //       MNUtil.showHUD("No apikey for built-in mode!")
+  //       return
+  //     }
+  //     // MNUtil.copyJSON(keyInfo)
+  //     let key = chatAIUtils.getRandomElement(keyInfo.keys)
+  //     if (key === "") {
+  //       MNUtil.showHUD("No apikey for built-in mode!")
+  //       return
+  //     }
+  //     if (keyInfo.useSubscriptionURL) {
+  //       let url = subscriptionConfig.getConfig("url")+ "/v1/chat/completions"
+  //       request =chatAINetwork.initRequestForChatGPT(this.history,key, url,keyInfo.model,this.temperature,this.funcIndices)
+  //     }else{
+  //       request =chatAINetwork.initRequestForChatGPT(this.history,key, keyInfo.url,keyInfo.model,this.temperature,this.funcIndices)
+  //     }
+  //     break;
+  //   default:
+  //     if (chatAIConfig.generalSource.includes(this.source)) {
+  //       request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+  //       break;
+  //     }
+  //     chatAIUtils.addErrorLog("Unspported source: "+config.source, "baseAsk")
+  //     return
+  // }
+  if (request) {
+    this.sendStreamRequest(request)
+  }else{
+    MNUtil.showHUD("❌ Faild to generate request for AI")
+    return
   }
-  this.sendStreamRequest(request)
   chatAIUtils.lastTime = Date.now()
 } catch (error) {
   chatAIUtils.addErrorLog(error, "baseAsk")
