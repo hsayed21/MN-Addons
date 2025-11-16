@@ -4423,13 +4423,13 @@ pinnerController.prototype.refreshSectionCards = function(section) {
       let row
       // 根据 type 字段选择渲染方法
       if (pin.type === "page") {
-        row = this.createPageRow(pin, index, scrollWidth - 20, section, cards.length)
+        row = this.createPageRow(pin, index, scrollWidth - 20, section, cards.length, yOffset)
       } else if (pin.type === "clipboard") {
         // 剪贴板文本类型
-        row = this.createClipboardRow(pin, index, scrollWidth - 20, section)
+        row = this.createClipboardRow(pin, index, scrollWidth - 20, section, yOffset)
       } else {
         // type === "card" 或没有 type 字段（兼容旧数据，默认为 card）
-        row = this.createCardRow(pin, index, scrollWidth - 20, section)
+        row = this.createCardRow(pin, index, scrollWidth - 20, section, yOffset)
       }
       scrollView.addSubview(row)
       this[cardRowsKey].push(row)
@@ -4470,10 +4470,10 @@ pinnerController.prototype.layoutSectionView = function(section) {
 /**
  * 创建单个卡片行视图（新版本，支持多选）
  */
-pinnerController.prototype.createCardRow = function(card, index, width, section) {
+pinnerController.prototype.createCardRow = function(card, index, width, section, yPos) {
   // 创建卡片行容器
   let rowView = UIView.new()
-  rowView.frame = {x: 10, y: 10 + index * UI_CONSTANTS.CARD_ROW_HEIGHT, width: width, height: 45}
+  rowView.frame = {x: 10, y: yPos, width: width, height: 45}
   rowView.backgroundColor = MNUtil.hexColorAlpha("#ffffff", 0.95)
   rowView.layer.cornerRadius = 8
   rowView.layer.borderWidth = 1
@@ -4654,10 +4654,10 @@ pinnerController.prototype.refreshPageCards = function() {
 /**
  * 创建单个页面行视图
  */
-pinnerController.prototype.createPageRow = function(page, index, width, section = "pages", totalCount) {
+pinnerController.prototype.createPageRow = function(page, index, width, section = "pages", totalCount, yPos) {
   // 创建页面行容器
   let rowView = UIView.new()
-  rowView.frame = {x: 10, y: 10 + index * UI_CONSTANTS.PAGE_ROW_HEIGHT, width: width, height: 45}
+  rowView.frame = {x: 10, y: yPos, width: width, height: 45}
   rowView.backgroundColor = MNUtil.hexColorAlpha("#ffffff", 0.95)
   rowView.layer.cornerRadius = 8
   rowView.layer.borderWidth = 1
@@ -4778,18 +4778,12 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
  * @param {String} section - 分区
  * @returns {UIView} 行视图
  */
-pinnerController.prototype.createClipboardRow = function(clipboard, index, width, section) {
-    const UI_CONSTANTS = {
-      ROW_HEIGHT: 50,  // 剪贴板行高度（比 Card 稍高，因为按钮更多）
-      BUTTON_SIZE: 30,
-      BUTTON_SPACING: 35
-    }
-    
+pinnerController.prototype.createClipboardRow = function(clipboard, index, width, section, yPos) {
     // 创建行容器
     let rowView = UIView.new()
     rowView.frame = {
       x: 10,
-      y: 10 + index * UI_CONSTANTS.ROW_HEIGHT,
+      y: yPos,
       width: width,
       height: 45
     }
@@ -4814,20 +4808,20 @@ pinnerController.prototype.createClipboardRow = function(clipboard, index, width
       
       checkboxButton.setTitleForState(isSelected ? "☑️" : "☐", 0)
       checkboxButton.titleLabel.font = UIFont.systemFontOfSize(18)
-      checkboxButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+      checkboxButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
       checkboxButton.tag = index
       checkboxButton.section = section
       checkboxButton.addTargetActionForControlEvents(this, "toggleCardSelection:", 1 << 6)
       rowView.addSubview(checkboxButton)
-      
-      xOffset += UI_CONSTANTS.BUTTON_SPACING
+
+      xOffset += 35
     }
     // ===== 勾选框结束 =====
-    
+
     // 1. 上移按钮
     let moveUpButton = UIButton.buttonWithType(0)
     moveUpButton.setTitleForState("⬆️", 0)
-    moveUpButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+    moveUpButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
     moveUpButton.layer.cornerRadius = 5
     moveUpButton.tag = index
     moveUpButton.section = section
@@ -4839,12 +4833,12 @@ pinnerController.prototype.createClipboardRow = function(clipboard, index, width
       moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
     }
     rowView.addSubview(moveUpButton)
-    xOffset += UI_CONSTANTS.BUTTON_SPACING
-    
+    xOffset += 35
+
     // 2. 下移按钮
     let moveDownButton = UIButton.buttonWithType(0)
     moveDownButton.setTitleForState("⬇️", 0)
-    moveDownButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+    moveDownButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
     moveDownButton.layer.cornerRadius = 5
     moveDownButton.tag = index
     moveDownButton.section = section
@@ -4857,43 +4851,43 @@ pinnerController.prototype.createClipboardRow = function(clipboard, index, width
       moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
     }
     rowView.addSubview(moveDownButton)
-    xOffset += UI_CONSTANTS.BUTTON_SPACING
-    
+    xOffset += 35
+
     // 3. 复制按钮
     let copyButton = UIButton.buttonWithType(0)
     copyButton.setTitleForState("📋", 0)
-    copyButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+    copyButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
     copyButton.backgroundColor = MNUtil.hexColorAlpha("#61afef", 0.8)
     copyButton.layer.cornerRadius = 5
     copyButton.tag = index
     copyButton.section = section
     copyButton.addTargetActionForControlEvents(this, "copyClipboardText:", 1 << 6)
     rowView.addSubview(copyButton)
-    xOffset += UI_CONSTANTS.BUTTON_SPACING
-    
+    xOffset += 35
+
     // 4. 预览按钮
     let previewButton = UIButton.buttonWithType(0)
     previewButton.setTitleForState("👁", 0)
-    previewButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+    previewButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
     previewButton.backgroundColor = MNUtil.hexColorAlpha("#98c379", 0.8)
     previewButton.layer.cornerRadius = 5
     previewButton.tag = index
     previewButton.section = section
     previewButton.addTargetActionForControlEvents(this, "previewClipboardText:", 1 << 6)
     rowView.addSubview(previewButton)
-    xOffset += UI_CONSTANTS.BUTTON_SPACING
-    
+    xOffset += 35
+
     // 5. 编辑按钮
     let editButton = UIButton.buttonWithType(0)
     editButton.setTitleForState("✏️", 0)
-    editButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+    editButton.frame = {x: xOffset, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
     editButton.backgroundColor = MNUtil.hexColorAlpha("#e5c07b", 0.8)
     editButton.layer.cornerRadius = 5
     editButton.tag = index
     editButton.section = section
     editButton.addTargetActionForControlEvents(this, "editClipboardText:", 1 << 6)
     rowView.addSubview(editButton)
-    xOffset += UI_CONSTANTS.BUTTON_SPACING + 5
+    xOffset += 40
     
     // 6. 标题按钮（显示标题，点击弹出菜单）
     let titleButton = UIButton.buttonWithType(0)
@@ -4911,7 +4905,7 @@ pinnerController.prototype.createClipboardRow = function(clipboard, index, width
     // 7. 删除按钮
     let deleteButton = UIButton.buttonWithType(0)
     deleteButton.setTitleForState("🗑", 0)
-    deleteButton.frame = {x: width - 40, y: 7, width: UI_CONSTANTS.BUTTON_SIZE, height: UI_CONSTANTS.BUTTON_SIZE}
+    deleteButton.frame = {x: width - 40, y: 7, width: UI_CONSTANTS.BUTTON_HEIGHT, height: UI_CONSTANTS.BUTTON_HEIGHT}
     deleteButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 0.8)
     deleteButton.layer.cornerRadius = 5
     deleteButton.tag = index
