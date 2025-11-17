@@ -22226,3 +22226,331 @@ class KnowledgeBaseClassUtils {
     lastClassificationNote.focusInMindMap(0.2)
   }
 }
+
+// ============================================
+// 📋 ProofParser 类：数学证明小目标拆分
+// ============================================
+/**
+ * ProofParser - 用于解析数学证明的层级结构
+ *
+ * 功能：将结构化的 Markdown 证明文本转换为脑图卡片
+ *
+ * 输入格式：
+ * ```markdown
+ * - **小目标 1**
+ *   > 详细内容 1
+ *   - **小目标 1.1**
+ *     > 详细内容 1.1
+ * ```
+ *
+ * 输出：JSON 树结构 + MN 卡片层级
+ *
+ * 使用示例：
+ * ```javascript
+ * let markdown = "- **证明**\n  > 目标是...\n  - **步骤1**\n    > 显然...";
+ * let tree = ProofParser.parseProofMarkdown(markdown);
+ * ProofParser.createProofCards(tree, parentNote);
+ * ```
+ */
+class ProofParser {
+  /**
+   * 解析数学证明 Markdown 为 JSON 树
+   * @param {string} markdown - Markdown 文本
+   * @returns {Object|Array} JSON 树结构
+   *
+   * 返回格式：
+   * {
+   *   title: "小目标",
+   *   content: "详细内容",
+   *   children: [...]
+   * }
+   */
+  static parseProofMarkdown(markdown) {
+    try {
+      // 使用 marked.lexer 进行词法分析
+      const tokens = marked.lexer(markdown);
+
+      // 构建证明树
+      const tree = this.buildProofTree(tokens);
+
+      return tree;
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "ProofParser.parseProofMarkdown");
+      MNUtil.showHUD("解析 Markdown 失败: " + error.message);
+      return null;
+    }
+  }
+
+  /**
+   * 递归提取 token 的文本内容
+   * @param {Object} token - token 对象
+   * @returns {string} 提取的文本
+   */
+  static getUnformattedText(token) {
+    if ("tokens" in token && token.tokens && token.tokens.length === 1) {
+      return this.getUnformattedText(token.tokens[0]);
+    } else if ("text" in token) {
+      return token.text || "";
+    } else {
+      return "";
+    }
+  }
+
+  /**
+   * 从列表项 tokens 中提取小目标信息
+   * @param {Array} tokens - 列表项的 tokens
+   * @returns {Object} {title: "标题", content: "内容"}
+   *
+   * 提取规则：
+   * - 标题：**...** 中的文本（strong token）
+   * - 内容：> 引用块中的文本（blockquote token）
+   */
+  static extractGoalFromListItem(tokens) {
+    let title = "";
+    let content = "";
+    let additionalContent = "";
+    let blockquoteIndex = -1;
+
+    if (!tokens || tokens.length === 0) {
+      MNUtil.log("⚠️ extractGoalFromListItem - tokens 为空或长度为 0", "ProofParser");
+      return { title, content };
+    }
+
+    // 日志：输出完整的 tokens 结构
+    MNUtil.log(`📊 extractGoalFromListItem - tokens 数量: ${tokens.length}`, "ProofParser");
+    MNUtil.log(tokens, "ProofParser - 完整 tokens");
+
+    // 遍历所有 tokens 提取标题和内容
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+
+      // 日志：输出当前 token
+      MNUtil.log(`🔍 Token[${i}] 类型: ${token.type}`, "ProofParser");
+      MNUtil.log(token, `ProofParser - Token[${i}]`);
+
+      // 处理段落或文本 token（可能包含 strong 或纯文本）
+      if ((token.type === "text" || token.type === "paragraph") && token.tokens) {
+        MNUtil.log(`📝 paragraph 有 ${token.tokens.length} 个 innerTokens`, "ProofParser");
+
+        let foundStrong = false;
+        for (let j = 0; j < token.tokens.length; j++) {
+          const innerToken = token.tokens[j];
+          MNUtil.log(`  🔸 InnerToken[${j}] 类型: ${innerToken.type}`, "ProofParser");
+          MNUtil.log(innerToken, `ProofParser - InnerToken[${j}]`);
+
+          if (innerToken.type === "strong") {
+            // 使用递归方法提取标题（有加粗符号）
+            title = this.getUnformattedText(innerToken);
+            MNUtil.log(`✅ 提取到加粗标题: "${title}"`, "ProofParser");
+            MNUtil.log(innerToken, "ProofParser - strong token");
+            foundStrong = true;
+            break;
+          }
+        }
+
+        // 如果没有找到 strong，使用整个 token.text 作为标题（无加粗符号）
+        if (!foundStrong && !title && token.text) {
+          title = token.text.trim();
+          MNUtil.log(`✅ 提取到纯文本标题: "${title}"`, "ProofParser");
+        }
+      }
+
+      // 处理引用块 token
+      if (token.type === "blockquote") {
+        // 使用 token.raw 保留 > 符号
+        content = token.raw ? token.raw.trim() : "";
+        blockquoteIndex = i;
+
+        // ⭐ 新增：检测空 blockquote
+        const trimmedBlockquote = content.replace(/^>\s*/, "").trim();
+        if (trimmedBlockquote === "") {
+          MNUtil.log(`⚠️ 警告：检测到空 blockquote！标题为: "${title}"`, "ProofParser");
+        } else {
+          MNUtil.log(`✅ 提取到内容: "${content.substring(0, 30)}..."`, "ProofParser");
+        }
+      }
+
+      // 如果已经找到标题和内容，不再提前结束，继续收集后续 token
+      if (title && content && blockquoteIndex === -1) {
+        MNUtil.log(`🎉 标题和内容都找到了！`, "ProofParser");
+        break;
+      }
+    }
+
+    // 兜底处理：收集 blockquote 后的独立 token（如行间公式）
+    if (blockquoteIndex !== -1 && blockquoteIndex < tokens.length - 1) {
+      MNUtil.log(`🔍 开始兜底处理，blockquoteIndex: ${blockquoteIndex}, 剩余 tokens: ${tokens.length - blockquoteIndex - 1}`, "ProofParser");
+
+      for (let i = blockquoteIndex + 1; i < tokens.length; i++) {
+        const token = tokens[i];
+        MNUtil.log(`  📌 检查 token[${i}]: type=${token?.type}, raw="${token?.raw?.substring(0, 50)}..."`, "ProofParser");
+
+        // 跳过空 token 和嵌套列表（嵌套列表由 buildProofTree 处理）
+        if (!token || !token.raw || token.type === "list") {
+          MNUtil.log(`  ⏭️ 跳过 token[${i}]: ${!token ? "token为null" : !token.raw ? "raw为空" : "是list类型"}`, "ProofParser");
+          continue;
+        }
+
+        // 提取有内容的 token（text, paragraph, code, space, html 等，可能是行间公式）
+        // ⭐ 关键修改：放宽 token 类型限制，捕获所有非 list 的 token
+        const tokenContent = token.raw ? token.raw.trim() : "";
+        if (tokenContent) {
+          additionalContent += (additionalContent ? "\n" : "") + tokenContent;
+          MNUtil.log(`  ✅ 兜底捕获 ${token.type} token: "${tokenContent.substring(0, 50)}..."`, "ProofParser");
+        } else {
+          MNUtil.log(`  ⚠️ token[${i}] 内容为空，跳过`, "ProofParser");
+        }
+      }
+
+      // 将兜底内容追加到 content
+      if (additionalContent) {
+        // 如果 blockquote 内容为空或只有 > 符号，直接用兜底内容替换
+        const trimmedContent = content.replace(/^>\s*/, "").trim();
+        if (trimmedContent === "") {
+          content = "> " + additionalContent;
+          MNUtil.log(`🔄 blockquote 为空，使用兜底内容替换，新内容: "${content.substring(0, 100)}..."`, "ProofParser");
+        } else {
+          content += "\n" + additionalContent;
+          MNUtil.log(`🔗 blockquote 有内容，追加兜底内容`, "ProofParser");
+        }
+        MNUtil.log(`✅ 兜底处理完成，最终内容长度: ${content.length}`, "ProofParser");
+      } else {
+        MNUtil.log(`⚠️ 没有捕获到兜底内容`, "ProofParser");
+      }
+    } else {
+      if (blockquoteIndex === -1) {
+        MNUtil.log(`ℹ️ 未找到 blockquote，跳过兜底处理`, "ProofParser");
+      } else {
+        MNUtil.log(`ℹ️ blockquote 是最后一个 token，无需兜底处理`, "ProofParser");
+      }
+    }
+
+    // ⭐ 新增：最终验证 - 如果 content 仍为空或只有 >，使用标题作为兜底
+    const finalTrimmedContent = content.replace(/^>\s*/, "").trim();
+    if (title && finalTrimmedContent === "") {
+      content = `> ${title}`;
+      MNUtil.log(`🚨 兜底处理：content 为空，使用标题作为内容`, "ProofParser");
+    }
+
+    // 最终结果日志
+    MNUtil.log(`📋 最终结果 - 标题: "${title}", 内容长度: ${content.length}`, "ProofParser");
+
+    return { title, content };
+  }
+
+  /**
+   * 从 tokens 构建证明树
+   * @param {Array} tokens - marked.lexer 返回的 tokens
+   * @param {number} depth - 当前递归深度（用于调试）
+   * @returns {Array} 树节点数组
+   *
+   * 处理流程：
+   * 1. 遍历 tokens，识别 list 类型
+   * 2. 对每个 list_item：
+   *    - 提取标题和内容（extractGoalFromListItem）
+   *    - 递归处理嵌套列表（buildProofTree）
+   *    - 构建 {title, content, children} 结构
+   */
+  static buildProofTree(tokens, depth = 0) {
+    const result = [];
+
+    if (!tokens || tokens.length === 0) {
+      return result;
+    }
+
+    for (const token of tokens) {
+      // 只处理列表类型
+      if (token.type === "list" && token.items) {
+        for (const item of token.items) {
+          // 提取当前列表项的标题和内容
+          const { title, content } = this.extractGoalFromListItem(item.tokens);
+
+          // 创建节点
+          const node = {
+            title: title,
+            content: content,
+            children: []
+          };
+
+          // 递归处理嵌套列表
+          if (item.tokens) {
+            const nestedLists = item.tokens.filter(t => t.type === "list");
+            for (const nestedList of nestedLists) {
+              const childrenNodes = this.buildProofTree([nestedList], depth + 1);
+              node.children.push(...childrenNodes);
+            }
+          }
+
+          result.push(node);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * 从 JSON 树创建 MN 卡片
+   * @param {Object|Array} tree - JSON 树（可以是单个对象或数组）
+   * @param {MbBookNote} parentNote - 父卡片
+   * @returns {Array} 创建的卡片数组
+   *
+   * 创建规则：
+   * - 标题 → 卡片标题
+   * - 内容 → 卡片摘录（Markdown 格式）
+   * - children → 递归创建子卡片
+   */
+  static createProofCards(tree, parentNote) {
+    const createdNotes = [];
+
+    if (!tree || !parentNote) {
+      MNUtil.showHUD("参数错误：缺少树结构或父卡片");
+      return createdNotes;
+    }
+
+    try {
+      // 确保 tree 是数组
+      const nodes = Array.isArray(tree) ? tree : [tree];
+
+      MNUtil.undoGrouping(() => {
+        for (const node of nodes) {
+          // 创建当前节点的卡片
+          const childNote = parentNote.createChildNote({
+            title: node.title || "未命名目标",
+            excerptText: node.content || "",
+            excerptTextMarkdown: true  // 使用 Markdown 格式
+          });
+
+          createdNotes.push(childNote);
+
+          // 递归创建子卡片
+          if (node.children && node.children.length > 0) {
+            const subNotes = this.createProofCards(node.children, childNote);
+            createdNotes.push(...subNotes);
+          }
+        }
+      });
+
+      MNUtil.showHUD(`✅ 已创建 ${createdNotes.length} 张卡片`);
+      return createdNotes;
+    } catch (error) {
+      KnowledgeBaseUtils.addErrorLog(error, "ProofParser.createProofCards");
+      MNUtil.showHUD("创建卡片失败: " + error.message);
+      return createdNotes;
+    }
+  }
+
+  /**
+   * 便捷方法：直接从 Markdown 创建卡片
+   * @param {string} markdown - Markdown 文本
+   * @param {MbBookNote} parentNote - 父卡片
+   * @returns {Array} 创建的卡片数组
+   */
+  static createCardsFromMarkdown(markdown, parentNote) {
+    const tree = this.parseProofMarkdown(markdown);
+    if (!tree) {
+      return [];
+    }
+    return this.createProofCards(tree, parentNote);
+  }
+}
