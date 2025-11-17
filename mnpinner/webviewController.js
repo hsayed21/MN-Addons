@@ -1979,14 +1979,18 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
    */
   pageItemTapped: function(button) {
     try {
-      // ✅ 从按钮获取分区和索引信息
-      let section = button.section || "pages"
+      // ✅ 通过 tag 获取索引，从数据源回溯完整信息
       let index = button.tag
+      let section = button.section || self.currentSection
 
-      // ✅ 从正确的分区获取页面数据
+      // 从 pinnerConfig 获取完整数据
       let pins = pinnerConfig.getPins(section)
-      let page = pins[index]
+      if (!pins || pins.length === 0) {
+        MNUtil.showHUD("分区数据为空")
+        return
+      }
 
+      let page = pins[index]
       if (!page) {
         MNUtil.showHUD("页面不存在")
         return
@@ -2333,46 +2337,13 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         return
       }
 
-      let docMd5 = page.docMd5
-      let pageIndex = page.pageIndex
-
-      // 验证文档存在
-      let docInfo = pinnerConfig.getDocInfo(docMd5)
-      if (!docInfo.doc) {
-        MNUtil.showHUD("文档不存在")
-        return
-      }
-
-      // 验证页码范围
-      if (pageIndex < 0 || pageIndex > docInfo.lastPageIndex) {
-        MNUtil.showHUD(`页码超出范围(0-${docInfo.lastPageIndex})`)
-        return
-      }
-
-      // 打开文档（如果不是当前文档）
-      if (docMd5 !== MNUtil.currentDocMd5) {
-        MNUtil.openDoc(docMd5)
-
-        // 确保文档视图可见
-        if (MNUtil.docMapSplitMode === 0) {
-          MNUtil.docMapSplitMode = 1
-        }
-
-        await MNUtil.delay(0.1)
-      }
-
-      // 跳转到指定页面
-      let docController = MNUtil.currentDocController
-      if (!docController) {
-        MNUtil.showHUD("无法获取文档控制器")
-        return
-      }
-
-      if (docController.currPageIndex !== pageIndex) {
-        docController.setPageAtIndex(pageIndex)
-      }
-
-      MNUtil.showHUD(`已跳转到第 ${pageIndex + 1} 页`)
+      // ✅ 直接调用已修复的 jumpToPageByData 方法
+      // 该方法已包含完整的修复：
+      // 1. 先打开文档，后验证（避免 GC 问题）
+      // 2. 使用 0.5 秒延迟（确保文档加载）
+      // 3. 文档加载后二次验证
+      // 4. 详细的错误日志
+      return await self.jumpToPageByData(page)
 
     } catch (error) {
       pinnerUtils.addErrorLog(error, "jumpToPageFromMenu")
@@ -2706,7 +2677,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       button.enabled = false
 
       let index = button.tag
-      let section = button.section || "pages"
+      let section = button.section || self.currentSection
       let pins = pinnerConfig.getPins(section)
 
       if (index > 0) {
@@ -2735,7 +2706,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       button.enabled = false
 
       let index = button.tag
-      let section = button.section || "pages"
+      let section = button.section || self.currentSection
       let pins = pinnerConfig.getPins(section)
 
       if (index < pins.length - 1) {
@@ -3466,12 +3437,25 @@ pinnerController.prototype.jumpToPageByData = async function (card) {
       await MNUtil.delay(0.5)
     }
 
-    // ✅ 文档打开后再验证（此时文档应该已加载）
-    let docInfo = pinnerConfig.getDocInfo(docMd5)
-    if (!docInfo.doc) {
+    // ✅ 关键修复：从 currentDocController 获取文档对象
+    // 不使用 getDocInfo(docMd5)，因为它调用的 getDocById 可能返回已被 GC 回收的对象
+    // currentDocController.document 是由 Objective-C 持有的对象，不会被 JS GC 回收
+    let docController = MNUtil.currentDocController
+    if (!docController) {
+      MNUtil.showHUD("无法获取文档控制器")
+      pinnerUtils.addErrorLog(
+        new Error("Document controller not found"),
+        "jumpToPageByData",
+        { docMd5, pageIndex, title: card.title }
+      )
+      return
+    }
+
+    let doc = docController.document
+    if (!doc) {
       MNUtil.showHUD("文档加载失败，请重试")
       pinnerUtils.addErrorLog(
-        new Error("Document failed to load"),
+        new Error("Document not loaded"),
         "jumpToPageByData",
         { docMd5, pageIndex, title: card.title }
       )
@@ -3479,20 +3463,14 @@ pinnerController.prototype.jumpToPageByData = async function (card) {
     }
 
     // 验证页码范围
-    if (pageIndex < 0 || pageIndex > docInfo.lastPageIndex) {
-      MNUtil.showHUD(`页码超出范围(0-${docInfo.lastPageIndex})`)
+    let lastPageIndex = doc.pageCount - 1
+    if (pageIndex < 0 || pageIndex > lastPageIndex) {
+      MNUtil.showHUD(`页码超出范围(0-${lastPageIndex})`)
       pinnerUtils.addErrorLog(
         new Error("Page index out of range"),
         "jumpToPageByData",
-        { docMd5, pageIndex, lastPageIndex: docInfo.lastPageIndex }
+        { docMd5, pageIndex, lastPageIndex }
       )
-      return
-    }
-
-    // 跳转到指定页面
-    let docController = MNUtil.currentDocController
-    if (!docController) {
-      MNUtil.showHUD("无法获取文档控制器")
       return
     }
 
