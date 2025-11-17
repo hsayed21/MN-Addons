@@ -5844,6 +5844,90 @@ function registerAllCustomActions() {
       MNUtil.showHUD("addDefinitionNoteAsParentNote: " + error.message);
     }
   })
+
+  // ============================================
+  // ProofParser 相关 Actions
+  // ============================================
+
+  /**
+   * 解析数学证明 Markdown 并创建卡片
+   * 从当前卡片的评论中提取 Markdown，使用 ProofParser 解析并创建子卡片
+   */
+  global.registerCustomAction("parseProofMarkdown", async function(context) {
+    const { focusNote } = context;
+    try {
+      let text = focusNote.excerptText?focusNote.excerptText:focusNote.comments[0]
+
+      // 显示提示
+      MNUtil.showHUD("🔄 正在解析证明结构...");
+
+      // 解析 Markdown
+      let tree = ProofParser.parseProofMarkdown(text);
+
+      if (!tree || tree.length === 0) {
+        MNUtil.showHUD("❌ 解析失败：未找到符合格式的内容");
+        MNUtil.showHUD("格式要求：- **标题**\\n  > 内容");
+        return;
+      }
+
+      // 创建卡片
+      let createdNotes = ProofParser.createProofCards(tree, focusNote);
+
+      if (createdNotes && createdNotes.length > 0) {
+        // 聚焦到第一张创建的卡片
+        createdNotes[0].focusInMindMap(0.3);
+        MNUtil.showHUD(`✅ 已创建 ${createdNotes.length} 张卡片`);
+      }
+    } catch (error) {
+      MNUtil.showHUD("解析失败: " + error.message);
+      if (typeof toolbarUtils !== "undefined") {
+        toolbarUtils.addErrorLog(error, "parseProofMarkdown");
+      }
+    }
+  })
+
+  /**
+   * 查看解析后的 JSON 结构（调试用）
+   * 解析但不创建卡片，将 JSON 结构复制到剪贴板
+   */
+  global.registerCustomAction("debugProofParser", async function(context) {
+    const { focusNote } = context;
+    try {
+      if (typeof ProofParser === "undefined") {
+        MNUtil.showHUD("❌ ProofParser 未加载");
+        return;
+      }
+
+      // 获取评论内容
+      let allComments = focusNote.comments
+        .map(comment => comment.text)
+        .filter(text => text && text.trim())
+        .join("\n\n");
+
+      if (!allComments || allComments.trim().length === 0) {
+        MNUtil.showHUD("❌ 当前卡片没有评论内容");
+        return;
+      }
+
+      // 解析 Markdown
+      let tree = ProofParser.parseProofMarkdown(allComments);
+
+      if (!tree || tree.length === 0) {
+        MNUtil.showHUD("❌ 解析失败");
+        return;
+      }
+
+      // 复制 JSON 到剪贴板
+      MNUtil.copyJSON(tree);
+      MNUtil.showHUD("✅ JSON 结构已复制到剪贴板");
+    } catch (error) {
+      MNUtil.showHUD("调试失败: " + error.message);
+      if (typeof toolbarUtils !== "undefined") {
+        toolbarUtils.addErrorLog(error, "debugProofParser");
+      }
+    }
+  })
+
   // global.registerCustomAction("", async function(context) {
   //   const { focusNote } = context;
   // })

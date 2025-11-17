@@ -823,13 +823,23 @@ function registerAllMenuTemplates() {
       action: "menu",
       menuWidth: 350,
       menuItems: [
+        "📊 证明拆分（ProofParser）",
+        {
+          action: "parseProofMarkdown",
+          menuTitle: "    从评论解析证明 Markdown",
+        },
+        {
+          action: "debugProofParser",
+          menuTitle: "    🐛 调试：查看 JSON 结构",
+        },
+        "⬇️ 其他证明功能",
         {
           action: "checkProofInReview",
-          menuTitle: "检查证明区中链接对应的卡片是否加入复习",
+          menuTitle: "    检查证明区中链接对应的卡片是否加入复习",
         },
         {
           action: "extractProofContentAndSplitComments",
-          menuTitle: "提取证明字段内容并拆分评论为独立卡片",
+          menuTitle: "    提取证明字段内容并拆分评论为独立卡片",
         },
         {
           action: "upwardMergeWithStyledComments",
