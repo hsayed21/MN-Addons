@@ -22297,6 +22297,21 @@ class ProofParser {
   }
 
   /**
+   * 修复 AI 错误转义的 LaTeX 反斜杠
+   * 将 \\alpha 修复为 \alpha，但保留 \\ 换行符
+   * @param {string} text - 待处理的文本
+   * @returns {string} 修复后的文本
+   */
+  static cleanLatexBackslashes(text) {
+    if (!text) return text;
+
+    // 修复：\\命令 → \命令
+    // 只匹配 \\ 后紧跟字母的情况（LaTeX 命令）
+    // 不影响 \\ 后是空格或 [ 的情况（LaTeX 换行符）
+    return text.replace(/\\\\([a-zA-Z])/g, '\\$1');
+  }
+
+  /**
    * 从列表项 tokens 中提取小目标信息
    * @param {Array} tokens - 列表项的 tokens
    * @returns {Object} {title: "标题", content: "内容"}
@@ -22361,10 +22376,11 @@ class ProofParser {
         content = token.raw ? token.raw.trim() : "";
         blockquoteIndex = i;
 
-        // ⭐ 新增：检测空 blockquote
-        const trimmedBlockquote = content.replace(/^>\s*/, "").trim();
-        if (trimmedBlockquote === "") {
+        // ⭐ 优化：使用正则精确检测空 blockquote（> 后只有空白和换行）
+        const isEmptyBlockquote = /^\s*>\s*\n?$/.test(content);
+        if (isEmptyBlockquote) {
           MNUtil.log(`⚠️ 警告：检测到空 blockquote！标题为: "${title}"`, "ProofParser");
+          MNUtil.log(`  原始内容: ${JSON.stringify(content)}`, "ProofParser");
         } else {
           MNUtil.log(`✅ 提取到内容: "${content.substring(0, 30)}..."`, "ProofParser");
         }
@@ -22431,6 +22447,10 @@ class ProofParser {
       content = `> ${title}`;
       MNUtil.log(`🚨 兜底处理：content 为空，使用标题作为内容`, "ProofParser");
     }
+
+    // ⭐ 最终清理：修复 AI 错误转义的反斜杠
+    title = this.cleanLatexBackslashes(title);
+    content = this.cleanLatexBackslashes(content);
 
     // 最终结果日志
     MNUtil.log(`📋 最终结果 - 标题: "${title}", 内容长度: ${content.length}`, "ProofParser");
@@ -22511,10 +22531,14 @@ class ProofParser {
     try {
       // 确保 tree 是数组
       const nodes = Array.isArray(tree) ? tree : [tree];
+      let nodeContent
 
       MNUtil.undoGrouping(() => {
         for (const node of nodes) {
           // 创建当前节点的卡片
+
+          // 处理一些可能的内容问题
+          // \\→\
           const childNote = parentNote.createChildNote({
             title: node.title || "未命名目标",
             excerptText: node.content || "",

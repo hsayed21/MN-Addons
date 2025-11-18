@@ -207,6 +207,12 @@ function registerAllButtons() {
     image: "text_white",
     templateName: "menu_handtool_text"
   });
+
+  global.registerButton("custom14", {
+    name: "拆证明",
+    image: "proof",
+    templateName: "menu_proofparse"
+  });
   
   // "custom15":{name:"[卡片弹窗替换]SOP",image:"sop_white",description: this.template("menu_sop")},
   

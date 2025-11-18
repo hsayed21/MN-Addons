@@ -516,12 +516,31 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         MNUtil.undoGrouping(()=>{
           if (!focusNote) {
             MNUtil.showHUD("请先选中一个卡片")
-            return 
+            return
           }
           focusNote.title = ""
           KnowledgeBaseTemplate.retainFieldContentByName(focusNote, "摘录区");
           focusNote.mergeInto(targetNote);
           KnowledgeBaseTemplate.autoMoveNewContentToField(targetNote, "摘录");
+          success = true
+        })
+        break;
+
+      case 'keepOnlyExcerptAndMergeToTargetNote':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return
+          }
+          // 1. 只保留摘录（删除所有文本和手写评论）
+          KnowledgeBaseTemplate.keepOnlyExcerpt(focusNote);
+
+          // 2. 合并到目标卡片
+          focusNote.mergeInto(targetNote);
+
+          // 3. 将新内容移动到摘录字段
+          KnowledgeBaseTemplate.autoMoveNewContentToField(targetNote, "摘录");
+
           success = true
         })
         break;

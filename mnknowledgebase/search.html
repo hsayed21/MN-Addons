@@ -2173,6 +2173,9 @@
           <button class="sidebar-btn sidebar-btn--grouped" id="clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn" type="button" disabled>
             <span>清空 FocusNote 标题 & 合并到选中卡片的摘录区</span>
           </button>
+          <button class="sidebar-btn sidebar-btn--grouped" id="keepOnlyExcerptAndMergeToTargetNoteBtn" type="button" disabled>
+            <span>只保留摘录 & 合并到选中卡片的摘录区</span>
+          </button>
         </div>
 
         <!-- 移动操作组 -->
@@ -2943,6 +2946,7 @@
         // Sidebar 按钮（已移除 focusCardInFloatMindMapBtn 和 copyMarkdownLinkBtn）
         mergeFocusNoteToTargetNoteExcerptPartBtn: document.getElementById('mergeFocusNoteToTargetNoteExcerptPartBtn'),
         clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn: document.getElementById('clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn'),
+        keepOnlyExcerptAndMergeToTargetNoteBtn: document.getElementById('keepOnlyExcerptAndMergeToTargetNoteBtn'),
         bidirectionalLinkFromeFocusNoteToTargetNoteBtn: document.getElementById('bidirectionalLinkFromeFocusNoteToTargetNoteBtn'),
         moveFocusNoteToTargetNoteAsChildBtn: document.getElementById('moveFocusNoteToTargetNoteAsChildBtn'),
         moveFocusNoteToTargetNoteAsChildAndLocateBtn: document.getElementById('moveFocusNoteToTargetNoteAsChildAndLocateBtn'),
@@ -3485,6 +3489,7 @@
         const sidebarButtons = [
           { btn: dom.mergeFocusNoteToTargetNoteExcerptPartBtn, action: 'mergeFocusNoteToTargetNoteExcerptPart' },
           { btn: dom.clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn, action: 'clearTitleAndMergeFocusNoteToTargetNoteExcerptPart' },
+          { btn: dom.keepOnlyExcerptAndMergeToTargetNoteBtn, action: 'keepOnlyExcerptAndMergeToTargetNote' },
           { btn: dom.bidirectionalLinkFromeFocusNoteToTargetNoteBtn, action: 'bidirectionalLinkFromeFocusNoteToTargetNote' },
           { btn: dom.moveFocusNoteToTargetNoteAsChildBtn, action: 'moveFocusNoteToTargetNoteAsChild' },
           { btn: dom.moveFocusNoteToTargetNoteAsChildAndLocateBtn, action: 'moveFocusNoteToTargetNoteAsChildAndLocate' },
@@ -5088,6 +5093,7 @@
         const sidebarButtons = [
           dom.mergeFocusNoteToTargetNoteExcerptPartBtn,
           dom.clearTitleAndMergeFocusNoteToTargetNoteExcerptPartBtn,
+          dom.keepOnlyExcerptAndMergeToTargetNoteBtn,
           dom.bidirectionalLinkFromeFocusNoteToTargetNoteBtn,
           dom.moveFocusNoteToTargetNoteAsChildBtn,
           dom.moveFocusNoteToTargetNoteAsChildAndLocateBtn,
@@ -5145,6 +5151,12 @@
 
           case 'clearTitleAndMergeFocusNoteToTargetNoteExcerptPart':
             if (!postBridge('clearTitleAndMergeFocusNoteToTargetNoteExcerptPart', { id })) {
+              showToast('操作失败');
+            }
+            break;
+
+          case 'keepOnlyExcerptAndMergeToTargetNote':
+            if (!postBridge('keepOnlyExcerptAndMergeToTargetNote', { id })) {
               showToast('操作失败');
             }
             break;

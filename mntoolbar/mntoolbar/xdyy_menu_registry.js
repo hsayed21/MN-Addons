@@ -1122,6 +1122,10 @@ function registerAllMenuTemplates() {
     }
   });
 
+  global.registerMenuTemplate("menu_proofparse", {
+    action: "parseProofMarkdown"
+  });
+
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
     MNUtil.log(
       `🚀 已注册 ${Object.keys(global.customMenuTemplates).length} 个自定义菜单模板`,
