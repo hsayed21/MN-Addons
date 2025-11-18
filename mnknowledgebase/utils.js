@@ -22265,10 +22265,101 @@ class ProofParser {
    *   children: [...]
    * }
    */
+  /**
+   * 修复引用块外的孤立公式
+   *
+   * 问题：当 blockquote 以 > 空行结尾后，紧跟的独立公式块会被 marked.js
+   * 解析为下一个列表项的内容，导致公式丢失
+   *
+   * 解决：将这种孤立的公式块移入前面的 blockquote 中（添加 > 前缀）
+   *
+   * @param {string} markdown - 原始 Markdown 文本
+   * @return {string} - 修复后的 Markdown 文本
+   */
+  static fixOrphanedFormulas(markdown) {
+    // 匹配模式：
+    // 1. 以 > 开头的任意行（支持行首缩进）: (^\s*>.*\n)
+    // 2. 后面可能有多个空白行或空引用行: ((?:[\s>]*\n)*)
+    // 3. 后面是独立的行间公式: $$...$$ (没有 > 前缀)
+    // 使用 negative lookahead (?!\s*>) 确保公式行前面没有 >
+    return markdown.replace(
+      /(^\s*>.*\n)((?:[\s>]*\n)*)((?!\s*>)\$\$[\s\S]+?\$\$)/gm,
+      (match, blockquoteLine, emptyLines, formula) => {
+        // 提取 blockquoteLine 的缩进
+        const indent = blockquoteLine.match(/^(\s*)/)[1];
+        // 返回：blockquoteLine（去除尾部空白）+ 换行 + 缩进 + > + 公式
+        // 这样可以移除中间的空白行，同时保持正确的缩进
+        return blockquoteLine.trimEnd() + '\n' + indent + '> ' + formula;
+      }
+    );
+  }
+
+  /**
+   * 兜底检测：确保所有行间公式都有正确的 > 前缀
+   *
+   * 策略：逐行扫描，检测行间公式，如果前面有 blockquote 则确保公式也有 > 前缀
+   * 智能处理缩进：自动匹配 blockquote 的缩进级别
+   *
+   * @param {string} markdown - Markdown 文本
+   * @returns {string} - 处理后的 Markdown 文本
+   */
+  static ensureAllFormulasInBlockquote(markdown) {
+    const lines = markdown.split('\n');
+    const result = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // 检测行间公式开始（$$开头，且前面没有>）
+      if (/^\s*\$\$/.test(line) && !/^\s*>/.test(line)) {
+        // 向上查找最近的 blockquote（10行内）
+        let blockquoteIndent = null;
+        let hasBlockquoteAbove = false;
+
+        for (let j = i - 1; j >= Math.max(0, i - 10); j--) {
+          const prevLine = lines[j];
+
+          // 检测到 blockquote 行
+          const blockquoteMatch = prevLine.match(/^(\s*)>/);
+          if (blockquoteMatch) {
+            hasBlockquoteAbove = true;
+            blockquoteIndent = blockquoteMatch[1]; // 提取缩进
+            break;
+          }
+
+          // 遇到非空白且非blockquote的内容行，停止查找
+          // 但要排除列表标记行（如 "- " 或 "  - "）
+          if (!/^\s*$/.test(prevLine) &&
+              !/^\s*>/.test(prevLine) &&
+              !/^\s*[-*]\s/.test(prevLine)) {
+            break;
+          }
+        }
+
+        // 如果找到了 blockquote，添加相同缩进的 > 前缀
+        if (hasBlockquoteAbove && blockquoteIndent !== null) {
+          result.push(blockquoteIndent + '> ' + line.trim());
+        } else {
+          result.push(line);
+        }
+      } else {
+        result.push(line);
+      }
+    }
+
+    return result.join('\n');
+  }
+
   static parseProofMarkdown(markdown) {
     try {
+      // 预处理1：修复引用块外的孤立公式（正则模式）
+      let fixedMarkdown = this.fixOrphanedFormulas(markdown);
+
+      // 预处理2：兜底检测，确保所有公式都有 > 前缀（逐行扫描）
+      fixedMarkdown = this.ensureAllFormulasInBlockquote(fixedMarkdown);
+
       // 使用 marked.lexer 进行词法分析
-      const tokens = marked.lexer(markdown);
+      const tokens = marked.lexer(fixedMarkdown);
 
       // 构建证明树
       const tree = this.buildProofTree(tokens);
@@ -22376,13 +22467,19 @@ class ProofParser {
         content = token.raw ? token.raw.trim() : "";
         blockquoteIndex = i;
 
-        // ⭐ 优化：使用正则精确检测空 blockquote（> 后只有空白和换行）
-        const isEmptyBlockquote = /^\s*>\s*\n?$/.test(content);
+        // ⭐ 优化：精确检测空 blockquote（只有单行且为空才判定）
+        // 多行 blockquote 即使末尾有空行，也不应该被判定为"空"
+        const lines = content.trim().split('\n');
+        const isEmptyBlockquote = lines.length === 1 && /^\s*>\s*$/.test(lines[0]);
+
         if (isEmptyBlockquote) {
           MNUtil.log(`⚠️ 警告：检测到空 blockquote！标题为: "${title}"`, "ProofParser");
           MNUtil.log(`  原始内容: ${JSON.stringify(content)}`, "ProofParser");
+          // 将空 blockquote 替换为空字符串，让兜底处理去捕获后续内容
+          content = "";
+          blockquoteIndex = -1; // 重置索引，标记为无有效 blockquote
         } else {
-          MNUtil.log(`✅ 提取到内容: "${content.substring(0, 30)}..."`, "ProofParser");
+          MNUtil.log(`✅ 提取到内容 (${lines.length} 行): "${content.substring(0, 30)}..."`, "ProofParser");
         }
       }
 
@@ -22402,14 +22499,14 @@ class ProofParser {
         MNUtil.log(`  📌 检查 token[${i}]: type=${token?.type}, raw="${token?.raw?.substring(0, 50)}..."`, "ProofParser");
 
         // 跳过空 token 和嵌套列表（嵌套列表由 buildProofTree 处理）
-        if (!token || !token.raw || token.type === "list") {
-          MNUtil.log(`  ⏭️ 跳过 token[${i}]: ${!token ? "token为null" : !token.raw ? "raw为空" : "是list类型"}`, "ProofParser");
+        if (!token || token.type === "list") {
+          MNUtil.log(`  ⏭️ 跳过 token[${i}]: ${!token ? "token为null" : "是list类型"}`, "ProofParser");
           continue;
         }
 
         // 提取有内容的 token（text, paragraph, code, space, html 等，可能是行间公式）
-        // ⭐ 关键修改：放宽 token 类型限制，捕获所有非 list 的 token
-        const tokenContent = token.raw ? token.raw.trim() : "";
+        // ⭐ 优化：优先使用 raw，兜底使用 text
+        const tokenContent = (token.raw || token.text || "").trim();
         if (tokenContent) {
           additionalContent += (additionalContent ? "\n" : "") + tokenContent;
           MNUtil.log(`  ✅ 兜底捕获 ${token.type} token: "${tokenContent.substring(0, 50)}..."`, "ProofParser");
@@ -22420,14 +22517,25 @@ class ProofParser {
 
       // 将兜底内容追加到 content
       if (additionalContent) {
-        // 如果 blockquote 内容为空或只有 > 符号，直接用兜底内容替换
-        const trimmedContent = content.replace(/^>\s*/, "").trim();
-        if (trimmedContent === "") {
-          content = "> " + additionalContent;
-          MNUtil.log(`🔄 blockquote 为空，使用兜底内容替换，新内容: "${content.substring(0, 100)}..."`, "ProofParser");
+        // ⭐ 优先检测：blockquote 末尾是否有空引用行（> 后只有空白和换行）
+        const emptyQuoteLinePattern = />\s*\n$/;
+
+        if (emptyQuoteLinePattern.test(content)) {
+          // 场景1：有空引用行 → 替换末尾的 ">\n" 为 "> 兜底内容\n"
+          content = content.replace(/>\s*\n$/, `> ${additionalContent}\n`);
+          MNUtil.log(`🔄 检测到空引用行，替换为引用内容: "${additionalContent.substring(0, 50)}..."`, "ProofParser");
         } else {
-          content += "\n" + additionalContent;
-          MNUtil.log(`🔗 blockquote 有内容，追加兜底内容`, "ProofParser");
+          // 场景2：无空引用行 → 检查是否为完全空的 blockquote
+          const trimmedContent = content.replace(/^>\s*/, "").trim();
+          if (trimmedContent === "") {
+            // blockquote 为空：直接用兜底内容替换
+            content = "> " + additionalContent;
+            MNUtil.log(`🔄 blockquote 为空，使用兜底内容替换，新内容: "${content.substring(0, 100)}..."`, "ProofParser");
+          } else {
+            // blockquote 有内容但无空引用行：追加为新的引用行
+            content += "\n> " + additionalContent;  // ⭐ 修改：添加 "> " 前缀
+            MNUtil.log(`🔗 blockquote 有内容，追加兜底内容为新引用行`, "ProofParser");
+          }
         }
         MNUtil.log(`✅ 兜底处理完成，最终内容长度: ${content.length}`, "ProofParser");
       } else {
