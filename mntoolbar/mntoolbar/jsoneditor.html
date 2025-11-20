@@ -524,6 +524,7 @@ function getSchemaByActionName(actionName) {
       properties.source = arrayType(stringType())
       properties.varName = stringType()
       properties.range = stringEnum(['currentNotes','childNotes','descendantNotes'])
+      properties.noteURL = stringType()
       break
     case "cloneAndMerge":
       properties.target = stringType()

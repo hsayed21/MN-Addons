@@ -365,30 +365,33 @@ JSB.newAddon = function (mainPath) {
               }
               break;
             case "note":
-              let focusNote = MNNote.new(latestSelection.noteId)
-              if (focusNote) {
-                addonController.docMd5 = undefined
-                addonController.pageIndex = undefined
-                if (snipasteUtils.isPureImageNote(focusNote)) {
-                  let imageData = MNUtil.getMediaByHash(focusNote.excerptPic.paint)
-                  addonController.focusNoteId = latestSelection.noteId
-                // MNUtil.showHUD("Snipaste from note image")
-                  addonController.snipasteFromImage(imageData,{source:"note",noteId:latestSelection.noteId})
-                  return;
-                }else{//摘录中无图片，直接贴卡片
-                  if (addonController.isFirst) {
-                    let frame = addonController.view.frame
-                    frame.width = 500
-                    if (MNUtil.isIOS()) {
-                      frame.x = 0
+              let temNote = MNNote.getFocusNote()
+              if (temNote && temNote.noteId === latestSelection.noteId) {
+                let focusNote = MNNote.new(latestSelection.noteId)
+                if (focusNote) {
+                  addonController.docMd5 = undefined
+                  addonController.pageIndex = undefined
+                  if (snipasteUtils.isPureImageNote(focusNote)) {
+                    let imageData = MNUtil.getMediaByHash(focusNote.excerptPic.paint)
+                    addonController.focusNoteId = latestSelection.noteId
+                  // MNUtil.showHUD("Snipaste from note image")
+                    addonController.snipasteFromImage(imageData,{source:"note",noteId:latestSelection.noteId})
+                    return;
+                  }else{//摘录中无图片，直接贴卡片
+                    if (addonController.isFirst) {
+                      let frame = addonController.view.frame
+                      frame.width = 500
+                      if (MNUtil.isIOS()) {
+                        frame.x = 0
+                      }
+                      addonController.view.frame = frame
+                      addonController.currentFrame = frame
+                      addonController.isFirst = false
                     }
-                    addonController.view.frame = frame
-                    addonController.currentFrame = frame
-                    addonController.isFirst = false
+                  // MNUtil.showHUD("Snipaste from note")
+                    addonController.snipasteNote(focusNote)
+                    return;
                   }
-                // MNUtil.showHUD("Snipaste from note")
-                  addonController.snipasteNote(focusNote)
-                  return;
                 }
               }
               break;

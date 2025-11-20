@@ -52,24 +52,24 @@ MNUtil.getLinkText = function(link){
 MNUtil.updateMarkdownLinksInNote = function(note, oldURL, newURL) {
   if (!note || !oldURL || !newURL) return;
 
-  MNUtil.log(`📝 updateMarkdownLinksInNote 被调用`);
-  MNUtil.log(`  oldURL: ${oldURL}`);
-  MNUtil.log(`  newURL: ${newURL}`);
-  MNUtil.log(`  处理卡片: ${note.noteTitle || "无标题"} | ID: ${note.noteId}`);
+  // MNUtil.log(`📝 updateMarkdownLinksInNote 被调用`);
+  // MNUtil.log(`  oldURL: ${oldURL}`);
+  // MNUtil.log(`  newURL: ${newURL}`);
+  // MNUtil.log(`  处理卡片: ${note.noteTitle || "无标题"} | ID: ${note.noteId}`);
 
   // 新增：记录所有 markdownComment 的内容
-  MNUtil.log(`  该卡片的所有 markdownComment:`);
-  let hasMarkdown = false;
-  note.MNComments.forEach((comment, index) => {
-    if (comment.type === "markdownComment") {
-      hasMarkdown = true;
-      MNUtil.log(`    [${index}] type=${comment.type}, 内容: ${comment.text}`);
-    }
-  });
+  // // MNUtil.log(`  该卡片的所有 markdownComment:`);
+  // let hasMarkdown = false;
+  // note.MNComments.forEach((comment, index) => {
+  //   if (comment.type === "markdownComment") {
+  //     hasMarkdown = true;
+  //     MNUtil.log(`    [${index}] type=${comment.type}, 内容: ${comment.text}`);
+  //   }
+  // });
 
-  if (!hasMarkdown) {
-    MNUtil.log(`    (没有找到 markdownComment 类型的评论)`);
-  }
+  // if (!hasMarkdown) {
+  //   MNUtil.log(`    (没有找到 markdownComment 类型的评论)`);
+  // }
 
   // 原有的查找和替换逻辑
   let updated = false;
@@ -78,20 +78,20 @@ MNUtil.updateMarkdownLinksInNote = function(note, oldURL, newURL) {
       let text = comment.text;
       // 检查是否包含目标 URL
       if (text.includes(oldURL)) {
-        MNUtil.log(`  [${index}] 找到包含旧URL的评论:`);
-        MNUtil.log(`    原文: ${text.substring(0, 150)}${text.length > 150 ? '...' : ''}`);
+        // MNUtil.log(`  [${index}] 找到包含旧URL的评论:`);
+        // MNUtil.log(`    原文: ${text.substring(0, 150)}${text.length > 150 ? '...' : ''}`);
         // 全局替换所有出现的旧 URL (使用 split().join() 避免正则特殊字符问题)
         let newText = text.split(oldURL).join(newURL);
-        MNUtil.log(`    替换后: ${newText.substring(0, 150)}${newText.length > 150 ? '...' : ''}`);
+        // MNUtil.log(`    替换后: ${newText.substring(0, 150)}${newText.length > 150 ? '...' : ''}`);
         comment.text = newText;  // 使用 setter 自动调用 replaceWithMarkdownComment
         updated = true;
       }
     }
   });
 
-  if (!updated) {
-    MNUtil.log(`  ⚠️ 未找到包含 oldURL 的 markdownComment`);
-  }
+  // if (!updated) {
+  //   MNUtil.log(`  ⚠️ 未找到包含 oldURL 的 markdownComment`);
+  // }
 };
 
 /**
@@ -202,10 +202,10 @@ MNNote.prototype.fixMergeProblematicLinks = function() {
  * 注意：和 MN 自己的合并不同，this 的标题会处理为评论，而不是添加到 targetNote 的标题
  */
 MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
-  MNUtil.log("=".repeat(30));
-  MNUtil.log("🔄 执行 mergeInto");
-  MNUtil.log(`📍 源卡片: ${this.noteTitle || "无标题"} | ID: ${this.noteId} | URL: ${this.noteURL}`);
-  MNUtil.log(`📍 目标卡片: ${targetNote.noteTitle || "无标题"} | ID: ${targetNote.noteId} | URL: ${targetNote.noteURL}`);
+  // MNUtil.log("=".repeat(30));
+  // MNUtil.log("🔄 执行 mergeInto");
+  // MNUtil.log(`📍 源卡片: ${this.noteTitle || "无标题"} | ID: ${this.noteId} | URL: ${this.noteURL}`);
+  // MNUtil.log(`📍 目标卡片: ${targetNote.noteTitle || "无标题"} | ID: ${targetNote.noteId} | URL: ${targetNote.noteURL}`);
 
   // 合并之前先更新链接
   this.convertLinksToNewVersion()
@@ -217,7 +217,7 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
   let oldComments = this.MNComments
 
   // 记录源卡片的链接情况
-  MNUtil.log("🔗 处理源卡片的 linkComment:");
+  // MNUtil.log("🔗 处理源卡片的 linkComment:");
 
   // 处理所有 linkComment（不再限制必须是双向链接）
   oldComments.forEach((comment, index) => {
@@ -233,18 +233,18 @@ MNNote.prototype.mergeInto = function(targetNote, htmlType = "none"){
 
       if (linkedNote) {
         // 检查链接卡片中的 markdown
-        MNUtil.log(`  检查链接卡片的 markdownComment:`);
-        linkedNote.MNComments.forEach((c, i) => {
-          if (c.type === "markdownComment" && c.text.includes(this.noteURL)) {
-            MNUtil.log(`    [${i}] 找到包含源卡片URL: ${c.text.substring(0, 100)}${c.text.length > 100 ? '...' : ''}`);
-          }
-        });
+        // MNUtil.log(`  检查链接卡片的 markdownComment:`);
+        // linkedNote.MNComments.forEach((c, i) => {
+          // if (c.type === "markdownComment" && c.text.includes(this.noteURL)) {
+            // MNUtil.log(`    [${i}] 找到包含源卡片URL: ${c.text.substring(0, 100)}${c.text.length > 100 ? '...' : ''}`);
+          // }
+        // });
 
         // 更新 linkedNote 中指向 A 的链接评论
         let indexArrInLinkedNote = linkedNote.getLinkCommentsIndexArr(this.noteId.toNoteURL())
-        if (indexArrInLinkedNote.length > 0) {
-          MNUtil.log(`  找到 ${indexArrInLinkedNote.length} 个反向链接评论，更新为目标卡片`);
-        }
+        // if (indexArrInLinkedNote.length > 0) {
+        //   MNUtil.log(`  找到 ${indexArrInLinkedNote.length} 个反向链接评论，更新为目标卡片`);
+        // }
         indexArrInLinkedNote.forEach(index => {
           linkedNote.replaceWithMarkdownComment(targetNote.noteURL, index)
         })

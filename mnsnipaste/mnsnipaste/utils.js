@@ -3,6 +3,7 @@ class SnipasteHistoryManager {
   static history = []; // 存储历史记录
   static currentIndex = -1; // 当前索引位置
   static recordedIds = []; // 存储已记录的ID
+  static detailForId = {}; // 存储ID对应的详情
 
   /**
    * 添加历史记录
@@ -21,12 +22,19 @@ class SnipasteHistoryManager {
     }
     this.recordedIds.push(id)
     this.history.unshift({ type, id ,detail})
+    this.detailForId[id] = detail
     return true
     // this.history.push({ type, id ,content});
     // this.currentIndex = this.history.length - 1;
   }
   static copy(){
     MNUtil.copy(this.history)
+  }
+  static getDetailById(id){
+    return this.detailForId[id]
+  }
+  static refreshDetailById(id,detail){
+    this.detailForId[id] = detail
   }
   /**
    * 
@@ -339,6 +347,85 @@ class snipasteUtils{
     }
     return false
   }
+  static getDataFromNote(note,className) {
+    let order = [1,2,3]
+    let text
+    for (let index = 0; index < order.length; index++) {
+      const element = order[index];
+      switch (element) {
+        case 1:
+          if (note.noteTitle && note.noteTitle !== "") {
+            text = this.wrapText(note.noteTitle,'div',className)
+          }
+          break;
+        case 2:
+          if (note.excerptText && note.excerptText !== "" && (!note.excerptPic || note.textFirst)) {
+            text = this.wrapText(note.excerptText,'div',className)
+          }else{
+            if (note.excerptPic && note.excerptPic.paint) {
+              let imageData = MNUtil.getMediaByHash(note.excerptPic.paint)
+              text = `<img width="100%" src="data:image/jpeg;base64,${imageData.base64Encoding()}"/>`
+            }
+          }
+          break;
+        case 3:
+          let commentText
+          let comment = note.comments.find(comment=>{
+            switch (comment.type) {
+              case "TextNote":
+                if (/^marginnote\dapp:\/\//.test(comment.text)) {
+                  return false
+                }else{
+                  commentText = comment.text
+                  return true
+                }
+              case "HtmlNote":
+                commentText = comment.text
+                return true
+              case "LinkNote":
+                if (comment.q_hpic && !note.textFirst) {
+                  return false
+                }else{
+                  commentText = comment.q_htext
+                  return true
+                }
+              default:
+                return false
+            }
+          })
+          if (commentText && commentText.length) {
+            text = this.wrapText(commentText,'div',className)
+          }
+          break;
+        default:
+          break;
+      }
+      if (text) {
+        return text
+      }
+    }
+  return "\nEmpty note"
+  }
+  static getImageHTML(imageData){
+    return `<img width="100%" src="data:image/jpeg;base64,${imageData.base64Encoding()}"/>`
+  }
+  static getLinkToNote(comment){
+    let note = MNNote.new(comment.text)
+    let noteid = note.noteId
+    if (note) {
+      return `<div class="linkToNote"><div class="buttonContainer">${this.getLinkHTML("snipaste://action?noteId="+noteid, "Snipaste")} ${this.getLinkHTML(note.noteURL, "Focus")} ${this.getLinkHTML("snipaste://action?noteId="+noteid+"&target=floatWindow", "Float Window")}</div>${this.getDataFromNote(note,"comment")}</div>`
+    }else{
+      return ""
+    }
+  
+  }
+  static getLinkHTML(url,text,whiteSpace = true){
+    if (whiteSpace) {
+      return `<a class="link" draggable="false" href="${url}"> ${text} </a>`
+    }else{
+      return `<a class="link" draggable="false" href="${url}">${text}</a>`
+    }
+  }
   static getNoteCSS(focusNote,hasAudio = false){
     let noteColor = this.getNoteColor(focusNote.colorIndex)
     let textColor = this.getTextColor()
@@ -410,6 +497,11 @@ class snipasteUtils{
         cursor: grab;
         color: ${textColor};
       }
+    .excerptContainer {
+      white-space: nowrap;
+      padding-left: 5px;
+      padding-right: 5px;
+    }
       .excerpt {
         white-space: pre-line;
         padding-left: 5px;;
@@ -417,33 +509,100 @@ class snipasteUtils{
         cursor: grab;
         color: ${textColor};
       }
-      .comment {
-        white-space: pre-line;
-        padding-left: 10px;
-        padding-right: 10px;
-        cursor: grab;
-        color: ${textColor};
-      }
+    .comment {
+      white-space: nowrap;
+      padding-left: 10px;
+      padding-right: 10px;
+      cursor: grab;
+      color: ${textColor};
+    }
       .MathJax{
         color: ${textColor} !important;
       }
       .markdown {
         white-space: normal;
         padding-left: 5px;
+        color: ${textColor};
       }
       .markdown ol{
         padding-left: 20px;
       }
-      .linkToNote{
-        background-color: rgb(162, 162, 162,20%);
+      .markdown a {
+        color:rgb(23, 116, 202);
+        text-decoration: none;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: rgba(88, 134, 147, 0.3);
+        border: 2px solid rgba(66, 153, 220, 0.3);
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+        position: relative;
+      }
+      .markdown a::before {
+        content: '↗';
+        font-size: 1.2em;
+        font-weight: 1000;
+        opacity: 0.7;
+        transition: opacity 0.2s ease;
+      }
+      .markdown a:hover {
+        background: linear-gradient(135deg, rgba(130, 228, 255, 0.7), rgba(188, 224, 255, 0.57));
+        color:rgb(5, 59, 114);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(160, 160, 113, 0.25);
+      }
+      .markdown a:hover::after {
+        opacity: 1;
+      }
+      .linkToNote {
+        background-color: rgb(162, 162, 162, 20%);
         border-radius: 10px;
         padding: 10px;
         padding-left: 8px;
         margin-bottom: 10px;
+        white-space: nowrap;
       }
-      .buttonContainer{
+    .linkToNote .comment {
+      white-space: pre-line;
+      padding-left: 0px;
+    }
+      .buttonContainer {
         margin-bottom: 5px;
-      }`
+        white-space: nowrap;
+      }
+    .linkToNote .buttonContainer {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      white-space: normal;
+      flex-wrap: wrap;
+    }
+    .linkToNote .buttonContainer .link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 4px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(122, 122, 122, 0.3), rgba(199, 199, 199, 0.44));
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: ${textColor};
+      font-weight: 600;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      transition: background 180ms ease, transform 150ms ease, box-shadow 180ms ease, color 150ms ease;
+    }
+    .linkToNote .buttonContainer .link:hover {
+      background: ${noteColor};
+      color: #1c1c1c;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+    }
+      `
     return CSS
   }
   static isPureHTMLComment(focusNote){

@@ -353,7 +353,7 @@ class toolbarUtils {
         menuItems = ["tag","tags","target","numberOfTags"]
         break;
       case "mergeText":
-        menuItems = ["target","source","range","varName"]
+        menuItems = ["target","source","range","varName","noteURL"]
         break;
       case "ocr":
         menuItems = ["target","ocrSource","method","followParentColor","varName"]
@@ -733,20 +733,14 @@ try {
         return 0;  //如果参数为空，则返回0个
     }
   }
-  static smartCopy(){
-    MNUtil.showHUD("smartcopy")
-    let selection = MNUtil.currentSelection
-    if (selection.onSelection) {
-      if (selection.isText) {
-        MNUtil.copy(selection.text)
-        MNUtil.showHUD('复制选中文本')
-      }else{
-        MNUtil.copyImage(selection.image)
-        MNUtil.showHUD('复制框选图片')
-      }
-      return true
+  static getLatestSelection(){
+    if (MNUtil.focusHistory.length > 0) {
+      return MNUtil.focusHistory.at(-1)
     }
-    let focusNote = MNNote.getFocusNote()
+    return undefined
+  }
+  static smartCopyNote(focusNote){
+  try {
     if (!focusNote) {
       MNUtil.showHUD("No note found")
       return false
@@ -804,6 +798,65 @@ try {
     MNUtil.copy(focusNote.noteTitle)
     MNUtil.showHUD('标题已复制')
     return true
+  } catch (error) {
+    toolbarUtils.addErrorLog(error, "smartCopyNote")
+    return false
+  }
+  }
+  static smartCopy(){
+  try {
+
+    MNUtil.showHUD("smartcopy")
+    let latestSelection = this.getLatestSelection()
+    let selection = MNUtil.currentSelection
+    if (latestSelection) {
+      let type = latestSelection.type
+      switch (type) {
+        case "text":
+          if (selection.onSelection) {
+            MNUtil.copy(selection.text)
+            MNUtil.showHUD('复制选中文本')
+            return true
+          }
+          break
+        case "image":
+          if (selection.onSelection) {
+            MNUtil.copyImage(selection.image)
+            MNUtil.showHUD('复制框选图片')
+            return true
+          }
+          break
+        case "note":
+            let temNote = MNNote.getFocusNote()
+            if (temNote && temNote.noteId === latestSelection.noteId) {
+              let res = this.smartCopyNote(temNote)
+              return res
+            }
+          break;
+        default:
+          break;
+      }
+    }
+    if (selection.onSelection) {
+      if (selection.isText) {
+        MNUtil.copy(selection.text)
+        MNUtil.showHUD('复制选中文本')
+      }else{
+        MNUtil.copyImage(selection.image)
+        MNUtil.showHUD('复制框选图片')
+      }
+      return true
+    }
+    let focusNote = MNNote.getFocusNote()
+    let res = this.smartCopyNote(focusNote)
+    if (res) {
+      return true
+    }
+    return false
+  } catch (error) {
+    toolbarUtils.addErrorLog(error, "smartCopy")
+    return false
+    }
   }
   static async getChatAIOutput() {
     if (typeof chatAIUtils === "undefined") {
@@ -2067,7 +2120,14 @@ try {
     try {
 
       let noteRange = des.range ?? "currentNotes"
-      let targetNotes = this.getNotesByRange(noteRange)
+      let targetNotes = []
+      if (des.noteURL) {
+        if (MNUtil.noteExists(des.noteURL)) {
+          targetNotes = [MNNote.new(des.noteURL)]
+        }
+      }else{
+        targetNotes = this.getNotesByRange(noteRange)
+      }
       if (!targetNotes.length) {
         MNUtil.showHUD("MergeText: no note found")
         return
@@ -7254,7 +7314,8 @@ class toolbarConfig {
   "aiMenuPlaceholder",
   "editFavorites",
   "setDraft",
-  "setTreeBranch"
+  "setTreeBranch",
+  "createTemplateFromBranch"
 ]
   static defaultPopupReplaceConfig = {
     noteHighlight:{enabled:false,target:"",name:"noteHighlight"},
@@ -7338,7 +7399,8 @@ class toolbarConfig {
     aiMenuPlaceholder:{enabled:false,target:"",name:"aiMenuPlaceholder"},
     editFavorites:{enabled:false,target:"",name:"editFavorites"},
     setDraft:{enabled:false,target:"",name:"setDraft"},
-    setTreeBranch:{enabled:false,target:"",name:"setTreeBranch"}
+    setTreeBranch:{enabled:false,target:"",name:"setTreeBranch"},
+    createTemplateFromBranch:{enabled:false,target:"",name:"createTemplateFromBranch"}
   }
   static defalutImageScale = {
     "color0":2.4,

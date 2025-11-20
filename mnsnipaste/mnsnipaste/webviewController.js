@@ -64,7 +64,7 @@ viewWillLayoutSubviews: function() {
     self.locButton.frame = {  x: xRight - 120,  y: yBottom - 35,  width: 35,  height: 30,}
     self.linkButton.frame = {  x: xRight - 160,  y: yBottom - 35,  width: 35,  height: 30,}
     self.webview.frame = {x:xLeft,y:yTop+8,width:viewFrame.width,height:viewFrame.height-8}
-    self.buttonScrollview.frame = {x:0,y:yBottom-35,width:xRight-165,height:35}
+    self.buttonScrollview.frame = {x:0,y:yBottom-35,width:xRight-165,height:30}
     let x = 5
     for (let i = 0; i < 5; i++) {
       let buttonName = "historyButton" + (i+1)
@@ -96,7 +96,7 @@ viewWillLayoutSubviews: function() {
         self.pageNo = pageNo
         self.pageIndex = self.indexFromPageNo(pageNo)
         self.pageIndexButton.setTitleForState(self.pageIndex+1,0)
-        
+        SnipasteHistoryManager.refreshDetailById(self.currentId,{"pageNo":pageNo})
       }
 
       // MNUtil.showHUD("scrollViewDidScroll:"+pageNo)
@@ -202,8 +202,7 @@ viewWillLayoutSubviews: function() {
     // let currentURL = webView.request.URL().absoluteString()
     let requestURL = request.URL().absoluteString()
     let config = MNUtil.parseURL(requestURL)
-    let action = ""
-      // MNUtil.copy(config)
+    // MNUtil.copy(config)
     // MNUtil.log({message:"webViewShouldStartLoadWithRequestNavigationType",detail:config})
     switch (config.scheme) {
       case "about":
@@ -213,59 +212,13 @@ viewWillLayoutSubviews: function() {
 
           return false
         }
+      case "craftdocs":
+      case "zotero":
+        MNUtil.openURL(requestURL)
+        return false
       case "snipaste":
-        switch (config.host) {
-          case "showhud":
-            let message = config.params.message
-            if (message) {
-              MNUtil.stopHUD()
-              MNUtil.showHUD(message)
-            }
-            return false
-          case "endRendering":
-            self.onRendering = false
-            return false
-          case "mermaid":
-            action = config.params.action
-            if (action === "endRendering") {
-              self.onRendering = false
-              // MNUtil.showHUD("endRendering")
-              MNUtil.log("endRendering")
-              // if (config.params.content) {
-              //   MNUtil.copy(config.params.content)
-              // }
-            }
-            return false
-          case "downloadpdf":
-            self.downloadPDF(config.params)
-            return false
-          case "copyimage":
-            let base64 = config.params.image //requestURL.split("?image=")[1]
-            // MNUtil.copy(base64)
-            let imageData = NSData.dataWithContentsOfURL(NSURL.URLWithString(base64))
-            let image = UIImage.imageWithData(imageData)
-            MNUtil.waitHUD("✅ Image copied to clipboard...")
-            MNUtil.copyImage(image.jpegData(0.5))
-            MNUtil.stopHUD(0.5)
-            return false
-          case "copyimage2childnote":
-            let base641 = config.params.image //requestURL.split("?image=")[1]
-            // MNUtil.copy(base64)      
-            let imageData1 = NSData.dataWithContentsOfURL(NSURL.URLWithString(base641))
-            let image1 = UIImage.imageWithData(imageData1)
-            MNUtil.waitHUD("✅ Image copied to clipboard...")
-            MNUtil.copyImage(image1.jpegData(0.5))
-            let focusNote = MNNote.getFocusNote()
-            let child = focusNote.createChildNote({title:""},true)
-            MNUtil.delay(0.5).then(()=>{
-              MNUtil.waitHUD("✅ Image pasted to Childnote...")
-              child.paste()
-              child.focusInMindMap()
-              MNUtil.stopHUD(0.5)
-            })
-            return false
-        }
-        break;
+        self.snipasteAction(config)
+        return false
     
       default:
         break;
@@ -1405,13 +1358,16 @@ exportToPDF()
     let history = SnipasteHistoryManager.history[index]
     if (history) {
       let type = history.type
-      let detail = history.detail
       let id = history.id
       self.currentId = id
+      let detail = SnipasteHistoryManager.getDetailById(id)
       // MNUtil.log("historyButtonTapped",history)
       switch (type) {
         case "note":
           self.snipasteNote(MNNote.new(id))
+          break;
+        case "pdf":
+          self.snipastePDFDev(id,detail.pageNo)
           break;
         case "image":
           if (detail) {
@@ -1462,7 +1418,6 @@ exportToPDF()
  * @this {snipasteController}
  */
 snipasteController.prototype.init =function () {
-  this.history = []
   this.homeImage = MNUtil.getImage(this.mainPath + `/home.png`,2)
   this.gobackImage = MNUtil.getImage(this.mainPath + `/goback.png`,2)
   this.goforwardImage = MNUtil.getImage(this.mainPath + `/goforward.png`,2)
@@ -1705,8 +1660,6 @@ snipasteController.prototype.setFrame = function(x,y,width,height){
 snipasteController.prototype.snipasteHtml = async function (html,option = {}) {
 try {
 
-  // MNUtil.showHUD("snipasteHtml")
-  this.history.push({type:"html",content:html,id:MNUtil.MD5(html)})
   this.htmlMode = true
   this.focusNoteId = undefined
   this.onSnipaste = true
@@ -1783,8 +1736,6 @@ try {
 snipasteController.prototype.snipasteMermaid = async function (content,force = false) {
 try {
 
-  // MNUtil.showHUD("snipasteHtml")
-  this.history.push({type:"mermaid",content:content,id:MNUtil.MD5(content)})
   this.htmlMode = true
   this.focusNoteId = undefined
   this.onSnipaste = true
@@ -1865,6 +1816,7 @@ try {
  */
 snipasteController.prototype.snipastePDFDev = async function (md5,pageNo = 0) {
 try {
+  // snipasteUtils.log("snipastePDFDev", {md5:md5,pageNo:pageNo})
         if (pageNo > 20000) {
           MNUtil.showHUD("Unspported pageNo: "+pageNo)
           return
@@ -1880,12 +1832,16 @@ try {
         this.mode = "pdf"
         this.pageNo = pageNo
         this.docMd5 = md5
+        this.currentId = md5
         // MNUtil.showHUD("snipastePDFDev:"+pageNo)
   if (this.view.hidden) {
     await this.show()
   }
     this.onLoading = true
-    this.webview.loadDataMIMETypeTextEncodingNameBaseURL(pdfData,"application/pdf","UTF-8",undefined)
+
+    // this.docview.loadDataMIMETypeTextEncodingNameBaseURL(pdfData,"application/pdf","UTF-8",undefined)
+    this.webview.loadDataMIMETypeTextEncodingNameBaseURL(pdfData,"application/pdf","UTF-8",MNUtil.genNSURL(this.mainPath+"/"))
+    // snipasteUtils.log("snipastePDFDev loadDataMIMETypeTextEncodingNameBaseURL")
     // // await MNUtil.delay(1)
     // /**
     //  * @type {UIScrollView}
@@ -1898,7 +1854,10 @@ try {
     // scrollview.setContentOffsetAnimated({x:0,y:pageHeight*(pageNo-1)},false)
    
   this.pageIndexButton.setTitleForState(this.pageIndex+1,0)
-
+  let success = SnipasteHistoryManager.addRecord("pdf",this.currentId,{"pageNo":pageNo})
+  if (success) {
+    this.refreshHistoryButtons()
+  }
   this.view.setNeedsLayout()
   MNUtil.stopHUD()
 } catch (error) {
@@ -1930,7 +1889,6 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
     return
   }
   this.mode = "note"
-  this.history.push({type:"note",noteId:focusNote.noteId})
   this.focusNoteId = focusNote.noteId
   let title = focusNote.noteTitle?focusNote.noteTitle:"..."
   if (title.trim()) {
@@ -1944,7 +1902,7 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
   let excerpt = ""
   if (focusNote.excerptPic && !focusNote.textFirst) {
     imageData = MNUtil.getMediaByHash(focusNote.excerptPic.paint)
-    excerpt = `<p class="excerpt"><img width="100%" src="data:image/jpeg;base64,${imageData.base64Encoding()}"/></p>`
+    excerpt = `<p class="excerpt">`+snipasteUtils.getImageHTML(imageData)+`</p>`
   }else if (focusNote.excerptText) {
     if (focusNote.excerptTextMarkdown) {
       // excerpt = MNUtil.md2html(focusNote.excerptText)
@@ -1966,13 +1924,11 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
       switch (comment.type) {
         case "TextNote":
           if (/^marginnote\dapp:\/\//.test(comment.text)) {
-            let noteid = comment.text.split("note/")[1]
-            let note = MNNote.new(noteid)
-            if (note) {
-              return `<div class="linkToNote"><div class="buttonContainer"><a class="link" href="snipaste://${noteid}"> Snipaste </a> <a class="link" href="${note.noteURL}"> Focus </a></div>${this.getDataFromNote(note)}</div>`
-            }else{
-              return ""
-            }
+            return snipasteUtils.getLinkToNote(comment)
+          }
+          //zotero链接
+          if (/^zotero:\/\//.test(comment.text)) {
+            return "<br>"+snipasteUtils.wrapText(snipasteUtils.getLinkHTML(comment.text,comment.text,false), "div", "markdown")
           }
           if (comment.markdown) {
             // copy(marked.parse(comment.text))
@@ -1982,7 +1938,7 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
         case "PaintNote":
           if (comment.paint) {
             let commentImage = MNUtil.getMediaByHash(comment.paint)
-            return `<br><img width="100%" src="data:image/jpeg;base64,${commentImage.base64Encoding()}"/>`
+            return `<br>`+snipasteUtils.getImageHTML(commentImage)
           }else{
             return ""
           }
@@ -1991,10 +1947,11 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
         case "LinkNote":
           if ((!comment.q_hpic || focusNote.textFirst) && comment.q_htext) {
             return "<br>"+snipasteUtils.wrapText(comment.q_htext,'div')
-          }else{
+          }else if(comment.q_hpic && comment.q_hpic.paint){
             let imageData = MNUtil.getMediaByHash(comment.q_hpic.paint)
-            return `<br><img width="100%" src="data:image/jpeg;base64,${imageData.base64Encoding()}"/>`
+            return `<br>`+snipasteUtils.getImageHTML(imageData)
           }
+          break;
         case "AudioNote":
           if (!audioBase64) {
             audioBase64 = MNUtil.getMediaByHash(comment.audio).base64Encoding()
@@ -2033,7 +1990,7 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
       <div class="head">
         <div class="title" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', this.innerText)" onclick="copyText(this.innerText)">${title}</div>
       </div>
-      <div class="excerpt">${excerptHtml.trim()}</div>
+      <div class="excerptContainer">${excerptHtml.trim()}</div>
       <div class="comment">${comments.trim()}</div>
       <div class="tail"></div>
     </div> 
@@ -2142,8 +2099,9 @@ async function exportToPDF() {
   this.onSnipaste = true
   this.currentHTMLString = html
   // MNUtil.copy(html)
-  let data = NSData.dataWithStringEncoding(html,4)
-  this.webview.loadDataMIMETypeTextEncodingNameBaseURL(data,"text/html","UTF-8",MNUtil.genNSURL(this.mainPath+"/"))
+  this.loadHTML(html)
+  // let data = NSData.dataWithStringEncoding(html,4)
+  // this.webview.loadDataMIMETypeTextEncodingNameBaseURL(data,"text/html","UTF-8",MNUtil.genNSURL(this.mainPath+"/"))
 
   // this.webview.loadHTMLStringBaseURL(html)
   // this.webview.context["hide"] = (message)=>{
@@ -2463,70 +2421,9 @@ snipasteController.prototype.snipasteFromClipboard = function () {
     MNUtil.showHUD(error)
   }
   },
-snipasteController.prototype.getDataFromNote = function (note) {
-    let order = [1,2,3]
-    let text
-    for (let index = 0; index < order.length; index++) {
-      const element = order[index];
-      switch (element) {
-        case 1:
-          if (note.noteTitle && note.noteTitle !== "") {
-            text = snipasteUtils.wrapText(note.noteTitle,'div')
-          }
-          break;
-        case 2:
-          if (note.excerptText && note.excerptText !== "" && (!note.excerptPic || note.textFirst)) {
-            text = snipasteUtils.wrapText(note.excerptText,'div')
-          }else{
-            if (note.excerptPic && note.excerptPic.paint) {
-              let imageData = Database.sharedInstance().getMediaByHash(note.excerptPic.paint)
-              text = `<img width="100%" src="data:image/jpeg;base64,${imageData.base64Encoding()}"/>`
-            }
-          }
-          break;
-        case 3:
-          let commentText
-          let comment = note.comments.find(comment=>{
-            switch (comment.type) {
-              case "TextNote":
-                if (/^marginnote\dapp:\/\//.test(comment.text)) {
-                  return false
-                }else{
-                  commentText = comment.text
-                  return true
-                }
-              case "HtmlNote":
-                commentText = comment.text
-                return true
-              case "LinkNote":
-                if (comment.q_hpic && !note.textFirst) {
-                  return false
-                }else{
-                  commentText = comment.q_htext
-                  return true
-                }
-              default:
-                return false
-            }
-          })
-          // let noteText  = note.comments.filter(comment=>comment.type === "TextNote" && !/^marginnote3app:\/\//.test(comment.text))
-          // if (noteText.length) {
-          //   text =  noteText[0].text
-          // }
-          if (commentText && commentText.length) {
-            text = snipasteUtils.wrapText(commentText,'div')
-          }
-          break;
-        default:
-          break;
-      }
-      if (text) {
-        return text
-      }
-    }
-  return "\nEmpty note"
-  }
 snipasteController.prototype.snipasteFromImage = function (imageData,detail) {
+try {
+  // snipasteUtils.log("snipasteFromImage", detail)
 // MNConnection.loadFile(this.webview,this.mainPath+"/pngToPDF.html",this.mainPath+"/")
   // MNUtil.log({message:"snipasteFromImage",detail:{pageIndex:self.pageIndex}})
   let base64 = imageData.base64Encoding()
@@ -2560,9 +2457,12 @@ ${snipasteUtils.getSubFuncScript()}
 
 this.mode = "image"
 this.imageData = imageData
-try {
 // MNUtil.copy(html)
-this.webview.loadHTMLStringBaseURL(html)
+// this.webview.loadHTMLStringBaseURL(html)
+this.loadHTML(html)
+
+  // let data = NSData.dataWithStringEncoding(html,4)
+  // this.webview.loadDataMIMETypeTextEncodingNameBaseURL(data,"text/html","UTF-8",MNUtil.genNSURL(this.mainPath+"/"))
 let success = false
 if (detail) {
   if (detail.noteId) {
@@ -2771,8 +2671,9 @@ ${snipasteUtils.getSubFuncScript()}
   // MNUtil.copy(html)
   this.onSnipaste = true
   this.currentHTMLString = html
-  let data = NSData.dataWithStringEncoding(html,4)
-  this.webview.loadDataMIMETypeTextEncodingNameBaseURL(data,"text/html","UTF-8",MNUtil.genNSURL(this.mainPath+"/"))
+  this.loadHTML(html)
+  // let data = NSData.dataWithStringEncoding(html,4)
+  // this.webview.loadDataMIMETypeTextEncodingNameBaseURL(data,"text/html","UTF-8",MNUtil.genNSURL(this.mainPath+"/"))
 
   // this.webview.loadHTMLStringBaseURL(html)
   // this.webview.context["hide"] = (message)=>{
@@ -2883,9 +2784,9 @@ try {
       this[buttonName].hidden = false
       this[buttonName].id = buttonName
     }
-    this.buttonScrollview.contentSize = {width:x+100,height:35}
+    this.buttonScrollview.contentSize = {width:x+100,height:30}
     this.buttonScrollview.setContentOffsetAnimated({x:0,y:0},false)
-    this.buttonScrollviewContentSize = {width:x+100,height:35}
+    this.buttonScrollviewContentSize = {width:x+100,height:30}
     if (latest5History.length < 5) {//隐藏多余的按钮
       for (let i = 5; i > latest5History.length; i--) {
         let buttonName = "historyButton" + (i)
@@ -2899,4 +2800,85 @@ try {
 } catch (error) {
   snipasteUtils.addErrorLog(error, "refreshHistoryButtons")
 }
+}
+
+snipasteController.prototype.snipasteAction = function(config){
+snipasteUtils.log("snipaste", config)
+  let params = config.params
+            snipasteUtils.log("action"+("noteId" in params), params)
+  try {
+
+        switch (config.host) {
+          case "showhud":
+            let message = config.params.message
+            if (message) {
+              MNUtil.stopHUD()
+              MNUtil.showHUD(message)
+            }
+            return false
+          case "endRendering":
+            this.onRendering = false
+            return false
+          case "mermaid":
+            action = config.params.action
+            if (action === "endRendering") {
+              this.onRendering = false
+              // MNUtil.showHUD("endRendering")
+              MNUtil.log("endRendering")
+              // if (config.params.content) {
+              //   MNUtil.copy(config.params.content)
+              // }
+            }
+            return false
+          case "downloadpdf":
+            this.downloadPDF(config.params)
+            return false
+          case "copyimage":
+            let base64 = config.params.image //requestURL.split("?image=")[1]
+            // MNUtil.copy(base64)
+            let imageData = MNUtil.dataFromBase64(base64,"png")
+            let image = UIImage.imageWithData(imageData)
+            MNUtil.waitHUD("✅ Image copied to clipboard...")
+            MNUtil.copyImage(image.jpegData(0.5))
+            MNUtil.stopHUD(0.5)
+            return false
+          case "action":
+            if ("noteId" in params) {
+              let note = MNNote.new(params.noteId)
+              if ("target" in params && params.target === "floatWindow") {
+                note.focusInFloatMindMap()
+              }else{
+                this.snipasteNote(note)
+              }
+            }
+            return false
+          case "copyimage2childnote":
+            let base641 = config.params.image //requestURL.split("?image=")[1]
+            // MNUtil.copy(base64)      
+            let imageData1 = NSData.dataWithContentsOfURL(NSURL.URLWithString(base641))
+            let image1 = UIImage.imageWithData(imageData1)
+            MNUtil.waitHUD("✅ Image copied to clipboard...")
+            MNUtil.copyImage(image1.jpegData(0.5))
+            let focusNote = MNNote.getFocusNote()
+            let child = focusNote.createChildNote({title:""},true)
+            MNUtil.delay(0.5).then(()=>{
+              MNUtil.waitHUD("✅ Image pasted to Childnote...")
+              child.paste()
+              child.focusInMindMap()
+              MNUtil.stopHUD(0.5)
+            })
+            return false
+          default:
+            break;
+        }
+    
+  } catch (error) {
+    snipasteUtils.addErrorLog(error, "snipasteAction")
+  }
+}
+
+snipasteController.prototype.loadHTML = function (html) {
+  // MNUtil.copy(html)
+  let data = NSData.dataWithStringEncoding(html,4)
+  this.webview.loadDataMIMETypeTextEncodingNameBaseURL(data,"text/html","UTF-8",MNUtil.genNSURL(this.mainPath+"/"))
 }
