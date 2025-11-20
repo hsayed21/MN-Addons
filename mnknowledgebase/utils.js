@@ -839,8 +839,174 @@ const kbOCRConfig = {
     {
       pattern: /希尔伯特/g,
       replacement: " Hilbert ",
-      description: "中文人名转英文"
+      description: "中文人名转英文（泛函分析：Hilbert 空间）"
     },
+
+    // === 数学家人名中英文转换规则 ===
+    // 【分析学】
+    {
+      pattern: /阿贝尔/g,
+      replacement: " Abel ",
+    },
+    {
+      pattern: /柯西/g,
+      replacement: " Cauchy ",
+      description: "中文人名转英文（分析学：Cauchy 序列、Cauchy 定理）"
+    },
+    {
+      pattern: /黎曼/g,
+      replacement: " Riemann ",
+      description: "中文人名转英文（分析学：Riemann 积分、Riemann 几何）"
+    },
+    {
+      pattern: /勒贝格/g,
+      replacement: " Lebesgue ",
+      description: "中文人名转英文（测度论：Lebesgue 积分、Lebesgue 测度）"
+    },
+    {
+      pattern: /魏尔斯特拉斯/g,
+      replacement: " Weierstrass ",
+      description: "中文人名转英文（分析学：Weierstrass 逼近定理）"
+    },
+    {
+      pattern: /傅里叶/g,
+      replacement: " Fourier ",
+      description: "中文人名转英文（分析学：Fourier 级数、Fourier 变换）"
+    },
+    {
+      pattern: /拉普拉斯/g,
+      replacement: " Laplace ",
+      description: "中文人名转英文（分析学：Laplace 变换、Laplace 方程）"
+    },
+    {
+      pattern: /狄利克雷/g,
+      replacement: " Dirichlet ",
+      description: "中文人名转英文（分析学：Dirichlet 级数）"
+    },
+    {
+      pattern: /欧拉/g,
+      replacement: " Euler ",
+      description: "中文人名转英文（分析学：Euler 公式、Euler 常数）"
+    },
+    {
+      pattern: /泰勒/g,
+      replacement: " Taylor ",
+      description: "中文人名转英文（分析学：Taylor 级数）"
+    },
+    {
+      pattern: /拉格朗日/g,
+      replacement: " Lagrange ",
+      description: "中文人名转英文（分析学：Lagrange 中值定理）"
+    },
+
+    // 【泛函分析】
+    {
+      pattern: /巴拿赫/g,
+      replacement: " Banach ",
+      description: "中文人名转英文（泛函分析：Banach 空间）"
+    },
+    {
+      pattern: /索伯列夫/g,
+      replacement: " Sobolev ",
+      description: "中文人名转英文（泛函分析：Sobolev 空间）"
+    },
+    {
+      pattern: /赫尔德/g,
+      replacement: " Hölder ",
+      description: "中文人名转英文（泛函分析：Hölder 不等式）"
+    },
+    {
+      pattern: /施瓦茨/g,
+      replacement: " Schwartz ",
+      description: "中文人名转英文（泛函分析：广义函数理论）"
+    },
+    {
+      pattern: /里斯/g,
+      replacement: " Riesz ",
+      description: "中文人名转英文（泛函分析：Riesz 表示定理）"
+    },
+    {
+      pattern: /哈恩/g,
+      replacement: " Hahn ",
+      description: "中文人名转英文（泛函分析：Hahn-Banach 定理）"
+    },
+    {
+      pattern: /闵可夫斯基/g,
+      replacement: " Minkowski ",
+      description: "中文人名转英文（泛函分析：Minkowski 不等式）"
+    },
+
+    // 【测度论】
+    {
+      pattern: /博雷尔/g,
+      replacement: " Borel ",
+      description: "中文人名转英文（测度论：Borel 集、Borel 测度）"
+    },
+    {
+      pattern: /若尔当/g,
+      replacement: " Jordan ",
+      description: "中文人名转英文（测度论：Jordan 测度）"
+    },
+    {
+      pattern: /卡拉泰奥多里/g,
+      replacement: " Carathéodory ",
+      description: "中文人名转英文（测度论：Carathéodory 扩张定理）"
+    },
+    {
+      pattern: /拉东/g,
+      replacement: " Radon ",
+      description: "中文人名转英文（测度论：Radon 测度）"
+    },
+
+    // 【拓扑学】
+    {
+      pattern: /豪斯多夫/g,
+      replacement: " Hausdorff ",
+      description: "中文人名转英文（拓扑学：Hausdorff 空间）"
+    },
+    {
+      pattern: /吉洪诺夫/g,
+      replacement: " Tychonoff ",
+      description: "中文人名转英文（拓扑学：Tychonoff 定理）"
+    },
+    {
+      pattern: /乌里松/g,
+      replacement: " Urysohn ",
+      description: "中文人名转英文（拓扑学：Urysohn 引理）"
+    },
+    {
+      pattern: /贝尔/g,
+      replacement: " Baire ",
+      description: "中文人名转英文（拓扑学：Baire 纲定理）"
+    },
+
+    // 【概率论】
+    {
+      pattern: /柯尔莫哥洛夫/g,
+      replacement: " Kolmogorov ",
+      description: "中文人名转英文（概率论：概率论公理化）"
+    },
+    {
+      pattern: /切比雪夫/g,
+      replacement: " Chebyshev ",
+      description: "中文人名转英文（概率论：Chebyshev 不等式）"
+    },
+    {
+      pattern: /马尔可夫/g,
+      replacement: " Markov ",
+      description: "中文人名转英文（概率论：Markov 链）"
+    },
+    {
+      pattern: /泊松/g,
+      replacement: " Poisson ",
+      description: "中文人名转英文（概率论：Poisson 分布）"
+    },
+    {
+      pattern: /高斯/g,
+      replacement: " Gauss ",
+      description: "中文人名转英文（概率论：Gauss 分布）"
+    },
+
     {
       pattern: /\^\*/g,
       replacement: "*",
