@@ -22145,6 +22145,7 @@ class Pangu {
     // 处理标点符号
     newText = newText.replace(/\s*,\s*/g, ", ")
     newText = newText.replace(/\s*:\s*/g, ": ")
+    newText = newText.replace(/:\s*\/\//g, "://")
 
     newText = newText.replace(/ᵩ,\s*/g, "ᵩ,")
     return newText
