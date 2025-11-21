@@ -1152,6 +1152,9 @@ JSB.newAddon = function(mainPath){
             case "openSearchWebView":
               await self.openSearchWebView()
               break;
+            case "openCommentManager":
+              await self.openCommentManager()
+              break;
             default:
               MNUtil.showHUD('不支持的操作: ' + action)
               break;

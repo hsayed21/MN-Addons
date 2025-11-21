@@ -1063,6 +1063,38 @@
   <div class="toast" id="toast"></div>
 
   <script>
+    // 发送 URL Scheme
+    function sendURLToNative(action, params = {}) {
+      const url = generateUrlScheme('mnknowledgebase', action, params);
+      window.location.href = url;
+    }
+
+    // 简单日志函数，直接调用 htmlLog，保证在 MN 环境可见
+    function logToNativeDirect(message) {
+      try {
+        sendURLToNative('htmlLog', { message });
+      } catch (error) {
+        // 忽略日志发送失败
+      }
+    }
+
+    function debugLog(message) {
+      logToNativeDirect(message);
+    }
+
+    // 安全 HUD（MN 环境可用，否则降级为 toast）
+    function safeHUD(message, duration = 1.5) {
+      try {
+        if (window.MNUtil && typeof MNUtil.showHUD === 'function') {
+          MNUtil.showHUD(message, duration);
+          return;
+        }
+      } catch (err) {
+        // ignore
+      }
+      showToast(message, duration * 1000);
+    }
+
     // ========================================
     // 全局状态管理
     // ========================================
@@ -1098,6 +1130,7 @@
       manualSelectBtn: document.getElementById('manualSelectBtn'),
       rangeSelectBtn: document.getElementById('rangeSelectBtn'),
       autoNewBtn: document.getElementById('autoNewBtn'),
+      fieldSelectBtn: null, // 初始化后动态插入
       last1Btn: document.getElementById('last1Btn'),
       last2Btn: document.getElementById('last2Btn'),
 
@@ -1132,12 +1165,41 @@
       // 加载测试数据（后续替换为从 MN 读取）
       loadTestData();
 
+      // 动态插入“字段全选”按钮，放在选择方式组内
+      const selectGroup = document.querySelector('.sidebar .tool-group:first-of-type');
+      if (selectGroup) {
+        const fieldBtn = document.createElement('button');
+        fieldBtn.className = 'tool-btn';
+        fieldBtn.id = 'fieldSelectBtn';
+        fieldBtn.title = '选择某个字段下的所有评论';
+        fieldBtn.textContent = '📦 字段全选';
+        selectGroup.appendChild(fieldBtn);
+        dom.fieldSelectBtn = fieldBtn;
+      }
+
       // 绑定事件
       attachEventListeners();
 
       // 渲染界面
       renderComments();
       updateUI();
+
+      // 全局错误上报，方便定位无响应问题
+      window.onerror = function(message, source, lineno, colno, error) {
+        const stack = error && error.stack ? `\nstack: ${error.stack}` : '';
+        const errMsg = `[HTML Error] ${message} @ ${source}:${lineno}:${colno}${stack}`;
+        console.error(errMsg, error);
+        debugLog(errMsg);
+        return false; // 不阻止默认行为
+      };
+
+      // Promise 未捕获错误
+      window.addEventListener('unhandledrejection', function(event) {
+        const reason = event.reason || {};
+        const stack = reason && reason.stack ? `\nstack: ${reason.stack}` : '';
+        const errMsg = `[HTML UnhandledRejection] ${reason.message || reason} ${stack}`;
+        debugLog(errMsg);
+      });
     }
 
     // ========================================
@@ -1148,6 +1210,10 @@
       dom.manualSelectBtn.addEventListener('click', () => setSelectionMode('manual'));
       dom.rangeSelectBtn.addEventListener('click', () => setSelectionMode('range'));
       dom.autoNewBtn.addEventListener('click', selectAutoNewContent);
+      if (dom.fieldSelectBtn) {
+        dom.fieldSelectBtn.addEventListener('click', openFieldSelectMenu);
+      }
+      dom.fieldSelectBtn.addEventListener('click', openFieldSelectMenu);
       dom.last1Btn.addEventListener('click', () => selectLastN(1));
       dom.last2Btn.addEventListener('click', () => selectLastN(2));
 
@@ -1270,7 +1336,7 @@
      */
     function loadDataFromNative(data) {
       if (!data || !data.comments) {
-        MNUtil.showHUD("数据格式错误");
+        safeHUD("数据格式错误");
         return;
       }
 
@@ -1310,7 +1376,7 @@
       renderComments();
       updateUI();
 
-      MNUtil.showHUD(`已加载 ${state.comments.length} 条评论`);
+      safeHUD(`已加载 ${state.comments.length} 条评论`);
     }
 
     /**
@@ -1383,8 +1449,7 @@
       state.comments.forEach((comment, index) => {
         if (comment.type === 'HtmlComment') {
           // 优先使用 htmlText，并去除 HTML 标签
-          let fieldName = comment.htmlText || comment.text || 'HTML字段';
-          fieldName = stripHtml(fieldName);
+          let fieldName = formatHtmlPreview(comment.htmlText || comment.text || '') || 'HTML字段';
 
           htmlCommentIndices.push({
             index: index,
@@ -1396,15 +1461,36 @@
       // 如果没有字段，所有评论属于"默认"字段
       if (htmlCommentIndices.length === 0) {
         if (state.comments.length > 0) {
-          fields.push({
+          const defaultField = {
             name: '默认',
             index: -1,
             startIndex: 0,
             endIndex: state.comments.length - 1,
             comments: state.comments
+          };
+          defaultField.uid = getFieldUID(defaultField);
+          fields.push({
+            ...defaultField
           });
         }
         return fields;
+      }
+
+      // 处理第一个字段之前的评论，归入"默认"分组
+      if (htmlCommentIndices[0].index > 0) {
+        const headComments = [];
+        for (let j = 0; j < htmlCommentIndices[0].index; j++) {
+          headComments.push(state.comments[j]);
+        }
+        const defaultField = {
+          name: '默认',
+          index: -1,
+          startIndex: 0,
+          endIndex: htmlCommentIndices[0].index - 1,
+          comments: headComments,
+        };
+        defaultField.uid = getFieldUID(defaultField);
+        fields.push(defaultField);
       }
 
       // 第二步：计算每个字段的范围
@@ -1432,16 +1518,26 @@
         }
 
         // 添加字段（即使没有内容也要添加，用户需要移动评论到空字段）
-        fields.push({
+        const field = {
           name: currentField.name,
           index: currentField.index,
           startIndex: startIndex,
           endIndex: endIndex,
           comments: fieldComments
-        });
+        };
+        field.uid = getFieldUID(field);
+        fields.push(field);
       }
 
       return fields;
+    }
+
+    function getFieldUID(field) {
+      // 使用字段标题索引作为稳定标识，默认区用 fixed id
+      if (typeof field.index === 'number' && field.index >= 0) {
+        return `field-${field.index}`;
+      }
+      return 'field-default';
     }
 
     function getFieldNameByIndex(index) {
@@ -1476,12 +1572,14 @@
         // 创建字段分组容器
         const fieldGroup = document.createElement('div');
         fieldGroup.className = 'field-group';
-        fieldGroup.dataset.field = field.name;  // 添加到容器上
+        fieldGroup.dataset.field = field.name;  // 兼容旧样式
+        fieldGroup.dataset.fieldId = getFieldUID(field);  // 稳定 ID，避免特殊字符问题
 
         // 创建字段标题
         const fieldHeader = document.createElement('div');
         fieldHeader.className = 'field-header';
         fieldHeader.dataset.field = field.name;
+        fieldHeader.dataset.fieldId = getFieldUID(field);
 
         const fieldIconMap = {
           '摘录': '📝',
@@ -1503,6 +1601,7 @@
         // 创建字段内评论容器
         const fieldComments = document.createElement('div');
         fieldComments.className = 'field-comments';
+        fieldComments.dataset.fieldId = getFieldUID(field);
 
         // 渲染该字段的所有评论
         field.comments.forEach(comment => {
@@ -1713,7 +1812,7 @@
 
     function createHtmlCardContent(comment) {
       const typeInfo = getTypeInfo('HtmlComment');
-      const text = stripHtml(comment.htmlText || comment.text || '');
+      const text = formatHtmlPreview(comment.htmlText || comment.text || '');
       const needExpand = text.length > 100;
 
       return `
@@ -2020,18 +2119,42 @@
       // 给按钮一个视觉反馈
       flashButton('autoNewBtn');
 
-      // TODO: 实现自动检测新内容的逻辑
-      // 这里需要与 MN 集成后才能实现
-      // 暂时选择最后添加的评论（假设是最后一条）
-      showToast('自动新内容功能需要与 MarginNote 集成后实现');
-
-      // 临时实现：选择最后一条
-      state.selectedIndices.clear();
-      const totalComments = state.comments.length;
-      if (totalComments > 0) {
-        state.selectedIndices.add(totalComments - 1);
-        updateUI();
+      if (!state.noteId) {
+        showToast('缺少卡片 ID');
+        return;
       }
+
+      debugLog('[HTML] request auto new content');
+      Bridge.requestAutoNewContent(state.noteId);
+      showToast('正在检测新内容...');
+    }
+
+    // 字段选择菜单
+    function openFieldSelectMenu() {
+      const fields = parseFieldsFromComments();
+      if (!fields.length) {
+        showToast('没有字段可选');
+        return;
+      }
+
+      // 构建简单的选择框
+      const options = fields.map((f, idx) => `${idx + 1}. ${f.name}`).join('\n');
+      const input = prompt(`选择字段编号：\n${options}`, "1");
+      const idx = parseInt(input, 10) - 1;
+
+      if (isNaN(idx) || idx < 0 || idx >= fields.length) {
+        showToast('选择无效');
+        return;
+      }
+
+      const field = fields[idx];
+      const indices = field.comments.map(c => c.index);
+      state.selectedIndices.clear();
+      indices.forEach(i => state.selectedIndices.add(i));
+      updateUI();
+
+      showToast(`已选择「${field.name}」下的 ${indices.length} 条评论`);
+      debugLog(`[HTML] selectField ${field.name} -> ${indices}`);
     }
 
     // 按钮闪烁效果
@@ -2081,6 +2204,8 @@
     // ========================================
     function handleAction(actionType) {
       const indices = Array.from(state.selectedIndices);
+
+      debugLog(`[HTML] handleAction ${actionType} -> indices=${indices}`);
 
       if (indices.length === 0) {
         showToast('请先选择评论');
@@ -2144,11 +2269,47 @@
 
     function renderInsertPoints() {
       const fields = parseFieldsFromComments();
+      const commentsListEl = document.getElementById('commentsList');
+
+      // 记录字段标题的原始 HtmlComment 索引，方便在字段前插入
+      const htmlCommentIndices = [];
+      state.comments.forEach((comment) => {
+        if (comment.type === 'HtmlComment') {
+          let fieldName = stripHtml(comment.htmlText || comment.text || '字段');
+          htmlCommentIndices.push({ index: comment.index, name: fieldName });
+        }
+      });
+      htmlCommentIndices.sort((a, b) => a.index - b.index);
+
+      // 1) 卡片置顶插入点（所有评论之前）
+      if (commentsListEl) {
+        const topPoint = createInsertPoint(0, '卡片顶部', '置顶');
+        topPoint.classList.add('insert-point-global');
+        commentsListEl.insertBefore(topPoint, commentsListEl.firstChild);
+      }
+
+      // 2) 第一个字段标题之前的插入点
+      if (htmlCommentIndices.length > 0 && commentsListEl) {
+        const firstFieldHeader = htmlCommentIndices[0];
+        const firstFieldGroup = commentsListEl.querySelector('.field-group');
+        if (firstFieldGroup) {
+          const beforeFieldPoint = createInsertPoint(
+            firstFieldHeader.index,
+            firstFieldHeader.name || '字段',
+            '字段上方'
+          );
+          beforeFieldPoint.classList.add('insert-point-global');
+          commentsListEl.insertBefore(beforeFieldPoint, firstFieldGroup);
+        }
+      }
 
       fields.forEach(field => {
-        const fieldCommentsContainer = document.querySelector(
-          `.field-group[data-field="${field.name}"] .field-comments`
-        );
+        const fieldId = getFieldUID(field);
+        const fieldGroup = Array.from(document.querySelectorAll('.field-group'))
+          .find(group => group.dataset.fieldId === fieldId);
+        const fieldCommentsContainer = fieldGroup
+          ? fieldGroup.querySelector('.field-comments')
+          : null;
 
         if (!fieldCommentsContainer) return;
 
@@ -2210,6 +2371,7 @@
       }
 
       // 调用 Bridge 方法移动评论到指定索引
+      Bridge.logToNative && Bridge.logToNative(`[HTML] moveComments -> ${selectedIndices} -> ${targetIndex}`);
       Bridge.moveComments(state.noteId, selectedIndices, targetIndex);
 
       // 显示操作提示
@@ -2335,40 +2497,46 @@
     // 确认提取
     // ========================================
     function confirmExtract(indices) {
-      if (confirm(`确定要提取 ${indices.length} 条评论吗？\n\n提取后会创建新的子卡片。`)) {
-        // 调用 Bridge 方法
-        Bridge.extractComments(state.noteId, indices);
+      const sorted = [...indices].sort((a, b) => a - b);
 
-        // 显示操作提示
-        showToast(`正在提取 ${indices.length} 条评论...`);
+      // 取消弹窗，直接执行，保证请求发出
+      debugLog(`[HTML] extractConfirmed -> indices=${sorted}`);
 
-        // 清空选择
-        clearSelection();
-      }
+      // 调用 Bridge 方法
+      Bridge.extractComments(state.noteId, sorted);
+
+      // 显示操作提示
+      showToast(`正在提取 ${sorted.length} 条评论...`);
+
+      // 清空选择
+      clearSelection();
     }
 
     // ========================================
     // 确认删除
     // ========================================
     function confirmDelete(indices) {
-      if (confirm(`确定要删除 ${indices.length} 条评论吗？\n\n此操作不可撤销！`)) {
-        // 执行删除操作（调用 Native Bridge）
-        if (!state.noteId) {
-          showToast('错误：缺少卡片 ID');
-          return;
-        }
+      const sorted = [...indices].sort((a, b) => a - b);
 
-        // 调用 Bridge 方法删除评论
-        Bridge.deleteComments(state.noteId, indices);
+      // 取消弹窗，直接执行，保证请求发出
+      debugLog(`[HTML] deleteConfirmed -> indices=${sorted}`);
 
-        // 显示操作提示
-        showToast(`正在删除 ${indices.length} 条评论...`);
-
-        // 清空选择
-        clearSelection();
-
-        // 注意：Native 端会在操作完成后自动调用 Bridge.loadCommentData() 刷新数据
+      // 执行删除操作（调用 Native Bridge）
+      if (!state.noteId) {
+        showToast('错误：缺少卡片 ID');
+        return;
       }
+
+      // 调用 Bridge 方法删除评论
+      Bridge.deleteComments(state.noteId, sorted);
+
+      // 显示操作提示
+      showToast(`正在删除 ${sorted.length} 条评论...`);
+
+      // 清空选择
+      clearSelection();
+
+      // 注意：Native 端会在操作完成后自动调用 Bridge.loadCommentData() 刷新数据
     }
 
     // ========================================
@@ -2409,6 +2577,25 @@
       const div = document.createElement('div');
       div.innerHTML = html;
       return div.textContent || div.innerText || '';
+    }
+
+    function removeCssPrefix(text) {
+      if (!text) return '';
+      const parts = text.split('}');
+      if (parts.length === 1) return text.trim();
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const piece = parts[i].trim();
+        if (piece) return piece;
+      }
+      return text.trim();
+    }
+
+    function formatHtmlPreview(html) {
+      if (!html) return '';
+      // 移除 style/script 标签
+      const cleaned = html.replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<script[\s\S]*?<\/script>/gi, '');
+      const plain = stripHtml(cleaned).trim();
+      return removeCssPrefix(plain);
     }
 
     // ========================================
@@ -2470,13 +2657,12 @@
        */
       moveCommentsToField: function(noteId, indexArr, fieldName, toBottom) {
         try {
-          const url = generateUrlScheme('mnknowledgebase', 'moveCommentsToField', {
+          postToNative('moveCommentsToField', {
             id: noteId,
             indexArr: JSON.stringify(indexArr),
             fieldName: fieldName,
             toBottom: toBottom
           });
-          window.location.href = url;
         } catch (error) {
           console.error('Bridge.moveCommentsToField 失败:', error);
           showToast('移动失败: ' + error.message);
@@ -2491,12 +2677,11 @@
        */
       moveComments: function(noteId, indexArr, targetIndex) {
         try {
-          const url = generateUrlScheme('mnknowledgebase', 'moveComments', {
+          postToNative('moveComments', {
             id: noteId,
             indexArr: JSON.stringify(indexArr),
             targetIndex: targetIndex
           });
-          window.location.href = url;
         } catch (error) {
           console.error('Bridge.moveComments 失败:', error);
           showToast('移动失败: ' + error.message);
@@ -2510,11 +2695,11 @@
        */
       deleteComments: function(noteId, indexArr) {
         try {
-          const url = generateUrlScheme('mnknowledgebase', 'deleteComments', {
+          postToNative('deleteComments', {
             id: noteId,
             indexArr: JSON.stringify(indexArr)
           });
-          window.location.href = url;
+          console.log('[Bridge] deleteComments', noteId, indexArr);
         } catch (error) {
           console.error('Bridge.deleteComments 失败:', error);
           showToast('删除失败: ' + error.message);
@@ -2528,14 +2713,27 @@
        */
       extractComments: function(noteId, indexArr) {
         try {
-          const url = generateUrlScheme('mnknowledgebase', 'extractComments', {
+          postToNative('extractComments', {
             id: noteId,
             indexArr: JSON.stringify(indexArr)
           });
-          window.location.href = url;
+          console.log('[Bridge] extractComments', noteId, indexArr);
         } catch (error) {
           console.error('Bridge.extractComments 失败:', error);
           showToast('提取失败: ' + error.message);
+        }
+      },
+
+      /**
+       * 请求 Native 计算“自动新内容”索引
+       * @param {string} noteId
+       */
+      requestAutoNewContent: function(noteId) {
+        try {
+          postToNative('autoNewContent', { id: noteId });
+        } catch (error) {
+          console.error('Bridge.requestAutoNewContent 失败:', error);
+          showToast('自动新内容请求失败: ' + error.message);
         }
       },
 
@@ -2545,12 +2743,34 @@
        */
       logToNative: function(message) {
         try {
-          const url = generateUrlScheme('mnknowledgebase', 'htmlLog', {
-            message: message
-          });
-          window.location.href = url;
+          sendURLToNative('htmlLog', { message });
         } catch (error) {
           console.error('Bridge.logToNative 失败:', error);
+        }
+      },
+
+      /**
+       * Native 返回自动检测的新内容索引
+       * @param {Array<number>} indexArr
+       */
+      applyAutoNewSelection: function(indexArr) {
+        try {
+          const indices = Array.isArray(indexArr) ? indexArr.map(i => parseInt(i, 10)).filter(i => !isNaN(i)) : [];
+          debugLog(`[HTML] applyAutoNewSelection -> ${indices}`);
+
+          state.selectedIndices.clear();
+          indices.forEach(i => state.selectedIndices.add(i));
+
+          updateUI();
+
+          if (indices.length === 0) {
+            showToast('未检测到新内容');
+          } else {
+            showToast(`已选中 ${indices.length} 条新内容`);
+          }
+        } catch (error) {
+          debugLog(`[HTML Error] applyAutoNewSelection 失败: ${error.message}`);
+          showToast('自动选择失败');
         }
       }
     };
@@ -2558,12 +2778,17 @@
     // 页面加载时发送就绪信号
     window.addEventListener('load', () => {
       try {
-        const url = generateUrlScheme('mnknowledgebase', 'ready', {});
-        window.location.href = url;
+        postToNative('ready', {});
       } catch (error) {
         console.error('发送就绪信号失败:', error);
       }
     });
+
+    // 统一的 Native 调用帮助函数（参考知识库搜索页）
+    function postToNative(action, params = {}) {
+      debugLog(`[HTML] postToNative ${action} -> ${JSON.stringify(params)}`);
+      sendURLToNative(action, params);
+    }
 
     // ========================================
     // 启动
