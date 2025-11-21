@@ -4685,6 +4685,7 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
     moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
   } else {
     moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+    MNButton.addLongPressGesture(moveUpButton, this, "onLongPressUpButton:", 0.3)
   }
   rowView.addSubview(moveUpButton)
   xOffset += 35
@@ -4703,6 +4704,7 @@ pinnerController.prototype.createPageRow = function(page, index, width, section 
     moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
   } else {
     moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+    MNButton.addLongPressGesture(moveDownButton, this, "onLongPressDownButton:", 0.3)
   }
   rowView.addSubview(moveDownButton)
   xOffset += 35
@@ -4809,6 +4811,7 @@ pinnerController.prototype.createClipboardRow = function(clipboard, index, width
       moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
     } else {
       moveUpButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+      MNButton.addLongPressGesture(moveUpButton, this, "onLongPressUpButton:", 0.3)
     }
     rowView.addSubview(moveUpButton)
     xOffset += 35
@@ -4827,6 +4830,7 @@ pinnerController.prototype.createClipboardRow = function(clipboard, index, width
       moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#cccccc", 0.5)
     } else {
       moveDownButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3", 0.8)
+      MNButton.addLongPressGesture(moveDownButton, this, "onLongPressDownButton:", 0.3)
     }
     rowView.addSubview(moveDownButton)
     xOffset += 35
