@@ -40,11 +40,17 @@ global.getMenuTemplate = function (name) {
 function registerAllMenuTemplates() {
   // menu_comment
   global.registerMenuTemplate("menu_comment", {
-    action: "manageCommentsByPopup",
+    // 单击：打开可视化评论管理器
+    action: "openCommentManagerWebview",
     onLongPress: {
       action: "menu",
       menuWidth: 300,
       menuItems: [
+        "🪟 旧版弹窗",
+        {
+          action: "manageCommentsByPopup",
+          menuTitle: "    打开旧版评论弹窗",
+        },
         "✂️ 拆分评论",
         {
           action: "splitComments",

@@ -107,6 +107,7 @@ var knowledgebaseWebController = JSB.defineClass('knowledgebaseWebController : U
     try {
 
       let config = MNUtil.parseURL(request)
+      MNLog.log(`【WebView拦截】scheme=${config.scheme} host=${config.host} params=${JSON.stringify(config.params)}`)
 
       // 拦截自定义 scheme
       if (config && config.scheme === "mnknowledgebase") {
@@ -457,6 +458,57 @@ knowledgebaseWebController.prototype.loadCommentManagerHTML = function() {
   }
 }
 
+/**
+ * 从 URL 参数中提取 noteId，兼容 id/noteId 写法
+ * @param {Object} params - URL 参数对象
+ * @returns {string|null} noteId
+ */
+function getNoteIdFromParams(params) {
+  if (!params) return null
+  return params.noteId || params.id || params.noteID || params.noteid || null
+}
+
+/**
+ * 将 URL 传入的 indexArr 规范化为数字数组，以兼容字符串/数组两种情况
+ * @param {string|Array|number} indexArrParam
+ * @returns {Array<number>}
+ */
+function normalizeIndexArray(indexArrParam) {
+  // 已经是数组的情况
+  if (Array.isArray(indexArrParam)) {
+    return indexArrParam
+      .map(i => parseInt(i, 10))
+      .filter(i => !isNaN(i))
+  }
+
+  // 单个数字
+  if (typeof indexArrParam === 'number') {
+    const parsed = parseInt(indexArrParam, 10)
+    return isNaN(parsed) ? [] : [parsed]
+  }
+
+  // 字符串需要尝试解析 JSON 或按逗号分割
+  if (typeof indexArrParam === 'string') {
+    try {
+      const parsed = JSON.parse(indexArrParam)
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map(i => parseInt(i, 10))
+          .filter(i => !isNaN(i))
+      }
+    } catch (error) {
+      // 忽略 JSON 解析错误，尝试按逗号拆分
+    }
+
+    const parts = indexArrParam.split(',')
+    return parts
+      .map(i => parseInt(i, 10))
+      .filter(i => !isNaN(i))
+  }
+
+  return []
+}
+
 // ========================================
 // 核心方法 - 动作执行器
 // ========================================
@@ -470,30 +522,54 @@ knowledgebaseWebController.prototype.loadCommentManagerHTML = function() {
  */
 knowledgebaseWebController.prototype.executeAction = async function(config, closedWebView = false) {
   try {
-    let targetNoteId = config.params.id
-    let targetNote = MNNote.new(targetNoteId)
+    // 统一动作名称，兼容大小写差异
+    const action = (config.host || "").trim()
+    const actionLower = action.toLowerCase()
+
+    let targetNoteId = getNoteIdFromParams(config.params)
+    let targetNote = targetNoteId ? MNNote.new(targetNoteId) : null
     let focusNote = MNNote.getFocusNote()
     let success = false
-    if (!targetNote) { return }
-    switch (config.host) {
+
+    // 某些动作（如 ready/htmlLog）无需 note
+    const allowActionsWithoutNote = new Set([
+      "ready",
+      "htmlLog",
+      "htmllog",
+      "refreshAllData",
+      "refreshalldata",
+      "reopenSearchView",
+      "reopensearchview"
+    ])
+
+    if (!targetNote && !allowActionsWithoutNote.has(action) && !allowActionsWithoutNote.has(actionLower)) {
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    switch (action) {
       case "focusCardInMindMap":
+      case "focuscardinmindmap":
         // 定位卡片到脑图
         await this.focusCardInMindMap(targetNoteId)
         success = true
         break
 
       case "focusCardInFloatMindMap":
+      case "focuscardinfloatmindmap":
         // 聚焦到文档位置
         await this.focusCardInFloatMindMap(targetNoteId)
         success = true
         break
 
       case "copyMarkdownLink":  // 调用 copyMarkdownLinkWithQuickPhrases 复制卡片行内链接
+      case "copymarkdownlink":
         await this.copyMarkdownLink(targetNoteId)
         success = true
         break;
 
       case "copyNoteURL":  // 复制卡片 URL
+      case "copynoteurl":
         await this.copyNoteURL(targetNoteId)
         success = true
         break;
@@ -653,12 +729,14 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         }
         break;
       case "refreshAllData":
+      case "refreshalldata":
         // 刷新所有数据
         MNUtil.showHUD("正在刷新数据...")
         await this.refreshAllData()
         MNUtil.showHUD("数据刷新完成")
         break;
       case "reopenSearchView":
+      case "reopensearchview":
         // 重新打开搜索界面（完整重载）
         // 将 currentHTMLType 设为 null，强制触发完整的 WebView 重载
         this.currentHTMLType = null;
@@ -673,6 +751,7 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         break
 
       case "htmlLog":
+      case "htmllog":
         // HTML 前端发送的日志
         let message = config.params.message || "无消息"
         MNLog.log(message)
@@ -683,31 +762,80 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
       // ========================================
 
       case "loadCommentData":
+      case "loadcommentdata":
         // 加载指定卡片的评论数据
-        await this.loadCommentData(config.params.noteId)
-        success = true
+        {
+          const noteId = getNoteIdFromParams(config.params)
+          if (!noteId) {
+            MNUtil.showHUD("缺少卡片 ID")
+            break
+          }
+
+          await this.loadCommentData(noteId)
+          success = true
+        }
+        break
+
+      case "autoNewContent":
+      case "autonewcontent":
+        // 自动检测新内容（返回索引到 HTML）
+        try {
+          const autoNoteId = getNoteIdFromParams(config.params)
+          if (!autoNoteId) {
+            MNUtil.showHUD("缺少卡片 ID")
+            break
+          }
+
+          const note = MNNote.new(autoNoteId)
+          if (!note) {
+            MNUtil.showHUD("未找到卡片")
+            break
+          }
+
+          const indexArr = KnowledgeBaseTemplate.autoGetNewContentToMoveIndexArr(note) || []
+          KnowledgeBaseUtils.log(`autoNewContent -> ${indexArr}`, "executeAction")
+
+          const script = `window.Bridge.applyAutoNewSelection(${JSON.stringify(indexArr)})`
+          await this.runJavaScript(script)
+          success = true
+        } catch (error) {
+          KnowledgeBaseUtils.log("autoNewContent 失败: " + error.message, "executeAction")
+          MNUtil.showHUD("自动检测失败: " + error.message)
+        }
         break
 
       case "moveCommentsToField":
+      case "movecommentstofield":
         // 移动评论到字段
-        await this.moveCommentsToField(
-          config.params.noteId,
-          config.params.indexArr,
-          config.params.fieldName,
-          config.params.toBottom
-        )
-        success = true
+        {
+          const noteId = getNoteIdFromParams(config.params)
+          const indexArr = normalizeIndexArray(config.params.indexArr)
+          const toBottom = !!config.params.toBottom
+
+          if (!noteId || indexArr.length === 0) {
+            MNUtil.showHUD("移动失败：缺少参数")
+            break
+          }
+
+          await this.moveCommentsToField(
+            noteId,
+            indexArr,
+            config.params.fieldName,
+            toBottom
+          )
+          success = true
+        }
         break
 
       case "moveComments":
+      case "movecomments":
         // 移动评论到指定索引
         KnowledgeBaseUtils.log("收到 moveComments 请求", "executeAction")
         KnowledgeBaseUtils.log("原始参数", "executeAction", config.params)
 
         try {
-          // 解析参数（注意：HTML 发送的是 id，不是 noteId）
-          const moveNoteId = config.params.id
-          const moveIndexArr = JSON.parse(config.params.indexArr)
+          const moveNoteId = getNoteIdFromParams(config.params)
+          const moveIndexArr = normalizeIndexArray(config.params.indexArr)
           const moveTargetIndex = parseInt(config.params.targetIndex)
 
           KnowledgeBaseUtils.log("解析后参数", "executeAction", {
@@ -715,6 +843,11 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
             moveIndexArr,
             moveTargetIndex
           })
+
+          if (!moveNoteId || moveIndexArr.length === 0 || isNaN(moveTargetIndex)) {
+            MNUtil.showHUD("移动失败: 参数缺失或格式错误")
+            break
+          }
 
           await this.moveComments(moveNoteId, moveIndexArr, moveTargetIndex)
           success = true
@@ -725,19 +858,27 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         break
 
       case "deleteComments":
+      case "deletecomments":
         // 删除评论
         KnowledgeBaseUtils.log("收到 deleteComments 请求", "executeAction")
         KnowledgeBaseUtils.log("原始参数", "executeAction", config.params)
 
         try {
-          const deleteNoteId = config.params.id
-          const deleteIndexArr = JSON.parse(config.params.indexArr)
+          const deleteNoteId = getNoteIdFromParams(config.params)
+          const deleteIndexArr = normalizeIndexArray(config.params.indexArr)
 
           KnowledgeBaseUtils.log("解析后参数", "executeAction", {
             deleteNoteId,
             deleteIndexArr
           })
 
+          if (!deleteNoteId || deleteIndexArr.length === 0) {
+            MNUtil.showHUD("删除失败: 参数缺失或格式错误")
+            break
+          }
+
+          MNUtil.showHUD(`正在删除 ${deleteIndexArr.length} 条评论...`, 0.8)
+          KnowledgeBaseUtils.log(`执行 deleteComments -> noteId=${deleteNoteId}, indices=${deleteIndexArr}`, "executeAction")
           await this.deleteComments(deleteNoteId, deleteIndexArr)
           success = true
         } catch (error) {
@@ -747,19 +888,27 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         break
 
       case "extractComments":
+      case "extractcomments":
         // 提取评论创建子卡片
         KnowledgeBaseUtils.log("收到 extractComments 请求", "executeAction")
         KnowledgeBaseUtils.log("原始参数", "executeAction", config.params)
 
         try {
-          const extractNoteId = config.params.id
-          const extractIndexArr = JSON.parse(config.params.indexArr)
+          const extractNoteId = getNoteIdFromParams(config.params)
+          const extractIndexArr = normalizeIndexArray(config.params.indexArr)
 
           KnowledgeBaseUtils.log("解析后参数", "executeAction", {
             extractNoteId,
             extractIndexArr
           })
 
+          if (!extractNoteId || extractIndexArr.length === 0) {
+            MNUtil.showHUD("提取失败: 参数缺失或格式错误")
+            break
+          }
+
+          MNUtil.showHUD(`正在提取 ${extractIndexArr.length} 条评论...`, 0.8)
+          KnowledgeBaseUtils.log(`执行 extractComments -> noteId=${extractNoteId}, indices=${extractIndexArr}`, "executeAction")
           await this.extractComments(extractNoteId, extractIndexArr)
           success = true
         } catch (error) {
@@ -771,8 +920,12 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
       default:
         MNUtil.showHUD("未知动作: " + config.host)
     }
-    // 执行成功后关闭窗口（如果需要且自动关闭模式已启用）
-    if (closedWebView && success && this.autoCloseMode) {
+    // 执行成功后关闭窗口（如果需要且自动关闭模式已启用），部分操作不自动关闭
+    const preventAutoCloseActions = new Set([
+      "autonewcontent"
+    ])
+
+    if (closedWebView && success && this.autoCloseMode && !preventAutoCloseActions.has(actionLower)) {
       if (this.addonBar) {
         this.hide(this.addonBar.frame)
       } else {
@@ -1736,4 +1889,3 @@ knowledgebaseWebController.prototype.extractComments = async function(noteId, in
     KnowledgeBaseUtils.addErrorLog(error, "extractComments")
   }
 }
-

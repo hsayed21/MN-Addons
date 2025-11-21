@@ -5585,6 +5585,22 @@ function registerAllCustomActions() {
     }
   })
 
+  /**
+   * 打开知识库评论管理器（可视化 HTML）
+   * 通过插件通信调用 mnknowledgebase 的 openCommentManager 方法
+   */
+  global.registerCustomAction("openCommentManagerWebview", async function(context) {
+    try {
+      const message = "mnknowledgebase?action=openCommentManager";
+      MNUtil.postNotification("AddonBroadcast", { message });
+    } catch (error) {
+      MNUtil.showHUD("打开评论管理器失败: " + error.message);
+      if (typeof MNUtil !== "undefined" && MNUtil.log) {
+        MNUtil.log("❌ openCommentManagerWebview 错误: " + error.message);
+      }
+    }
+  })
+
 
   global.registerCustomAction("AddTemplateOnLastestParentDefinitionAndAddAsChild", async function(context) {
       const { focusNote } = context;
