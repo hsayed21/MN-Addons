@@ -457,6 +457,33 @@ class literatureUtils {
       throw error;
     }
   }
+
+  // ========================================
+  // WebView 控制器管理
+  // 参考 mnknowledgebase/utils.js 的实现
+  // ========================================
+
+  static webViewController = null  // 存储控制器实例
+  static addonBar = null           // 存储插件栏引用
+
+  /**
+   * 检查并创建 WebView 控制器（单例模式）
+   * 参考：mnknowledgebase/utils.js:18796-18808
+   */
+  static checkWebViewController() {
+    // 单例模式：如果控制器不存在则创建
+    if (!this.webViewController) {
+      // 创建视图控制器实例
+      this.webViewController = literatureWebController.new()
+      // 初始状态设为隐藏，等待用户手动打开
+      this.webViewController.view.hidden = true
+    }
+    // 确保视图在正确的父视图中
+    if (!MNUtil.isDescendantOfStudyView(this.webViewController.view)) {
+      MNUtil.studyView.addSubview(this.webViewController.view)
+    }
+    return this.webViewController
+  }
 }
 
 class literatureNetwork {
@@ -742,95 +769,4 @@ class literatureNoteUtils {
     }
   }
 
-}
-
-// ========================================
-// Literature Utils - WebView 控制器管理
-// 参考 mnknowledgebase/utils.js 的实现
-// ========================================
-
-class LiteratureUtils {
-  static webViewController = null  // 存储控制器实例
-  static addonBar = null           // 存储插件栏引用
-
-  /**
-   * 检查并创建 WebView 控制器（单例模式）
-   * ⚠️ 延迟初始化策略：避免在 sceneWillConnect 中创建导致崩溃
-   * 参考：mnknowledgebase/utils.js:18796-18808
-   */
-  static checkWebViewController() {
-    try {
-      // 防御：确保控制器类已加载；缺少时尝试动态 require
-      if (typeof literatureWebController === 'undefined') {
-        try {
-          if (typeof JSB !== 'undefined' && JSB.require) {
-            JSB.require('literatureWebController')
-          }
-        } catch (e) {
-          literatureUtils.addErrorLog(e, "LiteratureUtils.checkWebViewController(require)")
-          return null
-        }
-        if (typeof literatureWebController === 'undefined') {
-          literatureUtils.addErrorLog(new Error("literatureWebController 未加载"), "LiteratureUtils.checkWebViewController")
-          return null
-        }
-      }
-
-      // 单例模式：如果控制器不存在则创建
-      if (!this.webViewController) {
-        try {
-          // 如果 new 方法不存在，直接放弃（避免 undefined）
-          if (typeof literatureWebController.new !== 'function') {
-            literatureUtils.addErrorLog(
-              new Error("literatureWebController.new 不可用"),
-              "LiteratureUtils.checkWebViewController",
-              { typeofController: typeof literatureWebController, keys: Object.keys(literatureWebController || {}) }
-            )
-            this.webViewController = null
-            return null
-          }
-
-          const instance = literatureWebController.new()
-          // new 结果记录一下，方便定位为 undefined 的情况
-          if (!instance) {
-            literatureUtils.addErrorLog(
-              new Error("literatureWebController.new 返回空"),
-              "LiteratureUtils.checkWebViewController",
-              { typeofController: typeof literatureWebController, keys: Object.keys(literatureWebController || {}) }
-            )
-            // 回退旧版控制器，维持基本功能
-            if (literatureUtils.checkLiteratureController) {
-              literatureUtils.checkLiteratureController()
-              return literatureUtils.literatureController || null
-            }
-            return null
-          }
-          this.webViewController = instance
-        } catch (e) {
-          literatureUtils.addErrorLog(e, "LiteratureUtils.checkWebViewController(new)")
-          this.webViewController = null
-          return null
-        }
-        // 如果 view 尚未创建，触发一次访问即可，避免误判为失败
-        try { this.webViewController.view } catch (_) {}
-        this.webViewController && this.webViewController.view && (this.webViewController.view.hidden = true)
-      }
-      // 确保视图在正确的父视图中
-      if (this.webViewController && this.webViewController.view && !MNUtil.isDescendantOfStudyView(this.webViewController.view)) {
-        MNUtil.studyView.addSubview(this.webViewController.view)
-      }
-      return this.webViewController
-    } catch (error) {
-      // 防御：初始化失败时不要让调用链崩掉，避免插件按钮直接消失
-      literatureUtils.addErrorLog(error, "LiteratureUtils.checkWebViewController")
-      return null
-    }
-  }
-
-  /**
-   * 添加错误日志（使用 literatureUtils 的实现）
-   */
-  static addErrorLog(error, source, info) {
-    literatureUtils.addErrorLog(error, source, info)
-  }
 }

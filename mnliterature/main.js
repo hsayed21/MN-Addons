@@ -170,8 +170,8 @@ JSB.newAddon = function(mainPath){
      * MarginNote 会定期调用此方法，确定是否显示插件按钮及其状态
      */
     queryAddonCommandStatus: function() {
-      // 继续使用旧版控制器，避免新 Web 控制器初始化异常导致插件栏消失
-      literatureUtils.checkLiteratureController()
+      // 优先初始化新版 Web 控制器（参考 mnknowledgebase）
+      literatureUtils.checkWebViewController()
 
       if (MNUtil.studyMode < 3) {
         // 返回按钮配置，告诉 MarginNote 如何显示插件按钮
@@ -183,8 +183,8 @@ JSB.newAddon = function(mainPath){
         };
       } else {
         // 复习模式下隐藏控制器
-        if (literatureUtils.literatureController && literatureUtils.literatureController.view) {
-          literatureUtils.literatureController.view.hidden = true
+        if (literatureUtils.webViewController && literatureUtils.webViewController.view) {
+          literatureUtils.webViewController.view.hidden = true
         }
         return null;
       }
@@ -228,72 +228,99 @@ JSB.newAddon = function(mainPath){
 
     /**
      * 打开设置面板
-     * 这是整个视图显示流程的入口
-     * @param {UIButton} button - 菜单中的设置按钮
+     * ⚠️ 已废弃：此方法使用旧版控制器 API（literatureController）
+     * 建议使用 openLiteratureLibrary 方法替代
+     * @deprecated
      */
-    openSetting: function(button) {
-      MNUtil.showHUD("打开设置界面")
-      // 重置插件图标的选中状态
-      self.toggled = false
-      // 刷新插件栏，更新图标状态
-      MNUtil.refreshAddonCommands()
-      self.closeMenu()
-      try {
-        // 确保视图控制器已创建并添加到 studyView 中
-        // 这是一个单例模式的实现，只会创建一次实例
-        literatureUtils.checkLiteratureController()
-        // 初始化时隐藏面板，等待用户手动打开
-        literatureUtils.literatureController.view.hidden = true;
-        // 设置面板的初始位置和大小
-        // frame 是 iOS 中视图的位置和大小属性：{x, y, width, height}
-        literatureUtils.literatureController.view.frame = { x: 50, y: 100, width: 260, height: 345 }
-        // currentFrame 是自定义属性，用于记录当前位置（动画时使用）
-        literatureUtils.literatureController.currentFrame = { x: 50, y: 100, width: 260, height: 345 }
-        // 延迟 0.2 秒后让 studyView 成为第一响应者
-        // 这是 iOS 的机制，用于确保键盘正确隐藏
-        MNUtil.delay(0.2).then(()=>{
-          MNUtil.studyView.becomeFirstResponder(); //For dismiss keyboard on iOS
-        })
+    // openSetting: function(button) {
+    //   MNUtil.showHUD("打开设置界面")
+    //   // 重置插件图标的选中状态
+    //   self.toggled = false
+    //   // 刷新插件栏，更新图标状态
+    //   MNUtil.refreshAddonCommands()
+    //   self.closeMenu()
+    //   try {
+    //     // 确保视图控制器已创建并添加到 studyView 中
+    //     // 这是一个单例模式的实现，只会创建一次实例
+    //     literatureUtils.checkLiteratureController()
+    //     // 初始化时隐藏面板，等待用户手动打开
+    //     literatureUtils.literatureController.view.hidden = true;
+    //     // 设置面板的初始位置和大小
+    //     // frame 是 iOS 中视图的位置和大小属性：{x, y, width, height}
+    //     literatureUtils.literatureController.view.frame = { x: 50, y: 100, width: 260, height: 345 }
+    //     // currentFrame 是自定义属性，用于记录当前位置（动画时使用）
+    //     literatureUtils.literatureController.currentFrame = { x: 50, y: 100, width: 260, height: 345 }
+    //     // 延迟 0.2 秒后让 studyView 成为第一响应者
+    //     // 这是 iOS 的机制，用于确保键盘正确隐藏
+    //     MNUtil.delay(0.2).then(()=>{
+    //       MNUtil.studyView.becomeFirstResponder(); //For dismiss keyboard on iOS
+    //     })
 
-        // 确保视图在正确的父视图中
-        literatureUtils.ensureView(literatureUtils.literatureController.view)
-        
-        // 第一次打开时，设置面板的初始位置
-        if (self.isFirst) {
-          let buttonFrame = self.addonBar.frame
-          // 根据插件栏的位置决定面板显示在左侧还是右侧
-          // 如果插件栏在左边（x < 100），面板显示在右边
-          // 如果插件栏在右边，面板显示在左边（x - 面板宽度）
-          let frame = buttonFrame.x < 100 ? 
-            {x:40, y:buttonFrame.y, width:260, height: 345} : 
-            {x:buttonFrame.x-260, y:buttonFrame.y, width:260, height:345}
-          // 设置面板的位置（同时设置 frame 和 currentFrame）
-          literatureUtils.setFrame(literatureUtils.literatureController, frame)
-          self.isFirst = false;
-        }
-        
-        // 判断面板的显示状态，执行显示或隐藏
-        if (literatureUtils.literatureController.view.hidden) {
-          // 显示面板（带动画效果）
-          // 传入 addonBar.frame 作为动画的起始位置参考
-          literatureUtils.literatureController.show(self.addonBar.frame)
-        } else {
-          // 如果面板已显示，则隐藏它（带动画效果）
-          // 传入 addonBar.frame 作为动画的终点位置参考
-          literatureUtils.literatureController.hide(self.addonBar.frame)
-        }
-      } catch (error) {
-        literatureUtils.addErrorLog(error, "openSetting")
-      }
-    },
+    //     // 确保视图在正确的父视图中
+    //     literatureUtils.ensureView(literatureUtils.literatureController.view)
+    //
+    //     // 第一次打开时，设置面板的初始位置
+    //     if (self.isFirst) {
+    //       let buttonFrame = self.addonBar.frame
+    //       // 根据插件栏的位置决定面板显示在左侧还是右侧
+    //       // 如果插件栏在左边（x < 100），面板显示在右边
+    //       // 如果插件栏在右边，面板显示在左边（x - 面板宽度）
+    //       let frame = buttonFrame.x < 100 ?
+    //         {x:40, y:buttonFrame.y, width:260, height: 345} :
+    //         {x:buttonFrame.x-260, y:buttonFrame.y, width:260, height:345}
+    //       // 设置面板的位置（同时设置 frame 和 currentFrame）
+    //       literatureUtils.setFrame(literatureUtils.literatureController, frame)
+    //       self.isFirst = false;
+    //     }
+    //
+    //     // 判断面板的显示状态，执行显示或隐藏
+    //     if (literatureUtils.literatureController.view.hidden) {
+    //       // 显示面板（带动画效果）
+    //       // 传入 addonBar.frame 作为动画的起始位置参考
+    //       literatureUtils.literatureController.show(self.addonBar.frame)
+    //     } else {
+    //       // 如果面板已显示，则隐藏它（带动画效果）
+    //       // 传入 addonBar.frame 作为动画的终点位置参考
+    //       literatureUtils.literatureController.hide(self.addonBar.frame)
+    //     }
+    //   } catch (error) {
+    //     literatureUtils.addErrorLog(error, "openSetting")
+    //   }
+    // },
 
     /**
      * 打开文献数据库界面
      * 参考：mnknowledgebase/main.js 的 openSearchWebView
      */
     openLiteratureLibrary: async function(button) {
-      // 暂时回退为提示，避免新 Web 控制器初始化失败导致崩溃
-      MNUtil.showHUD("文献库界面暂未加载，已回退旧版，请稍后重试")
+      try {
+        self.toggled = false
+        MNUtil.refreshAddonCommands()
+        self.checkPopover()
+
+        const controller = literatureUtils.checkWebViewController()
+        if (!controller) {
+          MNUtil.showHUD("加载界面失败，请查看日志")
+          return
+        }
+
+        const needReload = controller.currentHTMLType !== 'literatureManager' || !controller.webViewLoaded
+
+        if (controller.onAnimate) {
+          await MNUtil.delay(0.5)
+          return self.openLiteratureLibrary(button)
+        }
+
+        if (!needReload) {
+          await controller.show()
+          return
+        }
+
+        controller.loadHTMLFile('literatureManager')
+        await controller.show()
+      } catch (error) {
+        literatureUtils.addErrorLog(error, "openLiteratureLibrary")
+      }
     },
 
     testAI: function() {
