@@ -287,25 +287,32 @@ class ViewModeRegistry {
       order: 1,
       description: "固定卡片和文档页面"
     }],
+    ["research", {
+      key: "research",
+      displayName: "科研",
+      icon: "👨‍🎓",
+      order: 2,
+      description: "科研视图"
+    }],
     ["daily", {
       key: "daily",
       displayName: "日拱一卒",
       icon: "☀️",
-      order: 2,
+      order: 3,
       description: "日拱一卒视图"
     }],
     ["task", {
       key: "task",
       displayName: "Task",
       icon: "📋",
-      order: 3,
+      order: 4,
       description: "任务管理视图"
     }],
     ["custom", {
       key: "custom",
       displayName: "Custom",
       icon: "🎨",
-      order: 4,
+      order: 5,
       description: "用户自定义视图"
     }],
   ])
@@ -973,33 +980,33 @@ class SectionRegistry {
       description: "下月任务"
     }],
 
-    // ["dailyMorning", {
-    //   key: "dailyMorning",
-    //   displayName: "Morning",
-    //   viewMode: "daily",
-    //   color: "#ffd166",
-    //   icon: "🌅",
-    //   order: 1,
-    //   description: "早晨例行事项"
-    // }],
-    // ["dailyAfternoon", {
-    //   key: "dailyAfternoon",
-    //   displayName: "Afternoon",
-    //   viewMode: "daily",
-    //   color: "#06ffa5",
-    //   icon: "☀️",
-    //   order: 2,
-    //   description: "下午安排"
-    // }],
-    // ["dailyEvening", {
-    //   key: "dailyEvening",
-    //   displayName: "Evening",
-    //   viewMode: "daily",
-    //   color: "#118ab2",
-    //   icon: "🌙",
-    //   order: 3,
-    //   description: "晚间活动"
-    // }],
+    ["dailyMorning", {
+      key: "dailyMorning",
+      displayName: "Morning",
+      viewMode: "daily",
+      color: "#ffd166",
+      icon: "🌅",
+      order: 1,
+      description: "早晨例行事项"
+    }],
+    ["dailyAfternoon", {
+      key: "dailyAfternoon",
+      displayName: "Afternoon",
+      viewMode: "daily",
+      color: "#06ffa5",
+      icon: "☀️",
+      order: 2,
+      description: "下午安排"
+    }],
+    ["dailyEvening", {
+      key: "dailyEvening",
+      displayName: "Evening",
+      viewMode: "daily",
+      color: "#118ab2",
+      icon: "🌙",
+      order: 3,
+      description: "晚间活动"
+    }],
 
     ["daily/Courses", {
       key: "daily/Courses",
@@ -1083,7 +1090,34 @@ class SectionRegistry {
       icon: "🎓",
       order: 4,
       description: "习题课"
-    }]
+    }],
+    ["research/reading", {
+      key: "research/reading",
+      displayName: "在读文献",
+      viewMode: "research",
+      color: "#e5c07b",
+      icon: "🎓",
+      order: 1,
+      description: ""
+    }],
+    ["research/reference", {
+      key: "research/reference",
+      displayName: "参考文献",
+      viewMode: "research",
+      color: "#e5c07b",
+      icon: "🎓",
+      order: 2,
+      description: ""
+    }],
+    ["research/toRead", {
+      key: "research/toRead",
+      displayName: "待读文献",
+      viewMode: "research",
+      color: "#e5c07b",
+      icon: "🎓",
+      order: 3,
+      description: ""
+    }],
     ])
   }
 
