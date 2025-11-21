@@ -11,9 +11,16 @@
 JSB.newAddon = function(mainPath){
   // 加载工具类，提供视图管理的辅助函数
   JSB.require('utils');
+
   // 加载视图控制器类定义（iOS UIViewController 的 JavaScript 实现）
   // 此时只是加载类定义，实例会在需要时通过 literatureController.new() 创建
   JSB.require('webviewController');
+
+  // 加载新的 WebView 控制器和索引系统
+  JSB.require('literatureWebController');
+  JSB.require('literatureIndexer');
+
+  // 加载插件集成模块
   JSB.require('literature_plugin_integration');
   // 使用 JSB.defineClass 定义一个继承自 JSExtension 的插件类
   // 格式：'类名 : 父类名'
@@ -38,11 +45,18 @@ JSB.newAddon = function(mainPath){
       MNUtil.undoGrouping(()=>{
         try {
           self.init(mainPath)
+
+          // ⭐ 保存插件实例引用（供 WebView 控制器使用）
+          // 参考：mnknowledgebase/main.js
+          if (typeof MNLiteratureInstance === 'undefined') {
+            global.MNLiteratureInstance = self
+          }
+
           // 插件栏图标的选中状态
           self.toggled = false
           // 标记是否是第一次打开设置面板（用于设置初始位置）
           self.ifFirst = true
-          MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
+          // MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -60,7 +74,7 @@ JSB.newAddon = function(mainPath){
     sceneDidDisconnect: function() {
       MNUtil.undoGrouping(()=>{
         try {
-          MNUtil.removeObserver(self,'PopupMenuOnNote')
+          // MNUtil.removeObserver(self,'PopupMenuOnNote')
         } catch (error) {
           MNUtil.showHUD(error);
         }
@@ -156,9 +170,9 @@ JSB.newAddon = function(mainPath){
      * MarginNote 会定期调用此方法，确定是否显示插件按钮及其状态
      */
     queryAddonCommandStatus: function() {
-      // 每次查询时都确保控制器已初始化
-      // 这是必要的，因为可能在不同的时机被调用
+      // 继续使用旧版控制器，避免新 Web 控制器初始化异常导致插件栏消失
       literatureUtils.checkLiteratureController()
+
       if (MNUtil.studyMode < 3) {
         // 返回按钮配置，告诉 MarginNote 如何显示插件按钮
         return {
@@ -168,7 +182,8 @@ JSB.newAddon = function(mainPath){
           checked: self.toggled       // 是否显示选中状态
         };
       } else {
-        if (literatureUtils.literatureController) {
+        // 复习模式下隐藏控制器
+        if (literatureUtils.literatureController && literatureUtils.literatureController.view) {
           literatureUtils.literatureController.view.hidden = true
         }
         return null;
@@ -272,9 +287,13 @@ JSB.newAddon = function(mainPath){
       }
     },
 
-    openLiteratureLibrary: function() {
-      MNUtil.showHUD("打开文献数据库")
-      self.closeMenu()
+    /**
+     * 打开文献数据库界面
+     * 参考：mnknowledgebase/main.js 的 openSearchWebView
+     */
+    openLiteratureLibrary: async function(button) {
+      // 暂时回退为提示，避免新 Web 控制器初始化失败导致崩溃
+      MNUtil.showHUD("文献库界面暂未加载，已回退旧版，请稍后重试")
     },
 
     testAI: function() {
@@ -377,7 +396,13 @@ JSB.newAddon = function(mainPath){
     // 关闭菜单
     if (this.menuPopoverController) {
       this.menuPopoverController.dismissPopoverAnimated(true);
+      this.menuPopoverController = undefined;
     }
+  }
+
+  // checkPopover 作为 closeMenu 的别名，与 mnknowledgebase 保持一致
+  MNLiteratureClass.prototype.checkPopover = function() {
+    this.closeMenu();
   }
 
   MNLiteratureClass.prototype.tableItem = function (title, selector, param = "", checked = false) {
@@ -424,4 +449,3 @@ JSB.newAddon = function(mainPath){
   // 返回定义的插件类，MarginNote 会自动实例化这个类
   return MNLiteratureClass;
 };
-

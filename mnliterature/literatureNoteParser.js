@@ -195,5 +195,133 @@ class literatureSeriesParser {
  * 关键词解析
  */
 class literatureKeywordsParser {
-  
+
+}
+
+/**
+ * 封面解析器
+ * 用于从文献笔记中提取第一个 mergedImageComment 作为封面
+ */
+class literatureCoverParser {
+  /**
+   * 从笔记中解析封面
+   * @param {MbBookNote} note - MarginNote 笔记对象
+   * @returns {Object|null} 封面对象 {hash, base64, width, height} 或 null
+   */
+  static parseCover(note) {
+    if (!note || !note.comments || note.comments.length === 0) {
+      return null;
+    }
+
+    try {
+      // 查找第一个 mergedImageComment
+      const coverComment = this.getCoverFromComments(note.comments);
+
+      if (!coverComment) {
+        return null;
+      }
+
+      // 构建封面对象
+      return this.buildCoverObject(coverComment);
+
+    } catch (error) {
+      MNUtil.log(`[literatureCoverParser] 解析封面失败: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * 从评论列表中查找第一个 mergedImageComment
+   * @param {Array} comments - 评论数组
+   * @returns {Object|null} 第一个 mergedImageComment 或 null
+   */
+  static getCoverFromComments(comments) {
+    for (const comment of comments) {
+      // 检查是否为 LinkNote 类型（mergedImageComment 的基础类型）
+      if (comment.type !== "LinkNote") {
+        continue;
+      }
+
+      // 检查是否包含图片信息
+      if (!comment.q_hpic || !comment.q_hpic.paint) {
+        continue;
+      }
+
+      // 使用 MNComment.getCommentType 获取细分类型
+      const commentType = MNComment.getCommentType(comment);
+
+      // 检查是否为 mergedImageComment 相关类型
+      if (commentType === "mergedImageComment" ||
+          commentType === "mergedImageCommentWithDrawing") {
+        return comment;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * 从评论构建完整的封面对象
+   * @param {Object} comment - mergedImageComment 对象
+   * @returns {Object|null} 封面对象 {hash, base64, width, height}
+   */
+  static buildCoverObject(comment) {
+    try {
+      // 获取图片 hash
+      const imageHash = comment.q_hpic.paint;
+
+      if (!imageHash) {
+        return null;
+      }
+
+      // 通过 hash 获取图片数据
+      const imageData = MNUtil.getMediaByHash(imageHash);
+
+      if (!imageData) {
+        MNUtil.log(`[literatureCoverParser] 无法获取图片数据: ${imageHash}`);
+        return null;
+      }
+
+      // 获取图片尺寸
+      const image = UIImage.imageWithData(imageData);
+      const imageSize = image.size;
+
+      // 转换为 base64
+      const base64String = imageData.base64Encoding();
+
+      // 返回完整封面对象
+      return {
+        hash: imageHash,
+        base64: base64String,
+        width: imageSize.width,
+        height: imageSize.height
+      };
+
+    } catch (error) {
+      MNUtil.log(`[literatureCoverParser] 构建封面对象失败: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * 批量解析多个笔记的封面
+   * @param {Array<MbBookNote>} notes - 笔记数组
+   * @returns {Map} noteId -> cover 对象的映射
+   */
+  static parseBatchCovers(notes) {
+    const coverMap = new Map();
+
+    for (const note of notes) {
+      if (!note || !note.noteId) {
+        continue;
+      }
+
+      const cover = this.parseCover(note);
+      if (cover) {
+        coverMap.set(note.noteId, cover);
+      }
+    }
+
+    return coverMap;
+  }
 }

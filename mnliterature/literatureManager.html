@@ -246,6 +246,7 @@
       border-radius: 3px;
       outline: none;
       -webkit-appearance: none;
+      appearance: none;
     }
 
     .year-range-slider input[type="range"]::-webkit-slider-thumb {
@@ -492,6 +493,44 @@
       margin-top: 12px;
       padding-top: 12px;
       border-top: 1px solid #e6e9ef;
+    }
+
+    /* ========== 封面图片 ========== */
+    .card-cover-thumbnail {
+      max-width: 150px;
+      max-height: 200px;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      float: left;
+      margin-right: 16px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .card-cover-thumbnail:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-content-with-cover {
+      overflow: hidden; /* 清除浮动 */
+    }
+
+    .card-cover-full {
+      max-width: 100%;
+      max-height: 600px;
+      object-fit: contain;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      margin: 16px auto;
+      display: block;
+      cursor: zoom-in;
+    }
+
+    .card-cover-full:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
     }
 
     /* ========== 空状态 ========== */
@@ -2066,6 +2105,7 @@
       border-radius: 3px;
       outline: none;
       -webkit-appearance: none;
+      appearance: none;
     }
 
     .form-slider::-webkit-slider-thumb {
@@ -2626,6 +2666,9 @@
         }
       }
     };
+
+    // 为了兼容控制器代码，添加别名
+    window.LiteratureBridge = window.Bridge;
 
     // ==================== 工具函数 ====================
 
@@ -5132,18 +5175,28 @@
 
           <!-- 卡片头部 -->
           <div class="card-header">
-            <div class="card-type-badge" style="background: ${typeColor}">
-              ${typeName}
-            </div>
-            <div class="card-title">${highlightText(lit.title, state.searchQuery)}</div>
-            ${authorsDisplay ? `<div class="card-authors">${highlightText(authorsDisplay, state.searchQuery)}</div>` : ''}
+            ${lit.cover ? `
+              <img class="card-cover-thumbnail"
+                   src="data:image/jpeg;base64,${lit.cover.base64}"
+                   alt="封面"
+                   title="点击查看大图 (${lit.cover.width}×${lit.cover.height})"
+                   onclick="event.stopPropagation()">
+            ` : ''}
 
-            <div class="card-meta">
-              <span class="meta-item">${lit.year}</span>
-              ${lit.journal ? `
-                <span class="meta-divider"></span>
-                <span class="meta-item">${lit.journal.toTitleCase()}</span>
-              ` : ''}
+            <div class="card-content-with-cover">
+              <div class="card-type-badge" style="background: ${typeColor}">
+                ${typeName}
+              </div>
+              <div class="card-title">${highlightText(lit.title, state.searchQuery)}</div>
+              ${authorsDisplay ? `<div class="card-authors">${highlightText(authorsDisplay, state.searchQuery)}</div>` : ''}
+
+              <div class="card-meta">
+                <span class="meta-item">${lit.year}</span>
+                ${lit.journal ? `
+                  <span class="meta-divider"></span>
+                  <span class="meta-item">${lit.journal.toTitleCase()}</span>
+                ` : ''}
+              </div>
             </div>
           </div>
 
@@ -5158,6 +5211,16 @@
 
           <!-- 展开的详情 -->
           <div class="card-details">
+            ${lit.cover ? `
+              <div class="detail-section">
+                <div class="detail-label">封面</div>
+                <img class="card-cover-full"
+                     src="data:image/jpeg;base64,${lit.cover.base64}"
+                     alt="封面图片"
+                     title="尺寸: ${lit.cover.width}×${lit.cover.height}">
+              </div>
+            ` : ''}
+
             ${lit.abstract ? `
               <div class="detail-section">
                 <div class="detail-label">摘要</div>

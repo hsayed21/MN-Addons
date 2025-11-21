@@ -1,1016 +1,748 @@
-# MNLiterature OCR 和 AI 功能实现指南
+# MNLiterature 插件开发指南
 
-> 本文档记录了 MNLiterature 插件中 OCR 和 AI 功能的完整实现方案，包括调用其他插件和独立实现两种方式。
-> 遇到困难时，本文档只做参考，具体看 [MNAI](../mnai/mnchatglm) 和 [MNOCR](../mnocr/mnocr) 两个成熟插件的具体代码，以及参考 [MNToolbar](../mntoolbar/mntoolbar) 的 ocrAsProofTitle 功能代码。
-
-## 目录
-
-1. [快速开始](#快速开始)
-2. [核心概念](#核心概念)
-3. [方案一：调用其他插件](#方案一调用其他插件插件协作)
-4. [方案二：独立实现](#方案二独立实现完全自包含)
-5. [集成步骤](#集成步骤)
-6. [API 参考](#api-参考)
-7. [常见问题](#常见问题)
+> 本文档记录 MNLiterature 插件的核心技术实现，包括 HTML 加载机制和文献索引系统。
+> 基于 mnknowledgebase 的技术分析，为 mnliterature 提供开发参考。
 
 ---
 
-## 快速开始
+## 技术架构概览
 
-### 功能概述
+### 核心组件
 
-MNLiterature 将实现以下功能：
-- **OCR 识别**：将图片中的文字提取出来
-- **AI 处理**：对文本进行翻译、总结等智能处理
-- **插件协作**：与 MNOCR、MNAI 等插件协同工作
+1. **literatureWebController.js** - WebView 控制器
+   - 管理 HTML 界面的生命周期
+   - 实现 Native 和 JavaScript 的双向通信
+   - 处理窗口拖动、缩放等交互
 
-### 使用场景
+2. **literatureIndexer.js** - 文献索引系统
+   - 分片索引构建（支持大规模数据）
+   - 增量更新机制
+   - 文献数据的检索和过滤
 
-1. 选中包含文字的图片 → OCR 识别 → 设置为卡片标题
-2. 识别外文文献 → 自动翻译 → 生成中文笔记
-3. 截图公式 → 识别 LaTeX → 插入到笔记
-
----
-
-## 核心概念
-
-### 1. 网络请求基础
-
-#### 请求流程
-```
-准备数据 → 创建请求 → 发送请求 → 等待响应 → 处理结果
-```
-
-#### 关键对象
-- `NSMutableURLRequest` - 请求对象
-- `NSURLConnection` - 网络连接
-- `NSJSONSerialization` - JSON 处理
-
-### 2. 图片处理
-
-```javascript
-// 获取图片
-let imageData = MNUtil.getDocImage(true, true);  // 从文档获取
-let imageData = MNNote.getImageFromNote(note);   // 从卡片获取
-
-// 转换为 base64（AI 需要文本格式）
-const imageBase64 = imageData.base64EncodedStringWithOptions(0);
-```
-
-### 3. 异步处理
-
-```javascript
-// 使用 Promise 处理异步操作
-async function doOCR() {
-  const result = await sendRequest();  // 等待结果
-  return result;
-}
-
-// 使用 async/await 让代码更简洁
-```
+3. **literatureManager.html** - 管理界面
+   - 响应式布局
+   - 搜索和过滤功能
+   - 文献卡片展示
 
 ---
 
-## 方案一：调用其他插件（插件协作）
+## 第一部分：WebView 控制器实现
 
-### 实现文件：`literature_plugin_integration.js`
+### 1.1 基础架构
+
+WebView 控制器使用 JSB.defineClass 定义，继承自 UIViewController 并实现 UIWebViewDelegate 协议。
 
 ```javascript
-// literature_plugin_integration.js
-// 学习如何调用 MNOCR 和 MNAI 插件
-
-class LiteraturePluginIntegration {
-  
-  // ============ 调用 MNOCR 插件 ============
-  
-  /**
-   * 检查并调用 MNOCR 进行 OCR
-   * @param {NSData} imageData - 图片数据
-   * @returns {Promise<string>} OCR 结果文本
-   */
-  static async ocrWithPlugin(imageData) {
-    try {
-      // 检查 MNOCR 插件是否存在
-      if (typeof ocrNetwork === "undefined") {
-        MNUtil.showHUD("❌ 请先安装 MNOCR 插件");
-        return null;
-      }
-      
-      MNUtil.showHUD("使用 MNOCR 识别中...");
-      
-      // 调用 MNOCR 的 OCR 功能
-      // 参数说明：
-      // - imageData: 图片数据
-      // - source: OCR 源（"Doc2X", "SimpleTex", "GPT-4o" 等）
-      // - buffer: 是否缓存结果（true/false）
-      const ocrResult = await ocrNetwork.OCR(imageData, "GPT-4o", true);
-      
-      if (ocrResult) {
-        MNUtil.showHUD("✅ OCR 识别成功");
-        return ocrResult;
-      } else {
-        MNUtil.showHUD("❌ OCR 识别失败");
-        return null;
-      }
-      
-    } catch (error) {
-      MNUtil.showHUD("❌ 调用 MNOCR 失败: " + error.message);
-      return null;
+var literatureWebController = JSB.defineClass(
+  'literatureWebController : UIViewController <UIWebViewDelegate>',
+  {
+    // 生命周期方法
+    viewDidLoad: function() {
+      // 初始化 WebView
+      // 创建控制按钮
+      // 添加手势处理
+    },
+    
+    // WebView 代理方法
+    webViewShouldStartLoadWithRequestNavigationType: function(webView, request, type) {
+      // 拦截 URL Scheme，实现 JS → Native 通信
+    },
+    
+    webViewDidFinishLoad: function(webView) {
+      // HTML 加载完成后的处理
     }
   }
+)
+```
+
+### 1.2 窗口管理
+
+**窗口状态持久化**
+
+```javascript
+// 保存窗口位置和大小到 NSUserDefaults
+let frameData = {x: frame.x, y: frame.y, width: frame.width, height: frame.height}
+NSUserDefaults.standardUserDefaults().setObjectForKey(
+  JSON.stringify(frameData),
+  "Literature_WindowFrame"
+)
+
+// 恢复窗口位置
+let savedFrameStr = NSUserDefaults.standardUserDefaults().objectForKey("Literature_WindowFrame")
+let initialFrame = savedFrameStr ? JSON.parse(savedFrameStr) : defaultFrame
+```
+
+**Mini 模式支持**
+
+```javascript
+// 缩小为 mini 模式（拖动到边缘时触发）
+toMinimode: function(targetFrame, previousFrame) {
+  this.miniMode = true
+  this.lastFrame = previousFrame
   
-  /**
-   * 选择 OCR 源并识别
-   */
-  static async ocrWithSourceSelection() {
-    const focusNote = MNNote.getFocusNote();
-    if (!focusNote) {
-      MNUtil.showHUD("请先选择一个卡片");
-      return;
+  // 隐藏 WebView 和大部分按钮
+  this.webView.hidden = true
+  this.closeButton.hidden = true
+  this.resizeButton.hidden = true
+  
+  // 显示小图标按钮
+  this.moveButton.frame = targetFrame
+  this.moveButton.setTitle("📚", 0)
+}
+
+// 从 mini 模式恢复
+fromMinimode: function() {
+  // 恢复窗口大小
+  // 显示所有控件
+  // 刷新数据
+}
+```
+
+### 1.3 JSBridge 通信机制
+
+#### JS → Native（URL Scheme）
+
+**HTML 端发送消息**
+
+```javascript
+// 在 HTML 中定义 Bridge 对象
+window.LiteratureBridge = {
+  // 刷新数据
+  refreshData: function() {
+    window.location.href = 'mnliterature://refreshData'
+  },
+  
+  // 打开文献详情
+  openLiterature: function(litId) {
+    const encoded = encodeURIComponent(litId)
+    window.location.href = `mnliterature://openLiterature?id=${encoded}`
+  },
+  
+  // 发送日志
+  log: function(message) {
+    const encoded = encodeURIComponent(message)
+    window.location.href = `mnliterature://log?message=${encoded}`
+  }
+}
+```
+
+**Native 端拦截处理**
+
+```javascript
+webViewShouldStartLoadWithRequestNavigationType: function(webView, request, type) {
+  // 解析 URL
+  let config = MNUtil.parseURL(request)
+  // config = {scheme: "mnliterature", host: "refreshData", params: {...}}
+  
+  // 拦截自定义 scheme
+  if (config && config.scheme === "mnliterature") {
+    this.executeAction(config)
+    return false  // 阻止加载
+  }
+  
+  return true  // 允许加载正常 URL
+}
+
+// 动作执行器
+executeAction: async function(config) {
+  switch (config.host) {
+    case "refreshData":
+      await this.refreshAllData()
+      break
+    case "openLiterature":
+      await this.openLiterature(config.params.id)
+      break
+    case "log":
+      MNUtil.log("[HTML] " + decodeURIComponent(config.params.message))
+      break
+  }
+}
+```
+
+#### Native → JS（evaluateJavaScript）
+
+```javascript
+// 执行 JavaScript 代码
+runJavaScript: async function(script) {
+  // 检查 WebView 状态
+  if (!this.webView || !this.webView.window || !this.webViewLoaded) {
+    MNUtil.log("WebView 未就绪")
+    return undefined
+  }
+  
+  return new Promise((resolve) => {
+    this.webView.evaluateJavaScript(script, (result) => {
+      resolve(MNUtil.isNSNull(result) ? undefined : result)
+    })
+  })
+}
+
+// 加载数据到 HTML
+loadLiteratureData: async function(data) {
+  const script = `window.LiteratureBridge.loadData(${JSON.stringify(data)})`
+  await this.runJavaScript(script)
+}
+```
+
+---
+
+## 第二部分：文献索引系统
+
+### 2.1 索引数据结构
+
+```javascript
+// 索引清单（manifest）
+const manifest = {
+  metadata: {
+    version: "1.0",
+    totalEntries: 5000,      // 总条目数
+    totalParts: 5,           // 分片数量
+    updateTime: 1735123456,  // Unix 时间戳
+    lastUpdated: "2025-01-20T10:30:00Z"
+  },
+  parts: [
+    {
+      partNumber: 0,
+      filename: "lit-index-part-0.json",
+      entryCount: 1000,
+      sizeMB: 2.5
     }
+    // ... 更多分片
+  ]
+}
+
+// 索引分片（part）
+const part = {
+  partNumber: 0,
+  count: 1000,
+  data: [
+    // 文献条目数组
+  ]
+}
+
+// 文献条目（entry）
+const entry = {
+  id: "DOI:10.1234/xxxx",
+  type: "article",
+  title: "论文标题",
+  authors: ["作者1", "作者2"],
+  year: 2024,
+  journal: "期刊名",
+  searchText: "论文标题 作者1 作者2 2024 期刊名 ...",  // 用于搜索
+  noteId: "关联的卡片ID"
+}
+```
+
+### 2.2 分片索引构建
+
+**为什么需要分片？**
+
+- 单文件过大（>10MB）导致读取慢
+- 内存占用过高可能导致崩溃
+- JSON 解析耗时过长
+- 无法增量更新
+
+**核心流程**
+
+```javascript
+class LiteratureIndexer {
+  static async buildIndex(notes) {
+    const BATCH_SIZE = 500    // 批次大小
+    const PART_SIZE = 5000    // 分片大小
     
-    // 获取图片
-    let imageData = MNUtil.getDocImage(true, true);
-    if (!imageData) {
-      imageData = MNNote.getImageFromNote(focusNote);
-    }
+    let currentBatch = []
+    let tempFileCount = 0
     
-    if (!imageData) {
-      MNUtil.showHUD("未找到图片");
-      return;
-    }
-    
-    // OCR 源选项（与 MNOCR 保持一致）
-    const sources = [
-      { name: "Doc2X - 专业文档", value: "Doc2X" },
-      { name: "SimpleTex - 数学公式", value: "SimpleTex" },
-      { name: "GPT-4o - OpenAI", value: "GPT-4o" },
-      { name: "GLM-4V - 智谱AI", value: "glm-4v-flash" },
-      { name: "Claude 3.5", value: "claude-3-5-sonnet-20241022" }
-    ];
-    
-    const sourceNames = sources.map(s => s.name);
-    const selected = await MNUtil.userSelect("选择 OCR 引擎", "", sourceNames);
-    
-    if (selected === 0) return;  // 用户取消
-    
-    const selectedSource = sources[selected - 1];
-    
-    // 调用 MNOCR
-    if (typeof ocrNetwork !== "undefined") {
-      const result = await ocrNetwork.OCR(imageData, selectedSource.value, true);
-      if (result) {
-        MNUtil.undoGrouping(() => {
-          focusNote.noteTitle = result;
-        });
-        MNUtil.showHUD("✅ 已设置为标题");
+    // 阶段1：流式处理，写入临时文件
+    for (let note of notes) {
+      const entry = this.buildIndexEntry(note)
+      if (entry) {
+        currentBatch.push(entry)
       }
+      
+      // 批次满了，写入临时文件
+      if (currentBatch.length >= BATCH_SIZE) {
+        const tempFile = `temp-${tempFileCount}.json`
+        MNUtil.writeJSON(tempFilePath, {data: currentBatch})
+        currentBatch = []  // 释放内存
+        tempFileCount++
+      }
+    }
+    
+    // 阶段2：合并临时文件到最终分片
+    await this.mergeTempFilesToParts(manifest)
+    
+    // 阶段3：清理临时文件
+    await this.cleanupTempFiles()
+    
+    return manifest
+  }
+}
+```
+
+### 2.3 增量更新
+
+```javascript
+class IncrementalIndexer {
+  // 添加文献到增量索引
+  static addToIndex(note) {
+    const entry = LiteratureIndexer.buildIndexEntry(note)
+    
+    const incrementalPath = MNUtil.dbFolder + "/data/lit-incremental-index.json"
+    let incrementalIndex = MNUtil.readJSON(incrementalPath) || {
+      metadata: {updateTime: 0, totalEntries: 0},
+      entries: []
+    }
+    
+    // 检查是否已存在
+    const existingIndex = incrementalIndex.entries.findIndex(e => e.id === entry.id)
+    if (existingIndex >= 0) {
+      incrementalIndex.entries[existingIndex] = entry  // 更新
     } else {
-      MNUtil.showHUD("请安装 MNOCR 插件");
-    }
-  }
-  
-  // ============ 调用 MNAI 插件 ============
-  
-  /**
-   * 通过 URL Scheme 调用 MNAI
-   * @param {string} text - 要处理的文本
-   * @param {string} action - 动作类型 (ask/vision/prompt)
-   */
-  static async callMNAIWithURLScheme(text, action = "ask") {
-    // MNAI 支持的 URL Scheme 格式：
-    // marginnote4app://addon/mnchatai?action=xxx&user=xxx&prompt=xxx
-    
-    const encodedText = encodeURIComponent(text);
-    
-    // 不同的调用方式
-    switch (action) {
-      case "ask":
-        // 直接提问
-        const askUrl = `marginnote4app://addon/mnchatai?action=ask&user=${encodedText}`;
-        MNUtil.openURL(askUrl);
-        break;
-        
-      case "vision":
-        // 视觉识别模式
-        const visionUrl = `marginnote4app://addon/mnchatai?action=ask&user=${encodedText}&mode=vision`;
-        MNUtil.openURL(visionUrl);
-        break;
-        
-      case "prompt":
-        // 执行特定 prompt
-        const promptName = "翻译成中文";  // MNAI 中预设的 prompt 名称
-        const promptUrl = `marginnote4app://addon/mnchatai?action=executeprompt&prompt=${encodeURIComponent(promptName)}&user=${encodedText}`;
-        MNUtil.openURL(promptUrl);
-        break;
+      incrementalIndex.entries.push(entry)  // 新增
     }
     
-    MNUtil.showHUD("已发送到 MNAI 处理");
+    incrementalIndex.metadata.updateTime = Date.now()
+    MNUtil.writeJSON(incrementalPath, incrementalIndex)
   }
   
-  /**
-   * 通过事件通知调用 MNAI（更高级）
-   */
-  static async callMNAIWithNotification(text, promptKey) {
-    // 发送广播通知，MNAI 会监听这个事件
-    MNUtil.postNotification("AddonBroadcast", {
-      message: `mnchatai?action=ask&user=${encodeURIComponent(text)}`
-    });
+  // 从增量索引删除
+  static removeFromIndex(entryId) {
+    const incrementalPath = MNUtil.dbFolder + "/data/lit-incremental-index.json"
+    let incrementalIndex = MNUtil.readJSON(incrementalPath)
     
-    MNUtil.showHUD("已通过事件发送到 MNAI");
-  }
-  
-  /**
-   * 完整流程：OCR + AI 处理
-   */
-  static async ocrThenAI() {
-    try {
-      // 获取卡片和图片
-      const focusNote = MNNote.getFocusNote();
-      if (!focusNote) {
-        MNUtil.showHUD("请先选择一个卡片");
-        return;
-      }
-      
-      let imageData = MNUtil.getDocImage(true, true);
-      if (!imageData) {
-        imageData = MNNote.getImageFromNote(focusNote);
-      }
-      
-      if (!imageData) {
-        MNUtil.showHUD("未找到图片");
-        return;
-      }
-      
-      // 步骤1：使用 MNOCR 识别
-      if (typeof ocrNetwork === "undefined") {
-        MNUtil.showHUD("请安装 MNOCR 插件");
-        return;
-      }
-      
-      MNUtil.showHUD("正在识别文字...");
-      const ocrText = await ocrNetwork.OCR(imageData, "GPT-4o", true);
-      
-      if (!ocrText) {
-        MNUtil.showHUD("OCR 识别失败");
-        return;
-      }
-      
-      // 步骤2：选择 AI 处理方式
-      const actions = [
-        "直接使用 OCR 结果",
-        "翻译成中文",
-        "总结要点",
-        "解释内容"
-      ];
-      
-      const selected = await MNUtil.userSelect("选择处理方式", ocrText.substring(0, 50) + "...", actions);
-      
-      switch (selected) {
-        case 0:  // 取消
-          return;
-          
-        case 1:  // 直接使用
-          MNUtil.undoGrouping(() => {
-            focusNote.noteTitle = ocrText;
-          });
-          MNUtil.showHUD("✅ 已设置为标题");
-          break;
-          
-        case 2:  // 翻译
-          this.callMNAIWithURLScheme(ocrText, "prompt");
-          break;
-          
-        case 3:  // 总结
-        case 4:  // 解释
-          this.callMNAIWithURLScheme(ocrText, "ask");
-          break;
-      }
-      
-    } catch (error) {
-      MNUtil.showHUD("❌ 处理失败: " + error.message);
+    if (incrementalIndex) {
+      incrementalIndex.entries = incrementalIndex.entries.filter(e => e.id !== entryId)
+      MNUtil.writeJSON(incrementalPath, incrementalIndex)
     }
   }
-}
-
-// 导出供其他文件使用
-if (typeof module !== 'undefined') {
-  module.exports = LiteraturePluginIntegration;
 }
 ```
 
 ---
 
-## 方案二：独立实现（完全自包含）
+## 第三部分：HTML 界面实现
 
-### 实现文件：`literature_standalone_ocr.js`
+### 3.1 CSS 架构
+
+```css
+/* CSS 变量系统 */
+:root {
+  --bg: #f7f8fb;
+  --card-bg: #fff;
+  --accent: #2b7cff;
+  --topbar-height: 64px;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* 固定顶部搜索栏 */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 130;
+  backdrop-filter: blur(6px);
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.9));
+  padding: 14px 20px;
+}
+
+/* 响应式网格布局 */
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 16px;
+  margin-top: var(--topbar-height);
+}
+
+/* 卡片样式 */
+.result-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.result-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+```
+
+### 3.2 JavaScript Bridge
 
 ```javascript
-// literature_standalone_ocr.js
-// 学习如何独立实现网络请求
+// 全局状态
+const state = {
+  allLiterature: [],      // 所有文献
+  filteredResults: [],    // 过滤后的结果
+  searchKeywords: '',     // 搜索关键词
+  selectedTypes: []       // 选中的类型
+}
 
-class LiteratureStandaloneOCR {
-  
-  // ============ 核心网络请求封装 ============
-  
-  /**
-   * 创建网络请求
-   * @param {string} url - 请求地址
-   * @param {Object} options - 请求选项
-   * @returns {NSMutableURLRequest} 请求对象
-   */
-  static createRequest(url, options = {}) {
-    const request = NSMutableURLRequest.requestWithURL(NSURL.URLWithString(url));
+// Bridge 对象
+window.LiteratureBridge = {
+  // 接收索引数据
+  loadData: function(indexData) {
+    console.log('收到索引数据', indexData)
+    state.allLiterature = indexData.entries || []
+    state.metadata = indexData.metadata || {}
     
-    // 设置请求方法（GET/POST）
-    request.setHTTPMethod(options.method || "POST");
-    
-    // 设置超时时间
-    request.setTimeoutInterval(options.timeout || 30);
-    
-    // 设置请求头
-    const headers = {
-      "Content-Type": "application/json",
-      "User-Agent": "MarginNote/4.0",
-      ...options.headers  // 合并自定义请求头
-    };
-    request.setAllHTTPHeaderFields(headers);
-    
-    // 设置请求体
-    if (options.body) {
-      const jsonData = NSJSONSerialization.dataWithJSONObjectOptions(options.body, 0);
-      request.setHTTPBody(jsonData);
-    }
-    
-    return request;
-  }
+    // 更新界面
+    renderResults(state.allLiterature)
+  },
   
-  /**
-   * 发送请求并获取响应
-   * @param {NSMutableURLRequest} request - 请求对象
-   * @returns {Promise<Object>} 响应数据
-   */
-  static async sendRequest(request) {
-    return new Promise((resolve, reject) => {
-      NSURLConnection.sendAsynchronousRequestQueueCompletionHandler(
-        request,
-        NSOperationQueue.mainQueue(),
-        (response, data, error) => {
-          // 错误处理
-          if (error && error.localizedDescription) {
-            reject(new Error(error.localizedDescription));
-            return;
-          }
-          
-          // 解析响应
-          try {
-            const result = NSJSONSerialization.JSONObjectWithDataOptions(data, 0);
-            resolve(result);
-          } catch (parseError) {
-            reject(new Error("解析响应失败"));
-          }
-        }
-      );
-    });
-  }
+  // 更新搜索结果
+  updateResults: function(results) {
+    renderResults(results)
+  },
   
-  // ============ OCR 实现 ============
-  
-  /**
-   * 使用免费 API 的 OCR
-   * @param {NSData} imageData - 图片数据
-   * @returns {Promise<string>} OCR 结果
-   */
-  static async freeOCR(imageData) {
-    try {
-      MNUtil.waitHUD("正在识别文字...");
-      
-      // 免费 API 配置（来自 mnutils）
-      const apiKey = 'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44';
-      const url = 'https://sub.flynotes.cn/v1/chat/completions';
-      
-      // 将图片转换为 base64
-      const imageBase64 = imageData.base64EncodedStringWithOptions(0);
-      
-      // 构建请求
-      const request = this.createRequest(url, {
-        method: "POST",
-        timeout: 60,
-        headers: {
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: {
-          model: "glm-4v-flash",
-          messages: [{
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "请识别并输出图片中的所有文字，保持原始格式和换行"
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/png;base64,${imageBase64}`
-                }
-              }
-            ]
-          }],
-          temperature: 0.3,
-          max_tokens: 2000
-        }
-      });
-      
-      // 发送请求
-      const response = await this.sendRequest(request);
-      
-      MNUtil.stopHUD();
-      
-      // 提取结果
-      if (response && response.choices && response.choices[0]) {
-        const text = response.choices[0].message.content;
-        return this.cleanOCRText(text);
-      }
-      
-      return null;
-      
-    } catch (error) {
-      MNUtil.stopHUD();
-      throw error;
-    }
-  }
-  
-  /**
-   * 使用付费 API（需要用户自己的 key）
-   * @param {NSData} imageData - 图片数据
-   * @param {string} apiKey - API Key
-   * @param {string} model - 模型名称
-   * @returns {Promise<string>} OCR 结果
-   */
-  static async paidOCR(imageData, apiKey, model = "gpt-4-vision-preview") {
-    try {
-      MNUtil.waitHUD(`使用 ${model} 识别中...`);
-      
-      // OpenAI API 配置
-      const url = 'https://api.openai.com/v1/chat/completions';
-      
-      const imageBase64 = imageData.base64EncodedStringWithOptions(0);
-      
-      const request = this.createRequest(url, {
-        method: "POST",
-        timeout: 60,
-        headers: {
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: {
-          model: model,
-          messages: [{
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Extract all text from this image, maintaining the original format."
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${imageBase64}`,
-                  detail: "high"  // 高精度识别
-                }
-              }
-            ]
-          }],
-          max_tokens: 4096
-        }
-      });
-      
-      const response = await this.sendRequest(request);
-      
-      MNUtil.stopHUD();
-      
-      if (response && response.choices && response.choices[0]) {
-        return response.choices[0].message.content;
-      }
-      
-      return null;
-      
-    } catch (error) {
-      MNUtil.stopHUD();
-      throw error;
-    }
-  }
-  
-  // ============ AI 处理 ============
-  
-  /**
-   * AI 文本处理（翻译、总结等）
-   * @param {string} text - 要处理的文本
-   * @param {string} instruction - 处理指令
-   * @returns {Promise<string>} 处理结果
-   */
-  static async processTextWithAI(text, instruction) {
-    try {
-      MNUtil.waitHUD("AI 处理中...");
-      
-      const apiKey = 'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44';
-      const url = 'https://sub.flynotes.cn/v1/chat/completions';
-      
-      const request = this.createRequest(url, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: {
-          model: "glm-4v-flash",
-          messages: [
-            {
-              role: "system",
-              content: instruction  // 例如："请将以下内容翻译成中文"
-            },
-            {
-              role: "user",
-              content: text
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 2000
-        }
-      });
-      
-      const response = await this.sendRequest(request);
-      
-      MNUtil.stopHUD();
-      
-      if (response && response.choices && response.choices[0]) {
-        return response.choices[0].message.content;
-      }
-      
-      return null;
-      
-    } catch (error) {
-      MNUtil.stopHUD();
-      throw error;
-    }
-  }
-  
-  // ============ 工具函数 ============
-  
-  /**
-   * 清理 OCR 文本
-   * @param {string} text - 原始文本
-   * @returns {string} 清理后的文本
-   */
-  static cleanOCRText(text) {
-    return text
-      .replace(/```/g, '')           // 去掉代码块标记
-      .replace(/\$\$\s*/g, '')        // 去掉数学公式标记
-      .replace(/\s*\$\$/g, '')
-      .replace(/\\\[/g, '')           // 去掉 LaTeX 标记
-      .replace(/\\\]/g, '')
-      .trim();
-  }
-  
-  /**
-   * 获取 API Key
-   * @returns {string} API Key
-   */
-  static getAPIKey() {
-    // 从 mnutils 获取统一的 API Key
-    if (typeof subscriptionConfig !== 'undefined' && subscriptionConfig.APIKey) {
-      return subscriptionConfig.APIKey;
-    }
-    
-    // 从本地存储获取
-    const savedKey = NSUserDefaults.standardUserDefaults().objectForKey("LiteratureAPIKey");
-    return savedKey;
-  }
-  
-  /**
-   * 设置 API Key
-   * @returns {Promise<string>} 设置的 API Key
-   */
-  static async setAPIKey() {
-    const key = await MNUtil.input("设置 API Key", "请输入你的 API Key");
-    if (key) {
-      NSUserDefaults.standardUserDefaults().setObjectForKey(key, "LiteratureAPIKey");
-      MNUtil.showHUD("✅ API Key 已保存");
-      return key;
-    }
-    return null;
-  }
-  
-  // ============ 完整功能示例 ============
-  
-  /**
-   * 完整的 OCR 到标题功能
-   */
-  static async ocrToTitle() {
-    try {
-      // 获取卡片
-      const focusNote = MNNote.getFocusNote();
-      if (!focusNote) {
-        MNUtil.showHUD("请先选择一个卡片");
-        return;
-      }
-      
-      // 获取图片
-      let imageData = MNUtil.getDocImage(true, true);
-      if (!imageData) {
-        imageData = MNNote.getImageFromNote(focusNote);
-      }
-      
-      if (!imageData) {
-        MNUtil.showHUD("未找到图片");
-        return;
-      }
-      
-      // 执行 OCR
-      const ocrText = await this.freeOCR(imageData);
-      
-      if (ocrText) {
-        MNUtil.undoGrouping(() => {
-          focusNote.noteTitle = ocrText;
-        });
-        MNUtil.showHUD("✅ 已设置为标题");
-      } else {
-        MNUtil.showHUD("❌ OCR 失败");
-      }
-      
-    } catch (error) {
-      MNUtil.showHUD("❌ 错误: " + error.message);
-    }
-  }
-  
-  /**
-   * OCR + AI 处理
-   */
-  static async ocrAndTranslate() {
-    try {
-      const focusNote = MNNote.getFocusNote();
-      if (!focusNote) {
-        MNUtil.showHUD("请先选择一个卡片");
-        return;
-      }
-      
-      let imageData = MNUtil.getDocImage(true, true);
-      if (!imageData) {
-        imageData = MNNote.getImageFromNote(focusNote);
-      }
-      
-      if (!imageData) {
-        MNUtil.showHUD("未找到图片");
-        return;
-      }
-      
-      // 步骤1：OCR
-      const ocrText = await this.freeOCR(imageData);
-      if (!ocrText) {
-        MNUtil.showHUD("OCR 失败");
-        return;
-      }
-      
-      // 步骤2：选择处理方式
-      const actions = [
-        "原文",
-        "翻译成中文",
-        "翻译成英文",
-        "总结要点",
-        "简化解释"
-      ];
-      
-      const selected = await MNUtil.userSelect("选择处理方式", ocrText.substring(0, 50) + "...", actions);
-      
-      let finalText = ocrText;
-      
-      switch (selected) {
-        case 0:  // 取消
-          return;
-        case 1:  // 原文
-          break;
-        case 2:  // 翻译中文
-          finalText = await this.processTextWithAI(ocrText, "请将以下内容翻译成中文，保持专业术语准确");
-          break;
-        case 3:  // 翻译英文
-          finalText = await this.processTextWithAI(ocrText, "Please translate the following into English");
-          break;
-        case 4:  // 总结
-          finalText = await this.processTextWithAI(ocrText, "请用3-5句话总结以下内容的要点");
-          break;
-        case 5:  // 解释
-          finalText = await this.processTextWithAI(ocrText, "请用简单易懂的语言解释以下内容");
-          break;
-      }
-      
-      if (finalText) {
-        MNUtil.undoGrouping(() => {
-          focusNote.noteTitle = finalText;
-        });
-        MNUtil.showHUD("✅ 处理完成");
-      }
-      
-    } catch (error) {
-      MNUtil.showHUD("❌ 错误: " + error.message);
-    }
-  }
-  
-  /**
-   * 批量 OCR 处理
-   */
-  static async batchOCR() {
-    const focusNotes = MNNote.getFocusNotes();
-    if (focusNotes.length === 0) {
-      MNUtil.showHUD("请选择要处理的卡片");
-      return;
-    }
-    
-    let successCount = 0;
-    
-    for (let i = 0; i < focusNotes.length; i++) {
-      const note = focusNotes[i];
-      const imageData = MNNote.getImageFromNote(note);
-      
-      if (imageData) {
-        try {
-          MNUtil.showHUD(`处理中 ${i+1}/${focusNotes.length}`);
-          const ocrText = await this.freeOCR(imageData);
-          
-          if (ocrText) {
-            MNUtil.undoGrouping(() => {
-              note.noteTitle = ocrText;
-            });
-            successCount++;
-          }
-        } catch (error) {
-          // 单个失败不影响其他
-        }
-      }
-    }
-    
-    MNUtil.showHUD(`✅ 完成 ${successCount}/${focusNotes.length}`);
+  // 日志
+  log: function(message) {
+    const encoded = encodeURIComponent(message)
+    window.location.href = `mnliterature://log?message=${encoded}`
   }
 }
 
-// 导出供其他文件使用
-if (typeof module !== 'undefined') {
-  module.exports = LiteratureStandaloneOCR;
+// 搜索功能
+function searchLiterature(keywords) {
+  const results = state.allLiterature.filter(lit => 
+    lit.searchText.toLowerCase().includes(keywords.toLowerCase())
+  )
+  
+  renderResults(results)
+}
+
+// 渲染结果
+function renderResults(literature) {
+  const container = document.getElementById('results')
+  container.innerHTML = literature.map(lit => `
+    <div class="result-card" onclick="handleLiteratureClick('${lit.id}')">
+      <h3>${lit.title}</h3>
+      <p class="authors">${lit.authors.join(', ')}</p>
+      <p class="meta">${lit.year} · ${lit.journal}</p>
+    </div>
+  `).join('')
+}
+
+// 点击事件
+function handleLiteratureClick(litId) {
+  const encoded = encodeURIComponent(litId)
+  window.location.href = `mnliterature://openLiterature?id=${encoded}`
 }
 ```
 
 ---
 
-## 集成步骤
+## 第四部分：关键注意事项
 
-### 1. 在主文件中添加模块加载
+### 4.1 常见错误
 
 ```javascript
-// 在 mnliterature 主文件开头
-JSB.require('literature_plugin_integration');
-JSB.require('literature_standalone_ocr');
+// ❌ 错误1：忘记检查 WebView 状态
+this.webView.evaluateJavaScript(script)
+
+// ✅ 正确
+if (this.webView && this.webView.window && this.webViewLoaded) {
+  this.webView.evaluateJavaScript(script)
+}
+
+// ❌ 错误2：URL 参数未编码
+window.location.href = `mnliterature://action?text=${text}`
+
+// ✅ 正确
+window.location.href = `mnliterature://action?text=${encodeURIComponent(text)}`
+
+// ❌ 错误3：一次性加载大量数据
+const allData = loadAllLiterature()  // 可能导致内存爆炸
+sendToWebView(allData)
+
+// ✅ 正确：分片加载
+const manifest = loadManifest()
+for (const part of manifest.parts) {
+  const partData = loadPart(part.filename)
+  await sendToWebView(partData)
+  await MNUtil.delay(0.1)
+}
 ```
 
-### 2. 添加事件监听
+### 4.2 性能优化
+
+1. **批量处理**：每 500 条记录写入一次临时文件
+2. **异步处理**：使用 async/await，定期 delay 让出控制权
+3. **内存管理**：及时释放不用的数组和对象
+4. **缓存策略**：文件缓存（持久化）+ 内存缓存（5分钟）
+
+### 4.3 文件编码
+
+**必须使用 UTF-8 编码**
+
+```bash
+# 检查文件编码
+file -I filename.md
+
+# 应该显示：charset=utf-8
+# 如果是其他编码，需要转换
+```
+
+---
+
+## 第五部分：开发流程
+
+### 5.1 实现步骤
+
+1. **创建 literatureWebController.js**
+   - 定义控制器类
+   - 实现 WebView 生命周期
+   - 实现 JSBridge 通信
+   - 实现窗口管理
+
+2. **创建 literatureIndexer.js**
+   - 定义数据结构
+   - 实现分片构建
+   - 实现增量更新
+   - 实现文件操作
+
+3. **重构 literatureManager.html**
+   - 应用 CSS 架构
+   - 实现 Bridge 对象
+   - 实现搜索和过滤
+   - 实现卡片展示
+
+4. **集成到主插件**
+   - require 新模块
+   - 添加事件监听
+   - 添加菜单项
+
+5. **测试验证**
+   - 界面打开测试
+   - 通信测试
+   - 索引构建测试
+   - 数据加载测试
+
+### 5.2 待实现功能（TODO）
 
 ```javascript
-// 在 sceneWillConnect 中添加
-sceneWillConnect: function() {
-  // ... 原有代码 ...
-  
-  // 添加事件监听（用于插件间通信）
-  MNUtil.addObserver(self, "OCRFinished", "onOCRFinished:");
-  MNUtil.addObserver(self, "AddonBroadcast", "onAddonBroadcast:");
+// literatureIndexer.js 中的 TODO
+buildIndexEntry: function(note) {
+  // TODO: 从卡片中提取文献信息
+  // - 解析 BibTeX
+  // - 解析引文格式
+  // - 提取 DOI、作者、标题等
+  return null  // 暂时返回 null
 }
 
-// 处理 OCR 完成事件
-onOCRFinished: function(sender) {
-  const data = sender.userInfo;
-  if (data && data.result) {
-    MNUtil.showHUD("收到 OCR 结果: " + data.result.substring(0, 20) + "...");
-    // 可以在这里进一步处理
-  }
+extractLiteratureData: function(note) {
+  // TODO: 具体的数据提取逻辑
+  return null
 }
 
-// 处理插件间广播
-onAddonBroadcast: function(sender) {
-  const message = sender.userInfo.message;
-  if (message && message.includes("mnliterature")) {
-    // 处理发给自己的消息
-    const params = MNUtil.parseURL("marginnote4app://addon/" + message).params;
-    this.handleBroadcast(params);
-  }
-}
-```
-
-### 3. 添加用户界面
-
-```javascript
-// 添加菜单或按钮
-toggleAddon: function(button) {
-  const menu = [
-    { title: "📷 OCR 识别（调用插件）", selector: "ocrWithPlugin:" },
-    { title: "📷 OCR 识别（独立实现）", selector: "ocrStandalone:" },
-    { title: "🤖 OCR + AI 翻译", selector: "ocrAndTranslate:" },
-    { title: "📦 批量 OCR", selector: "batchOCR:" },
-    { title: "⚙️ 设置 API Key", selector: "setAPIKey:" }
-  ];
-  
-  MNUtil.showMenu(menu, button);
-}
-
-// 实现各个功能
-ocrWithPlugin: function() {
-  LiteraturePluginIntegration.ocrWithSourceSelection();
-}
-
-ocrStandalone: function() {
-  LiteratureStandaloneOCR.ocrToTitle();
-}
-
-ocrAndTranslate: function() {
-  LiteratureStandaloneOCR.ocrAndTranslate();
-}
-
-batchOCR: function() {
-  LiteratureStandaloneOCR.batchOCR();
-}
-
-setAPIKey: function() {
-  LiteratureStandaloneOCR.setAPIKey();
+// literatureWebController.js 中的 TODO
+refreshAllData: async function() {
+  // TODO: 加载文献数据
+  // - 读取索引文件
+  // - 读取增量索引
+  // - 合并数据
+  // - 发送到 WebView
 }
 ```
 
 ---
 
-## API 参考
+## 总结
 
-### MNUtils API
+本文档记录了基于 mnknowledgebase 的核心技术，为 mnliterature 提供了完整的技术架构参考。
 
-| 函数 | 说明 | 示例 |
-|------|------|------|
-| `MNUtil.getDocImage(x, y)` | 获取文档图片 | `MNUtil.getDocImage(true, true)` |
-| `MNNote.getImageFromNote(note)` | 从卡片获取图片 | `MNNote.getImageFromNote(focusNote)` |
-| `MNUtil.showHUD(msg)` | 显示提示 | `MNUtil.showHUD("处理中...")` |
-| `MNUtil.waitHUD(msg)` | 显示等待提示 | `MNUtil.waitHUD("加载中...")` |
-| `MNUtil.stopHUD()` | 停止等待提示 | `MNUtil.stopHUD()` |
-| `MNUtil.undoGrouping(fn)` | 支持撤销的操作 | `MNUtil.undoGrouping(() => {...})` |
-| `MNUtil.userSelect(title, msg, options)` | 用户选择 | `await MNUtil.userSelect(...)` |
-| `MNUtil.input(title, msg)` | 用户输入 | `await MNUtil.input(...)` |
+**核心技术点：**
+1. WebView 控制器 + JSBridge 双向通信
+2. 分片索引系统（降低内存使用）
+3. 增量更新机制（无需全量重建）
+4. 响应式 HTML 界面
 
-### MNOCR API
-
-| 函数 | 说明 | 参数 |
-|------|------|------|
-| `ocrNetwork.OCR(imageData, source, buffer)` | 执行 OCR | imageData: 图片数据<br>source: OCR 源<br>buffer: 是否缓存 |
-
-### MNAI URL Scheme
-
-| 动作 | URL 格式 | 说明 |
-|------|----------|------|
-| 提问 | `marginnote4app://addon/mnchatai?action=ask&user=xxx` | 直接提问 |
-| 视觉 | `marginnote4app://addon/mnchatai?action=ask&mode=vision&user=xxx` | 视觉识别 |
-| Prompt | `marginnote4app://addon/mnchatai?action=executeprompt&prompt=xxx&user=xxx` | 执行预设 |
-
-### 网络请求 API
-
-| 类/函数 | 说明 | 用法 |
-|---------|------|------|
-| `NSMutableURLRequest` | 创建请求 | `NSMutableURLRequest.requestWithURL(url)` |
-| `setHTTPMethod()` | 设置方法 | `request.setHTTPMethod("POST")` |
-| `setAllHTTPHeaderFields()` | 设置请求头 | `request.setAllHTTPHeaderFields(headers)` |
-| `setHTTPBody()` | 设置请求体 | `request.setHTTPBody(data)` |
-| `NSURLConnection` | 发送请求 | `NSURLConnection.sendAsynchronousRequestQueueCompletionHandler()` |
-| `NSJSONSerialization` | JSON 处理 | `NSJSONSerialization.dataWithJSONObjectOptions()` |
+**开发原则：**
+1. 严格使用 UTF-8 编码
+2. 优先使用 async/await
+3. 批量处理 + 及时释放内存
+4. 完善的错误处理
 
 ---
 
-## 常见问题
+## 第六部分：开发进度追踪
 
-### Q1: 为什么要把图片转换成 base64？
+### 6.1 已完成任务 ✅
 
-**答**：AI 接口只能接收文本数据，不能直接接收二进制图片文件。base64 是一种将二进制数据编码成文本的标准方法，就像把图片"翻译"成了 AI 能理解的文字。
+#### 核心文件创建（2025-11-21）
 
-### Q2: Promise 和 async/await 是什么？
+1. **literatureWebController.js** ✅
+   - 完整的 WebView 控制器实现
+   - 生命周期方法（viewDidLoad, viewWillLayoutSubviews, viewWillDisappear）
+   - JSBridge 通信机制（URL Scheme 拦截 + evaluateJavaScript）
+   - 窗口管理（show/hide 动画、Mini 模式、位置持久化）
+   - 手势处理（拖动、调整大小）
+   - 按钮系统（移动、关闭、调整大小）
 
-**答**：
-- **Promise**：表示一个异步操作的最终结果，就像一个"承诺"，说"我会在未来某个时候给你结果"
-- **async/await**：让异步代码看起来像同步代码的语法糖，使代码更易读
+2. **literatureIndexer.js** ✅
+   - 分片索引系统（BATCH_SIZE: 500, PART_SIZE: 5000）
+   - 三阶段构建流程（流式处理 → 合并分片 → 清理临时文件）
+   - 增量索引管理（IncrementalIndexer）
+   - 索引加载机制（清单 + 分片 + 增量合并）
+   - **注意**：buildIndexEntry() 和 extractLiteratureData() 标记为 TODO
 
-```javascript
-// 传统回调方式（复杂）
-sendRequest(function(result) {
-  processResult(result, function(processed) {
-    saveResult(processed);
-  });
-});
+3. **literatureManager.html** ✅
+   - 添加 Bridge 别名（line 2671）
+   ```javascript
+   window.LiteratureBridge = window.Bridge;
+   ```
 
-// 使用 async/await（简洁）
-async function doWork() {
-  const result = await sendRequest();
-  const processed = await processResult(result);
-  await saveResult(processed);
-}
-```
+4. **utils.js** ✅
+   - 添加 LiteratureUtils 类（lines 747-779）
+   - 实现 checkWebViewController() 单例模式
+   - 实现 addErrorLog() 错误处理
+   - 参考 mnknowledgebase/utils.js:18796-18808
 
-### Q3: 如何处理网络请求错误？
+5. **main.js** ⚠️ 部分完成
+   - ✅ 添加模块加载（lines 19-24）
+     ```javascript
+     JSB.require('literatureWebController');
+     JSB.require('literatureIndexer');
+     ```
+   - ✅ 添加插件实例引用（lines 49-53）
+     ```javascript
+     if (typeof MNLiteratureInstance === 'undefined') {
+       global.MNLiteratureInstance = self
+     }
+     ```
 
-**答**：使用 try/catch 捕获错误：
+### 6.2 已完成任务 - main.js 接口补充 ✅（2025-11-21）
 
-```javascript
-try {
-  const result = await sendRequest();
-  // 处理结果
-} catch (error) {
-  MNUtil.showHUD("错误: " + error.message);
-  // 记录错误日志
-  if (typeof MNUtil.log !== 'undefined') {
-    MNUtil.log("OCR Error: " + error);
-  }
-}
-```
+#### main.js 接口补充已完成
 
-### Q4: 如何调试网络请求？
+1. **queryAddonCommandStatus 方法** ✅
+   - 已修改为使用 `LiteratureUtils.checkWebViewController()`
+   - 实现延迟初始化模式（避免 sceneWillConnect 中初始化导致崩溃）
+   - 复习模式下自动隐藏控制器
 
-**答**：
-1. 使用 `MNUtil.copyJSON()` 查看请求和响应数据
-2. 使用 `MNUtil.log()` 记录关键步骤
-3. 使用 `MNUtil.showHUD()` 显示当前状态
+2. **openLiteratureLibrary 方法** ✅
+   - 完整实现打开文献数据库界面的逻辑
+   - 支持 HTML 缓存检测，避免重复加载
+   - 支持动画状态检测，防止冲突
+   - 参考 mnknowledgebase 的 openSearchWebView 实现
 
-```javascript
-// 调试示例
-const request = createRequest(url, options);
-MNUtil.copyJSON(options.body);  // 复制请求数据到剪贴板
-MNUtil.log("Sending request to: " + url);
+3. **checkPopover 方法** ✅
+   - 作为 closeMenu 的别名添加
+   - 与 mnknowledgebase 保持一致
+   - 同时更新 closeMenu 方法，关闭后清空 menuPopoverController
 
-const response = await sendRequest(request);
-MNUtil.copyJSON(response);  // 复制响应数据
-MNUtil.log("Response received");
-```
+#### 架构核查完成 ✅
 
-### Q5: OCR 结果不准确怎么办？
+**统一使用新的控制器系统**：
+- ❌ 旧系统：`literatureUtils.checkLiteratureController()` → `literatureController`
+- ✅ 新系统：`LiteratureUtils.checkWebViewController()` → `literatureWebController`
 
-**答**：
-1. 确保图片清晰，分辨率足够
-2. 尝试不同的 OCR 源（Doc2X 适合文档，SimpleTex 适合公式）
-3. 调整 prompt，让 AI 更准确理解需求
-4. 使用高精度模式（`detail: "high"`）
+**已验证的一致性**：
+- 延迟初始化模式（在 queryAddonCommandStatus 中初始化，而非 sceneWillConnect）
+- 窗口位置保存/恢复机制（NSUserDefaults）
+- HTML 缓存检测（currentHTMLType + webViewLoaded）
+- show/hide 动画处理
+- Mini 模式支持
 
-### Q6: 如何优化 OCR 速度？
+### 6.3 遗留问题 ⚠️
 
-**答**：
-1. 使用缓存（`buffer: true`）避免重复识别
-2. 选择合适的模型（glm-4v-flash 速度快）
-3. 限制图片大小，压缩后再发送
-4. 批量处理时使用队列，避免并发过多
+#### 旧控制器系统待清理
 
-### Q7: API Key 安全性？
+`literatureUtils.checkLiteratureController()` 及相关方法已不再使用，但代码仍保留在 utils.js 中。
+建议后续清理以下内容：
+- `literatureUtils.checkLiteratureController()`
+- `literatureUtils.literatureController`
+- `literatureUtils.setFrame()`
+- `literatureUtils.ensureView()`
 
-**答**：
-1. 不要把 API Key 硬编码在代码中
-2. 使用 `NSUserDefaults` 安全存储
-3. 考虑使用代理服务器中转请求
-4. 定期更换 API Key
+**注意**：当前 openSetting 方法仍使用旧的 literatureController，如需保留设置面板功能，需要单独处理。
+
+### 6.4 后续开发计划 📋
+
+#### Phase 1: 数据提取（核心功能）
+
+实现 literatureIndexer.js 中的 TODO：
+
+1. **buildIndexEntry(note, mode)**
+   - 解析 BibTeX 格式
+   - 解析引文格式（APA, MLA 等）
+   - 提取 DOI, PMID 等标识符
+   - 提取作者、标题、年份、期刊等字段
+   - 构建搜索文本（searchText）
+
+2. **extractLiteratureData(note)**
+   - 从卡片标题提取文献信息
+   - 从卡片评论中查找结构化数据
+   - 识别文献类型（article, book, conference）
+   - 提取摘要、关键词、DOI 等
+
+#### Phase 2: HTML 界面增强
+
+1. **搜索功能**
+   - 实时搜索
+   - 高级过滤（作者、年份、期刊）
+   - 搜索历史
+
+2. **数据展示**
+   - 卡片式布局
+   - 列表式布局切换
+   - 排序功能（时间、相关度）
+
+3. **交互功能**
+   - 点击打开文献详情
+   - 导出功能（BibTeX, RIS）
+   - 批量操作
+
+#### Phase 3: 性能优化
+
+1. **缓存机制**
+   - 内存缓存（5分钟过期）
+   - 文件缓存（持久化）
+   - 增量更新策略
+
+2. **异步加载**
+   - 分片按需加载
+   - 虚拟滚动
+   - 懒加载图片
+
+### 6.5 已知问题 ⚠️
+
+1. **编码问题已修复** ✅
+   - 问题：CLAUDE.md 初次创建时中文乱码
+   - 原因：文件编码为 binary 而非 UTF-8
+   - 解决：使用 bash heredoc 重新创建，确保 UTF-8 编码
+   - 验证：`file -I CLAUDE.md` 显示 `charset=utf-8`
+
+2. **main.js 接口缺失** ✅ 已修复
+   - 问题：没有打开 HTML 的入口
+   - 影响：用户无法使用文献数据库功能
+   - 解决：已实现 openLiteratureLibrary 方法，参考 mnkb 的 openSearchWebView
+
+### 6.6 技术债务 📝
+
+1. **文献解析库**
+   - 需要引入或实现 BibTeX 解析器
+   - 需要引入或实现 Citation Parser
+   - 考虑使用正则表达式 vs 第三方库
+
+2. **测试覆盖**
+   - 需要添加单元测试
+   - 需要添加集成测试
+   - 需要性能测试（大数据量场景）
+
+3. **文档完善**
+   - API 文档
+   - 用户使用手册
+   - 开发者贡献指南
 
 ---
 
-## 下一步计划
-
-1. **功能扩展**
-   - 添加更多 OCR 源支持
-   - 实现自定义 prompt 管理
-   - 添加历史记录功能
-
-2. **性能优化**
-   - 实现请求队列管理
-   - 添加本地缓存机制
-   - 优化图片压缩算法
-
-3. **用户体验**
-   - 添加进度条显示
-   - 实现拖拽操作
-   - 支持快捷键
-
-4. **插件协作**
-   - 与更多插件集成
-   - 实现数据共享机制
-   - 建立统一的通信协议
-
----
-
-## 更新日志
-
-### 2025-01-12
-- 初始版本
-- 实现基础 OCR 功能
-- 添加 AI 处理能力
-- 支持插件间调用
-
----
-
-## 联系方式
-
-如有问题或建议，请通过以下方式联系：
-- GitHub Issues
-- MarginNote 论坛
-
----
-
-*本文档会持续更新，请关注最新版本*
+**文档更新时间**：2025-11-21
+**参考项目**：mnknowledgebase
+**应用项目**：mnliterature
+**当前状态**：框架搭建完成，等待 main.js 接口补充和验证
