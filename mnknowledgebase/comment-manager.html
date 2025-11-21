@@ -1505,11 +1505,11 @@
         }
       });
 
-      // 如果没有字段，所有评论属于"默认"字段
+      // 如果没有字段，所有评论属于"摘录"字段
       if (htmlCommentIndices.length === 0) {
         if (state.comments.length > 0) {
           const defaultField = {
-            name: '默认',
+            name: '摘录',
             index: -1,
             startIndex: 0,
             endIndex: state.comments.length - 1,
@@ -1523,14 +1523,14 @@
         return fields;
       }
 
-      // 处理第一个字段之前的评论，归入"默认"分组
+      // 处理第一个字段之前的评论，归入"摘录"分组
       if (htmlCommentIndices[0].index > 0) {
         const headComments = [];
         for (let j = 0; j < htmlCommentIndices[0].index; j++) {
           headComments.push(state.comments[j]);
         }
         const defaultField = {
-          name: '默认',
+          name: '摘录',
           index: -1,
           startIndex: 0,
           endIndex: htmlCommentIndices[0].index - 1,
@@ -2419,7 +2419,7 @@
       insertPoint.dataset.targetIndex = targetIndex;
 
       const positionHint = position ? ` (${position})` : '';
-      const fieldHint = fieldName !== '默认' ? `「${fieldName}」区${positionHint}` : positionHint;
+      const fieldHint = fieldName !== '摘录' ? `「${fieldName}」区${positionHint}` : positionHint;
 
       insertPoint.innerHTML = `
         <div class="insert-line">━━━ 移到这里 ━━━</div>
