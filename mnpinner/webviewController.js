@@ -1617,7 +1617,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       let itemId = param.itemId || param.noteId
       let { fromSection, toSection } = param
 
-      if (pinnerConfig.transferPin(itemId, fromSection, toSection)) {
+      let result = pinnerConfig.transferPin(itemId, fromSection, toSection)
+      // 兼容新旧返回值格式
+      let success = (typeof result === 'object') ? result.success : result
+
+      if (success) {
         // 刷新源分区视图
         self.refreshSectionCards(fromSection)
 
@@ -1709,7 +1713,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         pageIndex: pageIndex
       }
 
-      if (pinnerConfig.transferPin(pagePin, fromSection, toSection)) {
+      let result = pinnerConfig.transferPin(pagePin, fromSection, toSection)
+      // 兼容新旧返回值格式
+      let success = (typeof result === 'object') ? result.success : result
+
+      if (success) {
         // 刷新源分区视图（使用统一的刷新方法）
         self.refreshSectionCards(fromSection)
         MNUtil.showHUD(`已转移到${pinnerConfig.getSectionDisplayName(toSection)}`)
@@ -3086,9 +3094,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       // 获取当前分区
       let currentSection = self.currentSection
 
-      // ✅ 获取所有可用分区（添加默认值防止 undefined）
-      let currentViewMode = self.currentViewMode || "pin"
-      let allSections = SectionRegistry.getOrderedKeys(currentViewMode)
+      // ✅ 获取所有可用分区（跨所有视图模式）
+      let allSections = SectionRegistry.getOrderedKeys()
       
       // 构建分区选项列表（排除当前分区，但仍显示以灰色提示）
       let sectionOptions = []
@@ -3136,26 +3143,40 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       let affectedSections = new Set([currentSection, targetSection])
 
       MNUtil.undoGrouping(() => {
-        selectedCards.forEach(card => {
-          let success = pinnerConfig.transferPin(
+        selectedCards.forEach((card, index) => {
+          let result = pinnerConfig.transferPin(
             card.rawPin,
             card.section,
             targetSection
           )
 
+          // 兼容新旧返回值格式
+          let success = (typeof result === 'object') ? result.success : result
+
           if (success) {
             successCount++
           } else {
             failCount++
+            // 失败原因已在 transferPin 中记录到日志
+            // 这里可以添加额外的上下文信息
+            let pinDesc = card.rawPin.type === "card"
+              ? `第${index + 1}个 Card`
+              : `第${index + 1}个 Page`
+            pinnerUtils.addErrorLog(
+              `批量转移失败: ${pinDesc}, 原因: ${result.reason || '未知'}`,
+              "transferSelectedPins"
+            )
           }
         })
       })
 
-      // 显示结果
+      // 显示结果（只在全部成功时显示成功消息）
       if (failCount === 0) {
-        MNUtil.showHUD(`✅ 已转移 ${successCount} 个项目到 ${SectionRegistry.getDisplayName(targetSection)}`)
+        let targetName = SectionRegistry.getDisplayName(targetSection)
+        MNUtil.showHUD(`✅ 已转移到 ${targetName}`)
       } else {
-        MNUtil.showHUD(`⚠️ 成功 ${successCount} 个，失败 ${failCount} 个`)
+        // 有失败时提示失败数量，详细原因在日志中
+        MNUtil.showHUD(`⚠️ ${failCount} 个转移失败，详见日志`)
       }
 
       // 使用统一方法关闭多选模式（会自动清空选择、更新按钮、刷新视图）

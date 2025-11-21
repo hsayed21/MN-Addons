@@ -2632,12 +2632,15 @@ class pinnerConfig {
    * @param {Object|string} pinOrId - Pin 对象或 noteId（兼容旧版）
    * @param {string} fromSection - 源分区
    * @param {string} toSection - 目标分区
+   * @returns {Object} { success: boolean, reason: string } - 返回结果和失败原因
    */
   static transferPin(pinOrId, fromSection, toSection) {
     try {
+      // 验证分区有效性
       if (!this.sections[fromSection] || !this.sections[toSection]) {
-        pinnerUtils.addErrorLog("Invalid section", "pinnerConfig:transferPin")
-        return false
+        let reason = `无效的分区: fromSection=${fromSection}, toSection=${toSection}`
+        pinnerUtils.addErrorLog(reason, "pinnerConfig:transferPin")
+        return { success: false, reason: reason }
       }
 
       // 兼容旧版：如果传入的是字符串，视为 noteId（Card 类型）
@@ -2649,13 +2652,21 @@ class pinnerConfig {
       let fromPins = this.sections[fromSection]
       let toPins = this.sections[toSection]
 
+      // 检查源分区是否存在该 pin
       let index = this.findPinIndex(fromPins, pin)
-      if (index === -1) return false
+      if (index === -1) {
+        let pinDesc = pin.type === "card" ? `Card(${pin.noteId})` : `Page(${pin.docMd5}:${pin.pageIndex})`
+        let reason = `源分区 ${fromSection} 中未找到 ${pinDesc}`
+        pinnerUtils.addErrorLog(reason, "pinnerConfig:transferPin")
+        return { success: false, reason: reason }
+      }
 
       // 检查目标分区是否已存在
       if (this.findPinIndex(toPins, pin) !== -1) {
-        MNUtil.showHUD("目标分区已存在")
-        return false
+        let pinDesc = pin.type === "card" ? `Card(${pin.noteId})` : `Page(${pin.docMd5}:${pin.pageIndex})`
+        let reason = `目标分区 ${toSection} 已存在 ${pinDesc}`
+        pinnerUtils.addErrorLog(reason, "pinnerConfig:transferPin")
+        return { success: false, reason: reason }
       }
 
       // 执行转移（使用实际的 pin 对象）
@@ -2665,13 +2676,12 @@ class pinnerConfig {
 
       this.save()
 
-      let toSectionName = pinnerConfig.getSectionDisplayName(toSection)
-      MNUtil.showHUD(`已转移到 ${toSectionName}`)
-      return true
+      return { success: true, reason: null }
 
     } catch (error) {
+      let reason = `转移异常: ${error.message}`
       pinnerUtils.addErrorLog(error, "pinnerConfig:transferPin")
-      return false
+      return { success: false, reason: reason }
     }
   }
   
