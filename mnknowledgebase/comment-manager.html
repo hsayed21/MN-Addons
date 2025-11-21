@@ -346,6 +346,59 @@
       margin-top: 8px;
     }
 
+    /* 合并内容的图片缩略图（更大尺寸） */
+    .merged-thumbnail {
+      max-width: 100%;
+      max-height: 200px;
+      object-fit: contain;
+    }
+
+    .merged-image-preview {
+      text-align: center;
+    }
+
+    /* OCR 文本辅助区域 */
+    .ocr-text-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--border-color);
+    }
+
+    .ocr-text-label {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+
+    .ocr-text-content {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #64748b;
+      word-break: break-word;
+    }
+
+    .ocr-text-content.collapsed {
+      max-height: 40px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .ocr-text-content.collapsed::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 15px;
+      background: linear-gradient(to bottom, transparent, var(--card-bg));
+    }
+
+    .ocr-expand-btn {
+      font-size: 11px;
+      padding: 2px 8px;
+      margin-top: 4px;
+    }
+
     /* 链接目标 */
     .link-target {
       display: inline-flex;
@@ -1834,22 +1887,38 @@
     function createMergedCardContent(comment) {
       const typeInfo = getTypeInfo('mergedImageComment');
 
-      // 参考 mnsnipaste 的实现：优先显示文本，如果没有文本则显示图片
+      // 优先显示图片，图片下方可选显示 OCR 文本作为辅助信息
       let content = '';
-      if (comment.text) {
+
+      if (comment.imageBase64) {
+        // imageBase64 已经包含完整的 data URI 前缀（在 loadDataFromNative 中添加）
+        content = `
+          <div class="comment-preview merged-image-preview">
+            <img src="${comment.imageBase64}" class="thumbnail merged-thumbnail" alt="合并内容">
+          </div>
+        `;
+
+        // 如果同时有 OCR 文本，在图片下方显示作为辅助信息
+        if (comment.text) {
+          const needExpand = comment.text.length > 80;
+          content += `
+            <div class="ocr-text-section">
+              <div class="ocr-text-label">OCR 文本：</div>
+              <div class="ocr-text-content ${needExpand ? 'collapsed' : ''}">
+                ${escapeHtml(comment.text)}
+              </div>
+              ${needExpand ? '<button class="expand-btn ocr-expand-btn">展开</button>' : ''}
+            </div>
+          `;
+        }
+      } else if (comment.text) {
+        // 只有文本没有图片的情况
         const needExpand = comment.text.length > 100;
         content = `
           <div class="comment-preview ${needExpand ? 'collapsed' : ''}">
             ${escapeHtml(comment.text)}
           </div>
           ${needExpand ? '<button class="expand-btn">展开</button>' : ''}
-        `;
-      } else if (comment.imageBase64) {
-        const imageSrc = `data:image/jpeg;base64,${comment.imageBase64}`;
-        content = `
-          <div class="comment-preview">
-            <img src="${imageSrc}" class="thumbnail" alt="合并内容">
-          </div>
         `;
       } else {
         content = '<div class="comment-preview">（空内容）</div>';
@@ -1859,7 +1928,6 @@
         <div class="comment-header">
           <input type="checkbox" class="comment-checkbox">
           <span class="comment-icon">${typeInfo.icon}</span>
-          <span class="comment-index">${comment.index}</span>
           <span class="comment-type-label">${typeInfo.label}</span>
         </div>
         <div class="comment-content">
@@ -1895,7 +1963,7 @@
         'imageComment': { icon: '🖼️', label: '图片' },
         'linkComment': { icon: '🔗', label: '双向链接' },
         'linkToNote': { icon: '🔗', label: '链接笔记' },  // 新增
-        'mergedImageComment': { icon: '📦', label: '合并内容' },  // 新增
+        'mergedImageComment': { icon: '🖼️', label: '摘录' },  // 新增
         'drawingComment': { icon: '✍️', label: '手写' },
         'HtmlComment': { icon: '📄', label: 'HTML' },
         'audioComment': { icon: '🎵', label: '音频' },  // 新增
