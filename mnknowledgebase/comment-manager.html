@@ -702,6 +702,17 @@
       font-size: 15px;
       color: #1e293b;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .field-header:hover {
+      background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .field-header:active {
+      transform: scale(0.99);
     }
 
     .field-icon {
@@ -1183,7 +1194,6 @@
       manualSelectBtn: document.getElementById('manualSelectBtn'),
       rangeSelectBtn: document.getElementById('rangeSelectBtn'),
       autoNewBtn: document.getElementById('autoNewBtn'),
-      fieldSelectBtn: null, // 初始化后动态插入
       last1Btn: document.getElementById('last1Btn'),
       last2Btn: document.getElementById('last2Btn'),
 
@@ -1218,18 +1228,6 @@
       // 加载测试数据（后续替换为从 MN 读取）
       loadTestData();
 
-      // 动态插入“字段全选”按钮，放在选择方式组内
-      const selectGroup = document.querySelector('.sidebar .tool-group:first-of-type');
-      if (selectGroup) {
-        const fieldBtn = document.createElement('button');
-        fieldBtn.className = 'tool-btn';
-        fieldBtn.id = 'fieldSelectBtn';
-        fieldBtn.title = '选择某个字段下的所有评论';
-        fieldBtn.textContent = '📦 字段全选';
-        selectGroup.appendChild(fieldBtn);
-        dom.fieldSelectBtn = fieldBtn;
-      }
-
       // 绑定事件
       attachEventListeners();
 
@@ -1263,10 +1261,6 @@
       dom.manualSelectBtn.addEventListener('click', () => setSelectionMode('manual'));
       dom.rangeSelectBtn.addEventListener('click', () => setSelectionMode('range'));
       dom.autoNewBtn.addEventListener('click', selectAutoNewContent);
-      if (dom.fieldSelectBtn) {
-        dom.fieldSelectBtn.addEventListener('click', openFieldSelectMenu);
-      }
-      dom.fieldSelectBtn.addEventListener('click', openFieldSelectMenu);
       dom.last1Btn.addEventListener('click', () => selectLastN(1));
       dom.last2Btn.addEventListener('click', () => selectLastN(2));
 
@@ -1648,6 +1642,12 @@
           <span class="field-title">${field.name}</span>
           <span class="field-count">${field.comments.length} 条</span>
         `;
+        fieldHeader.title = '点击全选该字段下的评论';
+
+        // 点击字段头部，全选该字段下的所有评论
+        fieldHeader.addEventListener('click', () => {
+          selectFieldComments(field);
+        });
 
         fieldGroup.appendChild(fieldHeader);
 
@@ -1993,6 +1993,38 @@
       updateUI();
     }
 
+    // 选中/取消选中指定字段下的所有评论（切换模式）
+    function selectFieldComments(field) {
+      // 检查该字段下的评论是否全部已选中
+      let allSelected = true;
+      for (let i = field.startIndex; i <= field.endIndex; i++) {
+        if (i >= 0 && i < state.comments.length) {
+          if (!state.selectedIndices.has(i)) {
+            allSelected = false;
+            break;
+          }
+        }
+      }
+
+      if (allSelected) {
+        // 如果全部已选中，则取消选中该字段的所有评论
+        for (let i = field.startIndex; i <= field.endIndex; i++) {
+          if (i >= 0 && i < state.comments.length) {
+            state.selectedIndices.delete(i);
+          }
+        }
+      } else {
+        // 否则，选中该字段的所有评论（不清空其他字段的选择）
+        for (let i = field.startIndex; i <= field.endIndex; i++) {
+          if (i >= 0 && i < state.comments.length) {
+            state.selectedIndices.add(i);
+          }
+        }
+      }
+
+      updateUI();
+    }
+
     function invertSelection() {
       const newSet = new Set();
       state.comments.forEach((c) => {
@@ -2195,34 +2227,6 @@
       debugLog('[HTML] request auto new content');
       Bridge.requestAutoNewContent(state.noteId);
       showToast('正在检测新内容...');
-    }
-
-    // 字段选择菜单
-    function openFieldSelectMenu() {
-      const fields = parseFieldsFromComments();
-      if (!fields.length) {
-        showToast('没有字段可选');
-        return;
-      }
-
-      // 构建简单的选择框
-      const options = fields.map((f, idx) => `${idx + 1}. ${f.name}`).join('\n');
-      const input = prompt(`选择字段编号：\n${options}`, "1");
-      const idx = parseInt(input, 10) - 1;
-
-      if (isNaN(idx) || idx < 0 || idx >= fields.length) {
-        showToast('选择无效');
-        return;
-      }
-
-      const field = fields[idx];
-      const indices = field.comments.map(c => c.index);
-      state.selectedIndices.clear();
-      indices.forEach(i => state.selectedIndices.add(i));
-      updateUI();
-
-      showToast(`已选择「${field.name}」下的 ${indices.length} 条评论`);
-      debugLog(`[HTML] selectField ${field.name} -> ${indices}`);
     }
 
     // 按钮闪烁效果
