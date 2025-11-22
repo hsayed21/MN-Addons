@@ -917,6 +917,41 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         }
         break
 
+      case "updateCommentLink":
+      case "updatecommentlink":
+        // 更新链接评论
+        KnowledgeBaseUtils.log("收到 updateCommentLink 请求", "executeAction")
+        KnowledgeBaseUtils.log("原始参数", "executeAction", config.params)
+
+        try {
+          const updateNoteId = getNoteIdFromParams(config.params)
+          const updateIndexArr = normalizeIndexArray(config.params.indexArr)
+
+          KnowledgeBaseUtils.log("解析后参数", "executeAction", {
+            updateNoteId,
+            updateIndexArr
+          })
+
+          if (!updateNoteId || updateIndexArr.length === 0) {
+            MNUtil.showHUD("更新失败: 参数缺失或格式错误")
+            break
+          }
+
+          if (updateIndexArr.length !== 1) {
+            MNUtil.showHUD("一次只能更新一条链接")
+            break
+          }
+
+          MNUtil.showHUD("正在更新链接...", 0.8)
+          KnowledgeBaseUtils.log(`执行 updateCommentLink -> noteId=${updateNoteId}, index=${updateIndexArr[0]}`, "executeAction")
+          await this.updateCommentLink(updateNoteId, updateIndexArr)
+          success = true
+        } catch (error) {
+          KnowledgeBaseUtils.log("updateCommentLink 失败: " + error.message, "executeAction")
+          MNUtil.showHUD("更新失败: " + error.message)
+        }
+        break
+
       default:
         MNUtil.showHUD("未知动作: " + config.host)
     }
@@ -1887,5 +1922,127 @@ knowledgebaseWebController.prototype.extractComments = async function(noteId, in
     KnowledgeBaseUtils.log("发生错误", "extractComments", { error: error.message })
     MNUtil.showHUD("提取评论失败: " + error)
     KnowledgeBaseUtils.addErrorLog(error, "extractComments")
+  }
+}
+
+/**
+ * 更新链接评论
+ * @param {string} noteId - 卡片ID
+ * @param {Array} indexArr - 要更新的评论索引数组（只能包含一个索引）
+ */
+knowledgebaseWebController.prototype.updateCommentLink = async function(noteId, indexArr) {
+  try {
+    KnowledgeBaseUtils.log("开始执行", "updateCommentLink")
+    KnowledgeBaseUtils.log("参数", "updateCommentLink", {
+      noteId,
+      indexArr,
+      indexArrType: typeof indexArr
+    })
+
+    // 验证参数
+    if (indexArr.length !== 1) {
+      KnowledgeBaseUtils.log("只能更新一条链接", "updateCommentLink")
+      MNUtil.showHUD("只能更新一条链接")
+      return
+    }
+
+    const commentIndex = indexArr[0]
+
+    // 获取卡片
+    const note = MNNote.new(noteId)
+    if (!note) {
+      KnowledgeBaseUtils.log("未找到卡片", "updateCommentLink", { noteId })
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    KnowledgeBaseUtils.log("找到卡片", "updateCommentLink", { noteTitle: note.noteTitle })
+
+    // 获取评论
+    const comment = note.MNComments[commentIndex]
+    if (!comment) {
+      KnowledgeBaseUtils.log("未找到评论", "updateCommentLink", { commentIndex })
+      MNUtil.showHUD("未找到评论")
+      return
+    }
+
+    // 检查是否为链接评论
+    if (comment.type !== "linkComment") {
+      KnowledgeBaseUtils.log("选中的不是链接评论", "updateCommentLink", {
+        commentIndex,
+        commentType: comment.type
+      })
+      MNUtil.showHUD("选中的不是链接评论")
+      return
+    }
+
+    // 获取剪贴板中的新链接
+    let clipboardText = MNUtil.clipboardText.trim()
+    if (!clipboardText.isValidNoteURL()) {
+      KnowledgeBaseUtils.log("剪贴板中没有有效的笔记链接", "updateCommentLink", {
+        clipboardText
+      })
+      MNUtil.showHUD("剪贴板中没有有效的笔记链接")
+      return
+    }
+
+    let newLinkUrl = clipboardText
+    const oldLinkUrl = comment.text
+
+    KnowledgeBaseUtils.log("准备更新链接", "updateCommentLink", {
+      oldLinkUrl,
+      newLinkUrl
+    })
+
+    // 调用核心 API 更新链接
+    MNUtil.undoGrouping(() => {
+      try {
+        // 1. 替换链接
+        comment.text = newLinkUrl
+
+        // 2. 处理双向链接
+        const oldNoteId = oldLinkUrl.toNoteId()
+        const newNoteId = newLinkUrl.toNoteId()
+
+        // 移除旧的反向链接
+        try {
+          const oldTargetNote = MNNote.new(oldNoteId)
+          if (oldTargetNote) {
+            KnowledgeBaseTemplate.removeApplicationFieldLink(oldTargetNote, note.noteId)
+            KnowledgeBaseUtils.log("成功移除旧反向链接", "updateCommentLink", { oldNoteId })
+          }
+        } catch (error) {
+          KnowledgeBaseUtils.log("移除旧反向链接失败", "updateCommentLink", { error: error.message })
+        }
+
+        // 添加新的反向链接
+        try {
+          const newTargetNote = MNNote.new(newNoteId)
+          if (newTargetNote) {
+            KnowledgeBaseTemplate.addApplicationFieldLink(newTargetNote, note)
+            KnowledgeBaseUtils.log("成功添加新反向链接", "updateCommentLink", { newNoteId })
+          }
+        } catch (error) {
+          KnowledgeBaseUtils.log("添加新反向链接失败", "updateCommentLink", { error: error.message })
+        }
+
+        note.refresh()
+        MNUtil.showHUD("链接更新成功")
+        KnowledgeBaseUtils.log("更新成功", "updateCommentLink")
+
+      } catch (error) {
+        MNUtil.showHUD("更新失败: " + error.message)
+        KnowledgeBaseUtils.log("更新失败", "updateCommentLink", { error: error.message })
+        throw error
+      }
+    })
+
+    // 刷新数据
+    await this.loadCommentData(noteId)
+
+  } catch (error) {
+    KnowledgeBaseUtils.log("发生错误", "updateCommentLink", { error: error.message })
+    MNUtil.showHUD("更新链接失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "updateCommentLink")
   }
 }
