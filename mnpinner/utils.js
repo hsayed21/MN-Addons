@@ -930,6 +930,33 @@ class SectionRegistry {
       order: 5,
       description: "明天的任务"
     }],
+    ["dailyMorning", {
+      key: "dailyMorning",
+      displayName: "Morning",
+      viewMode: "pin",
+      color: "#ffd166",
+      icon: "🌅",
+      order: 6,
+      description: "早晨例行事项"
+    }],
+    ["dailyAfternoon", {
+      key: "dailyAfternoon",
+      displayName: "Afternoon",
+      viewMode: "pin",
+      color: "#06ffa5",
+      icon: "☀️",
+      order: 7,
+      description: "下午安排"
+    }],
+    ["dailyEvening", {
+      key: "dailyEvening",
+      displayName: "Evening",
+      viewMode: "pin",
+      color: "#118ab2",
+      icon: "🌙",
+      order: 8,
+      description: "晚间活动"
+    }],
 
 
     // Task 视图分区
@@ -978,34 +1005,6 @@ class SectionRegistry {
       icon: "📊",
       order: 5,
       description: "下月任务"
-    }],
-
-    ["dailyMorning", {
-      key: "dailyMorning",
-      displayName: "Morning",
-      viewMode: "daily",
-      color: "#ffd166",
-      icon: "🌅",
-      order: 1,
-      description: "早晨例行事项"
-    }],
-    ["dailyAfternoon", {
-      key: "dailyAfternoon",
-      displayName: "Afternoon",
-      viewMode: "daily",
-      color: "#06ffa5",
-      icon: "☀️",
-      order: 2,
-      description: "下午安排"
-    }],
-    ["dailyEvening", {
-      key: "dailyEvening",
-      displayName: "Evening",
-      viewMode: "daily",
-      color: "#118ab2",
-      icon: "🌙",
-      order: 3,
-      description: "晚间活动"
     }],
 
     ["daily/Courses", {

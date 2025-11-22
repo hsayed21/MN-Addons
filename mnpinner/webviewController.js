@@ -1762,6 +1762,11 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
         return
       }
 
+      // 复制当前标题到剪贴板（方便用户粘贴修改）
+      if (currentTitle) {
+        MNUtil.copy(currentTitle)
+      }
+
       // 获取预设短语（Card 和 Page 共用同一个配置）
       let presets = pinnerConfig.getPageTitlePresets()
 
