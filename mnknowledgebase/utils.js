@@ -957,6 +957,45 @@ const kbOCRConfig = {
       description: '【编号前置-中文】移除整行（4.1.3 定理 → 空）'
     },
 
+    // === Question 问号强制规则 ===
+    {
+      pattern: /^Question[:.:]?\s*(.+[^?])$/ig,
+      replacement: '$1?',
+      description: '【Question】确保以问号结尾（Question: What is X → What is X?）'
+    },
+
+    // === Conjecture/猜想 特殊处理规则 ===
+    // 1. 括号编号 + Conjecture + 内容
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*Conjecture[:.。]?\s*(.+)/ig,
+      replacement: 'Conjecture: $1',
+      description: '【Conjecture-括号编号】移除编号，保留关键词（(6.3) Conjecture Content → Conjecture: Content）'
+    },
+    // 2. 编号前置 + Conjecture + 内容
+    {
+      pattern: /^\d+(?:\.\d+)*\s+Conjecture[:.。]?\s*(.+)/ig,
+      replacement: 'Conjecture: $1',
+      description: '【Conjecture-编号前置】移除编号，保留关键词（6.3 Conjecture Content → Conjecture: Content）'
+    },
+    // 3. 括号编号 + 猜想 + 内容
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*猜想[:.。]?\s*(.+)/g,
+      replacement: '猜想：$1',
+      description: '【猜想-括号编号】移除编号，保留关键词（(6.3) 猜想 内容 → 猜想：内容）'
+    },
+    // 4. 编号前置 + 猜想 + 内容
+    {
+      pattern: /^\d+(?:\.\d+)*\s+猜想[:.。]?\s*(.+)/g,
+      replacement: '猜想：$1',
+      description: '【猜想-编号前置】移除编号，保留关键词（6.3 猜想 内容 → 猜想：内容）'
+    },
+    // 5. 全角括号编号 + 猜想 + 内容
+    {
+      pattern: /^（\d+(?:\.\d+)*）\s*猜想[:.。]?\s*(.+)/g,
+      replacement: '猜想：$1',
+      description: '【猜想-全角括号】移除编号，保留关键词（（6.3）猜想 内容 → 猜想：内容）'
+    },
+
     {
       pattern: /C_ϕ/g,
       replacement: "Cᵩ",
