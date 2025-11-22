@@ -2376,6 +2376,8 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 
       let currentTitle = page.title || ""
 
+      MNUtil.copy(currentTitle)
+
       // 获取预设短语（从配置中读取）
       let presets = pinnerConfig.getPageTitlePresets()
 
