@@ -3419,6 +3419,35 @@ function registerAllCustomActions() {
     }
   );
 
+  global.registerCustomAction(
+    "mergeToLastBrotherNoteThought",
+    async function (context) {
+      const { button, des, focusNote, focusNotes, self } = context;
+      
+      try {
+        if (!focusNote) {
+          MNUtil.showHUD("❌ 请先选择卡片");
+          return;
+        }
+        
+        let brotherNote = focusNote.brotherNotes[focusNote.indexInBrotherNotes - 1]
+        if (brotherNote) {
+          MNUtil.undoGrouping(()=>{
+            brotherNote.appendMarkdownComment("- " + focusNote.title)
+            focusNote.title = ""
+            focusNote.mergeInto(brotherNote)
+            KnowledgeBaseTemplate.autoMoveNewContentToField(brotherNote, "相关思考")
+            brotherNote.focusInMindMap(0.3)
+          })
+        }
+        
+      } catch (error) {
+        MNUtil.showHUD("❌ 操作失败: " + error.message);
+        MNUtil.addErrorLog(error, "mergeToParentThought");
+      }
+    }
+  );
+
   // moveUpThoughtPointsToTop
   // moveUpLinkNotes
   // moveToInbox
@@ -5540,6 +5569,19 @@ function registerAllCustomActions() {
           focusNote.mergeInto(brotherNote)
           KnowledgeBaseTemplate.autoMoveNewContentToField(brotherNote, "摘录")
           brotherNote.focusInMindMap(0.3)
+        })
+      }
+    }
+  )
+
+  global.registerCustomAction("moveToLastBrotherAndMakeCard", async function(context) {
+    const { focusNote } = context;
+      let brotherNote = focusNote.brotherNotes[focusNote.indexInBrotherNotes - 1]
+      if (brotherNote) {
+        MNUtil.undoGrouping(()=>{
+          focusNote.moveTo(brotherNote)
+          KnowledgeBaseTemplate.makeNote(focusNote)
+          focusNote.focusInMindMap(0.3)
         })
       }
     }

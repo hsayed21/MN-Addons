@@ -131,6 +131,10 @@ function registerAllMenuTemplates() {
         {
           action: "mergeToParentThought",
           menuTitle: "📝 合并为父卡片思考"
+        },
+        {
+          action: "mergeToLastBrotherNoteThought",
+          menuTitle: "📝 合并为前一张兄弟卡片思考"
         }
       ],
     },
@@ -639,6 +643,10 @@ function registerAllMenuTemplates() {
       action: "menu",
       menuWidth: 350,
       menuItems: [
+        {
+          action: "convertNoteToNonexcerptVersion",
+          menuTitle: "🔄 转化为非摘录版本",
+        },
         "✂️ 修改",
         {
           action: "renewExcerptInParentNoteByFocusNote",
@@ -702,6 +710,7 @@ function registerAllMenuTemplates() {
       menuWidth: 320,
       menuItems: [
         "🪄 制卡",
+        "---🪄 「直接」制卡---",
         {
           action: "makeCardWithoutFocus",
           menuTitle: "    不定位制卡",
@@ -709,14 +718,6 @@ function registerAllMenuTemplates() {
         {
           action: "preprocessNote",
           menuTitle: "    预处理制卡",
-        },
-        {
-          action: "clearContentKeepExcerptWithTitleAndMakeCard",
-          menuTitle: "    只保留摘录和标题后制卡",
-        },
-        {
-          action: "keepExcerptAreaAndTitleAndMakeCard",
-          menuTitle: "    只保留「摘录区」和标题后制卡",
         },
         {
           action: "convertClassificationNoteToDefinitionNote",
@@ -729,6 +730,20 @@ function registerAllMenuTemplates() {
         {
           action: "convertToClassificationNoteWithPopup",
           menuTitle: "    弹窗 + 转为归类卡片",
+        },
+        "---🪄 「处理后」制卡---",
+        {
+          action: "clearContentKeepExcerptWithTitleAndMakeCard",
+          menuTitle: "    只保留摘录和标题后制卡",
+        },
+        {
+          action: "keepExcerptAreaAndTitleAndMakeCard",
+          menuTitle: "    只保留「摘录区」和标题后制卡",
+        },
+        "---🪄 「移动后」制卡---",
+        {
+          action: "moveToLastBrotherAndMakeCard",
+          menuTitle: "    移动成为上一个兄弟卡片的子卡片 + 制卡",
         },
         {
           action: "menu",
