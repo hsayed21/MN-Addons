@@ -710,6 +710,165 @@ const kbOCRConfig = {
       description: "替换数学符号（边界符号）"
     },
 
+    // === 括号编号格式处理规则（最高优先级）===
+    // 处理 (2.2) Corollary. 和 （2.2）推论 等括号编号格式
+
+    // 1. 英文括号编号 + 关键词 + 名称 + 内容（有点号）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(Theorem|Lemma|Corollary|Proposition|Definition|Example)\s*\(([^)]+)\)[:.。]\s*(.+)/ig,
+      replacement: '$3; $2',
+      description: '【括号编号-英文-有点】移除编号，将名称移到末尾（(2.2) Corollary. (Name) Content → Content; Name）'
+    },
+    // 2. 英文括号编号 + 关键词 + 名称 + 内容（无点号）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(Theorem|Lemma|Corollary|Proposition|Definition|Example)\s*\(([^)]+)\)\s+(.+)/ig,
+      replacement: '$3; $2',
+      description: '【括号编号-英文-无点】移除编号，将名称移到末尾（(2.2) Corollary (Name) Content → Content; Name）'
+    },
+
+    // 3. 英文括号编号 + 关键词 + 名称（有点号，无内容）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(Theorem|Lemma|Corollary|Proposition|Definition|Example)\s*\(([^)]+)\)[:.。]\s*$/ig,
+      replacement: '$2',
+      description: '【括号编号-英文-有点】仅保留名称（(2.2) Theorem. (Name) → Name）'
+    },
+    // 4. 英文括号编号 + 关键词 + 名称（无点号，无内容）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(Theorem|Lemma|Corollary|Proposition|Definition|Example)\s*\(([^)]+)\)\s*$/ig,
+      replacement: '$2',
+      description: '【括号编号-英文-无点】仅保留名称（(2.2) Theorem (Name) → Name）'
+    },
+
+    // 5. 英文括号编号 + 关键词 + 内容（有点号）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(Theorem|Lemma|Corollary|Proposition|Definition|Example|Counterexample|Remark|Exercise|Problem)[:.。]\s+(.+)/ig,
+      replacement: '$2',
+      description: '【括号编号-英文-有点】移除编号和关键词（(2.2) Corollary. Content → Content）'
+    },
+    // 6. 英文括号编号 + 关键词 + 内容（无点号）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(Theorem|Lemma|Corollary|Proposition|Definition|Example|Counterexample|Remark|Exercise|Problem)\s+(.+)/ig,
+      replacement: '$2',
+      description: '【括号编号-英文-无点】移除编号和关键词（(2.2) Corollary Content → Content）'
+    },
+
+    // 7. 英文括号编号 + 关键词（有点号，兜底）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(Theorem|Lemma|Corollary|Proposition|Definition|Example|Counterexample|Remark|Exercise|Problem)[:.。]\s*$/ig,
+      replacement: '',
+      description: '【括号编号-英文-有点】移除整行（(2.2) Corollary. → 空）'
+    },
+    // 8. 英文括号编号 + 关键词（无点号，兜底）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(Theorem|Lemma|Corollary|Proposition|Definition|Example|Counterexample|Remark|Exercise|Problem)\s*$/ig,
+      replacement: '',
+      description: '【括号编号-英文-无点】移除整行（(2.2) Corollary → 空）'
+    },
+
+    // 9. 中文括号编号（英文括号）+ 关键词 + 名称 + 内容（有点号）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(定理|引理|推论|命题|定义|例子)\s*[（(]([^)）]+)[)）][:.。]\s*(.+)/g,
+      replacement: '$3; $2',
+      description: '【括号编号-中文-英文括号-有点】移除编号，将名称移到末尾（(3.1) 推论. (名称) 内容 → 内容; 名称）'
+    },
+    // 10. 中文括号编号（英文括号）+ 关键词 + 名称 + 内容（无点号）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(定理|引理|推论|命题|定义|例子)\s*[（(]([^)）]+)[)）]\s+(.+)/g,
+      replacement: '$3; $2',
+      description: '【括号编号-中文-英文括号-无点】移除编号，将名称移到末尾（(3.1) 推论 (名称) 内容 → 内容; 名称）'
+    },
+
+    // 11. 中文括号编号（英文括号）+ 关键词 + 名称（有点号，无内容）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(定理|引理|推论|命题|定义|例子)\s*[（(]([^)）]+)[)）][:.。]\s*$/g,
+      replacement: '$2',
+      description: '【括号编号-中文-英文括号-有点】仅保留名称（(3.1) 定理. (名称) → 名称）'
+    },
+    // 12. 中文括号编号（英文括号）+ 关键词 + 名称（无点号，无内容）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(定理|引理|推论|命题|定义|例子)\s*[（(]([^)）]+)[)）]\s*$/g,
+      replacement: '$2',
+      description: '【括号编号-中文-英文括号-无点】仅保留名称（(3.1) 定理 (名称) → 名称）'
+    },
+
+    // 13. 中文括号编号（英文括号）+ 关键词 + 内容（有点号）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(定理|引理|推论|命题|定义|例子|例|反例|注释|注|练习|习题|问题|题)[:.。]\s*(.+)/g,
+      replacement: '$2',
+      description: '【括号编号-中文-英文括号-有点】移除编号和关键词（(3.1) 推论. 内容 → 内容）'
+    },
+    // 14. 中文括号编号（英文括号）+ 关键词 + 内容（无点号）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(定理|引理|推论|命题|定义|例子|例|反例|注释|注|练习|习题|问题|题)\s+(.+)/g,
+      replacement: '$2',
+      description: '【括号编号-中文-英文括号-无点】移除编号和关键词（(3.1) 推论 内容 → 内容）'
+    },
+
+    // 15. 中文括号编号（英文括号）+ 关键词（有点号，兜底）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(定理|引理|推论|命题|定义|例子|例|反例|注释|注|练习|习题|问题|题)[:.。]\s*$/g,
+      replacement: '',
+      description: '【括号编号-中文-英文括号-有点】移除整行（(3.1) 推论. → 空）'
+    },
+    // 16. 中文括号编号（英文括号）+ 关键词（无点号，兜底）
+    {
+      pattern: /^\(\d+(?:\.\d+)*\)\s*(定理|引理|推论|命题|定义|例子|例|反例|注释|注|练习|习题|问题|题)\s*$/g,
+      replacement: '',
+      description: '【括号编号-中文-英文括号-无点】移除整行（(3.1) 推论 → 空）'
+    },
+
+    // 17. 中文全角括号编号 + 关键词 + 名称 + 内容（有点号）
+    {
+      pattern: /^（\d+(?:\.\d+)*）\s*(定理|引理|推论|命题|定义|例子)\s*[（(]([^)）]+)[)）][:.。]\s*(.+)/g,
+      replacement: '$3; $2',
+      description: '【括号编号-中文-全角括号-有点】移除编号，将名称移到末尾（（3.1）推论.（名称）内容 → 内容; 名称）'
+    },
+    // 17b. 中文全角括号编号 + 关键词 + 名称 + 内容（无点号）
+    {
+      pattern: /^（\d+(?:\.\d+)*）\s*(定理|引理|推论|命题|定义|例子)\s*[（(]([^)）]+)[)）]\s+(.+)/g,
+      replacement: '$3; $2',
+      description: '【括号编号-中文-全角括号-无点】移除编号，将名称移到末尾（（3.1）推论（名称）内容 → 内容; 名称）'
+    },
+
+    // 17c. 中文全角括号编号 + 关键词 + 名称（有点号，无内容）
+    {
+      pattern: /^（\d+(?:\.\d+)*）\s*(定理|引理|推论|命题|定义|例子)\s*[（(]([^)）]+)[)）][:.。]\s*$/g,
+      replacement: '$2',
+      description: '【括号编号-中文-全角括号-有点】仅保留名称（（3.1）定理.（名称）→ 名称）'
+    },
+    // 17d. 中文全角括号编号 + 关键词 + 名称（无点号，无内容）
+    {
+      pattern: /^（\d+(?:\.\d+)*）\s*(定理|引理|推论|命题|定义|例子)\s*[（(]([^)）]+)[)）]\s*$/g,
+      replacement: '$2',
+      description: '【括号编号-中文-全角括号-无点】仅保留名称（（3.1）定理（名称）→ 名称）'
+    },
+
+    // 17e. 中文全角括号编号 + 关键词 + 内容（有点号）
+    {
+      pattern: /^（\d+(?:\.\d+)*）\s*(定理|引理|推论|命题|定义|例子|例|反例|注释|注|练习|习题|问题|题)[:.。]\s*(.+)/g,
+      replacement: '$2',
+      description: '【括号编号-中文-全角括号-有点】移除编号和关键词（（3.1）推论. 内容 → 内容）'
+    },
+    // 17f. 中文全角括号编号 + 关键词 + 内容（无点号）
+    {
+      pattern: /^（\d+(?:\.\d+)*）\s*(定理|引理|推论|命题|定义|例子|例|反例|注释|注|练习|习题|问题|题)\s+(.+)/g,
+      replacement: '$2',
+      description: '【括号编号-中文-全角括号-无点】移除编号和关键词（（3.1）推论 内容 → 内容）'
+    },
+
+    // 17g. 中文全角括号编号 + 关键词（有点号，兜底）
+    {
+      pattern: /^（\d+(?:\.\d+)*）\s*(定理|引理|推论|命题|定义|例子|例|反例|注释|注|练习|习题|问题|题)[:.。]\s*$/g,
+      replacement: '',
+      description: '【括号编号-中文-全角括号-有点】移除整行（（3.1）推论. → 空）'
+    },
+    // 17h. 中文全角括号编号 + 关键词（无点号，兜底）
+    {
+      pattern: /^（\d+(?:\.\d+)*）\s*(定理|引理|推论|命题|定义|例子|例|反例|注释|注|练习|习题|问题|题)\s*$/g,
+      replacement: '',
+      description: '【括号编号-中文-全角括号-无点】移除整行（（3.1）推论 → 空）'
+    },
+
     // === 定理编号处理规则（按复杂度从高到低排列）===
     // 1. 处理带名称+内容的完整格式（最优先）
     {
