@@ -85,6 +85,28 @@
       padding-left: 4px;
     }
 
+    /* 右侧功能栏 */
+    .right-sidebar {
+      width: 180px;
+      background: var(--card-bg);
+      border-left: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      padding: 16px 12px;
+      gap: 20px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .right-sidebar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .right-sidebar::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 3px;
+    }
+
     /* 右侧主内容区 */
     .main-content {
       flex: 1;
@@ -999,6 +1021,10 @@
       .main-actions {
         flex-direction: column;
       }
+
+      .right-sidebar {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -1105,6 +1131,18 @@
         </div>
       </div>
     </div> <!-- 关闭 .main-content -->
+
+    <!-- 右侧功能栏 -->
+    <div class="right-sidebar">
+      <!-- 高级功能分组 -->
+      <div class="tool-group">
+        <div class="tool-group-title">高级功能</div>
+        <button class="tool-btn" id="updateLinkBtn" title="更新选中的链接评论（需先复制新链接到剪贴板）">
+          🔄 更新链接
+        </button>
+      </div>
+    </div> <!-- 关闭 .right-sidebar -->
+
   </div> <!-- 关闭 .container -->
 
   <!-- 目标选择器模态框 -->
@@ -1213,6 +1251,9 @@
       extractBtn: document.getElementById('extractBtn'),
       deleteBtn: document.getElementById('deleteBtn'),
 
+      // 右侧功能栏
+      updateLinkBtn: document.getElementById('updateLinkBtn'),
+
       closeBtn: document.getElementById('closeBtn'),
       targetModal: document.getElementById('targetModal'),
       targetOptions: document.getElementById('targetOptions'),
@@ -1277,6 +1318,9 @@
       dom.moveBtn.addEventListener('click', () => handleAction('move'));
       dom.extractBtn.addEventListener('click', () => handleAction('extract'));
       dom.deleteBtn.addEventListener('click', () => handleAction('delete'));
+
+      // 右侧功能栏操作
+      dom.updateLinkBtn.addEventListener('click', handleUpdateLink);
 
       // 关闭按钮
       dom.closeBtn.addEventListener('click', closeWindow);
@@ -2612,6 +2656,39 @@
     }
 
     // ========================================
+    // 更新链接
+    // ========================================
+    function handleUpdateLink() {
+      const indices = Array.from(state.selectedIndices);
+
+      // 检查是否有选中项
+      if (indices.length === 0) {
+        showToast('请先选择一条链接评论');
+        return;
+      }
+
+      // 只能更新一条链接
+      if (indices.length !== 1) {
+        showToast('一次只能更新一条链接');
+        return;
+      }
+
+      const index = indices[0];
+      const sorted = [index];
+
+      debugLog(`[HTML] updateLink -> index=${index}`);
+
+      // 调用 Bridge 方法
+      Bridge.updateCommentLink(state.noteId, sorted);
+
+      // 显示操作提示
+      showToast('正在更新链接...');
+
+      // 清空选择
+      clearSelection();
+    }
+
+    // ========================================
     // Toast 提示
     // ========================================
     let toastTimer = null;
@@ -2818,6 +2895,24 @@
           sendURLToNative('htmlLog', { message });
         } catch (error) {
           console.error('Bridge.logToNative 失败:', error);
+        }
+      },
+
+      /**
+       * 更新链接评论
+       * @param {string} noteId - 卡片 ID
+       * @param {Array<number>} indexArr - 评论索引数组（只能包含一个索引）
+       */
+      updateCommentLink: function(noteId, indexArr) {
+        try {
+          postToNative('updateCommentLink', {
+            id: noteId,
+            indexArr: JSON.stringify(indexArr)
+          });
+          console.log('[Bridge] updateCommentLink', noteId, indexArr);
+        } catch (error) {
+          console.error('Bridge.updateCommentLink 失败:', error);
+          showToast('更新失败: ' + error.message);
         }
       },
 
