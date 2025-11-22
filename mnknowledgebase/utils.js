@@ -576,7 +576,9 @@ const kbTemplateConfig = {
    */
   keywordTypeMapping: {
     "基本性质": "命题",
-    "判定": "命题"
+    "判定": "命题",
+    "方法": "思想方法",
+    "思路": "思想方法",
   },
 
   /**
@@ -1008,13 +1010,18 @@ const kbOCRConfig = {
     },
 
     {
+      pattern: /冯·诺依曼/g,
+      replacement: " von Neumann ",
+    },
+
+    {
       pattern: /\^\*/g,
       replacement: "*",
       description: "移除上标符号前的脱字符"
     },
     {
-      pattern: /_ϕ/g,
-      replacement: "ᵩ",
+      pattern: /_ϕ\s*/g,
+      replacement: "ᵩ ",
       description: "下标 phi 符号转换"
     }
   ]
