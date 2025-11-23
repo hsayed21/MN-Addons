@@ -16196,12 +16196,87 @@ class KnowledgeBaseIndexer {
       const rootNoteObjects = [];
       for (const _rootNote of rootNotes) {
         const rootNote = MNNote.new(_rootNote);
-        if (!rootNote) continue;
-        
-        // 获取 descendants 并缓存
-        const descendants = rootNote.descendantNodes?.descendant || [];
+        if (!rootNote) {
+          MNLog.error({
+            message: "无法创建 MNNote 对象，跳过此根卡片",
+            source: "KnowledgeBaseIndexer"
+          });
+          continue;
+        }
+
+        // 🆕 添加详细的调试信息
+        MNLog.info({
+          message: "开始处理根卡片",
+          source: "KnowledgeBaseIndexer",
+          detail: {
+            noteId: rootNote.noteId,
+            noteTitle: rootNote.noteTitle,
+            childNotesCount: rootNote.childNotes?.length || 0
+          }
+        });
+
+        // 🆕 使用 try-catch 捕获 descendantNodes 可能的栈溢出错误
+        let descendantResult;
+        try {
+          // 获取 descendants 并缓存
+          descendantResult = rootNote.descendantNodes;
+        } catch (error) {
+          // 捕获栈溢出错误（通常是循环引用导致）
+          const errorMsg = error?.message || String(error);
+          if (errorMsg.includes("Maximum call stack") || errorMsg.includes("stack")) {
+            MNLog.error({
+              message: "获取 descendants 时发生栈溢出（可能存在循环引用）",
+              source: "KnowledgeBaseIndexer",
+              detail: {
+                noteId: rootNote.noteId,
+                noteTitle: rootNote.noteTitle,
+                errorMessage: errorMsg,
+                errorStack: error?.stack
+              }
+            });
+          } else {
+            MNLog.error({
+              message: "获取 descendants 失败",
+              source: "KnowledgeBaseIndexer",
+              detail: {
+                noteId: rootNote.noteId,
+                noteTitle: rootNote.noteTitle,
+                errorMessage: errorMsg,
+                errorStack: error?.stack
+              }
+            });
+          }
+          continue;
+        }
+
+        // 🆕 检查 descendantNodes 返回值
+        if (!descendantResult) {
+          MNLog.error({
+            message: "descendantNodes 返回 undefined",
+            source: "KnowledgeBaseIndexer",
+            detail: {
+              noteId: rootNote.noteId,
+              noteTitle: rootNote.noteTitle,
+              hasChildNotes: !!rootNote.childNotes,
+              childNotesType: typeof rootNote.childNotes
+            }
+          });
+          continue;
+        }
+
+        const descendants = descendantResult.descendant || [];
+        MNLog.info({
+          message: "成功获取 descendants",
+          source: "KnowledgeBaseIndexer",
+          detail: {
+            noteId: rootNote.noteId,
+            noteTitle: rootNote.noteTitle,
+            descendantsCount: descendants.length
+          }
+        });
+
         totalEstimatedCount += descendants.length + 1;  // +1 是根节点本身
-        
+
         // 缓存 rootNote 对象和它的 descendants
         rootNoteObjects.push({
           rootNote: rootNote,
@@ -16354,8 +16429,21 @@ class KnowledgeBaseIndexer {
       if (manifest.metadata.tempFiles && manifest.metadata.tempFiles.length > 0) {
         await this.cleanupTempFiles(manifest.metadata.tempFiles);
       }
-      MNUtil.showHUD("构建索引失败: " + error.message);
-      MNLog.error(error, "KnowledgeBaseIndexer: buildSearchIndex");
+      // 🆕 处理 error 为 undefined 的情况
+      const errorMessage = error?.message || String(error) || "未知错误";
+      const errorDetails = {
+        message: error?.message || "未知错误",
+        stack: error?.stack || "无堆栈信息",
+        type: typeof error,
+        raw: error
+      };
+
+      MNUtil.showHUD("构建索引失败: " + errorMessage);
+      MNLog.error({
+        message: "索引构建失败",
+        source: "KnowledgeBaseIndexer: buildSearchIndex",
+        detail: errorDetails
+      });
       return null;
     }
     
@@ -18427,8 +18515,21 @@ class IntermediateKnowledgeIndexer {
       if (manifest.metadata.tempFiles && manifest.metadata.tempFiles.length > 0) {
         await this.cleanupTempFiles(manifest.metadata.tempFiles);
       }
-      MNUtil.showHUD("构建中间知识库索引失败: " + error.message);
-      MNLog.error(error.message, "IntermediateKnowledgeIndexer: buildSearchIndex");
+      // 🆕 处理 error 为 undefined 的情况
+      const errorMessage = error?.message || String(error) || "未知错误";
+      const errorDetails = {
+        message: error?.message || "未知错误",
+        stack: error?.stack || "无堆栈信息",
+        type: typeof error,
+        raw: error
+      };
+
+      MNUtil.showHUD("构建中间知识库索引失败: " + errorMessage);
+      MNLog.error({
+        message: "中间知识库索引构建失败",
+        source: "IntermediateKnowledgeIndexer: buildSearchIndex",
+        detail: errorDetails
+      });
       return null;
     }
 

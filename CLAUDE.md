@@ -269,7 +269,8 @@ try {
    - 注意内存管理，及时释放大对象
 
 4. **调试技巧**
-   - 使用 `MNUtil.log()` 记录日志
+   - 使用 `MNLog` 记录结构化日志（推荐）
+   - 使用 `MNUtil.log()` 记录简单日志
    - 使用 `MNUtil.copyJSON()` 复制对象到剪贴板
    - 错误会自动记录并复制
 
@@ -772,3 +773,253 @@ UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
 3. **使用 async/await 代替回调模式**
 4. **只在必须同时需要输入和选择时才使用原生 API**
 5. **必须使用完整的方法名，而不是简写形式**
+
+---
+
+## MNLog 日志系统使用规范 ⭐⭐⭐⭐⭐
+
+### 为什么要使用 MNLog
+
+`MNLog` 是 MNUtils 提供的**结构化日志系统**，具有以下优势：
+
+1. **结构化数据**：支持 `detail` 字段记录详细信息（对象、数组等）
+2. **分类管理**：通过 `source` 字段标识日志来源
+3. **级别区分**：支持 `INFO`、`ERROR`、`DEBUG` 等级别
+4. **可视化查看**：日志会自动显示在 MNUtils 的日志查看器中
+5. **详细展开**：点击日志可以查看完整的 `detail` 内容
+
+### ❌ 错误用法
+
+**错误示例：**
+
+```javascript
+// ❌ 错误1：只记录字符串消息，没有详细信息
+MNUtil.log(`处理根卡片: ${rootNote.noteTitle} (${rootNote.noteId})`);
+MNUtil.log(`childNotes 数量: ${rootNote.childNotes?.length || 0}`);
+
+// ❌ 错误2：错误信息不完整
+MNLog.error(errorMessage, "KnowledgeBaseIndexer");
+
+// ❌ 错误3：使用 MNUtil.log 记录 JSON 字符串
+MNUtil.log(`rootNote 详情: ${JSON.stringify({
+  noteId: rootNote.noteId,
+  noteTitle: rootNote.noteTitle
+})}`);
+```
+
+**问题：**
+- 日志只显示消息文本，无法展开查看详细内容
+- 调试时必须复制整个长字符串才能看到完整信息
+- 无法利用日志查看器的结构化展示功能
+
+### ✅ 正确用法
+
+**正确示例：**
+
+```javascript
+// ✅ 正确1：使用对象形式，包含 detail 字段
+MNLog.info({
+  message: "开始处理根卡片",
+  source: "KnowledgeBaseIndexer",
+  detail: {
+    noteId: rootNote.noteId,
+    noteTitle: rootNote.noteTitle,
+    childNotesCount: rootNote.childNotes?.length || 0
+  }
+});
+
+// ✅ 正确2：记录错误时包含完整上下文
+MNLog.error({
+  message: "获取 descendants 时发生栈溢出",
+  source: "KnowledgeBaseIndexer",
+  detail: {
+    noteId: rootNote.noteId,
+    noteTitle: rootNote.noteTitle,
+    errorMessage: error?.message,
+    errorStack: error?.stack
+  }
+});
+
+// ✅ 正确3：成功操作也记录详细信息
+MNLog.info({
+  message: "成功获取 descendants",
+  source: "KnowledgeBaseIndexer",
+  detail: {
+    noteId: rootNote.noteId,
+    noteTitle: rootNote.noteTitle,
+    descendantsCount: descendants.length
+  }
+});
+```
+
+### MNLog API 详解
+
+#### 1. 基本方法
+
+```javascript
+// 信息日志
+MNLog.info({
+  message: "操作描述",
+  source: "来源标识",
+  detail: { /* 详细信息对象 */ }
+});
+
+// 错误日志
+MNLog.error({
+  message: "错误描述",
+  source: "来源标识",
+  detail: { /* 错误详情对象 */ }
+});
+
+// 调试日志
+MNLog.debug({
+  message: "调试信息",
+  source: "来源标识",
+  detail: { /* 调试详情对象 */ }
+});
+
+// 通用日志（自动判断级别）
+MNLog.log({
+  message: "日志消息",
+  level: "INFO",  // 可选："INFO", "ERROR", "DEBUG"
+  source: "来源标识",
+  detail: { /* 详细信息对象 */ }
+});
+```
+
+#### 2. 简化写法
+
+```javascript
+// 如果只传字符串，会自动创建基本日志
+MNLog.log("简单消息");  // 等同于 { message: "简单消息", level: "INFO", source: "Default" }
+
+// 支持第二个参数作为 detail
+MNLog.log("处理卡片", {
+  noteId: "xxx",
+  noteTitle: "标题"
+});
+```
+
+#### 3. 日志对象结构
+
+```javascript
+{
+  message: string,      // 必需：日志消息（简短描述）
+  level: string,        // 可选：日志级别（默认 "INFO"）
+  source: string,       // 可选：来源标识（默认 "Default"）
+  timestamp: number,    // 可选：时间戳（自动生成）
+  detail: object|string // 可选：详细信息（对象会自动 JSON.stringify）
+}
+```
+
+### 实际应用场景
+
+#### 场景1：记录操作流程
+
+```javascript
+// 开始处理
+MNLog.info({
+  message: "开始构建索引",
+  source: "KnowledgeBaseIndexer",
+  detail: {
+    mode: "full",
+    rootNotesCount: rootNotes.length
+  }
+});
+
+// 处理中
+for (const rootNote of rootNotes) {
+  MNLog.info({
+    message: "处理根卡片",
+    source: "KnowledgeBaseIndexer",
+    detail: {
+      noteId: rootNote.noteId,
+      noteTitle: rootNote.noteTitle,
+      progress: `${processed}/${total}`
+    }
+  });
+}
+
+// 完成
+MNLog.info({
+  message: "索引构建完成",
+  source: "KnowledgeBaseIndexer",
+  detail: {
+    totalCards: validCount,
+    totalParts: manifest.metadata.totalParts,
+    duration: Date.now() - startTime
+  }
+});
+```
+
+#### 场景2：记录错误和异常
+
+```javascript
+try {
+  // 业务逻辑
+} catch (error) {
+  MNLog.error({
+    message: "索引构建失败",
+    source: "KnowledgeBaseIndexer: buildSearchIndex",
+    detail: {
+      errorMessage: error?.message || "未知错误",
+      errorStack: error?.stack || "无堆栈信息",
+      errorType: typeof error,
+      context: {
+        mode: mode,
+        processedCount: processedCount,
+        currentNote: currentNote?.noteId
+      }
+    }
+  });
+}
+```
+
+#### 场景3：循环引用检测
+
+```javascript
+// 在 descendantNodes 中检测循环引用
+if (visited.has(node.noteId)) {
+  MNLog.error({
+    message: "检测到循环引用",
+    source: "MNNote.descendantNodes",
+    detail: {
+      nodeId: node.noteId,
+      nodeTitle: node.noteTitle,
+      visitedPath: Array.from(visited)
+    }
+  });
+  return;
+}
+```
+
+### 最佳实践
+
+1. **永远使用对象形式**：即使是简单日志，也建议使用对象形式以便未来扩展
+2. **明确 source**：使用 `类名.方法名` 或 `插件名:功能名` 格式
+3. **detail 包含关键信息**：
+   - 操作对象的 ID 和标识
+   - 相关的数量、状态、进度
+   - 错误的完整上下文（message、stack、type）
+4. **区分日志级别**：
+   - `INFO`：正常操作流程
+   - `ERROR`：错误和异常
+   - `DEBUG`：调试信息（可在发布时移除）
+5. **避免敏感信息**：不要在日志中记录密码、Token 等敏感数据
+
+### 对比表格
+
+| 方法 | 适用场景 | detail 支持 | 可视化 | 推荐度 |
+|------|---------|-----------|--------|--------|
+| `MNLog.info()` | 结构化日志 | ✅ 完整支持 | ✅ 可展开 | ⭐⭐⭐⭐⭐ |
+| `MNLog.error()` | 错误日志 | ✅ 完整支持 | ✅ 可展开 | ⭐⭐⭐⭐⭐ |
+| `MNUtil.log()` | 简单文本 | ❌ 不支持 | ❌ 纯文本 | ⭐⭐ |
+| `console.log()` | 浏览器调试 | ❌ 不支持 | ❌ 控制台 | ⭐ |
+
+### 重要提醒
+
+1. **优先使用 `MNLog`**：所有新代码都应该使用 `MNLog` 而不是 `MNUtil.log()`
+2. **detail 是核心**：充分利用 `detail` 字段记录详细信息
+3. **source 要明确**：便于过滤和定位问题
+4. **对象自动序列化**：`detail` 中的对象会自动 `JSON.stringify`，不需要手动转换
+5. **查看日志**：使用 `MNLog.showLogViewer()` 打开日志查看器
