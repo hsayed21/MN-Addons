@@ -1729,124 +1729,6 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
   },
 
   /**
-   * 通用重命名函数（支持输入框 + 预设短语）
-   * @param {string} type - 类型：'card' 或 'page'
-   * @param {object} param - 参数对象
-   */
-  renameItem: function(type, param) {
-    try {
-      self.checkPopover()  // 关闭菜单
-
-      // 根据类型获取不同的数据
-      let currentTitle = ""
-      let section = param.section || self.currentSection
-      let itemData = null
-
-      if (type === 'card') {
-        itemData = param.card
-        if (!itemData || !itemData.noteId) {
-          MNUtil.showHUD("无法获取卡片ID")
-          return
-        }
-        currentTitle = itemData.title || ""
-      } else if (type === 'page') {
-        itemData = param.page
-        if (!itemData) {
-          MNUtil.showHUD("页面不存在")
-          return
-        }
-        section = param.section || "pages"
-        currentTitle = itemData.title || ""
-      } else {
-        MNUtil.showHUD("不支持的类型")
-        return
-      }
-
-      // 复制当前标题到剪贴板（方便用户粘贴修改）
-      if (currentTitle) {
-        MNUtil.copy(currentTitle)
-      }
-
-      // 获取预设短语（Card 和 Page 共用同一个配置）
-      let presets = pinnerConfig.getPageTitlePresets()
-
-      // 构建菜单选项：确定按钮 + 预设短语
-      let menuOptions = ["✅ 确定"]
-      presets.forEach(preset => {
-        menuOptions.push(`📝 ${preset}`)
-      })
-
-      // 显示带输入框的对话框
-      const alert = UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-        type === 'card' ? "修改卡片标题" : "修改页面标题",
-        "输入标题或选择预设短语",
-        2,  // alertViewStyle = 2（文本输入框）
-        "取消",
-        menuOptions,
-        (alert, buttonIndex) => {
-          try {
-            if (buttonIndex === 0) return  // 取消
-
-            const inputText = alert.textFieldAtIndex(0).text.trim()
-            const selectedIndex = buttonIndex - 1
-            let finalTitle = ""
-
-            if (selectedIndex === 0) {
-              // ✅ 确定按钮 - 使用输入框内容
-              finalTitle = inputText
-            } else {
-              // 选择了预设短语
-              const preset = presets[selectedIndex - 1]
-              // 拼接逻辑：预设在前，输入在后
-              finalTitle = inputText ? `${preset} - ${inputText}` : preset
-            }
-
-            // 验证标题不为空
-            if (!finalTitle) {
-              MNUtil.showHUD("⚠️ 标题不能为空")
-              return
-            }
-
-            // 根据类型执行不同的更新操作
-            let success = false
-            if (type === 'card') {
-              success = pinnerConfig.updatePinTitle(itemData.noteId, finalTitle, section)
-            } else if (type === 'page') {
-              success = pinnerConfig.updatePagePinTitle(itemData.docMd5, itemData.pageIndex, finalTitle, section)
-            }
-
-            // 显示结果并刷新
-            if (success) {
-              self.refreshSectionCards(section)
-              MNUtil.showHUD("✅ 标题已更新")
-            } else {
-              MNUtil.showHUD("❌ 更新失败")
-            }
-
-          } catch (error) {
-            pinnerUtils.addErrorLog(error, `renameItem ${type} callback`)
-            MNUtil.showHUD("更新失败: " + error.message)
-          }
-        }
-      )
-
-      // 设置输入框的初始值
-      if (alert && currentTitle) {
-        MNUtil.delay(0.1).then(() => {
-          const textField = alert.textFieldAtIndex(0)
-          if (textField) {
-            textField.text = currentTitle
-          }
-        })
-      }
-
-    } catch (error) {
-      pinnerUtils.addErrorLog(error, `renameItem ${type}`)
-      MNUtil.showHUD("重命名失败: " + error.message)
-    }
-  },
-
-  /**
    * 重命名卡片（调用通用函数）
    */
   renameCard: function(param) {
@@ -3321,7 +3203,123 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
 });
 
 // ========== 原型方法 ==========
+  /**
+   * 通用重命名函数（支持输入框 + 预设短语）
+   * @param {string} type - 类型：'card' 或 'page'
+   * @param {object} param - 参数对象
+   */
+pinnerController.prototype.renameItem = function(type, param) {
+  try {
+    this.checkPopover()  // 关闭菜单
 
+    // 根据类型获取不同的数据
+    let currentTitle = ""
+    let section = param.section || this.currentSection
+    let itemData = null
+
+    if (type === 'card') {
+      itemData = param.card
+      if (!itemData || !itemData.noteId) {
+        MNUtil.showHUD("无法获取卡片ID")
+        return
+      }
+      currentTitle = itemData.title || ""
+    } else if (type === 'page') {
+      itemData = param.page
+      if (!itemData) {
+        MNUtil.showHUD("页面不存在")
+        return
+      }
+      section = param.section || "pages"
+      currentTitle = itemData.title || ""
+    } else {
+      MNUtil.showHUD("不支持的类型")
+      return
+    }
+
+    // 复制当前标题到剪贴板（方便用户粘贴修改）
+    if (currentTitle) {
+      MNUtil.copy(currentTitle)
+    }
+
+    // 获取预设短语（Card 和 Page 共用同一个配置）
+    let presets = pinnerConfig.getPageTitlePresets()
+
+    // 构建菜单选项：确定按钮 + 预设短语
+    let menuOptions = ["✅ 确定"]
+    presets.forEach(preset => {
+      menuOptions.push(`📝 ${preset}`)
+    })
+
+    // 显示带输入框的对话框
+    const alert = UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+      type === 'card' ? "修改卡片标题" : "修改页面标题",
+      "输入标题或选择预设短语",
+      2,  // alertViewStyle = 2（文本输入框）
+      "取消",
+      menuOptions,
+      (alert, buttonIndex) => {
+        try {
+          if (buttonIndex === 0) return  // 取消
+
+          const inputText = alert.textFieldAtIndex(0).text.trim()
+          const selectedIndex = buttonIndex - 1
+          let finalTitle = ""
+
+          if (selectedIndex === 0) {
+            // ✅ 确定按钮 - 使用输入框内容
+            finalTitle = inputText
+          } else {
+            // 选择了预设短语
+            const preset = presets[selectedIndex - 1]
+            // 拼接逻辑：预设在前，输入在后
+            finalTitle = inputText ? `${preset} - ${inputText}` : preset
+          }
+
+          // 验证标题不为空
+          if (!finalTitle) {
+            MNUtil.showHUD("⚠️ 标题不能为空")
+            return
+          }
+
+          // 根据类型执行不同的更新操作
+          let success = false
+          if (type === 'card') {
+            success = pinnerConfig.updatePinTitle(itemData.noteId, finalTitle, section)
+          } else if (type === 'page') {
+            success = pinnerConfig.updatePagePinTitle(itemData.docMd5, itemData.pageIndex, finalTitle, section)
+          }
+
+          // 显示结果并刷新
+          if (success) {
+            this.refreshSectionCards(section)
+            MNUtil.showHUD("✅ 标题已更新")
+          } else {
+            MNUtil.showHUD("❌ 更新失败")
+          }
+
+        } catch (error) {
+          pinnerUtils.addErrorLog(error, `renameItem ${type} callback`)
+          MNUtil.showHUD("更新失败: " + error.message)
+        }
+      }
+    )
+
+    // 设置输入框的初始值
+    if (alert && currentTitle) {
+      MNUtil.delay(0.1).then(() => {
+        const textField = alert.textFieldAtIndex(0)
+        if (textField) {
+          textField.text = currentTitle
+        }
+      })
+    }
+
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, `renameItem ${type}`)
+    MNUtil.showHUD("重命名失败: " + error.message)
+  }
+}
 // ========== 多选功能辅助方法 ==========
   /**
    * 统一的多选框状态管理方法

@@ -315,6 +315,13 @@ class ViewModeRegistry {
       order: 5,
       description: "用户自定义视图"
     }],
+    ["submindmap", {
+      key: "submindmap",
+      displayName: "子脑图",
+      icon: "🧠",
+      order: 6,
+      description: " 子脑图视图"
+    }],
   ])
 
   /**
@@ -884,239 +891,275 @@ class SectionRegistry {
    */
   static getDefaultSections() {
     return new Map([
-    // Pin 视图分区
-    ["focus", {
-      key: "focus",
-      displayName: "Focus",
-      viewMode: "pin",
-      color: "#457bd3",
-      icon: "📌",
-      order: 1,
-      description: "重点关注的卡片"
-    }],
-    ["taskTodayMostImportant", {
-      key: "taskTodayMostImportant",
-      displayName: "首要任务",
-      viewMode: "pin",
-      color: "#ef61c7ff",
-      icon: "🐸",
-      order: 2,
-      description: "今日最重要的事"
-    }],
-    ["taskTodayMustFinish", {
-      key: "taskTodayMustFinish",
-      displayName: "今日必须完成",
-      viewMode: "pin",
-      color: "#e06c75",
-      icon: "❗️",
-      order: 3,
-      description: "今天必须完成的任务，降低完成预期，以完成为主，先完成再完美"
-    }],
-    ["taskToday", {
-      key: "taskToday",
-      displayName: "Today",
-      viewMode: "pin",
-      color: "#e06c75",
-      icon: "📅",
-      order: 4,
-      description: "今天计划要处理的任务"
-    }],
-    ["taskTomorrow", {
-      key: "taskTomorrow",
-      displayName: "Tomorrow",
-      viewMode: "pin",
-      color: "#d19a66",
-      icon: "📆",
-      order: 5,
-      description: "明天的任务"
-    }],
-    ["dailyMorning", {
-      key: "dailyMorning",
-      displayName: "Morning",
-      viewMode: "pin",
-      color: "#ffd166",
-      icon: "🌅",
-      order: 6,
-      description: "早晨例行事项"
-    }],
-    ["dailyAfternoon", {
-      key: "dailyAfternoon",
-      displayName: "Afternoon",
-      viewMode: "pin",
-      color: "#06ffa5",
-      icon: "☀️",
-      order: 7,
-      description: "下午安排"
-    }],
-    ["dailyEvening", {
-      key: "dailyEvening",
-      displayName: "Evening",
-      viewMode: "pin",
-      color: "#118ab2",
-      icon: "🌙",
-      order: 8,
-      description: "晚间活动"
-    }],
+      // Pin 视图分区
+      ["focus", {
+        key: "focus",
+        displayName: "Focus",
+        viewMode: "pin",
+        color: "#457bd3",
+        icon: "📌",
+        order: 1,
+        description: "重点关注的卡片"
+      }],
+      ["taskTodayMostImportant", {
+        key: "taskTodayMostImportant",
+        displayName: "首要任务",
+        viewMode: "pin",
+        color: "#ef61c7ff",
+        icon: "🐸",
+        order: 2,
+        description: "今日最重要的事"
+      }],
+      ["taskTodayMustFinish", {
+        key: "taskTodayMustFinish",
+        displayName: "今日必须完成",
+        viewMode: "pin",
+        color: "#e06c75",
+        icon: "❗️",
+        order: 3,
+        description: "今天必须完成的任务，降低完成预期，以完成为主，先完成再完美"
+      }],
+      ["taskToday", {
+        key: "taskToday",
+        displayName: "Today",
+        viewMode: "pin",
+        color: "#e06c75",
+        icon: "📅",
+        order: 4,
+        description: "今天计划要处理的任务"
+      }],
+      ["taskTomorrow", {
+        key: "taskTomorrow",
+        displayName: "Tomorrow",
+        viewMode: "pin",
+        color: "#d19a66",
+        icon: "📆",
+        order: 5,
+        description: "明天的任务"
+      }],
+      ["dailyMorning", {
+        key: "dailyMorning",
+        displayName: "Morning",
+        viewMode: "pin",
+        color: "#ffd166",
+        icon: "🌅",
+        order: 6,
+        description: "早晨例行事项"
+      }],
+      ["dailyAfternoon", {
+        key: "dailyAfternoon",
+        displayName: "Afternoon",
+        viewMode: "pin",
+        color: "#06ffa5",
+        icon: "☀️",
+        order: 7,
+        description: "下午安排"
+      }],
+      ["dailyEvening", {
+        key: "dailyEvening",
+        displayName: "Evening",
+        viewMode: "pin",
+        color: "#118ab2",
+        icon: "🌙",
+        order: 8,
+        description: "晚间活动"
+      }],
 
 
-    // Task 视图分区
-    ["taskTodo", {
-      key: "taskTodo",
-      displayName: "TODO",
-      viewMode: "task",
-      color: "#56b6c2",
-      icon: "✅",
-      order: 1,
-      description: "待办事项"
-    }],
+      // Task 视图分区
+      ["taskTodo", {
+        key: "taskTodo",
+        displayName: "TODO",
+        viewMode: "task",
+        color: "#56b6c2",
+        icon: "✅",
+        order: 1,
+        description: "待办事项"
+      }],
 
-    ["taskThisWeek", {
-      key: "taskThisWeek",
-      displayName: "This Week",
-      viewMode: "task",
-      color: "#c678dd",
-      icon: "📊",
-      order: 2,
-      description: "本周任务"
-    }],
-    ["taskNextWeek", {
-      key: "taskNextWeek",
-      displayName: "Next Week",
-      viewMode: "task",
-      color: "#c678dd",
-      icon: "📊",
-      order: 3,
-      description: "下周任务"
-    }],
-    ["taskThisMonth", {
-      key: "taskThisMonth",
-      displayName: "This Month",
-      viewMode: "task",
-      color: "#c678dd",
-      icon: "📊",
-      order: 4,
-      description: "本月任务"
-    }],
-    ["taskNextMonth", {
-      key: "taskNextMonth",
-      displayName: "Next Month",
-      viewMode: "task",
-      color: "#c678dd",
-      icon: "📊",
-      order: 5,
-      description: "下月任务"
-    }],
+      ["taskThisWeek", {
+        key: "taskThisWeek",
+        displayName: "This Week",
+        viewMode: "task",
+        color: "#c678dd",
+        icon: "📊",
+        order: 2,
+        description: "本周任务"
+      }],
+      ["taskNextWeek", {
+        key: "taskNextWeek",
+        displayName: "Next Week",
+        viewMode: "task",
+        color: "#c678dd",
+        icon: "📊",
+        order: 3,
+        description: "下周任务"
+      }],
+      ["taskThisMonth", {
+        key: "taskThisMonth",
+        displayName: "This Month",
+        viewMode: "task",
+        color: "#c678dd",
+        icon: "📊",
+        order: 4,
+        description: "本月任务"
+      }],
+      ["taskNextMonth", {
+        key: "taskNextMonth",
+        displayName: "Next Month",
+        viewMode: "task",
+        color: "#c678dd",
+        icon: "📊",
+        order: 5,
+        description: "下月任务"
+      }],
 
-    ["daily/Courses", {
-      key: "daily/Courses",
-      displayName: "课程学习",
-      viewMode: "daily",
-      color: "#98c379",
-      icon: "🏃",
-      order: 1,
-      description: "把上课的内容还是要好好消化掉"
-    }],
-    ["daily/Reading/doing", {
-      key: "daily/Reading/doing",
-      displayName: "精读(ing)",
-      viewMode: "daily",
-      color: "#98c379",
-      icon: "🏃",
-      order: 2,
-      description: "正在精读的"
-    }],
-    ["daily/Framework/doing", {
-      key: "daily/Framework/doing",
-      displayName: "框架整理(ing)",
-      viewMode: "daily",
-      color: "#98c379",
-      icon: "🏃",
-      order: 3,
-      description: "进行中的框架整理"
-    }],
-    ["daily/Reading/pending", {
-      key: "daily/Reading/pending",
-      displayName: "精读(Inbox)",
-      viewMode: "daily",
-      color: "#98c379",
-      icon: "🏃",
-      order: 4,
-      description: "计划精读的"
-    }],
-    ["daily/Framework/pending", {
-      key: "daily/Framework/pending",
-      displayName: "框架整理(Inbox)",
-      viewMode: "daily",
-      color: "#98c379",
-      icon: "🏃",
-      order: 5,
-      description: "计划进行框架整理的"
-    }],
+      ["daily/Courses", {
+        key: "daily/Courses",
+        displayName: "课程学习",
+        viewMode: "daily",
+        color: "#98c379",
+        icon: "🏃",
+        order: 1,
+        description: "把上课的内容还是要好好消化掉"
+      }],
+      ["daily/Reading/doing", {
+        key: "daily/Reading/doing",
+        displayName: "精读(ing)",
+        viewMode: "daily",
+        color: "#98c379",
+        icon: "🏃",
+        order: 2,
+        description: "正在精读的"
+      }],
+      ["daily/Framework/doing", {
+        key: "daily/Framework/doing",
+        displayName: "框架整理(ing)",
+        viewMode: "daily",
+        color: "#98c379",
+        icon: "🏃",
+        order: 3,
+        description: "进行中的框架整理"
+      }],
+      ["daily/Reading/pending", {
+        key: "daily/Reading/pending",
+        displayName: "精读(Inbox)",
+        viewMode: "daily",
+        color: "#98c379",
+        icon: "🏃",
+        order: 4,
+        description: "计划精读的"
+      }],
+      ["daily/Framework/pending", {
+        key: "daily/Framework/pending",
+        displayName: "框架整理(Inbox)",
+        viewMode: "daily",
+        color: "#98c379",
+        icon: "🏃",
+        order: 5,
+        description: "计划进行框架整理的"
+      }],
 
 
-    ["class", {
-      key: "class",
-      displayName: "Class",
-      viewMode: "custom",
-      color: "#e5c07b",
-      icon: "🎓",
-      order: 1,
-      description: "上课"
-    }],
-    ["toOrganize", {
-      key: "toOrganize",
-      displayName: "待整理",
-      viewMode: "custom",
-      color: "#98c379",
-      icon: "📥",
-      order: 2,
-      description: "需要整理的零散内容"
-    }],
-    ["literatureReading", {
-      key: "literatureReading",
-      displayName: "文献阅读",
-      viewMode: "custom",
-      color: "#e5c07b",
-      icon: "📖",
-      order: 3,
-      description: "文献阅读"
-    }],
-    ["exerciseClass", {
-      key: "exerciseClass",
-      displayName: "习题课",
-      viewMode: "custom",
-      color: "#e5c07b",
-      icon: "🎓",
-      order: 4,
-      description: "习题课"
-    }],
-    ["research/reading", {
-      key: "research/reading",
-      displayName: "在读文献",
-      viewMode: "research",
-      color: "#e5c07b",
-      icon: "🎓",
-      order: 1,
-      description: ""
-    }],
-    ["research/reference", {
-      key: "research/reference",
-      displayName: "参考文献",
-      viewMode: "research",
-      color: "#e5c07b",
-      icon: "🎓",
-      order: 2,
-      description: ""
-    }],
-    ["research/toRead", {
-      key: "research/toRead",
-      displayName: "待读文献",
-      viewMode: "research",
-      color: "#e5c07b",
-      icon: "🎓",
-      order: 3,
-      description: ""
-    }],
+      ["class", {
+        key: "class",
+        displayName: "Class",
+        viewMode: "custom",
+        color: "#e5c07b",
+        icon: "🎓",
+        order: 1,
+        description: "上课"
+      }],
+      ["toOrganize", {
+        key: "toOrganize",
+        displayName: "待整理",
+        viewMode: "custom",
+        color: "#98c379",
+        icon: "📥",
+        order: 2,
+        description: "需要整理的零散内容"
+      }],
+      ["literatureReading", {
+        key: "literatureReading",
+        displayName: "文献阅读",
+        viewMode: "custom",
+        color: "#e5c07b",
+        icon: "📖",
+        order: 3,
+        description: "文献阅读"
+      }],
+      ["exerciseClass", {
+        key: "exerciseClass",
+        displayName: "习题课",
+        viewMode: "custom",
+        color: "#e5c07b",
+        icon: "🎓",
+        order: 4,
+        description: "习题课"
+      }],
+      ["research/reading", {
+        key: "research/reading",
+        displayName: "在读文献",
+        viewMode: "research",
+        color: "#e5c07b",
+        icon: "🎓",
+        order: 1,
+        description: ""
+      }],
+      ["research/reference", {
+        key: "research/reference",
+        displayName: "参考文献",
+        viewMode: "research",
+        color: "#e5c07b",
+        icon: "🎓",
+        order: 2,
+        description: ""
+      }],
+      ["research/toRead", {
+        key: "research/toRead",
+        displayName: "待读文献",
+        viewMode: "research",
+        color: "#e5c07b",
+        icon: "🎓",
+        order: 3,
+        description: ""
+      }],
+      ["submindmap", {
+        key: "submindmap/InnerProductSpaceAndHilbertSpace",
+        displayName: "内积空间 & Hilbert 空间",
+        viewMode: "submindmap",
+        color: "#e5c07b",
+        icon: "🧠",
+        order: 1,
+        description: ""
+      }],
+      ["submindmap", {
+        key: "submindmap/NormedLinearSpaceAndBanachSpace",
+        displayName: "赋范线性空间 & Banach 空间",
+        viewMode: "submindmap",
+        color: "#e5c07b",
+        icon: "🧠",
+        order: 2,
+        description: ""
+      }],
+      ["submindmap", {
+        key: "submindmap/",
+        displayName: "",
+        viewMode: "submindmap",
+        color: "#e5c07b",
+        icon: "🧠",
+        order: 3,
+        description: ""
+      }],
+      ["submindmap", {
+        key: "submindmap/",
+        displayName: "",
+        viewMode: "submindmap",
+        color: "#e5c07b",
+        icon: "🧠",
+        order: 4,
+        description: ""
+      }],
     ])
   }
 
