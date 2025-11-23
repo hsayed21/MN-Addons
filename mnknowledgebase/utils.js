@@ -1221,7 +1221,55 @@ const kbOCRConfig = {
       pattern: /_ϕ\s*/g,
       replacement: "ᵩ ",
       description: "下标 phi 符号转换"
-    }
+    },
+    {
+      pattern: /^k/g,
+      replacement: "ᵏ",
+    },
+    {
+      pattern: /^l/g,
+      replacement: "ˡ",
+    },
+    // {
+    //   pattern: //g,
+    //   replacement: "",
+    // },
+    // {
+    //   pattern: //g,
+    //   replacement: "",
+    // },
+    // {
+    //   pattern: //g,
+    //   replacement: "",
+    // },
+    // {
+    //   pattern: //g,
+    //   replacement: "",
+    // },
+    // {
+    //   pattern: //g,
+    //   replacement: "",
+    // },
+    // {
+    //   pattern: //g,
+    //   replacement: "",
+    // },
+    // {
+    //   pattern: //g,
+    //   replacement: "",
+    // },
+    // {
+    //   pattern: //g,
+    //   replacement: "",
+    // },
+    // {
+    //   pattern: //g,
+    //   replacement: "",
+    // },
+    // {
+    //   pattern: //g,
+    //   replacement: "",
+    // }
   ]
 };
 
@@ -3847,23 +3895,23 @@ class KnowledgeBaseTemplate {
 
   /**
    * 批量更新归类卡片下所有知识点子孙卡片的前缀
-   * 点击归类卡片后调用此函数，会强制更新所有符合条件的子孙卡片前缀
+   * 点击卡片后调用此函数，会强制更新所有符合条件的子孙卡片前缀
    * 
-   * @param {MNNote} classificationNote - 归类卡片
+   * @param {MNNote} note - 不限于归类卡片
    */
-  static batchUpdateChildrenPrefixes(classificationNote, descendant = false) {
+  static batchUpdateChildrenPrefixes(note, descendant = false) {
     // 检查是否为归类卡片
-    if (!this.isClassificationNote(classificationNote)) {
-      MNUtil.showHUD("请选择一个归类卡片");
-      return;
-    }
+    // if (!this.isClassificationNote(classificationNote)) {
+    //   MNUtil.showHUD("请选择一个归类卡片");
+    //   return;
+    // }
     let descendants
     if (descendant) {
       // 获取所有子孙卡片
-      descendants = this.getAllDescendantNotes(classificationNote);
+      descendants = this.getAllDescendantNotes(note);
     } else {
       // 只获取子卡片
-      descendants = classificationNote.childNotes
+      descendants = note.childNotes
     }
     
     let processedCount = 0;
@@ -3887,12 +3935,15 @@ class KnowledgeBaseTemplate {
         // }
         
         // 强制更新前缀
+        mnNote.convertLinksToNewVersion()
+        mnNote.cleanupBrokenLinks()
+        mnNote.fixMergeProblematicLinks()
         this.changeTitle(mnNote, true);
         this.linkParentNote(mnNote)
         processedCount++;
       });
 
-      classificationNote.refreshAll()
+      note.refreshAll()
     });
     
     // 显示处理结果

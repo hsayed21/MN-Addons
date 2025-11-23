@@ -477,6 +477,10 @@ function registerAllMenuTemplates() {
           menuTitle: "🔄 更新「子孙卡片」前缀和链接",
         },
         {
+          action: "updateChildNotesPrefixes",
+          menuTitle: "🔄 更新「子卡片」前缀和链接",
+        },
+        {
           action: "fixBrokenLinks",
           menuTitle: "🏥 修复失效链接",
         },

@@ -320,7 +320,7 @@ class ViewModeRegistry {
       displayName: "子脑图",
       icon: "🧠",
       order: 6,
-      description: " 子脑图视图"
+      description: "子脑图视图"
     }],
   ])
 
@@ -1124,42 +1124,42 @@ class SectionRegistry {
         order: 3,
         description: ""
       }],
-      ["submindmap", {
-        key: "submindmap/InnerProductSpaceAndHilbertSpace",
-        displayName: "内积空间 & Hilbert 空间",
+      // ["submindmap", {
+      //   key: "submindmap/InnerProductSpaceAndHilbertSpace",
+      //   displayName: "内积空间 & Hilbert 空间",
+      //   viewMode: "submindmap",
+      //   color: "#e5c07b",
+      //   icon: "🧠",
+      //   order: 1,
+      //   description: ""
+      // }],
+      // ["submindmap", {
+      //   key: "submindmap/NormedLinearSpaceAndBanachSpace",
+      //   displayName: "赋范线性空间 & Banach 空间",
+      //   viewMode: "submindmap",
+      //   color: "#e5c07b",
+      //   icon: "🧠",
+      //   order: 2,
+      //   description: ""
+      // }],
+      ["submindmap/Common", {
+        key: "submindmap/Common",
+        displayName: "常用子脑图",
         viewMode: "submindmap",
-        color: "#e5c07b",
+        color: "#ff91fbff",
         icon: "🧠",
         order: 1,
         description: ""
       }],
-      ["submindmap", {
-        key: "submindmap/NormedLinearSpaceAndBanachSpace",
-        displayName: "赋范线性空间 & Banach 空间",
-        viewMode: "submindmap",
-        color: "#e5c07b",
-        icon: "🧠",
-        order: 2,
-        description: ""
-      }],
-      ["submindmap", {
-        key: "submindmap/",
-        displayName: "",
-        viewMode: "submindmap",
-        color: "#e5c07b",
-        icon: "🧠",
-        order: 3,
-        description: ""
-      }],
-      ["submindmap", {
-        key: "submindmap/",
-        displayName: "",
-        viewMode: "submindmap",
-        color: "#e5c07b",
-        icon: "🧠",
-        order: 4,
-        description: ""
-      }],
+      // ["submindmap", {
+      //   key: "submindmap/",
+      //   displayName: "",
+      //   viewMode: "submindmap",
+      //   color: "#e5c07b",
+      //   icon: "🧠",
+      //   order: 4,
+      //   description: ""
+      // }],
     ])
   }
 

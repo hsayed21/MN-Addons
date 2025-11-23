@@ -2920,6 +2920,18 @@ function registerAllCustomActions() {
     KnowledgeBaseTemplate.batchUpdateChildrenPrefixes(focusNote, true);
   });
 
+  global.registerCustomAction("updateChildNotesPrefixes", async function(context) {
+    const { button, des, focusNote, focusNotes, self } = context;
+    
+    if (!focusNote) {
+      MNUtil.showHUD("请先选择一个归类卡片");
+      return;
+    }
+    
+    // 调用 KnowledgeBaseTemplate 的批量更新函数
+    KnowledgeBaseTemplate.batchUpdateChildrenPrefixes(focusNote);
+  });
+
   global.registerCustomAction("addAsBrotherNoteofParentNote", async function(context) {
     const { button, des, focusNote, focusNotes, self } = context;
       let parentNote = focusNote.parentNote
@@ -3516,6 +3528,14 @@ function registerAllCustomActions() {
       
       // 调用 KnowledgeBaseTemplate 中的新方法
       try {
+        let confirm = await MNUtil.confirm(
+          "确认删除？",
+          "此操作将删除所有归类卡片，但保留其下的知识点卡片，且不可撤销。是否继续？",
+        );
+        
+        if (!confirm) {
+          return; // 用户取消操作
+        }
         KnowledgeBaseTemplate.removeAllClassificationNotes(focusNote);
       } catch (error) {
         MNUtil.copyJSON(error);
