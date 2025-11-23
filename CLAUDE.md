@@ -57,6 +57,13 @@ JSB.newAddon = () => {
 }
 ```
 
+**注意（极其重要）！！！**
+需要写在生命周期中才能通过 selector 绑定，写在 prototype 里的方法无法绑定菜单。
+
+相反的是生命周期里用 `self.xxx()` 只能调用 prototype 里的方法，不能调用生命周期里的方法。
+
+
+
 ### 如何打包和解包插件
 
 在插件目录下使用 `mnaddon4 build` 打包、 `mnaddon4 unpack`解包，比如：
@@ -553,15 +560,15 @@ git add [文件名]
 git commit -m "提交信息"
 
 # 3. 推送到远程仓库（重要！）
-git push github [分支名]  # 注意：是 github 而不是 origin
+git push origin [分支名]
 ```
 
 ### 常见错误
 ```bash
-# ❌ 错误：使用 origin
-git push origin dev  # 会报错：'origin' does not appear to be a git repository
+# ✅ 正确：使用 origin
+git push origin dev
 
-# ✅ 正确：使用 github
+# ❌ 错误：使用 github
 git push github dev
 ```
 
@@ -577,7 +584,7 @@ git remote -v
 
 ### 重要提醒
 - 在创建 GitHub Issue 之前，确保代码已经推送到远程仓库
-- 使用 `git push github [分支名]` 而不是 `git push origin [分支名]`
+- 使用 `git push origin [分支名]` 而不是 `git push github [分支名]`
 - 如果忘记 push，Issue 中引用的代码链接将无法访问
 ## UIAlertView API 使用规范(极其重要!⚠️)
 
