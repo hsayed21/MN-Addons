@@ -1439,6 +1439,7 @@
       state.comments = data.comments.map(comment => {
         const converted = {
           index: comment.index,
+          originalType: comment.originalType,  // 保留原始类型用于 detectDetailedType
           type: detectDetailedType(comment),  // 转换为细分类型
           text: comment.text || null
         };
@@ -1455,6 +1456,15 @@
 
         if (comment.linkedNoteTitle) {
           converted.linkedNoteTitle = comment.linkedNoteTitle;
+        }
+
+        // HtmlMarkdown 相关字段
+        if (comment.htmlMarkdownType) {
+          converted.htmlMarkdownType = comment.htmlMarkdownType;
+        }
+
+        if (comment.htmlMarkdownContent) {
+          converted.htmlMarkdownContent = comment.htmlMarkdownContent;
         }
 
         return converted;
@@ -1485,6 +1495,11 @@
           // 空文本
           if (!comment.text || comment.text.trim() === "") {
             return "blankTextComment";
+          }
+
+          // HtmlMarkdown 格式（优先检查）
+          if (comment.htmlMarkdownType) {
+            return "htmlMarkdownComment";
           }
 
           // 特殊：链接到其他笔记
@@ -1729,6 +1744,9 @@
         case 'textComment':
           contentHTML = createTextCardContent(comment);
           break;
+        case 'htmlMarkdownComment':  // 新增：HtmlMarkdown 评论
+          contentHTML = createHtmlMarkdownCardContent(comment);
+          break;
         case 'imageComment':
           contentHTML = createImageCardContent(comment);
           break;
@@ -1813,6 +1831,49 @@
         <div class="comment-content">
           <div class="comment-preview ${needExpand ? 'collapsed' : ''}">
             ${escapeHtml(text)}
+          </div>
+          ${needExpand ? '<button class="expand-btn">展开</button>' : ''}
+        </div>
+      `;
+    }
+
+    function createHtmlMarkdownCardContent(comment) {
+      // 定义类型图标映射（完全对应 HtmlMarkdownUtils.icons）
+      const typeIconMap = {
+        'level1': '🚩',
+        'level2': '▸',
+        'level3': '▪',
+        'level4': '•',
+        'level5': '·',
+        'key': '🔑',
+        'alert': '⚠️',
+        'danger': '❗❗❗',  // 3个感叹号！
+        'remark': '📝',
+        'goal': '🎯',
+        'question': '❓',
+        'idea': '💡',
+        'method': '✨',
+        'check': '🔍',
+        'sketch': '✏️',
+        'case': '📋',
+        'step': '👣'
+      };
+
+      const htmlMarkdownType = comment.htmlMarkdownType || 'unknown';
+      const icon = typeIconMap[htmlMarkdownType] || '📌';
+      const content = comment.htmlMarkdownContent || comment.text || '';
+      const needExpand = content.length > 100;
+
+      return `
+        <div class="comment-header">
+          <input type="checkbox" class="comment-checkbox">
+          <span class="comment-icon">${icon}</span>
+          <span class="comment-index">${comment.index}</span>
+          <span class="comment-type-label">HtmlMD: ${htmlMarkdownType}</span>
+        </div>
+        <div class="comment-content">
+          <div class="comment-preview ${needExpand ? 'collapsed' : ''}">
+            ${escapeHtml(content)}
           </div>
           ${needExpand ? '<button class="expand-btn">展开</button>' : ''}
         </div>

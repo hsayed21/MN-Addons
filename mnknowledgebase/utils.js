@@ -20971,7 +20971,7 @@ class HtmlMarkdownUtils {
         span = comment.text?comment.text:""
         break;
     }
-    const regex = /<span\s+id="([^"]*)"/;
+    const regex = /<span\s*id="([^"]*)"/;  // \s* 允许0个或多个空格，修复无法匹配自身生成HTML的Bug
     const match = span.match(regex);
     if (match && match[1]) {
       return match[1].trim();

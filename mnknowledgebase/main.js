@@ -2423,6 +2423,87 @@ JSB.newAddon = function(mainPath){
               commentData.text = rawComment.text || "";
               commentData.markdown = rawComment.markdown;
 
+              // 检查是否是 HtmlMarkdown 格式（<span id="TYPE">...）
+              if (commentData.text.startsWith("<span")) {
+                // 调试日志
+                KnowledgeBaseUtils.log("检测到 HtmlMarkdown 评论", "prepareCommentDataForManager", {
+                  index: index,
+                  text: commentData.text,
+                  textLength: commentData.text.length,
+                  first50Chars: commentData.text.substring(0, 50)
+                });
+
+                const typeRegex = /<span\s*id="([^"]*)"/;  // \s* 允许0个或多个空格
+                const typeMatch = commentData.text.match(typeRegex);
+
+                // 调试日志
+                KnowledgeBaseUtils.log("正则匹配结果", "prepareCommentDataForManager", {
+                  index: index,
+                  matched: !!typeMatch,
+                  matchResult: typeMatch ? typeMatch[0] : null,
+                  capturedType: typeMatch && typeMatch[1] ? typeMatch[1] : null
+                });
+
+                if (typeMatch && typeMatch[1]) {
+                  // 提取类型（如 "danger", "level1", "idea"）
+                  commentData.htmlMarkdownType = typeMatch[1].trim();
+
+                  // 提取纯文本内容（去除 HTML 标签）
+                  const contentRegex = /<span[^>]*>(.*?)<\/span>/;
+                  const contentMatch = commentData.text.match(contentRegex);
+                  if (contentMatch && contentMatch[1]) {
+                    let pureContent = contentMatch[1].trim();
+                    // 去除所有 HtmlMarkdown emoji 图标（对应 HtmlMarkdownUtils.icons）
+                    const emojisToRemove = [
+                      '❗❗❗',  // danger (必须先匹配3个，否则会只去掉1个)
+                      '🚩', '▸', '▪', '•', '·',  // level1-5
+                      '🔑',  // key
+                      '⚠️',  // alert
+                      '📝',  // remark
+                      '🎯',  // goal
+                      '❓',  // question
+                      '��',  // idea
+                      '✨',  // method
+                      '🔍',  // check
+                      '✏️',  // sketch
+                      '📋',  // case
+                      '👣'   // step
+                    ];
+                    emojisToRemove.forEach(emoji => {
+                      pureContent = pureContent.replace(emoji, '').trim();
+                    });
+
+                    // 去除可能的前缀文本（对应 HtmlMarkdownUtils.prefix）
+                    const prefixes = [
+                      "思路：",   // idea
+                      "方法：",   // method
+                      "CHECK",   // check (无冒号)
+                      "SKETCH",  // sketch (无冒号)
+                      "SKETCH: " // sketch 可能有冒号+空格的情况
+                    ];
+                    prefixes.forEach(prefix => {
+                      if (pureContent.startsWith(prefix)) {
+                        pureContent = pureContent.substring(prefix.length).trim();
+                      }
+                    });
+                    commentData.htmlMarkdownContent = pureContent;
+
+                    // 调试日志
+                    KnowledgeBaseUtils.log("HtmlMarkdown 解析成功", "prepareCommentDataForManager", {
+                      index: index,
+                      type: commentData.htmlMarkdownType,
+                      content: commentData.htmlMarkdownContent
+                    });
+                  }
+                } else {
+                  // 调试日志：匹配失败
+                  KnowledgeBaseUtils.log("HtmlMarkdown 匹配失败", "prepareCommentDataForManager", {
+                    index: index,
+                    charCodes: Array.from(commentData.text.substring(0, 30)).map(c => c.charCodeAt(0)).join(',')
+                  });
+                }
+              }
+
               // 检查是否是链接到其他笔记的特殊情况
               if (/^marginnote\dapp:\/\//.test(commentData.text)) {
                 const noteid = commentData.text.split("note/")[1];
