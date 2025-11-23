@@ -996,6 +996,134 @@ const kbOCRConfig = {
       description: '【猜想-全角括号】移除编号，保留关键词（（6.3）猜想 内容 → 猜想：内容）'
     },
 
+    // ==================== 附录编号处理（字母编号：A.1, B.2 等）====================
+
+    // 1. 括号编号格式 - 附录版本（24条规则）
+    {
+      pattern: /^(定理|引理|推论|命题|性质|公式|结论|结果)\s*（\s*[A-Z](?:\.\d+)+\s*）\s*\(([^)]+)\)[:.:]?\s*(.+)/ig,
+      replacement: '$3; $2',
+      description: '【附录-中文括号+英文括号】移除附录编号，将括号名称移到末尾（定理（A.1）(Name) Content → Content; Name）'
+    },
+    {
+      pattern: /^(定理|引理|推论|命题|性质|公式|结论|结果)\s*（\s*[A-Z](?:\.\d+)+\s*）[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-中文括号】移除附录编号和关键词（定理（A.1）内容 → 内容）'
+    },
+    {
+      pattern: /^(定理|引理|推论|命题|性质|公式|结论|结果)\s*\(\s*[A-Z](?:\.\d+)+\s*\)\s*\(([^)]+)\)[:.:]?\s*(.+)/ig,
+      replacement: '$3; $2',
+      description: '【附录-英文括号+英文括号】移除附录编号，将括号名称移到末尾（定理(A.1)(Name) Content → Content; Name）'
+    },
+    {
+      pattern: /^(定理|引理|推论|命题|性质|公式|结论|结果)\s*\(\s*[A-Z](?:\.\d+)+\s*\)[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-英文括号】移除附录编号和关键词（定理(A.1)内容 → 内容）'
+    },
+    {
+      pattern: /^(Theorem|Lemma|Corollary|Proposition|Property|Formula|Conclusion|Result)\s+[A-Z](?:\.\d+)+\s*\(([^)]+)\)[:.:]?\s*(.+)/ig,
+      replacement: '$3; $2',
+      description: '【附录-英文】移除英文定理附录编号，将括号名称移到末尾（Theorem A.1 (Name) Content → Content; Name）'
+    },
+    {
+      pattern: /^(Theorem|Lemma|Corollary|Proposition|Property|Formula|Conclusion|Result)\s+[A-Z](?:\.\d+)+[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-英文无括号】移除英文定理附录编号和关键词（Theorem A.1 Content → Content）'
+    },
+    {
+      pattern: /^（\s*[A-Z](?:\.\d+)+\s*）\s*\(([^)]+)\)[:.:]?\s*(.+)/ig,
+      replacement: '$2; $1',
+      description: '【附录-仅中文括号+英文括号】移除附录编号，将名称移到末尾（（A.1）(Name) Content → Content; Name）'
+    },
+    {
+      pattern: /^（\s*[A-Z](?:\.\d+)+\s*）[:.:]?\s*(.+)/ig,
+      replacement: '$1',
+      description: '【附录-仅中文括号】移除附录编号（（A.1）内容 → 内容）'
+    },
+    {
+      pattern: /^\(\s*[A-Z](?:\.\d+)+\s*\)\s*\(([^)]+)\)[:.:]?\s*(.+)/ig,
+      replacement: '$2; $1',
+      description: '【附录-仅英文括号+英文括号】移除附录编号，将名称移到末尾（(A.1)(Name) Content → Content; Name）'
+    },
+    {
+      pattern: /^\(\s*[A-Z](?:\.\d+)+\s*\)[:.:]?\s*(.+)/ig,
+      replacement: '$1',
+      description: '【附录-仅英文括号】移除附录编号（(A.1)内容 → 内容）'
+    },
+
+    // 2. 定理编号处理 - 附录版本（6条规则）
+    {
+      pattern: /^(定理|引理|推论|命题|性质|公式|结论|结果)\s+[A-Z](?:\.\d+)+\s*\(([^)]+)\)[:.:]?\s*(.+)/ig,
+      replacement: '$3; $2',
+      description: '【附录-定理编号+括号】移除附录编号，将括号名称移到末尾（定理 A.1 (Name) Content → Content; Name）'
+    },
+    {
+      pattern: /^(定理|引理|推论|命题|性质|公式|结论|结果)\s+[A-Z](?:\.\d+)+[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-定理编号】移除附录编号和关键词（定理 A.1 内容 → 内容）'
+    },
+    {
+      pattern: /^(Theorem|Lemma|Corollary|Proposition|Property|Formula|Conclusion|Result)\s+[A-Z](?:\.\d+)+\s+\(([^)]+)\)[:.:]?\s*(.+)/ig,
+      replacement: '$3; $2',
+      description: '【附录-英文定理编号+括号】移除附录编号，将括号名称移到末尾（Theorem A.1 (Name) Content → Content; Name）'
+    },
+    {
+      pattern: /^(Theorem|Lemma|Corollary|Proposition|Property|Formula|Conclusion|Result)\s+[A-Z](?:\.\d+)+[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-英文定理编号】移除附录编号和关键词（Theorem A.1 Content → Content）'
+    },
+    {
+      pattern: /^(证明|Proof)\s+[A-Z](?:\.\d+)+[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-证明编号】移除附录证明编号和关键词（证明 A.1 内容 → 内容）'
+    },
+    {
+      pattern: /^(注|注记|备注|Remark|Note)\s+[A-Z](?:\.\d+)+[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-注记编号】移除附录注记编号和关键词（注 A.1 内容 → 内容）'
+    },
+
+    // 3. 编号前置格式 - 附录版本（8条规则）
+    {
+      pattern: /^[A-Z](?:\.\d+)+\s+(定理|引理|推论|命题|性质|公式|结论|结果)\s*\(([^)]+)\)[:.:]?\s*(.+)/ig,
+      replacement: '$3; $2',
+      description: '【附录-编号前置+括号】移除前置附录编号，将括号名称移到末尾（A.1 定理 (Name) Content → Content; Name）'
+    },
+    {
+      pattern: /^[A-Z](?:\.\d+)+\s+(定理|引理|推论|命题|性质|公式|结论|结果)[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-编号前置】移除前置附录编号和关键词（A.1 定理 内容 → 内容）'
+    },
+    {
+      pattern: /^[A-Z](?:\.\d+)+\s+(Theorem|Lemma|Corollary|Proposition|Property|Formula|Conclusion|Result)\s*\(([^)]+)\)[:.:]?\s*(.+)/ig,
+      replacement: '$3; $2',
+      description: '【附录-英文编号前置+括号】移除前置附录编号，将括号名称移到末尾（A.1 Theorem (Name) Content → Content; Name）'
+    },
+    {
+      pattern: /^[A-Z](?:\.\d+)+\s+(Theorem|Lemma|Corollary|Proposition|Property|Formula|Conclusion|Result)[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-英文编号前置】移除前置附录编号和关键词（A.1 Theorem Content → Content）'
+    },
+    {
+      pattern: /^[A-Z](?:\.\d+)+\s+(证明|Proof)[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-证明编号前置】移除前置附录证明编号和关键词（A.1 证明 内容 → 内容）'
+    },
+    {
+      pattern: /^[A-Z](?:\.\d+)+\s+(注|注记|备注|Remark|Note)[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-注记编号前置】移除前置附录注记编号和关键词（A.1 注 内容 → 内容）'
+    },
+    {
+      pattern: /^[A-Z](?:\.\d+)+\s+(假设|猜想|Assumption|Conjecture)[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-假设编号前置】移除前置附录假设编号和关键词（A.1 假设 内容 → 内容）'
+    },
+    {
+      pattern: /^[A-Z](?:\.\d+)+\s+(问题|Question)[:.:]?\s*(.+)/ig,
+      replacement: '$2',
+      description: '【附录-问题编号前置】移除前置附录问题编号和关键词（A.1 问题 内容 → 内容）'
+    },
+
     {
       pattern: /C_ϕ/g,
       replacement: "Cᵩ",
@@ -1925,7 +2053,8 @@ class KnowledgeBaseTemplate {
             // 用户输入了内容，继续处理
             this.performMergeToParentThought(focusNote, parentNote, inputText.trim());
           } else {
-            MNUtil.showHUD("❌ 未输入内容，操作取消");
+            // 用户没有输入内容，直接合并（不添加任何文本到父卡片）
+            this.performMergeToParentThought(focusNote, parentNote, "");
           }
         });
         return true; // 异步操作，返回 true 表示已处理

@@ -420,6 +420,241 @@ class ViewModeRegistry {
     let config = this.getConfig(key)
     return config ? config.icon : this.defaultConfig.icon
   }
+
+  /**
+   * 获取所有视图模式配置（用于导出）
+   * @returns {Array} 所有视图模式配置的数组
+   */
+  static getAllConfigs() {
+    return Array.from(this.viewModes.values())
+  }
+
+  /**
+   * 清除所有视图模式配置
+   * 用于配置导入时重置到空状态
+   */
+  static clearAll() {
+    try {
+      this.viewModes.clear()
+
+      MNLog.info({
+        message: "已清除所有视图模式配置",
+        source: "ViewModeRegistry.clearAll"
+      })
+
+      return true
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "ViewModeRegistry:clearAll")
+      return false
+    }
+  }
+
+  /**
+   * 应用导入的视图模式配置（批量更新）
+   * @param {Array} configs - 配置数组
+   * @returns {Object} {success: boolean, updated: number, message: string}
+   */
+  static applyViewModeConfigs(configs) {
+    try {
+      if (!Array.isArray(configs)) {
+        return {
+          success: false,
+          updated: 0,
+          message: "配置数据格式错误"
+        }
+      }
+
+      let updated = 0
+
+      configs.forEach(config => {
+        if (config.key) {
+          // 填充默认值
+          let fullConfig = {
+            displayName: config.key,
+            icon: this.defaultConfig.icon,
+            order: this.defaultConfig.order,
+            description: this.defaultConfig.description,
+            ...config
+          }
+
+          this.viewModes.set(config.key, fullConfig)
+          updated++
+        }
+      })
+
+      MNLog.info({
+        message: "视图模式配置已应用",
+        source: "ViewModeRegistry.applyViewModeConfigs",
+        detail: { updated, total: configs.length }
+      })
+
+      return {
+        success: true,
+        updated: updated,
+        message: `成功导入 ${updated} 个视图模式配置`
+      }
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "ViewModeRegistry:applyViewModeConfigs")
+      return {
+        success: false,
+        updated: 0,
+        message: "导入配置失败: " + error.message
+      }
+    }
+  }
+
+  /**
+   * 获取默认配置（工厂方法）
+   * @returns {Map} 默认视图模式配置的新副本
+   */
+  static getDefaultViewModes() {
+    return new Map([
+      ["pin", {
+        key: "pin",
+        displayName: "Pin",
+        icon: "📌",
+        order: 1,
+        description: "固定卡片和文档页面"
+      }],
+      ["research", {
+        key: "research",
+        displayName: "科研",
+        icon: "👨‍🎓",
+        order: 2,
+        description: "科研视图"
+      }],
+      ["daily", {
+        key: "daily",
+        displayName: "日拱一卒",
+        icon: "☀️",
+        order: 3,
+        description: "日拱一卒视图"
+      }],
+      ["task", {
+        key: "task",
+        displayName: "Task",
+        icon: "📋",
+        order: 4,
+        description: "任务管理视图"
+      }],
+      ["custom", {
+        key: "custom",
+        displayName: "Custom",
+        icon: "🎨",
+        order: 5,
+        description: "用户自定义视图"
+      }],
+      ["submindmap", {
+        key: "submindmap",
+        displayName: "子脑图",
+        icon: "🧠",
+        order: 6,
+        description: "子脑图视图"
+      }],
+    ])
+  }
+
+  /**
+   * 重置为默认配置
+   */
+  static resetToDefault() {
+    try {
+      this.viewModes = this.getDefaultViewModes()
+
+      MNLog.info({
+        message: "视图模式配置已重置为默认值",
+        source: "ViewModeRegistry.resetToDefault"
+      })
+
+      return true
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "ViewModeRegistry:resetToDefault")
+      return false
+    }
+  }
+
+  /**
+   * 保存配置到 NSUserDefaults
+   */
+  static saveToStorage() {
+    try {
+      let configs = this.getAllConfigs().map(config => ({
+        key: config.key,
+        displayName: config.displayName,
+        icon: config.icon,
+        order: config.order,
+        description: config.description
+      }))
+
+      let jsonData = JSON.stringify(configs)
+      NSUserDefaults.standardUserDefaults().setObjectForKey(
+        jsonData,
+        "MNPinner_viewModeConfigs"
+      )
+
+      MNLog.info({
+        message: "视图模式配置已保存到存储",
+        source: "ViewModeRegistry.saveToStorage",
+        detail: { count: configs.length }
+      })
+      return true
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "ViewModeRegistry:saveToStorage")
+      return false
+    }
+  }
+
+  /**
+   * 从 NSUserDefaults 加载配置
+   */
+  static loadFromStorage() {
+    try {
+      let jsonData = NSUserDefaults.standardUserDefaults().objectForKey(
+        "MNPinner_viewModeConfigs"
+      )
+
+      if (!jsonData) {
+        MNLog.info({
+          message: "存储中无配置数据，使用默认配置",
+          source: "ViewModeRegistry.loadFromStorage"
+        })
+        return true
+      }
+
+      let configs = JSON.parse(jsonData)
+      if (!Array.isArray(configs)) {
+        MNLog.info({
+          message: "配置数据格式错误，使用默认配置",
+          source: "ViewModeRegistry.loadFromStorage"
+        })
+        return false
+      }
+
+      // 应用配置（只更新可修改属性，保留 key）
+      configs.forEach(config => {
+        if (this.viewModes.has(config.key)) {
+          let existing = this.viewModes.get(config.key)
+          this.viewModes.set(config.key, {
+            ...existing,
+            displayName: config.displayName,
+            icon: config.icon,
+            order: config.order,
+            description: config.description
+          })
+        }
+      })
+
+      MNLog.info({
+        message: "从存储加载视图模式配置成功",
+        source: "ViewModeRegistry.loadFromStorage",
+        detail: { count: configs.length }
+      })
+      return true
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "ViewModeRegistry:loadFromStorage")
+      return false
+    }
+  }
 }
 
 /**
@@ -1312,7 +1547,86 @@ class SectionRegistry {
   }
 
   /**
-   * 应用导入的分区配置（批量更新）
+   * 从分区 key 推断视图模式
+   * 当导入配置缺少 sectionConfigs 时，用于自动推断分区应属于哪个视图模式
+   * @param {string} key - 分区 key
+   * @returns {string} 推断的视图模式
+   */
+  static inferViewModeFromSectionKey(key) {
+    // 1. 首先检查默认配置中是否有此分区
+    let defaultSections = this.getDefaultSections()
+    if (defaultSections.has(key)) {
+      return defaultSections.get(key).viewMode
+    }
+
+    // 2. 根据 key 前缀/模式推断
+    if (key.startsWith("daily/") || key.startsWith("daily")) {
+      return "daily"
+    }
+    if (key.startsWith("research/") || key.startsWith("research")) {
+      return "research"
+    }
+    if (key.startsWith("submindmap/") || key.startsWith("submindmap")) {
+      return "submindmap"
+    }
+    if (key.startsWith("task") && !key.startsWith("taskToday") && !key.startsWith("taskTomorrow")) {
+      // taskTodo, taskThisWeek 等属于 task 视图
+      // 但 taskToday, taskTomorrow, taskTodayMostImportant 属于 pin 视图
+      return "task"
+    }
+
+    // 3. 已知的 pin 视图分区
+    const pinSections = [
+      "focus", "midway", "completed",
+      "taskToday", "taskTomorrow", "taskTodayMostImportant", "taskTodayMustFinish",
+      "dailyMorning", "dailyAfternoon", "dailyEvening"
+    ]
+    if (pinSections.includes(key)) {
+      return "pin"
+    }
+
+    // 4. 默认归类为 custom
+    return "custom"
+  }
+
+  /**
+   * 从 sections（Pin 数据）keys 生成分区配置
+   * 用于导入旧配置时自动推断分区元数据
+   * @param {Object} sections - sections 对象（key -> pin数组）
+   * @returns {Array} 分区配置数组
+   */
+  static generateSectionConfigsFromSections(sections) {
+    if (!sections || typeof sections !== "object") {
+      return []
+    }
+
+    let configs = []
+    let orderCounter = {}  // 每个 viewMode 的 order 计数器
+
+    Object.keys(sections).forEach(key => {
+      let viewMode = this.inferViewModeFromSectionKey(key)
+
+      // 初始化 order 计数器
+      if (!orderCounter[viewMode]) {
+        orderCounter[viewMode] = 1
+      }
+
+      configs.push({
+        key: key,
+        displayName: key,  // 使用 key 作为默认显示名
+        viewMode: viewMode,
+        color: "#abb2bf",
+        icon: "📋",
+        order: orderCounter[viewMode]++,
+        description: ""
+      })
+    })
+
+    return configs
+  }
+
+  /**
+   * 应用导入的分区配置（批量更新/创建）
    * @param {Array} configs - 配置数组
    * @returns {Object} {success: boolean, updated: number, message: string}
    */
@@ -1327,10 +1641,17 @@ class SectionRegistry {
       }
 
       let updated = 0
+      let created = 0
+
       configs.forEach(config => {
-        if (config.key && this.sections.has(config.key)) {
+        if (!config.key) {
+          pinnerUtils.log("跳过无效配置（缺少 key）", "SectionRegistry:applySectionConfigs")
+          return
+        }
+
+        if (this.sections.has(config.key)) {
+          // ✅ 更新已存在的分区
           let existingConfig = this.sections.get(config.key)
-          // 只更新可修改的属性
           this.sections.set(config.key, {
             ...existingConfig,
             displayName: config.displayName || existingConfig.displayName,
@@ -1340,18 +1661,39 @@ class SectionRegistry {
             description: config.description !== undefined ? config.description : existingConfig.description
           })
           updated++
+        } else {
+          // ✅ 创建新分区（重要修复！导入时如果 Map 为空，需要能创建新分区）
+          let fullConfig = {
+            key: config.key,
+            displayName: config.displayName || config.key,
+            viewMode: config.viewMode || "pin",
+            color: config.color || "#abb2bf",
+            icon: config.icon || "📋",
+            order: config.order !== undefined ? config.order : 999,
+            description: config.description || ""
+          }
+          this.sections.set(config.key, fullConfig)
+          created++
         }
       })
 
       // 保存到存储
       this.saveToStorage()
 
-      pinnerUtils.log(`应用导入配置成功，更新了 ${updated} 个分区`, "SectionRegistry:applySectionConfigs")
+      MNLog.info({
+        message: "应用导入配置成功",
+        source: "SectionRegistry:applySectionConfigs",
+        detail: {
+          updated: updated,
+          created: created,
+          total: updated + created
+        }
+      })
 
       return {
         success: true,
-        updated: updated,
-        message: `成功导入 ${updated} 个分区的配置`
+        updated: updated + created,
+        message: `成功导入 ${updated + created} 个分区的配置（更新 ${updated} 个，新建 ${created} 个）`
       }
     } catch (error) {
       pinnerUtils.addErrorLog(error, "SectionRegistry:applySectionConfigs")
@@ -1435,6 +1777,26 @@ class SectionRegistry {
       return true
     } catch (error) {
       pinnerUtils.addErrorLog(error, "SectionRegistry:loadFromStorage")
+      return false
+    }
+  }
+
+  /**
+   * 清除所有分区配置
+   * 用于配置导入时重置到空状态
+   */
+  static clearAllSections() {
+    try {
+      this.sections.clear()
+
+      MNLog.info({
+        message: "已清除所有分区配置",
+        source: "SectionRegistry.clearAllSections"
+      })
+
+      return true
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "SectionRegistry:clearAllSections")
       return false
     }
   }
@@ -1701,6 +2063,10 @@ class pinnerConfig {
       pinnerUtils.log("加载分区配置", "pinnerConfig:init")
       SectionRegistry.loadFromStorage()
 
+      // 加载视图模式配置（从 NSUserDefaults 恢复用户自定义）
+      pinnerUtils.log("加载视图模式配置", "pinnerConfig:init")
+      ViewModeRegistry.loadFromStorage()
+
       // 执行迁移检测和数据迁移
       pinnerUtils.log("开始执行迁移检测", "pinnerConfig:init")
       let migrationResult = MigrationManager.checkAndMigrate()
@@ -1897,14 +2263,16 @@ class pinnerConfig {
   
   /**
    * 获取所有配置（统一命名）
+   * v1.3.0: 新增 viewModeConfigs
    */
   static getAllConfig() {
     return {
+      version: "1.3.0",  // ✅ 版本号升级到 1.3.0
       sections: this.sections,
       config: this.config,
       settings: this.settings,
       sectionConfigs: SectionRegistry.getAllConfigs(),  // 分区配置
-      version: "1.2.0"  // 版本号升级
+      viewModeConfigs: ViewModeRegistry.getAllConfigs()  // ✅ 视图模式配置
     }
   }
   
@@ -1916,7 +2284,7 @@ class pinnerConfig {
   static isValidTotalConfig(data) {
     if (!data || typeof data !== 'object') return false
 
-    // 验证 pin 数据格式（支持 Card 和 Page 类型）
+    // 验证 pin 数据格式（支持 Card、Page、Clipboard 类型）
     let validatePins = (pins) => {
       if (!Array.isArray(pins)) return true
       return pins.every(pin => {
@@ -1932,27 +2300,78 @@ class pinnerConfig {
           return 'docMd5' in pin && 'pageIndex' in pin && 'title' in pin
         }
 
+        // Clipboard 类型：必须有 text 和 title
+        if (pin.type === "clipboard") {
+          return 'text' in pin && 'title' in pin
+        }
+
         return false
       })
     }
 
-    // 支持 1.2.0 版本
-    if (data.version === "1.2.0") {
+    // 支持 1.3.0 版本（新增）
+    if (data.version === "1.3.0") {
       if (!data.sections || typeof data.sections !== 'object') return false
+
       // 验证所有分区的数据格式
       for (let section in data.sections) {
         if (!validatePins(data.sections[section])) return false
       }
+
+      // ✅ 验证 sectionConfigs（可选）
+      if (data.sectionConfigs !== undefined && !Array.isArray(data.sectionConfigs)) {
+        return false
+      }
+
+      // ✅ 验证 viewModeConfigs（可选）
+      if (data.viewModeConfigs !== undefined && !Array.isArray(data.viewModeConfigs)) {
+        return false
+      }
+
+      // ✅ 验证 settings（可选）
+      if (data.settings !== undefined && typeof data.settings !== 'object') {
+        return false
+      }
+
       return true
     }
 
-    // 支持 1.1.0 版本
+    // 支持 1.2.0 版本（修复）
+    if (data.version === "1.2.0") {
+      if (!data.sections || typeof data.sections !== 'object') return false
+
+      // 验证所有分区的数据格式
+      for (let section in data.sections) {
+        if (!validatePins(data.sections[section])) return false
+      }
+
+      // ✅ 验证 sectionConfigs（可选）
+      if (data.sectionConfigs !== undefined && !Array.isArray(data.sectionConfigs)) {
+        return false
+      }
+
+      // ✅ 验证 settings（可选）
+      if (data.settings !== undefined && typeof data.settings !== 'object') {
+        return false
+      }
+
+      return true
+    }
+
+    // 支持 1.1.0 版本（修复）
     if (data.version === "1.1.0") {
       if (!data.sections || typeof data.sections !== 'object') return false
+
       // 验证所有分区
       for (let section in data.sections) {
         if (!validatePins(data.sections[section])) return false
       }
+
+      // ✅ 验证 settings（可选）
+      if (data.settings !== undefined && typeof data.settings !== 'object') {
+        return false
+      }
+
       return true
     }
 
@@ -1973,9 +2392,43 @@ class pinnerConfig {
 
     return false
   }
-  
+
+  /**
+   * 清除所有持久化存储数据
+   * 用于配置导入时的完全替换策略
+   */
+  static clearAllStoredData() {
+    try {
+      // 清除所有 NSUserDefaults 键值
+      const keysToRemove = [
+        "MNPinner_sections",
+        "MNPinner_config",
+        "MNPinner_settings",
+        "MNPinner_sectionConfigs",
+        "MNPinner_viewModeConfigs",  // ✅ 新增：视图模式配置
+        "MNPinner_temporaryPins"  // 旧版本遗留数据
+      ]
+
+      keysToRemove.forEach(key => {
+        NSUserDefaults.standardUserDefaults().removeObjectForKey(key)
+      })
+
+      MNLog.info({
+        message: "已清除所有持久化存储数据",
+        source: "pinnerConfig.clearAllStoredData",
+        detail: { clearedKeys: keysToRemove }
+      })
+
+      return true
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "pinnerConfig:clearAllStoredData")
+      return false
+    }
+  }
+
   /**
    * 导入配置
+   * ✨ 完全替换策略：清除所有旧数据，使用导入的配置
    */
   static importConfig(newConfig) {
     try {
@@ -1984,33 +2437,117 @@ class pinnerConfig {
         return false
       }
 
-      // 保存当前配置作为备份
+      // 1. 保存当前配置作为备份
       this.previousConfig = this.getAllConfig()
 
-      // 判断版本并导入
-      if (newConfig.version === "1.2.0") {
-        // 1.2.0 版本格式（包含 sectionConfigs）
+      // 2. ✨ 完全清除旧数据
+      this.clearAllStoredData()
+
+      // 3. 根据版本导入新配置
+      if (newConfig.version === "1.3.0") {
+        // ✅ 1.3.0 版本格式（包含 viewModeConfigs）
+        this.sections = newConfig.sections || this.defaultSections
+        this.config = newConfig.config || { version: "1.3.0", source: "focus" }
+        this.settings = newConfig.settings || this.getDefaultSettings()
+
+        // ✅ 应用视图模式配置（完全替换）
+        if (newConfig.viewModeConfigs) {
+          ViewModeRegistry.clearAll()
+          let result = ViewModeRegistry.applyViewModeConfigs(newConfig.viewModeConfigs)
+          if (result.success) {
+            MNLog.info({
+              message: "视图模式配置已应用",
+              source: "pinnerConfig.importConfig",
+              detail: { updated: result.updated }
+            })
+          }
+        } else {
+          ViewModeRegistry.resetToDefault()
+        }
+
+        // ✅ 应用分区配置（完全替换）
+        SectionRegistry.clearAllSections()
+        let sectionConfigsToApply = newConfig.sectionConfigs
+
+        // ⚠️ 如果 sectionConfigs 缺失或为空，从 sections 自动推断
+        if (!sectionConfigsToApply || sectionConfigsToApply.length === 0) {
+          sectionConfigsToApply = SectionRegistry.generateSectionConfigsFromSections(this.sections)
+          MNLog.info({
+            message: "自动从 sections 生成分区配置",
+            source: "pinnerConfig.importConfig",
+            detail: { generatedCount: sectionConfigsToApply.length }
+          })
+        }
+
+        let result = SectionRegistry.applySectionConfigs(sectionConfigsToApply)
+        if (result.success) {
+          MNLog.info({
+            message: "分区配置已应用",
+            source: "pinnerConfig.importConfig",
+            detail: { updated: result.updated }
+          })
+        }
+
+        // ✅ 同步 this.sections（确保包含所有 SectionRegistry 中的分区）
+        this.syncSectionsFromRegistry()
+      } else if (newConfig.version === "1.2.0") {
+        // 1.2.0 版本格式（包含 sectionConfigs，无 viewModeConfigs）
         this.sections = newConfig.sections || this.defaultSections
         this.config = newConfig.config || { version: "1.2.0", source: "focus" }
         this.settings = newConfig.settings || this.getDefaultSettings()
 
-        // 应用分区配置（如果存在）
-        if (newConfig.sectionConfigs) {
-          let result = SectionRegistry.applySectionConfigs(newConfig.sectionConfigs)
-          if (result.success) {
-            pinnerUtils.log(result.message, "pinnerConfig:importConfig")
-          }
+        // 视图模式使用默认配置
+        ViewModeRegistry.resetToDefault()
+
+        // ✨ 应用分区配置（完全替换）
+        SectionRegistry.clearAllSections()
+        let sectionConfigsToApply1_2 = newConfig.sectionConfigs
+
+        // ⚠️ 如果 sectionConfigs 缺失或为空，从 sections 自动推断
+        if (!sectionConfigsToApply1_2 || sectionConfigsToApply1_2.length === 0) {
+          sectionConfigsToApply1_2 = SectionRegistry.generateSectionConfigsFromSections(this.sections)
+          MNLog.info({
+            message: "自动从 sections 生成分区配置 (v1.2.0)",
+            source: "pinnerConfig.importConfig",
+            detail: { generatedCount: sectionConfigsToApply1_2.length }
+          })
         }
+
+        let result1_2 = SectionRegistry.applySectionConfigs(sectionConfigsToApply1_2)
+        if (result1_2.success) {
+          MNLog.info({
+            message: "分区配置已应用",
+            source: "pinnerConfig.importConfig",
+            detail: { updated: result1_2.updated }
+          })
+        }
+
+        // ✅ 同步 this.sections（确保包含所有 SectionRegistry 中的分区）
+        this.syncSectionsFromRegistry()
       } else if (newConfig.version === "1.1.0") {
-        // 最新版本格式（包含settings）
+        // 1.1.0 版本格式（包含settings，无 sectionConfigs 和 viewModeConfigs）
         this.sections = newConfig.sections || this.defaultSections
         this.config = newConfig.config || { version: "1.1.0", source: "focus" }
         this.settings = newConfig.settings || this.getDefaultSettings()
+        // 使用默认配置并保存
+        ViewModeRegistry.resetToDefault()
+        SectionRegistry.resetToDefault()
+        SectionRegistry.saveToStorage()
+
+        // ✅ 同步 this.sections（确保包含所有 SectionRegistry 中的分区）
+        this.syncSectionsFromRegistry()
       } else if (newConfig.version === "1.0.0") {
-        // 1.0.0 版本格式（无settings）
+        // 1.0.0 版本格式（无settings、sectionConfigs、viewModeConfigs）
         this.sections = newConfig.sections || this.defaultSections
         this.config = newConfig.config || { version: "1.0.0", source: "focus" }
-        this.settings = this.getDefaultSettings()  // 使用默认设置
+        this.settings = this.getDefaultSettings()
+        // 使用默认配置并保存
+        ViewModeRegistry.resetToDefault()
+        SectionRegistry.resetToDefault()
+        SectionRegistry.saveToStorage()
+
+        // ✅ 同步 this.sections（确保包含所有 SectionRegistry 中的分区）
+        this.syncSectionsFromRegistry()
       } else {
         // 旧版本格式，执行迁移
         this.sections = {
@@ -2019,17 +2556,37 @@ class pinnerConfig {
         }
         this.config = { version: "1.1.0", source: "focus" }
         this.settings = this.getDefaultSettings()
+        // 使用默认配置并保存
+        ViewModeRegistry.resetToDefault()
+        SectionRegistry.resetToDefault()
+        SectionRegistry.saveToStorage()
+
+        // ✅ 同步 this.sections（确保包含所有 SectionRegistry 中的分区）
+        this.syncSectionsFromRegistry()
       }
 
-      // 保存
+      // 4. 保存到持久化存储
       this.save()
       this.saveSettings()
+      ViewModeRegistry.saveToStorage()  // ✅ 新增
+      SectionRegistry.saveToStorage()
+
+      MNLog.info({
+        message: "配置导入成功",
+        source: "pinnerConfig.importConfig",
+        detail: {
+          version: newConfig.version,
+          sectionsCount: Object.keys(this.sections).length,
+          sectionConfigsCount: SectionRegistry.sections.size
+        }
+      })
 
       MNUtil.showHUD("导入成功!")
       return true
 
     } catch (error) {
       pinnerUtils.addErrorLog(error, "pinnerConfig:importConfig")
+      MNUtil.showHUD("导入失败: " + error.message)
       return false
     }
   }
@@ -2667,6 +3224,48 @@ class pinnerConfig {
    */
   static getPins(section) {
     return this.sections[section] || []
+  }
+
+  /**
+   * 从 SectionRegistry 同步更新 sections
+   * 确保 this.sections 包含所有已注册分区的键
+   *
+   * ⚠️ 重要：在导入配置或更新 SectionRegistry 后必须调用此方法
+   *
+   * 功能：
+   * - 获取所有 SectionRegistry 中注册的分区 key
+   * - 确保 this.sections 中存在这些 key（保留已有数据）
+   * - 新分区初始化为空数组
+   */
+  static syncSectionsFromRegistry() {
+    try {
+      // 获取所有视图模式，遍历每个模式获取分区 key
+      let allViewModes = ViewModeRegistry.getOrderedKeys()
+      let allSectionKeys = []
+
+      allViewModes.forEach(mode => {
+        let modeSections = SectionRegistry.getAllByMode(mode)
+        allSectionKeys.push(...modeSections.map(config => config.key))
+      })
+
+      // 为每个分区确保存在键（保留已有数据，新分区初始化为空数组）
+      allSectionKeys.forEach(key => {
+        if (!this.sections[key]) {
+          this.sections[key] = []
+        }
+      })
+
+      MNLog.info({
+        message: "已从 SectionRegistry 同步 sections",
+        source: "pinnerConfig.syncSectionsFromRegistry",
+        detail: {
+          sectionKeys: allSectionKeys,
+          sectionsCount: Object.keys(this.sections).length
+        }
+      })
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "syncSectionsFromRegistry")
+    }
   }
 
   /**

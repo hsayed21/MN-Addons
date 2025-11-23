@@ -531,16 +531,25 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
           break;
       }
 
-      // 导入成功后刷新 UI
+      // ✨ 导入成功后完整刷新 UI（完全替换策略）
       if (success && !self.view.hidden) {
-        // ✅ 新增：保存配置到存储
+        // 1. 重置到默认视图和分区
+        self.resetToDefaultView()
+
+        // 2. 保存配置到存储（已在 importConfig 中完成，这里保留以确保同步）
         SectionRegistry.saveToStorage()
 
-        // ✅ 新增：重新创建标签按钮
+        // 3. 重新创建所有标签按钮
         self.recreateSectionTabs()
 
-        // ✅ 新增：重新布局
+        // 4. 重新加载当前分区数据
+        self.loadCurrentSectionData()
+
+        // 5. 重新布局
         self.settingViewLayout()
+
+        // 6. 显示导入摘要
+        self.showImportSummary(pinnerConfig.getAllConfig())
       }
     } catch (error) {
       pinnerUtils.addErrorLog(error, "importConfig")
@@ -5381,28 +5390,171 @@ pinnerController.prototype.tableItem = function (title, selector, param = "", ch
  */
 pinnerController.prototype.recreateSectionTabs = function() {
   try {
-    // 1. 删除旧的标签按钮
-    let allConfigs = [
-      ...SectionRegistry.getAllByMode("pin"),
-      ...SectionRegistry.getAllByMode("task"),
-      ...SectionRegistry.getAllByMode("custom")
-    ]
+    // 获取所有视图模式，遍历每个模式获取分区配置
+    let allViewModes = ViewModeRegistry.getOrderedKeys()
+    let allConfigs = []
 
+    allViewModes.forEach(mode => {
+      let modeSections = SectionRegistry.getAllByMode(mode)
+      allConfigs.push(...modeSections)
+    })
+
+    // 1. 删除所有旧的标签按钮、视图容器和相关引用
     allConfigs.forEach(config => {
       let buttonName = config.key + "TabButton"
+      let viewName = config.key + "View"
+      let cardScrollViewName = config.key + "CardScrollView"
+      let cardRowsName = config.key + "CardRows"
+
+      // 删除标签按钮
       if (this[buttonName]) {
-        // 从父视图移除
         this[buttonName].removeFromSuperview()
-        // 清空引用（释放内存）
         this[buttonName] = null
+      }
+
+      // 删除视图容器
+      if (this[viewName]) {
+        this[viewName].removeFromSuperview()
+        this[viewName] = null
+      }
+
+      // 清空卡片行引用
+      if (this[cardRowsName]) {
+        this[cardRowsName].forEach(view => view.removeFromSuperview())
+        this[cardRowsName] = []
+      }
+
+      // 删除卡片滚动视图
+      if (this[cardScrollViewName]) {
+        this[cardScrollViewName].removeFromSuperview()
+        this[cardScrollViewName] = null
       }
     })
 
-    // 2. 重新创建标签按钮（复用现有逻辑）
+    // 2. 重新创建标签按钮
     this.createAllSectionTabs()
+
+    // 3. 重新创建视图容器
+    this.createAllSectionViewContainers()
+
+    // 4. 重新创建分区子视图（卡片滚动视图等）
+    this.createSectionViews()
+
+    // 5. 重新设置 tabView 的滚动属性（修复导入配置后滚动失效的问题）
+    if (this.tabView) {
+      this.tabView.alwaysBounceHorizontal = true
+      this.tabView.showsHorizontalScrollIndicator = false
+      this.tabView.scrollEnabled = true
+    }
+
+    MNLog.info({
+      message: "已重建所有分区标签和视图",
+      source: "webviewController.recreateSectionTabs",
+      detail: { sectionsCount: allConfigs.length }
+    })
+
   } catch (error) {
     pinnerUtils.addErrorLog(error, "recreateSectionTabs")
     MNUtil.showHUD("刷新标签失败: " + error.message)
+  }
+}
+
+/**
+ * 重置到默认视图模式和分区
+ * 用于配置导入后恢复到默认状态
+ */
+pinnerController.prototype.resetToDefaultView = function() {
+  try {
+    // 获取默认设置
+    const defaultViewMode = pinnerConfig.settings.defaultViewMode || "pin"
+    const defaultSection = pinnerConfig.settings.defaultSection || "focus"
+
+    // 切换到默认视图模式（如果不同）
+    if (this.currentViewMode !== defaultViewMode) {
+      this.currentViewMode = defaultViewMode
+    }
+
+    // 切换到默认分区（如果不同）
+    if (this.currentSection !== defaultSection) {
+      this.currentSection = defaultSection
+    }
+
+    // 更新 UI 状态（已在 recreateSectionTabs 中完成）
+    // this.updateViewModeButtons()
+
+    MNLog.info({
+      message: "已重置到默认视图",
+      source: "webviewController.resetToDefaultView",
+      detail: { viewMode: defaultViewMode, section: defaultSection }
+    })
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "resetToDefaultView")
+  }
+}
+
+/**
+ * 重新加载当前分区的数据
+ * 用于配置导入后刷新显示
+ */
+pinnerController.prototype.loadCurrentSectionData = function() {
+  try {
+    // 刷新当前分区的卡片显示
+    if (this.currentSection) {
+      this.refreshSectionCards(this.currentSection)
+
+      MNLog.info({
+        message: "已重新加载分区数据",
+        source: "webviewController.loadCurrentSectionData",
+        detail: { section: this.currentSection }
+      })
+    }
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "loadCurrentSectionData")
+  }
+}
+
+/**
+ * 显示配置导入摘要
+ * @param {Object} config - 导入的配置对象
+ */
+pinnerController.prototype.showImportSummary = function(config) {
+  try {
+    // 统计各视图模式的分区数量
+    const viewModes = ViewModeRegistry.getOrderedKeys()
+    const summaryParts = []
+
+    viewModes.forEach(mode => {
+      const modeConfig = ViewModeRegistry.getConfig(mode)
+      const sections = SectionRegistry.getAllByMode(mode)
+      if (sections.length > 0) {
+        const icon = modeConfig.icon || ""
+        const displayName = modeConfig.displayName || mode
+        summaryParts.push(`${icon} ${displayName}: ${sections.length} 个分区`)
+      }
+    })
+
+    // 统计总卡片数
+    let totalCards = 0
+    if (config.sections) {
+      totalCards = Object.values(config.sections).reduce((sum, pins) => {
+        return sum + (Array.isArray(pins) ? pins.length : 0)
+      }, 0)
+    }
+
+    const summaryText = summaryParts.join("\n")
+    MNUtil.showHUD(`✅ 配置导入成功!\n\n${summaryText}\n\n总计: ${totalCards} 个 Pin`)
+
+    MNLog.info({
+      message: "配置导入摘要已显示",
+      source: "webviewController.showImportSummary",
+      detail: {
+        totalCards,
+        viewModesCount: viewModes.length,
+        sectionsCount: SectionRegistry.sections.size
+      }
+    })
+  } catch (error) {
+    pinnerUtils.addErrorLog(error, "showImportSummary")
   }
 }
 
