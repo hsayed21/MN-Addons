@@ -965,6 +965,78 @@ MNNote.prototype.move = function() {
 }
 
 /**
+ * 覆盖 descendantNodes getter，添加循环引用检测
+ *
+ * 原因：防止在卡片父子关系中存在循环引用时导致栈溢出
+ * 位置：在 xdyyutils.js 中覆盖，避免更新 mnnote.js 时被覆盖
+ */
+Object.defineProperty(MNNote.prototype, 'descendantNodes', {
+  get: function() {
+    const { childNotes } = this
+    if (!childNotes.length) {
+      return {
+        descendant: [],
+        treeIndex: []
+      }
+    } else {
+      // 🆕 创建一个共享的 visited Set 用于循环检测
+      const visited = new Set();
+
+      /**
+       * 递归遍历子节点，带循环引用检测
+       * @param {MNNote[]} nodes - 节点数组
+       * @param {number} level - 当前层级
+       * @param {number[]} lastIndex - 上一层的索引
+       * @param {{descendant:MNNote[],treeIndex:number[][]}} ret - 返回结果
+       * @returns {{descendant:MNNote[],treeIndex:number[][]}}
+       */
+      function down(
+        nodes,
+        level = 0,
+        lastIndex = [],
+        ret = {
+          descendant: [],
+          treeIndex: []
+        }
+      ) {
+        level++
+        nodes.forEach((node, index) => {
+          // 🆕 先检测循环引用（必须在访问 childNotes 之前！）
+          // 因为 childNotes getter 会递归创建 MNNote 实例，可能触发循环
+          const nodeId = node.noteId;
+          if (visited.has(nodeId)) {
+            MNLog.error({
+              message: "检测到循环引用",
+              source: "MNNote.descendantNodes",
+              detail: {
+                nodeId: node.noteId,
+                noteTitle: node.noteTitle,
+                visitedPath: Array.from(visited),
+                currentLevel: level
+              }
+            });
+            return;
+          }
+          visited.add(nodeId);
+
+          ret.descendant.push(node)
+          lastIndex = lastIndex.slice(0, level - 1)
+          lastIndex.push(index)
+          ret.treeIndex.push(lastIndex)
+          if (node.childNotes?.length) {
+            down(node.childNotes, level, lastIndex, ret)
+          }
+        })
+        return ret
+      }
+      return down(childNotes)
+    }
+  },
+  enumerable: true,
+  configurable: true
+});
+
+/**
  * 夏大鱼羊 - MNNote prototype 扩展 - end
  */
 
