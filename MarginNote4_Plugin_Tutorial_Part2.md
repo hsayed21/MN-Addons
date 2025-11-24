@@ -1,151 +1,151 @@
-# 第二部分：打造精美界面
+# Part 2: Create a beautiful interface
 
-> 🎨 **欢迎进入UI世界！**
+> 🎨 **Welcome to the UI world! **
 >
-> 前面我们学会了插件的基本开发，现在是时候让你的插件变得漂亮起来了！这一部分我们将学习如何创建各种UI界面，从简单的按钮到复杂的浮动面板，让你的插件不仅功能强大，而且颜值在线。
+> We learned the basic development of plug-ins earlier, now it’s time to make your plug-ins beautiful! In this part we will learn how to create various UI interfaces, from simple buttons to complex floating panels, so that your plug-in is not only powerful but also looks good online.
 >
-> 📚 **学习路径**：按钮 → 面板 → 网页 → 架构
+> 📚 **Learning Path**: Button → Panel → Web Page → Architecture
 >
-> 💡 **学习提示**：每一章都有完整的可运行代码，建议边看边动手实践！
+> 💡 **Learning Tips**: Each chapter has complete runnable code. It is recommended to read and practice at the same time!
 
 ---
 
-## 第5章：你的第一个按钮 - 原生UI入门
+## Chapter 5: Your First Button - Getting Started with Native UI
 
-> **难度**：⭐⭐ | **预计时间**：30分钟 | **基于**：MNToolbar插件分析
+> **Difficulty**: ⭐⭐ | **Estimated time**: 30 minutes | **Based on**: MNToolbar plugin analysis
 >
-> 想象一下，如果MarginNote没有那些按钮，你要如何使用它？按钮是用户与插件交互的最基础元素。今天，我们从最简单的按钮开始，学习MarginNote的UI开发。
+> Imagine if MarginNote didn't have those buttons, how would you use it? Buttons are the most basic element for users to interact with plug-ins. Today, we start with the simplest button and learn the UI development of MarginNote.
 
-### 5.1 为什么要学UI？
+### 5.1 Why should we learn UI?
 
-#### 一个生活化的例子
+#### A life-like example
 
-你有没有这样的经历：
-- 看到一个软件界面很丑，立马就不想用了？
-- 同样功能的两个App，你总是选择界面更好看的那个？
+Have you ever had this experience:
+- When you see an ugly software interface, you immediately don’t want to use it?
+- Between two apps with the same functions, do you always choose the one with a better-looking interface?
 
-在MarginNote插件开发中也是如此。**好的UI不是装饰，而是功能的延伸**。
+The same is true in MarginNote plug-in development. **A good UI is not a decoration, but an extension of functionality**.
 
-#### MarginNote中的UI元素
+#### UI elements in MarginNote
 
-打开MarginNote，你会看到：
-- **工具栏按钮**：导出、设置、搜索...
-- **浮动面板**：颜色选择器、字体面板...
-- **弹出窗口**：设置界面、帮助文档...
+Open MarginNote and you will see:
+- **Toolbar Buttons**: Export, Settings, Search...
+- **Floating Panel**: color picker, font panel...
+- **Pop-up window**: Setting interface, help document...
 
-这些都是我们要学会制作的UI元素！
+These are the UI elements we need to learn to make!
 
-#### 我们要做什么
+#### What are we going to do?
 
-这一章结束后，你将能够：
-- ✅ 创建各种样式的按钮
-- ✅ 响应用户的点击操作
-- ✅ 理解布局的基本原理
-- ✅ 制作一个简单的工具栏
+After this chapter, you will be able to:
+- ✅ Create various styles of buttons
+- ✅ Respond to user clicks
+- ✅ Understand the basic principles of layout
+- ✅ Make a simple toolbar
 
-### 5.2 创建你的第一个按钮
+### 5.2 Create your first button
 
-#### 动手时间：Hello Button
+#### Hands-on time: Hello Button
 
-让我们从最基础的按钮开始：
+Let's start with the most basic buttons:
 
 ```javascript
-// 基于 MNToolbar 插件的真实实现方式
+// Real implementation based on MNToolbar plug-in
 JSB.newAddon = function(mainPath) {
     JSB.require('utils');
     
     return JSB.defineClass('MyFirstButton : JSExtension', {
-        // 笔记本打开时创建按钮
+        //Create button when notebook is opened
         notebookWillOpen: function(notebookid) {
             this.createMyFirstButton();
         },
         
-        // 创建按钮的核心方法
+        // Core method for creating buttons
         createMyFirstButton: function() {
-            // 第1步：创建按钮对象
-            const button = UIButton.buttonWithType(0); // 0 = 普通按钮
+            // Step 1: Create button object
+            const button = UIButton.buttonWithType(0); // 0 = normal button
             
-            // 第2步：设置按钮属性
-            button.frame = {x: 100, y: 100, width: 120, height: 40}; // 位置和大小
-            button.setTitleForState("点我试试", 0); // 按钮文字
-            button.backgroundColor = UIColor.systemBlueColor(); // 背景色
-            button.setTitleColorForState(UIColor.whiteColor(), 0); // 文字颜色
+            // Step 2: Set button properties
+            button.frame = {x: 100, y: 100, width: 120, height: 40}; // Position and size
+            button.setTitleForState("Click me to try", 0); // Button text
+            button.backgroundColor = UIColor.systemBlueColor(); // Background color
+            button.setTitleColorForState(UIColor.whiteColor(), 0); // Text color
             
-            // 第3步：添加点击事件
+            // Step 3: Add click event
             button.addTargetActionForControlEvents(
-                this,           // 目标对象
-                "buttonClicked:", // 方法名（注意冒号）
-                1 << 6          // 点击事件类型
+                this, // target object
+                "buttonClicked:", //Method name (note the colon)
+                1 << 6 //Click event type
             );
             
-            // 第4步：添加到界面
+            // Step 4: Add to interface
             const studyView = MNUtil.studyView;
             studyView.addSubview(button);
             
-            // 保存按钮引用，方便后续操作
+            //Save the button reference for subsequent operations
             this.myButton = button;
         },
         
-        // 响应按钮点击
+        //Response to button click
         buttonClicked: function(sender) {
-            MNUtil.showHUD("🎉 你点击了按钮！");
+            MNUtil.showHUD("🎉 You clicked the button!");
         }
     });
 };
 ```
 
-**运行效果**：在MarginNote中会出现一个蓝色按钮，点击后显示提示信息。
+**Operating effect**: A blue button will appear in MarginNote, and a prompt message will be displayed after clicking it.
 
-#### 让按钮响应点击
+#### Make the button respond to clicks
 
-刚才我们看到了最基本的点击响应，现在让它做点更有趣的事情：
+We just saw the most basic click response, now let it do something more interesting:
 
 ```javascript
-// 增强版的按钮点击处理
+// Enhanced version of button click processing
 buttonClicked: function(sender) {
-    // 改变按钮文字
+    //Change button text
     const clickCount = (this.clickCount || 0) + 1;
     this.clickCount = clickCount;
     
-    sender.setTitleForState(`点击了 ${clickCount} 次`, 0);
+    sender.setTitleForState(`Clicked ${clickCount} times`, 0);
     
-    // 根据点击次数改变颜色
+    //Change color based on number of clicks
     const colors = [
         UIColor.systemBlueColor(),
-        UIColor.systemGreenColor(), 
+        UIColor.systemGreenColor(),
         UIColor.systemOrangeColor(),
         UIColor.systemRedColor()
     ];
     const colorIndex = (clickCount - 1) % colors.length;
     sender.backgroundColor = colors[colorIndex];
     
-    // 特殊处理
+    //Special handling
     if (clickCount === 10) {
-        MNUtil.showHUD("🏆 恭喜！你获得了点击大师称号！");
+        MNUtil.showHUD("🏆 Congratulations! You have won the title of Click Master!");
     }
 }
 ```
 
-#### 添加图标和样式
+#### Add icons and styles
 
-让按钮更好看的秘诀：
+Tips for making your buttons look better:
 
 ```javascript
 createStyledButton: function() {
     const button = UIButton.buttonWithType(0);
     button.frame = {x: 100, y: 200, width: 150, height: 50};
     
-    // 设置圆角
+    //Set rounded corners
     button.layer.cornerRadius = 10;
     button.layer.masksToBounds = true;
     
-    // 添加阴影
+    // add shadow
     button.layer.shadowColor = UIColor.blackColor().CGColor;
     button.layer.shadowOffset = {width: 0, height: 2};
     button.layer.shadowRadius = 4;
     button.layer.shadowOpacity = 0.3;
     
-    // 渐变背景（高级技巧）
+    // Gradient background (advanced technique)
     const gradient = CAGradientLayer.new();
     gradient.frame = button.bounds;
     gradient.colors = [
@@ -158,50 +158,50 @@ createStyledButton: function() {
 }
 ```
 
-#### 常见问题解答
+#### FAQ
 
-**Q: 按钮点击没反应？**
-A: 检查方法名是否正确，注意要加冒号 `"methodName:"`
+**Q: There is no response when clicking the button? **
+A: Check whether the method name is correct, be sure to add a colon `"methodName:"`
 
-**Q: 按钮显示不出来？**
-A: 确保添加到了正确的父视图，并且frame设置合理
+**Q: The button cannot be displayed? **
+A: Make sure it is added to the correct parent view and the frame is set appropriately.
 
-**Q: 按钮位置不对？**
-A: frame的坐标系是相对于父视图的，检查父视图大小
+**Q: The button position is wrong? **
+A: The coordinate system of the frame is relative to the parent view. Check the size of the parent view.
 
-### 5.3 布局的艺术
+### 5.3 The Art of Layout
 
-#### Frame是什么？
+#### What is Frame?
 
-想象一下你在墙上贴照片：
-- **x, y**: 照片左上角的位置
-- **width, height**: 照片的宽度和高度
+Imagine you put pictures on your wall:
+- **x, y**: The position of the upper left corner of the photo
+- **width, height**: width and height of the photo
 
 ```javascript
-// Frame 就是一个矩形区域的描述
+// Frame is a description of a rectangular area
 button.frame = {
-    x: 50,       // 距离父视图左边 50 点
-    y: 100,      // 距离父视图顶部 100 点
-    width: 120,  // 宽度 120 点
-    height: 40   // 高度 40 点
+    x: 50, // 50 points from the left side of the parent view
+    y: 100, // 100 points from the top of the parent view
+    width: 120, // width 120 points
+    height: 40 // height 40 points
 };
 ```
 
-#### 计算位置和大小
+#### Calculate position and size
 
-基于MNToolbar的布局算法：
+Layout algorithm based on MNToolbar:
 
 ```javascript
-// 智能布局计算器
+//Smart layout calculator
 calculateButtonLayout: function(buttonCount, containerFrame) {
     const buttonWidth = 60;
     const buttonHeight = 40;
     const spacing = 10;
     const margin = 20;
     
-    // 计算每行能放几个按钮
+    // Calculate how many buttons can be placed in each row
     const buttonsPerRow = Math.floor(
-        (containerFrame.width - 2 * margin + spacing) / 
+        (containerFrame.width - 2 * margin + spacing) /
         (buttonWidth + spacing)
     );
     
@@ -222,23 +222,23 @@ calculateButtonLayout: function(buttonCount, containerFrame) {
 }
 ```
 
-#### 适配不同屏幕
+#### Adapt to different screens
 
-让你的UI在不同设备上都好看：
+Make your UI look good on different devices:
 
 ```javascript
-// 响应式布局
+//Responsive layout
 createResponsiveButton: function() {
-    // 获取屏幕信息
+    // Get screen information
     const screenBounds = UIScreen.mainScreen().bounds;
-    const isPhone = screenBounds.width < 768; // 判断是否为手机
+    const isPhone = screenBounds.width < 768; // Determine whether it is a mobile phone
     
-    // 根据屏幕调整按钮大小
-    const buttonSize = isPhone ? 
-        {width: 100, height: 35} : 
+    //Adjust the size of the button according to the screen
+    const buttonSize = isPhone?
+        {width: 100, height: 35} :
         {width: 120, height: 40};
     
-    // 居中放置
+    // center placement
     const button = UIButton.buttonWithType(0);
     button.frame = {
         x: (screenBounds.width - buttonSize.width) / 2,
@@ -251,14 +251,14 @@ createResponsiveButton: function() {
 }
 ```
 
-#### 实践：制作一个工具栏
+#### Practice: Make a toolbar
 
-综合运用所学知识，制作一个简单的工具栏：
+Comprehensively apply the knowledge you have learned to create a simple toolbar:
 
 ```javascript
-// 完整的工具栏示例
+// Complete toolbar example
 createToolbar: function() {
-    // 创建工具栏容器
+    //Create toolbar container
     const toolbar = UIView.new();
     toolbar.frame = {x: 20, y: 50, width: 300, height: 60};
     toolbar.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0.95);
@@ -266,7 +266,7 @@ createToolbar: function() {
     toolbar.layer.shadowOpacity = 0.2;
     toolbar.layer.shadowRadius = 4;
     
-    // 按钮配置
+    //Button configuration
     const buttons = [
         {title: "📝", action: "editNote:"},
         {title: "🎨", action: "changeColor:"},
@@ -274,7 +274,7 @@ createToolbar: function() {
         {title: "⚙️", action: "showSettings:"}
     ];
     
-    // 创建按钮
+    //Create button
     const buttonWidth = 50;
     const buttonHeight = 40;
     const startX = 20;
@@ -293,91 +293,91 @@ createToolbar: function() {
         button.titleLabel.font = UIFont.systemFontOfSize(20);
         button.addTargetActionForControlEvents(this, config.action, 1 << 6);
         
-        // 添加点击动画
-        button.addTargetActionForControlEvents(this, "buttonTouchDown:", 1 << 0); // 按下
-        button.addTargetActionForControlEvents(this, "buttonTouchUp:", 1 << 7);   // 抬起
+        //Add click animation
+        button.addTargetActionForControlEvents(this, "buttonTouchDown:", 1 << 0); // Press
+        button.addTargetActionForControlEvents(this, "buttonTouchUp:", 1 << 7); // Lift up
         
         toolbar.addSubview(button);
     });
     
-    // 添加到界面
+    //Add to interface
     MNUtil.studyView.addSubview(toolbar);
     this.toolbar = toolbar;
 }
 ```
 
-### 5.4 本章小结
+### 5.4 Summary of this chapter
 
-#### 你学到了什么
+#### What did you learn?
 
-🎯 **核心技能**：
-- ✅ 创建和配置UIButton
-- ✅ 处理点击事件
-- ✅ 理解frame布局系统
-- ✅ 添加视觉效果（圆角、阴影）
-- ✅ 响应式布局思维
+🎯 **Core Skills**:
+- ✅ Create and configure UIButton
+- ✅ Handle click events
+- ✅ Understand the frame layout system
+- ✅ Add visual effects (rounded corners, shadows)
+- ✅ Responsive layout thinking
 
-🛠️ **实践项目**：
-- 制作了可变色按钮
-- 实现了智能布局
-- 创建了完整工具栏
+🛠️ **Practical Project**:
+- Created color-changing buttons
+- Implemented smart layout
+- Complete toolbar created
 
-#### 下一步可以做什么
+#### What can be done next?
 
-现在你已经掌握了按钮的使用，可以尝试：
-1. 为你之前的插件添加按钮界面
-2. 制作一个个人工具箱
-3. 尝试更复杂的布局
+Now that you have mastered using buttons, try:
+1. Add a button interface to your previous plug-in
+2. Make a personal toolbox
+3. Try more complex layouts
 
-**下一章预告**：我们将学习制作可以自由拖动的浮动面板，让界面更加灵活有趣！
+**Next Chapter Preview**: We will learn to make floating panels that can be dragged freely to make the interface more flexible and interesting!
 
 ---
 
-## 第6章：会飞的面板 - 浮动窗口开发
+## Chapter 6: Flying Panel - Floating Window Development
 
-> **难度**：⭐⭐⭐ | **预计时间**：45分钟 | **基于**：MNOCR、MNSnipaste插件分析
+> **Difficulty**: ⭐⭐⭐ | **Estimated time**: 45 minutes | **Based on**: MNOCR, MNSnipaste plug-in analysis
 >
-> 还记得手机上的那些悬浮球吗？它们可以拖动到任意位置，不挡住重要内容，用起来特别方便。今天我们就来学习如何在MarginNote中创建这样的"会飞"的面板。
+> Remember those floating balls on your phone? They can be dragged to any position without blocking important content, making them particularly convenient to use. Today we will learn how to create such a "flying" panel in MarginNote.
 
-### 6.1 什么是浮动面板？
+### 6.1 What is a floating panel?
 
-#### 生活中的"便利贴"
+#### "Post-it notes" in life
 
-浮动面板就像是数字版的便利贴：
-- 📌 **随处可贴**：想放哪里就放哪里
-- 🏃‍♂️ **跟着你走**：内容滚动时也不会丢失
-- 💡 **用完就收**：不占用固定空间
-- 🎯 **专注功能**：只显示当前需要的工具
+Floating panels are like digital versions of sticky notes:
+- 📌 **Post it anywhere**: Put it wherever you want
+- 🏃‍♂️ **Follow you**: Content will not be lost when scrolling
+- 💡 **Close when used**: Does not occupy a fixed space
+- 🎯 **Focus function**: Only display the tools you currently need
 
-#### MarginNote中的浮动元素
+#### Floating elements in MarginNote
 
-在MarginNote中，你会看到这些浮动界面：
-- **颜色面板**：选择笔记颜色时弹出
-- **搜索框**：可以拖到合适位置
-- **工具提示**：临时显示的帮助信息
+In MarginNote, you will see these floating interfaces:
+- **Color Panel**: pops up when selecting note color
+- **Search box**: can be dragged to the appropriate location
+- **Tooltip**: Temporarily displayed help information
 
-#### 设计一个小工具箱
+#### Design a small toolbox
 
-我们要做的浮动面板特点：
-- 🎨 **半透明背景**：不完全遮挡内容
-- 👆 **支持拖动**：想放哪里放哪里
-- 📱 **智能吸附**：自动贴边，防止遮挡
-- ✨ **平滑动画**：移动时有动画效果
+Features of the floating panel we are going to make:
+- 🎨 **Semi-transparent background**: Does not completely obscure content
+- 👆 **Supports dragging**: Place it wherever you want
+- 📱 **Smart adsorption**: Automatically welt to prevent occlusion
+- ✨ **Smooth Animation**: Animation effect when moving
 
-### 6.2 创建可拖动的面板
+### 6.2 Create a draggable panel
 
-#### 基础面板结构
+#### Basic panel structure
 
-先从最简单的浮动面板开始：
+Let’s start with the simplest floating panel:
 
 ```javascript
-// 基于 MNOCR 和 MNSnipaste 的真实实现
+// Real implementation based on MNOCR and MNSnipaste
 createFloatingPanel: function() {
-    // 创建面板容器
+    // Create panel container
     const panel = UIView.new();
     panel.frame = {x: 100, y: 100, width: 200, height: 120};
     
-    // 设置外观 - 让它看起来"浮"在界面上
+    // Set the appearance - make it appear to "float" on the interface
     panel.backgroundColor = UIColor.whiteColor().colorWithAlphaComponent(0.95);
     panel.layer.cornerRadius = 12;
     panel.layer.shadowColor = UIColor.blackColor().CGColor;
@@ -385,20 +385,20 @@ createFloatingPanel: function() {
     panel.layer.shadowRadius = 8;
     panel.layer.shadowOpacity = 0.3;
     
-    // 添加标题栏（用于拖拽）
+    //Add title bar (for dragging)
     const titleBar = UIView.new();
     titleBar.frame = {x: 0, y: 0, width: 200, height: 30};
     titleBar.backgroundColor = UIColor.systemBlueColor().colorWithAlphaComponent(0.1);
     panel.addSubview(titleBar);
     
-    // 标题文字
+    // title text
     const titleLabel = UILabel.new();
     titleLabel.frame = {x: 10, y: 5, width: 120, height: 20};
-    titleLabel.text = "小工具箱";
+    titleLabel.text = "Small Toolbox";
     titleLabel.font = UIFont.boldSystemFontOfSize(14);
     titleBar.addSubview(titleLabel);
     
-    // 关闭按钮
+    // close button
     const closeButton = UIButton.buttonWithType(0);
     closeButton.frame = {x: 165, y: 5, width: 25, height: 20};
     closeButton.setTitleForState("✕", 0);
@@ -406,50 +406,50 @@ createFloatingPanel: function() {
     closeButton.addTargetActionForControlEvents(this, "closePanel:", 1 << 6);
     titleBar.addSubview(closeButton);
     
-    // 添加到界面
+    //Add to interface
     MNUtil.studyView.addSubview(panel);
-    MNUtil.studyView.bringSubviewToFront(panel); // 确保在最前面
+    MNUtil.studyView.bringSubviewToFront(panel); // Make sure it is at the front
     
     this.floatingPanel = panel;
     return panel;
 }
 ```
 
-#### 添加拖动手势
+#### Add drag gesture
 
-这是让面板"飞起来"的关键：
+This is the key to making the panel "fly":
 
 ```javascript
-// 添加拖动功能（基于真实插件实现）
+//Add drag function (based on real plug-in implementation)
 addDragGesture: function(panel) {
-    // 创建拖动手势识别器
+    //Create a drag gesture recognizer
     const panGesture = new UIPanGestureRecognizer(this, "handlePanGesture:");
     panel.addGestureRecognizer(panGesture);
     
-    // 初始化拖动相关属性
+    //Initialize drag related properties
     this.isDragging = false;
     this.dragOffset = {x: 0, y: 0};
 }
 
-// 处理拖动手势（核心实现）
+// Handle drag gestures (core implementation)
 handlePanGesture: function(gesture) {
     const panel = this.floatingPanel;
     const state = gesture.state;
     const translation = gesture.translationInView(MNUtil.studyView);
     
     switch(state) {
-        case 1: // 开始拖动
+        case 1: // Start dragging
             this.isDragging = true;
             this.dragStartFrame = panel.frame;
             
-            // 视觉反馈：稍微放大
+            // Visual feedback: slightly zoom in
             UIView.animateWithDuration(0.1, () => {
                 panel.transform = CGAffineTransformMakeScale(1.05, 1.05);
-                panel.layer.shadowOpacity = 0.5; // 增强阴影
+                panel.layer.shadowOpacity = 0.5; // Enhance shadow
             });
             break;
             
-        case 2: // 拖动中
+        case 2: // Dragging
             if (this.isDragging) {
                 const newFrame = {
                     x: this.dragStartFrame.x + translation.x,
@@ -458,7 +458,7 @@ handlePanGesture: function(gesture) {
                     height: panel.frame.height
                 };
                 
-                // 边界检查：不让面板拖出屏幕
+                // Boundary check: prevent the panel from being dragged off the screen
                 const bounds = MNUtil.studyView.bounds;
                 newFrame.x = Math.max(0, Math.min(newFrame.x, bounds.width - newFrame.width));
                 newFrame.y = Math.max(0, Math.min(newFrame.y, bounds.height - newFrame.height));
@@ -467,45 +467,45 @@ handlePanGesture: function(gesture) {
             }
             break;
             
-        case 3: // 拖动结束
+        case 3: // Drag ends
             this.isDragging = false;
             
-            // 恢复外观
+            // restore appearance
             UIView.animateWithDuration(0.2, () => {
                 panel.transform = CGAffineTransformIdentity;
                 panel.layer.shadowOpacity = 0.3;
             });
             
-            // 智能吸附（下面会详细讲）
+            //Smart adsorption (more details below)
             this.snapToEdge();
             break;
     }
 }
 ```
 
-#### 处理边界碰撞
+#### Handling boundary collisions
 
-防止面板跑到屏幕外面：
+To prevent the panel from running outside the screen:
 
 ```javascript
-// 边界检查和修正
+// Bounds checking and correction
 checkBounds: function(frame) {
     const bounds = MNUtil.studyView.bounds;
-    const margin = 10; // 留一点边距
+    const margin = 10; // Leave a little margin
     
-    // 修正位置
+    // Correct position
     frame.x = Math.max(margin, Math.min(frame.x, bounds.width - frame.width - margin));
     frame.y = Math.max(margin, Math.min(frame.y, bounds.height - frame.height - margin));
     
     return frame;
 }
 
-// 智能定位：避免遮挡重要内容
+// Intelligent positioning: avoid blocking important content
 smartPosition: function() {
     const bounds = MNUtil.studyView.bounds;
     const panelFrame = this.floatingPanel.frame;
     
-    // 检查是否遮挡了中心区域
+    // Check whether the central area is blocked
     const centerX = bounds.width / 2;
     const centerY = bounds.height / 2;
     const centerRegion = {
@@ -515,7 +515,7 @@ smartPosition: function() {
         height: 200
     };
     
-    // 如果在中心区域，移动到边缘
+    // If in the center area, move to the edge
     if (this.frameIntersects(panelFrame, centerRegion)) {
         const newX = panelFrame.x < centerX ? 20 : bounds.width - panelFrame.width - 20;
         
@@ -531,19 +531,19 @@ smartPosition: function() {
 }
 ```
 
-#### 调试技巧
+#### Debugging Tips
 
-开发拖动功能时的调试方法：
+Debugging methods when developing drag functions:
 
 ```javascript
-// 调试信息显示
+//Debug information display
 debugDrag: function(gesture) {
     const translation = gesture.translationInView(MNUtil.studyView);
     const velocity = gesture.velocityInView(MNUtil.studyView);
     
     MNUtil.log({
         source: "FloatingPanel",
-        message: `拖动状态: ${gesture.state}`,
+        message: `Drag state: ${gesture.state}`,
         detail: {
             translation: translation,
             velocity: velocity,
@@ -551,29 +551,29 @@ debugDrag: function(gesture) {
         }
     });
     
-    // 在界面显示调试信息（开发时使用）
+    // Display debugging information on the interface (used during development)
     if (this.debugMode) {
         const debugLabel = this.debugLabel || this.createDebugLabel();
-        debugLabel.text = `位移: (${Math.round(translation.x)}, ${Math.round(translation.y)})`;
+        debugLabel.text = `Displacement: (${Math.round(translation.x)}, ${Math.round(translation.y)})`;
     }
 }
 ```
 
-### 6.3 智能吸附和动画
+### 6.3 Smart adsorption and animation
 
-#### 边缘吸附算法
+#### Edge adsorption algorithm
 
-让面板像磁铁一样自动贴边：
+Let the panel automatically adhere to its edges like a magnet:
 
 ```javascript
-// 基于 MNOCR 的边缘吸附实现
+// Edge adsorption implementation based on MNOCR
 snapToEdge: function() {
     const panel = this.floatingPanel;
     const frame = panel.frame;
     const bounds = MNUtil.studyView.bounds;
-    const threshold = 50; // 吸附触发距离
+    const threshold = 50; // adsorption trigger distance
     
-    // 计算到各边的距离
+    // Calculate the distance to each side
     const distances = {
         left: frame.x,
         right: bounds.width - (frame.x + frame.width),
@@ -581,61 +581,61 @@ snapToEdge: function() {
         bottom: bounds.height - (frame.y + frame.height)
     };
     
-    // 找出最近的边
+    // find the nearest edge
     const minDistance = Math.min(...Object.values(distances));
     
-    // 如果足够近，就吸附过去
+    // If it's close enough, stick to it
     if (minDistance < threshold) {
         let targetFrame = {...frame};
         
         if (distances.left === minDistance) {
-            targetFrame.x = 10; // 左边缘
+            targetFrame.x = 10; // left edge
         } else if (distances.right === minDistance) {
-            targetFrame.x = bounds.width - frame.width - 10; // 右边缘
+            targetFrame.x = bounds.width - frame.width - 10; // right edge
         } else if (distances.top === minDistance) {
-            targetFrame.y = 10; // 上边缘
+            targetFrame.y = 10; // top edge
         } else {
-            targetFrame.y = bounds.height - frame.height - 10; // 下边缘
+            targetFrame.y = bounds.height - frame.height - 10; // lower edge
         }
         
-        // 平滑移动到目标位置
+        // Move smoothly to the target position
         UIView.animateWithDuration(0.3, () => {
             panel.frame = targetFrame;
         });
         
-        // 触觉反馈（如果支持的话）
+        // Haptic feedback (if supported)
         this.triggerHapticFeedback();
     }
 }
 ```
 
-#### 平滑动画效果
+#### Smooth animation effect
 
-让面板移动更自然：
+Make panel movement more natural:
 
 ```javascript
-// 弹性动画
+// Flexible animation
 animateToPosition: function(targetFrame) {
     const panel = this.floatingPanel;
     
-    // 使用弹性动画
+    // Use elastic animation
     UIView.animateWithDurationDelayUsingSpringWithDampingInitialSpringVelocityOptions(
-        0.6,    // 动画时长
-        0,      // 延迟
-        0.7,    // 阻尼系数（0-1，越小越有弹性）
-        0.5,    // 初始速度
-        0,      // 动画选项
+        0.6, // animation duration
+        0, // delay
+        0.7, // Damping coefficient (0-1, the smaller it is, the more elastic it is)
+        0.5, // initial speed
+        0, // Animation options
         () => {
             panel.frame = targetFrame;
         },
         () => {
-            // 动画完成回调
+            //Animation completion callback
             this.onAnimationComplete();
         }
     );
 }
 
-// 缓动函数（自定义动画曲线）
+//Easing function (custom animation curve)
 createCustomAnimation: function(targetFrame) {
     const startFrame = this.floatingPanel.frame;
     const duration = 0.5;
@@ -645,7 +645,7 @@ createCustomAnimation: function(targetFrame) {
         const elapsed = (Date.now() - startTime) / 1000;
         const progress = Math.min(elapsed / duration, 1);
         
-        // 使用easeOutBack缓动函数
+        //Use easeOutBack easing function
         const easedProgress = this.easeOutBack(progress);
         
         const currentFrame = {
@@ -665,7 +665,7 @@ createCustomAnimation: function(targetFrame) {
     animate();
 }
 
-// 缓动函数实现
+//Easing function implementation
 easeOutBack: function(t) {
     const c1 = 1.70158;
     const c3 = c1 + 1;
@@ -673,33 +673,33 @@ easeOutBack: function(t) {
 }
 ```
 
-#### 用户体验优化
+#### User experience optimization
 
-让拖动更符合直觉：
+Make dragging more intuitive:
 
 ```javascript
-// 优化拖动体验
+// Optimize dragging experience
 optimizeDragExperience: function() {
     const panel = this.floatingPanel;
     
-    // 1. 防止意外拖动：只有在标题栏上才能拖动
+    // 1. Prevent accidental dragging: dragging is only possible on the title bar
     this.restrictDragToTitleBar();
     
-    // 2. 记住用户的位置偏好
+    // 2. Remember the user’s location preference
     this.rememberPosition();
     
-    // 3. 根据内容调整面板大小
+    // 3. Adjust the panel size according to the content
     this.autoResize();
     
-    // 4. 智能隐藏：长时间不用自动半透明
+    // 4. Smart hiding: automatically translucent when not used for a long time
     this.setupAutoFade();
 }
 
-// 限制拖动区域
+//Limit the dragging area
 restrictDragToTitleBar: function() {
-    const titleBar = this.floatingPanel.subviews[0]; // 第一个子视图是标题栏
+    const titleBar = this.floatingPanel.subviews[0]; // The first subview is the title bar
     
-    // 移除面板上的手势，只在标题栏上添加
+    // Remove the gesture from the panel and only add it to the title bar
     this.floatingPanel.gestureRecognizers.forEach(gesture => {
         this.floatingPanel.removeGestureRecognizer(gesture);
     });
@@ -708,7 +708,7 @@ restrictDragToTitleBar: function() {
     titleBar.addGestureRecognizer(panGesture);
 }
 
-// 记住位置
+//remember location
 rememberPosition: function() {
     const frame = this.floatingPanel.frame;
     const position = {
@@ -716,11 +716,11 @@ rememberPosition: function() {
         y: frame.y
     };
     
-    // 保存到本地存储
+    //Save to local storage
     MNUtil.setUserDefaults("FloatingPanelPosition", position);
 }
 
-// 恢复位置
+// restore position
 restorePosition: function() {
     const savedPosition = MNUtil.getUserDefaults("FloatingPanelPosition");
     if (savedPosition) {
@@ -735,27 +735,27 @@ restorePosition: function() {
 }
 ```
 
-#### 实践：迷你笔记面板
+#### Practice: Mini Note Panel
 
-把所有技术组合起来，做一个实用的小面板：
+Combine all the technologies and make a practical small panel:
 
 ```javascript
-// 完整的迷你笔记面板
+// Complete mini note panel
 createMiniNotePanel: function() {
-    // 创建面板
+    //Create panel
     const panel = this.createFloatingPanel();
     
-    // 添加功能按钮
+    //Add function button
     const buttons = [
-        {title: "📝", action: "quickNote:", tooltip: "快速笔记"},
-        {title: "🎨", action: "pickColor:", tooltip: "选择颜色"},
-        {title: "📋", action: "copyNote:", tooltip: "复制内容"},
-        {title: "⭐", action: "starNote:", tooltip: "加入收藏"}
+        {title: "📝", action: "quickNote:", tooltip: "QuickNote"},
+        {title: "🎨", action: "pickColor:", tooltip: "Pick Color"},
+        {title: "📋", action: "copyNote:", tooltip: "Copy content"},
+        {title: "⭐", action: "starNote:", tooltip: "Add to favorites"}
     ];
     
     const buttonSize = 30;
     const margin = 10;
-    let currentY = 40; // 标题栏下方
+    let currentY = 40; // below the title bar
     
     buttons.forEach((config, index) => {
         const button = UIButton.buttonWithType(0);
@@ -768,11 +768,11 @@ createMiniNotePanel: function() {
         
         button.setTitleForState(config.title + " " + config.tooltip, 0);
         button.titleLabel.font = UIFont.systemFontOfSize(12);
-        button.contentHorizontalAlignment = 0; // 左对齐
+        button.contentHorizontalAlignment = 0; // Left aligned
         button.backgroundColor = UIColor.systemGrayColor().colorWithAlphaComponent(0.1);
         button.layer.cornerRadius = 4;
         
-        // 添加点击动画
+        //Add click animation
         button.addTargetActionForControlEvents(this, "buttonTouchDown:", 1 << 0);
         button.addTargetActionForControlEvents(this, config.action, 1 << 6);
         
@@ -780,7 +780,7 @@ createMiniNotePanel: function() {
         currentY += buttonSize + 5;
     });
     
-    // 调整面板高度
+    //Adjust panel height
     panel.frame = {
         x: panel.frame.x,
         y: panel.frame.y,
@@ -788,14 +788,14 @@ createMiniNotePanel: function() {
         height: currentY + margin
     };
     
-    // 添加拖动和吸附功能
+    //Add drag and snap functions
     this.addDragGesture(panel);
     this.restorePosition();
     
     return panel;
 }
 
-// 按钮动画效果
+// Button animation effect
 buttonTouchDown: function(button) {
     UIView.animateWithDuration(0.1, () => {
         button.transform = CGAffineTransformMakeScale(0.95, 0.95);
@@ -807,89 +807,89 @@ buttonTouchDown: function(button) {
 }
 ```
 
-### 6.4 本章小结
+### 6.4 Summary of this chapter
 
-#### 你学到了什么
+#### What did you learn?
 
-🎯 **核心技能**：
-- ✅ 创建浮动面板和设置外观
-- ✅ 实现拖动手势和响应处理
-- ✅ 边界检查和智能吸附算法
-- ✅ 动画效果和用户体验优化
-- ✅ 位置记忆和状态保存
+🎯 **Core Skills**:
+- ✅ Create floating panels and set skins
+- ✅ Implement drag gestures and response processing
+- ✅ Boundary check and smart adsorption algorithm
+- ✅ Animation effects and user experience optimization
+- ✅ Location memory and status saving
 
-🛠️ **技术要点**：
-- UIPanGestureRecognizer的使用
-- UIView动画系统
-- 坐标系转换和边界计算
-- 用户偏好存储
+🛠️ **Technical Points**:
+-Usage of UIPanGestureRecognizer
+- UIView animation system
+- Coordinate system transformation and boundary calculation
+- User preference storage
 
-#### 常见问题和解决方案
+#### Frequently Asked Questions and Solutions
 
-**Q: 拖动时卡顿怎么办？**
-A: 减少拖动时的计算量，避免在手势处理中做复杂操作
+**Q: What should I do if it freezes while dragging? **
+A: Reduce the amount of calculation during dragging and avoid complicated operations in gesture processing.
 
-**Q: 面板在某些情况下消失？**
-A: 检查父视图的bounds变化，确保面板在可见范围内
+**Q: Panel disappears in some cases? **
+A: Check the bounds change of the parent view to ensure that the panel is within the visible range
 
-**Q: 吸附效果不自然？**
-A: 调整吸附距离阈值和动画时长，测试不同参数
+**Q: The adsorption effect is unnatural? **
+A: Adjust the adsorption distance threshold and animation duration, and test different parameters
 
-**下一章预告**：我们将学习WebView的使用，把网页嵌入到插件中，实现更复杂的界面效果！
+**Next Chapter Preview**: We will learn the use of WebView and embed web pages into plug-ins to achieve more complex interface effects!
 
 ---
 
-## 第7章：嵌入网页 - WebView开发
+## Chapter 7: Embedding Web Pages - WebView Development
 
-> **难度**：⭐⭐⭐⭐ | **预计时间**：60分钟 | **基于**：MN WebDAV插件分析
+> **Difficulty**: ⭐⭐⭐⭐ | **Estimated Time**: 60 minutes | **Based on**: MN WebDAV Plugin Analysis
 >
-> 有时候，原生UI控件无法满足我们的需求，比如要显示富文本、制作复杂表单、或者集成第三方web服务。这时就需要WebView了 - 它就像在插件里开了一个小浏览器窗口。
+> Sometimes, native UI controls cannot meet our needs, such as displaying rich text, making complex forms, or integrating third-party web services. This is where WebView is needed - it's like opening a small browser window inside the plug-in.
 
-### 7.1 为什么需要WebView？
+### 7.1 Why do we need WebView?
 
-#### 原生UI vs Web UI
+#### Native UI vs Web UI
 
-让我们对比一下：
+Let’s compare:
 
-**原生UI的优势**：
-- ✅ 性能好，响应快
-- ✅ 系统集成度高
-- ✅ 内存占用少
-- ✅ 手势支持完善
+**Advantages of native UI**:
+- ✅ Good performance and fast response
+- ✅ High system integration
+- ✅ Small memory usage
+- ✅ Improved gesture support
 
-**Web UI的优势**：
-- ✅ 开发效率高（HTML/CSS/JS）
-- ✅ 样式表现力强
-- ✅ 跨平台兼容性好
-- ✅ 第三方库丰富
+**Advantages of Web UI**:
+- ✅ High development efficiency (HTML/CSS/JS)
+- ✅ Strong style expression
+- ✅ Good cross-platform compatibility
+- ✅ Rich third-party libraries
 
-#### 适用场景分析
+#### Applicable scenario analysis
 
-**什么时候用WebView？**
-- 📊 **复杂数据展示**：表格、图表、报告
-- 🎨 **富文本编辑器**：支持格式化的文本输入
-- 📋 **复杂表单**：多步骤、条件显示的表单
-- 🌐 **集成Web服务**：OAuth登录、在线API文档
-- 📱 **跨平台UI**：一套代码多平台使用
+**When to use WebView? **
+- 📊 **Complex data display**: tables, charts, reports
+- 🎨 **Rich Text Editor**: Supports formatted text input
+- 📋 **Complex Form**: multi-step, conditionally displayed form
+- 🌐 **Integrated Web Services**: OAuth login, online API documentation
+- 📱 **Cross-platform UI**: One set of code can be used on multiple platforms
 
-**MN WebDAV插件的使用场景**：
-- 文件管理界面（类似Finder）
-- 配置设置表单
-- 进度显示和日志查看
-- 服务器连接状态监控
+**Usage scenarios of MN WebDAV plug-in**:
+- File management interface (similar to Finder)
+- Configuration settings form
+- Progress display and log viewing
+- Server connection status monitoring
 
-#### 准备HTML资源
+#### Prepare HTML resources
 
-在开始之前，我们需要准备一些HTML文件：
+Before we start, we need to prepare some HTML files:
 
 ```html
-<!-- index.html - 主界面 -->
+<!-- index.html - main interface -->
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的WebView界面</title>
+    <title>My WebView interface</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto;
@@ -921,15 +921,15 @@ A: 调整吸附距离阈值和动画时长，测试不同参数
 </head>
 <body>
     <div class="container">
-        <h1>🌐 WebView 示例</h1>
-        <p>这是嵌入在MarginNote插件中的网页！</p>
+        <h1>🌐 WebView Example</h1>
+        <p>This is a web page embedded in the MarginNote plug-in! </p>
         
-        <button class="btn" onclick="callNative('showHUD', '来自网页的问候！')">
-            点击调用原生方法
+        <button class="btn" onclick="callNative('showHUD', 'Greetings from the web!')">
+            Click to call native method
         </button>
         
         <div id="content">
-            <!-- 动态内容将在这里显示 -->
+            <!-- Dynamic content will be displayed here -->
         </div>
     </div>
     
@@ -938,33 +938,33 @@ A: 调整吸附距离阈值和动画时长，测试不同参数
 </html>
 ```
 
-### 7.2 创建和配置WebView
+### 7.2 Create and configure WebView
 
-#### WebView基础设置
+#### Basic settings of WebView
 
-基于MN WebDAV插件的真实实现：
+Real implementation based on MN WebDAV plug-in:
 
 ```javascript
-// 创建WebView控制器
+//Create WebView controller
 createWebViewController: function() {
-    // 创建WebView
+    // Create WebView
     const webView = UIWebView.new();
     
-    // 设置大小和位置
+    //Set size and position
     webView.frame = MNUtil.studyView.bounds;
-    webView.autoresizingMask = (1 << 1) | (1 << 4); // 自动调整大小
+    webView.autoresizingMask = (1 << 1) | (1 << 4); // Automatic resizing
     
-    // 配置WebView属性
+    //Configure WebView properties
     webView.backgroundColor = UIColor.clearColor();
     webView.opaque = false;
     webView.scrollView.backgroundColor = UIColor.clearColor();
     webView.scrollView.showsHorizontalScrollIndicator = false;
     webView.scrollView.showsVerticalScrollIndicator = true;
     
-    // 设置代理（重要！用于处理导航事件）
+    //Set the proxy (important! Used to handle navigation events)
     webView.delegate = this;
     
-    // 添加到界面
+    //Add to interface
     const containerView = UIView.new();
     containerView.frame = {x: 100, y: 100, width: 600, height: 400};
     containerView.backgroundColor = UIColor.whiteColor();
@@ -982,12 +982,12 @@ createWebViewController: function() {
 }
 ```
 
-#### 加载本地HTML
+#### Load local HTML
 
-有几种方式加载HTML内容：
+There are several ways to load HTML content:
 
 ```javascript
-// 方式1：加载本地HTML文件
+// Method 1: Load local HTML file
 loadLocalHTML: function() {
     const htmlPath = this.addonPath + "/index.html";
     const htmlURL = NSURL.fileURLWithPath(htmlPath);
@@ -995,14 +995,14 @@ loadLocalHTML: function() {
     this.webView.loadRequest(request);
 }
 
-// 方式2：直接加载HTML字符串
+// Method 2: Load HTML string directly
 loadHTMLString: function() {
     const htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="utf-8">
-        <title>内嵌页面</title>
+        <title>Embedded page</title>
         <style>
             body { font-family: -apple-system; padding: 20px; }
             .card { background: white; border-radius: 8px; padding: 16px; }
@@ -1010,10 +1010,10 @@ loadHTMLString: function() {
     </head>
     <body>
         <div class="card">
-            <h2>📱 动态生成的页面</h2>
-            <p>当前时间：${new Date().toLocaleString()}</p>
+            <h2>📱 Dynamically generated page</h2>
+            <p>Current time: ${new Date().toLocaleString()}</p>
             <button onclick="native_showMessage('Hello from HTML!')">
-                调用原生方法
+                Call native method
             </button>
         </div>
     </body>
@@ -1022,19 +1022,19 @@ loadHTMLString: function() {
     this.webView.loadHTMLStringBaseURL(htmlContent, null);
 }
 
-// 方式3：加载网络URL（需要网络权限）
+// Method 3: Load network URL (requires network permission)
 loadWebURL: function(url) {
     const request = NSURLRequest.requestWithURL(NSURL.URLWithString(url));
     this.webView.loadRequest(request);
 }
 ```
 
-#### 样式和脚本管理
+#### Style and script management
 
-让HTML页面更好看和更实用：
+Make HTML pages better looking and more useful:
 
 ```javascript
-// 动态注入CSS样式
+// Dynamically inject CSS styles
 injectCSS: function(cssRules) {
     const cssString = cssRules.join(' ');
     const jsCode = `
@@ -1045,67 +1045,67 @@ injectCSS: function(cssRules) {
     this.webView.evaluateJavaScript(jsCode);
 }
 
-// 动态注入JavaScript
+// Dynamically inject JavaScript
 injectJS: function(jsCode) {
     this.webView.evaluateJavaScript(jsCode);
 }
 
-// 预定义一些有用的样式
+// Predefine some useful styles
 setupWebViewStyles: function() {
     const styles = [
         'body { margin: 0; font-family: -apple-system, sans-serif; }',
-        '.native-bridge { display: none; }', // 隐藏桥接元素
+        '.native-bridge { display: none; }', // Hide the bridge element
         '.loading { text-align: center; padding: 40px; color: #666; }',
         '.error { background: #ffebee; color: #c62828; padding: 16px; border-radius: 8px; margin: 16px; }'
     ];
     this.injectCSS(styles);
 }
 
-// 添加JavaScript工具函数
+//Add JavaScript tool function
 setupWebViewJS: function() {
     const jsUtils = `
-        // 工具函数：调用原生方法
+        // Tool function: call native method
         function callNative(method, ...args) {
             const params = args.map(arg => encodeURIComponent(JSON.stringify(arg))).join('&');
             window.location.href = 'mnwebview://' + method + '?' + params;
         }
         
-        // 工具函数：显示加载状态
-        function showLoading(message = '加载中...') {
+        // Tool function: display loading status
+        function showLoading(message = 'Loading...') {
             document.body.innerHTML = '<div class="loading">' + message + '</div>';
         }
         
-        // 工具函数：显示错误
+        // Utility function: display errors
         function showError(message) {
             const errorDiv = '<div class="error">❌ ' + message + '</div>';
             document.body.innerHTML = errorDiv + document.body.innerHTML;
         }
         
-        console.log('WebView工具函数已加载');
+        console.log('WebView tool function has been loaded');
     `;
     this.injectJS(jsUtils);
 }
 ```
 
-#### 常见陷阱
+#### Common pitfalls
 
-开发WebView时容易遇到的问题：
+Problems easily encountered when developing WebView:
 
 ```javascript
-// 陷阱1：资源路径问题
-// ❌ 错误：相对路径在WebView中可能无效
+// Trap 1: Resource path problem
+// ❌ Error: Relative paths may not be valid in WebView
 // <img src="./images/logo.png">
 
-// ✅ 正确：使用绝对路径或base URL
+// ✅ Correct: use absolute path or base URL
 setupResourcePaths: function() {
     const baseURL = "file://" + this.addonPath + "/";
     const htmlContent = this.loadHTMLTemplate();
     this.webView.loadHTMLStringBaseURL(htmlContent, NSURL.URLWithString(baseURL));
 }
 
-// 陷阱2：内存泄漏
-// ❌ 错误：忘记设置delegate为nil
-// ✅ 正确：清理资源
+// Trap 2: Memory leak
+// ❌ Error: Forgot to set delegate to nil
+// ✅ Correct: clean up resources
 cleanupWebView: function() {
     if (this.webView) {
         this.webView.delegate = null;
@@ -1114,44 +1114,44 @@ cleanupWebView: function() {
     }
 }
 
-// 陷阱3：JavaScript错误处理
-// ❌ 错误：忽略JS错误
-// ✅ 正确：捕获和处理错误
+// Trap 3: JavaScript error handling
+// ❌ Error: Ignore JS errors
+// ✅ Correct: catch and handle errors
 webViewDidFailLoadWithError: function(webView, error) {
-    MNUtil.log("WebView加载失败: " + error.localizedDescription);
+    MNUtil.log("WebView failed to load: " + error.localizedDescription);
     const errorHTML = `
         <div style="text-align:center; padding:40px; color:#666;">
-            <h3>⚠️ 页面加载失败</h3>
+            <h3>⚠️ Page loading failed</h3>
             <p>${error.localizedDescription}</p>
-            <button onclick="window.location.reload()">重新加载</button>
+            <button onclick="window.location.reload()">Reload</button>
         </div>
     `;
     webView.loadHTMLStringBaseURL(errorHTML, null);
 }
 ```
 
-### 7.3 原生与JS通信
+### 7.3 Native and JS communication
 
-#### Native调用JS
+#### Native calls JS
 
-从插件向网页发送数据和命令：
+Send data and commands from the plugin to the web page:
 
 ```javascript
-// 基础的JS调用
+//Basic JS calls
 callJavaScript: function(jsCode) {
     if (this.webView) {
         this.webView.evaluateJavaScript(jsCode);
     }
 }
 
-// 调用网页中的函数
+// Call the function in the web page
 callWebFunction: function(functionName, ...args) {
     const argsString = args.map(arg => JSON.stringify(arg)).join(', ');
     const jsCode = `${functionName}(${argsString})`;
     this.callJavaScript(jsCode);
 }
 
-// 更新网页内容
+//Update web page content
 updateWebContent: function(elementId, content) {
     const jsCode = `
         const element = document.getElementById('${elementId}');
@@ -1162,7 +1162,7 @@ updateWebContent: function(elementId, content) {
     this.callJavaScript(jsCode);
 }
 
-// 实际使用示例
+//Actual usage example
 showFileList: function(files) {
     const fileListHTML = files.map(file => `
         <div class="file-item" onclick="selectFile('${file.name}')">
@@ -1175,34 +1175,34 @@ showFileList: function(files) {
     this.updateWebContent('fileList', fileListHTML);
 }
 
-// 显示加载进度
+//Show loading progress
 updateProgress: function(percent, message) {
     this.callWebFunction('updateProgress', percent, message);
 }
 ```
 
-#### JS调用Native
+#### JS calls Native
 
-从网页向插件发送消息：
+Send a message to the plugin from the web page:
 
 ```javascript
-// WebView代理方法：拦截URL请求
+// WebView proxy method: intercept URL requests
 webViewShouldStartLoadWithRequest: function(webView, request, navigationType) {
     const url = request.URL.absoluteString;
     
-    // 检查是否为自定义协议
+    // Check if it is a custom protocol
     if (url.startsWith('mnwebview://')) {
         this.handleWebViewRequest(url);
-        return false; // 阻止默认导航
+        return false; // Prevent default navigation
     }
     
-    return true; // 允许正常导航
+    return true; // Allow normal navigation
 }
 
-// 处理来自网页的请求
+// Handle requests from web pages
 handleWebViewRequest: function(url) {
     try {
-        // 解析URL：mnwebview://method?param1=value1&param2=value2
+        // Parse URL: mnwebview://method?param1=value1¶m2=value2
         const urlParts = url.replace('mnwebview://', '').split('?');
         const method = urlParts[0];
         const params = {};
@@ -1214,19 +1214,19 @@ handleWebViewRequest: function(url) {
             });
         }
         
-        // 根据方法名调用相应的处理函数
+        // Call the corresponding processing function according to the method name
         this.handleWebViewMethod(method, params);
         
     } catch (error) {
-        MNUtil.log("处理WebView请求失败: " + error.message);
+        MNUtil.log("Failed to process WebView request: " + error.message);
     }
 }
 
-// 处理具体的方法调用
+// Handle specific method calls
 handleWebViewMethod: function(method, params) {
     switch(method) {
         case 'showHUD':
-            MNUtil.showHUD(params.message || '来自网页的消息');
+            MNUtil.showHUD(params.message || 'Message from web page');
             break;
             
         case 'selectFile':
@@ -1246,50 +1246,50 @@ handleWebViewMethod: function(method, params) {
             break;
             
         default:
-            MNUtil.log("未知的WebView方法: " + method);
+            MNUtil.log("Unknown WebView method: " + method);
     }
 }
 ```
 
-#### 数据传递策略
+#### Data delivery strategy
 
-在原生和JS之间高效传递复杂数据：
+Efficiently transfer complex data between native and JS:
 
 ```javascript
-// 传递大量数据的优化方案
+//Optimization solution for passing large amounts of data
 sendDataToWebView: function(data) {
-    // 方式1：直接传递（适合小数据）
+    //Method 1: Direct transfer (suitable for small data)
     if (JSON.stringify(data).length < 1000) {
         this.callWebFunction('receiveData', data);
         return;
     }
     
-    // 方式2：分批传递（适合大数据）
-    const chunks = this.chunkArray(data, 50); // 每批50个项目
+    //Method 2: Delivery in batches (suitable for big data)
+    const chunks = this.chunkArray(data, 50); // 50 items per batch
     this.callWebFunction('prepareDataReceive', chunks.length);
     
     chunks.forEach((chunk, index) => {
         setTimeout(() => {
             this.callWebFunction('receiveDataChunk', chunk, index);
-        }, index * 10); // 每10ms发送一批
+        }, index * 10); // Send a batch every 10ms
     });
 }
 
-// 建立更复杂的通信协议
+// Build more complex communication protocols
 setupAdvancedCommunication: function() {
-    // 在网页中建立消息队列
+    //Create a message queue in the web page
     const setupJS = `
         window.nativeMessageQueue = [];
         window.sendToNative = function(action, data, callback) {
             const messageId = Date.now() + '_' + Math.random();
             
-            // 如果有回调，存储起来
+            //If there is a callback, store it
             if (callback) {
                 window.nativeCallbacks = window.nativeCallbacks || {};
                 window.nativeCallbacks[messageId] = callback;
             }
             
-            // 发送消息
+            // send message
             const message = {
                 id: messageId,
                 action: action,
@@ -1297,11 +1297,11 @@ setupAdvancedCommunication: function() {
                 timestamp: Date.now()
             };
             
-            window.location.href = 'mnwebview://message?data=' + 
+            window.location.href = 'mnwebview://message?data=' +
                 encodeURIComponent(JSON.stringify(message));
         };
         
-        // 处理来自原生的回调
+        // Handle callbacks from native
         window.handleNativeCallback = function(messageId, result) {
             if (window.nativeCallbacks && window.nativeCallbacks[messageId]) {
                 window.nativeCallbacks[messageId](result);
@@ -1476,16 +1476,16 @@ saveToNote: function(htmlContent) {
 
 #### 常见问题和解决方案
 
-**Q: WebView显示空白页面？**
+**Q: WebView显示空白页面？ **
 A: 检查HTML路径、资源引用和控制台错误
 
-**Q: JS调用原生方法没反应？**
+**Q: JS调用原生方法没反应？ **
 A: 确认delegate设置正确，URL格式符合预期
 
-**Q: 性能问题怎么办？**
+**Q: 性能问题怎么办？ **
 A: 减少DOM操作，使用CSS硬件加速，避免内存泄漏
 
-**Q: 在不同设备上显示不一致？**
+**Q: 在不同设备上显示不一致？ **
 A: 使用viewport标签，测试不同屏幕尺寸
 
 #### 最佳实践总结
@@ -1592,7 +1592,7 @@ JSB.newAddon = function(mainPath) {
             // 确保核心控制器存在
             this.ensureControllers();
             
-            // 加载配置
+            //Load configuration
             this.loadConfiguration();
             
             // 显示主要UI
@@ -2462,16 +2462,16 @@ var settingController = JSB.defineClass(
 
 #### 常见问题和解决方案
 
-**Q: 控制器间循环引用怎么办？**
+**Q: 控制器间循环引用怎么办？ **
 A: 使用弱引用、事件总线，避免直接相互持有
 
-**Q: 数据同步出现冲突？**
+**Q: 数据同步出现冲突？ **
 A: 使用数据锁机制，或者单一数据源原则
 
-**Q: 控制器创建顺序问题？**
+**Q: 控制器创建顺序问题？ **
 A: 使用依赖注入，或者延迟创建模式
 
-**Q: 内存占用过高？**
+**Q: 内存占用过高？ **
 A: 按需创建控制器，及时清理不用的控制器
 
 #### 下一部分预告

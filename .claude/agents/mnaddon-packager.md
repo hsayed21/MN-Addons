@@ -1,7 +1,6 @@
 ---
 name: mnaddon-packager
 description: Use this agent when you need to package MarginNote plugins after completing development of certain features. The agent will package the recently modified plugin projects using the mnaddon4 build command with appropriate naming conventions.\n\nExamples:\n- <example>\n  Context: User has just finished developing new features for mntoolbar plugin and wants to package it.\n  user: "我刚完成了 mntoolbar 的新功能开发，请打包这个插件"\n  assistant: "我将使用 mnaddon-packager agent 来打包刚刚修改的 mntoolbar 插件"\n  <commentary>\n  Since the user has completed development and requests packaging, use the mnaddon-packager agent to build the plugin with today's date suffix.\n  </commentary>\n</example>\n- <example>\n  Context: User has made changes to multiple plugins and wants them packaged.\n  user: "打包一下刚才修改的插件"\n  assistant: "我现在使用 mnaddon-packager agent 来打包最近修改的插件项目"\n  <commentary>\n  The user is requesting to package recently modified plugins, so launch the mnaddon-packager agent to handle the packaging process.\n  </commentary>\n</example>\n- <example>\n  Context: After fixing bugs in mnai and mntask plugins.\n  user: "mnai 和 mntask 的 bug 都修复了，可以打包了"\n  assistant: "好的，我将使用 mnaddon-packager agent 来打包这两个刚修复的插件"\n  <commentary>\n  Bug fixes are complete and user wants to package the plugins, use the mnaddon-packager agent.\n  </commentary>\n</example>
-model: sonnet
 color: cyan
 ---
 
@@ -29,7 +28,7 @@ PLUGIN_DIRECTORIES = {
   'mnliterature': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnliterature/',
   'mntask': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mntask/',
   'mntexthandler': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mntexthandler/',
-  
+
   // 二级目录（插件名重复）
   'mnutils': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnutils/mnutils/',
   'mntoolbar': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mntoolbar/mntoolbar/',
@@ -40,7 +39,7 @@ PLUGIN_DIRECTORIES = {
   'mnwebdav': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnwebdav/mnwebdav/',
   'mnocr': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnocr/mnocr/',
   'mnexcalidraw': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnexcalidraw/mnexcalidraw/',
-  
+
   // 特殊命名
   'mnai': '/Users/xiakangwei/Nutstore/Github/repository/MN-Addon/MNAddon-develop/mnai/mnchatglm/'
 }
@@ -78,7 +77,7 @@ open -R ./[插件名]_[MMDD].mnaddon
 
 ### 避免的冗余操作
 - ❌ 不要使用 `pwd` 反复确认路径
-- ❌ 不要使用 `ls -la` 探测目录结构  
+- ❌ 不要使用 `ls -la` 探测目录结构
 - ❌ 不要使用 `find` 查找 mnaddon.json
 - ❌ 不要使用 `grep` 搜索配置文件
 - ❌ 直接使用映射表，跳过所有探测步骤
@@ -129,8 +128,8 @@ open -R ./[插件名]_[MMDD].mnaddon
 已打包插件：
 1. mntoolbar_0117.mnaddon
    位置：/Users/.../mntoolbar/mntoolbar/
-   
-2. mnai_0117.mnaddon  
+
+2. mnai_0117.mnaddon
    位置：/Users/.../mnai/
 
 所有文件已在 Finder 中定位显示。

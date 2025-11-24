@@ -1,793 +1,793 @@
-# 📚 通过 MarginNote 代码学习 JavaScript：从零基础到入门
+# 📚 Learn JavaScript through MarginNote code: from scratch to entry
 
-> 🎯 **本文目标**：让完全没有编程经验的小白，通过 MarginNote 插件的真实代码，系统学习 JavaScript 的核心概念，掌握现代编程思维。
+> 🎯 **Goal of this article**: Let novices with no programming experience systematically learn the core concepts of JavaScript and master modern programming thinking through the real code of the MarginNote plug-in.
 
-## 📖 前言：为什么选择这种学习方式？
+## 📖 Preface: Why choose this learning method?
 
-### 🤔 传统 JavaScript 教程的问题
+### 🤔 Problems with traditional JavaScript tutorials
 
-传统的 JavaScript 教程往往：
-- **脱离实际**：用的都是 `hello world`、计算器这样的玩具例子
-- **环境复杂**：需要配置 Node.js、浏览器开发工具等
-- **学完没用**：学了语法却不知道能做什么
+Traditional JavaScript tutorials tend to:
+- **Out of touch with reality**: All the toy examples used are `hello world` and calculators.
+- **Complex environment**: Node.js, browser development tools, etc. need to be configured
+- **It’s useless after learning it**: I learned grammar but don’t know what to do with it.
 
-### 🌟 通过 MarginNote 代码学习的优势
+### 🌟 Advantages of learning through MarginNote code
 
-如果你是 MarginNote 的用户，你已经见过各种强大的插件：MNUtils、MNToolbar、MNChatGLM 等。这些插件代码是**活的教材**：
+If you are a MarginNote user, you have already seen various powerful plug-ins: MNUtils, MNToolbar, MNChatGLM, etc. These plug-in codes are **living textbooks**:
 
-1. **真实代码，立即能懂**：每行代码都有明确的作用
-2. **无需配置环境**：MarginNote 就是运行环境
-3. **学以致用**：理解了语法就能理解插件如何工作
-4. **循序渐进**：从简单的变量到复杂的类，应有尽有
+1. **Real code, immediately understandable**: Each line of code has a clear function
+2. **No need to configure the environment**: MarginNote is the running environment
+3. **Put what you learn**: Once you understand the syntax, you can understand how the plug-in works.
+4. **Step by step**: everything from simple variables to complex classes
 
-### 🎯 你将学到什么
+### 🎯 What you will learn
 
-**这不是插件开发教程**，而是 **JavaScript 语言学习教程**。学完后你将掌握：
+**This is not a plug-in development tutorial**, but a **JavaScript language learning tutorial**. After completing the course you will know:
 
-#### 核心语言特性
-- 变量、函数、对象的本质
-- 面向对象编程思维
-- 异步编程概念
-- 现代 JavaScript 语法
+#### Core language features
+- The nature of variables, functions, and objects
+- Object-oriented programming thinking
+- Asynchronous programming concepts
+- Modern JavaScript syntax
 
-#### 编程思维
-- 如何分解复杂问题
-- 如何组织代码结构
-- 如何处理错误和异常
-- 如何阅读他人的代码
+#### Programming thinking
+- How to break down complex problems
+- How to organize code structure
+- How to handle errors and exceptions
+- How to read other people's code
 
-#### 额外收获
-- 能看懂任何 MarginNote 插件的代码
-- 为进一步学习前端开发打下基础
-- 具备阅读其他 JavaScript 项目的能力
+#### Extra gains
+- Can understand the code of any MarginNote plug-in
+- Lay the foundation for further learning about front-end development
+- Ability to read other JavaScript projects
 
-### 🗺️ 学习路线图
+### 🗺️ Learning Roadmap
 
 ```
-第一部分：JavaScript 基础 (第1-4章)
-├── 数据与变量：程序如何记住信息
-├── 函数：代码如何复用和组织
-├── 控制流程：程序如何做决定
-└── 复合数据：如何处理复杂信息
+Part 1: JavaScript Basics (Chapter 1-4)
+├── Data and variables: how programs remember information
+├── Functions: How to reuse and organize code
+├── Control flow: how the program makes decisions
+└── Composite data: How to deal with complex information
 
-第二部分：面向对象编程 (第5-7章)  
-├── 对象和类：如何描述现实世界
-├── 函数进阶：this、闭包等高级概念
-└── 继承与多态：代码如何复用和扩展
+Part 2: Object-Oriented Programming (Chapter 5-7)
+├── Objects and classes: how to describe the real world
+├── Function advanced: this, closure and other advanced concepts
+└── Inheritance and polymorphism: how to reuse and extend code
 
-第三部分：异步编程 (第8章)
-└── Promise 与 async/await：如何处理延时操作
+Part 3: Asynchronous Programming (Chapter 8)
+└── Promise and async/await: How to handle delayed operations
 
-附录：参考资料
-├── JavaScript 语法速查表
-├── 常见错误和调试技巧
-└── 进阶学习资源推荐
+Appendix: References
+├── JavaScript syntax cheat sheet
+├── Common errors and debugging tips
+└── Recommended advanced learning resources
 ```
 
-### 💡 如何使用这份教程
+### 💡 How to use this tutorial
 
-1. **按顺序阅读**：每章都建立在前章的基础上
-2. **动手实践**：看到代码就在 MarginNote 中运行试试
-3. **理解本质**：重点理解概念，而不是背诵语法
-4. **联系实际**：思考学到的概念如何应用到其他场景
+1. **Read in order**: Each chapter builds on the previous chapter
+2. **Hands-on practice**: Once you see the code, try running it in MarginNote
+3. **Understanding the Essence**: Focus on understanding concepts rather than memorizing grammar
+4. **Connect with practice**: Think about how the concepts learned can be applied to other scenarios
 
-> 💡 **学习原则**："理解比记忆重要，应用比语法重要，思维比技巧重要"
+> 💡 **Learning Principle**: "Understanding is more important than memory, application is more important than grammar, thinking is more important than skills"
 
-让我们开始这场有趣的 JavaScript 学习之旅！
+Let’s start this fun JavaScript learning journey!
 
 ---
 
-## 第一部分：JavaScript 基础概念
+## Part 1: Basic Concepts of JavaScript
 
-### 第1章：数据与变量 - 程序的基础
+### Chapter 1: Data and Variables - Basics of Programming
 
-#### 1.1 第一个变量
+#### 1.1 The first variable
 
-> 🤔 **问题**：程序如何记住信息？比如，我想让 MarginNote 记住我的名字，下次打开时显示"欢迎回来，小明"，该怎么做？
+> 🤔 **Question**: How does the program remember information? For example, I want MarginNote to remember my name and display "Welcome back, Xiao Ming" when I open it next time. What should I do?
 
-这就需要用到**变量**了！
+This requires the use of **variables**!
 
-**变量就像一个贴着标签的盒子**：你可以往里面放东西，也可以从里面取东西。标签就是变量名，里面的东西就是变量的值。
+**A variable is like a labeled box**: you can put things in it and you can take things out of it. The label is the variable name, and the content inside is the variable value.
 
-**立即实践**：
+**Practice now**:
 
 ```javascript
-// 最简单的例子：创建一个变量
-let userName = "小明";
+// The simplest example: create a variable
+let userName = "Xiao Ming";
 
-// 使用变量：让 MarginNote 显示欢迎信息
-MNUtil.showHUD("欢迎回来，" + userName);
+//Use variables: let MarginNote display the welcome message
+MNUtil.showHUD("Welcome back," + userName);
 ```
 
-**运行结果**：MarginNote 会显示"欢迎回来，小明"
+**Run result**: MarginNote will display "Welcome back, Xiao Ming"
 
-**代码解释**：
-- `let userName` → 创建一个名为 `userName` 的变量
-- `= "小明"` → 向变量里放入文字"小明" 
-- `userName` → 取出变量的值
-- `+` → 连接两段文字
+**Code explanation**:
+- `let userName` → Create a variable named `userName`
+- `= "Xiao Ming"` → Put the text "Xiao Ming" into the variable
+- `userName` → Get the value of the variable
+- `+` → connect two paragraphs of text
 
-**🎯 试试看**：修改代码，把"小明"改成你的名字，然后运行看结果。
+**🎯 Try it**: Modify the code, change "Xiao Ming" to your name, and then run it to see the results.
 
-#### 1.2 基础数据类型
+#### 1.2 Basic data types
 
-> 🤔 **问题**：JavaScript 能处理哪些类型的数据？
+> 🤔 **Question**: What types of data can JavaScript handle?
 
-就像盒子可以装不同的东西（书本、玩具、食物），变量也可以存储不同类型的数据：
+Just like boxes can hold different things (books, toys, food), variables can also store different types of data:
 
-##### 文字（字符串）
+##### text (string)
 ```javascript
 let message = "Hello MarginNote";
-let noteName = "我的笔记";
+let noteName = "My Notes";
 let emoji = "😀";
 
-MNUtil.showHUD(message);  // 显示文字
+MNUtil.showHUD(message); // Display text
 ```
 
-##### 数字
+##### Numbers
 ```javascript
 let age = 25;
 let price = 99.9;
 let count = 0;
 
-MNUtil.showHUD("age = " + age);  // 显示：age = 25
+MNUtil.showHUD("age = " + age); // Display: age = 25
 ```
 
-##### 真假判断（布尔值）
+##### True or false judgment (Boolean value)
 ```javascript
-let isReady = true;   // 真
-let isEmpty = false;  // 假
+let isReady = true; // true
+let isEmpty = false; // false
 
 if (isReady) {
-  MNUtil.showHUD("准备完成！");
+  MNUtil.showHUD("Ready!");
 }
 ```
 
-**📝 关于引号**：
-- 文字需要用引号包围：`"Hello"`
-- 数字不需要引号：`123`
-- `true`/`false` 也不需要引号
+**📝 About quotation marks**:
+- The text needs to be surrounded by quotes: `"Hello"`
+- No quotes required for numbers: `123`
+- `true`/`false` also does not require quotes
 
-**✨ 实战例子**：从 MarginNote 代码中看实际应用
+**✨ Practical Example**: See the practical application from the MarginNote code
 
 ```javascript
-// 来自 mntoolbar/xdyy_button_registry.js 的真实代码
+// Real code from mntoolbar/xdyy_button_registry.js
 global.registerButton("custom15", {
-  name: "时间戳",        // 字符串：按钮显示的文字
-  image: "custom15",     // 字符串：图标文件名
-  templateName: "menu_timestamp"  // 字符串：菜单模板名
+  name: "Timestamp", // String: text displayed by the button
+  image: "custom15", // String: icon file name
+  templateName: "menu_timestamp" // String: menu template name
 });
 
-// 来自 mnutils.js 的真实代码
-note.colorIndex = 3;     // 数字：颜色索引（0-15）
-note.fillIndex = 0;      // 数字：填充样式索引
-menu.rowHeight = 35;     // 数字：菜单行高（像素）
+// Real code from mnutils.js
+note.colorIndex = 3; // Number: color index (0-15)
+note.fillIndex = 0; //Number: fill style index
+menu.rowHeight = 35; // Number: menu row height (pixels)
 ```
 
-**🔍 观察一下**：
-- 哪些用了引号？（那些是字符串）
-- 哪些没用引号？（那些是数字）
+**🔍 Take a look**:
+- Which ones are in quotation marks? (those are strings)
+- Which ones are without quotation marks? (those are numbers)
 
-#### 1.3 变量的作用域初步
+#### 1.3 Preliminary scope of variables
 
-> 🤔 **问题**：变量什么时候存在，什么时候消失？
+> 🤔 **Question**: When does a variable exist and when does it disappear?
 
-想象一下你在家里和在学校：
-- **在家里**：你可以使用家里所有的东西
-- **在学校**：你只能使用学校的东西，不能用家里的
+Imagine you are at home and at school:
+- **At Home**: You can use everything at home
+- **At school**: You can only use things from school, not things from home
 
-变量也是这样的道理：
+The same goes for variables:
 
 ```javascript
-let globalMessage = "我在全局区域";  // 全局变量：在哪里都能用
+let globalMessage = "I am in the global area"; // Global variables: can be used anywhere
 
 function showWelcome() {
-  let localMessage = "我在函数内部";  // 局部变量：只在这个函数里能用
-  
-  MNUtil.showHUD(globalMessage);  // ✅ 可以用全局变量
-  MNUtil.showHUD(localMessage);   // ✅ 可以用局部变量
+  let localMessage = "I am inside the function"; // Local variables: can only be used in this function
+
+  MNUtil.showHUD(globalMessage); // ✅ Global variables can be used
+  MNUtil.showHUD(localMessage); // ✅ You can use local variables
 }
 
 showWelcome();
-MNUtil.showHUD(globalMessage);  // ✅ 还是可以用全局变量
-// MNUtil.showHUD(localMessage);   // ❌ 错误！函数外面用不了局部变量
+MNUtil.showHUD(globalMessage); // ✅ You can still use global variables
+// MNUtil.showHUD(localMessage); // ❌ Error! Local variables cannot be used outside functions
 ```
 
-**记住**：
-- 全局变量 = 家里的东西，在哪里都能用
-- 局部变量 = 教室里的东西，只能在这个教室里用
+**Remember**:
+- Global variables = things at home, can be used everywhere
+- Local variables = things in the classroom, can only be used in this classroom
 
-**🎯 小练习**：
-试试创建一个变量存储你的名字，然后让 MarginNote 显示问候信息。
+**🎯 Small exercise**:
+Try creating a variable to store your name, and then have MarginNote display the greeting message.
 
 ---
 
-### 第1章小结
+### Summary of Chapter 1
 
-恭喜！你已经学会了：
-✅ 用变量存储信息  
-✅ 区分文字、数字和真假值
-✅ 理解全局和局部变量的区别
+Congratulations! You have learned:
+✅ Use variables to store information
+✅ Distinguish between text, numbers and true and false values
+✅ Understand the difference between global and local variables
 
-但是，如果我想让同样的代码执行多次怎么办？比如，给不同的人显示不同的欢迎信息？
+But what if I want the same code to execute multiple times? For example, show different welcome messages to different people?
 
-这就需要用到**函数**了——让我们进入下一章的学习吧！
+This requires the use of **functions** - let's move on to the next chapter!
 
 ---
 
-### 第2章：函数 - 让代码可以重复使用
+### Chapter 2: Functions - Making code reusable
 
-> 🤔 **问题**：每次都写 `MNUtil.showHUD()` 太麻烦了，而且如果我想给100个不同的用户显示问候，难道要写100行代码吗？
+> 🤔 **Question**: It’s too troublesome to write `MNUtil.showHUD()` every time, and if I want to show greetings to 100 different users, do I have to write 100 lines of code?
 
-**函数就像一台机器**：你把原料（输入）放进去，机器加工后给你产品（输出）。
+**A function is like a machine**: you put the raw materials (input) in, and the machine processes it and gives you the product (output).
 
-#### 2.1 第一个函数
+#### 2.1 The first function
 
 ```javascript
-// 不用函数的写法：重复代码很多
-MNUtil.showHUD("欢迎回来，小明");
-MNUtil.showHUD("欢迎回来，小红");  
-MNUtil.showHUD("欢迎回来，小刚");
-// ...如果有100个用户，要写100行！
+//Writing without functions: a lot of repeated code
+MNUtil.showHUD("Welcome back, Xiao Ming");
+MNUtil.showHUD("Welcome back, Xiaohong");
+MNUtil.showHUD("Welcome back, Xiaogang");
+// ...if there are 100 users, 100 lines need to be written!
 
-// 用函数的写法：代码可以复用
-function sayWelcome(name) {  // name是参数：接收外部输入
-  MNUtil.showHUD("欢迎回来，" + name);
+// Use function writing: code can be reused
+function sayWelcome(name) { // name is a parameter: receive external input
+  MNUtil.showHUD("Welcome back," + name);
 }
 
-// 调用函数：一行代码搞定
-sayWelcome("小明");  // 传入参数"小明"
-sayWelcome("小红");  // 传入参数"小红"  
-sayWelcome("小刚");  // 传入参数"小刚"
+//Call function: one line of code
+sayWelcome("Xiao Ming"); // Pass in the parameter "Xiao Ming"
+sayWelcome("小红"); // Pass in the parameter "小红"
+sayWelcome("Xiaogang"); // Pass in the parameter "Xiaogang"
 ```
 
-**代码解释**：
-- `function sayWelcome(name)` → 创建一个名为 `sayWelcome` 的函数
-- `name` → 参数，就像函数的"输入口"
-- `sayWelcome("小明")` → 调用函数，把"小明"传给参数 `name`
+**Code explanation**:
+- `function sayWelcome(name)` → Create a function named `sayWelcome`
+- `name` → parameter, just like the "input port" of a function
+- `sayWelcome("Xiao Ming")` → Call the function and pass "Xiao Ming" to the parameter `name`
 
-**🎯 试试看**：创建一个函数，能显示任意数字的平方（比如输入3，显示9）
+**🎯 Try it**: Create a function that can display the square of any number (for example, enter 3 and display 9)
 
-#### 2.2 函数的参数和返回值
+#### 2.2 Function parameters and return values
 
-> 🤔 **问题**：函数如何接收输入和产生输出？
+> 🤔 **Question**: How does a function receive input and produce output?
 
-**参数 = 函数的输入**
+**Parameters = inputs to the function**
 ```javascript
-function greetUser(name, age) {  // 两个参数：name 和 age
-  MNUtil.showHUD(name + " 今年 " + age + " 岁");
+function greetUser(name, age) { // Two parameters: name and age
+  MNUtil.showHUD(name + "this year" + age + "years");
 }
 
-greetUser("小明", 25);  // 传入两个参数
+greetUser("Xiao Ming", 25); // Pass in two parameters
 ```
 
-**返回值 = 函数的输出**
+**return value = output of function**
 ```javascript
 function calculateAge(birthYear) {
   let currentYear = 2024;
   let age = currentYear - birthYear;
-  return age;  // 返回计算结果
+  return age; // Return the calculation result
 }
 
-let myAge = calculateAge(1990);  // 接收返回值
-MNUtil.showHUD("我今年 " + myAge + " 岁");  // 显示：我今年 34 岁
+let myAge = calculateAge(1990); // receive return value
+MNUtil.showHUD("I am this year " + myAge + "years old"); // Display: I am 34 years old this year
 ```
 
-**✨ MarginNote 中的实际例子**
+**✨ Practical examples in MarginNote**
 ```javascript
-// 来自 mnutils.js 的真实函数
+// Real function from mnutils.js
 function strCode(str) {
   let width = 0;
   for (let i = 0; i < str.length; i++) {
     if (str.charCodeAt(i) > 127) {
-      width += 2;  // 中文字符算2个宽度
+      width += 2; //Chinese characters count as 2 widths
     } else {
-      width += 1;  // 英文字符算1个宽度
+      width += 1; // English characters count as 1 width
     }
   }
-  return width;  // 返回字符串显示宽度
+  return width; // Return the string display width
 }
 
-// 使用这个函数
-let titleWidth = strCode("我的笔记");
-MNUtil.showHUD("标题宽度：" + titleWidth);
+// use this function
+let titleWidth = strCode("My Notes");
+MNUtil.showHUD("Title Width: " + titleWidth);
 ```
 
-#### 2.3 函数的作用域
+#### 2.3 Scope of function
 
-> 🤔 **问题**：函数里的变量和外面的变量有什么关系？
+> 🤔 **Question**: What is the relationship between the variables in the function and the variables outside?
 
-函数就像房间，有自己的"私人空间"：
+Functions are like rooms, with their own "private space":
 
 ```javascript
-let globalName = "全局小明";  // 客厅的东西，大家都能用
+let globalName = "Global Xiao Ming"; // Everyone can use the things in the living room
 
 function showUserInfo() {
-  let localName = "函数小红";  // 房间里的东西，只有房间里能用
-  
-  MNUtil.showHUD("全局：" + globalName);  // ✅ 能访问外面的
-  MNUtil.showHUD("局部：" + localName);   // ✅ 能访问自己的
+  let localName = "Function Xiaohong"; // Things in the room can only be used in the room
+
+  MNUtil.showHUD("Global:" + globalName); // ✅ Can access external
+  MNUtil.showHUD("local:" + localName); // ✅ Can access your own
 }
 
 showUserInfo();
-MNUtil.showHUD("外部：" + globalName);  // ✅ 外面也能用全局的
-// MNUtil.showHUD("外部：" + localName);   // ❌ 外面用不了房间里的
+MNUtil.showHUD("External:" + globalName); // ✅ Global ones can also be used outside
+// MNUtil.showHUD("External: " + localName); // ❌ The ones in the room cannot be used outside.
 ```
 
-**实际应用场景**：
+**Actual application scenario**:
 ```javascript
-// MarginNote 中的实际例子
+// Practical example in MarginNote
 function processNote() {
-  let note = MNNote.getFocusNote();  // 函数内部变量
-  
+  let note = MNNote.getFocusNote(); // Function internal variables
+
   if (note) {
-    let noteTitle = note.noteTitle;   // 只在这个函数里用
-    MNUtil.showHUD("处理笔记：" + noteTitle);
+    let noteTitle = note.noteTitle; // Only used in this function
+    MNUtil.showHUD("Processing notes: " + noteTitle);
   }
 }
-// 外面访问不到 note 和 noteTitle，很安全！
+// Note and noteTitle cannot be accessed from outside, so they are safe!
 ```
 
-#### 2.4 箭头函数初步认识
+#### 2.4 Preliminary understanding of arrow functions
 
-> 🤔 **问题**：有没有更简洁的函数写法？
+> 🤔 **Question**: Is there a more concise way to write functions?
 
-有！箭头函数就像函数的"简化版"：
+have! Arrow functions are like "simplified" versions of functions:
 
 ```javascript
-// 普通函数写法
+// Ordinary function writing method
 function sayHello(name) {
   return "Hello " + name;
 }
 
-// 箭头函数写法
+//How to write arrow function
 const sayHello2 = (name) => {
   return "Hello " + name;
 }
 
-// 更简洁的箭头函数（单行时可省略大括号和return）
+// More concise arrow function (braces and return can be omitted in a single line)
 const sayHello3 = (name) => "Hello " + name;
 
-// 使用效果完全一样
-MNUtil.showHUD(sayHello("小明"));   // Hello 小明
-MNUtil.showHUD(sayHello2("小红"));  // Hello 小红
-MNUtil.showHUD(sayHello3("小刚"));  // Hello 小刚
+// The usage effect is exactly the same
+MNUtil.showHUD(sayHello("Xiao Ming")); // Hello Xiao Ming
+MNUtil.showHUD(sayHello2("小红")); // Hello Xiaohong
+MNUtil.showHUD(sayHello3("Xiaogang")); // Hello Xiaogang
 ```
 
-**何时使用箭头函数？**
-- 简单的计算：`const double = (x) => x * 2`
-- 数组处理：`numbers.map(x => x * 2)`
-- 短小的工具函数
+**When to use arrow functions? **
+- Simple calculation: `const double = (x) => x * 2`
+- Array processing: `numbers.map(x => x * 2)`
+- Short utility functions
 
-**箭头函数的特点**：
-- 写法更简洁
-- 适合简单逻辑
-- （高级特性：this指向不同，我们第6章详细讲）
-
----
-
-### 第2章小结
-
-恭喜！你已经学会了：
-✅ 用函数避免重复代码
-✅ 传递参数和接收返回值
-✅ 理解函数的作用域
-✅ 认识箭头函数的基本用法
-
-现在你能创建自己的"代码机器"了！但是，如果我想让程序根据不同情况做不同的事情呢？比如，只给VIP用户显示特殊欢迎信息？
-
-这就需要学习**条件判断**——让我们进入第3章，学习如何让程序会"思考"！
+**Characteristics of arrow functions**:
+- Written more concisely
+- Suitable for simple logic
+- (Advanced features: this points to different points, we will talk about it in detail in Chapter 6)
 
 ---
 
-### 第3章：控制流程 - 让程序会"思考"
+### Summary of Chapter 2
 
-程序不仅要能存储数据、执行函数，还要能根据不同情况做出不同的决定。这就是控制流程的作用。
+Congratulations! You have learned:
+✅ Use functions to avoid duplicating code
+✅ Pass parameters and receive return values
+✅ Understand the scope of functions
+✅ Understand the basic usage of arrow functions
 
-#### 3.1 条件判断 - 程序的决策能力
+Now you can create your own "code machine"! But what if I want the program to do different things based on different situations? For example, display a special welcome message only to VIP users?
 
-> 🤔 **问题**：如何让程序根据不同情况做不同的事？比如，只有选中笔记时才处理，没选中时提示用户？
+This requires learning **conditional judgment** - let's enter Chapter 3 and learn how to make the program "think"!
 
-**生活例子**：出门前看天气
-- 如果下雨 → 带伞
-- 如果不下雨 → 不带伞
+---
 
-**代码实现**：
+### Chapter 3: Control Process - Let the program "think"
+
+The program must not only be able to store data and execute functions, but also be able to make different decisions based on different situations. This is what control flow does.
+
+#### 3.1 Conditional judgment - the decision-making ability of the program
+
+> 🤔 **Question**: How to make the program do different things according to different situations? For example, is it processed only when a note is selected, and prompts the user when it is not selected?
+
+**Life Example**: Check the weather before going out
+- If it rains → bring an umbrella
+- If it’s not raining → don’t bring an umbrella
+
+**Code implementation**:
 ```javascript
-// 基础的 if...else
+//Basic if...else
 let note = MNNote.getFocusNote();
 
 if (note) {
-  // 有笔记时执行这里
-  MNUtil.showHUD("找到笔记：" + note.noteTitle);
+  //Execute here when there are notes
+  MNUtil.showHUD("Note found: " + note.noteTitle);
 } else {
-  // 没有笔记时执行这里
-  MNUtil.showHUD("请先选择一个笔记");
+  //Execute here when there are no notes
+  MNUtil.showHUD("Please select a note first");
 }
 ```
 
-**多重条件判断**：
+**Multiple condition judgment**:
 ```javascript
 let note = MNNote.getFocusNote();
 
 if (!note) {
-  MNUtil.showHUD("请先选择笔记");
+  MNUtil.showHUD("Please select the note first");
 } else if (note.noteTitle === "") {
-  MNUtil.showHUD("笔记标题为空");
+  MNUtil.showHUD("Note title is empty");
 } else if (note.noteTitle.length > 50) {
-  MNUtil.showHUD("标题太长了！");
+  MNUtil.showHUD("Title is too long!");
 } else {
-  MNUtil.showHUD("笔记正常：" + note.noteTitle);
+  MNUtil.showHUD("Notes are normal: " + note.noteTitle);
 }
 ```
 
-**实战应用**：
+**Practical application**:
 ```javascript
-// 来自 MarginNote 插件的实际逻辑
+// Actual logic from the MarginNote plugin
 function checkAndProcessNote() {
   let focusNote = MNNote.getFocusNote();
-  
+
   if (focusNote === null) {
-    MNUtil.showHUD("请先选择一个笔记");
-    return;  // 提前结束函数
+    MNUtil.showHUD("Please select a note first");
+    return; // End the function early
   }
-  
+
   if (focusNote.colorIndex === 0) {
-    focusNote.colorIndex = 3;  // 设置为红色
-    MNUtil.showHUD("笔记已标记为红色");
+    focusNote.colorIndex = 3; // Set to red
+    MNUtil.showHUD("Notes are marked in red");
   } else {
-    MNUtil.showHUD("笔记已经有颜色了");
+    MNUtil.showHUD("Notes are now colored");
   }
 }
 ```
 
-**🎯 练习**：写一个函数，检查笔记标题长度，超过20字符就提示"标题太长"。
+**🎯 Exercise**: Write a function to check the length of the note title. If it exceeds 20 characters, it will prompt "Title is too long".
 
-#### 3.2 循环结构 - 重复执行的魔法
+#### 3.2 Loop structure - the magic of repeated execution
 
-> 🤔 **问题**：如果我想给100个笔记都添加相同的标签，难道要写100次代码吗？
+> 🤔 **Question**: If I want to add the same tag to 100 notes, do I have to write the code 100 times?
 
-**循环就像传送带**：让同样的操作重复执行多次。
+**Loops are like conveyor belts**: make the same action happen multiple times.
 
-**基础 for 循环**：
+**Basic for loop**:
 ```javascript
-// 最简单的例子：数数
+// The simplest example: counting
 for (let i = 1; i <= 5; i++) {
-  MNUtil.showHUD("第 " + i + " 次循环");
+  MNUtil.showHUD("The " + i + " cycle");
 }
-// 输出：第1次循环、第2次循环、第3次循环、第4次循环、第5次循环
+// Output: 1st loop, 2nd loop, 3rd loop, 4th loop, 5th loop
 
-// 实际应用：批量处理笔记
-let notes = MNNote.getFocusNotes();  // 获取选中的多个笔记
+// Practical application: batch processing of notes
+let notes = MNNote.getFocusNotes(); // Get multiple selected notes
 
 for (let i = 0; i < notes.length; i++) {
-  let note = notes[i];  // 取出第i个笔记
-  note.colorIndex = 3;  // 设置颜色
-  MNUtil.showHUD("处理第 " + (i+1) + " 个笔记");
+  let note = notes[i]; // Take out the i-th note
+  note.colorIndex = 3; // Set color
+  MNUtil.showHUD("Processing the " + (i+1) + " note");
 }
 ```
 
-**代码解释**：
-- `let i = 0` → 计数器从0开始
-- `i < notes.length` → 只要没处理完就继续
-- `i++` → 每次循环后计数器+1
-- `notes[i]` → 用下标访问数组中的笔记
+**Code explanation**:
+- `let i = 0` → Counter starts from 0
+- `i < notes.length` → continue as long as not finished
+- `i++` → Counter+1 after each loop
+- `notes[i]` → access the notes in the array using subscripts
 
-**更现代的写法 - for...of 循环**：
+**More modern way of writing - for...of loop**:
 ```javascript
 let notes = MNNote.getFocusNotes();
 
-for (let note of notes) {  // 直接遍历每个笔记
+for (let note of notes) { // directly traverse each note
   note.colorIndex = 3;
-  MNUtil.showHUD("处理笔记：" + note.noteTitle);
+  MNUtil.showHUD("Processing notes: " + note.noteTitle);
 }
-// 更简洁，不需要管下标
+// More concise, no need to worry about subscripts
 ```
 
-**🎯 练习**：写一个循环，给数组中的每个数字都乘以2。
+**🎯 Exercise**: Write a loop that multiplies each number in the array by 2.
 
-#### 3.3 实战练习：批量处理笔记
+#### 3.3 Practical Exercise: Batch Processing Notes
 
-> 🤔 **问题**：现在你已经学会了条件判断和循环，能不能综合运用，写一个批量处理笔记的功能？
+> 🤔 **Question**: Now that you have learned conditional judgment and looping, can you use them comprehensively to write a batch processing note function?
 
-**需求**：只处理有标题的笔记，给它们都加上红色标记。
+**Requirement**: Only process notes with titles and mark them all in red.
 
 ```javascript
 function batchProcessNotes() {
-  let notes = MNNote.getFocusNotes();  // 获取选中的笔记
-  let processedCount = 0;              // 计数器
-  
-  // 检查是否有选中的笔记
+  let notes = MNNote.getFocusNotes(); // Get the selected notes
+  let processedCount = 0; // counter
+
+  // Check if there are selected notes
   if (notes.length === 0) {
-    MNUtil.showHUD("请先选择笔记");
+    MNUtil.showHUD("Please select the note first");
     return;
   }
-  
-  // 遍历每个笔记
+
+  //Loop through each note
   for (let note of notes) {
-    // 条件判断：只处理有标题的笔记
+    //Conditional judgment: only process notes with titles
     if (note.noteTitle && note.noteTitle.trim() !== "") {
-      note.colorIndex = 3;  // 设置为红色
-      processedCount++;     // 计数器+1
+      note.colorIndex = 3; // Set to red
+      processedCount++; // counter+1
     }
   }
-  
-  // 显示处理结果
-  MNUtil.showHUD("已处理 " + processedCount + " 个有标题的笔记");
+
+  //Display processing results
+  MNUtil.showHUD("Processed " + processedCount + " notes with title");
 }
 
-// 使用函数
+// use function
 batchProcessNotes();
 ```
 
-**代码分析**：
-1. **函数封装**：把功能包装成函数，可以重复使用
-2. **错误检查**：先检查是否有笔记可处理
-3. **循环遍历**：用 for...of 遍历所有笔记
-4. **条件筛选**：只处理符合条件的笔记
-5. **结果反馈**：告诉用户处理了多少个笔记
+**Code Analysis**:
+1. **Function Encapsulation**: Pack functions into functions that can be reused
+2. **Error Check**: First check whether there are notes to process
+3. **Loop Traversal**: Use for...of to traverse all notes
+4. **Conditional filtering**: Only process notes that meet the conditions
+5. **Result Feedback**: Tell the user how many notes have been processed
 
 ---
 
-### 第3章小结
+### Summary of Chapter 3
 
-恭喜！你已经掌握了程序的"大脑"：
-✅ 用 if...else 让程序做判断
-✅ 用循环批量处理数据
-✅ 综合运用函数、条件、循环解决实际问题
+Congratulations! You have mastered the "brain" of the program:
+✅ Use if...else to let the program make judgments
+✅ Batch data processing with loops
+✅ Comprehensive use of functions, conditions, and loops to solve practical problems
 
-现在你的程序已经会"思考"了！但是，如果要处理更复杂的数据怎么办？比如一个学生有姓名、年龄、成绩等多个属性？
+Now your program can "think"! But what if you want to deal with more complex data? For example, does a student have multiple attributes such as name, age, grades, etc.?
 
-这就需要学习**复合数据类型**——让我们进入第4章！
+This requires learning about composite data types - let's get into Chapter 4!
 
 ---
 
-### 第4章：复合数据类型 - 处理复杂信息
+### Chapter 4: Composite Data Types - Handling Complex Information
 
-到目前为止，我们用的都是简单数据：一个变量存一个值。但现实世界的信息往往很复杂：一个笔记有标题、内容、颜色、评论等多个属性。这就需要复合数据类型。
+So far, we've been working with simple data: a variable holding a value. But real-world information is often complex: a note has multiple attributes such as title, content, color, and comments. This requires composite data types.
 
-#### 4.1 数组 - 管理多个数据
+#### 4.1 Array - Managing multiple data
 
-> 🤔 **问题**：如果我想存储多个用户的名字，难道要创建 name1、name2、name3... 这样的变量吗？
+> 🤔 **Question**: If I want to store the names of multiple users, do I need to create variables like name1, name2, name3...?
 
-**数组就像一个有序的收纳盒**：可以放多个东西，每个位置都有编号。
+**An array is like an organized storage box**: multiple things can be placed, and each position is numbered.
 
-**基础用法**：
+**Basic Usage**:
 ```javascript
-// 创建数组的几种方法
-let userNames = ["小明", "小红", "小刚"];        // 直接创建
-let scores = [85, 92, 78];                    // 数字数组
-let mixedArray = ["小明", 18, true, null];    // 混合类型数组
-let emptyArray = [];                          // 空数组
+// Several ways to create arrays
+let userNames = ["Xiao Ming", "Xiao Hong", "Xiao Gang"]; // Create directly
+let scores = [85, 92, 78]; // array of numbers
+let mixedArray = ["Xiao Ming", 18, true, null]; // Mixed type array
+let emptyArray = []; // empty array
 
-// 访问数组元素（下标从0开始）
-MNUtil.showHUD("第一个用户：" + userNames[0]);  // 小明
-MNUtil.showHUD("第二个用户：" + userNames[1]);  // 小红
-MNUtil.showHUD("数组长度：" + userNames.length); // 3
+//Access array elements (index starts from 0)
+MNUtil.showHUD("First user: " + userNames[0]); // Xiao Ming
+MNUtil.showHUD("Second user: " + userNames[1]); // Xiaohong
+MNUtil.showHUD("Array length: " + userNames.length); // 3
 ```
 
-**实际应用场景**：
+**Actual application scenario**:
 ```javascript
-// MarginNote 中的实际例子：批量处理笔记
+// Practical example in MarginNote: batch processing of notes
 function colorNotesByCategory() {
-  let notes = MNNote.getFocusNotes();    // 获取选中笔记（这就是一个数组！）
-  let colors = [1, 2, 3, 4, 5];          // 准备5种颜色
-  
+  let notes = MNNote.getFocusNotes(); // Get the selected notes (this is an array!)
+  let colors = [1, 2, 3, 4, 5]; // Prepare 5 colors
+
   for (let i = 0; i < notes.length; i++) {
-    let colorIndex = colors[i % colors.length];  // 轮流使用颜色
+    let colorIndex = colors[i % colors.length]; // Take turns using colors
     notes[i].colorIndex = colorIndex;
-    MNUtil.showHUD("笔记 " + (i+1) + " 设为颜色 " + colorIndex);
+    MNUtil.showHUD("note " + (i+1) + " set to color " + colorIndex);
   }
 }
 ```
 
-**常用数组操作**：
+**Commonly used array operations**:
 ```javascript
-let fruits = ["苹果", "香蕉"];
+let fruits = ["apple", "banana"];
 
-// 添加元素
-fruits.push("橙子");           // 在末尾添加：["苹果", "香蕉", "橙子"]
-fruits.unshift("草莓");        // 在开头添加：["草莓", "苹果", "香蕉", "橙子"]
+// add element
+fruits.push("orange"); //Add at the end: ["apple", "banana", "orange"]
+fruits.unshift("strawberry"); // Add at the beginning: ["strawberry", "apple", "banana", "orange"]
 
-// 删除元素
-let lastFruit = fruits.pop();  // 删除最后一个：橙子
-let firstFruit = fruits.shift(); // 删除第一个：草莓
+// delete element
+let lastFruit = fruits.pop(); // Delete the last one: orange
+let firstFruit = fruits.shift(); // Delete the first one: strawberry
 
-// 查找元素
-let index = fruits.indexOf("苹果");  // 找到苹果的位置：0
-let hasApple = fruits.includes("苹果"); // 检查是否包含苹果：true
+// Find element
+let index = fruits.indexOf("apple"); // Find the position of apple: 0
+let hasApple = fruits.includes("apple"); // Check whether apples are included: true
 
-MNUtil.log("当前水果：" + fruits);  // ["苹果", "香蕉"]
+MNUtil.log("Current fruit:" + fruits); // ["Apple", "Banana"]
 ```
 
-**🎯 实战练习**：
+**🎯 Practical exercises**:
 ```javascript
-// 创建一个笔记标题清理器
+//Create a note title cleaner
 function cleanNoteTitles() {
   let notes = MNNote.getFocusNotes();
-  let cleanedTitles = [];  // 存储清理后的标题
-  
+  let cleanedTitles = []; // Store cleaned titles
+
   for (let note of notes) {
     if (note.noteTitle) {
-      // 清理标题：去除前后空格，移除特殊字符
+      // Clean the title: remove leading and trailing spaces, remove special characters
       let cleanTitle = note.noteTitle.trim().replace(/[^\w\s]/g, '');
       cleanedTitles.push(cleanTitle);
       note.noteTitle = cleanTitle;
     }
   }
-  
-  MNUtil.showHUD("清理了 " + cleanedTitles.length + " 个标题");
-  MNUtil.log("清理后的标题：" + cleanedTitles);
+
+  MNUtil.showHUD("Cleaned " + cleanedTitles.length + " titles");
+  MNUtil.log("Cleaned titles: " + cleanedTitles);
 }
 ```
 
-#### 4.2 对象 - 管理结构化数据
+#### 4.2 Objects - Managing structured data
 
-> 🤔 **问题**：数组适合存储相同类型的多个数据，但如果一个笔记有标题、内容、颜色、创建时间等不同类型的属性呢？
+> 🤔 **Question**: Arrays are suitable for storing multiple data of the same type, but what if a note has different types of attributes such as title, content, color, creation time, etc.?
 
-**对象就像一个有标签的储物柜**：每个格子都有自己的名字。
+**The object is like a labeled locker**: each box has its own name.
 
-**基础用法**：
+**Basic Usage**:
 ```javascript
-// 创建对象
+//Create object
 let student = {
-  name: "小明",
+  name: "Xiao Ming",
   age: 18,
-  grade: "高三",
-  subjects: ["数学", "物理", "化学"]  // 对象里可以包含数组
+  grade: "senior year",
+  subjects: ["Math", "Physics", "Chemistry"] // Objects can contain arrays
 };
 
-// 访问对象属性
-MNUtil.showHUD("姓名：" + student.name);        // 小明
-MNUtil.showHUD("年龄：" + student.age);         // 18
-MNUtil.showHUD("学科：" + student.subjects[0]); // 数学
+//Access object properties
+MNUtil.showHUD("Name: " + student.name); // Xiao Ming
+MNUtil.showHUD("Age: " + student.age); // 18
+MNUtil.showHUD("Subject: " + student.subjects[0]); // Mathematics
 ```
 
-**MarginNote 中的实际应用**：
+**Practical application in MarginNote**:
 ```javascript
-// 创建一个笔记信息对象
+//Create a note information object
 function getNoteInfo() {
   let note = MNNote.getFocusNote();
   if (!note) return null;
-  
+
   let noteInfo = {
-    title: note.noteTitle || "无标题",
-    content: note.textContent || "无内容", 
+    title: note.noteTitle || "Untitled",
+    content: note.textContent || "No content",
     color: note.colorIndex || 0,
     hasComments: note.comments && note.comments.length > 0,
     created: new Date().toLocaleString(),
-    // 方法：对象也可以包含函数
+    // Method: Objects can also contain functions
     display: function() {
-      MNUtil.showHUD("笔记：" + this.title + " (" + this.color + ")");
+      MNUtil.showHUD("Note: " + this.title + " (" + this.color + ")");
     }
   };
-  
+
   return noteInfo;
 }
 
-// 使用
+// use
 let info = getNoteInfo();
 if (info) {
-  info.display();  // 调用对象的方法
-  MNUtil.log(info); // 查看完整信息
+  info.display(); // Call the object's method
+  MNUtil.log(info); // View complete information
 }
 ```
 
-**对象操作**：
+**Object operations**:
 ```javascript
 let config = {
   theme: "dark",
   fontSize: 14
 };
 
-// 添加新属性
+//Add new properties
 config.language = "zh-CN";
-config["auto-save"] = true;  // 属性名有特殊字符时用这种方式
+config["auto-save"] = true; // Use this method when the attribute name has special characters
 
-// 修改属性
+//Modify properties
 config.fontSize = 16;
 
-// 删除属性
+// Delete attributes
 delete config.theme;
 
-// 检查属性是否存在
+// Check if the property exists
 if ("language" in config) {
-  MNUtil.showHUD("语言设置：" + config.language);
+  MNUtil.showHUD("Language setting: " + config.language);
 }
 
-// 遍历对象属性
+// Traverse object properties
 for (let key in config) {
   MNUtil.log(key + ": " + config[key]);
 }
 ```
 
-#### 4.3 特殊值处理
+#### 4.3 Special value processing
 
-##### undefined 和 null - 初学者最困惑的概念
+##### undefined and null - the most confusing concepts for beginners
 
-这两个都表示"没有值"，但用法不同：
+Both of these mean "no value", but are used differently:
 
 ```javascript
-// undefined：系统说"我不知道"
-let userName;                    // 声明了但没赋值
-MNUtil.log(userName);           // undefined
+// undefined: The system says "I don't know"
+let userName; // Declared but not assigned a value
+MNUtil.log(userName); // undefined
 
 let note = MNNote.getFocusNote();
 if (!note) {
-  MNUtil.log("没有选中笔记");      // note 可能是 null
+  MNUtil.log("No note selected"); // note may be null
 }
 
-// null：程序员说"这里故意空着"
+// null: The programmer said "This is intentionally empty"
 let settings = {
   theme: "dark",
-  language: "zh-CN", 
-  customCSS: null    // 故意设为空，表示"暂时没有自定义样式"
+  language: "zh-CN",
+  customCSS: null // Deliberately set to empty, indicating "no custom styles yet"
 };
 ```
 
-**生活化理解**：
-- **undefined**：就像问"你今天吃了什么？"，对方说"我忘了"（系统不知道）
-- **null**：就像问"你今天吃了什么？"，对方说"我没吃"（主动告诉你是空的）
+**Life-based understanding**:
+- **undefined**: Just like asking "What did you eat today?", the other party said "I forgot" (the system does not know)
+- **null**: Just like asking "What did you eat today?", the other party said "I didn't eat" (told you proactively that it was empty)
 
-**在 MarginNote 插件中的实际应用**：
+**Practical application in MarginNote plug-in**:
 
 ```javascript
-// 检查笔记是否存在
+// Check if the note exists
 let focusNote = MNNote.getFocusNote();
 if (focusNote === null) {
-  MNUtil.showHUD("请先选择一个笔记");
+  MNUtil.showHUD("Please select a note first");
   return;
 }
 
-// 检查属性是否定义
+// Check if the property is defined
 if (typeof focusNote.customProperty === "undefined") {
-  focusNote.customProperty = "默认值";
+  focusNote.customProperty = "Default value";
 }
 
-// 清空某个属性（设置为 null）
-focusNote.tempData = null;  // 主动清空临时数据
+// Clear a property (set to null)
+focusNote.tempData = null; // Actively clear temporary data
 ```
 
-**常见错误和正确处理**：
+**Common mistakes and correct handling**:
 
 ```javascript
-// ❌ 错误：直接使用可能为 undefined 的值
+// ❌ Error: Direct use of a value that may be undefined
 let note = MNNote.getFocusNote();
-note.appendComment("新评论");  // 如果 note 是 null，会报错！
+note.appendComment("New Comment"); // If note is null, an error will be reported!
 
-// ✅ 正确：先检查再使用
+// ✅ Correct: Check before using
 let note = MNNote.getFocusNote();
-if (note) {  // 同时检查 null 和 undefined
-  note.appendComment("新评论");
+if (note) { // Check for both null and undefined
+  note.appendComment("New Comment");
 } else {
-  MNUtil.showHUD("请先选择笔记");
+  MNUtil.showHUD("Please select the note first");
 }
 
-// ✅ 更简洁的写法：可选链操作符（如果支持）
-note?.appendComment("新评论");  // 只有 note 存在时才调用
+// ✅ More concise writing: optional chaining operator (if supported)
+note?.appendComment("New Comment"); // Called only when note exists
 ```
 
-**记忆技巧**：
-- **undefined**："我不知道" - 系统没给值
-- **null**："我知道是空的" - 程序员主动设空
+**Memory Tips**:
+- **undefined**: "I don't know" - The system did not give a value
+- **null**: "I know it is empty" - the programmer actively sets it to null
 
-#### 4.4 综合练习：创建笔记管理器
+#### 4.4 Comprehensive Exercise: Creating a Note Manager
 
-> 🎯 **挑战**：综合运用数组、对象和特殊值处理，创建一个小型笔记管理系统
+> 🎯 **Challenge**: Use arrays, objects and special value processing to create a small note management system
 
 ```javascript
 function createNoteManager() {
-  // 笔记管理器对象
+  // Note manager object
   let noteManager = {
-    notes: [],  // 存储所有笔记信息
-    
-    // 添加笔记
+    notes: [], // Store all note information
+
+    //Add notes
     addNote: function(title, content) {
       if (!title || title.trim() === "") {
-        MNUtil.showHUD("标题不能为空");
+        MNUtil.showHUD("Title cannot be empty");
         return null;
       }
-      
+
       let noteInfo = {
         id: this.notes.length + 1,
         title: title.trim(),
@@ -795,184 +795,184 @@ function createNoteManager() {
         created: new Date().toLocaleString(),
         color: 0
       };
-      
+
       this.notes.push(noteInfo);
       return noteInfo;
     },
-    
-    // 查找笔记
+
+    // Find notes
     findNote: function(id) {
       for (let note of this.notes) {
         if (note.id === id) {
           return note;
         }
       }
-      return null;  // 没找到返回 null
+      return null; // Return null if not found
     },
-    
-    // 显示所有笔记
+
+    // show all notes
     listNotes: function() {
       if (this.notes.length === 0) {
-        MNUtil.showHUD("还没有笔记");
+        MNUtil.showHUD("No notes yet");
         return;
       }
-      
+
       for (let note of this.notes) {
         MNUtil.log("ID:" + note.id + " | " + note.title + " | " + note.created);
       }
     }
   };
-  
+
   return noteManager;
 }
 
-// 使用示例
+// Usage example
 let manager = createNoteManager();
-manager.addNote("学习JavaScript", "今天学习了数组和对象");
-manager.addNote("MarginNote技巧", "学会了批量处理笔记");
+manager.addNote("Learning JavaScript", "Today I learned arrays and objects");
+manager.addNote("MarginNote skills", "Learned to batch process notes");
 manager.listNotes();
 
 let note = manager.findNote(1);
 if (note) {
-  MNUtil.showHUD("找到笔记：" + note.title);
+  MNUtil.showHUD("Note found: " + note.title);
 } else {
-  MNUtil.showHUD("笔记不存在");
+  MNUtil.showHUD("Note does not exist");
 }
 ```
 
 ---
 
-### 第4章小结
+### Summary of Chapter 4
 
-🎉 恭喜！你已经掌握了处理复杂数据的核心技能：
+🎉 Congratulations! You have mastered the core skills of working with complex data:
 
-✅ **数组操作**：存储和操作多个数据
-- 创建数组：`let arr = [1, 2, 3]`
-- 访问元素：`arr[0]`，获取长度：`arr.length`
-- 添加/删除：`push()`, `pop()`, `shift()`, `unshift()`
-- 查找：`indexOf()`, `includes()`
+✅ **Array Operation**: Store and operate multiple data
+- Create array: `let arr = [1, 2, 3]`
+- Access element: `arr[0]`, get length: `arr.length`
+- Add/Remove: `push()`, `pop()`, `shift()`, `unshift()`
+- Find: `indexOf()`, `includes()`
 
-✅ **对象操作**：管理结构化数据
-- 创建对象：`let obj = {name: "小明", age: 18}`
-- 访问属性：`obj.name` 或 `obj["name"]`
-- 添加/删除属性：`obj.newProp = value`, `delete obj.prop`
-- 遍历属性：`for...in` 循环
+✅ **Object Operations**: Manage structured data
+- Create object: `let obj = {name: "Xiao Ming", age: 18}`
+- Access properties: `obj.name` or `obj["name"]`
+- Add/delete properties: `obj.newProp = value`, `delete obj.prop`
+- Traverse properties: `for...in` loop
 
-✅ **特殊值处理**：避免常见错误
-- `undefined`：系统未定义的值
-- `null`：程序员主动设置的空值
-- 安全检查：`if (value)` 或可选链 `value?.method()`
+✅ **Special Value Handling**: Avoid common mistakes
+- `undefined`: value not defined by the system
+- `null`: a null value actively set by the programmer
+- Safety check: `if (value)` or optional chain `value?.method()`
 
-现在你可以处理真实世界中的复杂数据了！但是，如果我想让数据有"行为"呢？比如一个学生对象不仅有属性，还能"自我介绍"、"计算GPA"等？
+Now you can handle complex real-world data! But what if I want the data to "behave"? For example, a student object not only has attributes, but it can also "introduce itself", "calculate GPA", etc.?
 
-这就需要学习**面向对象编程**——让我们进入第二部分！
+This requires learning **Object-Oriented Programming** – let’s get into part two!
 
 ---
 
-## 第二部分：面向对象编程
+## Part 2: Object-oriented programming
 
-到目前为止，我们学会了数据类型、函数和控制流程。现在是时候学习**面向对象编程**了——让数据不仅有"属性"，还有"行为"。
+So far, we have learned about data types, functions, and control flow. Now it's time to learn Object-Oriented Programming - let data not only have "properties" but also "behaviors".
 
-### 第5章：类与对象 - 数据的进化
+### Chapter 5: Classes and Objects - The Evolution of Data
 
-> 🤔 **问题**：我们学了对象（比如 `{name: "小明", age: 18}`），但如果我要创建很多个学生对象，难道要一个一个手动写吗？
+> 🤔 **Question**: We have learned objects (such as `{name: "Xiao Ming", age: 18}`), but if I want to create many student objects, do I have to write them one by one manually?
 
-#### 5.1 从简单对象到类
+#### 5.1 From simple objects to classes
 
-**回顾**：我们之前创建对象是这样的：
+**Review**: We created the object like this before:
 ```javascript
-// 手动创建学生对象
+// Manually create student objects
 let student1 = {
-  name: "小明",
+  name: "Xiao Ming",
   age: 18,
-  grade: "高三",
+  grade: "senior year",
   introduce: function() {
-    MNUtil.showHUD("我是 " + this.name + "，今年 " + this.age + " 岁");
+    MNUtil.showHUD("I am " + this.name + ", this year is " + this.age + " years old");
   }
 };
 
 let student2 = {
-  name: "小红", 
+  name: "小红",
   age: 17,
-  grade: "高二",
-  introduce: function() {  // 重复的代码！
-    MNUtil.showHUD("我是 " + this.name + "，今年 " + this.age + " 岁");
+  grade: "Grade 2",
+  introduce: function() { // Duplicate code!
+    MNUtil.showHUD("I am " + this.name + ", this year is " + this.age + " years old");
   }
 };
 ```
 
-**问题**：代码重复，不好维护！
+**Problem**: The code is duplicated and difficult to maintain!
 
-**解决方案**：使用类（Class）
+**Solution**: Use Class
 ```javascript
-// 类就像一个"学生模板"
+// class is like a "student template"
 class Student {
-  // 构造函数：创建学生时自动调用
+  //Constructor: automatically called when creating a student
   constructor(name, age, grade) {
     this.name = name;
-    this.age = age; 
+    this.age = age;
     this.grade = grade;
   }
-  
-  // 方法：所有学生都能做的事
+
+  // Method: Something all students can do
   introduce() {
-    MNUtil.showHUD("我是 " + this.name + "，今年 " + this.age + " 岁");
+    MNUtil.showHUD("I am " + this.name + ", this year is " + this.age + " years old");
   }
-  
+
   study(subject) {
-    MNUtil.showHUD(this.name + " 正在学习 " + subject);
+    MNUtil.showHUD(this.name + "Learning" + subject);
   }
 }
 
-// 使用类创建对象（实例化）
-let student1 = new Student("小明", 18, "高三");
-let student2 = new Student("小红", 17, "高二");
+//Create an object using a class (instantiate)
+let student1 = new Student("Xiao Ming", 18, "Grade 3");
+let student2 = new Student("小红", 17, "High School Sophomore");
 
-student1.introduce();  // 我是 小明，今年 18 岁
-student2.study("数学"); // 小红 正在学习 数学
+student1.introduce(); // I am Xiao Ming, 18 years old this year
+student2.study("Mathematics"); // Xiaohong is studying mathematics
 ```
 
-#### 5.2 MarginNote 中的类应用
+#### 5.2 Class application in MarginNote
 
-让我们看看 MarginNote 插件中如何使用类：
+Let's see how classes are used in the MarginNote plugin:
 
 ```javascript
-// 创建一个笔记处理器类
+//Create a note processor class
 class NoteProcessor {
   constructor(pluginName) {
     this.pluginName = pluginName;
     this.processedCount = 0;
   }
-  
-  // 处理单个笔记
+
+  // Process a single note
   processNote(note) {
     if (!note || !note.noteTitle) {
       return false;
     }
-    
-    // 清理标题
+
+    // clear title
     note.noteTitle = note.noteTitle.trim();
-    // 设置颜色
+    //Set color
     note.colorIndex = 2;
-    // 计数
+    // count
     this.processedCount++;
-    
+
     return true;
   }
-  
-  // 批量处理笔记
+
+  //Batch processing notes
   processBatch() {
     let notes = MNNote.getFocusNotes();
-    this.processedCount = 0;  // 重置计数
-    
+    this.processedCount = 0; //Reset count
+
     for (let note of notes) {
       this.processNote(note);
     }
-    
-    MNUtil.showHUD(this.pluginName + " 处理了 " + this.processedCount + " 个笔记");
+
+    MNUtil.showHUD(this.pluginName + " Processed " + this.processedCount + " notes");
   }
-  
-  // 获取处理统计
+
+  // Get processing statistics
   getStats() {
     return {
       plugin: this.pluginName,
@@ -982,55 +982,55 @@ class NoteProcessor {
   }
 }
 
-// 使用类
-let processor = new NoteProcessor("我的笔记处理器");
+// use class
+let processor = new NoteProcessor("My Note Processor");
 processor.processBatch();
 let stats = processor.getStats();
 MNUtil.log(stats);
 ```
 
-#### 5.3 getter 和 setter - 属性的守门员
+#### 5.3 getters and setters - gatekeepers for properties
 
-> 🤔 **问题**：如果我想让属性有一些"智能行为"呢？比如设置年龄时自动检查是否合法？
+> 🤔 **Question**: What if I want a property to have some "intelligent behavior"? For example, is it legal to automatically check when setting the age?
 
-**getter 和 setter 让属性变得"聪明"**：
+**getters and setters make properties "smart"**:
 ```javascript
 class SmartStudent {
   constructor(name, age) {
     this.name = name;
-    this._age = age;  // 用 _ 表示"内部属性"
+    this._age = age; // Use _ to represent "internal attributes"
   }
-  
-  // getter：读取属性时调用
+
+  // getter: called when reading properties
   get age() {
     return this._age;
   }
-  
-  // setter：设置属性时调用 
+
+  // setter: called when setting a property
   set age(value) {
     if (value < 0 || value > 150) {
-      MNUtil.showHUD("年龄不合法：" + value);
+      MNUtil.showHUD("Illegal age: " + value);
       return;
     }
     this._age = value;
-    MNUtil.showHUD("年龄已更新为：" + value);
+    MNUtil.showHUD("Age has been updated to: " + value);
   }
-  
-  // 计算属性：每次访问都重新计算
+
+  // Computed properties: recalculated on each access
   get description() {
-    return this.name + "（" + this._age + "岁）";
+    return this.name + "（" + this._age + "years old)";
   }
 }
 
-// 使用
-let student = new SmartStudent("小明", 18);
-MNUtil.log(student.age);          // 18（调用getter）
-student.age = 19;                 // 调用setter，显示"年龄已更新为：19"
-student.age = -5;                 // 调用setter，显示"年龄不合法"，不会更新
-MNUtil.log(student.description);  // "小明（19岁）"（调用getter）
+// use
+let student = new SmartStudent("Xiao Ming", 18);
+MNUtil.log(student.age); // 18 (calling getter)
+student.age = 19; // Call the setter and display "Age has been updated to: 19"
+student.age = -5; // Call the setter, it will display "Illegal age" and will not be updated.
+MNUtil.log(student.description); // "Xiao Ming (19 years old)" (calling getter)
 ```
 
-**在 MarginNote 中的应用**：
+**Application in MarginNote**:
 
 ```javascript
 class SmartNote {
@@ -1038,60 +1038,60 @@ class SmartNote {
     this.note = note;
     this._priority = 0;
   }
-  
-  // 智能标题处理
+
+  //Smart title processing
   get title() {
-    return this.note.noteTitle || "无标题";
+    return this.note.noteTitle || "Untitled";
   }
-  
+
   set title(value) {
     if (!value || value.trim() === "") {
-      MNUtil.showHUD("标题不能为空");
+      MNUtil.showHUD("Title cannot be empty");
       return;
     }
-    
-    // 自动清理和格式化标题
+
+    // Automatically clean and format titles
     let cleanTitle = value.trim().replace(/\s+/g, ' ');
     this.note.noteTitle = cleanTitle;
-    MNUtil.showHUD("标题已设置为：" + cleanTitle);
+    MNUtil.showHUD("Title has been set to: " + cleanTitle);
   }
-  
-  // 优先级管理
+
+  //Priority management
   get priority() {
     return this._priority;
   }
-  
+
   set priority(level) {
     if (level < 0 || level > 5) {
-      MNUtil.showHUD("优先级必须在0-5之间");
+      MNUtil.showHUD("Priority must be between 0-5");
       return;
     }
-    
+
     this._priority = level;
-    // 根据优先级自动设置颜色
+    // Automatically set colors based on priority
     this.note.colorIndex = level;
-    MNUtil.showHUD(`优先级设为 ${level}，颜色已同步更新`);
+    MNUtil.showHUD(`The priority is set to ${level}, the color has been updated simultaneously`);
   }
-  
-  // 只读属性
+
+  // read-only property
   get info() {
-    return `${this.title} [优先级: ${this.priority}]`;
+    return `${this.title} [Priority: ${this.priority}]`;
   }
 }
 
-// 使用示例
+// Usage example
 let note = MNNote.getFocusNote();
 if (note) {
   let smartNote = new SmartNote(note);
-  
-  smartNote.title = "   重要笔记   ";  // 自动清理格式
-  smartNote.priority = 3;             // 设置优先级和颜色
-  MNUtil.log(smartNote.info);         // 显示完整信息
+
+  smartNote.title = "Important Notes"; // Automatically clean the format
+  smartNote.priority = 3; // Set priority and color
+  MNUtil.log(smartNote.info); // Display complete information
 }
 ```
-#### 5.4 实战练习：创建笔记管理器类
+#### 5.4 Practical exercise: Create a note manager class
 
-> 🎯 **挑战**：综合运用构造函数、方法、getter/setter，创建一个完整的笔记管理系统
+> 🎯 **Challenge**: Create a complete note management system by comprehensively using constructors, methods, getters/setters
 
 ```javascript
 class NoteManager {
@@ -1100,40 +1100,40 @@ class NoteManager {
     this.currentFilter = "all";
     this._totalProcessed = 0;
   }
-  
-  // 添加笔记
+
+  //Add notes
   addNote(title, content, priority = 0) {
     if (!title || title.trim() === "") {
-      MNUtil.showHUD("标题不能为空");
+      MNUtil.showHUD("Title cannot be empty");
       return null;
     }
-    
+
     let note = {
       id: this.notes.length + 1,
       title: title.trim(),
       content: content || "",
-      priority: Math.min(Math.max(priority, 0), 5), // 限制在0-5范围
+      priority: Math.min(Math.max(priority, 0), 5), // limited to the range of 0-5
       created: new Date(),
       modified: new Date()
     };
-    
+
     this.notes.push(note);
     this._totalProcessed++;
     return note;
   }
-  
-  // 查找笔记
+
+  // Find notes
   findById(id) {
     return this.notes.find(note => note.id === id) || null;
   }
-  
+
   findByTitle(title) {
-    return this.notes.filter(note => 
+    return this.notes.filter(note =>
       note.title.toLowerCase().includes(title.toLowerCase())
     );
   }
-  
-  // 过滤器 getter
+
+  // filter getter
   get filteredNotes() {
     switch (this.currentFilter) {
       case "high":
@@ -1150,20 +1150,20 @@ class NoteManager {
         return this.notes;
     }
   }
-  
-  // 设置过滤器
+
+  //Set filter
   set filter(filterType) {
     let validFilters = ["all", "high", "medium", "low", "recent"];
     if (!validFilters.includes(filterType)) {
-      MNUtil.showHUD("无效的过滤类型: " + filterType);
+      MNUtil.showHUD("Invalid filter type: " + filterType);
       return;
     }
-    
+
     this.currentFilter = filterType;
-    MNUtil.showHUD("过滤器设为：" + filterType);
+    MNUtil.showHUD("Filter set to: " + filterType);
   }
-  
-  // 统计信息 getter
+
+  //statistics getter
   get stats() {
     return {
       total: this.notes.length,
@@ -1173,47 +1173,47 @@ class NoteManager {
       processed: this._totalProcessed
     };
   }
-  
-  // 显示笔记列表
+
+  //Display note list
   displayNotes() {
     let notes = this.filteredNotes;
     if (notes.length === 0) {
-      MNUtil.showHUD("没有找到笔记");
+      MNUtil.showHUD("No notes found");
       return;
     }
-    
+
     for (let note of notes) {
       let priority = "★".repeat(note.priority) || "☆";
       MNUtil.log(`${priority} ${note.title} (${note.created.toLocaleDateString()})`);
     }
-    
+
     let stats = this.stats;
-    MNUtil.showHUD(`显示 ${notes.length} 个笔记（总计 ${stats.total} 个）`);
+    MNUtil.showHUD(`Show ${notes.length} notes (total ${stats.total})`);
   }
-  
-  // 批量设置优先级
+
+  // Set priorities in batches
   batchSetPriority(priority) {
     let notes = this.filteredNotes;
     let count = 0;
-    
+
     for (let note of notes) {
       note.priority = priority;
       note.modified = new Date();
       count++;
     }
-    
-    MNUtil.showHUD(`已为 ${count} 个笔记设置优先级为 ${priority}`);
+
+    MNUtil.showHUD(`The priority of ${count} notes has been set to ${priority}`);
     return count;
   }
 }
 
-// 使用示例
+// Usage example
 let manager = new NoteManager();
 
-// 添加一些笔记
-manager.addNote("学习JavaScript类", "今天学会了类的基本概念", 4);
-manager.addNote("MarginNote技巧", "学会了批量处理笔记", 2);
-manager.addNote("项目计划", "下周要完成的任务清单", 5);
+//Add some notes
+manager.addNote("Learn JavaScript classes", "Today I learned the basic concepts of classes", 4);
+manager.addNote("MarginNote skills", "Learned to batch process notes", 2);
+manager.addNote("Project plan", "List of tasks to be completed next week", 5);
 manager.addNote("读书笔记", "《JavaScript高级程序设计》", 1);
 
 // 查看所有笔记
@@ -1282,24 +1282,24 @@ class Car {
     this.model = model;
     Car.totalCars++; // 每造一辆车，总数+1
   }
-  
+
   // 静态属性 - 属于整个类
   static totalCars = 0;
-  
+
   // 静态方法 - 不需要创建实例就能用
   static getTotalCars() {
     return Car.totalCars;
   }
-  
+
   static createStandardCar() {
     return new Car("丰田", "卡罗拉");
   }
-  
+
   // 实例方法 - 需要创建实例才能用
   start() {
     MNUtil.showHUD(this.brand + " " + this.model + " 启动了");
   }
-  
+
   getInfo() {
     return this.brand + " " + this.model;
   }
@@ -1327,20 +1327,20 @@ class MNUtil {
   static showHUD(message, duration = 2) {
     // 显示提示信息
   }
-  
+
   static copy(text) {
     // 复制到剪贴板
   }
-  
+
   static delay(seconds) {
     // 延迟执行
     return new Promise(resolve => setTimeout(resolve, seconds * 1000));
   }
-  
+
   static log(message) {
     // 输出日志
   }
-  
+
   static getRandomColor() {
     return Math.floor(Math.random() * 6); // 0-5的随机颜色
   }
@@ -1352,7 +1352,7 @@ MNUtil.copy("复制的文本");
 let color = MNUtil.getRandomColor();
 ```
 
-**为什么 MNUtil 都是静态方法？**
+**为什么 MNUtil 都是静态方法？ **
 - **无状态**：这些工具函数不需要保存任何数据
 - **通用性**：任何地方都能直接调用
 - **简单性**：不需要创建对象，直接使用
@@ -1365,16 +1365,16 @@ let color = MNUtil.getRandomColor();
 class PluginUtils {
   // 时间相关工具
   static formatTimestamp(date = new Date()) {
-    return date.toLocaleDateString('zh-CN') + ' ' + 
+    return date.toLocaleDateString('zh-CN') + ' ' +
            date.toLocaleTimeString('zh-CN', {hour12: false});
   }
-  
+
   static getDateString(format = 'YYYY-MM-DD') {
     let date = new Date();
     let year = date.getFullYear();
     let month = (date.getMonth() + 1).toString().padStart(2, '0');
     let day = date.getDate().toString().padStart(2, '0');
-    
+
     switch(format) {
       case 'YYYY-MM-DD':
         return `${year}-${month}-${day}`;
@@ -1386,44 +1386,44 @@ class PluginUtils {
         return `${year}-${month}-${day}`;
     }
   }
-  
+
   // 文本处理工具
   static cleanText(text) {
     if (!text) return "";
     return text.trim().replace(/\s+/g, ' ').replace(/[^\w\s\u4e00-\u9fff]/g, '');
   }
-  
+
   static truncateText(text, maxLength = 50) {
     if (!text || text.length <= maxLength) return text;
     return text.substring(0, maxLength) + "...";
   }
-  
+
   // 数据验证工具
   static isValidNoteId(id) {
-    return typeof id === 'string' && id.length === 36 && 
+    return typeof id === 'string' && id.length === 36 &&
            /^[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}$/.test(id);
   }
-  
+
   static isValidColor(colorIndex) {
     return Number.isInteger(colorIndex) && colorIndex >= 0 && colorIndex <= 5;
   }
-  
+
   // 笔记批量操作工具
   static batchProcess(notes, processor, showProgress = true) {
     if (!Array.isArray(notes) || notes.length === 0) {
       MNUtil.showHUD("没有笔记需要处理");
       return [];
     }
-    
+
     let results = [];
     let processed = 0;
-    
+
     for (let note of notes) {
       try {
         let result = processor(note);
         results.push({ note, result, success: true });
         processed++;
-        
+
         if (showProgress && processed % 10 === 0) {
           MNUtil.showHUD(`已处理 ${processed}/${notes.length} 个笔记`);
         }
@@ -1432,14 +1432,14 @@ class PluginUtils {
         MNUtil.log(`处理笔记失败: ${error.message}`);
       }
     }
-    
+
     if (showProgress) {
       MNUtil.showHUD(`批量处理完成: 成功 ${results.filter(r => r.success).length} 个`);
     }
-    
+
     return results;
   }
-  
+
   // 配置管理工具
   static saveConfig(key, value) {
     try {
@@ -1452,7 +1452,7 @@ class PluginUtils {
       return false;
     }
   }
-  
+
   static loadConfig(key, defaultValue = null) {
     try {
       // 这里应该使用实际的读取机制
@@ -1463,7 +1463,7 @@ class PluginUtils {
       return defaultValue;
     }
   }
-  
+
   // ID 生成工具
   static generateId(prefix = 'item') {
     return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -1498,7 +1498,7 @@ MNUtil.log("生成的任务ID: " + taskId);
 
 #### 6.4 静态方法的使用场景
 
-**何时使用 static？**
+**何时使用 static？ **
 
 ✅ **适合使用静态方法**：
 1. **工具函数**：不需要对象状态，纯粹的功能函数
@@ -1518,11 +1518,11 @@ class NoteValidator {
   static isValidTitle(title) {
     return title && title.trim().length > 0 && title.length <= 100;
   }
-  
+
   static isValidColor(color) {
     return Number.isInteger(color) && color >= 0 && color <= 5;
   }
-  
+
   // ✅ 静态工厂方法
   static createDefaultNote() {
     return {
@@ -1539,13 +1539,13 @@ class NoteProcessor {
     this.pluginName = pluginName;
     this.processedCount = 0;  // 实例状态
   }
-  
+
   // ❌ 不适合静态 - 需要访问实例状态
   processNote(note) {
     this.processedCount++;  // 访问了实例属性
     MNUtil.log(`${this.pluginName} 处理了第 ${this.processedCount} 个笔记`);
   }
-  
+
   // ✅ 可以是静态 - 纯功能函数
   static formatNoteTitle(title) {
     return title.trim().replace(/\s+/g, ' ');
@@ -1597,24 +1597,24 @@ class NoteProcessor {
     this.name = name;
     this.processedCount = 0;
   }
-  
+
   // 基础处理方法
   processNote(note) {
     if (!note) {
       MNUtil.showHUD("没有笔记需要处理");
       return false;
     }
-    
+
     // 基础处理：清理标题
     if (note.noteTitle) {
       note.noteTitle = note.noteTitle.trim();
     }
-    
+
     this.processedCount++;
     MNUtil.log(`${this.name} 处理了第 ${this.processedCount} 个笔记`);
     return true;
   }
-  
+
   // 获取统计信息
   getStats() {
     return {
@@ -1622,7 +1622,7 @@ class NoteProcessor {
       processed: this.processedCount
     };
   }
-  
+
   // 重置计数
   reset() {
     this.processedCount = 0;
@@ -1638,17 +1638,17 @@ class AdvancedNoteProcessor extends NoteProcessor {
     this.addTimestamp = options.addTimestamp || false;
     this.errorCount = 0;
   }
-  
+
   // 重写父类方法 - 添加更多功能
   processNote(note) {
     // 先调用父类的基础处理
     let success = super.processNote(note);
-    
+
     if (!success) {
       this.errorCount++;
       return false;
     }
-    
+
     // 添加高级功能
     if (this.autoColor && note.noteTitle) {
       // 根据标题内容自动设置颜色
@@ -1658,17 +1658,17 @@ class AdvancedNoteProcessor extends NoteProcessor {
         note.colorIndex = 3; // 黄色
       }
     }
-    
+
     if (this.addTimestamp) {
       // 添加时间戳评论
       let timestamp = new Date().toLocaleString('zh-CN');
       note.appendTextComment(`处理时间: ${timestamp}`);
     }
-    
+
     MNUtil.log(`高级处理器额外处理了笔记: ${note.noteTitle}`);
     return true;
   }
-  
+
   // 新增方法 - 父类没有的功能
   batchColorByKeyword(notes, keyword, color) {
     let count = 0;
@@ -1681,14 +1681,14 @@ class AdvancedNoteProcessor extends NoteProcessor {
     MNUtil.showHUD(`为 ${count} 个包含"${keyword}"的笔记设置了颜色`);
     return count;
   }
-  
+
   // 重写父类的统计方法 - 添加错误统计
   getStats() {
     let baseStats = super.getStats(); // 获取父类的统计
     return {
       ...baseStats,  // 展开父类统计
       errors: this.errorCount,
-      successRate: this.processedCount > 0 ? 
+      successRate: this.processedCount > 0 ?
         ((this.processedCount - this.errorCount) / this.processedCount * 100).toFixed(1) + '%' : 'N/A'
     };
   }
@@ -1706,11 +1706,11 @@ let notes = MNNote.getFocusNotes();
 if (notes.length > 0) {
   basicProcessor.processNote(notes[0]);
   MNUtil.log(basicProcessor.getStats());
-  
+
   // 测试高级处理器
   advancedProcessor.processNote(notes[0]);
   MNUtil.log(advancedProcessor.getStats());
-  
+
   // 使用高级处理器的特有功能
   advancedProcessor.batchColorByKeyword(notes, "重要", 1);
 }
@@ -1733,17 +1733,17 @@ class Plugin {
     this.isActive = false;
     MNUtil.log(`插件 ${name} v${version} 已创建`);
   }
-  
+
   activate() {
     this.isActive = true;
     MNUtil.showHUD(`${this.name} 已激活`);
   }
-  
+
   deactivate() {
     this.isActive = false;
     MNUtil.showHUD(`${this.name} 已停用`);
   }
-  
+
   getInfo() {
     return `${this.name} v${this.version} (${this.isActive ? '已激活' : '未激活'})`;
   }
@@ -1757,35 +1757,35 @@ class MarginNotePlugin extends Plugin {
     this.features = [];
     MNUtil.log(`MarginNote 插件初始化完成，支持 MN ${mnVersion}`);
   }
-  
+
   // 重写激活方法，添加插件特有逻辑
   activate() {
     // 先执行父类的激活逻辑
     super.activate();
-    
+
     // 再添加 MarginNote 插件特有的激活逻辑
     this.loadFeatures();
     this.setupUI();
     MNUtil.log(`${this.name} 的所有功能已加载`);
   }
-  
+
   // 新增方法
   addFeature(featureName) {
     this.features.push(featureName);
     MNUtil.log(`添加功能: ${featureName}`);
   }
-  
+
   loadFeatures() {
     // 模拟加载功能
     this.addFeature("笔记导出");
     this.addFeature("批量处理");
     this.addFeature("快捷操作");
   }
-  
+
   setupUI() {
     MNUtil.log("设置用户界面...");
   }
-  
+
   // 重写 getInfo 方法，添加更多信息
   getInfo() {
     let baseInfo = super.getInfo(); // 获取父类的基本信息
@@ -1810,35 +1810,35 @@ class NoteAnalyzer {
     this.name = name;
     this.results = {};
   }
-  
+
   analyze(notes) {
     if (!Array.isArray(notes) || notes.length === 0) {
       MNUtil.showHUD("没有笔记需要分析");
       return null;
     }
-    
+
     this.results = {
       total: notes.length,
       analyzed: 0,
       timestamp: new Date().toLocaleString()
     };
-    
+
     for (let note of notes) {
       if (this.analyzeNote(note)) {
         this.results.analyzed++;
       }
     }
-    
+
     MNUtil.log(`${this.name} 分析完成: ${this.results.analyzed}/${this.results.total}`);
     return this.results;
   }
-  
+
   // 基础分析方法（子类可以重写）
   analyzeNote(note) {
     // 基础分析：检查笔记是否有标题
     return note.noteTitle && note.noteTitle.trim().length > 0;
   }
-  
+
   getReport() {
     return `${this.name} 分析报告:\n总计: ${this.results.total || 0}\n已分析: ${this.results.analyzed || 0}`;
   }
@@ -1849,17 +1849,17 @@ class ContentAnalyzer extends NoteAnalyzer {
   constructor() {
     super("内容分析器");
   }
-  
+
   analyzeNote(note) {
     // 先执行父类的基础检查
     if (!super.analyzeNote(note)) {
       return false;
     }
-    
+
     // 内容特定分析
     let hasContent = note.textContent && note.textContent.trim().length > 0;
     let hasComments = note.comments && note.comments.length > 0;
-    
+
     // 记录更详细的信息
     if (!this.results.details) {
       this.results.details = {
@@ -1868,14 +1868,14 @@ class ContentAnalyzer extends NoteAnalyzer {
         empty: 0
       };
     }
-    
+
     if (hasContent) this.results.details.withContent++;
     if (hasComments) this.results.details.withComments++;
     if (!hasContent && !hasComments) this.results.details.empty++;
-    
+
     return hasContent || hasComments;
   }
-  
+
   getReport() {
     let baseReport = super.getReport();
     if (this.results.details) {
@@ -1893,30 +1893,30 @@ class KeywordAnalyzer extends NoteAnalyzer {
     super("关键词分析器");
     this.keywords = keywords;
   }
-  
+
   analyzeNote(note) {
     if (!super.analyzeNote(note)) {
       return false;
     }
-    
+
     if (!this.results.keywords) {
       this.results.keywords = {};
       this.keywords.forEach(keyword => {
         this.results.keywords[keyword] = 0;
       });
     }
-    
+
     let text = (note.noteTitle + ' ' + (note.textContent || '')).toLowerCase();
-    
+
     for (let keyword of this.keywords) {
       if (text.includes(keyword.toLowerCase())) {
         this.results.keywords[keyword]++;
       }
     }
-    
+
     return true;
   }
-  
+
   getReport() {
     let baseReport = super.getReport();
     if (this.results.keywords) {
@@ -1937,12 +1937,12 @@ if (notes.length > 0) {
   let basicAnalyzer = new NoteAnalyzer("基础分析器");
   basicAnalyzer.analyze(notes);
   MNUtil.log(basicAnalyzer.getReport());
-  
+
   // 内容分析
   let contentAnalyzer = new ContentAnalyzer();
   contentAnalyzer.analyze(notes);
   MNUtil.log(contentAnalyzer.getReport());
-  
+
   // 关键词分析
   let keywordAnalyzer = new KeywordAnalyzer(["重要", "TODO", "问题", "总结"]);
   keywordAnalyzer.analyze(notes);
@@ -1997,7 +1997,7 @@ if (notes.length > 0) {
 ```javascript
 // 同步代码 - 按顺序执行
 MNUtil.log("第1步：开始处理");
-MNUtil.log("第2步：处理中..."); 
+MNUtil.log("第2步：处理中...");
 MNUtil.log("第3步：处理完成");
 // 执行顺序：1 → 2 → 3
 
@@ -2024,7 +2024,7 @@ function delayedTask(seconds) {
       reject(new Error("时间不能为负数"));
       return;
     }
-    
+
     setTimeout(() => {
       resolve(`任务在 ${seconds} 秒后完成了！`);
     }, seconds * 1000);
@@ -2073,13 +2073,13 @@ async function processNotesNewWay() {
   try {
     let result1 = await delayedTask(1);
     MNUtil.log(result1);
-    
-    let result2 = await delayedTask(1);  
+
+    let result2 = await delayedTask(1);
     MNUtil.log(result2);
-    
+
     let result3 = await delayedTask(1);
     MNUtil.log(result3);
-    
+
     MNUtil.showHUD("所有任务完成");
   } catch (error) {
     MNUtil.showHUD("出错: " + error.message);
@@ -2099,56 +2099,56 @@ class AsyncNoteProcessor {
   constructor(name) {
     this.name = name;
   }
-  
+
   // 模拟耗时的笔记处理
   async processNoteAsync(note) {
     if (!note) {
       throw new Error("没有笔记需要处理");
     }
-    
+
     MNUtil.log(`开始处理笔记: ${note.noteTitle}`);
-    
+
     // 模拟耗时操作（比如网络请求、复杂计算等）
     await this.delay(500); // 等待0.5秒
-    
+
     // 处理笔记
     if (note.noteTitle) {
       note.noteTitle = note.noteTitle.trim();
     }
-    
+
     // 再次模拟耗时操作
     await this.delay(300);
-    
+
     // 添加时间戳
     let timestamp = new Date().toLocaleString();
     note.appendTextComment(`处理时间: ${timestamp}`);
-    
+
     MNUtil.log(`完成处理笔记: ${note.noteTitle}`);
     return `笔记 ${note.noteTitle} 处理完成`;
   }
-  
+
   // 工具方法：创建延时 Promise
   delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
-  
+
   // 批量异步处理笔记
   async batchProcessAsync(notes) {
     if (!notes || notes.length === 0) {
       MNUtil.showHUD("没有笔记需要处理");
       return [];
     }
-    
+
     MNUtil.showHUD(`开始批量处理 ${notes.length} 个笔记`);
     let results = [];
     let errors = [];
-    
+
     // 方法1：顺序处理（一个接一个）
     for (let i = 0; i < notes.length; i++) {
       try {
         let result = await this.processNoteAsync(notes[i]);
         results.push(result);
-        
+
         // 显示进度
         if ((i + 1) % 5 === 0 || i === notes.length - 1) {
           MNUtil.showHUD(`已处理 ${i + 1}/${notes.length} 个笔记`);
@@ -2158,25 +2158,25 @@ class AsyncNoteProcessor {
         MNUtil.log(errors[errors.length - 1]);
       }
     }
-    
+
     // 显示最终结果
     let summary = `批量处理完成:\n成功: ${results.length}\n失败: ${errors.length}`;
     MNUtil.showHUD(summary);
-    
+
     return { results, errors };
   }
-  
+
   // 并行批量处理（同时处理多个）
   async batchProcessParallel(notes, maxConcurrent = 3) {
     if (!notes || notes.length === 0) {
       MNUtil.showHUD("没有笔记需要处理");
       return [];
     }
-    
+
     MNUtil.showHUD(`开始并行处理 ${notes.length} 个笔记`);
     let results = [];
     let errors = [];
-    
+
     // 分批并行处理
     for (let i = 0; i < notes.length; i += maxConcurrent) {
       let batch = notes.slice(i, i + maxConcurrent);
@@ -2188,10 +2188,10 @@ class AsyncNoteProcessor {
           return { success: false, error: error.message, index: i + index };
         }
       });
-      
+
       // 等待当前批次完成
       let batchResults = await Promise.all(batchPromises);
-      
+
       // 处理批次结果
       batchResults.forEach(item => {
         if (item.success) {
@@ -2200,20 +2200,20 @@ class AsyncNoteProcessor {
           errors.push(`第${item.index + 1}个笔记: ${item.error}`);
         }
       });
-      
+
       // 显示进度
       let processed = Math.min(i + maxConcurrent, notes.length);
       MNUtil.showHUD(`并行处理进度: ${processed}/${notes.length}`);
-      
+
       // 批次间稍作延迟，避免过度并发
       if (i + maxConcurrent < notes.length) {
         await this.delay(100);
       }
     }
-    
+
     let summary = `并行处理完成:\n成功: ${results.length}\n失败: ${errors.length}`;
     MNUtil.showHUD(summary);
-    
+
     return { results, errors };
   }
 }
@@ -2222,18 +2222,18 @@ class AsyncNoteProcessor {
 async function demonstrateAsyncProcessing() {
   let processor = new AsyncNoteProcessor("异步处理器");
   let notes = MNNote.getFocusNotes();
-  
+
   if (notes.length > 0) {
     try {
       MNUtil.log("=== 演示单个笔记异步处理 ===");
       let result = await processor.processNoteAsync(notes[0]);
       MNUtil.log(result);
-      
+
       if (notes.length > 1) {
         MNUtil.log("=== 演示批量顺序处理 ===");
         let batchResult = await processor.batchProcessAsync(notes.slice(0, 3));
         MNUtil.log(`顺序处理结果: 成功${batchResult.results.length}个`);
-        
+
         MNUtil.log("=== 演示批量并行处理 ===");
         let parallelResult = await processor.batchProcessParallel(notes.slice(0, 5));
         MNUtil.log(`并行处理结果: 成功${parallelResult.results.length}个`);
@@ -2264,36 +2264,36 @@ class AsyncBestPractices {
       return { success: false, error: error.message };
     }
   }
-  
+
   // 2. 设置超时避免无限等待
   static async withTimeout(promise, timeoutMs = 5000) {
     let timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('操作超时')), timeoutMs);
     });
-    
+
     return Promise.race([promise, timeoutPromise]);
   }
-  
+
   // 3. 批量操作要控制并发数
   static async batchWithLimit(items, asyncFn, limit = 3) {
     let results = [];
-    
+
     for (let i = 0; i < items.length; i += limit) {
       let batch = items.slice(i, i + limit);
       let batchPromises = batch.map(item => asyncFn(item));
       let batchResults = await Promise.allSettled(batchPromises);
-      
+
       results.push(...batchResults);
-      
+
       // 批次间稍作延迟
       if (i + limit < items.length) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
-    
+
     return results;
   }
-  
+
   // 4. 重试机制
   static async withRetry(asyncFn, maxRetries = 3, delay = 1000) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -2303,7 +2303,7 @@ class AsyncBestPractices {
         if (attempt === maxRetries) {
           throw error;
         }
-        
+
         MNUtil.log(`第${attempt}次尝试失败，${delay}ms后重试...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -2321,13 +2321,13 @@ async function bestPracticeExample() {
     }
     return "操作成功";
   });
-  
+
   if (safeResult.success) {
     MNUtil.log("安全操作成功: " + safeResult.data);
   } else {
     MNUtil.log("安全操作失败: " + safeResult.error);
   }
-  
+
   // 2. 带超时的操作
   try {
     let timeoutResult = await AsyncBestPractices.withTimeout(

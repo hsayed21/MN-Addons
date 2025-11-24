@@ -1,234 +1,147 @@
-# 📚 MN Toolbar 插件开发培训教程
-
-> 🎯 **课程目标**：零基础学员在 3 小时内掌握 MN Toolbar 插件开发，能独立创建实用功能
-
-## 课程大纲
-
-| 模块 | 时长 | 内容 | 实践 |
+# 📚 MN Toolbar Plugin Development Training Tutorial > 🎯 **Course Objectives**: Beginners will master MN Toolbar plugin development within 3 hours, enabling them to independently create practical functions. ## Course Outline | Modules | Duration | Content | Practice |
 |------|------|------|------|
-| 模块一 | 30分钟 | 认识 MN Toolbar | 环境搭建 |
-| 模块二 | 45分钟 | 第一个按钮 | Hello MN |
-| 模块三 | 45分钟 | 理解工作原理 | 调试练习 |
-| 模块四 | 60分钟 | 实战功能开发 | 3个实用功能 |
-| 模块五 | 30分钟 | 进阶与扩展 | 综合练习 |
+| Module 1 | 30 minutes | Introduction to MN Toolbar | Environment Setup |
+| Module Two | 45 minutes | First Button | Hello MN |
+| Module 3 | 45 minutes | Understanding the working principle | Debugging exercises |
+| Module Four | 60 minutes | Hands-on Function Development | 3 Practical Functions |
+| Module 5 | 30 minutes | Advanced and Extension | Comprehensive Exercises |
 
 ---
 
-## 📖 模块一：认识 MN Toolbar（30分钟）
+## 📖 Module 1: Getting to Know the MN Toolbar (30 minutes)
 
-### 学习目标
-- ✅ 理解什么是 MN Toolbar 插件
-- ✅ 了解插件能做什么
-- ✅ 搭建开发环境
+### Learning Objectives - ✅ Understand what the MN Toolbar plugin is - ✅ Understand what the plugin can do - ✅ Set up the development environment ### 1.1 What is a plugin?
 
-### 1.1 插件是什么？
-
-> 💡 **生活类比**：插件就像给手机装 APP，给 MarginNote 增加新功能
-
-想象一下：
-- **MarginNote** = 智能手机
-- **MN Toolbar** = 一个超级 APP
-- **你的代码** = APP 里的新功能
-
-MN Toolbar 让你能在 MarginNote 里添加自定义按钮，每个按钮可以执行特定功能，比如：
-- 🕐 一键添加时间戳
-- 🏷️ 批量添加标签
-- 📝 快速制作卡片
-- 🎨 自动格式化
-
-### 1.2 看看最终效果
-
-在开始之前，让我们看看你能做出什么：
+> 💡 **Analogy in Daily Life**: Plugins are like installing apps on a phone; imagine adding new features to MarginNote:
+- **MarginNote** = Smartphone - **MN Toolbar** = A Super App
+- **Your code** = The new MN Toolbar feature in the app allows you to add custom buttons to MarginNote, each button performing a specific function, such as:
+- 🕐 One-click timestamp addition - 🏷️ Batch tag addition - 📝 Quick card creation - 🎨 Automatic formatting ### 1.2 Let's see the final result Before we begin, let's see what you can make:
 
 ```
-MarginNote 界面
-├── 你的笔记本
-├── 文档
-└── 工具栏 ← 这里就是 MN Toolbar！
-    ├── [时间戳] 按钮  ← 你创建的
-    ├── [批量标签] 按钮 ← 你创建的
-    └── [更多...] 按钮  ← 你创建的
-```
+MarginNote Interface ├── Your Notebook ├── Document └── Toolbar ← This is the MN Toolbar!
+    ├── [Timestamp] button ← You created ├── [Bulk Tags] button ← You created └── [More...] button ← You created
 
-点击按钮后：
-- 立即执行功能
-- 或显示菜单选项
-- 或弹出输入框
-
-### 1.3 开发环境准备
-
-#### 📁 找到插件文件夹
-
-**macOS 路径**：
-```bash
+After clicking the button:
+- Execute the function immediately - or display menu options - or pop up an input box ### 1.3 Development Environment Preparation #### 📁 Locate the plugin folder **macOS path**:
+bash
 ~/Library/Containers/QReader.MarginStudyMac/Data/Library/MarginNote Extensions/mntoolbar
 ```
 
-**快速打开方法**：
-1. 打开 Finder
-2. 按 `Cmd + Shift + G`
-3. 粘贴上面的路径
-
-#### 🛠️ 准备工具
-
-你只需要：
-- 📝 文本编辑器（推荐 VSCode）
-- 🖼️ 图标文件（40×40 像素 PNG）
+**Quick Open Method**:
+1. Open Finder
+2. Press `Cmd + Shift + G`
+3. Paste the path above #### 🛠️ Tools needed:
+- 📝 Text editor (VSCode recommended)
+- 🖼️ Icon file (40×40 pixel PNG)
 - 📱 MarginNote 3
 
-#### 📂 认识文件结构
-
-```
+#### 📂 Understanding File Structure```
 mntoolbar/
-├── 📜 main.js                    # 大门（不用改）
-├── 📜 utils.js                   # 工具箱（不用改）
-├── 📜 webviewController.js       # 控制中心（不用改）
-├── 📜 settingController.js       # 设置界面（不用改）
+├── 📜 main.js # Main gate (no need to modify)
+├── 📜 utils.js # Toolbox (No need to modify)
+├── 📜 webviewController.js # Control Center (No need to modify)
+├── 📜 settingController.js # Settings interface (no need to modify)
 │
-└── 🎯 你要修改的文件：
-    ├── xdyy_button_registry.js    # 定义按钮
-    ├── xdyy_menu_registry.js      # 定义菜单
-    └── xdyy_custom_actions_registry.js # 定义功能
-```
+└── 🎯 The file you want to modify:
+    ├── xdyy_button_registry.js # Define buttons ├── xdyy_menu_registry.js # Define menus └── xdyy_custom_actions_registry.js # Define functions
 
-> ⚠️ **重要提醒**：永远不要修改前4个文件，只修改 `xdyy_` 开头的文件！
+> ⚠️ **Important Reminder**: Never modify the first 4 files; only modify files that start with `xdyy_`!
 
-### 🎯 动手练习 1：确认环境
-
-1. 找到并打开 mntoolbar 文件夹
-2. 确认能看到上述文件
-3. 用编辑器打开 `xdyy_button_registry.js`
-4. 找到第 47-51 行，看到类似这样的代码：
+### 🎯 Hands-on Exercise 1: Environment Verification 1. Locate and open the mntoolbar folder. 2. Ensure you can see the files mentioned above. 3. Open `xdyy_button_registry.js` with an editor.
+4. Locate lines 47-51 and you will see code similar to this:
    ```javascript
    global.registerButton("custom15", {
-     name: "制卡",
+     name: "Card Making"
      image: "makeCards",
      templateName: "menu_makeCards"
    });
    ```
 
-✅ 如果能看到这些，环境就准备好了！
+✅ If you can see these, the environment is ready!
 
 ---
 
-## 🚀 模块二：第一个按钮（45分钟）
+## 🚀 Module Two: The First Button (45 minutes)
 
-### 学习目标
-- ✅ 创建第一个"Hello MN"按钮
-- ✅ 理解按钮三要素
-- ✅ 看到按钮出现在工具栏
-
-### 2.1 按钮三要素
-
-> 💡 **餐厅类比**：创建按钮就像在餐厅点菜
-
-| 要素 | 餐厅类比 | 代码位置 |
+### Learning Objectives - ✅ Create your first "Hello MN" button - ✅ Understand the three elements of a button - ✅ See the button appear in the toolbar ### 2.1 The Three Elements of a Button > 💡 **Restaurant Analogy**: Creating a button is like ordering food at a restaurant | Elements | Restaurant Analogy | Code Location |
 |------|----------|----------|
-| **按钮** | 菜单上的菜名 | xdyy_button_registry.js |
-| **菜单** | 这道菜怎么做 | xdyy_menu_registry.js |
-| **动作** | 厨师做菜 | xdyy_custom_actions_registry.js |
+| **Button** | Menu item name | xdyy_button_registry.js |
+| **Menu** | How to make this dish | xdyy_menu_registry.js |
+| **Actions** | Chef cooking | xdyy_custom_actions_registry.js |
 
-### 2.2 创建 Hello MN 按钮
+### 2.2 Creating the Hello MN Button #### Step 1: Register the button (tell the system that this button exists)
 
-#### 步骤 1：注册按钮（告诉系统有这个按钮）
-
-打开 `xdyy_button_registry.js`，在 `registerAllButtons()` 函数的末尾（大约第 144 行，`custom19` 之前）添加：
+Open `xdyy_button_registry.js`, and add the following at the end of the `registerAllButtons()` function (around line 144, before `custom19`):
 
 ```javascript
-// 我的第一个按钮！
+// My first button!
 global.registerButton("custom16", {
-  name: "Hello",           // 按钮显示的文字
-  image: "custom16",       // 使用 custom16.png 图标
-  templateName: "menu_hello"  // 关联的菜单模板
-});
+  name: "Hello", // Text displayed on the button image: "custom16", // Icon using custom16.png templateName: "menu_hello" // Associated menu template});
 ```
 
-#### 步骤 2：定义菜单（按钮被点击时做什么）
+Step 2: Define the menu (what to do when the button is clicked)
 
-打开 `xdyy_menu_registry.js`，在文件末尾添加：
+Open `xdyy_menu_registry.js` and add the following to the end of the file:
 
 ```javascript
-// Hello 按钮的菜单配置
-global.registerMenuTemplate("menu_hello", {
-  action: "sayHello"  // 执行 sayHello 动作
-});
+// Menu configuration for the Hello button: global.registerMenuTemplate("menu_hello", {
+  action: "sayHello" // Execute the sayHello action});
 ```
 
-#### 步骤 3：实现功能（具体做什么）
+Step 3: Implement the function (what exactly does it do)
 
-打开 `xdyy_custom_actions_registry.js`，在文件末尾添加：
+Open `xdyy_custom_actions_registry.js` and add the following to the end of the file:
 
 ```javascript
-// Hello 功能的实现
-global.registerCustomAction("sayHello", async function(context) {
-  // MNUtil.showHUD 会在屏幕上显示提示
-  MNUtil.showHUD("🎉 Hello MN Toolbar!");
-  
-  // 获取当前选中的卡片
-  const focusNote = MNNote.getFocusNote();
-  
+// Implementation of the Hello function global.registerCustomAction("sayHello", async function(context) {
+  // MNUtil.showHUD will display a tooltip on the screen: MNUtil.showHUD("🎉 Hello MN Toolbar!");
+
+  // Get the currently selected card const focusNote = MNNote.getFocusNote();
+
   if (focusNote) {
-    // 如果有选中的卡片，显示它的标题
-    MNUtil.showHUD("卡片标题: " + (focusNote.noteTitle || "无标题"));
+    // If a card is selected, display its title MNUtil.showHUD("Card Title: " + (focusNote.noteTitle || "Untitled"));
   } else {
-    // 没有选中卡片
-    MNUtil.showHUD("请先选择一个卡片");
+    // No card selected. MNUtil.showHUD("Please select a card first");
   }
 });
 ```
 
-### 2.3 测试你的按钮
+### 2.3 Test your button 1. **Save all files**
+2. **Completely exit MarginNote** (Cmd+Q)
+3. **Reopen MarginNote**
+4. **Open toolbar settings**:
+   - Click the settings button in the toolbar - Find the "Hello" button - Drag it to toolbar 5. **Click the Hello button**
+6. **You will see the "🎉 Hello MN Toolbar!" notification.**
 
-1. **保存所有文件**
-2. **完全退出 MarginNote**（Cmd+Q）
-3. **重新打开 MarginNote**
-4. **打开工具栏设置**：
-   - 点击工具栏的设置按钮
-   - 找到"Hello"按钮
-   - 将它拖到工具栏
-5. **点击 Hello 按钮**
-6. **看到 "🎉 Hello MN Toolbar!" 提示**
+🎉 Congratulations! You've created your first feature!
 
-> 🎉 **恭喜！你创建了第一个功能！**
-
-### 2.4 理解代码流程
-
-```
-用户点击 Hello 按钮
+### 2.4 Understanding the Code Flow```
+The user clicks the Hello button ↓
+The system searches for the configuration file for custom16 (xdyy_button_registry.js).
     ↓
-系统查找 custom16 的配置（xdyy_button_registry.js）
+Find templateName: "menu_hello"
     ↓
-找到 templateName: "menu_hello"
+Find the menu_hello template (xdyy_menu_registry.js)
     ↓
-查找 menu_hello 模板（xdyy_menu_registry.js）
+Found the action: "sayHello"
     ↓
-找到 action: "sayHello"
+Execute the sayHello function (xdyy_custom_actions_registry.js)
     ↓
-执行 sayHello 函数（xdyy_custom_actions_registry.js）
-    ↓
-显示 "Hello MN Toolbar!"
+Displays "Hello MN Toolbar!"
 ```
 
-### 🎯 动手练习 2：修改功能
-
-修改 `sayHello` 函数，让它：
-1. 显示当前时间
-2. 如果有选中的卡片，在标题后加上时间
-
-**提示代码**：
+### 🎯 Hands-on Exercise 2: Modify the `sayHello` function to make it:
+1. Display the current time. 2. If a card is selected, add the time **hint code** after the title:
 ```javascript
 global.registerCustomAction("sayHello", async function(context) {
-  // 获取当前时间
-  const now = new Date().toLocaleString('zh-CN');
-  MNUtil.showHUD("现在时间: " + now);
-  
-  // 获取选中的卡片
-  const focusNote = MNNote.getFocusNote();
+  // Get the current time const now = new Date().toLocaleString('zh-CN');
+  MNUtil.showHUD("Current time: " + now);
+
+  // Get the selected card const focusNote = MNNote.getFocusNote();
   if (focusNote) {
-    // 使用撤销分组，这样用户可以撤销
-    MNUtil.undoGrouping(() => {
+    // Use the undo grouping feature so users can undo MNUtil.undoGrouping(() => {
       focusNote.noteTitle = (focusNote.noteTitle || "") + " [" + now + "]";
-      MNUtil.showHUD("✅ 已添加时间戳");
+      MNUtil.showHUD("✅ Timestamp added");
     });
   }
 });
@@ -236,278 +149,220 @@ global.registerCustomAction("sayHello", async function(context) {
 
 ---
 
-## 🔍 模块三：理解工作原理（45分钟）
+## 🔍 Module 3: Understanding How It Works (45 minutes)
 
-### 学习目标
-- ✅ 理解按钮点击的完整流程
-- ✅ 学会调试和排错
-- ✅ 掌握常用 API
+### Learning Objectives - ✅ Understand the complete button click process - ✅ Learn debugging and troubleshooting - ✅ Master commonly used APIs
 
-### 3.1 工作原理详解
-
-> 💡 **快递类比**：按钮点击就像寄快递
-
-```
-发件（用户点击）
+### 3.1 Detailed Explanation of Working Principle > 💡 **Express Delivery Analogy**: Clicking the button is like sending a package.
+Send (user clicks)
     ↓
-快递公司查单（查找按钮配置）
+Track your courier order (configure the search button)
     ↓
-分拣中心（获取菜单模板）
+Sorting Center (Get Menu Template)
     ↓
-派送（找到对应动作）
+Delivery (find the corresponding action)
     ↓
-签收（执行功能）
+Sign for receipt (execute function)
 ```
 
-### 3.2 核心概念
+### 3.2 Core Concepts #### Context Object (Execution Context)
 
-#### Context 对象（执行环境）
-
-每个动作函数都会收到一个 `context` 对象，包含：
+Each action function will receive a `context` object, which contains:
 
 ```javascript
 context = {
-  button: button,           // 被点击的按钮
-  des: des,                // 动作描述
-  focusNote: focusNote,    // 当前选中的卡片
-  focusNotes: focusNotes,  // 所有选中的卡片
-  self: controller         // 控制器对象
-}
+  button: button, // The button that was clicked des: des, // Action description focusNote: focusNote, // The currently selected card focusNotes: focusNotes, // All selected cards self: controller // The controller object
 ```
 
-**实际使用**：
+**Practical Use**:
 ```javascript
 global.registerCustomAction("myAction", async function(context) {
-  // 解构获取需要的对象
-  const { focusNote, focusNotes } = context;
-  
+  // Destructuring to obtain the required object const { focusNote, focusNotes } = context;
+
   if (focusNote) {
-    // 处理单个卡片
-    MNUtil.showHUD("处理卡片: " + focusNote.noteTitle);
+    // Process a single card MNUtil.showHUD("Processing card: " + focusNote.noteTitle);
   }
-  
+
   if (focusNotes && focusNotes.length > 1) {
-    // 处理多个卡片
-    MNUtil.showHUD(`选中了 ${focusNotes.length} 个卡片`);
+    // Handle multiple cards MNUtil.showHUD(`${focusNotes.length} cards are selected`);
   }
 });
 ```
 
-### 3.3 调试技巧
-
-#### 1. 使用日志输出
-
-```javascript
-// 在你的代码中添加日志
-MNUtil.log("🔍 调试: 进入 sayHello 函数");
+### 3.3 Debugging Techniques #### 1. Use log output for ```javascript`
+// Add a log to your code: MNUtil.log("🔍 Debugging: Entering the sayHello function");
 MNUtil.log("📦 focusNote: " + focusNote);
-MNUtil.log("✅ 执行成功");
+MNUtil.log("✅ Execution successful");
 ```
 
-#### 2. 显示对象内容
-
-```javascript
-// 复制对象到剪贴板查看
-MNUtil.copyJSON(focusNote);
-MNUtil.showHUD("对象已复制到剪贴板");
+#### 2. Display object content ```javascript
+// Copy the object to the clipboard to view MNUtil.copyJSON(focusNote);
+MNUtil.showHUD("Object has been copied to clipboard");
 ```
 
-#### 3. 错误处理
-
-```javascript
+#### 3. Error Handling ```javascript
 global.registerCustomAction("safeAction", async function(context) {
   try {
-    // 你的代码
-    const focusNote = MNNote.getFocusNote();
+    // Your code const focusNote = MNNote.getFocusNote();
     if (!focusNote) {
-      throw new Error("没有选中卡片");
+      throw new Error("No card selected");
     }
-    
-    // 处理逻辑
-    focusNote.noteTitle = "已处理";
-    MNUtil.showHUD("✅ 成功");
-    
+
+    // Processing logic focusNote.noteTitle = "Processed";
+    MNUtil.showHUD("✅ Success");
+
   } catch (error) {
-    // 显示错误
-    MNUtil.showHUD("❌ 错误: " + error.message);
-    MNUtil.log("错误详情: " + error);
+    // Display error MNUtil.showHUD("❌ Error: " + error.message);
+    MNUtil.log("Error details: " + error);
   }
 });
 ```
 
-### 3.4 常见问题排查
-
-| 问题 | 原因 | 解决方法 |
+### 3.4 Troubleshooting Common Problems | Problem | Cause | Solution |
 |------|------|----------|
-| 按钮不显示 | 没有重启 MN | 完全退出后重启 |
-| 点击没反应 | action 名称不匹配 | 检查三个文件中的名称是否一致 |
-| 显示 "Not supported" | 动作未注册 | 确认在 xdyy_custom_actions_registry.js 中注册了 |
-| 功能报错 | 代码有语法错误 | 查看日志，修正错误 |
+| Button not displayed | MN not restarted | Restart after complete exit |
+| Clicking has no effect | Action name mismatch | Check if the names in the three files are consistent |
+| Displays "Not supported" | Action not registered | Confirmed to be registered in xdyy_custom_actions_registry.js |
+| Function error | Syntax error in code | View logs and correct errors |
 
-### 🎯 动手练习 3：添加调试信息
-
-在你的 `sayHello` 函数中添加调试日志：
+### 🎯 Hands-on Exercise 3: Add Debugging Information Add debug logs to your `sayHello` function:
 
 ```javascript
 global.registerCustomAction("sayHello", async function(context) {
-  MNUtil.log("🚀 开始执行 sayHello");
-  
+  MNUtil.log("🚀 Start executing sayHello");
+
   const { focusNote, focusNotes } = context;
-  MNUtil.log(`📦 选中卡片数: ${focusNotes ? focusNotes.length : 0}`);
-  
+  MNUtil.log(`📦 Number of selected cards: ${focusNotes ? focusNotes.length : 0}`);
+
   try {
     if (focusNote) {
-      MNUtil.log("✅ 找到焦点卡片: " + focusNote.noteId);
-      // 你的处理逻辑
-    } else {
-      MNUtil.log("⚠️ 没有选中卡片");
+      MNUtil.log("✅ Found the focused card: " + focusNote.noteId);
+      // Your processing logic} else {
+      MNUtil.log("⚠️ No card selected");
     }
   } catch (error) {
-    MNUtil.log("❌ 错误: " + error);
+    MNUtil.log("❌ Error: " + error);
   }
-  
-  MNUtil.log("🏁 sayHello 执行完成");
+
+  MNUtil.log("🏁 sayHello execution completed");
 });
 ```
 
 ---
 
-## 💼 模块四：实战功能开发（60分钟）
+## 💼 Module Four: Practical Functionality Development (60 minutes)
 
-### 学习目标
-- ✅ 开发 3 个实用功能
-- ✅ 学会菜单系统
-- ✅ 掌握用户交互
-
-### 4.1 功能一：智能时间戳
-
-> 需求：点击添加时间戳，长按显示更多选项
-
-#### 完整实现
-
-**步骤 1：注册按钮**（xdyy_button_registry.js）
+### Learning Objectives - ✅ Develop 3 practical functions - ✅ Learn the menu system - ✅ Master user interaction ### 4.1 Function 1: Smart Timestamp > Requirement: Click to add a timestamp, long press to display more options #### Complete Implementation **Step 1: Register Button** (xdyy_button_registry.js)
 ```javascript
 global.registerButton("custom17", {
-  name: "时间戳",
+  name: "timestamp"
   image: "custom17",
   templateName: "menu_timestamp"
 });
 ```
 
-**步骤 2：定义菜单**（xdyy_menu_registry.js）
+**Step 2: Define the menu** (xdyy_menu_registry.js)
 ```javascript
 global.registerMenuTemplate("menu_timestamp", {
-  action: "addTimestamp",      // 默认：点击动作
-  onLongPress: {               // 长按：显示菜单
-    action: "menu",
+  action: "addTimestamp", // Default: Click action onLongPress: { // Long press: Show menu action: "menu",
     menuWidth: 200,
     menuItems: [
       {
         action: "addTimestamp",
-        menuTitle: "添加到标题"
+        menuTitle: "Add to Title"
       },
       {
         action: "addTimestampComment",
-        menuTitle: "添加为评论"
+        menuTitle: "Add as Comment"
       },
       {
         action: "copyTimestamp",
-        menuTitle: "复制时间戳"
+        menuTitle: "Copy Timestamp"
       }
     ]
   }
 });
 ```
 
-**步骤 3：实现功能**（xdyy_custom_actions_registry.js）
+**Step 3: Implement the functionality** (xdyy_custom_actions_registry.js)
 ```javascript
-// 添加到标题
-global.registerCustomAction("addTimestamp", async function(context) {
+// Add to header global.registerCustomAction("addTimestamp", async function(context) {
   const focusNote = MNNote.getFocusNote();
-  
+
   if (!focusNote) {
-    MNUtil.showHUD("❌ 请先选择卡片");
+    MNUtil.showHUD("❌ Please select a card first");
     return;
   }
-  
+
   MNUtil.undoGrouping(() => {
     const timestamp = new Date().toLocaleString('zh-CN');
-    
+
     if (focusNote.noteTitle) {
       focusNote.noteTitle = `${focusNote.noteTitle} [${timestamp}]`;
     } else {
       focusNote.noteTitle = timestamp;
     }
-    
-    MNUtil.showHUD("✅ 时间戳已添加");
+
+    MNUtil.showHUD("✅ Timestamp added");
   });
 });
 
-// 添加为评论
-global.registerCustomAction("addTimestampComment", async function(context) {
+// Add as a comment global.registerCustomAction("addTimestampComment", async function(context) {
   const focusNote = MNNote.getFocusNote();
-  
+
   if (!focusNote) {
-    MNUtil.showHUD("❌ 请先选择卡片");
+    MNUtil.showHUD("❌ Please select a card first");
     return;
   }
-  
+
   MNUtil.undoGrouping(() => {
     const timestamp = new Date().toLocaleString('zh-CN');
     focusNote.appendComment(`📅 ${timestamp}`);
-    MNUtil.showHUD("✅ 时间戳已添加为评论");
+    MNUtil.showHUD("✅ Timestamp has been added as a comment");
   });
 });
 
-// 复制时间戳
-global.registerCustomAction("copyTimestamp", async function(context) {
+// Copy timestamp global.registerCustomAction("copyTimestamp", async function(context) {
   const timestamp = new Date().toLocaleString('zh-CN');
   MNUtil.copy(timestamp);
-  MNUtil.showHUD(`✅ 已复制: ${timestamp}`);
+  MNUtil.showHUD(`✅ Copy: ${timestamp}`);
 });
 ```
 
-### 4.2 功能二：批量标签
-
-> 需求：为选中的多个卡片批量添加标签
-
-**完整实现**（xdyy_custom_actions_registry.js）：
+### 4.2 Function 2: Batch Labeling > Requirement: Add labels to multiple selected cards in batches **Complete Implementation** (xdyy_custom_actions_registry.js):
 ```javascript
-// 批量添加标签
-global.registerCustomAction("batchAddTag", async function(context) {
+// Batch add tags global.registerCustomAction("batchAddTag", async function(context) {
   const focusNotes = MNNote.getFocusNotes();
-  
+
   if (!focusNotes || focusNotes.length === 0) {
-    MNUtil.showHUD("❌ 请先选择卡片");
+    MNUtil.showHUD("❌ Please select a card first");
     return;
   }
-  
-  // 显示输入框
-  UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-    "批量添加标签",
-    `将为 ${focusNotes.length} 个卡片添加标签`,
-    2,  // 输入框样式
-    "取消",
-    ["添加"],
+
+  // Show input fields UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+    "Batch add tags"
+    This will add labels to ${focusNotes.length} cards.
+    2, // Input box style "Cancel",
+    ["Add to"],
     (alert, buttonIndex) => {
       if (buttonIndex === 1) {
         const tagName = alert.textFieldAtIndex(0).text;
-        
+
         if (tagName && tagName.trim()) {
           MNUtil.undoGrouping(() => {
             let count = 0;
-            
+
             focusNotes.forEach(note => {
               if (!note.tags.includes(tagName)) {
                 note.appendTags([tagName.trim()]);
                 count++;
               }
             });
-            
-            MNUtil.showHUD(`✅ 已为 ${count} 个卡片添加标签 #${tagName}`);
+
+            MNUtil.showHUD(`✅ Tags #${tagName} have been added to ${count} cards`);
           });
         } else {
-          MNUtil.showHUD("❌ 标签名不能为空");
+          MNUtil.showHUD("❌ Tag name cannot be empty");
         }
       }
     }
@@ -515,11 +370,7 @@ global.registerCustomAction("batchAddTag", async function(context) {
 });
 ```
 
-### 4.3 功能三：快速模板
-
-> 需求：点击应用预设模板，为卡片设置统一格式
-
-**步骤 1：定义模板菜单**（xdyy_menu_registry.js）
+### 4.3 Function 3: Quick Template > Requirement: Click to apply the preset template and set a uniform format for the cards. **Step 1: Define the template menu** (xdyy_menu_registry.js)
 ```javascript
 global.registerMenuTemplate("menu_template", {
   action: "menu",
@@ -527,75 +378,58 @@ global.registerMenuTemplate("menu_template", {
   menuItems: [
     {
       action: "applyAcademicTemplate",
-      menuTitle: "📚 学术笔记"
+      menuTitle: "📚 Academic Notes"
     },
     {
       action: "applyMeetingTemplate",
-      menuTitle: "💼 会议记录"
+      menuTitle: "💼 Meeting Minutes"
     },
     {
       action: "applyIdeaTemplate",
-      menuTitle: "💡 灵感速记"
+      menuTitle: "💡 Inspiration Notes"
     }
   ]
 });
 ```
 
-**步骤 2：实现模板功能**（xdyy_custom_actions_registry.js）
+**Step 2: Implement template functionality** (xdyy_custom_actions_registry.js)
 ```javascript
-// 学术笔记模板
-global.registerCustomAction("applyAcademicTemplate", async function(context) {
+// Academic Notes Template global.registerCustomAction("applyAcademicTemplate", async function(context) {
   const focusNote = MNNote.getFocusNote();
-  
+
   if (!focusNote) {
-    MNUtil.showHUD("❌ 请先选择卡片");
+    MNUtil.showHUD("❌ Please select a card first");
     return;
   }
-  
+
   MNUtil.undoGrouping(() => {
-    // 添加前缀
-    if (!focusNote.noteTitle) {
-      focusNote.noteTitle = "【学术】";
-    } else if (!focusNote.noteTitle.startsWith("【学术】")) {
-      focusNote.noteTitle = "【学术】" + focusNote.noteTitle;
+    // Add the prefix if (!focusNote.noteTitle) {
+      focusNote.noteTitle = "【Academic】";
+    } else if (!focusNote.noteTitle.startsWith("[Academic]")) {
+      focusNote.noteTitle = "【Academic】" + focusNote.noteTitle;
     }
-    
-    // 设置颜色（黄色）
+
+    // Set the color (yellow)
     focusNote.colorIndex = 3;
-    
-    // 添加标签
-    focusNote.appendTags(["学术", "待整理"]);
-    
-    // 添加时间戳评论
-    const timestamp = new Date().toLocaleString('zh-CN');
-    focusNote.appendComment(`📚 学术笔记 - ${timestamp}`);
-    
-    MNUtil.showHUD("✅ 已应用学术笔记模板");
+
+    // Add tags focusNote.appendTags(["Academic", "To be organized"]);
+
+    // Add timestamp comment const timestamp = new Date().toLocaleString('zh-CN');
+    focusNote.appendComment(`📚 Academic Notes - ${timestamp}`);
+
+    MNUtil.showHUD("✅ Academic Notes Template Applied");
   });
 });
 ```
 
-### 🎯 动手练习 4：创建自己的功能
-
-基于上面的例子，创建一个"清理格式"功能：
-1. 清除卡片的所有格式
-2. 统一设置为指定颜色
-3. 删除所有标签
-
-提示：使用 `focusNote.clearFormat()` 和 `focusNote.tags = []`
+### 🎯 Hands-on Exercise 4: Create Your Own Feature Based on the example above, create a "Clean Format" feature:
+1. Clear all formatting from the cards. 2. Set all cards to the specified color. 3. Delete all tags. Tip: Use `focusNote.clearFormat()` and `focusNote.tags = []`.
 
 ---
 
-## 🚀 模块五：进阶与扩展（30分钟）
+## 🚀 Module Five: Advanced and Expanded (30 minutes)
 
-### 学习目标
-- ✅ 掌握多级菜单
-- ✅ 优化用户体验
-- ✅ 发布和分享
-
-### 5.1 多级菜单设计
-
-创建复杂的菜单结构：
+### Learning Objectives - ✅ Master multi-level menus - ✅ Optimize user experience - ✅ Publish and share ### 5.1 Multi-level menu design: Creating complex menu structures:
 
 ```javascript
 // xdyy_menu_registry.js
@@ -603,28 +437,25 @@ global.registerMenuTemplate("menu_advanced", {
   action: "menu",
   menuWidth: 300,
   menuItems: [
-    "⬇️ 基础操作",  // 分组标题
-    {
+    "⬇️ Basic Operations", // Group Title {
       action: "basicAction1",
-      menuTitle: "    操作1"  // 4个空格缩进
-    },
+      menuTitle: "Operation 1" // 4 spaces indentation},
     {
       action: "basicAction2",
-      menuTitle: "    操作2"
+      menuTitle: "Operation 2"
     },
-    
-    "⬇️ 高级功能",
+
+    "⬇️ Advanced Features",
     {
-      action: "menu",  // 子菜单
-      menuTitle: "    更多选项 ➡️",
+      action: "menu", // Submenu menuTitle: "More Options➡️",
       menuItems: [
         {
           action: "subAction1",
-          menuTitle: "子功能1"
+          menuTitle: "Sub-function 1"
         },
         {
           action: "subAction2",
-          menuTitle: "子功能2"
+          menuTitle: "Sub-function 2"
         }
       ]
     }
@@ -632,288 +463,182 @@ global.registerMenuTemplate("menu_advanced", {
 });
 ```
 
-### 5.2 最佳实践总结
-
-#### 1. 始终使用撤销分组
-```javascript
+### 5.2 Best Practices Summary #### 1. Always use `undo grouping` in JavaScript
 MNUtil.undoGrouping(() => {
-  // 所有修改操作
-});
+  // All modifications});
 ```
 
-#### 2. 提供清晰的用户反馈
-```javascript
-MNUtil.showHUD("⏳ 处理中...");  // 开始
-MNUtil.showHUD("✅ 成功");        // 成功
-MNUtil.showHUD("❌ 失败: " + error.message);  // 失败
-```
+#### 2. Provide clear user feedback.
+MNUtil.showHUD("⏳ Processing..."); // Start MNUtil.showHUD("✅ Success"); // Success MNUtil.showHUD("❌ Failure: " + error.message); // Failure```
 
-#### 3. 处理边界情况
-```javascript
+#### 3. Handling Boundary Cases ```javascript
 if (!focusNote) {
-  MNUtil.showHUD("❌ 请先选择卡片");
+  MNUtil.showHUD("❌ Please select a card first");
   return;
 }
 ```
 
-#### 4. 性能优化
-```javascript
-// 批量操作时显示进度
-focusNotes.forEach((note, index) => {
-  // 处理
-  if (index % 10 === 0) {
+#### 4. Performance Optimization ```javascript
+// Display progress during batch operations focusNotes.forEach((note, index) => {
+  // Handle if (index % 10 === 0) {
     const progress = Math.round((index / focusNotes.length) * 100);
-    MNUtil.showHUD(`⏳ 进度: ${progress}%`);
+    MNUtil.showHUD(`⏳ Progress: ${progress}%`);
   }
 });
 ```
 
-### 5.3 常用 API 速查
+### 5.3 Quick Reference for Commonly Used APIs #### Card Operations ```javascript
+// Get MNNote.getFocusNote() // Current card MNNote.getFocusNotes() // All selected // Properties note.noteTitle // Title note.excerptText // Excerpt note.comments // Array of comments note.tags // Array of tags note.colorIndex // Color (0-15)
 
-#### 卡片操作
-```javascript
-// 获取
-MNNote.getFocusNote()          // 当前卡片
-MNNote.getFocusNotes()         // 所有选中
+// Method note.appendComment(text) // Adds a comment note.appendTags([tags]) // Adds tags note.clearFormat() // Clears formatting
 
-// 属性
-note.noteTitle                 // 标题
-note.excerptText              // 摘录
-note.comments                 // 评论数组
-note.tags                     // 标签数组
-note.colorIndex               // 颜色 (0-15)
+#### Utility Methods ```javascript
+MNUtil.showHUD(message) // Show message MNUtil.copy(text) // Copy text MNUtil.undoGrouping(() => {}) // Undo grouping MNUtil.delay(seconds) // Delay MNUtil.log(message) // Log message
 
-// 方法
-note.appendComment(text)       // 添加评论
-note.appendTags([tags])        // 添加标签
-note.clearFormat()            // 清除格式
-```
-
-#### 工具方法
-```javascript
-MNUtil.showHUD(message)        // 显示提示
-MNUtil.copy(text)             // 复制文本
-MNUtil.undoGrouping(() => {}) // 撤销分组
-MNUtil.delay(seconds)         // 延迟
-MNUtil.log(message)           // 输出日志
-```
-
-### 🎯 综合练习：制作你的工具集
-
-创建一个包含以下功能的工具集按钮：
-1. 快速格式化（清除格式 + 设置颜色）
-2. 批量处理（为所有子卡片添加标签）
-3. 导出信息（复制所有卡片标题到剪贴板）
+### 🎯 Comprehensive Exercise: Create Your Toolset Create a toolset button that includes the following functions:
+1. Quick format (clear format + set color)
+2. Batch processing (adding tags to all sub-cards)
+3. Export information (copy all card titles to clipboard)
 
 ---
 
-## 📚 附录A：学习路径图
-
-### 5天学习计划
-
-```mermaid
+## 📚 Appendix A: Learning Path Map ### 5-Day Learning Plan ```mermaid
 graph LR
-    Day1[Day 1<br/>环境搭建<br/>Hello按钮] --> Day2[Day 2<br/>理解原理<br/>简单功能]
-    Day2 --> Day3[Day 3<br/>菜单系统<br/>用户交互]
-    Day3 --> Day4[Day 4<br/>批量操作<br/>错误处理]
-    Day4 --> Day5[Day 5<br/>综合练习<br/>发布分享]
+    Day 1 [Environment Setup: Hello Button] --> Day 2 [Understanding Principles: Simple Functionality]
+    Day 2 --> Day 3 [Day 3<br/>Menu System<br/>User Interaction]
+    Day 3 --> Day 4 [Day 4<br/>Batch Operations<br/>Error Handling]
+    Day 4 --> Day 5 [Day 5 Comprehensive Practice Posting and Sharing]
 ```
 
-### 技能检查清单
+### Skills Checklist - [ ] **Basic Skills**
+  - [ ] Can find and open plugin folders - [ ] Can create and display custom buttons - [ ] Can implement click-to-execute functionality - [ ] **Advanced Skills**
+  - [ ] Can create multi-level menus - [ ] Can process user input - [ ] Can perform batch operations on cards - [ ] **Advanced Skills**
+  - [ ] Can handle errors and exceptions - [ ] Can optimize performance - [ ] Can debug and troubleshoot ---
 
-- [ ] **基础技能**
-  - [ ] 能找到并打开插件文件夹
-  - [ ] 能创建并显示自定义按钮
-  - [ ] 能实现点击执行功能
+## 📚 Appendix B: Frequently Asked Questions (FAQ)
 
-- [ ] **进阶技能**
-  - [ ] 能创建多级菜单
-  - [ ] 能处理用户输入
-  - [ ] 能批量操作卡片
+### Q1: What should I do if the button is not displayed?
 
-- [ ] **高级技能**
-  - [ ] 能处理错误和异常
-  - [ ] 能优化性能
-  - [ ] 能调试和排错
+**Inspection Steps**:
+1. Confirm the file has been saved. 2. Exit MarginNote completely (Cmd+Q).
+3. Reopen 4. Check if the button names in the code are correct ### Q2: Clicking the button has no effect?
 
----
-
-## 📚 附录B：常见问题 FAQ
-
-### Q1: 按钮不显示怎么办？
-
-**检查步骤**：
-1. 确认文件保存了
-2. 完全退出 MarginNote（Cmd+Q）
-3. 重新打开
-4. 检查代码中的按钮名称是否正确
-
-### Q2: 点击按钮没反应？
-
-**可能原因**：
-- action 名称不匹配
-- 函数有语法错误
-- 没有注册动作
-
-**解决方法**：
+**Possible reasons:**
+- Action name mismatch - Function syntax error - No action registered **Solution**:
 ```javascript
-// 添加日志调试
-MNUtil.log("按钮被点击");
-MNUtil.showHUD("测试");
+// Add log debugging MNUtil.log("Button was clicked");
+MNUtil.showHUD("Test");
 ```
 
-### Q3: 如何查看日志？
+### Q3: How do I view the logs?
 
-**macOS Console 查看方法**：
-1. 打开"控制台"应用
-2. 搜索 "MarginNote"
-3. 查看相关日志
+**How ​​to view the macOS Console:**
+1. Open the "Console" application. 2. Search for "MarginNote".
+3. Check the relevant logs ### Q4: What should I do if there is a code error?
 
-### Q4: 代码报错怎么办？
-
-**调试技巧**：
+**Debugging Techniques**:
 ```javascript
 try {
-  // 你的代码
-} catch (error) {
-  MNUtil.showHUD("错误: " + error.message);
-  MNUtil.log("详细错误: " + error);
+  // Your code} catch (error) {
+  MNUtil.showHUD("Error: " + error.message);
+  MNUtil.log("Detailed error: " + error);
 }
 ```
 
-### Q5: 如何分享我的功能？
+### Q5: How do I share my features?
 
-1. 整理你的代码
-2. 添加注释说明
-3. 导出 xdyy_*.js 文件
-4. 分享给其他用户
+1. Organize your code. 2. Add comments. 3. Export xdyy_*.js files. 4. Share with other users.
 
----
-
-## 📚 附录C：代码模板库
-
-### 模板1：基础按钮
-
-```javascript
-// === 按钮注册 ===
+## 📚 Appendix C: Code Template Library ### Template 1: Basic Button ```javascript
+// === Button Registration ===
 global.registerButton("customXX", {
-  name: "功能名",
+  name: "Function Name",
   image: "customXX",
   templateName: "menu_function"
 });
 
-// === 菜单定义 ===
+// === Menu Definition ===
 global.registerMenuTemplate("menu_function", {
   action: "functionAction"
 });
 
-// === 功能实现 ===
+// === Functionality Implementation ===
 global.registerCustomAction("functionAction", async function(context) {
   const focusNote = MNNote.getFocusNote();
-  
+
   if (!focusNote) {
-    MNUtil.showHUD("❌ 请先选择卡片");
+    MNUtil.showHUD("❌ Please select a card first");
     return;
   }
-  
+
   MNUtil.undoGrouping(() => {
-    // 你的功能代码
-    MNUtil.showHUD("✅ 完成");
+    // Your function code MNUtil.showHUD("✅ Complete");
   });
 });
 ```
 
-### 模板2：带菜单的按钮
-
-```javascript
-// === 菜单定义 ===
+### Template 2: Button with Menu ```javascript
+// === Menu Definition ===
 global.registerMenuTemplate("menu_complex", {
   action: "defaultAction",
   onLongPress: {
     action: "menu",
     menuWidth: 200,
     menuItems: [
-      {action: "option1", menuTitle: "选项1"},
-      {action: "option2", menuTitle: "选项2"}
+      {action: "option1", menuTitle: "Option 1"},
+      {action: "option2", menuTitle: "Option 2"}
     ]
   }
 });
 ```
 
-### 模板3：用户输入
-
-```javascript
+### Template 3: User input ```javascript
 global.registerCustomAction("userInput", async function(context) {
   UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-    "标题",
-    "提示信息",
-    2,  // 输入框
-    "取消",
-    ["确定"],
+    "title",
+    "Prompt message",
+    2, // Input box "Cancel",
+    ["Sure"],
     (alert, buttonIndex) => {
       if (buttonIndex === 1) {
         const input = alert.textFieldAtIndex(0).text;
-        // 处理输入
-      }
+        // Process input}
     }
   );
 });
 ```
 
-### 模板4：批量处理
-
-```javascript
+### Template 4: Batch Processing ```javascript
 global.registerCustomAction("batchProcess", async function(context) {
   const focusNotes = MNNote.getFocusNotes();
-  
+
   if (!focusNotes || focusNotes.length === 0) {
-    MNUtil.showHUD("❌ 请选择卡片");
+    MNUtil.showHUD("❌ Please select a card");
     return;
   }
-  
+
   MNUtil.undoGrouping(() => {
     let count = 0;
-    
+
     focusNotes.forEach(note => {
-      // 处理每个卡片
-      count++;
+      // Count up for each card;
     });
-    
-    MNUtil.showHUD(`✅ 处理了 ${count} 个卡片`);
+
+    MNUtil.showHUD(`✅ ${count} cards were processed`);
   });
 });
 ```
 
 ---
 
-## 🎓 结语
+## 🎓 Conclusion Congratulations on completing the MN Toolbar plugin development training!
 
-恭喜你完成了 MN Toolbar 插件开发培训！
-
-你已经学会了：
-- ✅ 创建自定义按钮
-- ✅ 实现实用功能
-- ✅ 处理用户交互
-- ✅ 调试和优化
-
-### 下一步
-
-1. **练习**：基于模板创建更多功能
-2. **探索**：查看 utils.js 中的更多 API
-3. **分享**：将你的功能分享给社区
-4. **进阶**：学习更复杂的功能实现
-
-### 获取帮助
-
-- 📖 查看本教程
-- 💬 加入 MN 用户社区
-- 🔍 搜索已有的解决方案
-- ❓ 提问时附上代码和错误信息
-
-**记住**：编程是一个渐进的过程，每天进步一点点！
+You have already learned:
+- ✅ Create custom buttons - ✅ Implement practical functions - ✅ Handle user interactions - ✅ Debug and optimize ### Next Steps 1. **Exercise**: Create more functions based on templates 2. **Explore**: See more APIs in utils.js
+3. **Share**: Share your features with the community. 4. **Advanced**: Learn to implement more complex features. ### Get Help - 📖 View this tutorial - 💬 Join the MN user community - 🔍 Search for existing solutions - ❓ Attach your code and error message when asking questions. **Remember**: Programming is a gradual process; improve a little bit every day!
 
 ---
 
-*本教程基于 MN Toolbar 实际源码编写，所有示例均可直接运行。*
+*This tutorial is based on the actual source code of MN Toolbar, and all examples can be run directly.*
 
-*版本：2024.12 | 作者：MN Toolbar 开发团队*
+*Version: 2024.12 | Author: MN Toolbar Development Team*

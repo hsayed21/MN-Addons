@@ -1,427 +1,267 @@
-# MarginNote 插件开发工作流指南
+This guide is specifically for the MN-Addon project, combining claude-code-spec-workflow with existing MarginNote development tools. ### 🚀 Quick Start ##################################
+You must restart Claude Code after the initial installation to see the new commands.
+Bash
+claude --continue # Continue the current conversation # or claude # Start a new conversation
 
-> 本指南专门针对 MN-Addon 项目，结合 claude-code-spec-workflow 与现有 MarginNote 开发工具
+View Available Commands - **Spec Workflow**: `/spec-create`, `/spec-execute`, `/spec-status`, `/spec-list`
+- **Bug Workflow**: `/bug-create`, `/bug-analyze`, `/bug-fix`, `/bug-verify`
+- **MarginNote Dedicated**: `/mn4-addon-deep-research`
 
-## 🚀 快速开始
+# 📋 I. New Feature Development (Spec Workflow)
 
-### 重启 Claude Code
-首次安装后必须重启 Claude Code 才能看到新命令：
-```bash
-claude --continue  # 继续当前对话
-# 或
-claude            # 开始新对话
-```
+Real-world case study: Adding task priority to MNTask Step 1: Create a functional specification ``bash'
+`/spec-create task-priority' adds task priority management functionality to MNTask.
+"```
 
-### 查看可用命令
-- **Spec 工作流**: `/spec-create`, `/spec-execute`, `/spec-status`, `/spec-list`
-- **Bug 工作流**: `/bug-create`, `/bug-analyze`, `/bug-fix`, `/bug-verify`
-- **MarginNote 专用**: `/mn4-addon-deep-research`
+##################
 
-## 📋 一、新功能开发（Spec 工作流）
+**Requirements Phase**:
+"```
+Claude: I will create a task authorization feature feature specification for MNTask. First, I will analyze the existing code structure.
 
-### 🎯 实际案例：为 MNTask 添加任务优先级
+Analysis of MNTask's Existing Functionality
+- TaskFieldUtils Field Management System - xdyy_custom_actions_registry.js Action Mechanism - Task Card Field Layout Pattern [Create Requirements Document]
+User Story As an MNTask user, I want to set priorities (high/medium/low) for tasks so that:
+- Better manage task order - Quickly identify important tasks - Filter tasks by priority #Interface Criteria 1. When the user opens the task card, the priority field should be displayed. 2. When the user clicks the priority field, a selection dialog box should pop up. 3. When the user selects a priority, the priority field should be updated and saved. Requirements document complete creation. Continue to the design phase?
+"```
 
-#### 步骤 1：创建功能规范
-```bash
-/spec-create task-priority "为MNTask添加任务优先级管理功能"
-```
+**Design Phase**:
+"```
+Claude [Create Design Document]
+Reusing Existing Components - Creating Priority Fields using TaskFieldUtils.createFieldHtml() - Reusing showActionDialog() Interaction Mode - Following the HTML Structure of Existing Fields ######################################################################### `TaskFieldUtils.createPriorityField(priority]]
+2. `TaskActions.setPriority(note, priority)'
+3. `TaskFieldUtils.getPriorityFromNote(note)]
 
-#### 预期的交互流程：
+Layout Priority Field Position: Below the status field, maintaining the field hierarchy. Design document complete. Continue to task breakdown?
+"```
 
-**需求阶段**：
-```
-Claude: 我将为 MNTask 创建任务优先级功能规范。首先分析现有代码结构...
+The Task Phase**:
+"```
+Claude: [Create Task List]
+###Development Tasks ##################### Basic Field Support - Add the createPriorityField method to TaskFieldUtils (TaskFieldUtils.js:250-270)
+Add the getPriorityFromNote method to TaskFieldUtils (TaskFieldUtils.js:350-380) []
+Modify the parseTaskComments method to identify priority fields (TaskFieldUtils.js:180-200)
 
-[分析 MNTask 现有功能]
-- TaskFieldUtils 字段管理系统
-- xdyy_custom_actions_registry.js action 机制
-- 任务卡片的字段布局模式
+###2 User Interaction - [ ] Add the setPriority action (line 800+) to xdyy_custom_actions_registry.js
+- [ ] Implement a priority selection dialog box (reusing the showActionDialog mode)
 
-[创建需求文档]
-## 用户故事
-作为 MNTask 用户，我想为任务设置优先级（高/中/低），以便：
-- 更好地管理任务顺序
-- 快速识别重要任务
-- 按优先级过滤任务
+###3 Test Verification - [ ] Create and update test priority fields - [ ] Test compatibility with existing fields. Task decomposition complete. Do you want to generate a separate task command?
+"```
 
-## 验收标准
-1. WHEN 用户打开任务卡片 THEN 应显示优先级字段
-2. WHEN 用户点击优先级字段 THEN 应弹出选择对话框
-3. WHEN 用户选择优先级 THEN 字段应更新并保存
-
-需求文档创建完成。是否继续设计阶段？
-```
-
-**设计阶段**：
-```
-Claude: [创建设计文档]
-## 技术设计
-
-### 复用现有组件
-- 使用 TaskFieldUtils.createFieldHtml() 创建优先级字段
-- 复用 showActionDialog() 交互模式
-- 遵循现有字段的 HTML 结构
-
-### 新增方法
-1. `TaskFieldUtils.createPriorityField(priority)`
-2. `TaskActions.setPriority(note, priority)`
-3. `TaskFieldUtils.getPriorityFromNote(note)`
-
-### UI 布局
-优先级字段位置：状态字段下方，保持字段层次结构
-
-设计文档创建完成。是否继续任务分解？
-```
-
-**任务阶段**：
-```
-Claude: [创建任务列表]
-## 开发任务
-
-### 1. 基础字段支持
-- [ ] 在 TaskFieldUtils 添加 createPriorityField 方法 (TaskFieldUtils.js:250-270)
-- [ ] 在 TaskFieldUtils 添加 getPriorityFromNote 方法 (TaskFieldUtils.js:350-380)
-- [ ] 修改 parseTaskComments 方法识别优先级字段 (TaskFieldUtils.js:180-200)
-
-### 2. 用户交互
-- [ ] 在 xdyy_custom_actions_registry.js 添加 setPriority action (line 800+)
-- [ ] 实现优先级选择对话框 (复用 showActionDialog 模式)
-
-### 3. 测试验证
-- [ ] 测试优先级字段的创建和更新
-- [ ] 测试与现有字段的兼容性
-
-任务分解完成。是否要生成独立的任务命令？
-```
-
-#### 步骤 2：选择实现方式
-
-**选项 A：使用独立任务命令**
-```bash
-你: 是的，生成任务命令
-Claude: 正在生成任务命令...
-✅ 生成了以下命令：
+Step 2: Select Implementation Method** Option A: Use Standalone Task Command
+Bash
+You: Yes, the task command. Claude: Generating task command
+The following commands were generated:
 - /task-priority-task-1
 - /task-priority-task-2
 - /task-priority-task-3
 
-重启 Claude Code 后可使用这些命令逐个执行任务。
-```
+After restarting Claude Code, you can use these commands to execute tasks one by one.
+"```
 
-**选项 B：使用通用执行命令**
-```bash
-你: 不用，我使用通用方式
-Claude: 好的，你可以使用 /spec-execute task-priority 来执行任务。
-```
+Option B: Use general execution commands**
+Bash
+You: No, I'll use the general method. Claude: Okay, you can use /spec-execute task-priority to execute the task.
+"```
 
-### 🎯 更多实际案例
+More Practical Examples 2: Adding Batch Processing to MNAi
+`/spec-create mnai-batch' adds batch AI processing functionality to MNAI.
+"```
 
-#### 案例 2：为 MNAi 添加批量处理
-```bash
-/spec-create mnai-batch "为MNAi添加批量AI处理功能"
-```
+Case 3: Adding keyboard shortcut support to MNEditor ``bash'
+`/spec-create mneditator-hotkeys` adds custom keyboard shortcuts to MNEditor.
+"```
 
-#### 案例 3：为 MNEditor 添加快捷键支持
-```bash
-/spec-create mneditor-hotkeys "为MNEditor添加自定义快捷键功能"
-```
+Case 4: Adding Bookmark Management to MNBrowser
+`/spec-create mnbrowser-bookmarks` adds a webpage bookmark management functionality to MNBrowser.
+"```
 
-#### 案例 4：为 MNBrowser 添加书签管理
-```bash
-/spec-create mnbrowser-bookmarks "为MNBrowser添加网页书签管理功能"
-```
+## 🐛 II. Bug Fixing (Bug Workflow)
 
-## 🐛 二、Bug 修复（Bug 工作流）
+Real-world case study: Fixing the MNTask startup crash issue. This is a documented issue in your project; let's handle it using a bug workflow:
 
-### 🎯 实际案例：修复 MNTask 启动闪退问题
+Step 1: Create a Bug Report
+The bug `/bug-create task-launch-crash` error message indicates that the application crashes after clicking to start the MNTask task.
+"```
 
-这是你项目中已记录的实际问题，让我们用 Bug 工作流来处理：
+##################
+“`````````````````
+Claude [Create Bug Report]
+## Problem Description After clicking the "Start Task" button in MNTask, the MarginNote 4 application crashes immediately.
 
-#### 步骤 1：创建 Bug 报告
-```bash
-/bug-create task-launch-crash "MNTask点击启动任务后应用闪退"
-```
+##Reproduction Steps 1. Open the notebook containing the task card. 2. Select the task card. 3. Click the "Start Task" button. 4. The application crashes and exits. ## Environment Information - Plugin: MNTask v0.16.2
+- MarginNote: 4.x
+Platform: macOS
 
-#### 预期交互：
-````
-Claude: [创建 Bug 报告]
-## 问题描述
-点击 MNTask 的"启动任务"按钮后，MarginNote 4 应用程序直接闪退。
-
-## 复现步骤
-1. 打开包含任务卡片的笔记本
-2. 选择任务卡片
-3. 点击"启动任务"按钮
-4. 应用程序崩溃退出
-
-## 环境信息
-- 插件：MNTask v0.16.2
-- MarginNote：4.x
-- 平台：macOS
-
-## 崩溃日志
-```
+##Crash Log```
 Exception Type: EXC_CRASH (SIGABRT)
 Foundation -[NSUserDefaults(NSUserDefaults) setObject:forKey:]
-```
+"```
 
-Bug 报告已创建。请继续分析阶段。
-````
+Bug report created. Please continue the analysis phase.
+“`````````````````
 
-#### 步骤 2：分析问题
-```bash
+Step 2: Analyze the problem
 /bug-analyze task-launch-crash
-```
+"```
 
-````
-Claude: [分析问题根因]
-## 根本原因分析
-通过分析崩溃日志和 MNTask 代码：
+“`````````````````
+Claude: "Analyze the root causes of the problem"
+Root Cause Analysis: This involves analyzing the crash logs and MNTask code.
 
-### 问题定位
-- **崩溃位置**: NSUserDefaults.setObjectForKey
-- **调用路径**: launchTask → saveLaunchedTaskState → NSUserDefaults
-- **根本原因**: JavaScript 对象直接传给 Objective-C API
+### Problem Locating - **Crash Location**: NSUserDefaults.setObjectForKey
+- **Call path:** launchTask → saveLaunchedTaskState → NSUserDefaults
+- **Root cause:** JavaScript objects are directly passed to the Objective-C API.
 
-### 代码问题
-```javascript
-// utils.js - 问题代码
-static saveLaunchedTaskState(state) {
+############>`javascript>
+// utils.js - Problematic code static saveLaunchedTaskState(state) {
   const key = `MNTask_launchedTaskState_${notebookId}`
-  this.save(key, state)  // ❌ JS对象直接存储到NSUserDefaults
+  this.save(key, state) // ❌ JS objects are directly stored in NSUserDefaults
 }
-```
+"```
 
-### 解决方案
-需要 JSON 序列化处理，确保类型兼容。
+The solution requires JSON serialization to ensure type compatibility.
 
-分析完成。是否进入修复阶段？
-````
+Analysis complete. Proceed to the repair phase?
+“`````````````````
 
-#### 步骤 3：实施修复
-```bash
+Step 3: “Hint the repair”
 /bug-fix task-launch-crash
-```
+"```
 
-````
-Claude: [实施修复方案]
-正在修复 MNTask 启动闪退问题...
+“`````````````````
+Claude: [Implementing the remediation plan]
+Fixing the MNTask crash issue on startup...
 
-### 修复方案 1：序列化存储
-```javascript
-// utils.js - 修复后的代码
-static saveLaunchedTaskState(state) {
+Solution 1: Serialize and store
+// utils.js - Fixed code static saveLaunchedTaskState(state) {
   const notebookId = this.getCurrentNotebookId()
-  if (!notebookId) return
-  
+  If (!) notebookId) return
+
   const key = `MNTask_launchedTaskState_${notebookId}`
-  // ✅ 序列化为 JSON 字符串
-  const jsonString = JSON.stringify(state)
+  // ✅ Serialize to JSON string const jsonString = JSON.stringify(state)
   this.save(key, jsonString)
 }
-```
+"```
 
-### 修复方案 2：反序列化读取
-```javascript
+Solution 2: Deserialize and read
 static getLaunchedTaskState() {
   const key = `MNTask_launchedTaskState_${notebookId}`
   const jsonString = this.getByDefault(key, null)
-  
+
   if (jsonString) {
     try {
-      return JSON.parse(jsonString)  // ✅ 安全解析
-    } catch (e) {
-      return defaultState
+      return JSON.parse(jsonString) // ✅ Secure parsing } catch (e) {
+      Return to default State
     }
   }
-  return defaultState
+  Return to default State
 }
-```
+"```
 
-修复已完成。是否进入验证阶段？
-````
+The repair is complete. Shall we proceed to the verification phase?
+“`````````````````
 
-#### 步骤 4：验证修复
-```bash
+Step 4: Verify and repair
 /bug-verify task-launch-crash
-```
+"```
 
-### 🎯 更多 Bug 案例
+More Bug Case Studies ###### Bug workflow based on your project's actual problems:
 
-#### 基于你项目实际问题的 Bug 工作流：
+Bash
+# Fixed field lookup method conflict / bug-create field-method-conflict "TaskFieldUtils method name conflict caused field failure"
 
-```bash
-# 修复字段查找方法冲突
-/bug-create field-method-conflict "TaskFieldUtils方法名冲突导致字段提取失败"
+# Fixed duplicate links between parent and child tasks /bug-createned duplicate-task-links "Duplicate child task links appear in the parent task"
 
-# 修复父子任务重复链接
-/bug-create duplicate-task-links "父任务中出现重复的子任务链接"
+# Fixed launch link lookup failure / bug-create launch-link-not-found "getLaunchLink method could not find launch link"
+"```
 
-# 修复启动链接查找失败
-/bug-create launch-link-not-found "getLaunchLink方法无法找到启动链接"
-```
-
-## 🔧 三、与现有工具的完美配合
-
-### 综合开发流程
-
-#### 流程 1：新功能开发
-```bash
-# 1. 深度分析现有插件（你的专用工具）
+## 🔧 III. Perfect Integration with Existing Tools #######Professional Development Process 1: New Feature Development ``bash'
+#1 In-depth analysis of existing plugins (your dedicated tools)
 /mn4-addon-deep-research mntask
 
-# 2. 创建功能规范（新工具）
-/spec-create task-priority "添加任务优先级功能"
+#2. Creating Functional Specifications (New Tool)
+`/spec-create task-priority' adds the function to prioritize tasks.
 
-# 3. 打包发布（你的专用 agent 会自动调用）
-```
+#3. Package and release (your dedicated agent will be invoked automatically)
+"```
 
-#### 流程 2：问题解决
-```bash
-# 1. 报告和分析问题（新工具）
-/bug-create task-crash "任务功能崩溃问题"
+Process 2: Problem Solving
+#1 Reporting and analyzing issues (new tools)
+The `/bug-create task-crash` command indicates a task function crash.
 /bug-analyze task-crash
 
-# 2. 深度分析相关代码（你的专用工具）
+#2. In-depth analysis of relevant code (your dedicated tool)
 /mn4-addon-deep-research mntask
 
-# 3. 实施修复（新工具）
+#3. Implement the fix (new tool)
 /bug-fix task-crash
-```
+"```
 
-### 工具分工明确
+### Clearly Defined Tool Roles** Your Dedicated MarginNote Tools**:
+- 🔍 `/mn4-addon-deep-research` - Deep code analysis - 📦 `mnaddon-packager` agent - Automatic packaging - 🎯 `git-commit-manager` agent - Intelligent commit management **New general development tools**:
+- 📋 `/spec-*` Series - Standardized Feature Development - 🐛 `/bug-*` Series - Systematic Problem Solving - ✅ Various Verification Agents - Quality Assurance ## 📊 IV. Status Monitoring and Management ###########Bash Project Status ```bash'
+# View all feature specifications/spec-list
 
-**你的 MarginNote 专用工具**：
-- 🔍 `/mn4-addon-deep-research` - 深度代码分析
-- 📦 `mnaddon-packager` agent - 自动打包
-- 🎯 `git-commit-manager` agent - 智能提交管理
+View the progress of a specific feature /spec-status task-priority
 
-**新增的通用开发工具**：
-- 📋 `/spec-*` 系列 - 规范化功能开发
-- 🐛 `/bug-*` 系列 - 系统化问题解决
-- ✅ 各种验证 agents - 质量保证
+# View all bug statuses /bug-status
+"```
 
-## 📊 四、状态监控和管理
+#### Example output of status``
+Current list of specifications:
+Task Priority (Completed)
+🔄 mnai-batch (In progress - design phase)
+mneditor-hotkeys (to be started)
 
-### 查看项目状态
-```bash
-# 查看所有功能规范
-/spec-list
+Bug status:
+✅ task-launch-crash (fixed)
+Field-method conflict (under analysis)
+"```
 
-# 查看特定功能进度
-/spec-status task-priority
+#💡 V. Best Practices ###1 Choose the right workflow **Scenarios for using Spec workflows**:
+New feature development (such as task support, batch processing)
+Complex refactoring (such as redesigning the UI)
+Features require detailed documentation (for team collaboration)
 
-# 查看所有 Bug 状态
-/bug-status
-```
+Scenarios for using the bug workflow:
+Crash fixes (such as crashes when starting a task)
+- ✅ Functionality error (e.g., field lookup failed)
+User-reported issues in scenarios where existing tools are still in use:
+- ✅ Quick code adjustments - ✅ Plugin packaging and deployment - ✅ Git operations ###2 Naming conventions **Feature naming conventions**:
+- `Plugin Name-Function Name`: e.g., `mntask-priority`, `mnai-batch`
+Use kebab-case (hyphen separator)
+Descriptive but concise **bug naming**:
+Describe the problem symptoms: such as `task-launch-crash`, `field-method-conflict`
+- Highlight the scope of influence: such as `editor-cursor-position`, `browser-bookmark-sync`
 
-### 状态示例输出
-```
-📋 当前规范列表：
-✅ task-priority (已完成)
-🔄 mnai-batch (进行中 - 设计阶段)
-📝 mneditor-hotkeys (待开始)
+###3 Integration with the MNUtils framework for **automatic processing of spec workflows**:
+- ✅ Identify the MNUtils/xdyyutils version you are using - ✅ Follow existing field HTML formats - ✅ Reuse utility classes such as TaskFieldUtils and MNNote - ✅ Maintain consistency with existing code, for example, by task decomposition:
+"```
+Task: Add a priority field to the task card. Method: Use TaskFieldUtils.createFieldHtml("Priority: High", "mainField")
+Location: Below the status field, using insertCommentAfter
+Saving: Use MNUtil. undoGrouping to wrap the operation.
 
-🐛 Bug 状态：
-✅ task-launch-crash (已修复)
-🔄 field-method-conflict (分析中)
-```
+###4 Documentation and Tracking **Specification Document Location**:
+- 📁 `.claude/specs/function_name/`
+- 📄 `requirements.md` - Requirements document - 📄 `design.md` - Design document - 📄 `tasks.md` - Task breakdown **Bug recording location**:
+- 📁 `.claude/bugs/issue_name/`
+- 📄 `report.md` - Problem Report - 📄 `analysis.md` - Analysis Results - 📄 `verification.md` - Verification Checklist ## 🚀 VI. Practical Exercises #### Exercise 1: Create Your First Functional Specification Choose a function you want, for example:
+Bash
+`/spec-create mntask-tags` adds task tag categorization functionality to MNTask.
+"```
 
-## 💡 五、最佳实践
+Follow Claude's instructions to complete the entire process.
 
-### 1. 选择正确的工作流
+Exercise 2: Troubleshooting a Real World Bug
 
-**使用 Spec 工作流的场景**：
-- ✅ 全新功能开发（如任务优先级、批量处理）
-- ✅ 复杂重构（如重新设计 UI 界面）
-- ✅ 需要详细文档的功能（供团队协作）
+Select a known issue in the project:
+Bash
+`/bug-create actual-bug` describes an actual problem you encountered.
+"```
 
-**使用 Bug 工作流的场景**：
-- ✅ 崩溃修复（如启动任务闪退）
-- ✅ 功能异常（如字段查找失败）
-- ✅ 用户报告的问题
+Exercise 3: Integrate Workflows and Try the Complete Development Cycle
+1. Analyze existing plugins using `/mn4-addon-deep-research`. 2. Plan new features using `/spec-create`. 3. Implement the features. 4. Submit the code. 5. Release the version using the packaging agent. Support and Feedback If you encounter any of the problems use:
+1. Check the templates and documentation in the `.claude/` directory. 2. Check the status using `/spec-status` or `/bug-status`. 3. Refer to the relevant sections of this guide. 4. Utilize your existing MarginNote tools to resolve the issue.
 
-**继续使用原有工具的场景**：
-- ✅ 快速代码调整
-- ✅ 插件打包发布
-- ✅ Git 操作
-
-### 2. 命名规范
-
-**功能规范命名**：
-- `插件名-功能名`：如 `mntask-priority`, `mnai-batch`
-- 使用 kebab-case（短横线分隔）
-- 描述性但简洁
-
-**Bug 命名**：
-- 描述问题现象：如 `task-launch-crash`, `field-method-conflict`
-- 突出影响范围：如 `editor-cursor-position`, `browser-bookmark-sync`
-
-### 3. 与 MNUtils 框架的集成
-
-**Spec 工作流自动处理**：
-- ✅ 识别你使用的 MNUtils/xdyyutils 版本
-- ✅ 遵循现有的字段 HTML 格式
-- ✅ 复用 TaskFieldUtils, MNNote 等工具类
-- ✅ 保持与现有代码的一致性
-
-**例如在任务分解时**：
-```
-任务：添加优先级字段到任务卡片
-方法：使用 TaskFieldUtils.createFieldHtml("优先级: 高", "mainField")
-位置：状态字段下方，使用 insertCommentAfter
-保存：使用 MNUtil.undoGrouping 包装操作
-```
-
-### 4. 文档和追踪
-
-**规范文档位置**：
-- 📁 `.claude/specs/功能名/`
-- 📄 `requirements.md` - 需求文档
-- 📄 `design.md` - 设计文档
-- 📄 `tasks.md` - 任务分解
-
-**Bug 记录位置**：
-- 📁 `.claude/bugs/问题名/`
-- 📄 `report.md` - 问题报告
-- 📄 `analysis.md` - 分析结果
-- 📄 `verification.md` - 验证清单
-
-## 🚀 六、实战演练
-
-### 练习 1：创建你的第一个功能规范
-
-选择一个你想要的功能，比如：
-```bash
-/spec-create mntask-tags "为MNTask添加任务标签分类功能"
-```
-
-跟随 Claude 的指导完成整个流程。
-
-### 练习 2：处理一个实际 Bug
-
-选择项目中的一个已知问题：
-```bash
-/bug-create actual-bug "描述一个你遇到的实际问题"
-```
-
-### 练习 3：综合工作流
-
-尝试完整的开发周期：
-1. 用 `/mn4-addon-deep-research` 分析现有插件
-2. 用 `/spec-create` 规划新功能
-3. 实现功能
-4. 提交代码
-5. 用打包 agent 发布版本
-
-## 📞 支持和问题反馈
-
-如果在使用过程中遇到问题：
-1. 查看 `.claude/` 目录下的模板和文档
-2. 使用 `/spec-status` 或 `/bug-status` 检查状态
-3. 参考这份指南的相关章节
-4. 利用你现有的 MarginNote 专用工具配合解决
-
----
-
-*本指南将根据使用经验持续更新完善* 🔄
+*This guide will be continuously updated and improved based on user experience. :: 🔄

@@ -1,420 +1,420 @@
-# MarginNote 插件开发：从零开始的创作之旅
+#MarginNote plug-in development: a creative journey from scratch
 
-> 用最简单的方式，做最酷的插件！
-> 
-> 版本：v2.0 - 初学者友好版
-> 更新：2025-09-02
+> Use the simplest way to create the coolest plug-in!
+>
+> Version: v2.0 - Beginner friendly version
+> Update: 2025-09-02
 
-## 嗨，未来的插件开发者！👋
+## Hi, future plugin developers! 👋
 
-你是否曾经在用 MarginNote 时想过：
-- "要是能一键翻译这段英文就好了..."
-- "如果笔记能自动同步到 Notion 该多好..."
-- "能不能让 AI 帮我总结这篇文章？"
+Have you ever thought about this when using MarginNote:
+- "It would be great if I could translate this English paragraph with one click..."
+- "It would be great if notes could be automatically synced to Notion..."
+- "Can I ask AI to summarize this article for me?"
 
-**好消息！这些想法都能实现，而且比你想象的简单得多！**
+**Good news! These ideas can all come true, and it’s much easier than you think! **
 
-### 10 分钟后，你就能：
-- 🎉 做出第一个能运行的插件
-- 💡 理解插件是怎么工作的
-- 🚀 开始实现自己的创意
+### In 10 minutes you will be able to:
+- 🎉 Make the first working plug-in
+- 💡 Understand how plugins work
+- 🚀 Start realizing your own ideas
 
-### 这个教程和其他教程有什么不同？
+### How is this tutorial different from other tutorials?
 
-别的教程可能会先讲一堆理论，我们不一样：
-- **第 1 个插件只要 15 行代码**（真的，我数过了）
-- **每个例子都解决实际问题**（不是无聊的 Hello World）
-- **像朋友聊天，不像读说明书**（我们用人话）
+Other tutorials may start with a bunch of theory, but we are different:
+- **The first plugin is only 15 lines of code** (seriously, I counted it)
+- **Each example solves a real problem** (not boring Hello World)
+- **Like chatting with friends, not like reading instructions** (we use human language)
 
-准备好了吗？让我们开始这段有趣的旅程！
-
----
+Are you ready? Let's start this fun journey!
 
 ---
 
-# 第一站：10 分钟做出你的第一个插件
+---
 
-## 先看看效果
+#First stop: Make your first plug-in in 10 minutes
 
-想象一下，你正在读一篇英文 PDF，遇到不认识的单词。你选中它，点击你的插件图标，瞬间就看到了中文翻译。酷不酷？
+## Let’s take a look at the effect first
 
-这就是插件的魔力 —— **把你的想法变成 MarginNote 的功能**。
+Imagine you are reading an English PDF and come across a word you don’t recognize. You select it, click on your plug-in icon, and instantly see the Chinese translation. Cool or not?
 
-## 插件到底是什么？
+That’s the magic of plugins – **turn your ideas into MarginNote functionality**.
 
-简单说，插件就是一小段 JavaScript 代码，它能：
-- 📝 读取和修改你的笔记
-- 🎨 改变界面显示
-- 🌐 连接网络服务（翻译、AI等）
-- 🔗 和其他应用交互
+## What exactly is a plug-in?
 
-**最棒的是**：你不需要懂 iOS 开发，只要会一点 JavaScript 就够了！
+Simply put, a plug-in is a small piece of JavaScript code that:
+- 📝 Read and modify your notes
+- 🎨 Change interface display
+- 🌐 Connect to network services (translation, AI, etc.)
+- 🔗 Interact with other apps
 
-## 看看别人都做了什么
+**The best part**: you don’t need to know iOS development, just a little JavaScript is enough!
 
-在开始之前，让我激发一下你的想象力：
+## See what others have done
 
-- **小王的故事**：他做了个插件，选中英文自动显示中文翻译
-- **小李的创意**：她的插件能把笔记自动整理成思维导图
-- **老张的效率工具**：一键把所有高亮导出成 Markdown
+Before we begin, let me spark your imagination:
 
-他们都是从零开始的，你也可以！
+- **Xiao Wang’s Story**: He made a plug-in that automatically displays Chinese translation when English is selected.
+- **Xiao Li’s Creativity**: Her plug-in can automatically organize notes into mind maps
+- **Lao Zhang’s efficiency tool**: Export all highlights to Markdown with one click
 
-### 1.3 开发环境搭建
+They all started from scratch, and you can too!
 
-#### 系统要求
-- macOS 10.15 或更高版本
-- MarginNote 4.0.0 或更高版本
-- 文本编辑器（推荐 VS Code）
+### 1.3 Development environment setup
 
-#### 安装开发工具
+#### System requirements
+- macOS 10.15 or higher
+- MarginNote 4.0.0 or higher
+- Text editor (VS Code recommended)
 
-1. **安装 MarginNote 4**
+#### Install development tools
+
+1. **Install MarginNote 4**
 ```bash
-# 从 App Store 安装或官网下载
+# Install from App Store or download from official website
 # https://www.marginnote.com/
 ```
 
-2. **安装 VS Code 和插件**
+2. **Install VS Code and plug-ins**
 ```bash
-# 安装 VS Code
+# Install VS Code
 brew install --cask visual-studio-code
 
-# 推荐安装的 VS Code 插件
-# - JavaScript 语法高亮
-# - ESLint 代码检查
-# - Prettier 代码格式化
+# Recommended VS Code plug-in to install
+# - JavaScript syntax highlighting
+# - ESLint code inspection
+# - Prettier code formatting
 ```
 
-3. **安装 mnaddon4 打包工具**
+3. **Install mnaddon4 packaging tool**
 ```bash
-# 安装 Node.js (如果未安装)
+# Install Node.js (if not installed)
 brew install node
 
-# 安装 mnaddon4 工具
+# Install mnaddon4 tool
 npm install -g mnaddon4
 ```
 
-4. **创建插件开发目录**
+4. **Create plug-in development directory**
 ```bash
-# 创建开发目录
+#Create development directory
 mkdir ~/MNPluginDev
 cd ~/MNPluginDev
 
-# 创建第一个插件项目
+#Create the first plug-in project
 mkdir HelloWorld
 cd HelloWorld
 ```
 
-## 你的第一个插件：超简单版！
+## Your first plug-in: super simple version!
 
-### 只需要 3 个文件
+### Only 3 files required
 
-创建一个文件夹，叫 `MyFirstPlugin`，里面放 3 个文件：
+Create a folder called `MyFirstPlugin` and put 3 files in it:
 
-#### 📄 文件 1：main.js（主程序，15 行搞定！）
+#### 📄 File 1: main.js (main program, done in 15 lines!)
 
 ```javascript
-// 这就是全部代码，真的只有 15 行！
+// That's all the code, really only 15 lines!
 JSB.newAddon = function() {
   return JSB.defineClass('MyFirstPlugin : JSExtension', {
-    
-    // 当你点击插件图标时会执行这个
+
+    // This will be executed when you click the plugin icon
     toggleAddon: function() {
-      // 弹出一个提示
+      // Pop up a prompt
       Application.sharedInstance().showHUD(
-        "🎉 恭喜！你的第一个插件在工作了！", 
-        self.window, 
-        3  // 显示 3 秒
+        "🎉 Congratulations! Your first plugin is working!",
+        self.window,
+        3 // Display for 3 seconds
       );
     }
-    
+
   });
 };
 ```
 
-看，就这么简单！不需要理解所有细节，先跟着做就对了。
+Look, it's that simple! You don’t need to understand all the details, just follow along.
 
-#### 📄 文件 2：maddon.json（身份证）
+#### 📄 File 2: maddon.json (ID card)
 
 ```json
 {
   "addonid": "my.first.plugin",
-  "author": "你的名字",
-  "title": "我的第一个插件",
+  "author": "your name",
+  "title": "My first plug-in",
   "version": "1.0.0"
 }
 ```
 
-这就像插件的身份证，告诉 MarginNote 这是个插件。
+This is like the plugin's ID card, telling MarginNote that this is a plugin.
 
-#### 🎨 文件 3：logo.png（插件图标）
+#### 🎨 File 3: logo.png (plugin icon)
 
-任何 44x44 像素的图片都行。不会做？用这个：
-- 打开 https://favicon.io/emoji-favicons/
-- 选一个 emoji
-- 下载后重命名为 logo.png
+Any 44x44 pixel image will do. Don’t know how to do it? Use this:
+- Open https://favicon.io/emoji-favicons/
+- Choose an emoji
+- Rename to logo.png after downloading
 
-### 打包安装（超简单！）
+### Package installation (super simple!)
 
-在终端里：
+In the terminal:
 ```bash
-# 进入你的插件文件夹
+# Go to your plugin folder
 cd MyFirstPlugin
 
-# 打包！
+#Pack!
 mnaddon4 build
 
-# 会生成 MyFirstPlugin.mnaddon 文件
+# MyFirstPlugin.mnaddon file will be generated
 ```
 
-**双击这个 .mnaddon 文件，它就装好了！**
+**Double-click the .mnaddon file and it's installed! **
 
-### 试试你的插件
+### Try your plugin
 
-1. 打开 MarginNote
-2. 打开任意文档
-3. 点击工具栏上你的插件图标
-4. 看到提示了吗？🎉
+1. Open MarginNote
+2. Open any document
+3. Click on your plugin icon on the toolbar
+4. Did you see the prompt? 🎉
 
-**恭喜！你已经是插件开发者了！**
+**Congratulations! You are already a plugin developer! **
 
-## 让它做点有用的事
+## Make it do something useful
 
-现在插件只会弹提示，来做点实用的：
+Now the plug-in will only pop up prompts to do something practical:
 
-### 版本 2：复制选中的文本
+### Version 2: Copy selected text
 
-把 main.js 改成这样：
+Change main.js to this:
 
 ```javascript
 JSB.newAddon = function() {
   return JSB.defineClass('TextCopier : JSExtension', {
-    
+
     toggleAddon: function() {
-      // 获取当前选中的文本
+      // Get the currently selected text
       let controller = Application.sharedInstance()
         .studyController(self.window)
         .readerController.currentDocumentController;
-      
+
       let text = controller.selectionText;
-      
+
       if (text) {
-        // 复制到剪贴板
+        //Copy to clipboard
         UIPasteboard.generalPasteboard().string = text;
-        
-        // 提示用户
+
+        // Prompt user
         Application.sharedInstance().showHUD(
-          "✅ 已复制: " + text.substring(0, 20) + "...",
+          "✅ Copied: " + text.substring(0, 20) + "...",
           self.window, 2
         );
       } else {
         Application.sharedInstance().showHUD(
-          "⚠️ 请先选中一些文本",
+          "⚠️ Please select some text first",
           self.window, 2
         );
       }
     }
-    
+
   });
 };
 ```
 
-现在你的插件能：
-1. 选中 PDF 中的文本
-2. 点击插件图标
-3. 文本自动复制到剪贴板！
+Now your plugin can:
+1. Select text in PDF
+2. Click the plug-in icon
+3. The text is automatically copied to the clipboard!
 
-### 版本 3：给笔记加时间戳
+### Version 3: Timestamp notes
 
 ```javascript
 JSB.newAddon = function() {
   return JSB.defineClass('TimeStamper : JSExtension', {
-    
+
     toggleAddon: function() {
-      // 获取当前时间
+      // Get the current time
       let now = new Date();
       let time = now.getHours() + ":" + now.getMinutes();
       let date = now.toLocaleDateString();
-      
-      // 创建时间戳文本
+
+      //Create timestamp text
       let timestamp = `[📅 ${date} ${time}]`;
-      
-      // 复制到剪贴板
+
+      //Copy to clipboard
       UIPasteboard.generalPasteboard().string = timestamp;
-      
+
       Application.sharedInstance().showHUD(
-        "时间戳已复制：" + timestamp,
+        "Timestamp copied:" + timestamp,
         self.window, 2
       );
     }
-    
+
   });
 };
 ```
 
-现在你可以一键添加时间戳到笔记了！
+Now you can add timestamps to notes with one click!
 
-## 开发者小技巧
+## Tips for developers
 
-### 📝 调试技巧
+### 📝 Debugging Tips
 
-打开 MarginNote 控制台（Cmd + Option + J），你可以：
+Open the MarginNote console (Cmd + Option + J) and you can:
 
 ```javascript
-// 看看你的插件在不在
-self  // 返回你的插件实例
+// Check to see if your plug-in is there
+self // Return your plugin instance
 
-// 测试一下功能
-Application.sharedInstance().showHUD("测试", self.window, 2)
+//Test the function
+Application.sharedInstance().showHUD("Test", self.window, 2)
 ```
 
-### 🚀 开发者模式（不用反复打包！）
+### 🚀 Developer mode (no need to package repeatedly!)
 
-每次修改都要打包很烦？用这招：
+Is it annoying to package every modification? Use this trick:
 
 ```bash
-# 创建一个软链接（只需要做一次）
-ln -s ~/你的插件文件夹 ~/Library/Containers/QReader.MarginNoteMac/Data/Library/MarginNote\ Extensions/
+# Create a soft link (only needs to be done once)
+ln -s ~/your plug-in folder ~/Library/Containers/QReader.MarginNoteMac/Data/Library/MarginNote\ Extensions/
 
-# 之后修改代码，重启 MarginNote 就能看到效果！
+# Then modify the code and restart MarginNote to see the effect!
 ```
 
-## 第一站小结 🎆
+## Summary of the first stop 🎆
 
-**你已经学会了：**
-- ✅ 创建一个能运行的插件（只要 15 行代码！）
-- ✅ 让插件做一些实用的事（复制文本、加时间戳）
-- ✅ 打包和安装插件
-- ✅ 使用调试工具
+**You've learned:**
+- ✅ Create a working plugin (only 15 lines of code!)
+- ✅ Let the plug-in do some practical things (copy text, add timestamp)
+- ✅ Package and install plugins
+- ✅ Use debugging tools
 
-**接下来你可以：**
-1. 试试修改代码，让插件做别的事
-2. 给插件换个好看的图标
-3. 把你的插件分享给朋友
+**Next you can:**
+1. Try modifying the code to let the plug-in do other things.
+2. Change the plug-in to a good-looking icon
+3. Share your plugin with friends
 
-准备好学更多了吗？下一站，我们将学习如何操作笔记！
+Ready to learn more? Next stop, we will learn how to operate notes!
 
 ---
 
-# 第二站：让插件做更多有趣的事
+#Second stop: Let the plug-in do more interesting things
 
-上一站我们做了个简单的插件。现在，让我们学些更酷的技能！
+In the previous station we made a simple plug-in. Now, let’s learn some cooler skills!
 
-## 插件能响应的 5 个时刻
+## 5 moments when the plugin becomes responsive
 
-插件不只是点击图标才能用，它可以在很多时刻自动运行：
+The plug-in is not only available by clicking on the icon, it can run automatically at many times:
 
-### 1. 打开 MarginNote 时 - 自动启动
+### 1. When opening MarginNote - automatically start
 
 ```javascript
 JSB.newAddon = function() {
   return JSB.defineClass('AutoStart : JSExtension', {
-    
-    // 插件加载时自动执行
+
+    // Automatically executed when the plug-in is loaded
     sceneWillConnect: function() {
-      // 检查今天是否已经问候过
+      // Check if greetings have been sent today
       let today = new Date().toDateString();
       let lastGreeting = NSUserDefaults.standardUserDefaults()
         .objectForKey("lastGreeting");
-      
+
       if (lastGreeting !== today) {
         Application.sharedInstance().showHUD(
-          "🌞 早安！今天也要加油学习哦！",
+          "🌞 Good morning! Let's study hard today!",
           self.window, 3
         );
-        
-        // 记住今天已经问候过
+
+        // Remember that you have already sent greetings today
         NSUserDefaults.standardUserDefaults()
           .setObjectForKey(today, "lastGreeting");
       }
     },
-    
+
     toggleAddon: function() {
-      // 点击图标的功能
+      //Click the icon function
     }
   });
 };
 ```
 
-### 2. 打开笔记本时 - 显示统计
+### 2. When opening a notebook - show statistics
 
 ```javascript
 notebookWillOpen: function(notebookid) {
-  // 获取笔记本
+  // Get notebook
   let notebook = Database.sharedInstance()
     .getNotebookById(notebookid);
-  
-  // 统计笔记数量
+
+  // Count the number of notes
   let noteCount = notebook.notes.length;
-  
+
   Application.sharedInstance().showHUD(
-    `📚 打开《${notebook.title}》\n共有 ${noteCount} 条笔记`,
+    `📚 Open "${notebook.title}"\nThere are ${noteCount} notes in total`,
     self.window, 3
   );
 }
 ```
 
-### 3. 选中文本时 - 弹出菜单
+### 3. When text is selected - pop-up menu
 
 ```javascript
 onPopupMenuOnSelection: function(sender) {
   let selectedText = sender.userInfo.documentController.selectionText;
-  
+
   if (selectedText) {
-    // 创建一个快速操作菜单
+    //Create a quick action menu
     let alert = UIAlertView.alloc()
       .initWithTitleMessageDelegateCancelButtonTitleOtherButtonTitles(
-        "快速操作",
-        `选中：${selectedText.substring(0, 30)}...`,
+        "quick operation",
+        `Selected: ${selectedText.substring(0, 30)}...`,
         self,
-        "取消",
-        ["🔍 搜索", "🌐 翻译", "📋 复制"]
+        "cancel",
+        ["🔍 Search", "🌐 Translate", "📋 Copy"]
       );
     alert.show();
   }
 },
 
 alertViewClickedButtonAtIndex: function(alertView, buttonIndex) {
-  // 处理菜单选择
+  // Handle menu selections
   switch(buttonIndex) {
-    case 1: // 搜索
-      // 打开搜索引擎
+    case 1: // search
+      //Open search engine
       break;
-    case 2: // 翻译
-      // 调用翻译 API
+    case 2: // Translation
+      // Call translation API
       break;
-    case 3: // 复制
-      // 复制到剪贴板
+    case 3: // copy
+      //Copy to clipboard
       break;
   }
 }
 ```
 
-## 实用功能：记住用户的选择
+## Practical function: remember user’s choice
 
-插件可以记住用户的偏好和设置：
+Plugins can remember user preferences and settings:
 
-### 保存设置
+### Save settings
 
 ```javascript
-// 保存用户偏好
+//Save user preferences
 function saveSettings(settings) {
   let defaults = NSUserDefaults.standardUserDefaults();
-  
-  // 保存各种类型的数据
+
+  //Save various types of data
   defaults.setObjectForKey(settings.theme, "plugin_theme");
   defaults.setObjectForKey(settings.fontSize, "plugin_fontSize");
   defaults.setObjectForKey(settings.autoSave, "plugin_autoSave");
-  
-  // 立即同步到磁盘
+
+  // Sync to disk immediately
   defaults.synchronize();
 }
 
-// 读取设置
+//Read settings
 function loadSettings() {
   let defaults = NSUserDefaults.standardUserDefaults();
-  
+
   return {
     theme: defaults.objectForKey("plugin_theme") || "light",
     fontSize: defaults.objectForKey("plugin_fontSize") || 14,
@@ -423,48 +423,48 @@ function loadSettings() {
 }
 ```
 
-### 实例：记住用户最近使用的颜色
+### Example: Remember the color recently used by the user
 
 ```javascript
 JSB.newAddon = function() {
   return JSB.defineClass('ColorMemory : JSExtension', {
-    
+
     toggleAddon: function() {
-      // 读取上次使用的颜色
+      //Read the last used color
       let lastColor = NSUserDefaults.standardUserDefaults()
         .objectForKey("lastUsedColor") || 0;
-      
-      // 显示颜色选择器
+
+      // show color picker
       let colors = [
-        "⚪ 无色", "🔴 红色", "🟠 橙色", "🟡 黄色",
-        "🟢 绿色", "🔵 蓝色", "🟣 紫色", "⚫ 灰色"
+        "⚪ colorless", "🔴 red", "🟠 orange", "🟡 yellow",
+        "🟢 green", "🔵 blue", "🟣 purple", "⚫ gray"
       ];
-      
-      // 在上次的颜色前加个勾
+
+      // Add a check mark before the last color
       colors[lastColor] = "✓ " + colors[lastColor];
-      
+
       let alert = UIAlertView.alloc()
         .initWithTitleMessageDelegateCancelButtonTitleOtherButtonTitles(
-          "选择颜色",
-          "上次使用：" + colors[lastColor],
+          "Select Color",
+          "Last used:" + colors[lastColor],
           self,
-          "取消",
+          "cancel",
           colors
         );
       alert.show();
     },
-    
+
     alertViewClickedButtonAtIndex: function(alertView, buttonIndex) {
       if (buttonIndex > 0) {
         let colorIndex = buttonIndex - 1;
-        
-        // 保存选择的颜色
+
+        //Save the selected color
         NSUserDefaults.standardUserDefaults()
           .setObjectForKey(colorIndex, "lastUsedColor");
-        
-        // 应用颜色（这里只是示例）
+
+        // Apply color (just an example here)
         Application.sharedInstance().showHUD(
-          "已选择颜色 #" + colorIndex,
+          "Color selected #" + colorIndex,
           self.window, 2
         );
       }
@@ -473,116 +473,116 @@ JSB.newAddon = function() {
 };
 ```
 
-## 和用户交互：3 种方式
+## Interacting with users: 3 ways
 
-### 1. HUD 提示（最简单）
+### 1. HUD prompt (easiest)
 
 ```javascript
-// 普通提示
-Application.sharedInstance().showHUD("保存成功！", self.window, 2);
+//General prompt
+Application.sharedInstance().showHUD("Save successfully!", self.window, 2);
 
-// 加载中...
-Application.sharedInstance().showHUD("正在处理...", self.window, 999);
-// 做一些事...
+// Loading...
+Application.sharedInstance().showHUD("Processing...", self.window, 999);
+// do something...
 Application.sharedInstance().stopHUD(self.window);
 ```
 
-### 2. 对话框（获取用户选择）
+### 2. Dialog box (get user selection)
 
 ```javascript
-// 简单选择
+// simple selection
 let alert = UIAlertView.alloc()
   .initWithTitleMessageDelegateCancelButtonTitleOtherButtonTitles(
-    "确认操作",
-    "要删除这个笔记吗？",
+    "Confirm operation",
+    "Do you want to delete this note?",
     self,
-    "取消",
-    ["删除"]
+    "cancel",
+    ["delete"]
   );
 alert.show();
 ```
 
-### 3. 输入框（获取用户输入）
+### 3. Input box (obtain user input)
 
 ```javascript
-// 创建输入框
+//Create input box
 let inputAlert = UIAlertView.alloc()
   .initWithTitleMessageDelegateCancelButtonTitleOtherButtonTitles(
-    "给笔记起个名字",
-    "输入标题：",
+    "Give the note a name",
+    "Enter title:",
     self,
-    "取消",
-    ["确定"]
+    "cancel",
+    ["OK"]
   );
 
-// 设置为输入模式
-inputAlert.alertViewStyle = 2;  // 2 = 文本输入
+// Set to input mode
+inputAlert.alertViewStyle = 2; // 2 = text input
 
-// 设置默认值
-inputAlert.textFieldAtIndex(0).text = "默认标题";
+//Set default value
+inputAlert.textFieldAtIndex(0).text = "Default Title";
 
 inputAlert.show();
 
-// 处理输入
+// handle input
 alertViewClickedButtonAtIndex: function(alertView, buttonIndex) {
-  if (buttonIndex === 1) {  // 点击了确定
+  if (buttonIndex === 1) { // Click OK
     let inputText = alertView.textFieldAtIndex(0).text;
-    // 使用输入的文本...
+    // Use the entered text...
   }
 }
 ```
 
-## 错误处理：让插件更稳定
+## Error handling: Make the plug-in more stable
 
-别让你的插件崩溃！这样处理错误：
+Don't let your plugin crash! Handle errors like this:
 
 ```javascript
 toggleAddon: function() {
   try {
-    // 可能出错的代码
+    // Possible error code
     let note = getNoteById("invalid-id");
-    note.title = "新标题";  // 可能 note 是 null
-    
+    note.title = "New title"; // maybe note is null
+
   } catch (error) {
-    // 友好地告诉用户
+    // Tell the user in a friendly way
     Application.sharedInstance().showHUD(
-      "⚠️ 操作失败：" + error.message,
+      "⚠️ Operation failed: " + error.message,
       self.window, 3
     );
-    
-    // 记录错误以便调试
-    JSB.log("错误详情：" + error);
+
+    // Log errors for debugging
+    JSB.log("Error details: " + error);
   }
 }
 ```
 
-## 实战项目：智能笔记助手（完整代码）
+## Practical project: Intelligent note assistant (complete code)
 
-让我们用刚学的知识做个实用的插件，它能：
-- 🎨 快速标记笔记颜色
-- 📅 自动添加时间戳
-- 📋 一键复制所有摘录
-- 📊 显示笔记统计
+Let’s use the knowledge we just learned to make a practical plug-in that can:
+- 🎨 Quickly mark note colors
+- 📅 Automatically add timestamp
+- 📋 Copy all excerpts with one click
+- 📊 Show note statistics
 
 ```javascript
 JSB.newAddon = function(mainPath) {
-  
+
   return JSB.defineClass('SmartNoteHelper : JSExtension', {
-    
-    // 插件加载时
+
+    //When the plug-in is loaded
     sceneWillConnect: function() {
       self.mainPath = mainPath;
-      
-      // 加载用户配置
+
+      //Load user configuration
       self.loadConfig();
-      
+
       Application.sharedInstance().showHUD(
-        "🚀 智能笔记助手已启动",
+        "🚀 Smart note assistant has been launched",
         self.window, 2
       );
     },
-    
-    // 加载配置
+
+    //Load configuration
     loadConfig: function() {
       let defaults = NSUserDefaults.standardUserDefaults();
       self.config = {
@@ -591,271 +591,271 @@ JSB.newAddon = function(mainPath) {
         noteCount: defaults.objectForKey("NoteHelper_NoteCount") || 0
       };
     },
-    
-    // 保存配置
+
+    //Save configuration
     saveConfig: function() {
       let defaults = NSUserDefaults.standardUserDefaults();
       defaults.setObjectForKey(self.config.lastColor, "NoteHelper_LastColor");
       defaults.setObjectForKey(self.config.autoTimestamp, "NoteHelper_AutoTimestamp");
       defaults.setObjectForKey(self.config.noteCount, "NoteHelper_NoteCount");
     },
-    
-    // 点击插件图标 - 显示主菜单
+
+    // Click on the plugin icon - show the main menu
     toggleAddon: function() {
       self.showMainMenu();
     },
-    
-    // 主菜单
+
+    // Main menu
     showMainMenu: function() {
       let alert = UIAlertView.alloc()
         .initWithTitleMessageDelegateCancelButtonTitleOtherButtonTitles(
-          "🚀 智能笔记助手",
-          `已处理 ${self.config.noteCount} 条笔记`,
+          "🚀Smart Note Assistant",
+          `${self.config.noteCount} notes processed`,
           self,
-          "关闭",
+          "Close",
           [
-            "🎨 快速标记颜色",
-            "📅 添加时间戳",
-            "📋 复制所有摘录",
-            "📊 查看笔记统计",
-            "⚙️ 设置"
+            "🎨 Quickly mark colors",
+            "📅Add timestamp",
+            "📋 Copy all excerpts",
+            "📊 View note statistics",
+            "⚙️ Settings"
           ]
         );
-      alert.tag = 100;  // 标识这是主菜单
+      alert.tag = 100; // Mark this as the main menu
       alert.show();
     },
-    
-    // 处理菜单选择
+
+    // Handle menu selections
     alertViewClickedButtonAtIndex: function(alertView, buttonIndex) {
-      if (alertView.tag === 100) {  // 主菜单
+      if (alertView.tag === 100) { // Main menu
         switch(buttonIndex) {
-          case 0: // 关闭
+          case 0: // close
             break;
-          case 1: // 标记颜色
+          case 1: // mark color
             self.showColorPicker();
             break;
-          case 2: // 添加时间戳
+          case 2: //Add timestamp
             self.addTimestamp();
             break;
-          case 3: // 复制摘录
+          case 3: // Copy excerpt
             self.copyAllExcerpts();
             break;
-          case 4: // 查看统计
+          case 4: // View statistics
             self.showStatistics();
             break;
-          case 5: // 设置
+          case 5: // settings
             self.showSettings();
             break;
         }
-      } else if (alertView.tag === 200) {  // 颜色选择器
+      } else if (alertView.tag === 200) { // Color picker
         if (buttonIndex > 0) {
           self.applyColor(buttonIndex - 1);
         }
       }
     },
-    
-    // 功能1：颜色选择器
+
+    // Function 1: Color picker
     showColorPicker: function() {
       let colors = [
-        "⚪ 无色", "🔴 红色", "🟠 橙色", "🟡 黄色",
-        "🟢 绿色", "🔵 蓝色", "🟣 紫色", "⚫ 灰色"
+        "⚪ colorless", "🔴 red", "🟠 orange", "🟡 yellow",
+        "🟢 green", "🔵 blue", "🟣 purple", "⚫ gray"
       ];
-      
-      // 标记上次使用的颜色
+
+      // Mark the last used color
       colors[self.config.lastColor] = "✓ " + colors[self.config.lastColor];
-      
+
       let alert = UIAlertView.alloc()
         .initWithTitleMessageDelegateCancelButtonTitleOtherButtonTitles(
-          "选择颜色",
-          "选中笔记后将应用颜色",
+          "Select Color",
+          "Color will be applied when note is selected",
           self,
-          "取消",
+          "cancel",
           colors
         );
       alert.tag = 200;
       alert.show();
     },
-    
-    // 应用颜色
+
+    //apply color
     applyColor: function(colorIndex) {
-      // 获取当前选中的笔记
+      // Get the currently selected note
       let studyController = Application.sharedInstance()
         .studyController(self.window);
-      
+
       if (!studyController) {
         Application.sharedInstance().showHUD(
-          "⚠️ 请先打开笔记本",
+          "⚠️ Please open your notebook first",
           self.window, 2
         );
         return;
       }
-      
-      // 这里简化处理，实际需要通过 MNNote API
+
+      // Simplified processing here, actually need to go through MNNote API
       Application.sharedInstance().showHUD(
-        `✅ 已应用颜色 #${colorIndex}`,
+        `✅ Color #${colorIndex}` applied,
         self.window, 2
       );
-      
-      // 保存选择
+
+      // save selection
       self.config.lastColor = colorIndex;
       self.config.noteCount++;
       self.saveConfig();
     },
-    
-    // 功能2：添加时间戳
+
+    // Function 2: Add timestamp
     addTimestamp: function() {
       let now = new Date();
       let timestamp = `[📅 ${now.toLocaleDateString()} ${now.toLocaleTimeString()}]`;
-      
-      // 复制到剪贴板
+
+      //Copy to clipboard
       UIPasteboard.generalPasteboard().string = timestamp;
-      
+
       Application.sharedInstance().showHUD(
-        "✅ 时间戳已复制\n" + timestamp,
+        "✅ Timestamp copied\n" + timestamp,
         self.window, 3
       );
-      
+
       self.config.noteCount++;
       self.saveConfig();
     },
-    
-    // 功能3：复制所有摘录
+
+    // Function 3: Copy all excerpts
     copyAllExcerpts: function() {
-      // 简化示例 - 实际需要遍历笔记本
+      //Simplified example - actually needs to traverse the notebook
       let excerpts = [
-        "摘录1：这是一个示例摘录",
-        "摘录2：另一个示例摘录",
-        "摘录3：第三个示例摘录"
+        "Excerpt 1: This is an example excerpt",
+        "Excerpt 2: Another example excerpt",
+        "Excerpt 3: Third example excerpt"
       ];
-      
+
       let text = excerpts.join("\n\n");
       UIPasteboard.generalPasteboard().string = text;
-      
+
       Application.sharedInstance().showHUD(
-        `✅ 已复制 ${excerpts.length} 条摘录`,
+        `✅ ${excerpts.length} excerpts copied`,
         self.window, 2
       );
     },
-    
-    // 功能4：显示统计
+
+    // Function 4: Display statistics
     showStatistics: function() {
-      let message = `📊 笔记统计\n\n` +
-                   `总处理数：${self.config.noteCount} 条\n` +
-                   `最常用颜色：#${self.config.lastColor}\n` +
-                   `自动时间戳：${self.config.autoTimestamp ? '开启' : '关闭'}`;
-      
+      let message = `📊 Note statistics\n\n` +
+                   `Total number of processes: ${self.config.noteCount}\n` +
+                   `Most commonly used color: #${self.config.lastColor}\n` +
+                   `Auto timestamp: ${self.config.autoTimestamp ? 'on' : 'off'}`;
+
       let alert = UIAlertView.alloc()
         .initWithTitleMessageDelegateCancelButtonTitleOtherButtonTitles(
-          "统计信息",
+          "Statistics",
           message,
           self,
-          "确定",
+          "OK",
           null
         );
       alert.show();
     },
-    
-    // 功能5：设置
+
+    // Function 5: Settings
     showSettings: function() {
-      let status = self.config.autoTimestamp ? "✅ 已开启" : "❌ 已关闭";
-      
+      let status = self.config.autoTimestamp ? "✅ is on" : "❌ is off";
+
       let alert = UIAlertView.alloc()
         .initWithTitleMessageDelegateCancelButtonTitleOtherButtonTitles(
-          "设置",
-          `自动时间戳：${status}`,
+          "Settings",
+          `Auto timestamp: ${status}`,
           self,
-          "取消",
-          ["切换自动时间戳", "重置统计"]
+          "cancel",
+          ["Toggle automatic timestamps", "Reset statistics"]
         );
       alert.tag = 300;
       alert.show();
     },
-    
-    // 选中文本时自动处理
+
+    // Automatically process when text is selected
     onPopupMenuOnSelection: function(sender) {
       if (self.config.autoTimestamp) {
-        // 自动添加时间戳
+        // Automatically add timestamp
         let now = new Date();
         let timestamp = `[${now.toLocaleTimeString()}] `;
-        
+
         Application.sharedInstance().showHUD(
-          "📅 已自动添加时间戳",
+          "📅 Timestamp has been added automatically",
           self.window, 1
         );
       }
     }
-    
+
   });
 };
 ```
 
-这个插件展示了：
-- 🔄 配置的保存和加载
-- 🎛️ 多级菜单的使用
-- 📋 剪贴板操作
-- 📊 数据统计
-- ⚙️ 用户设置管理
+This plugin shows:
+- 🔄 Saving and loading of configurations
+- 🎛️ Usage of multi-level menu
+- 📋 Clipboard operation
+- 📊 Statistics
+- ⚙️ User settings management
 
-## 第二站小结 🎉
+## Summary of the second stop 🎉
 
-**你学会了：**
-- ✅ 插件的 5 个响应时刻
-- ✅ 3 种用户交互方式
-- ✅ 保存和读取配置
-- ✅ 错误处理
-- ✅ 完整的实战项目
+**You learned:**
+- ✅ 5 responsive moments for the plugin
+- ✅ 3 ways of user interaction
+- ✅ Save and read configurations
+- ✅ Error handling
+- ✅ Complete practical projects
 
-**下一步：**
-下一站，我们将学习 MNUtils —— 这个超强大的工具库将让你的插件开发变得更简单！
+**Next step:**
+Next stop, we will learn about MNUtils - this super powerful tool library will make your plug-in development easier!
 
 ---
 
-# 第三站：MNUtils - 你的超能力工具箱
+# Third stop: MNUtils - your superpower toolbox
 
-## 什么是 MNUtils？
+## What is MNUtils?
 
-想象一下：
-- 原生 API：你需要写 10 行代码才能获取一个笔记
-- MNUtils：一行搞定！
+Imagine this:
+- Native API: You need to write 10 lines of code to get a note
+- MNUtils: One line and done!
 
-MNUtils 就是一个超级工具箱，里面有 500+ 个现成的工具，让你专注于实现功能，而不是纠结于复杂的 API。
+MNUtils is a super toolbox with 500+ ready-made tools, allowing you to focus on implementing functions instead of struggling with complex APIs.
 
-### 对比一下就知道了
+### You will know by comparing
 
 ```javascript
-// 😩 不用 MNUtils - 好复杂！
+// 😩 No need for MNUtils - so complicated!
 let studyController = Application.sharedInstance().studyController(self.window);
 let notebookController = studyController.notebookController;
 let notebook = notebookController.notebook;
 let notebookId = notebook.topicId;
 
-// 😄 用 MNUtils - 太简单了！
+// 😄 Use MNUtils - so easy!
 let notebookId = MNUtil.currentNotebook.topicId;
 ```
 
-## 快速安装 MNUtils
+## Quickly install MNUtils
 
-### 方法 1：先安装 MNUtils 插件（推荐）
+### Method 1: Install the MNUtils plug-in first (recommended)
 
-1. 下载 MNUtils 插件
-2. 双击安装
-3. 在你的插件中加载它：
+1. Download the MNUtils plug-in
+2. Double-click to install
+3. Load it in your plugin:
 
 ```javascript
 JSB.newAddon = function(mainPath) {
   return JSB.defineClass('YourPlugin : JSExtension', {
-    
+
     sceneWillConnect: function() {
       self.mainPath = mainPath;
-      
-      // 加载 MNUtils
+
+      //Load MNUtils
       try {
         JSB.require('mnutils');
         MNUtil.init(self.mainPath);
-        MNUtil.showHUD("✅ MNUtils 已加载！");
+        MNUtil.showHUD("✅ MNUtils loaded!");
       } catch (error) {
         Application.sharedInstance().showHUD(
-          "⚠️ 请先安装 MNUtils 插件",
+          "⚠️ Please install the MNUtils plug-in first",
           self.window, 3
         );
       }
@@ -864,147 +864,147 @@ JSB.newAddon = function(mainPath) {
 };
 ```
 
-### 方法 2：内置到你的插件（独立运行）
+### Method 2: Built into your plugin (runs standalone)
 
-把 `mnutils.js` 文件复制到你的插件目录，然后：
+Copy the `mnutils.js` file to your plugin directory, then:
 
 ```javascript
-JSB.require('mnutils');  // 加载本地文件
+JSB.require('mnutils'); // Load local files
 MNUtil.init(mainPath);
 ```
 
-## MNUtils 最常用的 10 个功能
+## The 10 most commonly used functions of MNUtils
 
-别被 500+ 个 API 吓到！你只需要掌握这 10 个最常用的：
+Don’t be intimidated by 500+ APIs! You just need to master these 10 most commonly used ones:
 
-### 1. 显示提示
+### 1. Display prompts
 ```javascript
-MNUtil.showHUD("操作成功！");           // 默认 2 秒
-MNUtil.showHUD("提示内容", 5);        // 显示 5 秒
-MNUtil.waitHUD("加载中...");          // 持续显示
-MNUtil.stopHUD();                   // 停止显示
+MNUtil.showHUD("Operation successful!"); // Default 2 seconds
+MNUtil.showHUD("Prompt content", 5); // Display for 5 seconds
+MNUtil.waitHUD("Loading..."); //Continuous display
+MNUtil.stopHUD(); // Stop display
 ```
 
-### 2. 获取当前笔记
+### 2. Get the current note
 ```javascript
-let note = MNNote.getFocusNote();   // 获取选中的笔记
+let note = MNNote.getFocusNote(); // Get the selected note
 if (note) {
-  note.noteTitle = "新标题";        // 修改标题
-  note.color = 3;                  // 设置颜色（黄色）
+  note.noteTitle = "New title"; // Modify title
+  note.color = 3; //Set color (yellow)
 }
 ```
 
-### 3. 获取当前笔记本
+### 3. Get the current notebook
 ```javascript
 let notebook = MNUtil.currentNotebook;
-MNUtil.showHUD(`笔记本：${notebook.title}`);
-MNUtil.showHUD(`共 ${notebook.notes.length} 条笔记`);
+MNUtil.showHUD(`Notebook: ${notebook.title}`);
+MNUtil.showHUD(`Total ${notebook.notes.length} notes`);
 ```
 
-### 4. 剪贴板操作
+### 4. Clipboard operation
 ```javascript
-MNUtil.copy("这段文本被复制了");      // 复制文本
-let text = MNUtil.paste();          // 粘贴文本
-MNUtil.copyJSON({name: "对象"});   // 复制对象
+MNUtil.copy("This text has been copied"); // Copy text
+let text = MNUtil.paste(); // Paste text
+MNUtil.copyJSON({name: "Object"}); // Copy object
 ```
 
-### 5. 弹出选择框
+### 5. Pop up selection box
 ```javascript
-MNUtil.select("选择一个", ["选项A", "选项B", "选项C"]).then(index => {
+MNUtil.select("Select one", ["Option A", "Option B", "Option C"]).then(index => {
   if (index >= 0) {
-    MNUtil.showHUD(`你选了：${index}`);
+    MNUtil.showHUD(`You selected: ${index}`);
   }
 });
 ```
 
-### 6. 输入框
+### 6. Input box
 ```javascript
-MNUtil.input("请输入", "提示文字", "默认值").then(text => {
+MNUtil.input("Please enter", "Prompt text", "Default value").then(text => {
   if (text) {
-    MNUtil.showHUD(`你输入了：${text}`);
+    MNUtil.showHUD(`You entered: ${text}`);
   }
 });
 ```
 
-### 7. 确认框
+### 7. Confirmation box
 ```javascript
-MNUtil.confirm("确认操作", "真的要删除吗？").then(ok => {
+MNUtil.confirm("Confirm operation", "Do you really want to delete it?").then(ok => {
   if (ok) {
-    // 用户点了确认
-    MNUtil.showHUD("已删除");
+    //The user clicked to confirm
+    MNUtil.showHUD("Deleted");
   }
 });
 ```
 
-### 8. 延时执行
+### 8. Delayed execution
 ```javascript
 MNUtil.delay(2).then(() => {
-  MNUtil.showHUD("2 秒后执行");
+  MNUtil.showHUD("Execute after 2 seconds");
 });
 ```
 
-### 9. 文件操作
+### 9. File operations
 ```javascript
-// 读写文本文件
+//Read and write text files
 let content = MNUtil.readText("/path/to/file.txt");
-MNUtil.writeText("/path/to/file.txt", "新内容");
+MNUtil.writeText("/path/to/file.txt", "New content");
 
-// 读写 JSON
+//Read and write JSON
 let data = MNUtil.readJSON("/path/to/data.json");
 MNUtil.writeJSON("/path/to/data.json", {key: "value"});
 ```
 
-### 10. 错误处理
+### 10. Error handling
 ```javascript
 try {
-  // 可能出错的代码
+  // Possible error code
 } catch (error) {
-  MNUtil.addErrorLog(error, "函数名", {参数: "xxx"});
-  MNUtil.showHUD("操作失败：" + error.message);
+  MNUtil.addErrorLog(error, "function name", {parameter: "xxx"});
+  MNUtil.showHUD("Operation failed: " + error.message);
 }
 ```
 
-就是这么简单！掌握这 10 个，你就能做 80% 的事情了。
+It's that simple! Master these 10 and you’ll be able to do 80% of everything.
 
-## 实战：用 MNUtils 做个笔记管理器
+## Practical combat: Use MNUtils to make a note manager
 
-让我们用 MNUtils 做个实用的笔记管理器：
+Let’s use MNUtils to make a practical note manager:
 
 ```javascript
 JSB.newAddon = function(mainPath) {
   return JSB.defineClass('NoteManager : JSExtension', {
-    
+
     sceneWillConnect: function() {
       self.mainPath = mainPath;
-      
-      // 加载 MNUtils
+
+      //Load MNUtils
       try {
         JSB.require('mnutils');
         MNUtil.init(self.mainPath);
       } catch (error) {
         Application.sharedInstance().showHUD(
-          "请先安装 MNUtils",
+          "Please install MNUtils first",
           self.window, 3
         );
         return;
       }
-      
-      MNUtil.showHUD("📁 笔记管理器已启动");
+
+      MNUtil.showHUD("📁 Note Manager has been started");
     },
-    
-    // 点击插件图标
+
+    // Click on the plug-in icon
     toggleAddon: function() {
       self.showMenu();
     },
-    
-    // 显示主菜单
+
+    // show main menu
     showMenu: function() {
-      MNUtil.select("📁 笔记管理器", [
-        "🎨 批量设置颜色",
-        "🏷️ 批量添加标签",
-        "📋 导出所有摘录",
-        "📊 查看笔记统计",
-        "🔍 搜索笔记"
+      MNUtil.select("📁 Note Manager", [
+        "🎨 Set colors in batches",
+        "🏷️Add tags in batches",
+        "📋 Export all excerpts",
+        "📊 View note statistics",
+        "🔍 Search notes"
       ]).then(index => {
         switch(index) {
           case 0: self.batchSetColor(); break;
@@ -1015,93 +1015,93 @@ JSB.newAddon = function(mainPath) {
         }
       });
     },
-    
-    // 功能1：批量设置颜色
+
+    // Function 1: Set colors in batches
     batchSetColor: function() {
-      // 获取选中的笔记
+      // Get the selected note
       let notes = MNNote.getSelectedNotes();
-      
+
       if (notes.length === 0) {
-        MNUtil.showHUD("⚠️ 请先选择笔记");
+        MNUtil.showHUD("⚠️ Please select a note first");
         return;
       }
-      
-      // 选择颜色
-      MNUtil.select("选择颜色", [
-        "⚪ 无色", "🔴 红色", "🟠 橙色", "🟡 黄色",
-        "🟢 绿色", "🔵 蓝色", "🟣 紫色", "⚫ 灰色"
+
+      // select color
+      MNUtil.select("Select color", [
+        "⚪ colorless", "🔴 red", "🟠 orange", "🟡 yellow",
+        "🟢 green", "🔵 blue", "🟣 purple", "⚫ gray"
       ]).then(colorIndex => {
         if (colorIndex >= 0) {
-          // 使用 MNUtil 的批量操作
+          // Batch operations using MNUtil
           MNUtil.undoGrouping(() => {
             notes.forEach(note => {
               note.color = colorIndex;
             });
           });
-          
-          MNUtil.showHUD(`✅ 已设置 ${notes.length} 个笔记的颜色`);
+
+          MNUtil.showHUD(`✅ The color of ${notes.length} notes has been set`);
         }
       });
     },
-    
-    // 功能2：批量添加标签
+
+    // Function 2: Add tags in batches
     batchAddTag: async function() {
       let notes = MNNote.getSelectedNotes();
-      
+
       if (notes.length === 0) {
-        MNUtil.showHUD("⚠️ 请先选择笔记");
+        MNUtil.showHUD("⚠️ Please select a note first");
         return;
       }
-      
-      // 输入标签
-      let tag = await MNUtil.input("添加标签", "输入标签内容（如 #重要）", "#");
-      
+
+      //Input tag
+      let tag = await MNUtil.input("Add tag", "Enter tag content (such as #important)", "#");
+
       if (tag) {
         if (!tag.startsWith("#")) tag = "#" + tag;
-        
+
         MNUtil.undoGrouping(() => {
           notes.forEach(note => {
             note.noteTitle = (note.noteTitle || "") + " " + tag;
           });
         });
-        
-        MNUtil.showHUD(`✅ 已为 ${notes.length} 个笔记添加标签`);
+
+        MNUtil.showHUD(`✅ ${notes.length} notes tagged`);
       }
     },
-    
-    // 功能3：导出所有摘录
+
+    // Function 3: Export all excerpts
     exportExcerpts: function() {
       let notebook = MNUtil.currentNotebook;
       if (!notebook) {
-        MNUtil.showHUD("⚠️ 请先打开笔记本");
+        MNUtil.showHUD("⚠️ Please open the notebook first");
         return;
       }
-      
-      // 收集所有摘录
+
+      // Collect all excerpts
       let excerpts = [];
       notebook.notes.forEach(note => {
         if (note.excerptText) {
-          excerpts.push(`[${note.noteTitle || '无标题'}] ${note.excerptText}`);
+          excerpts.push(`[${note.noteTitle || 'Untitled'}] ${note.excerptText}`);
         }
       });
-      
+
       if (excerpts.length > 0) {
-        // 复制到剪贴板
+        //Copy to clipboard
         MNUtil.copy(excerpts.join("\n\n"));
-        MNUtil.showHUD(`✅ 已复制 ${excerpts.length} 条摘录`);
+        MNUtil.showHUD(`✅ ${excerpts.length} excerpts copied`);
       } else {
-        MNUtil.showHUD("⚠️ 没有找到摘录");
+        MNUtil.showHUD("⚠️ Excerpt not found");
       }
     },
-    
-    // 功能4：查看统计
+
+    // Function 4: View statistics
     showStatistics: function() {
       let notebook = MNUtil.currentNotebook;
       if (!notebook) {
-        MNUtil.showHUD("⚠️ 请先打开笔记本");
+        MNUtil.showHUD("⚠️ Please open the notebook first");
         return;
       }
-      
+
       let stats = {
         total: notebook.notes.length,
         withTitle: 0,
@@ -1109,39 +1109,39 @@ JSB.newAddon = function(mainPath) {
         withComment: 0,
         colors: {}
       };
-      
+
       notebook.notes.forEach(note => {
         if (note.noteTitle) stats.withTitle++;
         if (note.excerptText) stats.withExcerpt++;
         if (note.comments && note.comments.length > 0) stats.withComment++;
-        
+
         let color = note.color || 0;
         stats.colors[color] = (stats.colors[color] || 0) + 1;
       });
-      
-      let message = `📊 笔记统计\n\n` +
-                   `总数：${stats.total}\n` +
-                   `有标题：${stats.withTitle}\n` +
-                   `有摘录：${stats.withExcerpt}\n` +
-                   `有评论：${stats.withComment}\n` +
-                   `颜色分布：${JSON.stringify(stats.colors)}`;
-      
-      MNUtil.alert("笔记统计", message);
+
+      let message = `📊 Note statistics\n\n` +
+                   `Total: ${stats.total}\n` +
+                   `With title: ${stats.withTitle}\n` +
+                   `With excerpt: ${stats.withExcerpt}\n` +
+                   `With comments: ${stats.withComment}\n` +
+                   `Color distribution: ${JSON.stringify(stats.colors)}`;
+
+      MNUtil.alert("note statistics", message);
     },
-    
-    // 功能5：搜索笔记
+
+    // Function 5: Search notes
     searchNotes: async function() {
-      let keyword = await MNUtil.input("搜索笔记", "输入关键词", "");
-      
+      let keyword = await MNUtil.input("Search notes", "Enter keywords", "");
+
       if (!keyword) return;
-      
+
       let notebook = MNUtil.currentNotebook;
       if (!notebook) {
-        MNUtil.showHUD("⚠️ 请先打开笔记本");
+        MNUtil.showHUD("⚠️ Please open the notebook first");
         return;
       }
-      
-      // 搜索笔记
+
+      //Search notes
       let results = [];
       notebook.notes.forEach(note => {
         let text = (note.noteTitle || "") + " " + (note.excerptText || "");
@@ -1149,60 +1149,60 @@ JSB.newAddon = function(mainPath) {
           results.push(note);
         }
       });
-      
-      if (results.length > 0) {
-        MNUtil.showHUD(`找到 ${results.length} 个结果`);
-        
-        // 选中第一个结果
+
+      if (results. length > 0) {
+        MNUtil.showHUD(`${results.length} results found`);
+
+        //Select the first result
         results[0].focusInMindMap();
       } else {
-        MNUtil.showHUD("⚠️ 没有找到相关笔记");
+        MNUtil.showHUD("⚠️ No relevant notes found");
       }
     }
   });
 };
 ```
 
-这个示例展示了 MNUtils 的强大之处：
-- 🚀 代码量减少 70%
-- 🎯 专注于业务逻辑
-- 🔒 内置错误处理
-- 🎉 更好的用户体验
+This example demonstrates the power of MNUtils:
+- 🚀 Code size reduced by 70%
+- 🎯 Focus on business logic
+- 🔒 Built-in error handling
+- 🎉 Better user experience
 
-## 第三站小结 🚀
+## Summary of the third stop 🚀
 
-**你学会了：**
-- ✅ 安装和加载 MNUtils
-- ✅ 10 个最常用的 API
-- ✅ 用 MNUtils 开发完整插件
-- ✅ 批量操作和撤销分组
+**You learned:**
+- ✅ Install and load MNUtils
+- ✅ 10 most commonly used APIs
+- ✅ Develop complete plug-ins with MNUtils
+- ✅ Batch operations and undo grouping
 
-**接下来：**
-恭喜你！你已经掌握了 MarginNote 插件开发的核心技能。现在你可以：
-1. 开发自己的插件
-2. 参考其他优秀插件的源码
-3. 加入社区，分享你的作品
+**Next:**
+Congratulations! You have mastered the core skills of MarginNote plug-in development. Now you can:
+1. Develop your own plug-in
+2. Refer to the source code of other excellent plug-ins
+3. Join the community and share your work
 
-## 附录：进阶资源
+## Appendix: Advanced Resources
 
-如果你想深入学习：
+If you want to learn more:
 
-### 📚 API 文档
-- MNUtils API 指南：`mnutils/MNUtils_API_Guide.md`
-- 源码参考：`mnutils/mnutils.js`
+### 📚 API Documentation
+- MNUtils API Guide: `mnutils/MNUtils_API_Guide.md`
+- Source code reference: `mnutils/mnutils.js`
 
-### 🌟 优秀插件源码
-- **MNAI**：AI 集成示例
-- **MNOCR**：图像识别示例
-- **MNWebDAV**：文件同步示例
+### 🌟 Excellent plug-in source code
+- **MNAI**: AI integration example
+- **MNOCR**: Image recognition example
+- **MNWebDAV**: File synchronization example
 
-### 👥 社区资源
-- MarginNote 论坛
-- GitHub 插件仓库
-- 微信交流群
+### 👥 Community Resources
+- MarginNote Forum
+- GitHub plug-in repository
+- WeChat communication group
 
 ---
 
-**祝你开发愉快！** 🎉
+**Happy development! ** 🎉
 
-如果这个教程对你有帮助，欢迎分享给更多人！
+If this tutorial is helpful to you, please share it with more people!

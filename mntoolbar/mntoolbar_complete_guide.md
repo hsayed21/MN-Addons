@@ -1,434 +1,298 @@
-# 📚 MN Toolbar 开发培训完全指南
-
-> 🎯 **终极目标**：融合技术深度与培训友好性，创建一个既适合3小时培训讲解，又保留完整技术内容的综合文档
-> 
-> 📖 **适用人群**：零基础学员 → 进阶开发者 → 技术专家
-> 
-> ⏱️ **学习时长**：快速通道3小时 | 完整学习15小时 | 精通掌握30小时
-
-## 🗂️ 目录导航
-
-### 🚀 快速导航（选择你的学习路径）
+# 📚 MN Toolbar Development Training Complete Guide > 🎯 **Ultimate Goal**: To create a comprehensive document that blends technical depth with training-friendly design, suitable for a 3-hour training session while retaining complete technical content.
+📖 **Target Audience:** Beginners → Advanced Developers → Technical Experts
+> ⏱️ **Learning Duration**: Fast Track 3 hours | Full Learning 15 hours | Mastery 30 hours ## 🗂️ Table of Contents ### 🚀 Quick Navigation (Choose your learning path)
 
 <details>
-<summary><b>🌱 初学者路径（3小时快速掌握）</b></summary>
+<summary><b>🌱 Beginner's Guide (Master in 3 Hours)</b></summary>
 
-1. [快速上手](#第一部分快速上手30分钟) → 认识插件，搭建环境
-2. [第一个按钮](#21-你的第一个hello按钮) → 创建Hello按钮
-3. [理解原理](#22-理解工作原理简化版) → 基础概念
-4. [实战功能](#第三部分实战开发60分钟) → 3个实用功能
-5. [常见问题](#常见问题faq) → 快速解决
-
-</details>
+1. [Quick Start] (#Part 1 Quick Start 30 minutes) → Understanding plugins and setting up the environment 2. [Your First Button] (#21 - Your First Hello Button) → Creating a Hello Button 3. [Understanding the Principle] (#22 - Simplified Understanding of How it Works) → Basic Concepts 4. [Practical Functionality] (#Part 3 Practical Development 60 minutes) → 3 Useful Functions 5. [Frequently Asked Questions] (#Frequently Asked Questions (FAQ)) → Quick Solutions
 
 <details>
-<summary><b>⚡ 进阶开发路径（15小时深入学习）</b></summary>
+<summary><b>⚡ Advanced Development Path (15 hours of in-depth learning)</b></summary>
 
-1. [架构概览](#21-架构概览) → 完整系统架构
-2. [核心原理](#第二部分核心原理深度解析45分钟) → 技术细节
-3. [补丁架构](#第四部分补丁架构设计30分钟) → 解耦设计
-4. [进阶扩展](#第五部分进阶与扩展30分钟) → 高级特性
-5. [性能优化](#54-性能优化) → 最佳实践
-
-</details>
+1. [Architecture Overview](#21-Architecture Overview) → Complete System Architecture 2. [Core Principles](#Part Two: In-depth Analysis of Core Principles, 45 minutes) → Technical Details 3. [Patch Architecture](#Part Four: Patch Architecture Design, 30 minutes) → Decoupling Design 4. [Advanced Extensions](#Part Five: Advanced and Extended Features, 30 minutes) → Advanced Features 5. [Performance Optimization](#54-Performance Optimization) → Best Practices
 
 <details>
-<summary><b>🔧 问题排查路径（直达解决方案）</b></summary>
+<summary><b>🔧 Troubleshooting Path (Direct Access to Solution)</b></summary>
 
-- [按钮不显示](#q1-按钮不显示怎么办) → 环境和配置
-- [点击无反应](#q2-点击按钮没反应) → action匹配
-- [功能报错](#q3-代码报错怎么办) → 调试技巧
-- [撤销失效](#434-撤销不工作) → undoGrouping
-- [内存泄漏](#435-内存泄漏) → 资源清理
+- [Button not showing](#q1-What to do if the button is not showing) → Environment and configuration - [Clicking has no effect](#q2-Clicking the button has no effect) → Action matching - [Function error](#q3-What to do if the code has an error) → Debugging techniques - [Undo not work](#434-Undo is not working) → undoGrouping
+- [Memory Leak](#435-Memory Leak) → Resource Cleanup
 
-</details>
-
-### 📑 完整目录
-
-- [第一部分：快速上手（30分钟）](#第一部分快速上手30分钟)
-  - [1.1 认识 MN Toolbar](#11-认识-mn-toolbar)
-  - [1.2 环境准备](#12-环境准备)
-  - [1.3 文件结构](#13-文件结构理解)
-- [第二部分：核心原理深度解析（45分钟）](#第二部分核心原理深度解析45分钟)
-  - [2.1 架构概览](#21-架构概览)
-  - [2.2 按钮工作原理](#22-按钮工作原理完整版)
-  - [2.3 菜单系统原理](#23-菜单系统原理详解)
-  - [2.4 动作处理流程](#24-动作处理流程深度剖析)
-- [第三部分：实战开发（60分钟）](#第三部分实战开发60分钟)
-  - [3.1 三个实用功能](#31-三个实用功能开发)
-  - [3.2 调试技巧](#32-调试技巧)
-  - [3.3 用户交互模式](#33-用户交互模式)
-- [第四部分：补丁架构设计（30分钟）](#第四部分补丁架构设计30分钟)
-  - [4.1 为什么需要补丁架构](#41-为什么需要补丁架构)
-  - [4.2 注册表模式设计](#42-注册表模式设计)
-  - [4.3 四层架构解析](#43-四层架构解析)
-  - [4.4 配置融合机制](#44-配置融合机制核心原理)
-- [第五部分：进阶与扩展（30分钟）](#第五部分进阶与扩展30分钟)
-  - [5.1 多级菜单设计](#51-多级菜单设计)
-  - [5.2 高级交互模式](#52-高级交互模式)
-  - [5.3 最佳实践](#53-最佳实践)
-  - [5.4 性能优化](#54-性能优化)
-- [附录A：API速查手册](#附录aapi速查手册)
-- [附录B：代码模板库](#附录b代码模板库)
-- [附录C：完整示例 - 批量制卡](#附录c完整示例-批量制卡)
-- [附录D：开发检查清单](#附录d开发检查清单)
-- [附录E：常见问题FAQ](#常见问题faq)
+### 📑 Full Table of Contents - [Part 1: Quick Start (30 minutes)](#Part 1: Quick Start (30 minutes))
+  - [1.1 Understanding MN Toolbar](#11-Understanding-mn-toolbar)
+  - [1.2 Environmental Preparation](#12-Environmental Preparation)
+  - [1.3 File Structure](#13-Understanding File Structure)
+- [Part Two: In-depth Analysis of Core Principles (45 minutes)](#Part Two: In-depth Analysis of Core Principles (45 minutes))
+  - [2.1 Architecture Overview](#21-Architecture Overview)
+  - [2.2 Button Working Principle](#22-Complete Version of Button Working Principle)
+  - [2.3 Menu System Principles](#23-Detailed Explanation of Menu System Principles)
+  - [2.4 Motion Processing Flow](#24-In-depth Analysis of Motion Processing Flow)
+- [Part Three: Practical Development (60 minutes)](#Part Three Practical Development 60 minutes)
+  - [3.1 Three Practical Functions](#31-Developing Three Practical Functions)
+  - [3.2 Debugging Techniques](#32-Debugging Techniques)
+  - [3.3 User Interaction Mode](#33-User Interaction Mode)
+- [Part Four: Patch Architecture Design (30 minutes)](#Part Four: Patch Architecture Design 30 minutes)
+  - [4.1 Why is a patch architecture needed?](#41-Why is a patch architecture needed?)
+  - [4.2 Registry Schema Design](#42-Registry Schema Design)
+  - [4.3 Four-Layer Architecture Analysis](#43-Four-Layer Architecture Analysis)
+  - [4.4 Configuring the Fusion Mechanism](#44-Configuring the Core Principles of the Fusion Mechanism)
+- [Part 5: Advanced and Expanded (30 minutes)](#Part 5 Advanced and Expanded 30 minutes)
+  - [5.1 Multilevel Menu Design](#51-Multilevel Menu Design)
+  - [5.2 Advanced Interaction Mode](#52-Advanced Interaction Mode)
+  - [5.3 Best Practices](#53-Best Practices)
+  - [5.4 Performance Optimization](#54-Performance Optimization)
+- [Appendix A: API Quick Reference Manual](#Appendix A API Quick Reference Manual)
+- [Appendix B: Code Template Library](#Appendix B Code Template Library)
+- [Appendix C: Complete Example - Bulk Card Production](#Appendix C: Complete Example - Bulk Card Production)
+- [Appendix D: Development Checklist](#Appendix D Development Checklist)
+- [Appendix E: Frequently Asked Questions (FAQ)](#FAQ)
 
 ---
 
-## 第一部分：快速上手（30分钟）
+## Part 1: Quick Start Guide (30 minutes)
 
-### 学习目标
-- ✅ 理解什么是 MN Toolbar 插件
-- ✅ 搭建开发环境
-- ✅ 创建第一个功能按钮
-- ✅ 掌握基本调试方法
+### Learning Objectives - ✅ Understand what the MN Toolbar plugin is - ✅ Set up the development environment - ✅ Create your first function button - ✅ Master basic debugging methods ### 1.1 Understanding the MN Toolbar
 
-### 1.1 认识 MN Toolbar
+> 💡 **Life Analogy**: The MN Toolbar is like installing an app on your phone, or adding custom function buttons to MarginNote. #### What can the plugin do?
 
-> 💡 **生活类比**：MN Toolbar 就像给手机装 APP，给 MarginNote 增加自定义功能按钮
+The MN Toolbar allows you to add custom buttons in MarginNote, and each button can:
+- 🕐 One-click timestamp addition - 🏷️ Batch tag addition - 📝 Quick card creation - 🎨 Automatic note formatting - 🔄 Batch processing operations - 📊 Export statistics #### Final preview```
+MarginNote Interface ├── Your Notebook ├── Document Area └── Toolbar ← This is the MN Toolbar!
+    ├── [Timestamp] button ← You created ├── [Bulk Tags] button ← You created └── [More...] button ← You created
 
-#### 插件能做什么？
-
-MN Toolbar 让你能在 MarginNote 里添加自定义按钮，每个按钮可以：
-- 🕐 一键添加时间戳
-- 🏷️ 批量添加标签  
-- 📝 快速制作卡片
-- 🎨 自动格式化笔记
-- 🔄 批量处理操作
-- 📊 导出统计信息
-
-#### 最终效果预览
-
-```
-MarginNote 界面
-├── 你的笔记本
-├── 文档区域
-└── 工具栏 ← 这里就是 MN Toolbar！
-    ├── [时间戳] 按钮  ← 你创建的
-    ├── [批量标签] 按钮 ← 你创建的
-    └── [更多...] 按钮  ← 你创建的
-```
-
-### 1.2 环境准备
-
-#### 📁 找到插件文件夹
-
-**macOS 路径**：
-```bash
+### 1.2 Environment Preparation #### 📁 Locate the plugin folder **macOS path**:
+bash
 ~/Library/Containers/QReader.MarginStudyMac/Data/Library/MarginNote Extensions/mntoolbar
 ```
 
-**快速打开方法**：
-1. 打开 Finder
-2. 按 `Cmd + Shift + G`
-3. 粘贴上面的路径
-
-**iOS/iPadOS 路径**：
+**Quick Open Method**:
+1. Open Finder
+2. Press `Cmd + Shift + G`
+3. Paste the above path **iOS/iPadOS path**:
 ```
-文件 App → 我的 iPad → MarginNote 3 → Extensions → mntoolbar
+File App → My iPad → MarginNote 3 → Extensions → mntoolbar
 ```
 
-#### 🛠️ 准备开发工具
-
-| 工具 | 用途 | 推荐 |
+#### 🛠️ Preparing Development Tools | Tools | Purpose | Recommendations |
 |------|------|------|
-| 文本编辑器 | 编写代码 | VSCode（免费） |
-| 图标文件 | 按钮图标 | 40×40像素 PNG |
-| MarginNote 3 | 测试环境 | 必需 |
+| Text Editor | Code Writing | VSCode (Free) |
+| Icon file | Button icon | 40×40 pixel PNG |
+| MarginNote 3 | Testing Environment | Required |
 
-### 1.3 文件结构理解
-
-```
+### 1.3 Understanding File Structure```
 mntoolbar/
-├── 📜 核心文件（不要修改）
-│   ├── main.js                    # 插件入口
-│   ├── utils.js                   # 工具函数库
-│   ├── webviewController.js       # UI控制器
-│   └── settingController.js       # 设置界面
-│
-├── 🎯 扩展文件（你要修改的）
-│   ├── xdyy_button_registry.js    # 定义按钮
-│   ├── xdyy_menu_registry.js      # 定义菜单
-│   ├── xdyy_custom_actions_registry.js # 定义功能
-│   └── xdyy_utils_extensions.js   # 工具扩展
-│
-└── 🖼️ 资源文件
-    ├── custom1.png ... custom19.png  # 按钮图标
-    └── 其他图标文件
-```
+├── 📜 Core files (do not modify)
+│ ├── main.js # Plugin entry point │ ├── utils.js # Utility function library │ ├── webviewController.js # UI controller │ └── settingController.js # Settings interface │
+├── 🎯 Extended file (the one you want to modify)
+│ ├── xdyy_button_registry.js # Define button │ ├── xdyy_menu_registry.js # Define menu │ ├── xdyy_custom_actions_registry.js # Define function │ └── xdyy_utils_extensions.js # Utility extensions │
+└── 🖼️ Resource Files ├── custom1.png ... custom19.png # Button Icons └── Other Icon Files```
 
-> ⚠️ **重要提醒**：只修改 `xdyy_` 开头的文件，不要修改核心文件！
+> ⚠️ **Important Reminder**: Only modify files starting with `xdyy_`, do not modify core files!
 
 ---
 
-## 🎯 快速实践：第一个按钮（10分钟）
+## 🎯 Quick Practice: The First Button (10 minutes)
 
-### 2.1 你的第一个Hello按钮
+### 2.1 Your First Hello Button > 📚 **Basic Understanding**: Creating a button requires three steps, just like ordering food at a restaurant:
+1. This dish must be on the menu (register button).
+2. **You need to know how to do it** (defining the menu template)
+3. **The chef can cook** (Function implemented)
 
-> 📚 **基础理解**：创建按钮需要三个步骤，就像在餐厅点菜：
-> 1. **菜单上要有这道菜**（注册按钮）
-> 2. **要知道怎么做**（定义菜单模板）
-> 3. **厨师会做**（实现功能）
+#### Step 1: Register button (xdyy_button_registry.js)
 
-#### 步骤1：注册按钮（xdyy_button_registry.js）
-
-找到 `registerAllButtons()` 函数，在 `custom19` 之前添加：
+Locate the `registerAllButtons()` function and add the following before `custom19`:
 
 ```javascript
-// 我的第一个按钮！
+// My first button!
 global.registerButton("custom16", {
-  name: "Hello",              // 按钮显示的文字
-  image: "custom16",          // 使用 custom16.png 图标
-  templateName: "menu_hello"  // 关联的菜单模板
-});
+  name: "Hello", // Text displayed on the button image: "custom16", // Icon using custom16.png templateName: "menu_hello" // Associated menu template});
 ```
 
-#### 步骤2：定义菜单（xdyy_menu_registry.js）
+#### Step 2: Define the menu (xdyy_menu_registry.js)
 
-在文件末尾添加：
+Add the following to the end of the file:
 
 ```javascript
-// Hello 按钮的菜单配置
-global.registerMenuTemplate("menu_hello", {
-  action: "sayHello"  // 点击执行 sayHello 动作
-});
+// Menu configuration for the Hello button: global.registerMenuTemplate("menu_hello", {
+  action: "sayHello" // Click to execute the sayHello action});
 ```
 
-#### 步骤3：实现功能（xdyy_custom_actions_registry.js）
+Step 3: Implement the functionality (xdyy_custom_actions_registry.js)
 
-在文件末尾添加：
+Add the following to the end of the file:
 
 ```javascript
-// Hello 功能的实现
-global.registerCustomAction("sayHello", async function(context) {
-  // 显示提示
-  MNUtil.showHUD("🎉 Hello MN Toolbar!");
-  
-  // 获取当前选中的卡片
-  const focusNote = MNNote.getFocusNote();
-  
+// Implementation of the Hello function global.registerCustomAction("sayHello", async function(context) {
+  // Display a message: MNUtil.showHUD("🎉 Hello MN Toolbar!");
+
+  // Get the currently selected card const focusNote = MNNote.getFocusNote();
+
   if (focusNote) {
-    // 如果有选中的卡片
-    const title = focusNote.noteTitle || "无标题";
-    MNUtil.showHUD(`卡片标题: ${title}`);
+    // If a card is selected, const title = focusNote.noteTitle || "Untitled";
+    MNUtil.showHUD(`card title: ${title}`);
   } else {
-    // 没有选中卡片
-    MNUtil.showHUD("请先选择一个卡片");
+    // No card selected. MNUtil.showHUD("Please select a card first");
   }
 });
 ```
 
-#### 测试你的按钮
+#### Test your button 1. **Save all files**
+2. **Completely exit MarginNote** (Cmd+Q or close from the background)
+3. **Reopen MarginNote**
+4. **Open the toolbar settings**, find the "Hello" button. 5. **Drag the button to the toolbar**.
+6. **Click the Hello button**, and you will see the message "🎉 Hello MN Toolbar!"
 
-1. **保存所有文件**
-2. **完全退出 MarginNote**（Cmd+Q 或从后台关闭）
-3. **重新打开 MarginNote**
-4. **打开工具栏设置**，找到"Hello"按钮
-5. **将按钮拖到工具栏**
-6. **点击 Hello 按钮**，看到提示"🎉 Hello MN Toolbar!"
+🎉 Congratulations! You've created your first feature!
 
-> 🎉 **恭喜！你创建了第一个功能！**
-
-### 2.2 理解工作原理（简化版）
+### 2.2 Understanding the Working Principle (Simplified Version)
 
 <details>
-<summary>📚 <b>基础理解：点击流程</b></summary>
+<summary>📚 <b>Basic Understanding: Click Process</b></summary>
 
 ```
-用户点击 Hello 按钮
+The user clicks the Hello button ↓
+The system is searching for the configuration of custom16 ↓
+Find templateName: "menu_hello"
     ↓
-系统查找 custom16 的配置
+Find the menu_hello template ↓
+Found the action: "sayHello"
     ↓
-找到 templateName: "menu_hello"
-    ↓
-查找 menu_hello 模板
-    ↓
-找到 action: "sayHello"
-    ↓
-执行 sayHello 函数
-    ↓
-显示 "Hello MN Toolbar!"
+Execute the sayHello function ↓
+Displays "Hello MN Toolbar!"
 ```
 
 </details>
 
 <details>
-<summary>🔧 <b>技术细节：完整执行链路</b>（点击展开）</summary>
+<summary>🔧 <b>Technical Details: Complete Execution Thread</b> (Click to expand)</summary>
 
 ```javascript
-// 完整的执行链路
-1. 用户点击按钮触发 iOS TouchUpInside 事件（值为 1 << 6 = 64）
-2. webviewController.customAction(button) 被调用
-3. 获取 button.target 或 button.index 确定 actionName
-4. toolbarConfig.getDescriptionById(actionName) 获取完整配置
-5. 解析 description 对象中的 action 字段
-6. 查找 global.customActions[action] 中注册的函数
-7. 执行函数并传递 context 对象
-```
+// Complete execution chain 1. User clicks the button, triggering the iOS TouchUpInside event (value 1 << 6 = 64)
+2. `webviewController.customAction(button)` is called. 3. The actionName is determined by retrieving `button.target` or `button.index`.
+4. `toolbarConfig.getDescriptionById(actionName)` retrieves the complete configuration. 5. Parses the `action` field in the `description` object. 6. Locates the function registered in `global.customActions[action]`. 7. Executes the function and passes the `context` object.
 
 </details>
 
 ---
 
-## 第二部分：核心原理深度解析（45分钟）
+## Part Two: In-depth Analysis of Core Principles (45 minutes)
 
-### 学习目标
-- ✅ 理解完整的系统架构
-- ✅ 掌握按钮事件机制
-- ✅ 理解菜单系统实现
-- ✅ 掌握动作处理流程
-
-### 2.1 架构概览
-
-#### 整体架构图
-
-```
-┌─────────────────────────────────────────┐
-│           main.js (入口)                 │
-│  - 生命周期管理                          │
-│  - 插件初始化                            │
-│  - 观察者注册                            │
-└────────────┬────────────────────────────┘
+### Learning Objectives - ✅ Understand the complete system architecture - ✅ Master the button event mechanism - ✅ Understand the menu system implementation - ✅ Master the action processing flow ### 2.1 Architecture Overview #### Overall Architecture Diagram```
+┌───────────────────────────────────────┐
+│ main.js (Entry Point) │
+│ - Lifecycle Management │
+│ - Plugin Initialization │
+│ - Observer Registration │
+└────────────┬──────────────────────────┘
              │
-┌────────────▼────────────────────────────┐
-│      webviewController.js               │
-│  - UI 界面管理                          │
-│  - 按钮创建和布局                       │
-│  - 事件响应 (点击/长按/双击)            │
-│  - 手势识别                             │
-└────────────┬────────────────────────────┘
+┌────────────▼──────────────────────────┐
+│ webviewController.js │
+│ - UI Interface Management │
+│ - Button Creation and Layout │
+│ - Event Response (Click/Long Press/Double Tap) │
+│ - Gesture Recognition │
+└────────────┬──────────────────────────┘
              │
-┌────────────▼────────────────────────────┐
-│           utils.js                      │
-│  - 配置管理 (toolbarConfig)             │
-│  - 工具函数 (toolbarUtils)              │
-│  - 动作处理逻辑                         │
-│  - 按钮/菜单配置                        │
-└────────────┬────────────────────────────┘
+┌────────────▼──────────────────────────┐
+│ utils.js │
+│ - Configuration Management (toolbarConfig) │
+│ - Utility functions (toolbarUtils) │
+│ - Action Processing Logic │
+│ - Button/Menu Configuration │
+└────────────┬──────────────────────────┘
              │
-┌────────────▼────────────────────────────┐
-│      settingController.js               │
-│  - 设置界面                             │
-│  - 配置持久化                           │
-│  - 用户偏好管理                         │
-└─────────────────────────────────────────┘
+┌────────────▼──────────────────────────┐
+│ settingController.js │
+│ - Settings Interface │
+│ - Configure Persistence │
+│ - User Preference Management │
+└───────────────────────────────────────┘
 ```
 
-### 2.2 按钮工作原理（完整版）
+### 2.2 Button Working Principle (Complete Version)
 
-> 📚 **基础理解**：按钮就像家里的电灯开关。当你按下开关（点击按钮），电路接通（触发事件），灯就亮了（执行功能）。
+📚 **Basic Understanding**: A button is like a light switch in your home. When you press the switch (click the button), the circuit is connected (triggering an event), and the light turns on (performing a function).
 
-#### 2.2.1 基础概念
+#### 2.2.1 Basic Concepts<details>
+<summary>📖 <b>Explanation of Core Concepts</b></summary>
 
-<details>
-<summary>📖 <b>核心概念解释</b></summary>
+- **UIButton**: A button component provided by the iOS system. - **Event**: User actions, such as click, long press, and double-click. - **Function**: A piece of code that can be called and executed. - **JSON**: A data format enclosed in curly braces `{}`, containing key-value pairs.
 
-- **UIButton**：iOS 系统提供的按钮组件
-- **事件（Event）**：用户的操作，如点击、长按、双击
-- **函数（Function）**：一段可以被调用执行的代码
-- **JSON**：一种数据格式，用 `{}` 包裹，里面是 `键:值` 对
-
-</details>
-
-#### 2.2.2 按钮创建流程详解
-
-```javascript
-// webviewController.js - 按钮创建（第1037-1052行）
+#### 2.2.2 Detailed Explanation of Button Creation Process```javascript
+// webviewController.js - Button creation (lines 1037-1052)
 viewDidLoad: function() {
-  // 1. 创建 UIButton 实例
-  // UIButton.buttonWithType(0) 创建一个标准按钮
-  // 参数 0 表示 UIButtonTypeCustom（自定义样式按钮）
+  // 1. Create a UIButton instance // UIButton.buttonWithType(0) creates a standard button // Parameter 0 indicates UIButtonTypeCustom (custom style button)
   let button = UIButton.buttonWithType(0);
-  
-  // 2. 设置按钮外观
-  button.setTitleForState('按钮文字', 0);  // 0 = UIControlStateNormal
-  button.setImageForState(image, 0);       // 设置图标
-  button.backgroundColor = UIColor.colorWithHexString("#9bb2d6");
+
+  // 2. Set the button appearance button.setTitleForState('Button Text', 0); // 0 = UIControlStateNormal
+  button.setImageForState(image, 0); // Set the icon button.backgroundColor = UIColor.colorWithHexString("#9bb2d6");
   button.layer.cornerRadius = 5;
-  
-  // 3. 绑定点击事件 - 这是核心！
+
+  // 3. Bind click events - This is the core!
   button.addTargetActionForControlEvents(
-    this,              // target: 谁来处理这个事件
-    "customAction:",   // action: 调用哪个方法
-    1 << 6            // event: TouchUpInside = 64
+    this, // target: Who will handle this event "customAction:", // action: Which method to call 1 << 6 // event: TouchUpInside = 64
   );
-  
-  // 4. 添加到视图
-  this.view.addSubview(button);
+
+  // 4. Add to view this.view.addSubview(button);
 }
 ```
 
 <details>
-<summary>🔧 <b>技术细节：位运算详解</b>（点击展开）</summary>
+<summary>🔧 <b>Technical Details: Bitwise Operations Explained</b> (Click to expand)</summary>
 
 ```javascript
-// 1 << 6 是位运算，表示将 1 左移 6 位
-// 二进制：000001 变成 1000000
-// 十进制：1 变成 64
-// 含义：UIControlEventTouchUpInside = 64
+// 1 << 6 is a bitwise operation, meaning shift 1 left by 6 bits. // Binary: 000001 becomes 1000000
+// Decimal: 1 becomes 64
+// Meaning: UIControlEventTouchUpInside = 64
 
-// iOS 中的触摸事件类型：
-// 1 << 0 = 1   : TouchDown（手指按下）
-// 1 << 1 = 2   : TouchDownRepeat（连续按下）
-// 1 << 2 = 4   : TouchDragInside（在按钮内拖动）
-// 1 << 3 = 8   : TouchDragOutside（拖出按钮外）
-// 1 << 4 = 16  : TouchDragEnter（拖入按钮内）
-// 1 << 5 = 32  : TouchDragExit（拖出按钮外）
-// 1 << 6 = 64  : TouchUpInside（在按钮内抬起手指）✅ 最常用
-// 1 << 7 = 128 : TouchUpOutside（在按钮外抬起手指）
+// Touch event types in iOS:
+// 1 << 0 = 1 : TouchDown (finger press)
+// 1 << 1 = 2 : TouchDownRepeat (press repeatedly)
+// 1 << 2 = 4 : TouchDragInside (drag inside the button)
+// 1 << 3 = 8 : TouchDragOutside (drag the button outside)
+// 1 << 4 = 16 : TouchDragEnter (drag into the button)
+// 1 << 5 = 32 : TouchDragExit (drag outside the button)
+// 1 << 6 = 64 : TouchUpInside (Lift your finger inside the button) ✅ Most commonly used // 1 << 7 = 128 : TouchUpOutside (Lift your finger outside the button)
 
-// 为什么用 TouchUpInside？
-// - 用户可以按下按钮后改变主意（拖出去再松手就不触发）
-// - 避免误触（必须在按钮内松手才算完成点击）
+// Why use TouchUpInside?
+// - Users can change their minds after pressing the button (this will not trigger if the button is dragged out and then released).
+// - To prevent accidental clicks (the button must be released within its range for a click to be considered complete).
 ```
 
 </details>
 
-#### 2.2.3 点击触发原理深度解析
-
-**完整的点击事件流程**：
+#### 2.2.3 In-depth analysis of click trigger principle **Complete click event flow**:
 
 ```
-用户手指触摸屏幕
-    ↓
-iOS 系统检测到触摸点
-    ↓
-判断触摸点在哪个按钮上
-    ↓
-记录触摸状态变化
-    ↓
-手指抬起时判断是否还在按钮内
-    ↓ （是）
-触发 TouchUpInside 事件
-    ↓
-调用绑定的方法
-```
+User touches the screen with their finger ↓
+iOS system detected a touch point ↓
+Determine which button the touch point is on ↓
+Record touch state changes ↓
+When you lift your finger, check if it's still inside the button ↓ (Yes)
+Trigger the TouchUpInside event ↓
+Call the bound method```
 
-**实际代码实现（webviewController.js 第270-294行）**：
+**Actual code implementation (webviewController.js lines 270-294):**
 
 ```javascript
 customAction: async function (button) {
   let self = getToolbarController();
-  
-  // 1. 确定按钮对应的功能名称
-  let dynamicOrder = toolbarConfig.getWindowState("dynamicOrder");
+
+  // 1. Determine the function name corresponding to the button: let dynamicOrder = toolbarConfig.getWindowState("dynamicOrder");
   let useDynamic = dynamicOrder && self.dynamicWindow;
-  let actionName = button.target ?? (useDynamic 
+  let actionName = button.target ?? (useDynamic
     ? toolbarConfig.dynamicAction[button.index]
     : toolbarConfig.action[button.index]);
-  
-  // 2. 获取该功能的详细配置
-  let des = toolbarConfig.getDescriptionById(actionName);
-  
-  // 3. 处理双击逻辑（如果配置了双击）
+
+  // 2. Get the detailed configuration of this function let des = toolbarConfig.getDescriptionById(actionName);
+
+  // 3. Handle double-click logic (if double-click is configured)
   if ("doubleClick" in des) {
     button.delay = true;
     self.onClick = true;
-    
+
     if (button.doubleClick) {
-      // 这是第二次点击，执行双击动作
-      button.doubleClick = false;
+      // This is the second click, executing the double-click action. button.doubleClick = false;
       let doubleClick = des.doubleClick;
       if (!("action" in doubleClick)) {
         doubleClick.action = des.action;
@@ -436,80 +300,63 @@ customAction: async function (button) {
       self.customActionByDes(button, doubleClick);
       return;
     }
-    // 第一次点击，等待可能的第二次点击
-  }
-  
-  // 4. 执行动作
-  self.customActionByDes(button, des);
+    // First click, waiting for a possible second click}
+
+  // 4. Execute the action: self.customActionByDes(button, des);
 }
 ```
 
-#### 2.2.4 长按手势原理详解
-
-> 💡 **基础理解**：长按就像按住电梯按钮不放。系统会计时，超过设定时间（通常 0.3 秒）就认为是"长按"。
+#### 2.2.4 Detailed Explanation of the Long Press Gesture Principle > 💡 **Basic Understanding**: A long press is like holding down an elevator button. The system times it, and if the set time (usually 0.3 seconds) is exceeded, it is considered a "long press".
 
 <details>
-<summary>🔧 <b>技术细节：手势状态机</b>（点击展开）</summary>
+<summary>🔧 <b>Technical Details: Gesture State Machine</b> (Click to expand)</summary>
 
 ```javascript
-// webviewController.js - addLongPressGesture 方法（第2208-2218行）
+// webviewController.js - addLongPressGesture method (lines 2208-2218)
 toolbarController.prototype.addLongPressGesture = function (view, selector) {
-  // 1. 创建长按手势识别器
-  let gestureRecognizer = new UILongPressGestureRecognizer(this, selector);
-  
-  // 2. 设置长按触发时间（0.3秒）
+  // 1. Create a long-press gesture recognizer let gestureRecognizer = new UILongPressGestureRecognizer(this, selector);
+
+  // 2. Set the long press trigger time (0.3 seconds)
   gestureRecognizer.minimumPressDuration = 0.3;
-  
-  // 3. 将手势识别器添加到视图
-  view.addGestureRecognizer(gestureRecognizer);
+
+  // 3. Add the gesture recognizer to the view: view.addGestureRecognizer(gestureRecognizer);
 }
 
-// 手势识别器的 5 个状态
-gesture.state = {
-  0: "Possible",     // 可能：手势刚开始
-  1: "Began",        // 开始：确认是长按手势（0.3秒后）
-  2: "Changed",      // 改变：手指移动但还在按着
-  3: "Ended",        // 结束：手指抬起
-  4: "Cancelled",    // 取消：手势被中断
-  5: "Failed"        // 失败：不符合手势条件
-}
+// The 5 states of the gesture recognizer gesture.state = {
+  0: "Possible", // Possible: Gesture just started 1: "Began", // Beginning: Confirmed to be a long press gesture (after 0.3 seconds)
+  2: "Changed", // Change: Finger moved but still pressed 3: "Ended", // End: Finger lifted 4: "Cancelled", // Cancel: Gesture interrupted 5: "Failed" // Failure: Gesture conditions not met}
 ```
 
-**手势状态转换图**：
+**Gesture State Transition Diagram**:
 
 ```
-用户按下手指
-    ↓
-[Possible] 状态 0
-    ├─ 立即抬起 → [Failed] 状态 5（不是长按）
-    └─ 继续按住
-        ↓ (0.3秒后)
-    [Began] 状态 1 ← 这时触发长按操作！
-        ├─ 手指移动 → [Changed] 状态 2
-        ├─ 手指抬起 → [Ended] 状态 3
-        └─ 被中断 → [Cancelled] 状态 4
+User presses finger ↓
+[Possible] State 0
+    ├─ Immediately lift → [Failed] Status 5 (not a long press)
+    └─ Continue holding ↓ (after 0.3 seconds)
+    [Began] State 1 ← This triggers a long press action!
+        ├─ Finger movement → [Changed] State 2
+        ├─ Lift finger → [Ended] Status 3
+        └─ Interrupted → [Cancelled] Status 4
 ```
 
 </details>
 
-#### 2.2.5 双击处理机制详解
-
-> 💡 **基础理解**：双击就像敲门——"咚咚"两声要足够快（300毫秒内），太慢就变成两次单独的敲门了。
+#### 2.2.5 Detailed Explanation of Double-Click Processing Mechanism > 💡 **Basic Understanding**: Double-clicking is like knocking on a door—the two "knocks" need to be fast enough (within 300 milliseconds); if it's too slow, it becomes two separate knocks.
 
 <details>
-<summary>🔧 <b>技术细节：双击时序控制</b>（点击展开）</summary>
+<summary>🔧 <b>Technical Details: Double-click Timing Control</b> (Click to expand)</summary>
 
 ```javascript
-// 双击的实现原理：延迟判断
-customAction: function(button) {
+// The implementation principle of double-click: delayed judgment customAction: function(button) {
   let des = toolbarConfig.getDescriptionById(actionName);
-  
+
   if ("doubleClick" in des) {
     button.delay = true;
     self.onClick = true;
-    
+
     if (button.doubleClick) {
-      // ===== 这是第二次点击（双击完成）=====
+      // ===== This is the second click (double-click to complete) =====
       button.doubleClick = false;
       let doubleClick = des.doubleClick;
       if (!("action" in doubleClick)) {
@@ -517,11 +364,11 @@ customAction: function(button) {
       }
       self.customActionByDes(button, doubleClick);
       return;
-      
+
     } else {
-      // ===== 这是第一次点击（可能是双击的开始）=====
+      // ===== This is the first click (possibly the start of a double click) =====
       button.doubleClick = true;
-      
+
       setTimeout(() => {
         if (button.doubleClick) {
           button.doubleClick = false;
@@ -530,146 +377,113 @@ customAction: function(button) {
             button.menu.dismissAnimated(true);
           }
         }
-      }, 300);  // 300毫秒的等待时间
-    }
+      }, 300); // 300 milliseconds of waiting time}
   }
 }
 ```
 
-**双击时序图**：
+**Double-click the timing diagram:**
 
 ```
-场景1：用户单击
-0ms    用户点击按钮
-1ms    button.doubleClick = true
-2ms    设置 setTimeout
-300ms  超时触发，button.doubleClick 仍为 true
-301ms  执行单击动作
-302ms  显示结果
-
-场景2：用户双击
-0ms    用户第一次点击
-1ms    button.doubleClick = true
-2ms    设置 setTimeout
-150ms  用户第二次点击（双击！）
-151ms  检测到 button.doubleClick === true
-152ms  执行双击动作
-153ms  显示结果
-300ms  超时触发，但 button.doubleClick 已为 false，不执行
-```
+Scenario 1: User clicks 0ms; User clicks button 1ms; button.doubleClick = true
+2ms setting setTimeout
+Even after a 300ms timeout, button.doubleClick is still true.
+301ms for click action, 302ms for result display. Scenario 2: User double-click 0ms, first click 1ms. button.doubleClick = true
+2ms setting setTimeout
+150ms User's second click (double-click!)
+151ms Detected button.doubleClick === true
+Double-click action executed in 152ms; result displayed in 153ms; timeout triggered in 300ms, but button.doubleClick is already false, so no action is taken.
 
 </details>
 
-### 2.3 菜单系统原理详解
+### 2.3 Menu System Principles Explained > 💡 **Basic Understanding**: A menu is like a restaurant menu, listing all available options. Clicking on an item is like ordering food; the system will then perform the corresponding action.
 
-> 💡 **基础理解**：菜单就像餐厅的菜单一样，列出所有可选项。点击某一项就像点菜，系统会执行对应的操作。
-
-#### 2.3.1 菜单数据结构详解
-
-<details>
-<summary>📖 <b>JSON基础知识</b></summary>
+#### 2.3.1 Detailed Explanation of Menu Data Structure
+<summary>📖 <b>JSON Basics</b></summary>
 
 ```javascript
-// JSON (JavaScript Object Notation) 是一种数据格式
-// 用大括号 {} 表示对象，方括号 [] 表示数组
-
-// 对象示例：
+// JSON (JavaScript Object Notation) is a data format // Curly braces {} represent objects, and square brackets [] represent arrays // Object example:
 {
-  "键": "值",
-  "数字": 123,
-  "布尔": true,
-  "数组": [1, 2, 3],
-  "嵌套对象": {
-    "子键": "子值"
+  "key": "value",
+  Number: 123
+  Boolean: true,
+  "array": [1, 2, 3],
+  "Nested object": {
+    "Subkey": "Subvalue"
   }
 }
 ```
 
 </details>
 
-**菜单配置的完整结构**：
+**Complete structure of menu configuration**:
 
 ```javascript
 {
-  action: "menu",           // 必需：标识这是一个菜单类型的动作
-  menuWidth: 200,          // 可选：菜单宽度（像素）
-  menuHeight: 300,         // 可选：最大高度
-  autoClose: true,         // 可选：点击后是否自动关闭
-  menuItems: [             // 必需：菜单项数组
-    
-    // 类型1：纯文本分组标题（不可点击）
-    "⬇️ 基础操作",
-    
-    // 类型2：简单菜单项
-    {
+  action: "menu", // Required: Indicates this is a menu type action menuWidth: 200, // Optional: Menu width (pixels)
+  menuHeight: 300, // Optional: Maximum height autoClose: true, // Optional: Whether to close automatically after clicking menuItems: [ // Required: Array of menu items // Type 1: Plain text group titles (not clickable)
+    "⬇️ Basic Operations",
+
+    // Type 2: Simple Menu Items {
       action: "copy",
-      menuTitle: "    复制"     // 4个空格缩进
-    },
-    
-    // 类型3：带参数的菜单项
-    {
+      menuTitle: " Copy" // 4 spaces indentation},
+
+    // Type 3: Menu items with parameters {
       action: "setColor",
-      menuTitle: "    设置颜色",
-      color: 3,                 // 额外参数
-      target: "title"
+      menuTitle: "Set Color",
+      color: 3, // Additional parameter target: "title"
     },
-    
-    // 类型4：子菜单（可以无限嵌套）
+
+    // Type 4: Submenus (can be nested infinitely)
     {
       action: "menu",
-      menuTitle: "    更多选项 ➡️",
+      menuTitle: "More Options➡️",
       menuWidth: 250,
       menuItems: [
         {
           action: "advanced1",
-          menuTitle: "高级选项1"
+          menuTitle: "Advanced Options 1"
         }
       ]
     },
-    
-    // 类型5：分隔线
-    "━━━━━━━━━━",
-    
-    // 类型6：带图标的菜单项
-    {
+
+    // Type 5: Separator "━━━━━━━━━━",
+
+    // Type 6: Menu items with icons {
       action: "delete",
-      menuTitle: "    🗑️ 删除",
-      confirmMessage: "确定删除？"
+      menuTitle: "🗑️ Delete",
+      confirmMessage: "Are you sure you want to delete?"
     }
   ]
 }
 ```
 
-#### 2.3.2 菜单显示流程详解
-
-<details>
-<summary>🔧 <b>技术细节：菜单渲染过程</b>（点击展开）</summary>
+#### 2.3.2 Detailed Explanation of Menu Display Process<details>
+<summary>🔧 <b>Technical Details: Menu Rendering Process</b> (Click to expand)</summary>
 
 ```javascript
-// webviewController.js - customActionByMenu 方法（第296-331行）
+// webviewController.js - customActionByMenu method (lines 296-331)
 customActionByMenu: async function (param) {
   let des = param.des;
   let button = param.button;
-  
-  // 判断是否是子菜单
-  if (des.action === "menu") {
+
+  // Check if it's a submenu if (des.action === "menu") {
     self.onClick = true;
     self.checkPopover();
-    
+
     if (("autoClose" in des) && des.autoClose) {
       self.hideAfterDelay(0.1);
     }
-    
+
     let menuItems = des.menuItems;
     let width = des.menuWidth ?? 200;
-    
+
     if (menuItems.length) {
-      // 1. 转换菜单项为 iOS 需要的格式
-      var commandTable = menuItems.map(item => {
-        let title = (typeof item === "string") 
+      // 1. Convert menu items to the format required by iOS var commandTable = menuItems.map(item => {
+        let title = (typeof item === "string")
           ? item
           : (item.menuTitle ?? item.action);
-        
+
         return {
           title: title,
           object: self,
@@ -677,20 +491,17 @@ customActionByMenu: async function (param) {
           param: {des: item, button: button}
         };
       });
-      
-      // 2. 添加返回按钮
-      commandTable.unshift({
+
+      // 2. Add a back button commandTable.unshift({
         title: toolbarUtils.emojiNumber(self.commandTables.length) + " 🔙",
         object: self,
         selector: 'lastPopover:',
         param: button
       });
-      
-      // 3. 保存菜单栈
-      self.commandTables.push(commandTable);
-      
-      // 4. 创建并显示菜单
-      self.popoverController = MNUtil.getPopoverAndPresent(
+
+      // 3. Save the menu stack: self.commandTables.push(commandTable);
+
+      // 4. Create and display the menu self.popoverController = MNUtil.getPopoverAndPresent(
         button,
         commandTable,
         width,
@@ -699,13 +510,12 @@ customActionByMenu: async function (param) {
     }
     return;
   }
-  
-  // 不是子菜单，执行具体动作
-  if (!(("autoClose" in des) || des.autoClose) {
+
+  // Not a submenu, execute the specific action if (!(("autoClose" in des) || des.autoClose) {
     self.checkPopover();
     self.hideAfterDelay(0.1);
   }
-  
+
   self.commandTables = [];
   self.customActionByDes(button, des);
 }
@@ -713,150 +523,122 @@ customActionByMenu: async function (param) {
 
 </details>
 
-### 2.4 动作处理流程深度剖析
+### 2.4 In-depth Analysis of Action Processing Flow > 💡 **Basic Understanding**: Action processing is like a package sorting center. Each package (user action) has a destination (the function to be performed), and the system delivers the package to the correct processing point based on the address tag (action name).
 
-> 💡 **基础理解**：动作处理就像快递分拣中心。每个包裹（用户操作）都有目的地（要执行的功能），系统根据地址标签（action名称）把包裹送到正确的处理点。
-
-#### 2.4.1 完整的处理链路
-
-```
-用户手指触摸按钮
+#### 2.4.1 Complete Processing Chain```
+User touches button ↓
+iOS system recognizes gesture types: ├─ Tap (TouchUpInside)
+   ├─ Long press (LongPress > 0.3s)
+   Double-click (two clicks < 0.3s)
    ↓
-iOS 系统识别手势类型
-   ├─ 点击 (TouchUpInside)
-   ├─ 长按 (LongPress > 0.3s)
-   └─ 双击 (两次点击 < 0.3s)
-   ↓
-触发对应的处理方法
-   ├─ customAction(button)
+Trigger the corresponding processing method ├─ customAction(button)
    ├─ onLongPressGesture(gesture)
    └─ doubleClick(button)
    ↓
-获取按钮配置信息
-   ├─ button.target（直接指定）
-   └─ toolbarConfig.action[index]（位置索引）
+Get button configuration information ├─ button.target (directly specify)
+   └─ toolbarConfig.action[index] (location index)
    ↓
-查找完整的功能描述
-   toolbarConfig.getDescriptionById(actionName)
+Find the complete feature description using `toolbarConfig.getDescriptionById(actionName)`.
    ↓
-解析 description 对象
-   ├─ action: 动作类型
-   ├─ 参数: target, content, color 等
-   └─ 特殊: doubleClick, onLongPress
+Parsing the description object: ├─ action: Action type ├─ Parameters: target, content, color, etc. └─ Special: doubleClick, onLongPress
    ↓
-执行 customActionByDes
+Execute customActionByDes
    ↓
-根据 action 类型分发
-   ├─ 内置动作 → switch-case 处理
-   └─ 自定义动作 → global.executeCustomAction
+Dispatch based on action type: Built-in actions → switch-case handling → Custom actions → global.executeCustomAction
    ↓
-执行具体功能代码
-   ↓
-反馈结果给用户
-```
+Execute the specific function code ↓
+Feedback results to the user
 
-#### 2.4.2 配置查找机制详解
-
-<details>
-<summary>🔧 <b>技术细节：getDescriptionById实现</b>（点击展开）</summary>
+#### 2.4.2 Detailed Explanation of Configuring the Search Mechanism<details>
+<summary>🔧 <b>Technical Details: Implementation of getDescriptionById</b> (Click to expand)</summary>
 
 ```javascript
-// utils.js - getDescriptionById 方法（第7261-7287行）
+// utils.js - getDescriptionById method (lines 7261-7287)
 static getDescriptionById(actionKey) {
   let desObject = {};
-  
-  // 1. 尝试从 actions 配置中获取
-  if (actionKey in this.actions) {
+
+  // 1. Attempt to retrieve the action key from the actions configuration if (actionKey in this.actions) {
     let action = this.actions[actionKey];
-    
-    // 2. 解析 description
+
+    // 2. Parse the description
     if (action.description) {
       if (typeof action.description === "string") {
-        // 字符串格式，尝试解析为 JSON
+        // String format, attempting to parse into JSON
         if (MNUtil.isValidJSON(action.description)) {
           desObject = JSON.parse(action.description);
         }
       } else {
-        // 已经是对象，直接使用
-        desObject = action.description;
+        // It's already an object, so just use desObject = action.description;
       }
     }
   }
-  
-  // 3. 如果没有找到，使用默认配置
-  if (Object.keys(desObject).length === 0) {
+
+  // 3. If not found, use the default configuration if (Object.keys(desObject).length === 0) {
     let defaultActions = this.getActions();
     if (actionKey in defaultActions) {
       let defaultAction = defaultActions[actionKey];
-      
-      // 特殊处理某些按钮的默认行为
-      switch (actionKey) {
+
+      // Special handling of the default behavior of certain buttons switch (actionKey) {
         case "copy":
           desObject.action = "copy";
-          break;
-        // ... 更多默认配置
-      }
+          break
+        // ... More default configurations}
     }
   }
-  
+
   return desObject;
 }
 ```
 
-**配置优先级**：
+**Configuration Priority**:
 
 ```javascript
-// 优先级从高到低：
-// 1. 用户自定义配置 (toolbarConfig.actions)
-// 2. 按钮默认配置 (getActions() 返回的)
-// 3. 硬编码默认值 (switch-case 中的)
+// Priority from high to low:
+// 1. User-defined configuration (toolbarConfig.actions)
+// 2. Default button configuration (returned by getActions())
+// 3. Hard-coded default values ​​(in switch-case statements)
 ```
 
 </details>
 
-#### 2.4.3 核心处理函数完整实现
-
-```javascript
-// utils.js - customActionByDes 方法（第5379-5963行精简版）
+#### 2.4.3 Complete Implementation of Core Processing Functions ```javascript
+// utils.js - customActionByDes method (simplified version of lines 5379-5963)
 static async customActionByDes(des, button, controller, fromOtherPlugin = false) {
   try {
-    // 1. 获取当前环境
-    let focusNote = fromOtherPlugin 
-      ? des.focusNote 
-      : MNNote.getFocusNote();
-    let notebookid = focusNote 
-      ? focusNote.notebookId 
+    // 1. Get the current environment let focusNote = fromOtherPlugin
+      ? des.focusNote
+      MNNote.getFocusNote();
+    Let notebookid = focusNote
+      ? focusNote.notebookId
       : MNUtil.currentNotebookId;
-    
-    // 2. 准备通用变量
-    let success = true;
+
+    // 2. Prepare a general variable: let success = true;
     let title, content, color, config;
-    
-    // 3. 记录日志（调试用）
-    MNUtil.log(`执行动作: ${des.action}`);
-    
-    // 4. 根据 action 类型执行不同操作
-    switch (des.action) {
-      // ===== 文本操作类 =====
+
+    // 3. Log the message (for debugging)
+    MNUtil.log(`Execution action: ${des.action}`);
+
+    // 4. Perform different operations based on the action type switch (des.action) {
+      // ===== Text Manipulation Classes =====
       case "copy":
         if (des.target || des.content) {
           success = await this.copy(des);
         } else {
           success = this.smartCopy();
         }
-        break;
-        
+        break
+
       case "paste":
         this.paste(des);
         await MNUtil.delay(0.1);
-        break;
-        
-      // ===== 卡片操作类 =====
+        break
+
+      // ===== Card Operation Class =====
       case "switchTitleOrExcerpt":
         this.switchTitleOrExcerpt();
         await MNUtil.delay(0.1);
-        break;
-        
+        break
+
       case "clearFormat":
         let focusNotes = MNNote.getFocusNotes();
         MNUtil.undoGrouping(() => {
@@ -865,29 +647,28 @@ static async customActionByDes(des, button, controller, fromOtherPlugin = false)
           });
         });
         await MNUtil.delay(0.1);
-        break;
-        
+        break
+
       case "setColor":
         MNUtil.undoGrouping(() => {
           focusNotes.forEach(note => {
-            note.colorIndex = des.color;  // 0-15
+            note.colorIndex = des.color; // 0-15
           });
         });
-        MNUtil.showHUD(`颜色设置为 ${des.color}`);
-        break;
-        
-      // ===== 菜单类 =====
+        MNUtil.showHUD(`color set to ${des.color}`);
+        break
+
+      // ===== Menu Category =====
       case "menu":
         controller.customActionByMenu({
           des: des,
           button: button
         });
-        break;
-        
-      // ===== 扩展动作 =====
+        break
+
+      // ===== Extended Actions =====
       default:
-        // 检查是否是自定义动作
-        if (typeof global !== 'undefined' && global.executeCustomAction) {
+        // Check if it's a custom action if (typeof global !== 'undefined' && global.executeCustomAction) {
           const context = {
             button: button,
             des: des,
@@ -895,32 +676,31 @@ static async customActionByDes(des, button, controller, fromOtherPlugin = false)
             focusNotes: MNNote.getFocusNotes(),
             self: controller
           };
-          
+
           const handled = await global.executeCustomAction(des.action, context);
-          
+
           if (handled) {
-            break;
+            break
           }
         }
-        
+
         MNUtil.showHUD("Not supported yet: " + des.action);
-        break;
+        break
     }
-    
-    // 5. 后续处理
-    while ("onFinish" in des) {
+
+    // 5. Post-processing while ("onFinish" in des) {
       des = des.onFinish;
       let delay = des.delay ?? 0.1;
       await MNUtil.delay(delay);
-      
+
       await this.customActionByDes(des, button, controller, false);
     }
-    
-    return success;
-    
+
+    Return success;
+
   } catch (error) {
     toolbarUtils.addErrorLog(error, "customActionByDes");
-    MNUtil.showHUD(`错误: ${error.message}`);
+    MNUtil.showHUD(`Error: ${error.message}`);
     return false;
   }
 }
@@ -928,145 +708,121 @@ static async customActionByDes(des, button, controller, fromOtherPlugin = false)
 
 ---
 
-## 第三部分：实战开发（60分钟）
+## Part Three: Hands-on Development (60 minutes)
 
-### 学习目标
-- ✅ 开发3个实用功能
-- ✅ 掌握调试技巧
-- ✅ 学会用户交互模式
-- ✅ 处理常见问题
-
-### 3.1 三个实用功能开发
-
-#### 功能一：智能时间戳
-
-> 需求：点击添加时间戳，长按显示更多选项
-
-**步骤1：注册按钮**（xdyy_button_registry.js）
+### Learning Objectives - ✅ Develop 3 practical functions - ✅ Master debugging techniques - ✅ Learn user interaction patterns - ✅ Handle common problems ### 3.1 Develop Three Practical Functions #### Function 1: Smart Timestamp > Requirement: Click to add a timestamp, long press to display more options **Step 1: Register Button** (xdyy_button_registry.js)
 
 ```javascript
 global.registerButton("custom17", {
-  name: "时间戳",
+  name: "timestamp"
   image: "custom17",
   templateName: "menu_timestamp"
 });
 ```
 
-**步骤2：定义菜单**（xdyy_menu_registry.js）
+**Step 2: Define the menu** (xdyy_menu_registry.js)
 
 ```javascript
 global.registerMenuTemplate("menu_timestamp", {
-  action: "addTimestamp",      // 默认：点击动作
-  onLongPress: {               // 长按：显示菜单
-    action: "menu",
+  action: "addTimestamp", // Default: Click action onLongPress: { // Long press: Show menu action: "menu",
     menuWidth: 200,
     menuItems: [
       {
         action: "addTimestamp",
-        menuTitle: "添加到标题"
+        menuTitle: "Add to Title"
       },
       {
         action: "addTimestampComment",
-        menuTitle: "添加为评论"
+        menuTitle: "Add as Comment"
       },
       {
         action: "copyTimestamp",
-        menuTitle: "复制时间戳"
+        menuTitle: "Copy Timestamp"
       }
     ]
   }
 });
 ```
 
-**步骤3：实现功能**（xdyy_custom_actions_registry.js）
+**Step 3: Implement the functionality** (xdyy_custom_actions_registry.js)
 
 ```javascript
-// 添加到标题
-global.registerCustomAction("addTimestamp", async function(context) {
+// Add to header global.registerCustomAction("addTimestamp", async function(context) {
   const focusNote = MNNote.getFocusNote();
-  
+
   if (!focusNote) {
-    MNUtil.showHUD("❌ 请先选择卡片");
+    MNUtil.showHUD("❌ Please select a card first");
     return;
   }
-  
+
   MNUtil.undoGrouping(() => {
     const timestamp = new Date().toLocaleString('zh-CN');
-    
+
     if (focusNote.noteTitle) {
       focusNote.noteTitle = `${focusNote.noteTitle} [${timestamp}]`;
     } else {
       focusNote.noteTitle = timestamp;
     }
-    
-    MNUtil.showHUD("✅ 时间戳已添加");
+
+    MNUtil.showHUD("✅ Timestamp added");
   });
 });
 
-// 添加为评论
-global.registerCustomAction("addTimestampComment", async function(context) {
+// Add as a comment global.registerCustomAction("addTimestampComment", async function(context) {
   const focusNote = MNNote.getFocusNote();
-  
+
   if (!focusNote) {
-    MNUtil.showHUD("❌ 请先选择卡片");
+    MNUtil.showHUD("❌ Please select a card first");
     return;
   }
-  
+
   MNUtil.undoGrouping(() => {
     const timestamp = new Date().toLocaleString('zh-CN');
     focusNote.appendComment(`📅 ${timestamp}`);
-    MNUtil.showHUD("✅ 时间戳已添加为评论");
+    MNUtil.showHUD("✅ Timestamp has been added as a comment");
   });
 });
 
-// 复制时间戳
-global.registerCustomAction("copyTimestamp", async function(context) {
+// Copy timestamp global.registerCustomAction("copyTimestamp", async function(context) {
   const timestamp = new Date().toLocaleString('zh-CN');
   MNUtil.copy(timestamp);
-  MNUtil.showHUD(`✅ 已复制: ${timestamp}`);
+  MNUtil.showHUD(`✅ Copy: ${timestamp}`);
 });
 ```
 
-#### 功能二：批量标签
-
-> 需求：为选中的多个卡片批量添加标签
-
-```javascript
-// 批量添加标签
-global.registerCustomAction("batchAddTag", async function(context) {
+#### Function 2: Batch Labeling > Requirement: Add labels to multiple selected cards in batches.
+// Batch add tags global.registerCustomAction("batchAddTag", async function(context) {
   const focusNotes = MNNote.getFocusNotes();
-  
+
   if (!focusNotes || focusNotes.length === 0) {
-    MNUtil.showHUD("❌ 请先选择卡片");
+    MNUtil.showHUD("❌ Please select a card first");
     return;
   }
-  
-  // 显示输入框
-  UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-    "批量添加标签",
-    `将为 ${focusNotes.length} 个卡片添加标签`,
-    2,  // 输入框样式
-    "取消",
-    ["添加"],
+
+  // Show input fields UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+    "Batch add tags"
+    This will add labels to ${focusNotes.length} cards.
+    2, // Input box style "Cancel",
+    ["Add to"],
     (alert, buttonIndex) => {
       if (buttonIndex === 1) {
         const tagName = alert.textFieldAtIndex(0).text;
-        
+
         if (tagName && tagName.trim()) {
           MNUtil.undoGrouping(() => {
             let count = 0;
-            
+
             focusNotes.forEach(note => {
               if (!note.tags.includes(tagName)) {
                 note.appendTags([tagName.trim()]);
                 count++;
               }
             });
-            
-            MNUtil.showHUD(`✅ 已为 ${count} 个卡片添加标签 #${tagName}`);
+
+            MNUtil.showHUD(`✅ Tags #${tagName} have been added to ${count} cards`);
           });
         } else {
-          MNUtil.showHUD("❌ 标签名不能为空");
+          MNUtil.showHUD("❌ Tag name cannot be empty");
         }
       }
     }
@@ -1074,269 +830,199 @@ global.registerCustomAction("batchAddTag", async function(context) {
 });
 ```
 
-#### 功能三：快速模板
-
-> 需求：点击应用预设模板，为卡片设置统一格式
-
-```javascript
-// 学术笔记模板
-global.registerCustomAction("applyAcademicTemplate", async function(context) {
+#### Function 3: Quick Templates > Requirement: Click to apply a preset template and set a uniform format for the cards.
+// Academic Notes Template global.registerCustomAction("applyAcademicTemplate", async function(context) {
   const focusNote = MNNote.getFocusNote();
-  
+
   if (!focusNote) {
-    MNUtil.showHUD("❌ 请先选择卡片");
+    MNUtil.showHUD("❌ Please select a card first");
     return;
   }
-  
+
   MNUtil.undoGrouping(() => {
-    // 添加前缀
-    if (!focusNote.noteTitle) {
-      focusNote.noteTitle = "【学术】";
-    } else if (!focusNote.noteTitle.startsWith("【学术】")) {
-      focusNote.noteTitle = "【学术】" + focusNote.noteTitle;
+    // Add the prefix if (!focusNote.noteTitle) {
+      focusNote.noteTitle = "【Academic】";
+    } else if (!focusNote.noteTitle.startsWith("[Academic]")) {
+      focusNote.noteTitle = "【Academic】" + focusNote.noteTitle;
     }
-    
-    // 设置颜色（黄色）
+
+    // Set the color (yellow)
     focusNote.colorIndex = 3;
-    
-    // 添加标签
-    focusNote.appendTags(["学术", "待整理"]);
-    
-    // 添加时间戳评论
-    const timestamp = new Date().toLocaleString('zh-CN');
-    focusNote.appendComment(`📚 学术笔记 - ${timestamp}`);
-    
-    MNUtil.showHUD("✅ 已应用学术笔记模板");
+
+    // Add tags focusNote.appendTags(["Academic", "To be organized"]);
+
+    // Add timestamp comment const timestamp = new Date().toLocaleString('zh-CN');
+    focusNote.appendComment(`📚 Academic Notes - ${timestamp}`);
+
+    MNUtil.showHUD("✅ Academic Notes Template Applied");
   });
 });
 ```
 
-### 3.2 调试技巧
+### 3.2 Debugging Techniques #### 3.2.1 Log Output ```javascript
+// Basic logging MNUtil.log("🔍 Debugging: Entering function");
+MNUtil.log("📦 Variable value: " + variable);
+MNUtil.log("✅ Execution successful");
 
-#### 3.2.1 日志输出
+// Object debugging MNUtil.copyJSON(complexObject); // Copy to clipboard for viewing MNUtil.showHUD("Object has been copied to clipboard");
 
-```javascript
-// 基础日志
-MNUtil.log("🔍 调试: 进入函数");
-MNUtil.log("📦 变量值: " + variable);
-MNUtil.log("✅ 执行成功");
-
-// 对象调试
-MNUtil.copyJSON(complexObject);  // 复制到剪贴板查看
-MNUtil.showHUD("对象已复制到剪贴板");
-
-// 条件日志
-const DEBUG = true;
+// Conditional logging const DEBUG = true;
 if (DEBUG) {
-  MNUtil.log("调试信息");
+  MNUtil.log("Debugging information");
 }
 ```
 
-#### 3.2.2 错误处理
-
-```javascript
+#### 3.2.2 Error Handling ```javascript
 global.registerCustomAction("safeAction", async function(context) {
   try {
-    MNUtil.log("🚀 开始执行");
-    
+    MNUtil.log("🚀 Start execution");
+
     const focusNote = MNNote.getFocusNote();
     if (!focusNote) {
-      throw new Error("没有选中卡片");
+      throw new Error("No card selected");
     }
-    
-    // 处理逻辑
-    focusNote.noteTitle = "已处理";
-    MNUtil.showHUD("✅ 成功");
-    
+
+    // Processing logic focusNote.noteTitle = "Processed";
+    MNUtil.showHUD("✅ Success");
+
   } catch (error) {
-    MNUtil.showHUD("❌ 错误: " + error.message);
-    MNUtil.log("错误详情: " + error);
+    MNUtil.showHUD("❌ Error: " + error.message);
+    MNUtil.log("Error details: " + error);
   }
 });
 ```
 
-#### 3.2.3 性能监控
-
-```javascript
+#### 3.2.3 Performance Monitoring ```javascript
 global.registerCustomAction("timedAction", async function(context) {
   const startTime = Date.now();
-  
-  // 执行操作
-  await heavyOperation();
-  
+
+  // Execute the operation await heavyOperation();
+
   const elapsed = Date.now() - startTime;
-  MNUtil.log(`执行时间: ${elapsed}ms`);
-  
+  MNUtil.log(`Execution time: ${elapsed}ms`);
+
   if (elapsed > 1000) {
-    MNUtil.log("⚠️ 性能警告: 操作耗时超过 1 秒");
+    MNUtil.log("⚠️ Performance Warning: Operation took more than 1 second");
   }
 });
 ```
 
-### 3.3 用户交互模式
-
-#### 3.3.1 输入框交互
-
-```javascript
+### 3.3 User Interaction Modes #### 3.3.1 Input Box Interaction ```javascript
 global.registerCustomAction("renameNote", async function(context) {
   const focusNote = MNNote.getFocusNote();
-  
+
   if (!focusNote) {
-    MNUtil.showHUD("❌ 请先选择卡片");
+    MNUtil.showHUD("❌ Please select a card first");
     return;
   }
-  
-  // 显示输入框
-  UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-    "重命名卡片",
-    "请输入新的标题:",
-    2,  // UIAlertViewStylePlainTextInput
-    "取消",
-    ["确定"],
+
+  // Show input fields UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+    "Rename Card"
+    Please enter a new title:
+    2, // UIAlertViewStylePlainTextInput
+    "Cancel",
+    ["Sure"],
     (alert, buttonIndex) => {
-      if (buttonIndex === 1) {  // 点击确定
-        const newTitle = alert.textFieldAtIndex(0).text;
-        
+      if (buttonIndex === 1) { // Click OK const newTitle = alert.textFieldAtIndex(0).text;
+
         if (newTitle && newTitle.trim()) {
           MNUtil.undoGrouping(() => {
             focusNote.noteTitle = newTitle.trim();
-            MNUtil.showHUD("✅ 重命名成功");
+            MNUtil.showHUD("✅ Rename successful");
           });
         }
       }
     }
   );
-  
-  // 设置默认值
-  let alert = UIAlertView.lastAlert;
+
+  // Set the default value let alert = UIAlertView.lastAlert;
   alert.textFieldAtIndex(0).text = focusNote.noteTitle || "";
 });
 ```
 
-#### 3.3.2 进度反馈
-
-```javascript
+#### 3.3.2 Progress Feedback ```javascript
 global.registerCustomAction("batchProcess", async function(context) {
   const focusNotes = MNNote.getFocusNotes();
-  
+
   if (!focusNotes || focusNotes.length === 0) {
-    MNUtil.showHUD("❌ 请先选择卡片");
+    MNUtil.showHUD("❌ Please select a card first");
     return;
   }
-  
+
   const total = focusNotes.length;
   let processed = 0;
-  
-  MNUtil.showHUD(`⏳ 开始处理 ${total} 个卡片...`);
-  
+
+  MNUtil.showHUD(`⏳ Start processing ${total} cards...`);
+
   for (const note of focusNotes) {
-    // 处理每个卡片
-    await processNote(note);
-    
+    // Process each card await processNote(note);
+
     processed++;
-    
-    // 更新进度（每处理 10% 显示一次）
+
+    // Update progress (displayed every 10% processed)
     if (processed % Math.ceil(total / 10) === 0 || processed === total) {
       const percent = Math.round((processed / total) * 100);
-      MNUtil.showHUD(`⏳ 处理进度: ${percent}% (${processed}/${total})`);
+      MNUtil.showHUD(`⏳ Processing progress: ${percent}% (${processed}/${total})`);
     }
-    
-    // 避免阻塞 UI
+
+    // Avoid blocking the UI
     if (processed % 10 === 0) {
       await MNUtil.delay(0.01);
     }
   }
-  
-  MNUtil.showHUD(`✅ 完成！共处理 ${total} 个卡片`);
+
+  MNUtil.showHUD(`✅ Done! Processed ${total} cards`);
 });
 ```
 
 ---
 
-## 第四部分：补丁架构设计（30分钟）
+## Part Four: Patch Architecture Design (30 minutes)
 
-### 学习目标
-- ✅ 理解为什么需要补丁架构
-- ✅ 掌握注册表模式
-- ✅ 理解四层架构设计
-- ✅ 掌握配置融合机制
-
-### 4.1 为什么需要补丁架构
-
-#### 4.1.1 传统方式的问题
-
-在官方版本中添加功能需要直接修改核心文件：
+### Learning Objectives - ✅ Understand why a patch architecture is needed - ✅ Master the registry model - ✅ Understand the four-tier architecture design - ✅ Master the configuration fusion mechanism ### 4.1 Why a Patch Architecture is Needed #### 4.1.1 Problems with Traditional Methods Adding features to the official version requires directly modifying core files:
 
 ```javascript
-// ❌ 传统方式 - 直接修改 utils.js
+// ❌ Traditional method - directly modify utils.js
 toolbarConfig.actions = {
   "action1": {...},
   "action2": {...},
-  "myAction": {...}  // 添加自定义动作 - 污染原始代码
-};
+  "myAction": {...} // Add custom action - pollutes the original code};
 
-// ❌ 传统方式 - 修改 switch-case
+// ❌ Traditional method - modify switch-case
 switch(action) {
   case "copy": ...
-  case "myAction":     // 添加 case - 难以维护
-    // 我的处理逻辑
-    break;
+  case "myAction": // Add a case - difficult to maintain // My processing logic break;
 }
 ```
 
-**问题**：
-- **版本升级困难**：官方更新后需要重新修改
-- **代码冲突**：多人开发容易产生冲突
-- **维护困难**：自定义代码和官方代码混杂
-- **调试困难**：难以区分问题来源
-
-#### 4.1.2 补丁架构的优势
-
-```javascript
-// ✅ 补丁方式 - 独立文件扩展
-// xdyy_custom_actions_registry.js
+**question**:
+- **Difficult version upgrades:** Requires modification after official updates. - **Code conflicts:** Conflicts are prone to occur during multi-person development. - **Maintenance difficulties:** Custom and official code are mixed together. - **Debugging difficulties:** Difficulty in distinguishing the source of problems. #### 4.1.2 Advantages of Patch Architecture```javascript
+// ✅ Patch Method - Standalone File Extension // xdyy_custom_actions_registry.js
 global.registerCustomAction("myAction", async function(context) {
-  // 我的处理逻辑 - 完全独立
-});
+  // My processing logic - completely independent});
 ```
 
-**优势**：
-- **零侵入**：不修改任何官方文件
-- **易升级**：官方更新不影响自定义功能
-- **模块化**：功能独立，易于管理
-- **可插拔**：随时启用/禁用功能
-
-### 4.2 注册表模式设计
-
-#### 4.2.1 核心思想
-
-使用全局注册表存储自定义配置，主程序通过标准接口访问：
+**Advantages**:
+- **Zero Intrusion**: No modification to any official files. - **Easy Upgrade**: Official updates do not affect custom functions. - **Modular**: Functions are independent and easy to manage. - **Pluggable**: Functions can be enabled/disabled at any time. ### 4.2 Registry Mode Design #### 4.2.1 Core Idea: Use a global registry to store custom configurations, which the main program accesses through a standard interface.
 
 ```javascript
-// 注册表结构
-global = {
-  customButtons: {           // 按钮注册表
-    "button1": {...},
+// Registry structure global = {
+  customButtons: { // Button registry "button1": {...},
     "button2": {...}
   },
-  customMenuTemplates: {     // 菜单注册表
-    "menu1": {...},
+  customMenuTemplates: { // Menu registry "menu1": {...},
     "menu2": {...}
   },
-  customActions: {           // 动作注册表
-    "action1": function() {...},
+  customActions: { // Action registry "action1": function() {...},
     "action2": function() {...}
   }
 }
 ```
 
-#### 4.2.2 注册机制
-
-```javascript
-// 注册接口 - 简单直观
-global.registerButton("myButton", {
-  name: "我的按钮",
-  image: "myicon",
+#### 4.2.2 Registration Mechanism```javascript
+// Registration Interface - Simple and Intuitive global.registerButton("myButton", {
+  name: "My Button"
+  image: "myicon"
   templateName: "myMenu"
 });
 
@@ -1345,239 +1031,176 @@ global.registerMenuTemplate("myMenu", {
 });
 
 global.registerCustomAction("myAction", async function(context) {
-  // 处理逻辑
-});
+  // Processing logic});
 ```
 
-#### 4.2.3 查找机制
-
-```javascript
-// 主程序查找自定义内容
-if (global.customActions[actionName]) {
-  // 执行自定义动作
-  global.executeCustomAction(actionName, context);
+#### 4.2.3 Search Mechanism```javascript
+// Main program searches for custom content if (global.customActions[actionName]) {
+  // Execute a custom action: global.executeCustomAction(actionName, context);
 } else {
-  // 执行内置动作
-  this.executeBuiltinAction(actionName);
+  // Execute the built-in action this.executeBuiltinAction(actionName);
 }
 ```
 
-### 4.3 四层架构解析
-
-#### 架构分层图
-
-```
-┌──────────────────────────────────────┐
-│  Layer 1: 按钮配置层                 │
-│  xdyy_button_registry.js             │
-│  - 定义按钮外观和关联                │
+### 4.3 Four-Layer Architecture Analysis #### Architecture Layer Diagram```
+┌────────────────────────────────────┐
+Layer 1: Button Configuration Layer
+│ xdyy_button_registry.js │
+│ - Define button appearance and association │
+└──────────────┬─────────────────────┘
+               │
+┌──────────────▼─────────────────────┐
+Layer 2: Menu Template Layer
+│ xdyy_menu_registry.js │
+│ - Define menu structure and hierarchy │
 └──────────────┬───────────────────────┘
                │
-┌──────────────▼───────────────────────┐
-│  Layer 2: 菜单模板层                 │
-│  xdyy_menu_registry.js               │
-│  - 定义菜单结构和层级                │
-└──────────────┬───────────────────────┘
+┌──────────────▼─────────────────────┐
+Layer 3: Motion Processing Layer
+│ xdyy_custom_actions_registry.js │
+│ - Implement specific functional logic │
+└──────────────┬─────────────────────┘
                │
-┌──────────────▼───────────────────────┐
-│  Layer 3: 动作处理层                 │
-│  xdyy_custom_actions_registry.js     │
-│  - 实现具体功能逻辑                  │
-└──────────────┬───────────────────────┘
-               │
-┌──────────────▼───────────────────────┐
-│  Layer 4: 工具扩展层                 │
-│  xdyy_utils_extensions.js            │
-│  - 扩展工具函数和配置                │
-└──────────────────────────────────────┘
+┌──────────────▼─────────────────────┐
+Layer 4: Tool Extension Layer
+│ xdyy_utils_extensions.js │
+│ - Extended utility functions and configuration │
+└────────────────────────────────────┘
 ```
 
-#### 各层职责
-
-**Layer 1 - 按钮配置层**：
+#### Responsibilities of Each Layer **Layer 1 - Button Configuration Layer**:
 ```javascript
-// 职责：定义按钮的视觉和行为
-global.registerButton("custom15", {
-  name: "制卡",              // 显示名称
-  image: "makeCards",        // 图标文件
-  templateName: "menu_makeCards"  // 关联的菜单模板
-});
+// Responsibilities: Define the button's visuals and behavior. global.registerButton("custom15", {
+  name: "makeCards", // Display name image: "makeCards", // Icon file templateName: "menu_makeCards" // Associated menu template});
 ```
 
-**Layer 2 - 菜单模板层**：
+**Layer 2 - Menu Template Layer**:
 ```javascript
-// 职责：定义交互结构
-global.registerMenuTemplate("menu_makeCards", {
-  action: "makeCards",       // 默认动作
-  onLongPress: {            // 长按菜单
-    action: "menu",
+// Responsibility: Define the interaction structure global.registerMenuTemplate("menu_makeCards", {
+  action: "makeCards", // Default action onLongPress: { // Long press menu action: "menu",
     menuItems: [
-      {action: "quickMake", menuTitle: "快速制卡"},
-      {action: "batchMake", menuTitle: "批量制卡"}
+      {action: "quickMake", menuTitle: "Quick Card Making"},
+      {action: "batchMake", menuTitle: "Batch Card Production"}
     ]
   }
 });
 ```
 
-**Layer 3 - 动作处理层**：
+**Layer 3 - Action Processing Layer**:
 ```javascript
-// 职责：实现业务逻辑
-global.registerCustomAction("makeCards", async function(context) {
+// Responsibility: Implement business logic global.registerCustomAction("makeCards", async function(context) {
   const {focusNote, focusNotes} = context;
-  
+
   MNUtil.undoGrouping(() => {
-    // 具体的制卡逻辑
-    focusNotes.forEach(note => {
-      // 处理每个卡片
-    });
+    // The specific card-making logic focusNotes.forEach(note => {
+      // Process each card});
   });
 });
 ```
 
-**Layer 4 - 工具扩展层**：
+**Layer 4 - Tool Extension Layer**:
 ```javascript
-// 职责：提供通用能力
-toolbarUtils.makeCard = function(note, options) {
-  // 通用的制卡函数
-  // 可被多个动作复用
-};
+// Responsibility: Provide general functionality. toolbarUtils.makeCard = function(note, options) {
+  // General card creation function // Can be reused by multiple actions};
 ```
 
-### 4.4 配置融合机制（核心原理）
+### 4.4 Configuring the Fusion Mechanism (Core Principles)
 
-> 🔧 **技术深度**：这是整个补丁架构的核心，让自定义按钮与官方按钮无缝融合
+> 🔧 **Technical Depth**: This is the core of the entire patch architecture, enabling seamless integration of custom buttons and official buttons. #### 4.4.1 Integration Principle The integration of custom buttons and official buttons is achieved by **overriding the `getActions` method**:
 
-#### 4.4.1 融合原理
-
-自定义按钮与官方按钮的融合是通过**重写 `getActions` 方法**实现的：
-
-**步骤1：保存原始方法**
+**Step 1: Save the original method**
 ```javascript
 // xdyy_button_registry.js
-// 首先保存官方的 getActions 方法，避免丢失原始逻辑
-if (!toolbarConfig._originalGetActions) {
+// First, save the official getActions method to avoid losing the original logic if (!toolbarConfig._originalGetActions) {
   toolbarConfig._originalGetActions = toolbarConfig.getActions;
 }
 ```
 
-**步骤2：重写 getActions 方法**
+**Step 2: Override the getActions method**
 ```javascript
-// 重写 getActions，这个方法会被 setToolbarButton 调用
-toolbarConfig.getActions = function() {
-  // 1. 调用原始方法，获取官方定义的所有按钮
-  const defaultActions = toolbarConfig._originalGetActions 
-    ? toolbarConfig._originalGetActions.call(this) 
+// Override getActions, this method will be called by setToolbarButton. toolbarConfig.getActions = function() {
+  // 1. Call the original method to get all the buttons defined by the official documentation. const defaultActions = toolbarConfig._originalGetActions
+    ? toolbarConfig._originalGetActions.call(this)
     : {};
-  
-  // defaultActions 现在包含：
+
+  // defaultActions now includes:
   // {
-  //   "copy": {name:"Copy", image:"copy", description:{...}},
-  //   "timer": {name:"Timer", image:"timer", description:{...}},
-  //   "custom1": {name:"Custom 1", image:"custom1", description:{...}},
-  //   "custom2": {name:"Custom 2", image:"custom2", description:{...}},
-  //   ... // 所有官方按钮
-  // }
-  
-  // 2. 如果没有自定义按钮，直接返回官方按钮
-  if (Object.keys(global.customButtons).length === 0) {
+  // "copy": {name:"Copy", image:"copy", description:{...}},
+  // "timer": {name:"Timer", image:"timer", description:{...}},
+  // "custom1": {name:"Custom 1", image:"custom1", description:{...}},
+  // "custom2": {name:"Custom 2", image:"custom2", description:{...}},
+  // ... // All official buttons // }
+
+  // 2. If no custom button is specified, return the official button directly. if (Object.keys(global.customButtons).length === 0) {
     return defaultActions;
   }
-  
-  // 3. 创建新的按钮集合对象
-  const allActions = {};
-  
-  // 4. 【关键】先添加所有自定义按钮
-  // 这会覆盖同名的官方 custom 按钮
-  for (const key in global.customButtons) {
+
+  // 3. Create a new collection of buttons object const allActions = {};
+
+  // 4. 【Crucial】First add all custom buttons // This will override the official custom button with the same name for (const key in global.customButtons) {
     const button = Object.assign({}, global.customButtons[key]);
-    
-    // 5. 处理 templateName -> description 的转换
-    if (button.templateName && !button.description && toolbarConfig.template) {
+
+    // 5. Handle the conversion between templateName and description: if (button.templateName && !button.description && toolbarConfig.template) {
       button.description = toolbarConfig.template(button.templateName);
     }
-    
-    // 6. 清理临时属性
-    delete button.templateName;
-    
-    // 7. 添加到最终集合（会覆盖同名官方按钮）
+
+    // 6. Clean up the temporary property: delete button.templateName;
+
+    // 7. Add to the final collection (this will override the official button with the same name)
     allActions[key] = button;
   }
-  
-  // 8. 添加非 custom 的官方按钮（保留官方的核心功能按钮）
+
+  // 8. Add non-custom official buttons (retain the core official function buttons)
   for (const key in defaultActions) {
-    // 只添加：
-    // - 不是 custom 开头的按钮（如 copy, timer, undo 等）
-    // - 且没有被自定义按钮覆盖的
-    if (!key.startsWith('custom') && !(key in allActions)) {
+    // Add only:
+    // - Buttons that do not start with "custom" (such as copy, timer, undo, etc.)
+    // - and not covered by a custom button if (!key.startsWith('custom') && !(key in allActions)) {
       allActions[key] = defaultActions[key];
     }
   }
-  
+
   return allActions;
 };
 ```
 
-#### 4.4.2 调用链分析
-
-```
-用户打开工具栏
-    ↓
+#### 4.4.2 Call Chain Analysis```
+User opens toolbar ↓
 webviewController.viewDidLoad()
     ↓
 this.setToolbarButton(toolbarConfig.action)
     ↓
-let actions = toolbarConfig.actions  // getter 触发
-    ↓
-toolbarConfig.getActions()  // 调用重写的方法
-    ↓
-返回融合后的按钮配置
-    ↓
-创建实际的 UIButton 实例
-```
+let actions = toolbarConfig.actions // getter trigger↓
+toolbarConfig.getActions() // Call the overridden method ↓
+Return to the merged button configuration ↓
+Create an actual UIButton instance.
 
-#### 4.4.3 完整流程图
-
-```
-┌─────────────────────────────────────────────────┐
-│         官方 utils.js 中的 getActions()         │
-│  返回所有官方按钮包括 custom1-19                │
-└─────────────────┬───────────────────────────────┘
+#### 4.4.3 Complete Flowchart```
+┌─────────────────────────────────────────────┐
+│ getActions() in the official utils.js │
+│ Return to all official buttons including custom1-19 │
+└─────────────────┬─────────────────────────────┘
                   │
-                  ▼ 被保存为 _originalGetActions
-┌─────────────────────────────────────────────────┐
-│    xdyy_button_registry.js 重写 getActions()    │
-│  1. 调用 _originalGetActions 获取官方按钮       │
-│  2. 用自定义按钮覆盖 custom 按钮                │
-│  3. 保留官方的功能按钮（copy, timer 等）        │
-└─────────────────┬───────────────────────────────┘
+                  ▼ Saved as _originalGetActions
+┌─────────────────────────────────────────────┐
+│ xdyy_button_registry.js rewrites getActions() │
+│ 1. Call _originalGetActions to retrieve the official button │
+│ 2. Override the custom button with a custom button │
+│ 3. Retain official function buttons (copy, timer, etc.) │
+└─────────────────┬─────────────────────────────┘
                   │
-                  ▼ 返回融合后的配置
-┌─────────────────────────────────────────────────┐
-│         webviewController.js 使用按钮           │
-│  根据返回的配置创建实际的按钮 UI                │
-└─────────────────────────────────────────────────┘
+                  ▼ Return to the merged configuration ┌───────────────────────────────────────────────┐
+│ Using buttons in webviewController.js │
+| Create the actual button UI based on the returned configuration |
+└─────────────────────────────────────────────┘
 ```
 
-#### 4.4.4 为什么这样设计？
+#### 4.4.4 Why is it designed this way?
 
-1. **无侵入性**：不修改官方的 `getActions` 实现，只是包装它
-2. **向后兼容**：如果官方更新了按钮，自动继承新功能
-3. **灵活性**：可以选择性覆盖，不影响官方核心功能
-4. **可恢复**：通过 `_originalGetActions` 可以随时恢复原始行为
+1. **Non-intrusive:** Does not modify the official `getActions` implementation; simply wraps it. 2. **Backward Compatibility:** Automatically inherits new functionality if the official button is updated. 3. **Flexibility:** Can selectively override without affecting the core functionality of the official implementation. 4. **Recoverable:** The original behavior can be restored at any time via `_originalGetActions`.
 
----
+## Part 5: Advanced and Expanded (30 minutes)
 
-## 第五部分：进阶与扩展（30分钟）
-
-### 学习目标
-- ✅ 掌握多级菜单设计
-- ✅ 学会高级交互模式
-- ✅ 掌握最佳实践
-- ✅ 优化性能
-
-### 5.1 多级菜单设计
-
-创建复杂的菜单结构：
+### Learning Objectives - ✅ Master multi-level menu design - ✅ Learn advanced interaction patterns - ✅ Master best practices - ✅ Optimize performance ### 5.1 Multi-level Menu Design Creating complex menu structures:
 
 ```javascript
 // xdyy_menu_registry.js
@@ -1585,28 +1208,25 @@ global.registerMenuTemplate("menu_advanced", {
   action: "menu",
   menuWidth: 300,
   menuItems: [
-    "⬇️ 基础操作",  // 分组标题
-    {
+    "⬇️ Basic Operations", // Group Title {
       action: "basicAction1",
-      menuTitle: "    操作1"  // 4个空格缩进
-    },
+      menuTitle: "Operation 1" // 4 spaces indentation},
     {
       action: "basicAction2",
-      menuTitle: "    操作2"
+      menuTitle: "Operation 2"
     },
-    
-    "⬇️ 高级功能",
+
+    "⬇️ Advanced Features",
     {
-      action: "menu",  // 子菜单
-      menuTitle: "    更多选项 ➡️",
+      action: "menu", // Submenu menuTitle: "More Options➡️",
       menuItems: [
         {
           action: "subAction1",
-          menuTitle: "子功能1"
+          menuTitle: "Sub-function 1"
         },
         {
           action: "subAction2",
-          menuTitle: "子功能2"
+          menuTitle: "Sub-function 2"
         }
       ]
     }
@@ -1614,50 +1234,39 @@ global.registerMenuTemplate("menu_advanced", {
 });
 ```
 
-### 5.2 高级交互模式
-
-#### 5.2.1 长按和双击配置
-
-```javascript
+### 5.2 Advanced Interaction Modes #### 5.2.1 Long Press and Double Tap Configuration ```javascript
 global.registerMenuTemplate("menu_interactive", {
-  action: "defaultAction",           // 默认点击动作
-  doubleClick: {                    // 双击动作
-    action: "doubleClickAction"
+  action: "defaultAction", // Default click action doubleClick: { // Double-click action action: "doubleClickAction"
   },
-  onLongPress: {                    // 长按菜单
-    action: "menu",
+  onLongPress: { // Long press menu action: "menu",
     menuItems: [
       {
         action: "longPressOption1",
-        menuTitle: "长按选项1"
+        menuTitle: "Long press option 1"
       }
     ]
   }
 });
 ```
 
-#### 5.2.2 选择列表交互
-
-```javascript
+#### 5.2.2 Selection List Interaction ```javascript
 global.registerCustomAction("selectTemplate", async function(context) {
   const templates = [
-    "📚 学习笔记",
-    "💼 会议记录",
-    "💡 灵感速记",
-    "📊 数据分析",
-    "🎯 目标规划"
+    "📚 Study Notes",
+    "💼 Meeting Minutes",
+    "💡 Inspiration Notes",
+    "📊 Data Analysis",
+    🎯 Goal Planning
   ];
-  
-  // 创建选择菜单
-  const commandTable = templates.map(template => ({
+
+  // Create a selection menu const commandTable = templates.map(template => ({
     title: template,
     object: global,
     selector: 'applyTemplate:',
     param: {template, context}
   }));
-  
-  // 显示菜单
-  MNUtil.getPopoverAndPresent(
+
+  // Display menu MNUtil.getPopoverAndPresent(
     context.button,
     commandTable,
     200
@@ -1665,63 +1274,46 @@ global.registerCustomAction("selectTemplate", async function(context) {
 });
 ```
 
-### 5.3 最佳实践
-
-#### 5.3.1 错误处理模式
-
-```javascript
+### 5.3 Best Practices #### 5.3.1 Error Handling Patterns ```javascript
 global.registerCustomAction("safeAction", async function(context) {
   try {
-    // 参数验证
-    if (!context || !context.focusNote) {
-      MNUtil.showHUD("❌ 无效的上下文");
+    // Parameter validation if (!context || !context.focusNote) {
+      MNUtil.showHUD("❌ Invalid context");
       return;
     }
-    
-    // 使用撤销分组
-    MNUtil.undoGrouping(() => {
-      // 危险操作
-      performDangerousOperation();
+
+    // Use MNUtil.undoGrouping(() => {
+      // Dangerous operation performDangerousOperation();
     });
-    
+
   } catch (error) {
-    // 记录错误
-    if (toolbarUtils && toolbarUtils.addErrorLog) {
+    // Log errors if (toolbarUtils && toolbarUtils.addErrorLog) {
       toolbarUtils.addErrorLog(error, "safeAction");
     }
-    
-    // 用户友好的错误提示
-    MNUtil.showHUD(`❌ 操作失败: ${error.message || "未知错误"}`);
-    
-    // 开发模式下输出详细信息
-    if (typeof MNUtil !== "undefined" && MNUtil.log) {
-      MNUtil.log(`错误详情: ${error.stack}`);
+
+    // User-friendly error message MNUtil.showHUD(`❌ Operation failed: ${error.message || "Unknown error"}`);
+
+    // Output detailed information in development mode if (typeof MNUtil !== "undefined" && MNUtil.log) {
+      MNUtil.log(`Error details: ${error.stack}`);
     }
   }
 });
 ```
 
-#### 5.3.2 批量操作优化
-
-```javascript
-// 批量操作优化
-global.registerCustomAction("optimizedBatch", async function(context) {
+#### 5.3.2 Batch Operation Optimization ```javascript
+// Batch operation optimization global.registerCustomAction("optimizedBatch", async function(context) {
   const {focusNotes} = context;
-  
-  // 使用单个撤销组
-  MNUtil.undoGrouping(() => {
-    // 批量收集数据，减少 API 调用
-    const noteData = focusNotes.map(note => ({
+
+  // Use a single undo group MNUtil.undoGrouping(() => {
+    // Batch data collection to reduce API calls const noteData = focusNotes.map(note => ({
       id: note.noteId,
       title: note.noteTitle,
       color: note.colorIndex
     }));
-    
-    // 批量处理
-    processBatch(noteData);
-    
-    // 批量更新
-    focusNotes.forEach((note, index) => {
+
+    // Batch processing processBatch(noteData);
+
+    // Batch update focusNotes.forEach((note, index) => {
       note.noteTitle = noteData[index].title;
       note.colorIndex = noteData[index].color;
     });
@@ -1729,348 +1321,219 @@ global.registerCustomAction("optimizedBatch", async function(context) {
 });
 ```
 
-#### 5.3.3 状态管理
-
-```javascript
-// 使用闭包保存状态
-(function() {
-  // 私有状态
-  let lastProcessedId = null;
+#### 5.3.3 State Management ```javascript
+// Use closures to preserve state(function() {
+  // Private state let lastProcessedId = null;
   let processCount = 0;
-  
+
   global.registerCustomAction("statefulAction", async function(context) {
     const {focusNote} = context;
-    
-    // 检查是否重复处理
-    if (focusNote.noteId === lastProcessedId) {
-      MNUtil.showHUD("⚠️ 该卡片刚刚已处理");
+
+    // Check if duplicate processing occurs if (focusNote.noteId === lastProcessedId) {
+      MNUtil.showHUD("⚠️ This card has just been processed");
       return;
     }
-    
-    // 更新状态
-    lastProcessedId = focusNote.noteId;
+
+    // Update the status: lastProcessedId = focusNote.noteId;
     processCount++;
-    
-    // 执行操作
-    MNUtil.undoGrouping(() => {
-      focusNote.appendComment(`处理次序: #${processCount}`);
+
+    // Perform the operation MNUtil.undoGrouping(() => {
+      focusNote.appendComment(`Processing order: #${processCount}`);
     });
-    
-    MNUtil.showHUD(`✅ 已处理 (总计: ${processCount})`);
+
+    MNUtil.showHUD(`✅ Processed(Total: ${processCount})`);
   });
 })();
 ```
 
-### 5.4 性能优化
-
-#### 5.4.1 大数据处理
-
-```javascript
+### 5.4 Performance Optimization #### 5.4.1 Big Data Processing ```javascript
 global.registerCustomAction("largeDataProcess", async function(context) {
   const {focusNotes} = context;
   const total = focusNotes.length;
-  
+
   if (total > 100) {
-    MNUtil.showHUD("⚠️ 数据量较大，请耐心等待");
+    MNUtil.showHUD("⚠️ Large amount of data, please wait patiently");
   }
-  
-  // 分批处理
-  const batchSize = 50;
+
+  // Batch processing const batchSize = 50;
   for (let i = 0; i < total; i += batchSize) {
     const batch = focusNotes.slice(i, i + batchSize);
-    
+
     MNUtil.undoGrouping(() => {
       batch.forEach(note => {
-        // 处理逻辑
-      });
+        // Processing logic});
     });
-    
-    // 更新进度
-    const progress = Math.min(100, Math.round(((i + batchSize) / total) * 100));
-    MNUtil.showHUD(`⏳ 处理进度: ${progress}%`);
-    
-    // 让出执行权，避免阻塞
-    await MNUtil.delay(0.01);
+
+    // Update progress const progress = Math.min(100, Math.round(((i + batchSize) / total) * 100));
+    MNUtil.showHUD(`⏳ Processing progress: ${progress}%`);
+
+    // Relinquish execution control to avoid blocking await MNUtil.delay(0.01);
   }
-  
-  MNUtil.showHUD(`✅ 完成处理 ${total} 个卡片`);
+
+  MNUtil.showHUD(`✅ Completed processing of ${total} cards`);
 });
 ```
 
-#### 5.4.2 缓存优化
-
-```javascript
-// 缓存管理
-const cache = {
+#### 5.4.2 Cache Optimization ```javascript
+// Cache management const cache = {
   data: null,
   timestamp: 0,
-  TTL: 5 * 60 * 1000  // 5分钟过期
-};
+  TTL: 5 * 60 * 1000 // Expires in 5 minutes;
 
 global.registerCustomAction("cachedAction", async function(context) {
   const now = Date.now();
-  
-  // 检查缓存是否有效
-  if (cache.data && (now - cache.timestamp) < cache.TTL) {
-    MNUtil.log("使用缓存数据");
+
+  // Check if the cache is valid if (cache.data && (now - cache.timestamp) < cache.TTL) {
+    MNUtil.log("Using cached data");
     return cache.data;
   }
-  
-  // 重新计算
-  MNUtil.log("重新计算数据");
+
+  // Recalculate MNUtil.log("Recalculate data");
   const result = await expensiveCalculation();
-  
-  // 更新缓存
-  cache.data = result;
+
+  // Update cache.data = result;
   cache.timestamp = now;
-  
+
   return result;
 });
 ```
 
 ---
 
-## 附录A：API速查手册
-
-### MNNote API
+## Appendix A: API Quick Reference Guide ### MNNote API
 
 ```javascript
-// 获取卡片
-const focusNote = MNNote.getFocusNote()        // 当前选中的卡片
-const focusNotes = MNNote.getFocusNotes()      // 所有选中的卡片
-const note = MNNote.new(noteId)                // 根据 ID 获取卡片
-
-// 卡片属性
-note.noteId           // 卡片 ID
-note.noteTitle        // 标题
-note.excerptText      // 摘录文本
-note.noteURL          // 卡片链接
-note.colorIndex       // 颜色索引 (0-15)
-note.fillIndex        // 填充样式索引
-note.mindmapBranchIndex  // 脑图分支样式
-note.tags             // 标签数组
-note.comments         // 评论数组
-note.parentNote       // 父卡片
-note.childNotes       // 子卡片数组
-note.linkedNotes      // 链接的卡片
-
-// 卡片方法
-note.appendComment(text)           // 添加文本评论
-note.appendHtmlComment(html)       // 添加 HTML 评论
-note.appendTags(["tag1", "tag2"])  // 添加标签
-note.removeCommentAtIndex(0)       // 删除评论
-note.addChild(childNote)           // 添加子卡片
-note.removeFromParent()           // 从父卡片移除
-note.toBeIndependent()            // 转为独立卡片
-note.merge(anotherNote)           // 合并卡片
-note.focusInMindMap(duration)     // 在脑图中聚焦
-note.focusInDocument()            // 在文档中聚焦
-note.paste()                      // 粘贴剪贴板内容
-note.clearFormat()                // 清除格式
-```
+// Get the card const focusNote = MNNote.getFocusNote() // The currently selected card const focusNotes = MNNote.getFocusNotes() // All selected cards const note = MNNote.new(noteId) // Get the card by ID // Card attribute note.noteId // Card ID
+note.noteTitle // Title note.excerptText // Excerpt Text note.noteURL // Card Link note.colorIndex // Color Index (0-15)
+note.fillIndex // 填充样式索引note.mindmapBranchIndex // 脑图分支样式note.tags // 标签数组note.comments // 评论数组note.parentNote // 父卡片note.childNotes // 子卡片数组note.linkedNotes // 链接的卡片// 卡片方法note.appendComment(text) // 添加文本评论note.appendHtmlComment(html) // 添加HTML 评论note.appendTags(["tag1", "tag2"]) // 添加标签note.removeCommentAtIndex(0) // 删除评论note.addChild(childNote) // 添加子卡片note.removeFromParent() // 从父卡片移除note.toBeIndependent() // 转为独立卡片note.merge(anotherNote) // 合并卡片note.focusInMindMap(duration) // 在脑图中聚焦note.focusInDocument() // 在文档中聚焦note.paste() // 粘贴剪贴板内容note.clearFormat() // 清除格式```
 
 ### MNUtil API
 
 ```javascript
-// UI 反馈
-MNUtil.showHUD(message)            // 显示提示信息
-MNUtil.confirm(title, message)     // 显示确认对话框
-MNUtil.alert(title, message)       // 显示警告对话框
+// UI 反馈MNUtil.showHUD(message) // 显示提示信息MNUtil.confirm(title, message) // 显示确认对话框MNUtil.alert(title, message) // 显示警告对话框// 剪贴板MNUtil.copy(text) // 复制文本MNUtil.copyJSON(object) // 复制JSON 对象MNUtil.copyImage(imageData) // 复制图片MNUtil.clipboardText // 获取剪贴板文本// 撤销管理MNUtil.undoGrouping(() => { // 创建撤销组// 多个操作作为一次撤销})
 
-// 剪贴板
-MNUtil.copy(text)                  // 复制文本
-MNUtil.copyJSON(object)            // 复制 JSON 对象
-MNUtil.copyImage(imageData)        // 复制图片
-MNUtil.clipboardText                // 获取剪贴板文本
+// 异步控制await MNUtil.delay(seconds) // 延迟执行MNUtil.animate(() => { // 动画执行// UI 变化}, duration)
 
-// 撤销管理
-MNUtil.undoGrouping(() => {         // 创建撤销组
-  // 多个操作作为一次撤销
-})
-
-// 异步控制
-await MNUtil.delay(seconds)        // 延迟执行
-MNUtil.animate(() => {              // 动画执行
-  // UI 变化
-}, duration)
-
-// 系统信息
-MNUtil.studyMode                    // 学习模式
-MNUtil.currentNotebookId            // 当前笔记本 ID
-MNUtil.currentDocmd5                // 当前文档 MD5
-MNUtil.currentWindow                // 当前窗口
-MNUtil.studyView                    // 学习视图
-MNUtil.version                      // 版本信息
-
-// 选择和选中
-MNUtil.selectionText                // 选中的文本
-MNUtil.currentSelection              // 当前选择对象
-
-// 通知
-MNUtil.postNotification(name, userInfo)  // 发送通知
-MNUtil.addObserver(target, selector, name)  // 添加观察者
-MNUtil.removeObserver(target, name)      // 移除观察者
-
-// 工具函数
-MNUtil.log(message)                // 输出日志
-MNUtil.openURL(url)                // 打开 URL
-MNUtil.refreshAddonCommands()      // 刷新插件命令
-```
+// 系统信息MNUtil.studyMode // 学习模式MNUtil.currentNotebookId // 当前笔记本ID
+MNUtil.currentDocmd5 // 当前文档MD5
+MNUtil.currentWindow // 当前窗口MNUtil.studyView // 学习视图MNUtil.version // 版本信息// 选择和选中MNUtil.selectionText // 选中的文本MNUtil.currentSelection // 当前选择对象// 通知MNUtil.postNotification(name, userInfo) // 发送通知MNUtil.addObserver(target, selector, name) // 添加观察者MNUtil.removeObserver(target, name) // 移除观察者// 工具函数MNUtil.log(message) // 输出日志MNUtil.openURL(url) // 打开URL
+MNUtil.refreshAddonCommands() // 刷新插件命令```
 
 ### toolbarConfig API
 
 ```javascript
-// 配置管理
-toolbarConfig.save(key, value)     // 保存配置
-toolbarConfig.load(key)            // 加载配置
-toolbarConfig.getWindowState(key)  // 获取窗口状态
-toolbarConfig.setWindowState(key, value)  // 设置窗口状态
-
-// 按钮和动作
-toolbarConfig.action                // 当前工具栏按钮数组
-toolbarConfig.dynamicAction          // 动态工具栏按钮数组
-toolbarConfig.getDescriptionById(id)  // 获取动作描述
-toolbarConfig.getDesByButtonName(name)  // 通过按钮名获取描述
-toolbarConfig.imageConfigs          // 图标配置
-
-// 工具栏状态
-toolbarConfig.dynamic                // 是否动态模式
-toolbarConfig.vertical()            // 是否垂直布局
-toolbarConfig.horizontal()         // 是否水平布局
-```
+// 配置管理toolbarConfig.save(key, value) // 保存配置toolbarConfig.load(key) // 加载配置toolbarConfig.getWindowState(key) // 获取窗口状态toolbarConfig.setWindowState(key, value) // 设置窗口状态// 按钮和动作toolbarConfig.action // 当前工具栏按钮数组toolbarConfig.dynamicAction // 动态工具栏按钮数组toolbarConfig.getDescriptionById(id) // 获取动作描述toolbarConfig.getDesByButtonName(name) // 通过按钮名获取描述toolbarConfig.imageConfigs // 图标配置// 工具栏状态toolbarConfig.dynamic // 是否动态模式toolbarConfig.vertical() // 是否垂直布局toolbarConfig.horizontal() // 是否水平布局```
 
 ### UIKit API
 
 ```javascript
-// 按钮
-UIButton.buttonWithType(type)
+// 按钮UIButton.buttonWithType(type)
 button.setTitleForState(title, state)
 button.setImageForState(image, state)
 button.addTargetActionForControlEvents(target, action, events)
 button.removeTargetActionForControlEvents(target, action, events)
 
-// 颜色
-UIColor.whiteColor()
+// 颜色UIColor.whiteColor()
 UIColor.blackColor()
 UIColor.colorWithHexString("#FF0000")
 color.colorWithAlphaComponent(0.5)
 
-// 弹窗
-UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+// 弹窗UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
   title,
   message,
-  style,        // 0: 默认, 1: 密码, 2: 输入框
-  cancelTitle,
-  otherTitles,  // 数组
-  callback      // (alert, buttonIndex) => {}
+  style, // 0: 默认, 1: 密码, 2: 输入框cancelTitle,
+  otherTitles, // 数组callback // (alert, buttonIndex) => {}
 )
 
-// 手势
-gesture.state  // 1: began, 2: changed, 3: ended
+// 手势gesture.state // 1: began, 2: changed, 3: ended
 gesture.locationInView(view)
 ```
 
 ---
 
-## 附录B：代码模板库
-
-### 模板1：基础按钮
-
-```javascript
-// === 按钮注册 ===
+## 附录B：代码模板库### 模板1：基础按钮```javascript
+// === Button Registration ===
 global.registerButton("customXX", {
-  name: "功能名",
+  name: "Function Name",
   image: "customXX",
   templateName: "menu_function"
 });
 
-// === 菜单定义 ===
+// === Menu Definition ===
 global.registerMenuTemplate("menu_function", {
   action: "functionAction"
 });
 
-// === 功能实现 ===
+// === Functionality Implementation ===
 global.registerCustomAction("functionAction", async function(context) {
   const focusNote = MNNote.getFocusNote();
-  
+
   if (!focusNote) {
-    MNUtil.showHUD("❌ 请先选择卡片");
+    MNUtil.showHUD("❌ Please select a card first");
     return;
   }
-  
+
   MNUtil.undoGrouping(() => {
-    // 你的功能代码
-    MNUtil.showHUD("✅ 完成");
+    // Your function code MNUtil.showHUD("✅ Complete");
   });
 });
 ```
 
-### 模板2：带菜单的按钮
-
-```javascript
-// === 菜单定义 ===
+### Template 2: Button with Menu ```javascript
+// === Menu Definition ===
 global.registerMenuTemplate("menu_complex", {
   action: "defaultAction",
   onLongPress: {
     action: "menu",
     menuWidth: 200,
     menuItems: [
-      {action: "option1", menuTitle: "选项1"},
-      {action: "option2", menuTitle: "选项2"}
+      {action: "option1", menuTitle: "Option 1"},
+      {action: "option2", menuTitle: "Option 2"}
     ]
   }
 });
 ```
 
-### 模板3：用户输入
-
-```javascript
+### Template 3: User input ```javascript
 global.registerCustomAction("userInput", async function(context) {
   UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-    "标题",
-    "提示信息",
-    2,  // 输入框
-    "取消",
-    ["确定"],
+    "title",
+    "Prompt message",
+    2, // Input box "Cancel",
+    ["Sure"],
     (alert, buttonIndex) => {
       if (buttonIndex === 1) {
         const input = alert.textFieldAtIndex(0).text;
-        // 处理输入
-      }
+        // Process input}
     }
   );
 });
 ```
 
-### 模板4：批量处理
-
-```javascript
+### Template 4: Batch Processing ```javascript
 global.registerCustomAction("batchProcess", async function(context) {
   const focusNotes = MNNote.getFocusNotes();
-  
+
   if (!focusNotes || focusNotes.length === 0) {
-    MNUtil.showHUD("❌ 请选择卡片");
+    MNUtil.showHUD("❌ Please select a card");
     return;
   }
-  
+
   MNUtil.undoGrouping(() => {
     let count = 0;
-    
+
     focusNotes.forEach(note => {
-      // 处理每个卡片
-      count++;
+      // Count up for each card;
     });
-    
-    MNUtil.showHUD(`✅ 处理了 ${count} 个卡片`);
+
+    MNUtil.showHUD(`✅ ${count} cards were processed`);
   });
 });
 ```
 
 ---
 
-## 附录C：完整示例 - 批量制卡
-
-这是一个完整的批量制卡功能示例，展示了所有概念的综合应用：
+## 附录C：完整示例- 批量制卡这是一个完整的批量制卡功能示例，展示了所有概念的综合应用：
 
 ```javascript
 // === xdyy_button_registry.js ===
@@ -2088,74 +1551,69 @@ global.registerMenuTemplate("menu_batchCards", {
     menuWidth: 250,
     menuItems: [
       "⚡ 快速操作",
-      {action: "quickBatchCards", menuTitle: "    一键制卡"},
-      {action: "batchCardsWithOptions", menuTitle: "    制卡选项..."},
-      
+      {action: "quickBatchCards", menuTitle: " 一键制卡"},
+      {action: "batchCardsWithOptions", menuTitle: " 制卡选项..."},
+
       "🎨 预设模板",
-      {action: "academicCards", menuTitle: "    学术模板"},
-      {action: "reviewCards", menuTitle: "    复习模板"},
-      {action: "summaryCards", menuTitle: "    总结模板"},
-      
+      {action: "academicCards", menuTitle: " 学术模板"},
+      {action: "reviewCards", menuTitle: " 复习模板"},
+      {action: "summaryCards", menuTitle: " 总结模板"},
+
       "⚙️ 高级",
-      {action: "batchCardsSettings", menuTitle: "    设置默认选项"},
-      {action: "batchCardsHistory", menuTitle: "    查看历史"}
+      {action: "batchCardsSettings", menuTitle: " 设置默认选项"},
+      {action: "batchCardsHistory", menuTitle: " 查看历史"}
     ]
   }
 });
 
 // === xdyy_custom_actions_registry.js ===
 
-// 状态管理
-const batchCardsState = {
+// 状态管理const batchCardsState = {
   lastOptions: {},
   history: [],
   processing: false
 };
 
-// 主功能：快速批量制卡
-global.registerCustomAction("quickBatchCards", async function(context) {
+// 主功能：快速批量制卡global.registerCustomAction("quickBatchCards", async function(context) {
   const {focusNotes} = context;
-  
+
   if (!focusNotes || focusNotes.length === 0) {
     MNUtil.showHUD("❌ 请先选择要制卡的笔记");
     return;
   }
-  
+
   if (batchCardsState.processing) {
     MNUtil.showHUD("⚠️ 正在处理中，请稍候");
     return;
   }
-  
+
   batchCardsState.processing = true;
   const startTime = Date.now();
-  
+
   try {
-    MNUtil.showHUD(`⏳ 开始处理 ${focusNotes.length} 个卡片...`);
-    
+    MNUtil.showHUD(`⏳ 开始处理${focusNotes.length} 个卡片...`);
+
     let successCount = 0;
     let failCount = 0;
-    
+
     MNUtil.undoGrouping(() => {
       focusNotes.forEach((note, index) => {
         try {
-          // 制卡核心逻辑
-          processNoteToCard(note);
+          // 制卡核心逻辑processNoteToCard(note);
           successCount++;
-          
-          // 进度反馈
-          if ((index + 1) % 10 === 0) {
+
+          // 进度反馈if ((index + 1) % 10 === 0) {
             const progress = Math.round(((index + 1) / focusNotes.length) * 100);
-            MNUtil.showHUD(`⏳ 进度: ${progress}%`);
+            MNUtil.showHUD(`⏳ Progress: ${progress}%`);
           }
         } catch (error) {
           failCount++;
-          MNUtil.log(`制卡失败 [${note.noteId}]: ${error}`);
+          MNUtil.log(`制卡失败[${note.noteId}]: ${error}`);
         }
       });
     });
-    
-    // 记录历史
-    const record = {
+
+    // 记录历史const record = {
       time: new Date().toISOString(),
       total: focusNotes.length,
       success: successCount,
@@ -2166,13 +1624,12 @@ global.registerCustomAction("quickBatchCards", async function(context) {
     if (batchCardsState.history.length > 10) {
       batchCardsState.history.pop();
     }
-    
-    // 显示结果
-    const message = failCount > 0 
+
+    // 显示结果const message = failCount > 0
       ? `✅ 完成！成功: ${successCount}, 失败: ${failCount}`
-      : `✅ 成功制作 ${successCount} 张卡片`;
+      : `✅ 成功制作${successCount} 张卡片`;
     MNUtil.showHUD(message);
-    
+
   } catch (error) {
     MNUtil.showHUD(`❌ 批量制卡失败: ${error.message}`);
     toolbarUtils.addErrorLog(error, "quickBatchCards");
@@ -2181,40 +1638,31 @@ global.registerCustomAction("quickBatchCards", async function(context) {
   }
 });
 
-// 带选项的批量制卡
-global.registerCustomAction("batchCardsWithOptions", async function(context) {
-  // 显示选项对话框
-  const options = await showCardOptions();
-  
+// 带选项的批量制卡global.registerCustomAction("batchCardsWithOptions", async function(context) {
+  // 显示选项对话框const options = await showCardOptions();
+
   if (!options) {
-    return;  // 用户取消
-  }
-  
-  // 保存选项
-  batchCardsState.lastOptions = options;
-  
-  // 执行制卡
-  await processBatchCardsWithOptions(context, options);
+    return; // 用户取消}
+
+  // 保存选项batchCardsState.lastOptions = options;
+
+  // 执行制卡await processBatchCardsWithOptions(context, options);
 });
 
-// 学术模板
-global.registerCustomAction("academicCards", async function(context) {
+// 学术模板global.registerCustomAction("academicCards", async function(context) {
   const academicOptions = {
     addTitle: true,
     titlePrefix: "【学术】",
-    colorIndex: 3,  // 黄色
-    addTags: ["学术", "待整理"],
+    colorIndex: 3, // 黄色addTags: ["学术", "待整理"],
     addToReview: true,
     extractKeywords: true
   };
-  
+
   await processBatchCardsWithOptions(context, academicOptions);
 });
 
-// 核心处理函数
-function processNoteToCard(note, options = {}) {
-  // 默认选项
-  const opts = {
+// 核心处理函数function processNoteToCard(note, options = {}) {
+  // 默认选项const opts = {
     addTitle: true,
     titlePrefix: "",
     colorIndex: null,
@@ -2223,31 +1671,26 @@ function processNoteToCard(note, options = {}) {
     extractKeywords: false,
     ...options
   };
-  
-  // 1. 处理标题
-  if (opts.addTitle && !note.noteTitle) {
+
+  // 1. 处理标题if (opts.addTitle && !note.noteTitle) {
     const title = extractTitle(note);
     note.noteTitle = opts.titlePrefix + title;
   }
-  
-  // 2. 设置颜色
-  if (opts.colorIndex !== null) {
+
+  // 2. 设置颜色if (opts.colorIndex !== null) {
     note.colorIndex = opts.colorIndex;
   }
-  
-  // 3. 添加标签
-  if (opts.addTags.length > 0) {
+
+  // 3. 添加标签if (opts.addTags.length > 0) {
     note.appendTags(opts.addTags);
   }
-  
-  // 4. 加入复习
-  if (opts.addToReview) {
-    // 调用复习相关 API
+
+  // 4. 加入复习if (opts.addToReview) {
+    // 调用复习相关API
     addToReviewSystem(note);
   }
-  
-  // 5. 提取关键词
-  if (opts.extractKeywords) {
+
+  // 5. 提取关键词if (opts.extractKeywords) {
     const keywords = extractKeywords(note.excerptText);
     if (keywords.length > 0) {
       note.appendComment(`关键词: ${keywords.join(", ")}`);
@@ -2255,40 +1698,33 @@ function processNoteToCard(note, options = {}) {
   }
 }
 
-// 辅助函数：提取标题
-function extractTitle(note) {
+// 辅助函数：提取标题function extractTitle(note) {
   if (note.excerptText) {
-    // 从摘录提取第一句作为标题
-    const firstSentence = note.excerptText.split(/[。！？\n]/)[0];
+    // 从摘录提取第一句作为标题const firstSentence = note.excerptText.split(/[。！？\n]/)[0];
     return firstSentence.substring(0, 30);
   }
   return "未命名卡片";
 }
 
-// 辅助函数：提取关键词
-function extractKeywords(text) {
+// 辅助函数：提取关键词function extractKeywords(text) {
   if (!text) return [];
-  
-  // 简单的关键词提取逻辑
-  const words = text.match(/[\u4e00-\u9fa5]{2,}/g) || [];
+
+  // 简单的关键词提取逻辑const words = text.match(/[\u4e00-\u9fa5]{2,}/g) || [];
   const frequency = {};
-  
+
   words.forEach(word => {
     frequency[word] = (frequency[word] || 0) + 1;
   });
-  
-  // 按频率排序，取前5个
-  return Object.entries(frequency)
+
+  // 按频率排序，取前5个return Object.entries(frequency)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([word]) => word);
 }
 
 // === xdyy_utils_extensions.js ===
-// 扩展工具函数
-toolbarUtils.batchCardsUtils = {
-  // 获取默认选项
-  getDefaultOptions() {
+// 扩展工具函数toolbarUtils.batchCardsUtils = {
+  // 获取默认选项getDefaultOptions() {
     return batchCardsState.lastOptions || {
       addTitle: true,
       colorIndex: null,
@@ -2296,14 +1732,12 @@ toolbarUtils.batchCardsUtils = {
       addToReview: false
     };
   },
-  
-  // 获取历史记录
-  getHistory() {
+
+  // 获取历史记录getHistory() {
     return batchCardsState.history;
   },
-  
-  // 清空历史
-  clearHistory() {
+
+  // 清空历史clearHistory() {
     batchCardsState.history = [];
     MNUtil.showHUD("✅ 历史已清空");
   }
@@ -2312,95 +1746,47 @@ toolbarUtils.batchCardsUtils = {
 
 ---
 
-## 附录D：开发检查清单
+## 附录D：开发检查清单在发布你的扩展之前，请确保：
 
-在发布你的扩展之前，请确保：
-
-### 功能检查
-
-- [ ] 所有按钮都能正常显示
-- [ ] 点击、长按、双击功能都正常
-- [ ] 菜单能正确弹出和导航
-- [ ] 错误处理完善，不会崩溃
-- [ ] 撤销功能正常工作
-
-### 代码质量
-
-- [ ] 使用有意义的函数和变量名
-- [ ] 添加必要的注释
-- [ ] 遵循一致的代码风格
-- [ ] 没有调试代码遗留
-- [ ] 没有硬编码的测试数据
-
-### 性能优化
-
-- [ ] 批量操作使用单个撤销组
-- [ ] 大量数据处理有进度反馈
-- [ ] 避免不必要的 API 调用
-- [ ] 及时清理资源和监听器
-
-### 用户体验
-
-- [ ] 操作有明确的反馈（HUD 提示）
-- [ ] 错误信息友好易懂
-- [ ] 危险操作有确认提示
-- [ ] 图标清晰易识别
-
-### 文档完善
-
-- [ ] README 说明功能和用法
-- [ ] 列出所有依赖项
-- [ ] 提供安装指南
-- [ ] 包含常见问题解答
-
----
+### 功能检查- [ ] 所有按钮都能正常显示- [ ] 点击、长按、双击功能都正常- [ ] 菜单能正确弹出和导航- [ ] 错误处理完善，不会崩溃- [ ] 撤销功能正常工作### 代码质量- [ ] 使用有意义的函数和变量名- [ ] 添加必要的注释- [ ] 遵循一致的代码风格- [ ] 没有调试代码遗留- [ ] 没有硬编码的测试数据### 性能优化- [ ] 批量操作使用单个撤销组- [ ] 大量数据处理有进度反馈- [ ] 避免不必要的API 调用- [ ] 及时清理资源和监听器### 用户体验- [ ] 操作有明确的反馈（HUD 提示）
+- [ ] 错误信息友好易懂- [ ] 危险操作有确认提示- [ ] 图标清晰易识别### 文档完善- [ ] README 说明功能和用法- [ ] 列出所有依赖项- [ ] 提供安装指南- [ ] 包含常见问题解答---
 
 ## 常见问题FAQ
 
-### Q1: 按钮不显示怎么办？
+### Q1: What should I do if the button is not displayed?
 
-**检查步骤**：
-1. 确认文件保存了
-2. 完全退出 MarginNote（Cmd+Q）
-3. 重新打开
-4. 检查代码中的按钮名称是否正确
-
-**代码检查**：
+**Inspection Steps**:
+1. Confirm the file has been saved. 2. Exit MarginNote completely (Cmd+Q).
+3. 重新打开4. 检查代码中的按钮名称是否正确**代码检查**：
 ```javascript
-// 在 xdyy_button_registry.js 的 registerAllButtons 末尾添加：
+// 在xdyy_button_registry.js 的registerAllButtons 末尾添加：
 MNUtil.log("按钮注册完成，共注册: " + Object.keys(global.customButtons).length + " 个按钮");
 
-// 在每个 xdyy_*.js 文件开头添加：
+// 在每个xdyy_*.js 文件开头添加：
 MNUtil.log("✅ 正在加载: [文件名]");
 ```
 
 ### Q2: 点击按钮没反应？
 
-**可能原因**：
-- action 名称不匹配
-- 函数有语法错误
-- 没有注册动作
-
-**解决方法**：
+**Possible reasons:**
+- Action name mismatch - Function syntax error - No action registered **Solution**:
 ```javascript
-// 添加日志调试
-global.registerCustomAction("myAction", async function(context) {
+// 添加日志调试global.registerCustomAction("myAction", async function(context) {
   MNUtil.log("🚀 动作被触发: myAction");
   MNUtil.showHUD("动作开始执行");
-  
+
   // 原有代码...
 });
 ```
 
 ### Q3: 代码报错怎么办？
 
-**调试技巧**：
+**Debugging Techniques**:
 ```javascript
 try {
-  // 你的代码
-} catch (error) {
-  MNUtil.showHUD("错误: " + error.message);
-  MNUtil.log("详细错误: " + error);
+  // Your code} catch (error) {
+  MNUtil.showHUD("Error: " + error.message);
+  MNUtil.log("Detailed error: " + error);
 }
 ```
 
@@ -2409,13 +1795,11 @@ try {
 **正确使用撤销组**：
 ```javascript
 MNUtil.undoGrouping(() => {
-  // 所有修改操作都放在这里
-  note.noteTitle = "新标题";
+  // 所有修改操作都放在这里note.noteTitle = "新标题";
   note.colorIndex = 3;
 });
 
-// 避免嵌套
-let inUndoGroup = false;
+// 避免嵌套let inUndoGroup = false;
 function safeUndo(callback) {
   if (inUndoGroup) {
     callback();
@@ -2434,23 +1818,19 @@ function safeUndo(callback) {
 (function() {
   let timer = null;
   let observer = null;
-  
+
   global.registerCustomAction("managedAction", async function(context) {
-    // 清理旧资源
-    if (timer) {
+    // 清理旧资源if (timer) {
       clearTimeout(timer);
     }
     if (observer) {
       MNUtil.removeObserver(observer);
     }
-    
-    // 创建新资源
-    timer = setTimeout(() => {
-      // 延迟操作
-    }, 1000);
-    
-    // 确保清理
-    context.self?.cleanupCallbacks?.push(() => {
+
+    // 创建新资源timer = setTimeout(() => {
+      // 延迟操作}, 1000);
+
+    // 确保清理context.self?.cleanupCallbacks?.push(() => {
       clearTimeout(timer);
     });
   });
@@ -2459,40 +1839,10 @@ function safeUndo(callback) {
 
 ---
 
-## 🎓 结语
+## 🎓 结语恭喜你完成了MN Toolbar 开发培训完全指南的学习！
 
-恭喜你完成了 MN Toolbar 开发培训完全指南的学习！
-
-### 你已经掌握了
-
-- ✅ **基础开发**：创建按钮、定义菜单、实现功能
-- ✅ **核心原理**：事件机制、菜单系统、动作处理
-- ✅ **补丁架构**：注册表模式、四层架构、配置融合
-- ✅ **进阶技术**：多级菜单、用户交互、性能优化
-- ✅ **调试技巧**：日志输出、错误处理、问题排查
-
-### 下一步建议
-
-1. **实践项目**：基于本指南创建3-5个实用功能
-2. **深入研究**：阅读 utils.js 源码，理解更多 API
-3. **社区贡献**：分享你的功能给其他用户
-4. **持续学习**：关注官方更新，学习新特性
-
-### 学习资源
-
-- 📖 本指南：随时查阅技术细节
-- 💬 用户社区：加入 MN 用户群交流
-- 🔍 源码研究：深入理解实现原理
-- 📝 实践笔记：记录你的学习心得
-
-### 记住核心原则
-
-1. **分离关注点**：按钮、菜单、动作、工具各司其职
-2. **注册而非修改**：通过注册表添加功能
-3. **上下文驱动**：通过 context 对象传递所有信息
-4. **用户至上**：始终提供清晰的反馈
-
-无论你是想添加一个简单的快捷操作，还是构建复杂的工作流系统，这个架构都能满足你的需求。
+### 你已经掌握了- ✅ **基础开发**：创建按钮、定义菜单、实现功能- ✅ **核心原理**：事件机制、菜单系统、动作处理- ✅ **补丁架构**：注册表模式、四层架构、配置融合- ✅ **进阶技术**：多级菜单、用户交互、性能优化- ✅ **调试技巧**：日志输出、错误处理、问题排查### 下一步建议1. **实践项目**：基于本指南创建3-5个实用功能2. **深入研究**：阅读utils.js 源码，理解更多API
+3. **社区贡献**：分享你的功能给其他用户4. **持续学习**：关注官方更新，学习新特性### 学习资源- 📖 本指南：随时查阅技术细节- 💬 用户社区：加入MN 用户群交流- 🔍 源码研究：深入理解实现原理- 📝 实践笔记：记录你的学习心得### 记住核心原则1. **分离关注点**：按钮、菜单、动作、工具各司其职2. **注册而非修改**：通过注册表添加功能3. **上下文驱动**：通过context 对象传递所有信息4. **用户至上**：始终提供清晰的反馈无论你是想添加一个简单的快捷操作，还是构建复杂的工作流系统，这个架构都能满足你的需求。
 
 **记住**：编程是一个渐进的过程，每天进步一点点！
 
@@ -2500,6 +1850,6 @@ Happy Coding! 🚀
 
 ---
 
-*本指南基于 MN Toolbar 实际源码编写，融合了开发指南的技术深度与培训教程的友好性。*
+*本指南基于MN Toolbar 实际源码编写，融合了开发指南的技术深度与培训教程的友好性。*
 
 *版本：2024.12 | 综合优化版*

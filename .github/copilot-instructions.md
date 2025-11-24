@@ -1,8 +1,8 @@
 # MarginNote 4 Plugin Development - Copilot Instructions
 
-> **Repository**: MN-Addons (https://github.com/xkwxdyy/MN-Addons)  
-> **Purpose**: MarginNote 4 plugin/addon ecosystem development  
-> **Primary Language**: JavaScript (JSBridge → Objective-C)  
+> **Repository**: MN-Addons (https://github.com/xkwxdyy/MN-Addons)
+> **Purpose**: MarginNote 4 plugin/addon ecosystem development
+> **Primary Language**: JavaScript (JSBridge → Objective-C)
 > **Last Updated**: 2025-01-17
 
 ---
@@ -15,7 +15,7 @@ MarginNote is a powerful **reading and knowledge management system** for macOS/i
 
 **Core Philosophy**:
 - **Knowledge Atomization**: Break knowledge into smallest manageable units (cards/notes)
-- **Knowledge Structurization**: Build knowledge systems through relationship networks  
+- **Knowledge Structurization**: Build knowledge systems through relationship networks
 - **Knowledge Mobility**: Same data flows seamlessly between different views (document/mindmap/review)
 - **Knowledge Computability**: Support search, linking, and automated processing
 
@@ -177,7 +177,7 @@ mntask/
     "cert_key": ""
 }
 
-// mntask/mnaddon.json  
+// mntask/mnaddon.json
 {
     "addonid": "marginnote.extension.mntask",
     "author": "xiakangwei",
@@ -201,18 +201,18 @@ JSB.newAddon = () => {
     "PluginName: JSExtension",  // Class declaration: Name + Parent
     {
       // === INSTANCE METHODS (per-window) ===
-      
+
       sceneWillConnect() {
         // Window lifecycle: Initialize plugin when new MN window opens
         self.app = Application.sharedInstance();
         self.studyController = self.app.studyController(self.window);
       },
-      
+
       notebookWillOpen(topicid) {
         // Notebook lifecycle: Setup when notebook opens
         this.setupEventListeners();
       },
-      
+
       queryAddonCommandStatus() {
         // Plugin button configuration
         return {
@@ -222,17 +222,17 @@ JSB.newAddon = () => {
           checked: self.isActive
         };
       },
-      
+
       onButtonClick() {
         // Button click handler
         self.app.showHUD("Hello MarginNote!", self.window, 2);
       },
-      
+
       notebookWillClose(topicid) {
         // Cleanup: Remove event listeners
         this.cleanupEventListeners();
       },
-      
+
       sceneDidDisconnect() {
         // Window cleanup: Release resources
         self.app = null;
@@ -241,11 +241,11 @@ JSB.newAddon = () => {
     },
     {
       // === STATIC METHODS (class-level) ===
-      
+
       addonDidConnect() {
         // Plugin installation/activation lifecycle
       },
-      
+
       addonWillDisconnect() {
         // Plugin removal/deactivation lifecycle
       }
@@ -319,7 +319,7 @@ notebookWillOpen(topicid) {
 }
 
 notebookWillClose(topicid) {
-  // WHEN: User closes a notebook  
+  // WHEN: User closes a notebook
   // PARAMS: topicid (string) - Notebook UUID
   // USE: Save state, remove event listeners
   // CRITICAL: Clean up to prevent memory leaks
@@ -379,7 +379,7 @@ onProcessNewExcerpt(sender) {
 "ProcessNewExcerpt"           // PDF excerpt created
   // userInfo.noteid → Note ID
 
-"ChangeExcerptRange"          // Excerpt range modified  
+"ChangeExcerptRange"          // Excerpt range modified
   // userInfo.noteid → Note ID
 
 // === MENU EVENTS ===
@@ -461,7 +461,7 @@ db.refreshAfterDBChanged(topicid) // Refresh UI after data changes
 // === CREATE NOTE ===
 const note = Note.createWithTitleNotebookDocument(
   "Note Title",        // string - Note title
-  notebook,            // MbTopic - Notebook object  
+  notebook,            // MbTopic - Notebook object
   document             // MbBook - Document object
 );
 
@@ -551,7 +551,7 @@ note.comments.forEach((comment, index) => {
 if (note.excerptPic && note.excerptPic.paint) {
   const imageData = Database.sharedInstance()
     .getMediaByHash(note.excerptPic.paint);
-  
+
   // Convert to base64
   const base64 = imageData.base64Encoding();
 }
@@ -559,7 +559,7 @@ if (note.excerptPic && note.excerptPic.paint) {
 // === MEDIA LIST (multiple media files) ===
 if (note.mediaList) {
   const mediaHashes = note.mediaList.split("-");
-  const mediaFiles = mediaHashes.map(hash => 
+  const mediaFiles = mediaHashes.map(hash =>
     Database.sharedInstance().getMediaByHash(hash)
   );
 }
@@ -691,7 +691,7 @@ MNNote.setFill(note, 1);               // Set fill pattern (0-2)
 
 // === 12. HIERARCHY OPERATIONS ===
 MNNote.getAncestorNotes(note);         // Get all ancestors
-MNNote.getDescendantNotes(note);       // Get all descendants  
+MNNote.getDescendantNotes(note);       // Get all descendants
 MNNote.getSiblingNotes(note);          // Get sibling notes
 
 // === 13. TEXT PROCESSING ===
@@ -763,7 +763,7 @@ JSB.newAddon = () => {
   JSB.require('utils');
   JSB.require('webviewController');
   JSB.require('settingController');
-  
+
   return JSB.defineClass("MNTask: JSExtension", {
     sceneWillConnect() {
       self.controllerManager = {
@@ -771,11 +771,11 @@ JSB.newAddon = () => {
         settings: null
       };
     },
-    
+
     notebookWillOpen(topicid) {
       this.ensureControllers();
     },
-    
+
     ensureControllers() {
       if (!self.controllerManager.webview) {
         self.controllerManager.webview = webviewController.new();
@@ -792,7 +792,7 @@ var webviewController = JSB.defineClass(
     viewDidLoad() {
       this.setupWebView();
     },
-    
+
     setupWebView() {
       this.webView = UIWebView.new();
       // WebView setup
@@ -810,17 +810,17 @@ class EventManager {
     this.plugin = pluginInstance;
     this.observers = [];
   }
-  
+
   registerEvents() {
     const center = NSNotificationCenter.defaultCenter();
-    
+
     const observer1 = center.addObserverSelectorName(
       this.plugin,
       "onExcerpt:",
       "ProcessNewExcerpt"
     );
     this.observers.push(observer1);
-    
+
     const observer2 = center.addObserverSelectorName(
       this.plugin,
       "onMenu:",
@@ -828,7 +828,7 @@ class EventManager {
     );
     this.observers.push(observer2);
   }
-  
+
   unregisterEvents() {
     const center = NSNotificationCenter.defaultCenter();
     this.observers.forEach(obs => center.removeObserver(obs));
@@ -856,31 +856,31 @@ class ConfigManager {
     this.pluginName = pluginName;
     this.configKey = `${pluginName}_config`;
   }
-  
+
   getConfig(key, defaultValue = null) {
     const configStr = NSUserDefaults.standardUserDefaults()
       .objectForKey(this.configKey);
     if (!configStr) return defaultValue;
-    
+
     const config = JSON.parse(configStr);
     return key ? (config[key] || defaultValue) : config;
   }
-  
+
   setConfig(key, value) {
     let config = this.getConfig() || {};
-    
+
     if (typeof key === 'object') {
       config = { ...config, ...key };  // Batch set
     } else {
       config[key] = value;             // Single set
     }
-    
+
     const configStr = JSON.stringify(config);
     NSUserDefaults.standardUserDefaults()
       .setObjectForKey(configStr, this.configKey);
     NSUserDefaults.standardUserDefaults().synchronize();
   }
-  
+
   removeConfig(key) {
     const config = this.getConfig() || {};
     delete config[key];
@@ -923,17 +923,17 @@ function withErrorHandling(fn, context = {}) {
           timestamp: new Date()
         }
       });
-      
+
       // Copy error to clipboard for debugging
       MNUtil.copyJSON({
         error: error.toString(),
         stack: error.stack,
         context: context
       });
-      
+
       // Show user-friendly message
       MNUtil.showHUD(`Error: ${error.message}`);
-      
+
       // Optionally re-throw
       if (context.fatal) throw error;
     }
@@ -960,7 +960,7 @@ class FloatingPanel {
     this.content = content;
     this.view = null;
   }
-  
+
   create() {
     // Create container
     const panel = UIView.new();
@@ -970,35 +970,35 @@ class FloatingPanel {
     panel.layer.cornerRadius = 12;
     panel.layer.shadowOpacity = 0.3;
     panel.layer.shadowRadius = 8;
-    
+
     // Add title bar
     const titleBar = this.createTitleBar();
     panel.addSubview(titleBar);
-    
+
     // Add content
     const contentView = this.createContent();
     panel.addSubview(contentView);
-    
+
     // Add drag gesture
     this.addDragGesture(panel);
-    
+
     // Add to view hierarchy
     MNUtil.studyView.addSubview(panel);
     this.view = panel;
-    
+
     return panel;
   }
-  
+
   createTitleBar() {
     const titleBar = UIView.new();
     titleBar.frame = {x: 0, y: 0, width: 200, height: 30};
-    
+
     const label = UILabel.new();
     label.text = this.title;
     label.frame = {x: 10, y: 5, width: 150, height: 20};
     label.font = UIFont.boldSystemFontOfSize(14);
     titleBar.addSubview(label);
-    
+
     const closeBtn = UIButton.buttonWithType(0);
     closeBtn.frame = {x: 170, y: 5, width: 20, height: 20};
     closeBtn.setTitleForState("×", 0);
@@ -1006,19 +1006,19 @@ class FloatingPanel {
       this, "close", 1 << 6
     );
     titleBar.addSubview(closeBtn);
-    
+
     return titleBar;
   }
-  
+
   addDragGesture(view) {
     const panGesture = new UIPanGestureRecognizer(this, "handlePan:");
     view.addGestureRecognizer(panGesture);
   }
-  
+
   handlePan(gesture) {
     const translation = gesture.translationInView(this.view.superview);
     const state = gesture.state;
-    
+
     if (state === 2) { // Dragging
       const center = {
         x: this.view.center.x + translation.x,
@@ -1028,7 +1028,7 @@ class FloatingPanel {
       gesture.setTranslationInView({x: 0, y: 0}, this.view.superview);
     }
   }
-  
+
   close() {
     if (this.view) {
       this.view.removeFromSuperview();
@@ -1087,7 +1087,7 @@ notebookWillClose(topicid) {
 ### 3. Selector Method Name Errors
 
 ```javascript
-// ❌ WRONG: Forgot colon in selector  
+// ❌ WRONG: Forgot colon in selector
 NSNotificationCenter.defaultCenter().addObserverSelectorName(
   self,
   "onExcerpt",         // Missing ":"
@@ -1162,7 +1162,7 @@ JSB.defineClass("Plugin: JSExtension", {
   sceneWillConnect() {
     // Setup
   },
-  
+
   onButtonClick() {  // Works!
     MNUtil.showHUD("Clicked");
   }
@@ -1257,7 +1257,7 @@ JSB.newAddon = () => {
     sceneWillConnect() {
       self.app = Application.sharedInstance();
     },
-    
+
     queryAddonCommandStatus() {
       return {
         image: "logo.png",
@@ -1266,11 +1266,11 @@ JSB.newAddon = () => {
         checked: false
       };
     },
-    
+
     toggleAddon() {
       const studyController = self.app.studyController(self.window);
       const doc = studyController.readerController.currentDocumentController;
-      
+
       MNUtil.input("Go to Page", "Enter page number", "1")
         .then(pageNum => {
           if (pageNum) {
@@ -1291,20 +1291,20 @@ JSB.newAddon = () => {
   JSB.require('utils');
   JSB.require('app');
   JSB.require('webviewController');
-  
+
   return JSB.defineClass("MNTask: JSExtension", {
     sceneWillConnect() {
       self.app = Application.sharedInstance();
       self.studyController = self.app.studyController(self.window);
       self.controllers = {};
     },
-    
+
     notebookWillOpen(topicid) {
       self.notebookId = topicid;
       this.initializeControllers();
       this.setupEventListeners();
     },
-    
+
     initializeControllers() {
       if (!self.controllers.webview) {
         self.controllers.webview = webviewController.new();
@@ -1312,11 +1312,11 @@ JSB.newAddon = () => {
         self.controllers.webview.load();
       }
     },
-    
+
     setupEventListeners() {
       const center = NSNotificationCenter.defaultCenter();
       self.observers = [];
-      
+
       const obs1 = center.addObserverSelectorName(
         self,
         "onProcessNewTask:",
@@ -1324,20 +1324,20 @@ JSB.newAddon = () => {
       );
       self.observers.push(obs1);
     },
-    
+
     onProcessNewTask(sender) {
       const noteid = sender.userInfo.noteid;
       const note = Database.sharedInstance().getNoteById(noteid);
-      
+
       // Delegate to app logic
       taskApp.processNewTask(note);
     },
-    
+
     notebookWillClose(topicid) {
       const center = NSNotificationCenter.defaultCenter();
       self.observers.forEach(obs => center.removeObserver(obs));
       self.observers = [];
-      
+
       if (self.controllers.webview) {
         self.controllers.webview.cleanup();
       }
@@ -1352,14 +1352,14 @@ var webviewController = JSB.defineClass(
     load() {
       this.webView = UIWebView.new();
       this.webView.frame = this.calculateFrame();
-      
+
       const htmlPath = self.path + "/index.html";
       const url = NSURL.fileURLWithPath(htmlPath);
       this.webView.loadRequest(NSURLRequest.requestWithURL(url));
-      
+
       MNUtil.studyView.addSubview(this.webView);
     },
-    
+
     calculateFrame() {
       const bounds = MNUtil.studyView.bounds;
       return {
@@ -1369,7 +1369,7 @@ var webviewController = JSB.defineClass(
         height: 400
       };
     },
-    
+
     cleanup() {
       if (this.webView) {
         this.webView.removeFromSuperview();
@@ -1384,14 +1384,14 @@ var taskApp = {
   processNewTask(note) {
     // Parse task from note
     const task = this.parseTask(note);
-    
+
     // Update UI
     this.updateTaskBoard(task);
-    
+
     // Save to storage
     this.saveTask(task);
   },
-  
+
   parseTask(note) {
     return {
       id: note.noteId,
@@ -1401,7 +1401,7 @@ var taskApp = {
       priority: this.extractPriority(note)
     };
   },
-  
+
   // ... more methods
 };
 ```
@@ -1491,18 +1491,18 @@ class NoteCache {
   constructor() {
     this.cache = new WeakMap();
   }
-  
+
   get(note, key, compute) {
     let noteCache = this.cache.get(note);
     if (!noteCache) {
       noteCache = {};
       this.cache.set(note, noteCache);
     }
-    
+
     if (!(key in noteCache)) {
       noteCache[key] = compute(note);
     }
-    
+
     return noteCache[key];
   }
 }
@@ -1510,7 +1510,7 @@ class NoteCache {
 // 4. Avoid Main Thread Blocking
 async function processLargeDataset(notes) {
   const batchSize = 50;
-  
+
   for (let i = 0; i < notes.length; i += batchSize) {
     const batch = notes.slice(i, i + batchSize);
     await processBatch(batch);
@@ -1551,7 +1551,7 @@ if (!note) {
 notebookWillOpen(topicid) {
   const notebook = Database.sharedInstance().getNotebookById(topicid);
   const allNotes = notebook.notes;
-  
+
   MNUtil.undoGrouping(() => {
     allNotes.forEach(note => {
       // Process each note
@@ -1575,11 +1575,11 @@ async function callAPI(url, data) {
   );
   request.setHTTPMethod("POST");
   request.setValue_forHTTPHeaderField("application/json", "Content-Type");
-  
+
   const bodyData = NSString.stringWithString(JSON.stringify(data))
     .dataUsingEncoding(4);
   request.setHTTPBody(bodyData);
-  
+
   return new Promise((resolve, reject) => {
     const session = NSURLSession.sharedSession();
     const task = session.dataTaskWithRequest_completionHandler(
@@ -1589,7 +1589,7 @@ async function callAPI(url, data) {
           reject(error);
           return;
         }
-        
+
         const responseString = NSString.alloc()
           .initWithData_encoding(data, 4);
         const result = JSON.parse(responseString);
@@ -1884,16 +1884,16 @@ JSB.newAddon = function (mainPath) {
   JSB.require('utils')
   JSB.require('xdyy_utils_extensions')  // Core classes
   JSB.require('pinyin')  // Optional libraries
-  
+
   // Check MNUtils availability
   if (!taskUtils.checkMNUtilsFolder(mainPath)) {
     return undefined
   }
-  
+
   // Load controllers
   JSB.require('webviewController');
   JSB.require('settingController');
-  
+
   // Load registries (after utils)
   try {
     JSB.require('xdyy_menu_registry')
@@ -1904,14 +1904,14 @@ JSB.newAddon = function (mainPath) {
       MNUtil.addErrorLog(error, "加载自定义扩展")
     }
   }
-  
+
   // Define plugin class
   const MNPluginClass = JSB.defineClass(
     'MNPlugin : JSExtension',
     { /* instance methods */ },
     { /* static methods */ }
   );
-  
+
   return MNPluginClass;
 };
 ```
@@ -1924,13 +1924,13 @@ JSB.newAddon = function (mainPath) {
 // main.js - Complete plugin in one file
 JSB.newAddon = function(mainPath){
   JSB.require('utils');
-  
+
   let MNPluginClass = JSB.defineClass('MNPlugin : JSExtension', {
     sceneWillConnect: function() {
       self.init(mainPath)
       // Simple initialization
     },
-    
+
     queryAddonCommandStatus: function() {
       return {
         image: 'logo.png',
@@ -1939,12 +1939,12 @@ JSB.newAddon = function(mainPath){
         checked: self.toggled
       };
     },
-    
+
     toggleAddon: async function(button) {
       // Simple toggle logic
     }
   });
-  
+
   return MNPluginClass;
 };
 ```
@@ -1963,7 +1963,7 @@ sceneWillConnect: function() {
   if (typeof MNLiteratureInstance === 'undefined') {
     global.MNLiteratureInstance = self
   }
-  
+
   self.toggled = false
   self.ifFirst = true
 }
@@ -2011,7 +2011,7 @@ const actionRegistry = {
 sceneWillConnect: function() {
   // Store observers for cleanup
   self.observers = [];
-  
+
   // Add observers
   MNUtil.addObserver(self, 'onPopupMenuOnNote:', 'PopupMenuOnNote')
   MNUtil.addObserver(self, 'onProcessNewExcerpt:', 'ProcessNewExcerpt')
@@ -2039,7 +2039,7 @@ class PluginConfig {
   static init(mainPath) {
     this.mainPath = mainPath
     this.config = this.getConfig()
-    
+
     // Listen for iCloud changes
     MNUtil.addObserver(
       self,
@@ -2047,18 +2047,18 @@ class PluginConfig {
       'NSUbiquitousKeyValueStoreDidChangeExternallyNotificationUI'
     )
   }
-  
+
   static getConfig() {
     return NSUserDefaults.standardUserDefaults()
       .objectForKey("PluginName_config") || this.defaultConfig
   }
-  
+
   static save() {
     NSUserDefaults.standardUserDefaults()
       .setObjectForKey(this.config, "PluginName_config")
     NSUserDefaults.standardUserDefaults().synchronize()
   }
-  
+
   static checkCloudStore() {
     // Sync with iCloud
     NSUbiquitousKeyValueStore.defaultStore().synchronize()
@@ -2170,7 +2170,7 @@ declare class NSData {
     static dataWithStringEncoding(string: string, encoding: NSStringEncoding): NSData;
     static dataWithContentsOfFile(path: string): NSData;
     static dataWithContentsOfURL(url: NSURL): NSData;
-    
+
     length(): number;
     bytes(): number;
     base64Encoding(): string;
@@ -2208,9 +2208,9 @@ declare const NSLocale: {
 
 ---
 
-**Document Version**: 2.0.0  
-**Last Updated**: 2025-01-24  
-**Repository**: https://github.com/xkwxdyy/MN-Addons  
-**Generated By**: Comprehensive deep analysis of MN-Addons codebase  
-**Analysis Scope**: 694 JavaScript files, 212 JSON files, 184 markdown files, 6 TypeScript definition files  
+**Document Version**: 2.0.0
+**Last Updated**: 2025-01-24
+**Repository**: https://github.com/xkwxdyy/MN-Addons
+**Generated By**: Comprehensive deep analysis of MN-Addons codebase
+**Analysis Scope**: 694 JavaScript files, 212 JSON files, 184 markdown files, 6 TypeScript definition files
 **Total Lines Analyzed**: 30,000+ lines of production code across 15+ plugins

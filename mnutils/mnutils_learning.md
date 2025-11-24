@@ -1,457 +1,347 @@
-# 🚀 MNUtils 插件开发学习之旅
+# 🚀 MNUtils Plugin Development Learning Journey > Understanding the Secrets of MarginNote Plugin Development Step by Step from Scratch ## 📖 Foreword Hi! Welcome to the MNUtils learning journey. If this is your first time developing a MarginNote plugin, don't worry, we'll build a knowledge system piece by piece, like building blocks.
 
-> 从零开始，一步步理解 MarginNote 插件开发的奥秘
+Who is this document suitable for?
+- 🌱 For complete beginners with no plugin development experience - 🔍 For developers who want to understand the inner workings of MNUtils - 🎯 For creators who want to develop their own plugins for MarginNote---
 
-## 📖 写在前面
+## Chapter 1: Starting with a Simple Requirement ### 🤔 The Beginning of the Story Imagine you're developing a MarginNote plugin. Suddenly, the plugin malfunctions! You don't know where the error is, and you can't see any error messages. At this moment, you desperately wish there was a tool that could record and display everything that happened...
 
-嗨！欢迎来到 MNUtils 的学习之旅。如果你是第一次接触 MarginNote 插件开发，不用担心，我们会像搭积木一样，一块一块地构建知识体系。
+This is why the **Log Viewer** was created!
 
-**这个文档适合谁？**
-- 🌱 完全没有插件开发经验的新手
-- 🔍 想要理解 MNUtils 内部原理的开发者
-- 🎯 希望为 MarginNote 开发自己插件的创作者
+### 📝 What is a log?
+
+Logs are like a program's **diary**:
+
+```
+8:00 AM - The user opened the plugin ✅
+8:01 AM - Loading configuration file ✅
+8:02 AM - Connection to server failed ❌
+8:03 AM - Retrying connection... ⏳
+```
+
+We record everything the program does. When a problem occurs, we can refer to the log to see what happened.
+
+### 🎯 What should we do?
+
+To create a log viewer, you need:
+1. **Collect Logs** - Gather information from various sources. 2. **Store Logs** - Save the information. 3. **Display Logs** - Present the logs in a user-friendly interface. 4. **Filter and Search** - Quickly find the information you need. Sounds simple? Let's get started!
 
 ---
 
-## 第1章：从一个简单的需求开始
-
-### 🤔 故事的起点
-
-想象一下，你正在开发一个 MarginNote 插件。突然，插件出问题了！你不知道哪里出错，也看不到任何错误信息。这时候，你多希望有个工具能记录并显示所有发生的事情...
-
-这就是 **Log Viewer（日志查看器）** 诞生的原因！
-
-### 📝 什么是日志？
-
-日志就像是程序的**日记本**：
+## Chapter 2: Understanding the World of MarginNote Plugins ### 🏰 Three-Tier Architecture - Like a Three-Story House The MarginNote plugin is like a three-story house:
 
 ```
-早上 8:00 - 用户打开了插件 ✅
-早上 8:01 - 加载配置文件 ✅
-早上 8:02 - 连接服务器失败 ❌
-早上 8:03 - 重试连接... ⏳
-```
+    🏠 Your plugin is on the 3rd floor of the house [Web Interface Layer] 👤 Users are here ↕️ Stairs (Communication)
+    2nd Floor [JavaScript] 🧠 The logic is here ↕️ Stairs (bridge)
+    Floor 1 [Native] 💪 The system is here```
 
-每当程序做了什么事，我们就记一笔。出问题时，翻翻日记就知道发生了什么。
+- **Floor 1 (Native)**: Deals with the MarginNote system; powerful but not flexible enough. - **Floor 2 (JavaScript)**: Handles business logic; the brain of the entire plugin. - **Floor 3 (Web)**: A beautiful interface; where users see and interact. ### 🤝 How do they communicate?
 
-### 🎯 我们要做什么？
-
-创建一个日志查看器，它需要：
-1. **收集日志** - 从各处收集信息
-2. **存储日志** - 把信息保存起来
-3. **显示日志** - 用友好的界面展示
-4. **过滤搜索** - 快速找到需要的信息
-
-听起来简单？让我们开始吧！
-
----
-
-## 第2章：理解 MarginNote 插件的世界
-
-### 🏰 三层架构 - 像一座三层楼的房子
-
-MarginNote 插件就像一座三层楼的房子：
+Just as stairs are needed between floors, these three floors also need a "communication method":
 
 ```
-    🏠 你的插件房子
-    
-    3楼 [ Web 界面层 ]  👤 用户在这里
-       ↕️ 楼梯(通信)
-    2楼 [ JavaScript ]  🧠 逻辑在这里
-       ↕️ 楼梯(桥接)
-    1楼 [ Native 原生 ]  💪 系统在这里
+The user clicks the button (3rd floor).
+    ↓ "The boss wants to see the logs!"
+JavaScript (2nd floor)
+    "System, give me the log data!"
+Native (1st floor)
+    ↓ "This is all the logs"
+JavaScript (2nd floor)
+    ↓ "It's all organized, ready to be shown to users."
+Displayed on the interface (3rd floor)
 ```
 
-- **1楼（Native）**：和 MarginNote 系统打交道，很强大但不够灵活
-- **2楼（JavaScript）**：处理业务逻辑，是整个插件的大脑
-- **3楼（Web）**：漂亮的界面，用户看到和操作的地方
+### 💡 Why design it this way?
 
-### 🤝 他们怎么交流？
+Imagine if all the functions were crammed into one layer:
+- ❌ Code will become messy - ❌ Modifying one part may affect everything - ❌ Difficult to maintain and extend after layering:
+- ✅ Clear and concise division of labor - ✅ Independent modification of a specific layer - ✅ Easy to understand and maintain
 
-就像楼层之间需要楼梯，这三层也需要"通信方式"：
-
-```
-用户点击按钮（3楼）
-    ↓ "老板要看日志！"
-JavaScript（2楼）
-    ↓ "系统，给我日志数据！"
-Native（1楼）
-    ↓ "这是所有日志"
-JavaScript（2楼）
-    ↓ "整理好了，给用户看"
-显示在界面（3楼）
-```
-
-### 💡 为什么要这样设计？
-
-想象如果所有功能都挤在一层：
-- ❌ 代码会变得混乱
-- ❌ 修改一处可能影响全部
-- ❌ 难以维护和扩展
-
-分层后：
-- ✅ 各司其职，清晰明了
-- ✅ 可以独立修改某一层
-- ✅ 容易理解和维护
-
----
-
-## 第3章：动手写第一行代码
-
-### 🎬 从最简单的日志类开始
-
-让我们创建一个最简单的日志管理器：
+## Chapter 3: Writing Your First Line of Code ### 🎬 Let's start with the simplest log class and create a very basic log manager:
 
 ```javascript
-// 这是我们的日志管家
-class SimpleLogger {
+// This is our log manager class SimpleLogger {
   constructor() {
-    // 准备一个盒子装日志
-    this.logs = []
+    // Prepare a container for the logs this.logs = []
   }
-  
-  // 记录一条日志
-  log(message) {
-    // 创建日志条目（像写日记）
+
+  // Log a message log(message) {
+    // Create log entries (like writing a diary)
     const logEntry = {
-      message: message,           // 要说什么
-      time: new Date().toLocaleTimeString()  // 几点说的
-    }
-    
-    // 放进盒子里
-    this.logs.push(logEntry)
-    
-    // 打印出来看看
-    console.log(`[${logEntry.time}] ${logEntry.message}`)
+      message: message, // What to say time: new Date().toLocaleTimeString() // What time it was said}
+
+    // Put it into the box: this.logs.push(logEntry)
+
+    // Print it out to see: console.log(`[${logEntry.time}] ${logEntry.message}`)
   }
-  
-  // 查看所有日志
-  showAll() {
-    console.log("📋 所有日志：")
+
+  // View all logs showAll() {
+    console.log("📋 All logs:")
     this.logs.forEach(log => {
-      console.log(`  [${log.time}] ${log.message}`)
+      console.log(` [${log.time}] ${log.message}`)
     })
   }
 }
 
-// 试试看！
+// Give it a try!
 const logger = new SimpleLogger()
-logger.log("插件启动了")
-logger.log("用户点击了按钮")
+logger.log("Plugin started")
+logger.log("User clicked the button")
 logger.showAll()
 ```
 
-### 🎮 动手练习 #1
+### 🎮 Hands-on Practice #1
 
-试着修改上面的代码，添加一个"日志级别"功能：
-- INFO（普通信息）用 ℹ️
-- WARN（警告）用 ⚠️  
-- ERROR（错误）用 ❌
+Try modifying the code above to add a "log level" feature:
+- INFO (General Information) uses ℹ️
+- WARN (warning) with ⚠️
+- ERROR (Error) is marked with ❌
 
 <details>
-<summary>💡 提示（点击展开）</summary>
+<summary>💡 Tip (click to expand)</summary>
 
 ```javascript
 log(message, level = 'INFO') {
   const icons = {
     'INFO': 'ℹ️',
-    'WARN': '⚠️',
+    'WARN': '⚠️'
     'ERROR': '❌'
   }
-  // ... 继续完成
-}
+  // ... Continue to complete}
 ```
 </details>
 
 ---
 
-## 第4章：让日志"活"起来 - 添加 UI
+## Chapter 4: Making the Log "Come Alive" - ​​Adding UI
 
-### 🎨 从控制台到网页
+### 🎨 Logs from the console to the web console are too boring, let's create a beautiful web interface!
 
-控制台的日志太枯燥了，让我们创建一个漂亮的网页界面！
-
-#### 第一步：创建 HTML 结构
-
-```html
-<!-- 这是我们的日志展示舞台 -->
+#### Step 1: Creating the HTML Structure ```html
+This is our log display platform -->
 <!DOCTYPE html>
 <html>
 <head>
-    <title>我的日志查看器</title>
+    <title>My Log Viewer</title>
     <style>
-        /* 装饰我们的舞台 */
+        /* Decorate our stage */
         .log-container {
             background: #f5f5f5;
             padding: 10px;
             height: 400px;
-            overflow-y: auto;  /* 太多了可以滚动 */
+            overflow-y: auto; /* If there's too much data, it can be scrolled */
         }
-        
+
         .log-entry {
             background: white;
             margin: 5px 0;
             padding: 8px;
             border-radius: 4px;
-            font-family: monospace;  /* 用等宽字体 */
+            font-family: monospace; /* Use a monospace font */
         }
-        
-        /* 不同级别不同颜色 */
+
+        /* Different levels, different colors */
         .log-error { border-left: 3px solid red; }
         .log-warn { border-left: 3px solid orange; }
         .log-info { border-left: 3px solid blue; }
     </style>
 </head>
 <body>
-    <h2>📋 日志查看器</h2>
+    <h2>📋 Log Viewer</h2>
     <div id="logContainer" class="log-container">
-        <!-- 日志会显示在这里 -->
+        <!-- Logs will be displayed here-->
     </div>
 </body>
 </html>
 ```
 
-#### 第二步：用 JavaScript 添加日志
-
-```javascript
-// 现在我们要操作网页了！
+#### Step Two: Add Logs Using JavaScript ```javascript
+// Now we're going to interact with the webpage!
 class WebLogger {
   constructor(containerId) {
-    // 找到放日志的容器
-    this.container = document.getElementById(containerId)
+    // Locate the container for the logs: this.container = document.getElementById(containerId)
   }
-  
-  // 添加一条日志到页面
-  addLog(message, level = 'info') {
-    // 创建一个新的日志元素
-    const logDiv = document.createElement('div')
+
+  // Add a log entry to the page addLog(message, level = 'info') {
+    // Create a new log element const logDiv = document.createElement('div')
     logDiv.className = `log-entry log-${level.toLowerCase()}`
-    
-    // 设置内容
-    const time = new Date().toLocaleTimeString()
+
+    // Set content const time = new Date().toLocaleTimeString()
     logDiv.textContent = `[${time}] ${message}`
-    
-    // 添加到容器
-    this.container.appendChild(logDiv)
-    
-    // 自动滚动到底部（看最新的）
+
+    // Add to the container this.container.appendChild(logDiv)
+
+    // Automatically scroll to the bottom (to see the latest)
     this.container.scrollTop = this.container.scrollHeight
   }
 }
 
-// 使用示例
-const webLogger = new WebLogger('logContainer')
-webLogger.addLog('系统启动', 'info')
-webLogger.addLog('警告：内存使用率高', 'warn')
-webLogger.addLog('错误：网络连接失败', 'error')
+// Example usage: const webLogger = new WebLogger('logContainer')
+webLogger.addLog('System Startup', 'info')
+webLogger.addLog('Warning: High memory usage', 'warn')
+webLogger.addLog('Error: Network connection failed', 'error')
 ```
 
-### 🎯 理解关键概念
+### 🎯 Understanding Key Concepts: **DOM Manipulation** - Like Building Blocks ```javascript
+document.getElementById('logContainer') // Finds the specified block. document.createElement('div') // Creates a new block. container.appendChild(logDiv) // Adds the block inside.
 
-**DOM 操作** - 就像搭积木
-```javascript
-document.getElementById('logContainer')  // 找到指定的积木
-document.createElement('div')            // 创建新积木
-container.appendChild(logDiv)            // 把积木放进去
-```
-
-**CSS 类名** - 就像贴标签
-```javascript
-logDiv.className = 'log-entry log-error'  // 贴上两个标签
-// CSS 会根据标签来装饰：红色边框表示错误
-```
+**CSS class names** - like adding tags to JavaScript
+logDiv.className = 'log-entry log-error' // Add two tags // CSS will decorate according to the tags: red border indicates an error```
 
 ---
 
-## 第5章：连接 Native 和 Web - 建立通信桥梁
+## Chapter 5: Connecting Native and Web - Building Communication Bridges ### 🌉 Understanding the Challenges of Communication Native and Web are like two people speaking different languages:
+- Native speaks "Objective-C language"
+- The Web Speaks "JavaScript"
 
-### 🌉 理解通信的挑战
+We need a translator!
 
-Native 和 Web 就像说不同语言的两个人：
-- Native 说"Objective-C 语"
-- Web 说"JavaScript 语"
-
-我们需要一个"翻译官"！
-
-### 📡 方式一：JavaScript 注入
-
-Native 可以向 Web 页面"喊话"：
+### 📡 Method 1: JavaScript injection into Native allows you to "speak" to web pages:
 
 ```javascript
-// Native 端：向网页注入 JavaScript
+// Native side: Injecting JavaScript into the webpage
 subscriptionController.prototype.sendLogToWeb = function(log) {
-  // 准备要说的话
-  const message = JSON.stringify(log)
-  
-  // 编码（防止特殊字符破坏）
+  // Prepare what to say const message = JSON.stringify(log)
+
+  // Encoding (to prevent damage from special characters)
   const encoded = encodeURIComponent(message)
-  
-  // 向网页"喊话"
+
+  // Sending a message to the webpage
   this.webview.runJavaScript(
-    `receiveLog('${encoded}')`  // 调用网页的函数
-  )
+    `receiveLog('${encoded}')` // Calls a function on the webpage)
 }
 
-// Web 端：准备好接收
-function receiveLog(encodedLog) {
-  // 解码
-  const message = decodeURIComponent(encodedLog)
+// Web side: Ready to receive function receiveLog(encodedLog) {
+  // Decode const message = decodeURIComponent(encodedLog)
   const log = JSON.parse(message)
-  
-  // 显示日志
-  webLogger.addLog(log.message, log.level)
+
+  // Display logs: webLogger.addLog(log.message, log.level)
 }
 ```
 
-### 📡 方式二：URL Scheme
+### 📡 Method Two: URL Scheme
 
-Web 可以通过特殊的 URL 向 Native "发信号"：
+The web can send signals to native systems via special URLs:
 
 ```javascript
-// Web 端：发送信号
-function askForLogs() {
-  // 构造特殊的 URL
+// Web side: Send signal function askForLogs() {
+  // Construct a special URL
   window.location.href = 'mnutils://getLogs'
 }
 
-// Native 端：接收信号
-if (url.startsWith('mnutils://')) {
+// Native side: Receive signals if (url.startsWith('mnutils://')) {
   const action = url.split('://')[1]
   if (action === 'getLogs') {
-    // 发送日志给 Web
+    // Send logs to the web
     this.sendAllLogs()
   }
 }
 ```
 
-### 🎮 动手练习 #2
+### 🎮 Hands-on Practice #2
 
-画出 Native 和 Web 通信的流程图：
-1. 用户点击"刷新日志"按钮
-2. Web 发送请求给 Native
-3. Native 获取日志数据
-4. Native 发送数据给 Web
-5. Web 显示日志
-
-<details>
-<summary>💡 参考答案</summary>
+Draw a flowchart of Native and Web communication:
+1. The user clicks the "Refresh Logs" button. 2. The Web server sends a request to the Native server.
+3. Native code retrieves log data. 4. Native code sends data to the Web application.
+5. Web-based log display <details>
+<summary>💡 Reference Answer</summary>
 
 ```
-用户点击按钮
+User clicks button ↓
+[Web] "mnutils://refresh
     ↓
-[Web] "mnutils://refresh"
-    ↓
-[Native] 收到请求
-    ↓
-[Native] 获取 MNLog.logs
+[Native] Request received ↓
+[Native] Get MNLog.logs
     ↓
 [Native] runJavaScript('showLogs(...)')
     ↓
-[Web] 显示日志
-```
+[Web] Display logs```
 </details>
 
 ---
 
-## 第6章：处理真实场景的挑战
+## Chapter 6: Handling Real-World Challenges ### 🎯 Challenge 1: What to do with too many logs?
 
-### 🎯 挑战1：日志太多怎么办？
-
-想象有 10000 条日志，问题来了：
-- 📱 内存会爆满
-- 🐌 界面会卡顿
-- 😵 用户会迷失
-
-**解决方案：循环缓冲区**
+Imagine you have 10,000 log entries. Here's the problem:
+- 📱 Memory will run out - 🐌 The interface will lag - 😵 Users will feel lost **Solution: Circular buffer**
 
 ```javascript
 class SmartLogger {
   constructor(maxLogs = 1000) {
     this.logs = []
-    this.maxLogs = maxLogs  // 最多保存1000条
-  }
-  
+    this.maxLogs = maxLogs // Maximum of 1000 records can be stored.
+
   log(message) {
-    // 添加新日志
-    this.logs.push({
+    // Add a new log entry this.logs.push({
       message,
       time: Date.now()
     })
-    
-    // 如果超过限制，删除最老的
-    if (this.logs.length > this.maxLogs) {
-      this.logs.shift()  // 删除第一个（最老的）
+
+    // If the limit is exceeded, delete the oldest if (this.logs.length > this.maxLogs) {
+      this.logs.shift() // Delete the first (oldest) log.
     }
   }
 }
 ```
 
-这就像一个旋转寿司店的传送带：
+It's like a conveyor belt in a revolving sushi restaurant:
 ```
-新寿司 → [🍣🍣🍣🍣🍣] → 老寿司被拿走
-```
+New sushi → [🍣🍣🍣🍣🍣] → Old sushi was taken away```
 
-### 🎯 挑战2：如何快速找到需要的日志？
+### 🎯 Challenge 2: How to quickly find the logs you need?
 
-**解决方案：过滤系统**
+**Solution: Filtration System**
 
 ```javascript
 class FilterableLogger {
-  // 过滤日志
-  filterLogs(level) {
+  // Filter logs filterLogs(level) {
     return this.logs.filter(log => log.level === level)
   }
-  
-  // 搜索关键词
-  searchLogs(keyword) {
-    return this.logs.filter(log => 
+
+  // Search Logs(keyword) {
+    return this.logs.filter(log =>
       log.message.includes(keyword)
     )
   }
-  
-  // 组合过滤
-  getFilteredLogs(options) {
+
+  // Combined filtering getFilteredLogs(options) {
     let filtered = this.logs
-    
+
     if (options.level) {
-      filtered = filtered.filter(log => 
+      filtered = filtered.filter(log =>
         log.level === options.level
       )
     }
-    
+
     if (options.keyword) {
-      filtered = filtered.filter(log => 
+      filtered = filtered.filter(log =>
         log.message.includes(options.keyword)
       )
     }
-    
+
     return filtered
   }
 }
 ```
 
-### 🎯 挑战3：如何优雅地处理错误？
+### 🎯 Challenge 3: How to handle mistakes gracefully?
 
 ```javascript
 class SafeLogger {
   log(message) {
     try {
-      // 正常记录
-      this.addLog(message)
+      // Normal logging using this.addLog(message)
     } catch (error) {
-      // 出错了也不能崩溃
-      console.error('记录日志时出错:', error)
-      
-      // 尝试记录错误本身
-      this.emergencyLog({
-        message: '日志系统错误',
-        error: error.toString()
+      // An error should not cause a crash: console.error('Error logging:', error)
+
+      // Attempt to log the error itself this.emergencyLog({
+        message: 'Log system error',
+        Error: error.toString()
       })
     }
   }
-  
+
   emergencyLog(data) {
-    // 紧急备份方案：存到 localStorage
+    // Emergency backup solution: save to localStorage
     const backup = JSON.parse(
       localStorage.getItem('emergency_logs') || '[]'
     )
@@ -463,112 +353,77 @@ class SafeLogger {
 
 ---
 
-## 第7章：调试技巧和常见问题
-
-### 🐛 调试技巧
-
-#### 1. 使用 Safari Web Inspector
+## Chapter 7: Debugging Techniques and Common Problems ### 🐛 Debugging Techniques #### 1. Using Safari Web Inspector
 
 ```javascript
-// 在代码中添加断点标记
-debugger  // 代码会在这里暂停
+// Add a breakpoint marker (debugger) to the code // The code will pause here // Or add debug logs: console.log('%c Important information', 'color: red; font-size: 16px')
+console.table(this.logs) // Display in table format
 
-// 或者添加调试日志
-console.log('%c重要信息', 'color: red; font-size: 16px')
-console.table(this.logs)  // 表格形式显示
-```
-
-#### 2. 添加调试模式
-
-```javascript
+#### 2. Add debug mode to ```javascript`
 class DebugLogger {
   constructor(debug = false) {
     this.debug = debug
   }
-  
+
   log(message, level) {
-    // 正常记录
-    this.logs.push({message, level})
-    
-    // 调试模式：额外输出
-    if (this.debug) {
-      console.group(`📝 日志 [${level}]`)
-      console.log('消息:', message)
-      console.log('时间:', new Date())
-      console.log('调用栈:', new Error().stack)
+    // Normal logging: this.logs.push({message, level})
+
+    // Debug mode: additional output if (this.debug) {
+      console.group(`📝 Log[${level}]`)
+      console.log('Message:', message)
+      console.log('Time:', new Date())
+      console.log('Call stack:', new Error().stack)
       console.groupEnd()
     }
   }
 }
 ```
 
-### ❓ 常见问题和解决方案
+### ❓ Frequently Asked Questions and Solutions #### Q1: WebView is loaded but I can't see the logs?
 
-#### Q1: WebView 加载了但看不到日志？
-
-**可能原因**：JavaScript 在 WebView 准备好之前就执行了
-
-**解决方案**：
+**Possible cause:** JavaScript executed before the WebView was ready. **Solution:**
 ```javascript
-// 添加延迟等待
-await MNUtil.delay(0.5)  // 等待 500ms
+// Add a delay to wait MNUtil.delay(0.5) // Wait 500ms
 this.showLog(MNLog.logs)
 
-// 或者监听加载完成事件
-webview.onload = () => {
+// Or listen for the loading completion event: webview.onload = () => {
   this.showLog(MNLog.logs)
 }
 ```
 
-#### Q2: 日志显示乱码？
+#### Q2: Why are the logs displaying garbled characters?
 
-**可能原因**：编码问题
-
-**解决方案**：
+**Possible Cause:** Encoding Issue **Solution:**
 ```javascript
-// 确保正确编码和解码
-const encoded = encodeURIComponent(JSON.stringify(data))
-// ... 传输 ...
+// Ensure correct encoding and decoding const encoded = encodeURIComponent(JSON.stringify(data))
+// ... transmission...
 const decoded = JSON.parse(decodeURIComponent(encoded))
 ```
 
-#### Q3: 点击按钮没反应？
+#### Q3: Clicking the button has no effect?
 
-**调试步骤**：
+**Debugging Steps**:
 ```javascript
-// 1. 确认事件绑定
-button.addEventListener('click', (e) => {
-  console.log('按钮被点击了！')  // 第一步：确认触发
-  
-  // 2. 检查数据
-  console.log('当前日志数:', this.logs.length)
-  
-  // 3. 追踪执行
-  console.log('开始过滤...')
+// 1. Confirm event binding to button.addEventListener('click', (e) => {
+  console.log('The button was clicked!') // Step 1: Confirm the trigger // 2. Check the data console.log('Current log count:', this.logs.length)
+
+  // 3. Trace the execution of console.log('Start filtering...')
   const filtered = this.filterLogs()
-  console.log('过滤结果:', filtered)
+  console.log('Filtered result:', filtered)
 })
 ```
 
-### 💡 性能优化小贴士
-
-```javascript
-// ❌ 不好：每次都重新渲染所有日志
-function showAllLogs() {
-  container.innerHTML = ''  // 清空
-  logs.forEach(log => {     // 重新添加全部
-    container.appendChild(createLogElement(log))
+### 💡 Performance Optimization Tips```javascript
+// ❌ Not good: Re-renders all logs every time function showAllLogs() {
+  container.innerHTML = '' // Clear logs.forEach(log => { // Re-add all logs container.appendChild(createLogElement(log))
   })
 }
 
-// ✅ 好：只添加新的日志
-function appendNewLog(log) {
-  // 只创建和添加一个新元素
-  const element = createLogElement(log)
+// ✅ Okay: Only add new log entries function appendNewLog(log) {
+  // Create and add only one new element const element = createLogElement(log)
   container.appendChild(element)
-  
-  // 限制显示数量
-  if (container.children.length > 100) {
+
+  // Limit the number of children displayed if (container.children.length > 100) {
     container.removeChild(container.firstChild)
   }
 }
@@ -576,172 +431,107 @@ function appendNewLog(log) {
 
 ---
 
-## 第8章：实战项目 - 构建完整的 Log Viewer
+## Chapter 8: Practical Project - Building a Complete Log Viewer
 
-### 🎯 项目目标
+### 🎯 The project goal is for us to integrate what we've learned and create a fully functional log viewer!
 
-让我们整合所学，创建一个功能完整的日志查看器！
+### 📋 Feature List - [x] Basic Logging - [x] Web Interface Display - [x] Level Filtering (ERROR/WARN/INFO)
+- [x] Keyword Search - [x] Copy Log - [x] Clear Log - [ ] Export Log (Exercise)
+- [ ] Log statistics (exercise)
 
-### 📋 功能清单
-
-- [x] 基础日志记录
-- [x] Web 界面显示
-- [x] 级别过滤（ERROR/WARN/INFO）
-- [x] 关键词搜索
-- [x] 复制日志
-- [x] 清空日志
-- [ ] 导出日志（练习）
-- [ ] 日志统计（练习）
-
-### 🏗️ 最终架构
-
-```
+### 🏗️ Final Architecture```
 ┌──────────────────────────┐
-│     用户界面 (HTML)       │
-│  ┌────┐ ┌────┐ ┌────┐   │
-│  │过滤│ │搜索│ │复制│   │
-│  └────┘ └────┘ └────┘   │
-└───────────┬──────────────┘
-            │ 
-┌───────────▼──────────────┐
-│   LogViewer 类 (JS)      │
-│  - 渲染日志              │
-│  - 处理交互              │
-│  - 管理过滤              │
+User Interface (HTML) |
+│ ┌────┐ ┌────┐ ┌────┐ │
+│ │Filter│ │Search│ │Copy│ │
+│ └────┘ └────┘ └────┘ │
 └───────────┬──────────────┘
             │
 ┌───────────▼──────────────┐
-│    MNLog 类 (Native)     │
-│  - 收集日志              │
-│  - 存储管理              │
-│  - 数据传输              │
+│ LogViewer Class (JS) │
+│ - Rendering Log │
+│ - Handling Interactions │
+│ - Manage Filters │
+└───────────┬──────────────┘
+            │
+┌───────────▼──────────────┐
+│ MNLog Class (Native) │
+│ - Collect Logs │
+│ - Storage Management │
+│ - Data Transmission │
 └──────────────────────────┘
 ```
 
-### 🎮 动手练习 #3：添加导出功能
+### 🎮 Hands-on Exercise #3: Add an Export Function Challenge: Add an "Export" button to save the log as a file.
 
-挑战：添加一个"导出"按钮，可以将日志保存为文件。
-
-**提示结构**：
+**Prompt Structure**:
 ```javascript
 function exportLogs() {
-  // 1. 获取所有日志
-  const logs = logViewer.logs
-  
-  // 2. 转换为文本格式
-  const text = logs.map(log => 
+  // 1. Get all logs const logs = logViewer.logs
+
+  // 2. Convert to text format const text = logs.map(log =>
     `[${log.time}] [${log.level}] ${log.message}`
   ).join('\n')
-  
-  // 3. 创建下载链接
-  const blob = new Blob([text], {type: 'text/plain'})
+
+  // 3. Create a download link const blob = new Blob([text], {type: 'text/plain'})
   const url = URL.createObjectURL(blob)
-  
-  // 4. 触发下载
-  const a = document.createElement('a')
+
+  // 4. Trigger the download const a = document.createElement('a')
   a.href = url
   a.download = 'logs.txt'
   a.click()
 }
 ```
 
-### 🎮 动手练习 #4：添加统计面板
+### 🎮 Hands-on Exercise #4: Add a Statistics Panel Challenge: Display log statistics (total, number of items at each level, most common messages).
 
-挑战：显示日志统计信息（总数、各级别数量、最常见的消息）。
-
-**界面模板**：
+**Interface Template**:
 ```html
 <div class="stats-panel">
-  <h3>📊 统计</h3>
-  <p>总计: <span id="totalCount">0</span></p>
-  <p>错误: <span id="errorCount">0</span></p>
-  <p>警告: <span id="warnCount">0</span></p>
-  <p>信息: <span id="infoCount">0</span></p>
+  <h3>📊 Statistics</h3>
+  <p>Total: <span id="totalCount">0</span></p>
+  Error: <span id="errorCount">0</span></p>
+  <p>Warning: <span id="warnCount">0</span></p>
+  <p>Information: <span id="infoCount">0</span></p>
 </div>
 ```
 
 ---
 
-## 🎓 总结：你学到了什么？
+## 🎓 Summary: What did you learn?
 
-### ✅ 核心概念
-1. **三层架构**：Native + JavaScript + Web 的协作
-2. **数据流动**：日志如何从产生到显示
-3. **通信机制**：不同层之间如何对话
-4. **性能优化**：处理大量数据的技巧
+### ✅ Core Concepts 1. **Three-Tier Architecture**: Collaboration of Native + JavaScript + Web 2. **Data Flow**: How logs are generated and displayed 3. **Communication Mechanisms**: How different layers communicate 4. **Performance Optimization**: Techniques for handling large amounts of data ### ✅ Practical Skills 1. **DOM Manipulation**: Dynamically creating and modifying web page elements 2. **Event Handling**: Responding to user interactions 3. **Data Management**: Filtering, searching, and storing 4. **Error Handling**: Gracefully handling exceptions ### ✅ Development Mindset 1. **Modular Thinking**: Breaking down large problems into smaller modules 2. **Incremental Development**: Gradually improving from simple to complex 3. **User Experience**: Always considering the user's experience 4. **Debugging Techniques**: Quickly locating and resolving problems
 
-### ✅ 实用技能
-1. **DOM 操作**：动态创建和修改网页元素
-2. **事件处理**：响应用户交互
-3. **数据管理**：过滤、搜索、存储
-4. **错误处理**：优雅地处理异常
+## 🚀 Next Steps ### Continue learning path 1. **Delve deeper into other MNUtils modules**
+   - Subscription Management System - Plugin Store Functionality - Note-taking API
 
-### ✅ 开发思维
-1. **模块化思考**：把大问题分解成小模块
-2. **渐进式开发**：从简单到复杂，逐步完善
-3. **用户体验**：始终考虑用户的使用感受
-4. **调试技巧**：快速定位和解决问题
+2. **Create your own plugins**
+   - Start with simple features - Gradually increase complexity - Release to the community 3. **Participate in the community**
+   - Share your learning experiences - Help other beginners - Contribute code improvements ### 📚 Recommended Resources - [MarginNote Official Documentation](https://docs.marginnote.com)
+- [MNUtils API Reference](./MNUtils_API_Guide.md)
+- [JavaScript MDN Documentation](https://developer.mozilla.org)
 
----
+### 💬 Getting help when encountering problems:
+1. First, check the error message. 2. Review relevant documentation. 3. Search for similar questions. 4. Seek help from the community.
 
-## 🚀 下一步
+## 🎉 Congratulations!
 
-### 继续学习路径
+You have completed your learning journey with Log Viewer! Now you understand:
+- Basic architecture of the MarginNote plugin - Communication methods between Native and Web - How to build the user interface - How to process and display data **Remember:** Programming is like learning to ride a bicycle; the more you practice, the more proficient you become.
 
-1. **深入 MNUtils 其他模块**
-   - 订阅管理系统
-   - 插件商店功能
-   - 笔记操作 API
-
-2. **创建自己的插件**
-   - 从简单的功能开始
-   - 逐步增加复杂度
-   - 发布到社区
-
-3. **参与社区**
-   - 分享你的学习心得
-   - 帮助其他新手
-   - 贡献代码改进
-
-### 📚 推荐资源
-
-- [MarginNote 官方文档](https://docs.marginnote.com)
-- [MNUtils API 参考](./MNUtils_API_Guide.md)
-- [JavaScript MDN 文档](https://developer.mozilla.org)
-
-### 💬 获取帮助
-
-遇到问题时：
-1. 先检查错误信息
-2. 查看相关文档
-3. 搜索类似问题
-4. 向社区求助
+Wishing you continued success in your MarginNote plugin development journey! 🚀
 
 ---
 
-## 🎉 恭喜！
-
-你已经完成了 Log Viewer 的学习之旅！现在你理解了：
-- MarginNote 插件的基本架构
-- Native 和 Web 的通信方式
-- 如何构建用户界面
-- 如何处理和显示数据
-
-**记住**：编程就像学骑自行车，多练习就会越来越熟练。
-
-祝你在 MarginNote 插件开发的道路上越走越远！ 🚀
+> 📝 **Note Space**
+>
+Record your learning experiences, problems encountered, and solutions here:
+>
+>
+>
+>
+>
 
 ---
 
-> 📝 **笔记空间**
-> 
-> 在这里记录你的学习心得、遇到的问题和解决方案：
-> 
-> 
-> 
-> 
-> 
-
----
-
-*本文档持续更新中，欢迎反馈和建议！*
+This document is continuously being updated; feedback and suggestions are welcome!
