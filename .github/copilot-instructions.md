@@ -7,6 +7,9 @@
 
 ---
 
+
+**NOTES:** DO NOT CREATE any markdown files guides or documentation..etc. Only focus on coding
+
 ## 🎯 PROJECT IDENTITY & ECOSYSTEM OVERVIEW
 
 ### What is MarginNote?

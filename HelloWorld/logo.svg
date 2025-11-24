@@ -1,0 +1,11 @@
+<!-- Simple SVG placeholder logo for Hello World plugin -->
+<svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="22" cy="22" r="20" fill="#4A90E2" stroke="#2E5C8A" stroke-width="2"/>
+
+  <!-- Hello text (top) -->
+  <text x="22" y="18" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">HELLO</text>
+
+  <!-- World text (bottom) -->
+  <text x="22" y="30" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">WORLD</text>
+</svg>

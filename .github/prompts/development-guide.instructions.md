@@ -1,13 +1,6 @@
 ---
-description: '> If you do not understand what I want or if you think I have not made it clear, please donot guess and ask me directly.
-> It is strictly forbidden to create non-existent APIs out of thin air! If you want to use any API that does not appear before, you must search all plug-in files to confirm that it actually exists and can be used.
-> If the user asks you to analyze any functional code and generate a Markdown document, if I do not tell you the specific document path, the `.md` document will be generated to [another path](/Users/xiakangwei/Nutstore/Obsidian/IOTO/1-Input/Fragment Notes/MarginNote) by default.
-> Markdown documents are written strictly in UTF-8 encoding!
-> If the user asks you to refer to the plug-ins in this directory, you will not refer to them by default:
-> - Gotopage
-> - mntask
-> - mntoolbar/mntoolbar'
-applyTo: '**/*.ts, **/*.js'
+applyTo: '*'
+description: 'If you do not understand what I want or if you think I have not made it clear, please donot guess and ask me directly. It is strictly forbidden to create non-existent APIs out of thin air! If you want to use any API that does not appear before, you must search all plug-in files to confirm that it actually exists and can be used. If the user asks you to analyze any functional code and generate a Markdown document, if I do not tell you the specific document path, the `.md` document will be generated to [another path](/Users/xiakangwei/Nutstore/Obsidian/IOTO/1-Input/Fragment Notes/MarginNote) by default. Markdown documents are written strictly in UTF-8 encoding! If the user asks you to refer to the plug-ins in this directory, you will not refer to them by default:  - Gotopage - mntask - mntoolbar/mntoolbar'
 ---
 
 # MarginNote 4 Plug-in Development Guide
