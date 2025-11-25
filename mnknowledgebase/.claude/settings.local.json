@@ -20,7 +20,8 @@
       "Read(//Users/xiakangwei/Nutstore/Obsidian/IOTO/1-输入/碎片笔记/MarginNote/**)",
       "mcp__serena__get_current_config",
       "Bash(find:*)",
-      "mcp__serena__initial_instructions"
+      "mcp__serena__initial_instructions",
+      "mcp__filesystem__write_file"
     ],
     "deny": [],
     "ask": []
