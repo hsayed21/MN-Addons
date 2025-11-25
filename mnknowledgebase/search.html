@@ -2793,6 +2793,15 @@
         // { key: 'untagged', label: RAW_TYPE_LABEL, types: [RAW_TYPE_LABEL] },
       ];
 
+      // 归类子类型的固定选项列表
+      const DEFAULT_CLASSIFICATION_SUBTYPES = [
+        '定义',
+        '命题',
+        '例子',
+        '反例',
+        '思想方法'
+      ];
+
       // 颜色映射：优先类型、其次颜色索引，最后回退色
       const TYPE_COLOR_MAP = {
         定义: '#7bb8ff',
@@ -3985,14 +3994,10 @@
       }
 
       function refreshClassificationOptions() {
-        const options = new Set();
-        (state.cards || []).forEach((card) => {
-          if (!card) return;
-          if (card.type === '归类' && card.classificationSubtype) {
-            options.add(card.classificationSubtype);
-          }
-        });
-        state.classificationOptions = Array.from(options).sort();
+        // 使用固定的子类型列表，不再动态生成
+        state.classificationOptions = DEFAULT_CLASSIFICATION_SUBTYPES.slice();
+
+        // 验证当前选择是否有效
         if (
           state.currentClassificationSubtype !== 'all' &&
           !state.classificationOptions.includes(state.currentClassificationSubtype)
