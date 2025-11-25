@@ -636,6 +636,7 @@
   box-sizing: border-box;
   border-radius: 0 0 3px 0;
   background-color: var(--textarea-background-color);
+  display: none !important;
 }
 .vditor-preview::-webkit-scrollbar {
   display: none;

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Markdown编辑器 - 支持markdown-ui-widget</title>
+    <meta name="description" content="支持markdown-ui-widget组件的实时预览Markdown编辑器" />
+    <!-- <script type="module" crossorigin src="markdown_ui.js"></script>
+    <link rel="stylesheet" crossorigin href="markdown_ui.css"> -->
+    <script type="module" crossorigin src="https://vip.123pan.cn/1836303614/dl/cdn/markdown-ui/markdown_ui.js"></script>
+    <link rel="stylesheet" crossorigin href="https://vip.123pan.cn/1836303614/dl/cdn/markdown-ui/markdown_ui.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="error-message"></div>
+    <script>
+      let hasRenderCompleteListener = false
+      function scrollToBottom() {
+        const scrollHeight = document.body.scrollHeight; // 页面的总高度
+        const clientHeight = document.documentElement.clientHeight; // 可视区域的高度
+        const scrollTop = document.documentElement.scrollTop || document.body.scrollTop; // 当前滚动的位置
+
+        // 判断是否已经滚动到底部
+        if (scrollHeight - (scrollTop + clientHeight) > 1) {
+          window.scrollTo(0, scrollHeight); // 滚动到底部
+        }
+      }
+      async function notifyRefreshHeight() {
+        // scrollToBottom()
+        let container = document.getElementsByClassName('widget-container')[0]
+        // while (!container) {
+        //   await delay(100)
+        //   container = document.getElementsByClassName('widget-container')[0]
+        // }
+        let scrollHeight = container.scrollHeight+15
+        window.location.href = "editorheight://content="+scrollHeight;
+      }
+      /**
+       * 
+       * @param {number} ms 
+       * @returns {Promise<void>}
+       */
+      async function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+      async function setResponse(resEncoded) {
+        try {
+        let res = JSON.parse(decodeURIComponent(resEncoded))
+          let response = res.response ?? ""
+          if (!response) {
+            notifyRefreshHeight()
+          }else{
+            markdownAPI.setContent(response)
+          }
+          if (!hasRenderCompleteListener) {
+            hasRenderCompleteListener = true
+            markdownAPI.onRenderComplete(()=>{
+              notifyRefreshHeight()
+            })
+          }
+          // await delay(100)
+          // notifyRefreshHeight()
+
+        } catch (error) {
+          setErrorMessage(error.message)
+        }
+      }
+      function setErrorMessage(message) {
+        document.getElementById('error-message').innerText = message
+      }
+    </script>
+  </body>
+</html>
+

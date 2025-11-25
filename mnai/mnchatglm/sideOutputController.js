@@ -1,88 +1,88 @@
 /** @return {sideOutputController} */
-const getSideOutputController = ()=>self
+const getSideOutputController = () => self
 var sideOutputController = JSB.defineClass('sideOutputController : UIViewController <NSURLConnectionDelegate,UIWebViewDelegate>', {
-  viewDidLoad: function() {
-try {
-    let self = getSideOutputController()
-    self.init()
-    self.custom = false;
-    self.size = []
-    self.onreceive = false
-    self.refreshIdx = -1
-    self.funcResponse = ""
-    self.response = ''
-    self.dynamic = true;
-    self.shouldCopy = false
-    self.shouldComment = false
-    self.selectedText = '';
-    self.searchedText = '';
-    self.isLoading = false;
-    self.toolbarOn = true;
-    self.panelWidth = 100
-    self.hasRenderSearchResults = false
-    self.preSelection = ""
-    self.panelWidth = self.getPanelWidth()
-    self.panelHeight = self.getPanelHeight()
-    self.view.frame = MNUtil.genFrame(chatAIUtils.getX(), chatAIUtils.getY(), self.panelWidth, 120)
-    // self.view.frame = {x:chatAIUtils.getX(),y:chatAIUtils.getY(),width:MNExtensionPanel.width,height:120}
-    self.lastFrame = self.view.frame;
-    // self.currentFrame = self.view.frame
-    self.history = []
-    self.title = "main"
-    self.moveDate = Date.now()
-    self.color = [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true]
-    // self.view.layer.shadowOffset = {width: 0, height: 0};
-    // self.view.layer.shadowRadius = 15;
-    // self.view.layer.shadowOpacity = 0.4;
-    // self.view.layer.shadowColor = MNUtil.hexColorAlpha("#838383",0.4);
-    self.view.layer.cornerRadius = 8
-    self.view.layer.opacity = 1.0
-    self.view.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
-    self.view.layer.borderWidth = 0
-    self.view.backgroundColor = MNUtil.hexColorAlpha("#ffffff",0)
-    self.view.autoresizingMask = (1 << 0 | 1 << 3);
+  viewDidLoad: function () {
+    try {
+      let self = getSideOutputController()
+      self.init()
+      self.custom = false;
+      self.size = []
+      self.onreceive = false
+      self.refreshIdx = -1
+      self.funcResponse = ""
+      self.response = ''
+      self.dynamic = true;
+      self.shouldCopy = false
+      self.shouldComment = false
+      self.selectedText = '';
+      self.searchedText = '';
+      self.isLoading = false;
+      self.toolbarOn = true;
+      self.panelWidth = 100
+      self.hasRenderSearchResults = false
+      self.preSelection = ""
+      self.panelWidth = self.getPanelWidth()
+      self.panelHeight = self.getPanelHeight()
+      self.view.frame = MNUtil.genFrame(chatAIUtils.getX(), chatAIUtils.getY(), self.panelWidth, 120)
+      // self.view.frame = {x:chatAIUtils.getX(),y:chatAIUtils.getY(),width:MNExtensionPanel.width,height:120}
+      self.lastFrame = self.view.frame;
+      // self.currentFrame = self.view.frame
+      self.history = []
+      self.title = "main"
+      self.moveDate = Date.now()
+      self.color = [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+      // self.view.layer.shadowOffset = {width: 0, height: 0};
+      // self.view.layer.shadowRadius = 15;
+      // self.view.layer.shadowOpacity = 0.4;
+      // self.view.layer.shadowColor = MNUtil.hexColorAlpha("#838383",0.4);
+      self.view.layer.cornerRadius = 8
+      self.view.layer.opacity = 1.0
+      self.view.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6", 0.8)
+      self.view.layer.borderWidth = 0
+      self.view.backgroundColor = MNUtil.hexColorAlpha("#ffffff", 0)
+      self.view.autoresizingMask = (1 << 0 | 1 << 3);
 
-    self.createButton("aiButton")
-    self.aiButton.backgroundColor = MNUtil.hexColorAlpha("#ffffff",0.8)
+      self.createButton("aiButton")
+      self.aiButton.backgroundColor = MNUtil.hexColorAlpha("#ffffff", 0.8)
 
 
 
-    // self.createButton("aiModelButton")
-    // MNButton.setTitle(self.aiModelButton, "model",17)
-    // self.aiModelButton.setTitleColorForState(MNUtil.hexColorAlpha("#000000",0.8),0)
-    // self.aiModelButton.backgroundColor = MNUtil.hexColorAlpha("#ffffff",0.8)
+      // self.createButton("aiModelButton")
+      // MNButton.setTitle(self.aiModelButton, "model",17)
+      // self.aiModelButton.setTitleColorForState(MNUtil.hexColorAlpha("#000000",0.8),0)
+      // self.aiModelButton.backgroundColor = MNUtil.hexColorAlpha("#ffffff",0.8)
 
-    let currentFrame = self.view.frame
-    currentFrame.width = self.getPanelWidth()
-    self.currentFrame = currentFrame
-    self.view.frame = currentFrame
-    // self.setLayout()
-    // MNUtil.copyJSON(self.currentFrame)
-    if (self.view.hidden) {
-      self.show()
+      let currentFrame = self.view.frame
+      currentFrame.width = self.getPanelWidth()
+      self.currentFrame = currentFrame
+      self.view.frame = currentFrame
+      // self.setLayout()
+      // MNUtil.copyJSON(self.currentFrame)
+      if (self.view.hidden) {
+        self.show()
+      }
+      let config = chatAIConfig.getConfigFromSource()
+      self.currentModel = chatAIConfig.config.chatModel
+      // MNUtil.copyJSON(config)
+      // MNUtil.copy(self.currentModel)
+      self.config = config
+      self.token = [0]//原来的token计算方案，存在跨聊天的问题，现在使用tokenConfig来计算token
+      self.tokenConfig = {}
+      self.preFuncResponse = ""
+      self.reasoningResponse = ""
+      self.history = []
+      self.lastResponse = ''
+      self.activeChatIdx = 0//当前聊天索引，通过activeChatIdx来获取当前聊天
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "viewDidLoad")
     }
-    let config = chatAIConfig.getConfigFromSource()
-    self.currentModel = chatAIConfig.config.chatModel
-    // MNUtil.copyJSON(config)
-    // MNUtil.copy(self.currentModel)
-    self.config = config
-    self.token = [0]//原来的token计算方案，存在跨聊天的问题，现在使用tokenConfig来计算token
-    self.tokenConfig = {}
-    self.preFuncResponse = ""
-    self.reasoningResponse = ""
-    self.history = []
-    self.lastResponse = ''
-    self.activeChatIdx = 0//当前聊天索引，通过activeChatIdx来获取当前聊天
-} catch (error) {
-    chatAIUtils.addErrorLog(error, "viewDidLoad")
-}
   },
-  viewWillAppear: function(animated) {
+  viewWillAppear: function (animated) {
   },
-  viewWillDisappear: function(animated) {
+  viewWillDisappear: function (animated) {
   },
-  viewWillLayoutSubviews: function() {
-  let self = getSideOutputController()
+  viewWillLayoutSubviews: function () {
+    let self = getSideOutputController()
     if (self.onAnimate) {
       // MNUtil.showHUD("message")
       return
@@ -90,117 +90,117 @@ try {
     self.setChatLayout()
 
   },
-  closeButtonTapped:async function (params) {
-  try {
-    
+  closeButtonTapped: async function (params) {
+    try {
 
-    let self = getSideOutputController()
-    Menu.dismissCurrentMenu()
-    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
-    if (self.connection) {
-      self.connection.cancel()
-      MNUtil.stopHUD()
-      delete self.connection
-    }
-    if (self.floatWindow) {
-      // self.view.hidden = true
-      let preOpacity = self.view.layer.opacity
-      MNUtil.animate(()=>{
-        self.view.layer.opacity = 0
-      },0.25).then(()=>{
-        self.view.hidden = true
-        self.view.layer.opacity = preOpacity
-      })
-    }else{
-      MNUtil.toggleExtensionPanel()
-    }
-  } catch (error) {
+
+      let self = getSideOutputController()
+      Menu.dismissCurrentMenu()
+      if (self.popoverController) { self.popoverController.dismissPopoverAnimated(true); }
+      if (self.connection) {
+        self.connection.cancel()
+        MNUtil.stopHUD()
+        delete self.connection
+      }
+      if (self.floatWindow) {
+        // self.view.hidden = true
+        let preOpacity = self.view.layer.opacity
+        MNUtil.animate(() => {
+          self.view.layer.opacity = 0
+        }, 0.25).then(() => {
+          self.view.hidden = true
+          self.view.layer.opacity = preOpacity
+        })
+      } else {
+        MNUtil.toggleExtensionPanel()
+      }
+    } catch (error) {
       chatAIUtils.addErrorLog(error, "closeButtonTapped")
-  }
+    }
   },
-  newChatTapped:async function (button) {
-  try {
-    
+  newChatTapped: async function (button) {
+    try {
 
-    let self = getSideOutputController()
-    var commandTable = chatAIConfig.getConfig("promptNames").map((promptName)=>{
-      return MNUtil.tableItem("💬    "+chatAIConfig.prompts[promptName].title.trim(), self, 'newChatFromPrompt:',promptName)
-    })
-    self.popover(button, commandTable,200,4)
-  } catch (error) {
+
+      let self = getSideOutputController()
+      var commandTable = chatAIConfig.getConfig("promptNames").map((promptName) => {
+        return MNUtil.tableItem("💬    " + chatAIConfig.prompts[promptName].title.trim(), self, 'newChatFromPrompt:', promptName)
+      })
+      self.popover(button, commandTable, 200, 4)
+    } catch (error) {
       chatAIUtils.addErrorLog(error, "newChatTapped")
-    
-  }
+
+    }
   },
   newChatFromPrompt: async function (promptName) {
-  try {
-    let self = getSideOutputController()
-    self.checkPopover()
-    let prompt = chatAIConfig.getPromptByKey(promptName)
-    MNUtil.showHUD("New Chat From: "+prompt.title)
-    chatAIUtils.log("newChatFromPrompt",prompt)
-    if (!("model" in prompt)) {
-      prompt.model = "Default"
-    }
-    self.setCurrentModel(prompt.model)
+    try {
+      let self = getSideOutputController()
+      self.checkPopover()
+      let prompt = chatAIConfig.getPromptByKey(promptName)
+      MNUtil.showHUD("New Chat From: " + prompt.title)
+      chatAIUtils.log("newChatFromPrompt", prompt)
+      if (!("model" in prompt)) {
+        prompt.model = "Default"
+      }
+      self.setCurrentModel(prompt.model)
 
-    let newHistory = []
-    if ("system" in prompt) {
-      newHistory.push({role:"system",content:prompt.system})
+      let newHistory = []
+      if ("system" in prompt) {
+        newHistory.push({ role: "system", content: prompt.system })
+      }
+      self.history = newHistory
+      self.setInput(prompt.context)
+      self.aiButton.setTitleForState("" + 0, 0)
+      // self.token = [0]
+      // self.userInput.text = prompt.context
+      let newData = { data: newHistory, name: prompt.title, model: prompt.model }
+      if ("func" in prompt) {
+        self.funcIndices = prompt.func
+        newData.funcIdxs = prompt.func
+      } else {
+        self.funcIndices = []
+        newData.funcIdxs = []
+      }
+      if ("temperature" in prompt) {
+        self.temperature = prompt.temperature
+        newData.temperature = prompt.temperature
+      }
+      self.importData(newData)
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "newChatFromPrompt")
     }
-    self.history = newHistory
-    self.setInput(prompt.context)
-    self.aiButton.setTitleForState(""+0,0)
-    // self.token = [0]
-    // self.userInput.text = prompt.context
-    let newData = {data:newHistory,name:prompt.title,model:prompt.model}
-    if ("func" in prompt) {
-      self.funcIndices = prompt.func
-      newData.funcIdxs = prompt.func
-    }else{
-      self.funcIndices = []
-      newData.funcIdxs = []
-    }
-    if ("temperature" in prompt) {
-      self.temperature = prompt.temperature
-      newData.temperature = prompt.temperature
-    }
-    self.importData(newData)
-  } catch (error) {
-    chatAIUtils.addErrorLog(error, "newChatFromPrompt")
-  }
     // newHistory.push({role:"user",content:prompt.context})
   },
-  moreButtonTapped:async function (button) {
+  moreButtonTapped: async function (button) {
     let self = getSideOutputController()
     try {
-    let menu = new Menu(button,self)
-    menu.rowHeight = 35
-    if (self.floatWindow) {
-      menu.preferredPosition = 1
-    }else{
-      menu.preferredPosition = 2
-    }
-    menu.addMenuItem('📤  Export history to file', 'exportHistory:','file')
-    if (chatAIUtils.isActivated()) {
-      menu.addMenuItem('📤  Export history to ChatID', 'exportHistory:','chatId')
-    }
-    menu.addMenuItem('📥  Import history from file', 'importHistory:','file')
-    if (chatAIUtils.isActivated()) {
-      menu.addMenuItem('📥  Import history from ChatID', 'importHistory:','chatId')
-    }
-    menu.addMenuItem('🔄  Reload history', 'reloadHistory:')
-    if (!MNUtil.isIOS()) {
+      let menu = new Menu(button, self)
+      menu.rowHeight = 35
       if (self.floatWindow) {
-        menu.addMenuItem('💬  Show in Sidebar', 'showInSidebar:')
-      }else{
-        menu.addMenuItem('💬  Show in Float Window', 'showInFloatWindow:')
+        menu.preferredPosition = 1
+      } else {
+        menu.preferredPosition = 2
       }
-    }
-    menu.show()
-      
+      menu.addMenuItem('📤  Export history to file', 'exportHistory:', 'file')
+      if (chatAIUtils.isActivated()) {
+        menu.addMenuItem('📤  Export history to ChatID', 'exportHistory:', 'chatId')
+      }
+      menu.addMenuItem('📥  Import history from file', 'importHistory:', 'file')
+      if (chatAIUtils.isActivated()) {
+        menu.addMenuItem('📥  Import history from ChatID', 'importHistory:', 'chatId')
+      }
+      menu.addMenuItem('🔄  Reload history', 'reloadHistory:')
+      if (!MNUtil.isIOS()) {
+        if (self.floatWindow) {
+          menu.addMenuItem('💬  Show in Sidebar', 'showInSidebar:')
+        } else {
+          menu.addMenuItem('💬  Show in Float Window', 'showInFloatWindow:')
+        }
+      }
+      menu.show()
+
     } catch (error) {
-      
+
       chatAIUtils.addErrorLog(error, "moreButtonTapped")
     }
   },
@@ -229,42 +229,42 @@ try {
     let self = getSideOutputController()
     try {
 
-    self.checkPopover()
-    Menu.dismissCurrentMenu()
-    let dataPath = subscriptionUtils.extensionPath+"/data/chatData.json"
-    switch (params) {
-      case "file":
-        MNUtil.saveFile(dataPath, ["public.json"])
-        break;
-      case "chatId":
-        if (!chatAIUtils.isActivated()) {
-          return;
-        }
-        if (!chatAIUtils.checkSubscribe(true,true,false)) {
-          return;
-        }
-        let confirm = await MNUtil.confirm("🤖 MN ChatAI","Export history to Cloud?\n是否将历史记录加密后上传到云端?")
-        if (!confirm) {
-          return;
-        }
-        self.waitHUD("Exporting history...")
-        let info = await chatAIConfig.getChatDataInfo()
-        // let text = MNUtil.readText(dataPath)
-        // let res = await chatAIConfig.uploadConfigWithEncryptionToAlist(text)
-        if (info.success) {
-          MNUtil.copy(info.id)
-          MNUtil.stopHUD()
-          MNUtil.confirm("🤖 MN ChatAI","Export success! ChatID copied to clipboard.\n导出成功！ChatID已复制到剪贴板.\n\n"+info.id)
-          chatAIUtils.log("exportHistory", info)
-        }else{
-          self.showHUD("Export failed: "+info.error)
-        }
-        break;
-      default:
-        break;
-    }
-      
-      
+      self.checkPopover()
+      Menu.dismissCurrentMenu()
+      let dataPath = subscriptionUtils.extensionPath + "/data/chatData.json"
+      switch (params) {
+        case "file":
+          MNUtil.saveFile(dataPath, ["public.json"])
+          break;
+        case "chatId":
+          if (!chatAIUtils.isActivated()) {
+            return;
+          }
+          if (!chatAIUtils.checkSubscribe(true, true, false)) {
+            return;
+          }
+          let confirm = await MNUtil.confirm("🤖 MN ChatAI", "Export history to Cloud?\n是否将历史记录加密后上传到云端?")
+          if (!confirm) {
+            return;
+          }
+          self.waitHUD("Exporting history...")
+          let info = await chatAIConfig.getChatDataInfo()
+          // let text = MNUtil.readText(dataPath)
+          // let res = await chatAIConfig.uploadConfigWithEncryptionToAlist(text)
+          if (info.success) {
+            MNUtil.copy(info.id)
+            MNUtil.stopHUD()
+            MNUtil.confirm("🤖 MN ChatAI", "Export success! ChatID copied to clipboard.\n导出成功！ChatID已复制到剪贴板.\n\n" + info.id)
+            chatAIUtils.log("exportHistory", info)
+          } else {
+            self.showHUD("Export failed: " + info.error)
+          }
+          break;
+        default:
+          break;
+      }
+
+
     } catch (error) {
       chatAIUtils.addErrorLog(error, "exportHistory")
     }
@@ -284,10 +284,10 @@ try {
         if (!chatAIUtils.isActivated()) {
           return;
         }
-        if (!chatAIUtils.checkSubscribe(true,true,false)) {
+        if (!chatAIUtils.checkSubscribe(true, true, false)) {
           return;
         }
-        let res = await MNUtil.userInput("🤖 MN ChatAI","Please enter the ChatId of the encrypted history file\n\n请输入加密后的历史记录Id")
+        let res = await MNUtil.userInput("🤖 MN ChatAI", "Please enter the ChatId of the encrypted history file\n\n请输入加密后的历史记录Id")
         if (!res.input) {
           return;
         }
@@ -307,7 +307,7 @@ try {
       self.importData()
       self.waitHUD("📥 Import success!")
       MNUtil.stopHUD(0.5)
-    }else{
+    } else {
       MNUtil.showHUD("Invalid history file!")
     }
   },
@@ -319,54 +319,54 @@ try {
       MNUtil.showHUD("🔄 Reload history")
       self.activeChatIdx = data.activeChatIdx
       self.importData()
-    }else{
+    } else {
       MNUtil.showHUD("Invalid history file!")
     }
   },
   reloadWebview: async function (params) {
-  try {
+    try {
 
-    let self = getSideOutputController()
-    self.checkPopover()
-    self.chatWebview.loadFileURLAllowingReadAccessToURL(
-      NSURL.fileURLWithPath(chatAIConfig.mainPath + `/sideOutput.html`),
-      NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
-    );
-  } catch (error) {
-    chatAIUtils.addErrorLog(error, "reloadWebview")
-  }
+      let self = getSideOutputController()
+      self.checkPopover()
+      self.chatWebview.loadFileURLAllowingReadAccessToURL(
+        NSURL.fileURLWithPath(chatAIConfig.mainPath + `/sideOutput.html`),
+        NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
+      );
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "reloadWebview")
+    }
   },
-  bigbang:async function () {
+  bigbang: async function () {
     let self = getSideOutputController()
     // let text = await self.getWebviewContent()
     let text = await self.getTextForAction()
     if (!self.noteid) {
-      MNUtil.postNotification("bigbangText",{text:text})
-    }else{
-      MNUtil.postNotification("bigbangText",{text:text,noteid:self.noteid,url:chatAIUtils.getUrlByNoteId(self.noteid)})
+      MNUtil.postNotification("bigbangText", { text: text })
+    } else {
+      MNUtil.postNotification("bigbangText", { text: text, noteid: self.noteid, url: chatAIUtils.getUrlByNoteId(self.noteid) })
     }
   },
   addChildNote: async function (button) {
-  try {
-    let self = getSideOutputController()
-    let text = await self.getTextForAction(button.round)
-    let noteid = chatAIUtils.getFocusNote().noteId ?? self.noteid
-    if (!noteid) {
-      MNUtil.showHUD("Unavailable")
-      return;
-    }
-    let config = {excerptText:text,excerptTextMarkdown:true}
-    let focusNote = MNNote.new(noteid)
-    focusNote = focusNote.realGroupNoteForTopicId()
-    let childNote = focusNote.createChildNote(config)
-    // let childNote = chatAIUtils.createChildNote(noteid, config)
-    // MNUtil.showHUD("Add child note")
-    await MNUtil.delay(0.5)
-    childNote.focusInMindMap()
-    // chatAIUtils.focusNoteInMindMapById(childNote.noteId)
-  } catch (error) {
+    try {
+      let self = getSideOutputController()
+      let text = await self.getTextForAction(button.round)
+      let noteid = chatAIUtils.getFocusNote().noteId ?? self.noteid
+      if (!noteid) {
+        MNUtil.showHUD("Unavailable")
+        return;
+      }
+      let config = { excerptText: text, excerptTextMarkdown: true }
+      let focusNote = MNNote.new(noteid)
+      focusNote = focusNote.realGroupNoteForTopicId()
+      let childNote = focusNote.createChildNote(config)
+      // let childNote = chatAIUtils.createChildNote(noteid, config)
+      // MNUtil.showHUD("Add child note")
+      await MNUtil.delay(0.5)
+      childNote.focusInMindMap()
+      // chatAIUtils.focusNoteInMindMapById(childNote.noteId)
+    } catch (error) {
       chatAIUtils.addErrorLog(error, "addChildNote")
-  }
+    }
   },
   addQuoteToInput: async function (button) {
     let self = getSideOutputController()
@@ -374,19 +374,19 @@ try {
     self.addToInput(text)
   },
   copy: async function (button) {
-  // MNUtil.showHUD("copy")
-  // self.runJavaScript(`editor.setTheme("dark","dark");`)
-  try {
-    let self = getSideOutputController()
-    let text = await self.getTextForAction(button.round)
-    // let text = await self.getWebviewContent()
-    MNUtil.copy(text)
-    MNUtil.showHUD("Copy text")
-  } catch (error) {
+    // MNUtil.showHUD("copy")
+    // self.runJavaScript(`editor.setTheme("dark","dark");`)
+    try {
+      let self = getSideOutputController()
+      let text = await self.getTextForAction(button.round)
+      // let text = await self.getWebviewContent()
+      MNUtil.copy(text)
+      MNUtil.showHUD("Copy text")
+    } catch (error) {
       chatAIUtils.addErrorLog(error, "copy")
-  }
+    }
   },
-  minimizeChat:function (button) {
+  minimizeChat: function (button) {
     let self = getSideOutputController()
     self.minimizeButton.hidden = true
     // self.chatModel.hidden = true
@@ -398,18 +398,18 @@ try {
     self.chatToken.hidden = true
     self.miniMode = true
     self.lastChatToolbarFrame = self.chatToolbar.frame
-    MNUtil.animate(()=>{
-      self.chatToolbar.frame = MNUtil.genFrame(5, self.panelHeight-240, 35, 35)
+    MNUtil.animate(() => {
+      self.chatToolbar.frame = MNUtil.genFrame(5, self.panelHeight - 240, 35, 35)
       self.chatModel.frame = MNUtil.genFrame(0, 0, 35, 35)
-      self.chatModel.setTitleForState("",0)
-      self.chatModel.setImageForState(chatAIConfig.editorImage,0)
-      self.chatModel.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
-      self.sendButton.setImageForState(chatAIConfig.sendImage,0)
-    }).then(()=>{
+      self.chatModel.setTitleForState("", 0)
+      self.chatModel.setImageForState(chatAIConfig.editorImage, 0)
+      self.chatModel.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6", 0.8)
+      self.sendButton.setImageForState(chatAIConfig.sendImage, 0)
+    }).then(() => {
       self.blur(0.1)
     })
   },
-  setNoteTitle: async function(button) {
+  setNoteTitle: async function (button) {
     let self = getSideOutputController()
     let noteid = chatAIUtils.getFocusNote().noteId ?? self.noteid
     if (!noteid) {
@@ -419,16 +419,16 @@ try {
     let note = MNUtil.getNoteById(noteid)
     let text = await self.getTextForAction(button.round)
     // let text = await self.getWebviewContent()
-    if (button.clickDate && Date.now()-button.clickDate < 500) {
+    if (button.clickDate && Date.now() - button.clickDate < 500) {
       if (/^".*"$/.test(text)) {
         let length = text.length
-        MNUtil.undoGrouping(()=>{
-          note.noteTitle = text.slice(1,length-1)
+        MNUtil.undoGrouping(() => {
+          note.noteTitle = text.slice(1, length - 1)
         })
       }
-    }else{
+    } else {
       button.clickDate = Date.now()
-      MNUtil.undoGrouping(()=>{
+      MNUtil.undoGrouping(() => {
         note.noteTitle = text
       })
     }
@@ -437,41 +437,41 @@ try {
     let text = await self.getTextForAction(button.round)
     // let text = await self.getWebviewContent()
 
-  try {
-    let noteid = chatAIUtils.getFocusNote().noteId ?? self.noteid
-    if (!noteid) {
-      MNUtil.showHUD("Unavailable")
-      return
-    }
-    let note = MNNote.new(noteid)
-    MNUtil.undoGrouping(()=>{
-      note.excerptText = text.trim()
-    })
-  } catch (error) {
+    try {
+      let noteid = chatAIUtils.getFocusNote().noteId ?? self.noteid
+      if (!noteid) {
+        MNUtil.showHUD("Unavailable")
+        return
+      }
+      let note = MNNote.new(noteid)
+      MNUtil.undoGrouping(() => {
+        note.excerptText = text.trim()
+      })
+    } catch (error) {
       chatAIUtils.addErrorLog(error, "setExcerpt")
-  }
+    }
   },
   setComment: async function (button) {
     let text = await self.getTextForAction(button.round)
     // let text = await self.getWebviewContent()
 
-  try {
-    let noteid = chatAIUtils.getFocusNote().noteId ?? self.noteid
-    if (!noteid) {
-      MNUtil.showHUD("Unavailable")
-      return
-    }
-    let note = MNUtil.getNoteById(noteid)
-    MNUtil.undoGrouping(()=>{
-      try {
-        note.appendMarkdownComment(text.trim())
-      } catch (error) {
-        note.appendTextComment(text.trim())
+    try {
+      let noteid = chatAIUtils.getFocusNote().noteId ?? self.noteid
+      if (!noteid) {
+        MNUtil.showHUD("Unavailable")
+        return
       }
-    })
-  } catch (error) {
+      let note = MNUtil.getNoteById(noteid)
+      MNUtil.undoGrouping(() => {
+        try {
+          note.appendMarkdownComment(text.trim())
+        } catch (error) {
+          note.appendTextComment(text.trim())
+        }
+      })
+    } catch (error) {
       chatAIUtils.addErrorLog(error, "setComment")
-  }
+    }
   },
   showAILink: async function () {
     if (!self.noteid) {
@@ -479,78 +479,78 @@ try {
     }
     let text = await self.getTextForAction()
     // let text = await self.getWebviewContent()
-    MNUtil.postNotification("aiLinkOnText",{text:text,noteid:self.noteid})
+    MNUtil.postNotification("aiLinkOnText", { text: text, noteid: self.noteid })
   },
   changeFunc: function (button) {
-  try {
-    let self = getSideOutputController()
-    let currentFunc = self.funcIndices
-    let selector = 'setFunc:'
-    let newOrder = chatAITool.activatedToolsExceptOld
-    let isAllTools = newOrder.every(toolIndex=>currentFunc.includes(toolIndex))
-    let menu = new Menu(button,self)
-    menu.width = 250
-    menu.rowHeight = 35
-    menu.preferredPosition = 0
-    menu.addMenuItem("🌟   All Tools",        selector,100,isAllTools)
-    let toolNames = chatAITool.toolNames
-    newOrder.map((toolIndex)=>{
-      let toolName = toolNames[toolIndex]
-      let tool = chatAITool.getToolByName(toolName)
-      menu.addMenuItem(tool.toolTitle,        selector,toolIndex,currentFunc.includes(toolIndex))
-    })
-    menu.addMenuItem("🗿   Old Tools (Free)", "showOldTools:",button)
-    menu.addMenuItem("❌   None",             selector,-1,currentFunc.length === 0)
-    menu.show()
+    try {
+      let self = getSideOutputController()
+      let currentFunc = self.funcIndices
+      let selector = 'setFunc:'
+      let newOrder = chatAITool.activatedToolsExceptOld
+      let isAllTools = newOrder.every(toolIndex => currentFunc.includes(toolIndex))
+      let menu = new Menu(button, self)
+      menu.width = 250
+      menu.rowHeight = 35
+      menu.preferredPosition = 0
+      menu.addMenuItem("🌟   All Tools", selector, 100, isAllTools)
+      let toolNames = chatAITool.toolNames
+      newOrder.map((toolIndex) => {
+        let toolName = toolNames[toolIndex]
+        let tool = chatAITool.getToolByName(toolName)
+        menu.addMenuItem(tool.toolTitle, selector, toolIndex, currentFunc.includes(toolIndex))
+      })
+      menu.addMenuItem("🗿   Old Tools (Free)", "showOldTools:", button)
+      menu.addMenuItem("❌   None", selector, -1, currentFunc.length === 0)
+      menu.show()
     } catch (error) {
       chatAIUtils.addErrorLog(error, "sideOutputController.changeFunc")
     }
   },
-  showOldTools: function(button){
-  try {
-    let self = getChatglmController()
-    Menu.dismissCurrentMenu()
-    let currentFunc = self.funcIndices
-    let selector = 'setFunc:'
-    let newOrder = chatAITool.oldTools
-    let menu = new Menu(button,self)
-    menu.width = 250
-    menu.rowHeight = 35
-    menu.preferredPosition = 0
-    let toolNames = chatAITool.toolNames
-    newOrder.map((toolIndex)=>{
-      let toolName = toolNames[toolIndex]
-      let tool = chatAITool.getToolByName(toolName)
-      menu.addMenuItem(tool.toolTitle,        selector,toolIndex,currentFunc.includes(toolIndex))
-    })
-    menu.show()
-  } catch (error) {
-    chatAIUtils.addErrorLog(error, "changeFunc")
-  }
+  showOldTools: function (button) {
+    try {
+      let self = getChatglmController()
+      Menu.dismissCurrentMenu()
+      let currentFunc = self.funcIndices
+      let selector = 'setFunc:'
+      let newOrder = chatAITool.oldTools
+      let menu = new Menu(button, self)
+      menu.width = 250
+      menu.rowHeight = 35
+      menu.preferredPosition = 0
+      let toolNames = chatAITool.toolNames
+      newOrder.map((toolIndex) => {
+        let toolName = toolNames[toolIndex]
+        let tool = chatAITool.getToolByName(toolName)
+        menu.addMenuItem(tool.toolTitle, selector, toolIndex, currentFunc.includes(toolIndex))
+      })
+      menu.show()
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "changeFunc")
+    }
   },
   setFunc: async function (index) {
     let self = getSideOutputController()
     Menu.dismissCurrentMenu()
-    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
-try {
-    let currentFunc = await chatAITool.getChangedTools(self.funcIndices, index)
-    self.funcIndices = currentFunc
-    self.setCurrentFuncIdxs(currentFunc)
-    chatAIConfig.config.chatFuncIndices = currentFunc
-    chatAIConfig.save("MNChatglm_config")
-} catch (error) {
-  MNUtil.showHUD(error)
-}
+    if (self.popoverController) { self.popoverController.dismissPopoverAnimated(true); }
+    try {
+      let currentFunc = await chatAITool.getChangedTools(self.funcIndices, index)
+      self.funcIndices = currentFunc
+      self.setCurrentFuncIdxs(currentFunc)
+      chatAIConfig.config.chatFuncIndices = currentFunc
+      chatAIConfig.save("MNChatglm_config")
+    } catch (error) {
+      MNUtil.showHUD(error)
+    }
   },
-  changeChatModel:function (button) {
+  changeChatModel: function (button) {
     let self = getSideOutputController()
     if (self.miniMode) {
       self.miniMode = false
       self.chatModel.hidden = true
 
-      MNUtil.animate(()=>{
+      MNUtil.animate(() => {
         self.chatToolbar.frame = self.lastChatToolbarFrame
-      }).then(()=>{
+      }).then(() => {
         self.minimizeButton.hidden = false
         // self.chatModel.hidden = true
         self.userInput.hidden = false
@@ -560,12 +560,12 @@ try {
         self.imageButton.hidden = false
         self.chatToken.hidden = false
         self.chatModel.hidden = false
-        self.chatModel.setImageForState(undefined,0)
+        self.chatModel.setImageForState(undefined, 0)
         self.setCurrentModel(self.currentModel)
         self.focusInput()
       })
       return
-    }else if (!self.userReference.hidden) {
+    } else if (!self.userReference.hidden) {
       self.showHUD("On Reference Mode")
       return
     }
@@ -573,99 +573,99 @@ try {
       return
     }
     try {
-    let selector = 'setChatModel:'
-    let modelName = self.currentModel
-    let allModels = chatAIConfig.allSource(false,true)
-    var commandTable = [
-      self.tableItem("Default", selector,"Default",modelName === "Default"),
-      self.tableItem("Built-in", selector,"Built-in",modelName === "Built-in")
-    ]
-    let secondSelector = 'changePromptModelFromSource:'
-    // allModels.map(m=>{
-    //   if (chatAIConfig.hasAPIKeyInSource(m)) {
-    //     commandTable.push(self.tableItem("➡️  "+m,secondSelector,{source:m,button:button},modelName.startsWith(m)))
-    //   }
-    // })
-    allModels.map((m,index)=>{
-      if (chatAIConfig.hasAPIKeyInSource(m)) {
-        if (modelName.startsWith(m)) {
-          commandTable.push(self.tableItem("👉  "+m,secondSelector,{source:m,button:button,index:index},true))
-        }else{
-          commandTable.push(self.tableItem("➡️  "+m,secondSelector,{source:m,button:button,index:index},false))
+      let selector = 'setChatModel:'
+      let modelName = self.currentModel
+      let allModels = chatAIConfig.allSource(false, true)
+      var commandTable = [
+        self.tableItem("Default", selector, "Default", modelName === "Default"),
+        self.tableItem("Built-in", selector, "Built-in", modelName === "Built-in")
+      ]
+      let secondSelector = 'changePromptModelFromSource:'
+      // allModels.map(m=>{
+      //   if (chatAIConfig.hasAPIKeyInSource(m)) {
+      //     commandTable.push(self.tableItem("➡️  "+m,secondSelector,{source:m,button:button},modelName.startsWith(m)))
+      //   }
+      // })
+      allModels.map((m, index) => {
+        if (chatAIConfig.hasAPIKeyInSource(m)) {
+          if (modelName.startsWith(m)) {
+            commandTable.push(self.tableItem("👉  " + m, secondSelector, { source: m, button: button, index: index }, true))
+          } else {
+            commandTable.push(self.tableItem("➡️  " + m, secondSelector, { source: m, button: button, index: index }, false))
+          }
         }
-      }
-    })
-    // var commandTable = [...new Set(allModels)].map(model=>{
-    //   let title = model.replace("Subscription: ","💲  ")
-    //   return MNUtil.tableItem(title, self, selector, model,modelName === model)
-    // })
-    self.popover(button, commandTable,220,1)
-    // self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,350,1)
-    // self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,250)
+      })
+      // var commandTable = [...new Set(allModels)].map(model=>{
+      //   let title = model.replace("Subscription: ","💲  ")
+      //   return MNUtil.tableItem(title, self, selector, model,modelName === model)
+      // })
+      self.popover(button, commandTable, 220, 1)
+      // self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,350,1)
+      // self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,250)
     } catch (error) {
       chatAIUtils.addErrorLog(error, "changeChatModel")
     }
   },
   changePromptModelFromSource: function (params) {
- try {
-    let self = getChatglmController()
-    let source = params.source
-    let button = params.button
-    let selectIndex = params.index
-    self.checkPopover()
-    let modelName = self.currentModel
-    let selector = 'setChatModel:'
+    try {
+      let self = getChatglmController()
+      let source = params.source
+      let button = params.button
+      let selectIndex = params.index
+      self.checkPopover()
+      let modelName = self.currentModel
+      let selector = 'setChatModel:'
 
-    let allModels = chatAIConfig.allSource(false,true)
-    var commandTable = [
-      self.tableItem("Default", selector,"Default",modelName === "Default"),
-      self.tableItem("Built-in", selector,"Built-in",modelName === "Built-in")
-    ]
-    let secondSelector = 'changePromptModelFromSource:'
-    let sourceModels = chatAIConfig.getAvailableModels(source)
-    let widths = []
-    allModels.map((m,index)=>{
-      if (chatAIConfig.hasAPIKeyInSource(m)) {
-        if (index === selectIndex) {
-          commandTable.push(self.tableItem("👇  "+m,"",{source:m,button:button},false))
-        }else if (modelName.startsWith(m)) {
-          commandTable.push(self.tableItem("👉  "+m,secondSelector,{source:m,button:button,index:index},true))
-        }else{
-          commandTable.push(self.tableItem("➡️  "+m,secondSelector,{source:m,button:button,index:index},false))
+      let allModels = chatAIConfig.allSource(false, true)
+      var commandTable = [
+        self.tableItem("Default", selector, "Default", modelName === "Default"),
+        self.tableItem("Built-in", selector, "Built-in", modelName === "Built-in")
+      ]
+      let secondSelector = 'changePromptModelFromSource:'
+      let sourceModels = chatAIConfig.getAvailableModels(source)
+      let widths = []
+      allModels.map((m, index) => {
+        if (chatAIConfig.hasAPIKeyInSource(m)) {
+          if (index === selectIndex) {
+            commandTable.push(self.tableItem("👇  " + m, "", { source: m, button: button }, false))
+          } else if (modelName.startsWith(m)) {
+            commandTable.push(self.tableItem("👉  " + m, secondSelector, { source: m, button: button, index: index }, true))
+          } else {
+            commandTable.push(self.tableItem("➡️  " + m, secondSelector, { source: m, button: button, index: index }, false))
+          }
         }
-      }
-    })
-    let tablesToInsert = sourceModels.map(model=>{
-      let m = "       🤖  "+model.split(": ")[1].trim()
-      widths.push(chatAIUtils.strCode(m))
-      return self.tableItem(m, selector,model,modelName === model)
-    })
-    commandTable.splice(selectIndex+3,0,...tablesToInsert)
-    self.popover(button, commandTable,Math.max(...widths)*9+30,1)
-    
-  } catch (error) {
-    chatAIUtils.addErrorLog(error, "changePromptModelFromSource")
-  }
+      })
+      let tablesToInsert = sourceModels.map(model => {
+        let m = "       🤖  " + model.split(": ")[1].trim()
+        widths.push(chatAIUtils.strCode(m))
+        return self.tableItem(m, selector, model, modelName === model)
+      })
+      commandTable.splice(selectIndex + 3, 0, ...tablesToInsert)
+      self.popover(button, commandTable, Math.max(...widths) * 9 + 30, 1)
+
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "changePromptModelFromSource")
+    }
   },
-  setChatModel:function (chatModel) {
+  setChatModel: function (chatModel) {
     let self = getSideOutputController()
     Menu.dismissCurrentMenu()
-    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    if (self.popoverController) { self.popoverController.dismissPopoverAnimated(true); }
     if (chatModel !== "Default" && !chatAIUtils.checkSubscribe(true)) {
       return
     }
-      MNUtil.showHUD("Change model to: "+chatModel)
-      self.setCurrentModel(chatModel)
-      chatAIConfig.config.chatModel = chatModel
-      chatAIConfig.save("MNChatglm_config")
+    MNUtil.showHUD("Change model to: " + chatModel)
+    self.setCurrentModel(chatModel)
+    chatAIConfig.config.chatModel = chatModel
+    chatAIConfig.save("MNChatglm_config")
   },
-  setChatModelAndReAsk:function (chatModel) {
+  setChatModelAndReAsk: function (chatModel) {
     Menu.dismissCurrentMenu()
-    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    if (self.popoverController) { self.popoverController.dismissPopoverAnimated(true); }
     if (chatModel !== "Default" && !chatAIUtils.checkSubscribe(true)) {
       return
     }
-    MNUtil.showHUD("ReAsk with model: "+chatModel)
+    MNUtil.showHUD("ReAsk with model: " + chatModel)
     self.currentModel = chatModel
     let config = chatAIConfig.parseModelConfig(chatModel)
     // let modelConfig = chatModel.split(":").map(model=>model.trim())
@@ -679,7 +679,7 @@ try {
     //   config = chatAIConfig.getConfigFromSource()
     // }
     self.config = config
-try {
+    try {
       self.notShow = false
       self.called = true
       self.response = ""
@@ -690,30 +690,30 @@ try {
         last = self.history.pop()
       }
       question = last.content
-      self["assistant"+self.round].loadFileURLAllowingReadAccessToURL(
+      self["assistant" + self.round].loadFileURLAllowingReadAccessToURL(
         NSURL.fileURLWithPath(chatAIConfig.mainPath + `/veditor_${self.theme}.html`),
         NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
       );
-      self["assistant"+self.round].sizeHeight = 50
+      self["assistant" + self.round].sizeHeight = 50
       self.setChatLayout()
       self.continueAsk(question)
-      } catch (error) {
-        chatAIUtils.addErrorLog(error, "reAsk")
-      }
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "reAsk")
+    }
   },
   askWithPrompt: async function (prompt) {
     let self = getSideOutputController()
     Menu.dismissCurrentMenu()
-    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    if (self.popoverController) { self.popoverController.dismissPopoverAnimated(true); }
     self.askWithPrompt(prompt)
   },
-  clearHistory:async function (params) {
+  clearHistory: async function (params) {
     let self = getSideOutputController()
     if (self.connection) {
       MNUtil.showHUD("Wait...")
       return
     }
-    let confirm = await MNUtil.confirm("🤖 MN Chat AI","Clear Current Chat History?\n\n是否清除当前对话历史？")
+    let confirm = await MNUtil.confirm("🤖 MN Chat AI", "Clear Current Chat History?\n\n是否清除当前对话历史？")
     if (confirm) {
       self.clearHistory()
     }
@@ -721,29 +721,29 @@ try {
   sendButtonTapped: async function (params) {
     try {
 
-    let self = getSideOutputController()
-    if (!self.userReference.hidden) {
-      self.hideReference()
-      self.focusInput()
-      MNUtil.showHUD("Hide Reference",0.5,self.chatToolbar)
-      return
-    }
-    if (!self.preCheck()) {
-      return
-    }
-    let text = await self.getInputext()
-    if (!text) {
-      return
-    }
-    // MNUtil.copy(text)
-    self.preFuncResponse = ""
-    // MNUtil.log({message:"historyBefore",detail:self.history})
-    await self.continueAsk(text)
-    self.chatSendMessage(self.history.at(-1))
-    self.userReference.text = ""
-    self.userReference.hidden = true
-    self.resizeButton.hidden = false
-    self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
+      let self = getSideOutputController()
+      if (!self.userReference.hidden) {
+        self.hideReference()
+        self.focusInput()
+        MNUtil.showHUD("Hide Reference", 0.5, self.chatToolbar)
+        return
+      }
+      if (!self.preCheck()) {
+        return
+      }
+      let text = await self.getInputext()
+      if (!text) {
+        return
+      }
+      // MNUtil.copy(text)
+      self.preFuncResponse = ""
+      // MNUtil.log({message:"historyBefore",detail:self.history})
+      await self.continueAsk(text)
+      self.chatSendMessage(self.history.at(-1))
+      self.userReference.text = ""
+      self.userReference.hidden = true
+      self.resizeButton.hidden = false
+      self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf", 1)
     } catch (error) {
       chatAIUtils.addErrorLog(error, "sendButtonTapped")
     }
@@ -758,11 +758,11 @@ try {
     if (gesture.state === 1) {
       self.userReference.hidden = !self.userReference.hidden
       if (self.userReference.hidden) {
-        MNUtil.showHUD("Hide Reference",0.5,self.chatToolbar)
+        MNUtil.showHUD("Hide Reference", 0.5, self.chatToolbar)
         self.hideReference()
         // self.showHUD("Hide Reference")
-      }else{
-        MNUtil.showHUD("Show Reference",0.5,self.chatToolbar)
+      } else {
+        MNUtil.showHUD("Show Reference", 0.5, self.chatToolbar)
         self.showReference()
         // self.showHUD("Show Reference")
       }
@@ -771,32 +771,32 @@ try {
   onMoveGesture: async function (gesture) {
     try {
 
-    let referenceView = (self.floatWindow) ? MNUtil.studyView : MNExtensionPanel.view
-    if (gesture.state === 1) {
-      self.originalLocationToMN = gesture.locationInView(referenceView)
-      self.originalFrame = self.chatToolbar.frame
-    }
-    if (gesture.state === 2) {
-      let locationToMN = gesture.locationInView(referenceView)
-      let locationDiff = {x:locationToMN.x - self.originalLocationToMN.x,y:locationToMN.y - self.originalLocationToMN.y}
-      let frame = self.chatToolbar.frame
-      frame.y = self.originalFrame.y + locationDiff.y
-      frame.x = self.originalFrame.x + locationDiff.x
-      if (self.floatWindow) {
-        frame.width = 400
-        frame.x = MNUtil.constrain(frame.x, 0, self.panelWidth-405)
-      }else{
-        frame.width = self.panelWidth-10
-        frame.x = 5
+      let referenceView = (self.floatWindow) ? MNUtil.studyView : MNExtensionPanel.view
+      if (gesture.state === 1) {
+        self.originalLocationToMN = gesture.locationInView(referenceView)
+        self.originalFrame = self.chatToolbar.frame
       }
-      frame.y = MNUtil.constrain(frame.y, 5, self.panelHeight-70)
-      self.chatToolbar.frame = frame
-    }
-    if (gesture.state === 3) {
-      self.view.bringSubviewToFront(self.chatToolbar)
-      self.setChatLayout()
-    }
-      
+      if (gesture.state === 2) {
+        let locationToMN = gesture.locationInView(referenceView)
+        let locationDiff = { x: locationToMN.x - self.originalLocationToMN.x, y: locationToMN.y - self.originalLocationToMN.y }
+        let frame = self.chatToolbar.frame
+        frame.y = self.originalFrame.y + locationDiff.y
+        frame.x = self.originalFrame.x + locationDiff.x
+        if (self.floatWindow) {
+          frame.width = 400
+          frame.x = MNUtil.constrain(frame.x, 0, self.panelWidth - 405)
+        } else {
+          frame.width = self.panelWidth - 10
+          frame.x = 5
+        }
+        frame.y = MNUtil.constrain(frame.y, 5, self.panelHeight - 70)
+        self.chatToolbar.frame = frame
+      }
+      if (gesture.state === 3) {
+        self.view.bringSubviewToFront(self.chatToolbar)
+        self.setChatLayout()
+      }
+
     } catch (error) {
       chatAIUtils.addErrorLog(error, "onMoveGesture")
     }
@@ -808,7 +808,7 @@ try {
   openImage: function (button) {
     let imageBase64 = button.currentImage.pngData().base64Encoding()
     let url = "data:image/png;base64," + imageBase64
-    MNUtil.postNotification("openInBrowser", {url:url})
+    MNUtil.postNotification("openInBrowser", { url: url })
 
     // MNUtil.copyImage(imageData)
   },
@@ -818,21 +818,21 @@ try {
    */
   imageButtonTapped: function (button) {
     var commandTable = [
-      {title:"📄   From File",object:self,selector:"importImage:",param:"file"},
-      {title:"🖼️   From Photo",object:self,selector:"importImage:",param:"photo"},
-      {title:"📷   From Camera",object:self,selector:"importImage:",param:"camera"},
-      {title:"📋   From Clipboard",object:self,selector:"importImage:",param:"clipboard"},
-      {title:"ℹ️   From Selection",object:self,selector:"importImage:",param:"selection"},
-      {title:"📝   From CurrentNote",object:self,selector:"importImage:",param:"note"},
-      {title:"❌   Cancel image",object:self,selector:"importImage:",param:"cancel"},
+      { title: "📄   From File", object: self, selector: "importImage:", param: "file" },
+      { title: "🖼️   From Photo", object: self, selector: "importImage:", param: "photo" },
+      { title: "📷   From Camera", object: self, selector: "importImage:", param: "camera" },
+      { title: "📋   From Clipboard", object: self, selector: "importImage:", param: "clipboard" },
+      { title: "ℹ️   From Selection", object: self, selector: "importImage:", param: "selection" },
+      { title: "📝   From CurrentNote", object: self, selector: "importImage:", param: "note" },
+      { title: "❌   Cancel image", object: self, selector: "importImage:", param: "cancel" },
     ]
-    self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,250,0)
+    self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable, 250, 0)
   },
   importImage: async function (param) {
     // MNUtil.showHUD("12"+param)
     let self = getSideOutputController()
     Menu.dismissCurrentMenu()
-    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    if (self.popoverController) { self.popoverController.dismissPopoverAnimated(true); }
     let imageData
     switch (param) {
       case "cancel":
@@ -847,20 +847,20 @@ try {
         self.imagePickerController.delegate = self  // 设置代理
         self.imagePickerController.sourceType = 0  // 设置图片源为相册
         // self.imagePickerController.allowsEditing = true  // 设置图片源为相册
-        MNUtil.studyController.presentViewControllerAnimatedCompletion(self.imagePickerController,true,undefined)
+        MNUtil.studyController.presentViewControllerAnimatedCompletion(self.imagePickerController, true, undefined)
         return;
       case "camera":
         self.imagePickerController = UIImagePickerController.new()
         self.imagePickerController.delegate = self  // 设置代理
         self.imagePickerController.sourceType = 1  // 设置图片源为相机
         // self.imagePickerController.allowsEditing = true  // 设置图片源为相册
-        MNUtil.studyController.presentViewControllerAnimatedCompletion(self.imagePickerController,true,undefined)
+        MNUtil.studyController.presentViewControllerAnimatedCompletion(self.imagePickerController, true, undefined)
         return;
       case "clipboard":
         let image = UIPasteboard.generalPasteboard().image
         if (image) {
           imageData = image.pngData()
-        }else{
+        } else {
           MNUtil.showHUD("No image in clipboard");
           return;
         }
@@ -878,7 +878,7 @@ try {
           MNUtil.showHUD("No note selected")
           return
         }
-        let images = chatAIUtils.getImagesFromNote(focusNote,true)
+        let images = chatAIUtils.getImagesFromNote(focusNote, true)
         // imageData = MNNote.getImageFromNote(focusNote)
         if (images.length) {
           imageData = images[0]
@@ -896,31 +896,31 @@ try {
       self.addImageInChat(imageData)
     }
     return
-  
+
   },
-  imagePickerControllerDidFinishPickingMediaWithInfo:async function (UIImagePickerController,info) {
+  imagePickerControllerDidFinishPickingMediaWithInfo: async function (UIImagePickerController, info) {
     try {
-      
-    let image = info.UIImagePickerControllerOriginalImage
-    // MNUtil.copy(image.pngData().base64Encoding())
-    // MNUtil.copyJSON(info)
-    MNUtil.studyController.dismissViewControllerAnimatedCompletion(true,undefined)
-    let imageData = image.jpegData(0.0)
-    self.addImageInChat(imageData)
+
+      let image = info.UIImagePickerControllerOriginalImage
+      // MNUtil.copy(image.pngData().base64Encoding())
+      // MNUtil.copyJSON(info)
+      MNUtil.studyController.dismissViewControllerAnimatedCompletion(true, undefined)
+      let imageData = image.jpegData(0.0)
+      self.addImageInChat(imageData)
     } catch (error) {
       MNUtil.showHUD(error)
     }
   },
-  imagePickerControllerDidCancel:function (params) {
+  imagePickerControllerDidCancel: function (params) {
     // MNUtil.copy("text")
-    MNUtil.studyController.dismissViewControllerAnimatedCompletion(true,undefined)
-    
+    MNUtil.studyController.dismissViewControllerAnimatedCompletion(true, undefined)
+
   },
   /**
    * 
    * @param {UITextView} textview 
    */
-  textViewDidBeginEditing:function (textview) {
+  textViewDidBeginEditing: function (textview) {
     // MNUtil.showHUD("begin")
     // self.notifyTimer.invalidate()
   },
@@ -932,16 +932,16 @@ try {
     if (textview !== self.userInput) {
       if (textview === self.userReference) {
         if (!textview.text.trim()) {
-          self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
-        }else{
-          self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
+          self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf", 1)
+        } else {
+          self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 1)
         }
       }
       return
     }
     let frame = self.view.frame
     let inputFrame = self.userInput.frame
-    let size = textview.sizeThatFits({width:inputFrame.width,height:1000})
+    let size = textview.sizeThatFits({ width: inputFrame.width, height: 1000 })
     if (size.height < 80) {
       size.height = 80
     }
@@ -949,12 +949,12 @@ try {
     // inputFrame.custom = true
     // if (size.height > 85) {
     inputFrame.y = 35
-      // size.height = 85
+    // size.height = 85
     // }
     inputFrame.height = size.height
     self.userInput.frame = inputFrame
     let chatToolbarFrame = self.chatToolbar.frame
-    chatToolbarFrame.height = inputFrame.y+inputFrame.height
+    chatToolbarFrame.height = inputFrame.y + inputFrame.height
     self.chatToolbar.frame = chatToolbarFrame
     // self.userInput.frame = MNUtil.genFrame(0,frame.height-85, frame.width-50, size.height)
     if (/\n\n$/.test(textview.text) && textview.text.trim()) {
@@ -973,74 +973,74 @@ try {
         chatAIUtils.addErrorLog(error, "textViewDidChange")
       }
     }
-    
-  },
-  referenceButtonTapped:async function (button) {
-  try {
 
-    let self = getSideOutputController()
-    let selection = await self.runJavaScript(`window.getSelection().toString();`,"chatWebview")
-    if (selection.trim() && (selection !== self.preSelection)) {
-      self.preSelection = selection
-      self.addToInput(selection)
-      self.showHUD("Add reference")
-      MNUtil.delay(0.1,()=>{
-        self.runJavaScript(`document.activeElement.blur();`)
-        self.chatWebview.endEditing(true)
-      })
-      return
-    }
-    if (self.userReference.text) {
-      let menu = new Menu(button,self)
-      menu.width = 200
-      menu.addMenuItem("❌   Clear Reference", "referenceAction:", "clearReference")
-      if(self.userReference.hidden){
-        menu.addMenuItem("   Show Reference", "referenceAction:", "showReference")
-      }else{
-        menu.addMenuItem("   Show User Input", "referenceAction:", "hideReference")
+  },
+  referenceButtonTapped: async function (button) {
+    try {
+
+      let self = getSideOutputController()
+      let selection = await self.runJavaScript(`window.getSelection().toString();`, "chatWebview")
+      if (selection.trim() && (selection !== self.preSelection)) {
+        self.preSelection = selection
+        self.addToInput(selection)
+        self.showHUD("Add reference")
+        MNUtil.delay(0.1, () => {
+          self.runJavaScript(`document.activeElement.blur();`)
+          self.chatWebview.endEditing(true)
+        })
+        return
       }
-      menu.addMenuItem("   From Note", "referenceAction:", "importFromNote")
-      menu.addMenuItem("   From Clipboard", "referenceAction:", "importFromClipboard")
-      menu.addMenuItem("   From Selection on Doc", "referenceAction:", "importFromDocSelection")
-      menu.addMenuItem("   From Selection on Chat", "referenceAction:", "importFromChatSelection")
-      menu.addMenuItem("   From Selection on Note", "referenceAction:", "importFromNoteSelection")
-      menu.show()
-    }else{
-      // let selection = await self.runJavaScript(`window.getSelection().toString();`,"chatWebview")
-      // if (selection.trim() && (selection !== self.preSelection)) {
-      //   self.preSelection = selection
-      //   self.userReference.text = ">"+selection
-      //   self.userReference.hidden = false
-      //   self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
-      //   self.showReference()
-      //   let size = self.userReference.sizeThatFits({width:self.userReference.frame.width,height:1000})
-      //   if (size.height > self.userReference.frame.height) {
-      //     self.userReference.setContentOffsetAnimated({x:0,y:size.height-self.userReference.frame.height},true)
-      //   }
-      //   self.showHUD("Add reference")
-      //   self.runJavaScript(`document.activeElement.blur();`)
-      //   self.chatWebview.endEditing(true)
-      //   // self.chatRunJavaScript(`document.activeElement.blur();`)
-      //   return
-      // }
-      var commandTable = [
-        {title:"   From Note",object:self,selector:"referenceAction:",param:"importFromNote"},
-        {title:"   From Clipboard",object:self,selector:"referenceAction:",param:"importFromClipboard"},
-        {title:"   From Selection on Doc",object:self,selector:"referenceAction:",param:"importFromDocSelection"},
-        {title:"   From Selection on Chat",object:self,selector:"referenceAction:",param:"importFromChatSelection"},
-        {title:"   From Selection on Note",object:self,selector:"referenceAction:",param:"importFromNoteSelection"},
-      ]
-      self.popoverController = MNUtil.getPopoverAndPresent(button,commandTable,200,0)
+      if (self.userReference.text) {
+        let menu = new Menu(button, self)
+        menu.width = 200
+        menu.addMenuItem("❌   Clear Reference", "referenceAction:", "clearReference")
+        if (self.userReference.hidden) {
+          menu.addMenuItem("   Show Reference", "referenceAction:", "showReference")
+        } else {
+          menu.addMenuItem("   Show User Input", "referenceAction:", "hideReference")
+        }
+        menu.addMenuItem("   From Note", "referenceAction:", "importFromNote")
+        menu.addMenuItem("   From Clipboard", "referenceAction:", "importFromClipboard")
+        menu.addMenuItem("   From Selection on Doc", "referenceAction:", "importFromDocSelection")
+        menu.addMenuItem("   From Selection on Chat", "referenceAction:", "importFromChatSelection")
+        menu.addMenuItem("   From Selection on Note", "referenceAction:", "importFromNoteSelection")
+        menu.show()
+      } else {
+        // let selection = await self.runJavaScript(`window.getSelection().toString();`,"chatWebview")
+        // if (selection.trim() && (selection !== self.preSelection)) {
+        //   self.preSelection = selection
+        //   self.userReference.text = ">"+selection
+        //   self.userReference.hidden = false
+        //   self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
+        //   self.showReference()
+        //   let size = self.userReference.sizeThatFits({width:self.userReference.frame.width,height:1000})
+        //   if (size.height > self.userReference.frame.height) {
+        //     self.userReference.setContentOffsetAnimated({x:0,y:size.height-self.userReference.frame.height},true)
+        //   }
+        //   self.showHUD("Add reference")
+        //   self.runJavaScript(`document.activeElement.blur();`)
+        //   self.chatWebview.endEditing(true)
+        //   // self.chatRunJavaScript(`document.activeElement.blur();`)
+        //   return
+        // }
+        var commandTable = [
+          { title: "   From Note", object: self, selector: "referenceAction:", param: "importFromNote" },
+          { title: "   From Clipboard", object: self, selector: "referenceAction:", param: "importFromClipboard" },
+          { title: "   From Selection on Doc", object: self, selector: "referenceAction:", param: "importFromDocSelection" },
+          { title: "   From Selection on Chat", object: self, selector: "referenceAction:", param: "importFromChatSelection" },
+          { title: "   From Selection on Note", object: self, selector: "referenceAction:", param: "importFromNoteSelection" },
+        ]
+        self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable, 200, 0)
+      }
+
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "referenceButtonTapped")
     }
-    
-  } catch (error) {
-    chatAIUtils.addErrorLog(error, "referenceButtonTapped")
-  }
   },
   referenceAction: async function (action) {
     let self = getSideOutputController()
     Menu.dismissCurrentMenu()
-    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    if (self.popoverController) { self.popoverController.dismissPopoverAnimated(true); }
     switch (action) {
       case "clearReference":
         self.userReference.text = ""
@@ -1060,24 +1060,24 @@ try {
       case "importFromDocSelection":
         if (chatAIUtils.currentSelection && chatAIUtils.currentSelection.onSelection) {
           self.addToInput(chatAIUtils.currentSelection.text)
-        }else{
+        } else {
           MNUtil.showHUD("No selection")
         }
         break;
       case "importFromChatSelection":
-        let selection = await self.runJavaScript(`window.getSelection().toString();`,"chatWebview")
+        let selection = await self.runJavaScript(`window.getSelection().toString();`, "chatWebview")
         if (selection) {
           self.addToInput(selection)
-        }else{
+        } else {
           MNUtil.showHUD("No selection")
         }
         break;
       case "importFromNoteSelection":
         if (MNUtil.activeTextView) {
           let selectedRange = MNUtil.activeTextView.selectedRange
-          let text = (selectedRange.length > 0)?MNUtil.activeTextView.text.slice(selectedRange.location,selectedRange.location+selectedRange.length):MNUtil.activeTextView.text
+          let text = (selectedRange.length > 0) ? MNUtil.activeTextView.text.slice(selectedRange.location, selectedRange.location + selectedRange.length) : MNUtil.activeTextView.text
           self.addToInput(text)
-        }else{
+        } else {
           MNUtil.showHUD("No selection")
         }
         break;
@@ -1093,7 +1093,7 @@ try {
           //   chatAIUtils.sideOutputController.addToInput(userInput)
           // }
           return
-        }else{
+        } else {
           MNUtil.showHUD("No note selected")
           return
         }
@@ -1102,17 +1102,17 @@ try {
         break;
     }
   },
-  clearReference:function (params) {
+  clearReference: function (params) {
     let self = getSideOutputController()
     Menu.dismissCurrentMenu()
-    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    if (self.popoverController) { self.popoverController.dismissPopoverAnimated(true); }
     self.userReference.text = ""
     self.userReference.hidden = true
-    self.sendButton.setImageForState(chatAIConfig.sendImage,0)
+    self.sendButton.setImageForState(chatAIConfig.sendImage, 0)
     self.resizeButton.hidden = false
-    self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
+    self.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf", 1)
   },
-  onResizeGesture:function (gesture) {
+  onResizeGesture: function (gesture) {
     // MNUtil.showHUD("message")
     // return
     let self = getSideOutputController()
@@ -1120,7 +1120,7 @@ try {
     // self.dynamic = false;
     let baseframe = gesture.view.frame
     let locationToBrowser = gesture.locationInView(self.chatToolbar)
-    let height = locationToBrowser.y+baseframe.height*0.3
+    let height = locationToBrowser.y + baseframe.height * 0.3
     height = height - self.userReference.frame.y
     height = chatAIUtils.constrain(height, 32, MNExtensionPanel.height)
 
@@ -1129,28 +1129,28 @@ try {
     viewFrame.height = MNExtensionPanel.height
     // let inputFrame = self.userInput.frame
     // self.userInput.frame = MNUtil.genFrame(4,inputFrame.y, viewFrame.width-63, inputFrame.height)
-    self.userReference.frame = MNUtil.genFrame(4,4, viewFrame.width-8, height)
-    self.resizeButton.frame = MNUtil.genFrame(viewFrame.width-25,height-17, 20, 20)
+    self.userReference.frame = MNUtil.genFrame(4, 4, viewFrame.width - 8, height)
+    self.resizeButton.frame = MNUtil.genFrame(viewFrame.width - 25, height - 17, 20, 20)
   },
-    /**
-   * 
-   * @param {UIWebView} webView 
-   */
-  webViewDidFinishLoad: async function(webView) {
+  /**
+ * 
+ * @param {UIWebView} webView 
+ */
+  webViewDidFinishLoad: async function (webView) {
     if (webView === self.chatWebview) {
       if (self.history && self.history.length) {
-        let newData = {data:self.history}
+        let newData = { data: self.history }
         if (self.funcIndices && self.funcIndices.length) {
           newData.funcIdxs = self.funcIndices
         }
         if (self.currentPrompt && self.currentPrompt !== "Dynamic") {
           newData.name = chatAIConfig.prompts[self.currentPrompt].title
-        }else{
-          let firstUser = self.history.find(item=>item.role === "user")
+        } else {
+          let firstUser = self.history.find(item => item.role === "user")
           if (typeof firstUser.content === "string") {
-            newData.name = firstUser.content.slice(0,10)
-          }else{
-            newData.name = firstUser.content.find(item=>item.type = "text").text.slice(0,10)
+            newData.name = firstUser.content.slice(0, 10)
+          } else {
+            newData.name = firstUser.content.find(item => item.type = "text").text.slice(0, 10)
           }
         }
         if (self.temperature !== undefined) {
@@ -1160,7 +1160,7 @@ try {
           newData.model = self.currentModel
         }
         self.importData(newData)
-      }else{
+      } else {
         self.importData()
       }
       if (self.preFilledUserInput) {
@@ -1170,7 +1170,7 @@ try {
       }
     }
   },
-  webViewShouldStartLoadWithRequestNavigationType: function(webView,request,type){
+  webViewShouldStartLoadWithRequestNavigationType: function (webView, request, type) {
     let self = getSideOutputController()
     let requestURL = request.URL().absoluteString()
     let config = MNUtil.parseURL(requestURL)
@@ -1179,10 +1179,10 @@ try {
       switch (config.host) {
         case "setHeight":
           break;
-          // let height = MNUtil.constrain(config.params.height, 35, 175)
-          // self.inputHeight = height
-          // self.userInput.frame = MNUtil.genFrame(45, 5, 210, height)
-          // break;
+        // let height = MNUtil.constrain(config.params.height, 35, 175)
+        // self.inputHeight = height
+        // self.userInput.frame = MNUtil.genFrame(45, 5, 210, height)
+        // break;
         case "sendMessage":
           let content = config.params.content
           // let timestamp = config.params.timestamp
@@ -1192,7 +1192,7 @@ try {
             }
             // chatAIConfig.appendDynamicHistory(content)
             self.blur(0.1)
-          }else{
+          } else {
             MNUtil.showHUD("Empty message")
             // content = chatAIConfig.getLatestHistory()
             // self.setInput(content)
@@ -1211,14 +1211,14 @@ try {
           }
           let viewportHeight = config.params.viewportHeight
           let frame = self.chatToolbar.frame
-          frame.y = frame.y - (self.userInput.frame.height - viewportHeight)-10
-            MNUtil.animate(()=>{
-              self.chatToolbar.frame = frame
-              // self.setFrame(frame)
-            },0.3)
+          frame.y = frame.y - (self.userInput.frame.height - viewportHeight) - 10
+          MNUtil.animate(() => {
+            self.chatToolbar.frame = frame
+            // self.setFrame(frame)
+          }, 0.3)
           break;
         default:
-          MNUtil.log({message:"unknown editoraction",detail:config})
+          MNUtil.log({ message: "unknown editoraction", detail: config })
           break;
       }
       return false
@@ -1229,27 +1229,27 @@ try {
         case "showanswer":
           let correctAnswer = config.params.content.correctAnswer
           let explanation = config.params.content.explanation
-          MNUtil.confirm(correctAnswer,explanation)
+          MNUtil.confirm(correctAnswer, explanation)
           // MNUtil.copy(config)
           return false
         case "choice":
           if ("content" in config.params) {
             if (self.preCheck()) {
               let content = config.params.content
-              self.waitHUD("💬 Reply: "+content)
+              self.waitHUD("💬 Reply: " + content)
               self.continueAsk(content)
               self.chatSendMessage(self.history.at(-1))
             }
             return false
-          }else if ("linkText" in config.params) {
+          } else if ("linkText" in config.params) {
             if (self.preCheck()) {
               let linkText = config.params.linkText
               // let content = config.params.content
-              self.waitHUD("💬 Reply: "+linkText)
+              self.waitHUD("💬 Reply: " + linkText)
               self.continueAsk(linkText)
               self.chatSendMessage(self.history.at(-1))
             }
-          }else{
+          } else {
             MNUtil.copy(config)
           }
           break;
@@ -1261,29 +1261,29 @@ try {
             if (typeof content === "string") {
               // chatAIUtils.log("getValidJSON", content)
               let noteConfig = chatAIUtils.getValidJSON(content)
-              self.userSelectAddNote(noteConfig,"json")
-            }else{
-              self.userSelectAddNote(content,"json")
+              self.userSelectAddNote(noteConfig, "json")
+            } else {
+              self.userSelectAddNote(content, "json")
             }
             return false
           }
           if ("content" in config.params) {
             let content = config.params.content
-            self.userSelectAddNote(content,config.params.format)
+            self.userSelectAddNote(content, config.params.format)
             return false
-          }else {
+          } else {
             MNUtil.copy(config)
           }
           break;
         case "addcomment":
           if ("content" in config.params) {
-            let content = config.params.content.replace(/\\n/g,"\n")
-            self.showHUD("➕ Add comment: "+content)
+            let content = config.params.content.replace(/\\n/g, "\n")
+            self.showHUD("➕ Add comment: " + content)
             let note = chatAIUtils.getFocusNote()
-            MNUtil.undoGrouping(()=>{
+            MNUtil.undoGrouping(() => {
               note.appendMarkdownComment(content)
             })
-          }else {
+          } else {
             MNUtil.copy(config)
           }
         default:
@@ -1405,22 +1405,22 @@ try {
       let beginFrame = self.view.frame
       let endFrame = beginFrame
       let studyFrame = MNUtil.studyView.bounds
-      if ((beginFrame.x+beginFrame.width*2) < studyFrame.width) {
-        endFrame.x = beginFrame.x+beginFrame.width
-        MNUtil.postNotification("openInBrowser", {url:requestURL,beginFrame:beginFrame,endFrame:endFrame})
+      if ((beginFrame.x + beginFrame.width * 2) < studyFrame.width) {
+        endFrame.x = beginFrame.x + beginFrame.width
+        MNUtil.postNotification("openInBrowser", { url: requestURL, beginFrame: beginFrame, endFrame: endFrame })
         return false
       }
-      if ((beginFrame.x-beginFrame.width) > 0) {
-        endFrame.x = beginFrame.x-beginFrame.width
-        MNUtil.postNotification("openInBrowser", {url:requestURL,beginFrame:beginFrame,endFrame:endFrame})
+      if ((beginFrame.x - beginFrame.width) > 0) {
+        endFrame.x = beginFrame.x - beginFrame.width
+        MNUtil.postNotification("openInBrowser", { url: requestURL, beginFrame: beginFrame, endFrame: endFrame })
         return false
       }
-      MNUtil.postNotification("openInBrowser", {url:requestURL})
+      MNUtil.postNotification("openInBrowser", { url: requestURL })
       return false
     }
     return true;
   },
-  connectionDidReceiveResponse: async function (connection,response) {
+  connectionDidReceiveResponse: async function (connection, response) {
     let self = getSideOutputController()
     self.setButtonOpacity(0.5)
     // self.response = ""
@@ -1441,9 +1441,9 @@ try {
     self.hasRenderSearchResults = false
     if (self.statusCode >= 400) {
       MNUtil.stopHUD()
-      MNUtil.showHUD("❗"+MNUtil.getStatusCodeDescription(""+self.statusCode))
+      MNUtil.showHUD("❗" + MNUtil.getStatusCodeDescription("" + self.statusCode))
       self.errorMessage = {
-        message:"❗"+MNUtil.getStatusCodeDescription(""+self.statusCode),
+        message: "❗" + MNUtil.getStatusCodeDescription("" + self.statusCode),
         statusCode: self.statusCode,
         info: self.config
       }
@@ -1459,15 +1459,15 @@ try {
     MNUtil.stopHUD()
   },
 
-  connectionDidReceiveData: async function (connection,data) {
+  connectionDidReceiveData: async function (connection, data) {
     let self = getSideOutputController()
     self.onreceive = true
     self.currentData.appendData(data)
     // self.size.push(self.textString)
     // let textString = MNUtil.data2string(data)
     let textString = chatAIUtils.dataToString(data)
-   if (self.statusCode >= 400) {
-      let contentToShow = "❗["+MNUtil.getStatusCodeDescription(""+self.statusCode)+"]"
+    if (self.statusCode >= 400) {
+      let contentToShow = "❗[" + MNUtil.getStatusCodeDescription("" + self.statusCode) + "]"
       if (MNUtil.isValidJSON(textString)) {
         let res = JSON.parse(textString)
         res.info = self.config
@@ -1476,11 +1476,11 @@ try {
         self.errorMessage = res
         MNUtil.copyJSON(res)
         if ("error" in res && "message" in res.error) {
-          contentToShow = contentToShow+" "+res.error.message
-        }else if ("message" in res) {
-          contentToShow = contentToShow+" "+res.message
+          contentToShow = contentToShow + " " + res.error.message
+        } else if ("message" in res) {
+          contentToShow = contentToShow + " " + res.message
         }
-        MNUtil.confirm(res.message, JSON.stringify(res,undefined,2))
+        MNUtil.confirm(res.message, JSON.stringify(res, undefined, 2))
       }
       MNUtil.showHUD(contentToShow)
       self.stopLoading(false)
@@ -1495,7 +1495,7 @@ try {
     self.hasDone = /^data:\s?\[DONE\]/.test(textString)
     if (self.hasDone) {
       self.textString = textString
-    }else{
+    } else {
       if (/^data\:\s{"base_resp"\:{"status_code"\:\d\d+/.test(textString)) {
         chatAIUtils.addErrorLog(textString, "connectionDidReceiveData")
         return
@@ -1505,30 +1505,30 @@ try {
     // self.originalText = MNUtil.data2string(self.currentData)
     self.originalText = chatAIUtils.dataToString(self.currentData)
 
-    self.getResponse().then(()=>{
-    // await self.setResponseText(self.preFuncResponse+self.funcResponse)
-    if (self.hasDone) {
-      if (!self.onFinish && self.connection && (self.connection === connection)) {
-        self.onFinish = true
-        // self.beginTime = Date.now()
-        self.prepareFinish()
-        // MNUtil.showHUD("finish")
-        // MNUtil.copy(self.textString)
+    self.getResponse().then(() => {
+      // await self.setResponseText(self.preFuncResponse+self.funcResponse)
+      if (self.hasDone) {
+        if (!self.onFinish && self.connection && (self.connection === connection)) {
+          self.onFinish = true
+          // self.beginTime = Date.now()
+          self.prepareFinish()
+          // MNUtil.showHUD("finish")
+          // MNUtil.copy(self.textString)
+        }
+      } else {
+        self.setChatLayout()
       }
-    }else{
-      self.setChatLayout()
-    }
-    return
+      return
     })
   },
   connectionDidFinishLoading: function (connection) {
-  // let self = getSideOutputController()
-  if (!self.onFinish && self.connection && (self.connection === connection)) {
-    self.onFinish = true
-    self.prepareFinish()
-    // MNUtil.showHUD("finish")
-    // MNUtil.copy(self.textString)
-  }
+    // let self = getSideOutputController()
+    if (!self.onFinish && self.connection && (self.connection === connection)) {
+      self.onFinish = true
+      self.prepareFinish()
+      // MNUtil.showHUD("finish")
+      // MNUtil.copy(self.textString)
+    }
 
     MNUtil.stopHUD()
   },
@@ -1537,8 +1537,8 @@ try {
    * @param {NSURLConnection} connection 
    * @param {NSError} error 
    */
-  connectionDidFailWithError: function (connection,error) {
-    chatAIUtils.log("sideOutputController.connectionDidFailWithError",{config:self.config,error:error.userInfo},"ERROR")
+  connectionDidFailWithError: function (connection, error) {
+    chatAIUtils.log("sideOutputController.connectionDidFailWithError", { config: self.config, error: error.userInfo }, "ERROR")
     MNUtil.copyJSON(error.userInfo)
     MNUtil.showHUD("Network error")
     MNUtil.stopHUD()
@@ -1559,81 +1559,81 @@ try {
  * @param {number} [temperature=0.8] - The temperature parameter for the AI model, controlling the randomness of the output.
  * @throws {Error} - Throws an error if there is an issue during the request initialization.
  */
-sideOutputController.prototype.baseAsk = async function(
+sideOutputController.prototype.baseAsk = async function (
   question,
-  config = chatAIConfig.getConfigFromSource(),  
-  temperature=undefined
+  config = chatAIConfig.getConfigFromSource(),
+  temperature = undefined
 ) {
-try {
-  // MNUtil.log({message:"baseAsk",detail:config})
-  // chatAIUtils.copyJSON(config)
-  this.question = question
-  this.history = [].concat(question)
-  this.config = config
-  this.temperature = temperature
-  if (!this.funcIndices.length) {
-    this.funcIndices = config.func ?? []
-  }
-  this.actions = config.action ?? []
-  if (temperature !== undefined) {//优先从函数的参数中获取温度
+  try {
+    // MNUtil.log({message:"baseAsk",detail:config})
+    // chatAIUtils.copyJSON(config)
+    this.question = question
+    this.history = [].concat(question)
+    this.config = config
     this.temperature = temperature
-  }else{
-    this.temperature = config.temperature ?? 0.8
+    if (!this.funcIndices.length) {
+      this.funcIndices = config.func ?? []
+    }
+    this.actions = config.action ?? []
+    if (temperature !== undefined) {//优先从函数的参数中获取温度
+      this.temperature = temperature
+    } else {
+      this.temperature = config.temperature ?? 0.8
+    }
+    this.source = config.source
+    let request = chatAINetwork.genRequestForAI(this.source, config.model, this.history, this.temperature, this.funcIndices)
+    // switch (config.source) {
+    //   case "ChatGPT":
+    //   case "Subscription":
+    //   case "Custom":
+    //     request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+    //     break;
+    //   case "Claude":
+    //     request = chatAINetwork.initRequestForClaude(this.history,config.key,config.url,config.model, this.temperature)
+    //     break;
+    //   case "Gemini":
+    //     request =chatAINetwork.initRequestForGemini(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+    //     break;
+    //   case "KimiCoding":
+    //     request = chatAINetwork.initRequestForKimiCoding(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+    //     break;
+    //   case "Built-in":
+    //     //对内置模型而言，只能使用选择好的渠道，不能指定模型
+    //     let keyInfo = chatAIConfig.keys["key"+chatAIConfig.getConfig("tunnel")]
+    //     if (!keyInfo || !keyInfo.keys) {
+    //       MNUtil.showHUD("No apikey for built-in mode!")
+    //       return
+    //     }
+    //     // MNUtil.copyJSON(keyInfo)
+    //     let key = chatAIUtils.getRandomElement(keyInfo.keys)
+    //     if (key === "") {
+    //       MNUtil.showHUD("No apikey for built-in mode!")
+    //       return
+    //     }
+    //     if (keyInfo.useSubscriptionURL) {
+    //       let url = subscriptionConfig.getConfig("url")+ "/v1/chat/completions"
+    //       request =chatAINetwork.initRequestForChatGPT(this.history,key, url,keyInfo.model,this.temperature,this.funcIndices)
+    //     }else{
+    //       request =chatAINetwork.initRequestForChatGPT(this.history,key, keyInfo.url,keyInfo.model,this.temperature,this.funcIndices)
+    //     }
+    //     break;
+    //   default:
+    //     if (chatAIConfig.generalSource.includes(this.source)) {
+    //       request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
+    //       break;
+    //     }
+    //     MNUtil.showHUD("Unsupported source: "+this.source)
+    //     return
+    // }
+    if (request) {
+      this.sendStreamRequest(request)
+      chatAIUtils.lastTime = Date.now()
+    } else {
+      MNUtil.showHUD("❌ Faild to generate request for AI")
+    }
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "baseAsk")
   }
-  this.source = config.source
-  let request = chatAINetwork.genRequestForAI(this.source,config.model,this.history,this.temperature,this.funcIndices)
-  // switch (config.source) {
-  //   case "ChatGPT":
-  //   case "Subscription":
-  //   case "Custom":
-  //     request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
-  //     break;
-  //   case "Claude":
-  //     request = chatAINetwork.initRequestForClaude(this.history,config.key,config.url,config.model, this.temperature)
-  //     break;
-  //   case "Gemini":
-  //     request =chatAINetwork.initRequestForGemini(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
-  //     break;
-  //   case "KimiCoding":
-  //     request = chatAINetwork.initRequestForKimiCoding(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
-  //     break;
-  //   case "Built-in":
-  //     //对内置模型而言，只能使用选择好的渠道，不能指定模型
-  //     let keyInfo = chatAIConfig.keys["key"+chatAIConfig.getConfig("tunnel")]
-  //     if (!keyInfo || !keyInfo.keys) {
-  //       MNUtil.showHUD("No apikey for built-in mode!")
-  //       return
-  //     }
-  //     // MNUtil.copyJSON(keyInfo)
-  //     let key = chatAIUtils.getRandomElement(keyInfo.keys)
-  //     if (key === "") {
-  //       MNUtil.showHUD("No apikey for built-in mode!")
-  //       return
-  //     }
-  //     if (keyInfo.useSubscriptionURL) {
-  //       let url = subscriptionConfig.getConfig("url")+ "/v1/chat/completions"
-  //       request =chatAINetwork.initRequestForChatGPT(this.history,key, url,keyInfo.model,this.temperature,this.funcIndices)
-  //     }else{
-  //       request =chatAINetwork.initRequestForChatGPT(this.history,key, keyInfo.url,keyInfo.model,this.temperature,this.funcIndices)
-  //     }
-  //     break;
-  //   default:
-  //     if (chatAIConfig.generalSource.includes(this.source)) {
-  //       request =chatAINetwork.initRequestForChatGPT(this.history,config.key,config.url,config.model,this.temperature,this.funcIndices)
-  //       break;
-  //     }
-  //     MNUtil.showHUD("Unsupported source: "+this.source)
-  //     return
-  // }
-  if (request) {
-    this.sendStreamRequest(request)
-    chatAIUtils.lastTime = Date.now()
-  }else{
-    MNUtil.showHUD("❌ Faild to generate request for AI")
-  }
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "baseAsk")
-}
 }
 
 /** 
@@ -1644,7 +1644,7 @@ sideOutputController.prototype.askWithPrompt = async function (prompt) {
   try {
     let config = chatAIConfig.getConfigFromPrompt(prompt)
     if (!config) {
-      MNUtil.showHUD("No config for prompt: "+prompt)
+      MNUtil.showHUD("No config for prompt: " + prompt)
       return
     }
     let question = await chatAIUtils.chatController.getQuestion(prompt)
@@ -1652,7 +1652,7 @@ sideOutputController.prototype.askWithPrompt = async function (prompt) {
       return
     }
     // copyJSON(config)
-    this.baseAsk(question,config)
+    this.baseAsk(question, config)
     this.beginNotification(config.title)
   } catch (error) {
     chatAIUtils.addErrorLog(error, "askWithPrompt")
@@ -1666,47 +1666,47 @@ sideOutputController.prototype.askWithPrompt = async function (prompt) {
  * @param {number} temperature 
  * @this {sideOutputController}
  */
-sideOutputController.prototype.ask = async function(question,promptKey=this.currentPrompt,temperature=undefined) {
-try {
-  this.dynamic = false
-  this.token = []
-  this.func = []
-  this.preFuncResponse = ""
-  let delay = chatAIConfig.config.delay
-  if (this.called) {
-    delay = 0
-  }
-  if (!chatAIUtils.preCheck(this.config)) {
-    return
-  }
-  await this.delay(delay)
-  // MNUtil.showHUD(chatAIConfig.currentTitle)
-  // MNUtil.showHUD(chatAIConfig.currentTitle)
+sideOutputController.prototype.ask = async function (question, promptKey = this.currentPrompt, temperature = undefined) {
+  try {
+    this.dynamic = false
+    this.token = []
+    this.func = []
+    this.preFuncResponse = ""
+    let delay = chatAIConfig.config.delay
+    if (this.called) {
+      delay = 0
+    }
+    if (!chatAIUtils.preCheck(this.config)) {
+      return
+    }
+    await this.delay(delay)
+    // MNUtil.showHUD(chatAIConfig.currentTitle)
+    // MNUtil.showHUD(chatAIConfig.currentTitle)
 
-  let promptConfig = chatAIConfig.prompts[promptKey]
-  if (promptKey) {
-    this.currentPrompt = promptKey
-    this.currentTitle = promptConfig.title
-  }
-  await this.beginNotification()
-  if ("model" in promptConfig) {
-    this.currentModel = promptConfig.model
-  }else{
-    this.currentModel = "Default"
-  }
-  let config = chatAIConfig.getConfigFromPrompt(promptKey)
-  if (!config) {
-    MNUtil.showHUD("No config for prompt: "+promptKey)
-    return
-  }
-  // MNUtil.copyJSON(config)
-  this.baseAsk(question,config,temperature)
+    let promptConfig = chatAIConfig.prompts[promptKey]
+    if (promptKey) {
+      this.currentPrompt = promptKey
+      this.currentTitle = promptConfig.title
+    }
+    await this.beginNotification()
+    if ("model" in promptConfig) {
+      this.currentModel = promptConfig.model
+    } else {
+      this.currentModel = "Default"
+    }
+    let config = chatAIConfig.getConfigFromPrompt(promptKey)
+    if (!config) {
+      MNUtil.showHUD("No config for prompt: " + promptKey)
+      return
+    }
+    // MNUtil.copyJSON(config)
+    this.baseAsk(question, config, temperature)
 
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "ask")
-}
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "ask")
+  }
   // })
-  
+
 };
 /**
  * 
@@ -1715,35 +1715,35 @@ try {
  * @param {number} temperature 
  * @this {sideOutputController}
  */
-sideOutputController.prototype.reAsk = async function(question,promptKey=this.currentPrompt,temperature=undefined) {
-try {
-  this.dynamic = false
-  this.token = []
-  this.func = []
-  this.preFuncResponse = ""
-  let delay = chatAIConfig.config.delay
-  if (this.called) {
-    delay = 0
-  }
-  if (!chatAIUtils.preCheck(this.config)) {
-    return
-  }
-  await this.delay(delay)
-  // MNUtil.showHUD(chatAIConfig.currentTitle)
-  // MNUtil.showHUD(chatAIConfig.currentTitle)
+sideOutputController.prototype.reAsk = async function (question, promptKey = this.currentPrompt, temperature = undefined) {
+  try {
+    this.dynamic = false
+    this.token = []
+    this.func = []
+    this.preFuncResponse = ""
+    let delay = chatAIConfig.config.delay
+    if (this.called) {
+      delay = 0
+    }
+    if (!chatAIUtils.preCheck(this.config)) {
+      return
+    }
+    await this.delay(delay)
+    // MNUtil.showHUD(chatAIConfig.currentTitle)
+    // MNUtil.showHUD(chatAIConfig.currentTitle)
 
-  let promptConfig = chatAIConfig.prompts[promptKey]
-  if (promptKey) {
-    this.currentPrompt = promptKey
-    this.currentTitle = promptConfig.title
-  }
-  await this.beginNotification()
-  this.baseAsk(question,this.config,temperature)
+    let promptConfig = chatAIConfig.prompts[promptKey]
+    if (promptKey) {
+      this.currentPrompt = promptKey
+      this.currentTitle = promptConfig.title
+    }
+    await this.beginNotification()
+    this.baseAsk(question, this.config, temperature)
 
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "ask")
-}
-  
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "ask")
+  }
+
 };
 
 /**
@@ -1753,34 +1753,34 @@ try {
  * @param {number} temperature 
  * @this {sideOutputController}
  */
-sideOutputController.prototype.reAskByIdx = async function(question,idx = -1) {
-try {
-  this.dynamic = false
-  this.token = []
-  this.func = []
-  this.preFuncResponse = ""
-  let roles = this.history.map(h=>h.role)
-  let chatIdxs = []
-  this.history.forEach((h,i)=>{
-    
-  })
+sideOutputController.prototype.reAskByIdx = async function (question, idx = -1) {
+  try {
+    this.dynamic = false
+    this.token = []
+    this.func = []
+    this.preFuncResponse = ""
+    let roles = this.history.map(h => h.role)
+    let chatIdxs = []
+    this.history.forEach((h, i) => {
 
-  this.refreshIdx = idx
-  let delay = chatAIConfig.config.delay
-  if (this.called) {
-    delay = 0
-  }
-  if (!chatAIUtils.preCheck(this.config)) {
-    return
-  }
-  await this.delay(delay)
-  await this.beginNotification()
-  this.baseAsk(question,this.config,this.temperature)
+    })
 
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "ask")
-}
-  
+    this.refreshIdx = idx
+    let delay = chatAIConfig.config.delay
+    if (this.called) {
+      delay = 0
+    }
+    if (!chatAIUtils.preCheck(this.config)) {
+      return
+    }
+    await this.delay(delay)
+    await this.beginNotification()
+    this.baseAsk(question, this.config, this.temperature)
+
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "ask")
+  }
+
 };
 
 /**
@@ -1790,44 +1790,44 @@ try {
  * @param {*} reask 
  * @this {sideOutputController}
  */
-sideOutputController.prototype.customAsk = async function(question,noteId = undefined) {
-try {
-  this.noteid = noteId
-  this.token = []
-  this.func = []
-  this.preFuncResponse = ""
-  // this.targetTextview = "textviewResponse"
-  if (!chatAIUtils.preCheck(this.config)) {
-    return
+sideOutputController.prototype.customAsk = async function (question, noteId = undefined) {
+  try {
+    this.noteid = noteId
+    this.token = []
+    this.func = []
+    this.preFuncResponse = ""
+    // this.targetTextview = "textviewResponse"
+    if (!chatAIUtils.preCheck(this.config)) {
+      return
+    }
+    let currentFrame = this.view.frame
+    currentFrame.height = 120
+    this.view.frame = currentFrame
+    this.currentFrame = currentFrame
+    await this.beginNotification("Toolbar")
+    this.question = question
+    this.baseAsk(question)
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "customAsk")
   }
-  let currentFrame = this.view.frame
-  currentFrame.height = 120
-  this.view.frame = currentFrame
-  this.currentFrame = currentFrame
-  await this.beginNotification("Toolbar")
-  this.question = question
-  this.baseAsk(question)
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "customAsk")
-}
 };
 sideOutputController.prototype.getInputext = async function () {
-    let text = await this.inputRunJavaScript(`editor.getValue()`)
-    if (this.userReference.text.trim()) {
-      text = this.userReference.text.trim()+"\n\n"+text
-    }
-    if (!text) {
-      MNUtil.showHUD("Empty message")
-      return undefined
-    }
-    // MNUtil.showHUD("Sending message...")
-    this.userInput.custom = false
-    this.setInput("")
-    // this.userInput.text = ""
-    this.userReference.text = ""
-    this.userReference.hidden = false
-    this.resizeButton.hidden = false
-    return text
+  let text = await this.inputRunJavaScript(`editor.getValue()`)
+  if (this.userReference.text.trim()) {
+    text = this.userReference.text.trim() + "\n\n" + text
+  }
+  if (!text) {
+    MNUtil.showHUD("Empty message")
+    return undefined
+  }
+  // MNUtil.showHUD("Sending message...")
+  this.userInput.custom = false
+  this.setInput("")
+  // this.userInput.text = ""
+  this.userReference.text = ""
+  this.userReference.hidden = false
+  this.resizeButton.hidden = false
+  return text
 }
 /**
  * 专指聊天模式下
@@ -1836,71 +1836,71 @@ sideOutputController.prototype.getInputext = async function () {
  * @param {*} reask 
  * @this {sideOutputController}
  */
-sideOutputController.prototype.continueAsk = async function(question,temperature=0.8) {
-try {
-  let config = chatAIConfig.config
-  if (this.notShow && !this.called) {
-    // MNUtil.showHUD("not show")
-    return
-  }
-  if (this.connection) {
-    MNUtil.showHUD("on output")
-    return
-  }
-  let funcIndices
-  if (this.dynamic) {
-    funcIndices =  chatAIConfig.config.dynamicFunc
-  }else{
-    funcIndices =  chatAIConfig.prompts[this.currentPrompt].func ? chatAIConfig.prompts[this.currentPrompt].func : []
-  }
-  this.question = question
-  this.apikey = config.apikey
-  this.func = []
-  if (/{{note:.*}}/.test(question)) {
-    let res = question.match(/{{note:(.*)}}/g)
-    for (let i = 0; i < res.length; i++) {
-      const tem = res[i];
-      let noteId = tem.match(/{{note:(.*)}}/)[1]
-      let note = MNNote.new(noteId)
-      let stringified = (await chatAIUtils.getMDFromNote(note,true)).trim()
-      stringified = stringified.split("\n").map((l,i)=>{
-        if (i && l.trim()) {
-          return `> ${l}`
-        }
-        return l
-      }).join("\n")
-      question = question.replace("{{note:"+noteId+"}}",stringified)
-      // MNUtil.copy(question)
+sideOutputController.prototype.continueAsk = async function (question, temperature = 0.8) {
+  try {
+    let config = chatAIConfig.config
+    if (this.notShow && !this.called) {
+      // MNUtil.showHUD("not show")
+      return
     }
-  }
+    if (this.connection) {
+      MNUtil.showHUD("on output")
+      return
+    }
+    let funcIndices
+    if (this.dynamic) {
+      funcIndices = chatAIConfig.config.dynamicFunc
+    } else {
+      funcIndices = chatAIConfig.prompts[this.currentPrompt].func ? chatAIConfig.prompts[this.currentPrompt].func : []
+    }
+    this.question = question
+    this.apikey = config.apikey
+    this.func = []
+    if (/{{note:.*}}/.test(question)) {
+      let res = question.match(/{{note:(.*)}}/g)
+      for (let i = 0; i < res.length; i++) {
+        const tem = res[i];
+        let noteId = tem.match(/{{note:(.*)}}/)[1]
+        let note = MNNote.new(noteId)
+        let stringified = (await chatAIUtils.getMDFromNote(note, true)).trim()
+        stringified = stringified.split("\n").map((l, i) => {
+          if (i && l.trim()) {
+            return `> ${l}`
+          }
+          return l
+        }).join("\n")
+        question = question.replace("{{note:" + noteId + "}}", stringified)
+        // MNUtil.copy(question)
+      }
+    }
 
-  if (this.currentImageBase64) {
-    this.history.push(chatAIUtils.genUserMessage(question,this.currentImageBase64,"jpeg"))
-    // this.history.push({
-    //       role: "user", 
-    //       content: [
-    //         {
-    //           "type": "text",
-    //           "text": question
-    //         },
-    //         {
-    //           "type": "image_url",
-    //           "image_url": {
-    //             "url" : "data:image/jpeg;base64,"+this.currentImageBase64//this.currentImage.jpegData(0.).base64Encoding()
-    //           }
-    //         }
-    //       ]
-    //     })
-  }else{
-    this.history.push(chatAIUtils.genUserMessage(question))
-  }
-  // MNUtil.log({message:"historyAfter",detail:this.history})
-  this.resetImageInChat()
+    if (this.currentImageBase64) {
+      this.history.push(chatAIUtils.genUserMessage(question, this.currentImageBase64, "jpeg"))
+      // this.history.push({
+      //       role: "user", 
+      //       content: [
+      //         {
+      //           "type": "text",
+      //           "text": question
+      //         },
+      //         {
+      //           "type": "image_url",
+      //           "image_url": {
+      //             "url" : "data:image/jpeg;base64,"+this.currentImageBase64//this.currentImage.jpegData(0.).base64Encoding()
+      //           }
+      //         }
+      //       ]
+      //     })
+    } else {
+      this.history.push(chatAIUtils.genUserMessage(question))
+    }
+    // MNUtil.log({message:"historyAfter",detail:this.history})
+    this.resetImageInChat()
 
-  this.baseAsk(this.history,this.config)
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "continueAsk")
-}
+    this.baseAsk(this.history, this.config)
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "continueAsk")
+  }
 };
 
 /**
@@ -1910,21 +1910,21 @@ try {
  * @param {*} reask 
  * @this {sideOutputController}
  */
-sideOutputController.prototype.continueAfterToolCall = function(temperature=0.8) {
+sideOutputController.prototype.continueAfterToolCall = function (temperature = 0.8) {
   try {
-    
-  let config = this.config
-  // let config = chatAIConfig.config
-  if (this.notShow && !this.called) {
-    // MNUtil.showHUD("not show")
-    return
-  }
-  if (this.connection) {
-    MNUtil.showHUD("on output")
-    return
-  }
-  
-  this.baseAsk(this.history,config,temperature)
+
+    let config = this.config
+    // let config = chatAIConfig.config
+    if (this.notShow && !this.called) {
+      // MNUtil.showHUD("not show")
+      return
+    }
+    if (this.connection) {
+      MNUtil.showHUD("on output")
+      return
+    }
+
+    this.baseAsk(this.history, config, temperature)
   } catch (error) {
     chatAIUtils.addErrorLog(error, "continueAfterToolCall")
   }
@@ -1934,25 +1934,25 @@ sideOutputController.prototype.continueAfterToolCall = function(temperature=0.8)
  */
 sideOutputController.prototype.prepareFinish = async function () {
   try {
-  delete this.connection
-  // this.size.push(Date.now())
-  this.onFinish = true
-  this.scrollToBottom = false
-  if (this.statusCode >= 400) {
-    let codeDes = chatAIUtils.getStatusCodeDescription(this.statusCode.toString())
-    if (chatAIUtils.isValidJSON(this.textString)) {
-      MNUtil.showHUD(codeDes+" | "+this.textString)
-      MNUtil.copy(codeDes+"\n"+JSON.stringify(JSON.parse(this.textString),null,2)+"\n"+JSON.stringify(this.config))
-    }else{
-      MNUtil.showHUD(codeDes+" | "+this.textString)
-      MNUtil.copy(codeDes+"\n"+this.textString+"\n"+JSON.stringify(this.config))
+    delete this.connection
+    // this.size.push(Date.now())
+    this.onFinish = true
+    this.scrollToBottom = false
+    if (this.statusCode >= 400) {
+      let codeDes = chatAIUtils.getStatusCodeDescription(this.statusCode.toString())
+      if (chatAIUtils.isValidJSON(this.textString)) {
+        MNUtil.showHUD(codeDes + " | " + this.textString)
+        MNUtil.copy(codeDes + "\n" + JSON.stringify(JSON.parse(this.textString), null, 2) + "\n" + JSON.stringify(this.config))
+      } else {
+        MNUtil.showHUD(codeDes + " | " + this.textString)
+        MNUtil.copy(codeDes + "\n" + this.textString + "\n" + JSON.stringify(this.config))
+      }
+      // copy(this.textString)
+      this.setChatLayout()
+      this.setButtonOpacity(1.0)
+      return
     }
-    // copy(this.textString)
-    this.setChatLayout()
-    this.setButtonOpacity(1.0)
-    return
-  }
-  this.getResponse(true)
+    this.getResponse(true)
     if (!this.func || !this.func.length) {
       this.setButtonOpacity(1.0)
     }
@@ -1964,66 +1964,66 @@ sideOutputController.prototype.prepareFinish = async function () {
 /**
  * @this {sideOutputController}
  */
-sideOutputController.prototype.finish = async function() {
+sideOutputController.prototype.finish = async function () {
   // this.connection.cancel()
   // MNUtil.copyJSON(this.size)
   let heightOffset = 0
-try {
-  this.tool = []
-  // MNUtil.copyJSON(this.func)
-  if (this.func && this.func.length) {
-    //把得到的func执行一遍并将响应添加到this.tool中
-    this.funcResponses = await Promise.all(this.func.map(func=> this.executeFunctionByAI(func)))
-    this.funcResponse = this.funcResponses.join("")
-    this.history.push({role:"assistant",tool_calls:this.func})
-    this.tool.map(tool=>{this.history.push(tool)})
-    // chatAIUtils.copyJSON(this.history)
-    this.preFuncResponse = this.preFuncResponse+this.funcResponse
-    // copy(this.preFuncResponse)
-    if (this.func.map(func=>func.function.name).includes("close")) {
-      // await this.delay(0.5)
-      // MNUtil.showHUD("close")
-      MNUtil.toggleExtensionPanel()
-      this.stopLoading(false)
-    }else{
-      this.continueAfterToolCall()
+  try {
+    this.tool = []
+    // MNUtil.copyJSON(this.func)
+    if (this.func && this.func.length) {
+      //把得到的func执行一遍并将响应添加到this.tool中
+      this.funcResponses = await Promise.all(this.func.map(func => this.executeFunctionByAI(func)))
+      this.funcResponse = this.funcResponses.join("")
+      this.history.push({ role: "assistant", tool_calls: this.func })
+      this.tool.map(tool => { this.history.push(tool) })
+      // chatAIUtils.copyJSON(this.history)
+      this.preFuncResponse = this.preFuncResponse + this.funcResponse
+      // copy(this.preFuncResponse)
+      if (this.func.map(func => func.function.name).includes("close")) {
+        // await this.delay(0.5)
+        // MNUtil.showHUD("close")
+        MNUtil.toggleExtensionPanel()
+        this.stopLoading(false)
+      } else {
+        this.continueAfterToolCall()
+      }
+    } else {
+      if (this.reasoningResponse && this.reasoningResponse.trim()) {
+        this.history.push({ role: "assistant", content: this.response, reasoningContent: this.reasoningResponse })
+      } else {
+        this.history.push({ role: "assistant", content: this.response })
+      }
+      if (!this.response.trim() && !this.tool.length && !this.preFuncResponse) {
+        MNUtil.showHUD("Empty response" + this.history.length)
+      }
+      this.funcResponse = ""
+      this.lastResponse = this.response.trim()
+      // MNUtil.copy(this.lastResponse)
+      this.response = ""
+      this.setHistory(this.history, false)
+      this.stopLoading()
+      this.clearCache()
+      // if (chatAIConfig.getConfig("speech") && chatAIConfig.getConfig("speechKey") && this.lastResponse) {
+      //   let responseLength = chatAIUtils.strCode(this.lastResponse)
+      //   if (responseLength >= 500) {
+      //     MNUtil.showHUD("Too long content")
+      //   }else{
+      //     MNUtil.showHUD("Generating Voice...")
+      //     await this.speech(this.lastResponse,"assistant"+this.round)
+      //     heightOffset = this["assistant"+this.round].sizeHeight*0.1
+      //   }
+      // }
+      // MNUtil.showHUD("message"+MNUtil.isDescendantOfStudyView(this.view))
     }
-  }else{
-    if (this.reasoningResponse && this.reasoningResponse.trim()) {
-      this.history.push({role:"assistant",content:this.response,reasoningContent:this.reasoningResponse})
-    }else{
-      this.history.push({role:"assistant",content:this.response})
-    }
-    if (!this.response.trim() && !this.tool.length  && !this.preFuncResponse) {
-      MNUtil.showHUD("Empty response"+this.history.length)
-    }
-    this.funcResponse = ""
-    this.lastResponse = this.response.trim()
-    // MNUtil.copy(this.lastResponse)
-    this.response = ""
-    this.setHistory(this.history,false)
-    this.stopLoading()
-    this.clearCache()
-    // if (chatAIConfig.getConfig("speech") && chatAIConfig.getConfig("speechKey") && this.lastResponse) {
-    //   let responseLength = chatAIUtils.strCode(this.lastResponse)
-    //   if (responseLength >= 500) {
-    //     MNUtil.showHUD("Too long content")
-    //   }else{
-    //     MNUtil.showHUD("Generating Voice...")
-    //     await this.speech(this.lastResponse,"assistant"+this.round)
-    //     heightOffset = this["assistant"+this.round].sizeHeight*0.1
-    //   }
-    // }
-    // MNUtil.showHUD("message"+MNUtil.isDescendantOfStudyView(this.view))
-  }
-  this.setChatLayout(heightOffset)
-  this.called = false
-  this.onFinish = false
+    this.setChatLayout(heightOffset)
+    this.called = false
+    this.onFinish = false
 
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "finish",this.textString)
-  // MNUtil.copy(this.textString)
-}
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "finish", this.textString)
+    // MNUtil.copy(this.textString)
+  }
 }
 
 sideOutputController.prototype.init = function () {
@@ -2044,15 +2044,15 @@ sideOutputController.prototype.init = function () {
   this.sendImage = MNUtil.getImage(chatAIConfig.mainPath + `/send.png`)
   this.lockImage = MNUtil.getImage(chatAIConfig.mainPath + `/lock.png`)
   this.unlockImage = MNUtil.getImage(chatAIConfig.mainPath + `/unlock.png`)
-  this.excerptImage = MNUtil.getImage(chatAIConfig.mainPath + `/excerpt.png`,2.3)
+  this.excerptImage = MNUtil.getImage(chatAIConfig.mainPath + `/excerpt.png`, 2.3)
   this.childImage = MNUtil.getImage(chatAIConfig.mainPath + `/childNote.png`)
   this.quoteImage = MNUtil.getImage(chatAIConfig.mainPath + `/quote.png`)
-  this.clearImage = MNUtil.getImage(chatAIConfig.mainPath + `/eraser.png`,2)
-  this.addImage = MNUtil.getImage(chatAIConfig.mainPath + `/addImage.png`,2.3)
-  this.curveImage = MNUtil.getImage(chatAIConfig.mainPath + `/curve.png`,2.3)
-  this.referenceImage = MNUtil.getImage(chatAIConfig.mainPath + `/reference.png`,2.3)
+  this.clearImage = MNUtil.getImage(chatAIConfig.mainPath + `/eraser.png`, 2)
+  this.addImage = MNUtil.getImage(chatAIConfig.mainPath + `/addImage.png`, 2.3)
+  this.curveImage = MNUtil.getImage(chatAIConfig.mainPath + `/curve.png`, 2.3)
+  this.referenceImage = MNUtil.getImage(chatAIConfig.mainPath + `/reference.png`, 2.3)
   this.moreImage = MNUtil.getImage(chatAIConfig.mainPath + `/more.png`)
-  this.menuImage = MNUtil.getImage(chatAIConfig.mainPath + `/menu.png`,1.8)
+  this.menuImage = MNUtil.getImage(chatAIConfig.mainPath + `/menu.png`, 1.8)
   this.newChatImage = MNUtil.getImage(chatAIConfig.mainPath + `/newChat.png`)
   this.minimizeImage = MNUtil.getImage(chatAIConfig.mainPath + `/chatMinimize.png`)
 }
@@ -2062,98 +2062,98 @@ sideOutputController.prototype.init = function () {
  */
 sideOutputController.prototype.setChatLayout = async function (heightOffset = 0) {
   try {
-  if (!this.chatToolbar) {
-    return
-  }
-  let viewFrame = this.view.frame
-  viewFrame.width = this.panelWidth
-  viewFrame.height = this.panelHeight
-  if (this.floatWindow) {
-    this.closeChatButton.frame = MNUtil.genFrame(this.panelWidth-40, 5, 35, 35)
-    this.newChatButton.frame = MNUtil.genFrame(this.panelWidth-40, 45, 35, 35)
-    this.clearButton.frame = MNUtil.genFrame(this.panelWidth-40, 85, 35, 35)
-    this.chatsNavButton.frame = MNUtil.genFrame(5, 5, 35, 35)
-    this.moreButton.frame = MNUtil.genFrame(this.panelWidth-80, 5, 35, 35)
-  }else{
-    this.closeChatButton.frame = MNUtil.genFrame(5, viewFrame.height-40, 35, 35)
-    this.newChatButton.frame = MNUtil.genFrame(5, viewFrame.height-120, 35, 35)
-    this.chatsNavButton.frame = MNUtil.genFrame(5, viewFrame.height-80, 35, 35)
-    this.moreButton.frame = MNUtil.genFrame(5, viewFrame.height-200, 35, 35)
-    this.clearButton.frame = MNUtil.genFrame(5, viewFrame.height-160, 35, 35)
-  }
-  this.chatsNavButton.hidden = this.floatWindow && this.panelWidth > 800
-  if (this.chatWebview) {
-    this.chatWebview.frame = MNUtil.genFrame(0, 0, viewFrame.width, viewFrame.height)
-  }
-  let inputFrame = this.userInput.frame
-  inputFrame.y = 40
-  if (!this.userInput.custom) {
-    inputFrame.height = 80
-  }
-  // viewFrame.width = MNUtil.constrain(viewFrame.width, 0, 350)
-  if (this.miniMode) {
-    this.chatToolbar.frame = MNUtil.genFrame(5, viewFrame.height-240, 35, 35)
-  }else{
-    let toolbarFrame = this.chatToolbar.frame
-    toolbarFrame.y = MNUtil.constrain(toolbarFrame.y, 5, this.panelHeight-50)
-    // toolbarFrame.x = MNUtil.constrain(toolbarFrame.x, 0, max)
-    if (this.floatWindow) {
-      toolbarFrame.x = MNUtil.constrain(toolbarFrame.x, 0, this.panelWidth-405)
-      toolbarFrame.width = 400
-    }else{
-      toolbarFrame.width = viewFrame.width-10
-      toolbarFrame.x = 5
+    if (!this.chatToolbar) {
+      return
     }
-    toolbarFrame.height = 45+inputFrame.height
-    this.chatToolbar.frame = toolbarFrame
-    this.userInput.frame = MNUtil.genFrame(5,40, toolbarFrame.width-65, inputFrame.height)
-    this.userReference.frame = MNUtil.genFrame(5,40, toolbarFrame.width-65, inputFrame.height)
+    let viewFrame = this.view.frame
+    viewFrame.width = this.panelWidth
+    viewFrame.height = this.panelHeight
+    if (this.floatWindow) {
+      this.closeChatButton.frame = MNUtil.genFrame(this.panelWidth - 40, 5, 35, 35)
+      this.newChatButton.frame = MNUtil.genFrame(this.panelWidth - 40, 45, 35, 35)
+      this.clearButton.frame = MNUtil.genFrame(this.panelWidth - 40, 85, 35, 35)
+      this.chatsNavButton.frame = MNUtil.genFrame(5, 5, 35, 35)
+      this.moreButton.frame = MNUtil.genFrame(this.panelWidth - 80, 5, 35, 35)
+    } else {
+      this.closeChatButton.frame = MNUtil.genFrame(5, viewFrame.height - 40, 35, 35)
+      this.newChatButton.frame = MNUtil.genFrame(5, viewFrame.height - 120, 35, 35)
+      this.chatsNavButton.frame = MNUtil.genFrame(5, viewFrame.height - 80, 35, 35)
+      this.moreButton.frame = MNUtil.genFrame(5, viewFrame.height - 200, 35, 35)
+      this.clearButton.frame = MNUtil.genFrame(5, viewFrame.height - 160, 35, 35)
+    }
+    this.chatsNavButton.hidden = this.floatWindow && this.panelWidth > 800
+    if (this.chatWebview) {
+      this.chatWebview.frame = MNUtil.genFrame(0, 0, viewFrame.width, viewFrame.height)
+    }
+    let inputFrame = this.userInput.frame
+    inputFrame.y = 40
+    if (!this.userInput.custom) {
+      inputFrame.height = 80
+    }
+    // viewFrame.width = MNUtil.constrain(viewFrame.width, 0, 350)
+    if (this.miniMode) {
+      this.chatToolbar.frame = MNUtil.genFrame(5, viewFrame.height - 240, 35, 35)
+    } else {
+      let toolbarFrame = this.chatToolbar.frame
+      toolbarFrame.y = MNUtil.constrain(toolbarFrame.y, 5, this.panelHeight - 50)
+      // toolbarFrame.x = MNUtil.constrain(toolbarFrame.x, 0, max)
+      if (this.floatWindow) {
+        toolbarFrame.x = MNUtil.constrain(toolbarFrame.x, 0, this.panelWidth - 405)
+        toolbarFrame.width = 400
+      } else {
+        toolbarFrame.width = viewFrame.width - 10
+        toolbarFrame.x = 5
+      }
+      toolbarFrame.height = 45 + inputFrame.height
+      this.chatToolbar.frame = toolbarFrame
+      this.userInput.frame = MNUtil.genFrame(5, 40, toolbarFrame.width - 65, inputFrame.height)
+      this.userReference.frame = MNUtil.genFrame(5, 40, toolbarFrame.width - 65, inputFrame.height)
 
-    // this.userReference.contentSize = {width:1000,height:50}
-    this.sendButton.frame = MNUtil.genFrame(toolbarFrame.width-55,40, 50, 45)
-    this.resizeButton.frame = MNUtil.genFrame(toolbarFrame.width-55,90, 50, 30)
-    // if (!this.currentImage) {
-    this.imageButton.frame = MNUtil.genFrame(toolbarFrame.width-55,5, 50, 30)
-    // }
-    this.reAskButton.frame = MNUtil.genFrame(5, 70, 30, 30)
-    this.reAskButton.hidden = true
-    this.chatToken.frame = MNUtil.genFrame(toolbarFrame.width-90, 5, 30, 30)
-    this.chatModel.frame = MNUtil.genFrame(40, 5, toolbarFrame.width-135, 30)
-    this.minimizeButton.frame = MNUtil.genFrame(5,5, 30, 30)
-  }
+      // this.userReference.contentSize = {width:1000,height:50}
+      this.sendButton.frame = MNUtil.genFrame(toolbarFrame.width - 55, 40, 50, 45)
+      this.resizeButton.frame = MNUtil.genFrame(toolbarFrame.width - 55, 90, 50, 30)
+      // if (!this.currentImage) {
+      this.imageButton.frame = MNUtil.genFrame(toolbarFrame.width - 55, 5, 50, 30)
+      // }
+      this.reAskButton.frame = MNUtil.genFrame(5, 70, 30, 30)
+      this.reAskButton.hidden = true
+      this.chatToken.frame = MNUtil.genFrame(toolbarFrame.width - 90, 5, 30, 30)
+      this.chatModel.frame = MNUtil.genFrame(40, 5, toolbarFrame.width - 135, 30)
+      this.minimizeButton.frame = MNUtil.genFrame(5, 5, 30, 30)
+    }
 
-  this.aiButton.hidden = chatAIUtils.isIOS()
-  if (this.floatWindow) {
-    this.aiButton.frame = MNUtil.genFrame(this.panelWidth-75,this.panelHeight-35,70,30)
-    this.view.bringSubviewToFront(this.aiButton)
-  }else{
-    this.aiButton.frame = MNUtil.genFrame(5,-35,30,30)
-  }
-  this.preRound = this.round
-  this.panelWidth = this.getPanelWidth()
+    this.aiButton.hidden = chatAIUtils.isIOS()
+    if (this.floatWindow) {
+      this.aiButton.frame = MNUtil.genFrame(this.panelWidth - 75, this.panelHeight - 35, 70, 30)
+      this.view.bringSubviewToFront(this.aiButton)
+    } else {
+      this.aiButton.frame = MNUtil.genFrame(5, -35, 30, 30)
+    }
+    this.preRound = this.round
+    this.panelWidth = this.getPanelWidth()
   } catch (error) {
     chatAIUtils.addErrorLog(error, "setChatLayout")
   }
 }
 
-sideOutputController.prototype.createButton = function (buttonName,targetAction,superview) {
-    this[buttonName] = UIButton.buttonWithType(0);
-    this[buttonName].autoresizingMask = (1 << 0 | 1 << 3);
-    this[buttonName].setTitleColorForState(UIColor.whiteColor(),0);
-    this[buttonName].setTitleColorForState(chatAIConfig.highlightColor, 1);
-    this[buttonName].backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
-    this[buttonName].layer.cornerRadius = 8;
-    this[buttonName].layer.masksToBounds = true;
-    this[buttonName].titleLabel.font = UIFont.systemFontOfSize(16);
+sideOutputController.prototype.createButton = function (buttonName, targetAction, superview) {
+  this[buttonName] = UIButton.buttonWithType(0);
+  this[buttonName].autoresizingMask = (1 << 0 | 1 << 3);
+  this[buttonName].setTitleColorForState(UIColor.whiteColor(), 0);
+  this[buttonName].setTitleColorForState(chatAIConfig.highlightColor, 1);
+  this[buttonName].backgroundColor = MNUtil.hexColorAlpha("#9bb2d6", 0.8)
+  this[buttonName].layer.cornerRadius = 8;
+  this[buttonName].layer.masksToBounds = true;
+  this[buttonName].titleLabel.font = UIFont.systemFontOfSize(16);
 
-    if (targetAction) {
-      this[buttonName].addTargetActionForControlEvents(this, targetAction, 1 << 6);
-    }
-    if (superview) {
-      this[superview].addSubview(this[buttonName])
-    }else{
-      this.view.addSubview(this[buttonName]);
-    }
+  if (targetAction) {
+    this[buttonName].addTargetActionForControlEvents(this, targetAction, 1 << 6);
+  }
+  if (superview) {
+    this[superview].addSubview(this[buttonName])
+  } else {
+    this.view.addSubview(this[buttonName]);
+  }
 }
 /**
  * @this {sideOutputController}
@@ -2162,11 +2162,11 @@ sideOutputController.prototype.createButton = function (buttonName,targetAction,
  * @param {string} color 
  * @param {number} alpha
  */
-sideOutputController.prototype.creatTextView = function (viewName,superview="view",color="#ffffff",alpha=0.8) {
+sideOutputController.prototype.creatTextView = function (viewName, superview = "view", color = "#ffffff", alpha = 0.8) {
   this[viewName] = UITextView.new()
   this[viewName].font = UIFont.systemFontOfSize(17);
   this[viewName].layer.cornerRadius = 12
-  this[viewName].backgroundColor = MNUtil.hexColorAlpha(color,alpha)
+  this[viewName].backgroundColor = MNUtil.hexColorAlpha(color, alpha)
   this[viewName].textColor = UIColor.blackColor()
   this[viewName].delegate = this
   this[viewName].editable = true
@@ -2177,74 +2177,74 @@ sideOutputController.prototype.creatTextView = function (viewName,superview="vie
   this[superview].addSubview(this[viewName])
 }
 sideOutputController.prototype.show = function () {
-try {
-  this.onAnimate = true
+  try {
+    this.onAnimate = true
 
-  let height = (chatAIUtils.getHeight())
-  // if (fromOutside) {
-  //   height = 120
-  // }
-  this.currentFrame.x = 0
-  this.currentFrame.y = 0
-  let preFrame = this.currentFrame
-  preFrame.width = MNExtensionPanel.width
-  preFrame.height = height
-  // MNUtil.showHUD("message"+height)
-  let preOpacity = this.view.layer.opacity
-  this.view.layer.opacity = chatAIUtils.isIOS()?1:0.2
-  // if (frame) {
-  //   this.view.frame = fra  me
-  //   this.currentFrame = frame
-  // }
-  // MNUtil.copyJSON(this.currentFrame)
-  this.view.hidden = false
-  this.setLayout()
-  let animateTime = chatAIUtils.isIOS()?0.4:0.2
-  MNUtil.animate(()=>{
-    this.view.layer.opacity = preOpacity
-    this.view.frame = preFrame
-    // this.currentFrame = preFrame
+    let height = (chatAIUtils.getHeight())
+    // if (fromOutside) {
+    //   height = 120
+    // }
+    this.currentFrame.x = 0
+    this.currentFrame.y = 0
+    let preFrame = this.currentFrame
+    preFrame.width = MNExtensionPanel.width
+    preFrame.height = height
+    // MNUtil.showHUD("message"+height)
+    let preOpacity = this.view.layer.opacity
+    this.view.layer.opacity = chatAIUtils.isIOS() ? 1 : 0.2
+    // if (frame) {
+    //   this.view.frame = fra  me
+    //   this.currentFrame = frame
+    // }
+    // MNUtil.copyJSON(this.currentFrame)
+    this.view.hidden = false
     this.setLayout()
-  },animateTime).then(()=>{
-    this.view.layer.borderWidth = 0
-    this.setChatLayout()
-    this.onAnimate = false
-  })
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "show")
-}
+    let animateTime = chatAIUtils.isIOS() ? 0.4 : 0.2
+    MNUtil.animate(() => {
+      this.view.layer.opacity = preOpacity
+      this.view.frame = preFrame
+      // this.currentFrame = preFrame
+      this.setLayout()
+    }, animateTime).then(() => {
+      this.view.layer.borderWidth = 0
+      this.setChatLayout()
+      this.onAnimate = false
+    })
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "show")
+  }
 }
 
 /**
  * @this {sideOutputController}
  */
 sideOutputController.prototype.setLayout = function () {
-try {
+  try {
 
-  var viewFrame = this.toolbar.bounds;
-  var width    = viewFrame.width
-  var height   = viewFrame.height
-  viewFrame.height = viewFrame.height-30
-  this.toolbar.frame = MNUtil.genFrame(5, 5, this.panelWidth-10,30)
-  if (this.floatWindow) {
-    this.aiButton.frame = MNUtil.genFrame(this.panelWidth-75,5,70,30)
-  }else{
-    this.aiButton.frame = MNUtil.genFrame(5,-35,30,30)
+    var viewFrame = this.toolbar.bounds;
+    var width = viewFrame.width
+    var height = viewFrame.height
+    viewFrame.height = viewFrame.height - 30
+    this.toolbar.frame = MNUtil.genFrame(5, 5, this.panelWidth - 10, 30)
+    if (this.floatWindow) {
+      this.aiButton.frame = MNUtil.genFrame(this.panelWidth - 75, 5, 70, 30)
+    } else {
+      this.aiButton.frame = MNUtil.genFrame(5, -35, 30, 30)
+    }
+    // this.aiModelButton.frame = MNUtil.genFrame(40,-35,100,30)
+    this.screenButton.frame = MNUtil.genFrame(0, 0, 30, 30)
+    this.bigbangButton.frame = MNUtil.genFrame(35, 0, 30, 30)
+    this.commentButton.frame = MNUtil.genFrame(70, 0, 30, 30)
+    this.titleButton.frame = MNUtil.genFrame(105, 0, 30, 30)
+    this.copyButton.frame = MNUtil.genFrame(140, 0, 30, 30)
+    this.excerptButton.frame = MNUtil.genFrame(175, 0, 30, 30)
+    this.childButton.frame = MNUtil.genFrame(210, 0, 30, 30)
+    this.reloadButton.frame = MNUtil.genFrame(245, 0, 30, 30)
+    this.chatButton.frame = MNUtil.genFrame(280, 0, 30, 30)
+    this.promptButton.frame = MNUtil.genFrame(315, 0, this.panelWidth - 320, 30)
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "setLayout")
   }
-  // this.aiModelButton.frame = MNUtil.genFrame(40,-35,100,30)
-  this.screenButton.frame = MNUtil.genFrame(0,0,30,30)
-  this.bigbangButton.frame = MNUtil.genFrame(35,0,30,30)
-  this.commentButton.frame = MNUtil.genFrame(70,0,30,30)
-  this.titleButton.frame = MNUtil.genFrame(105,0,30,30)
-  this.copyButton.frame = MNUtil.genFrame(140,0,30,30)
-  this.excerptButton.frame = MNUtil.genFrame(175,0,30,30)
-  this.childButton.frame = MNUtil.genFrame(210,0,30,30) 
-  this.reloadButton.frame = MNUtil.genFrame(245,0,30,30)
-  this.chatButton.frame = MNUtil.genFrame(280,0,30,30) 
-  this.promptButton.frame = MNUtil.genFrame(315,0,this.panelWidth-320,30)
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "setLayout")
-}
 }
 
 /** 
@@ -2252,32 +2252,32 @@ try {
 * @param {string} promptName - The name of the prompt to begin the notification with.
 */
 sideOutputController.prototype.beginNotification = async function (promptName) {
-    await MNUtil.delay(0.01)
-    this.setNewResponse()
-    await MNUtil.delay(0.01)
-    let currentFrame = this.view.frame
-    this.currentFrame = currentFrame
-    this.view.frame = currentFrame
-    try {
+  await MNUtil.delay(0.01)
+  this.setNewResponse()
+  await MNUtil.delay(0.01)
+  let currentFrame = this.view.frame
+  this.currentFrame = currentFrame
+  this.view.frame = currentFrame
+  try {
     if (promptName) {
-      this.promptButton.setTitleForState(promptName ,0)
-    }else{
-      this.promptButton.setTitleForState(this.currentTitle ,0)
+      this.promptButton.setTitleForState(promptName, 0)
+    } else {
+      this.promptButton.setTitleForState(this.currentTitle, 0)
     }
-    } catch (error) {
-      chatAIUtils.addErrorLog(error, "beginNotification")
-    }
-    if (this.view.hidden) {
-      this.show()
-    }
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "beginNotification")
   }
+  if (this.view.hidden) {
+    this.show()
+  }
+}
 
 /** 
   * @this {sideOutputController} 
   * @param {string} content - The content to be displayed in the notification.
 */
 sideOutputController.prototype.getTextForAction = async function (round) {
-    return await this.getWebviewContent("assistant"+round)
+  return await this.getWebviewContent("assistant" + round)
 }
 
 /** 
@@ -2290,19 +2290,19 @@ sideOutputController.prototype.getResponse = async function (force = false) {
   try {
 
     switch (this.source) {
-    case "Claude":
-      this.getResponseForClaude()
-      break;
-    case "Gemini":
-      // this.getResponseForGemini()
-      this.getResponseForChatGPT()
-      break;
-    default:
-      this.getResponseForChatGPT()
-      break;
+      case "Claude":
+        this.getResponseForClaude()
+        break;
+      case "Gemini":
+        // this.getResponseForGemini()
+        this.getResponseForChatGPT()
+        break;
+      default:
+        this.getResponseForChatGPT()
+        break;
     }
-    return await this.setResponseText(this.preFuncResponse+this.funcResponse,force)
-    
+    return await this.setResponseText(this.preFuncResponse + this.funcResponse, force)
+
   } catch (error) {
     chatAIUtils.addErrorLog(error, "getResponse")
   }
@@ -2328,17 +2328,17 @@ sideOutputController.prototype.getResponseForChatGPT = function (checkToolCalls 
     this.func = test.funcList ?? []
     this.funcResponse = test.funcResponse ?? ""
     if (this.config.source === "Metaso" && test.citations) {
-      let round = this.history.filter(item=>{
+      let round = this.history.filter(item => {
         if (item.role === "assistant") {
           return !item.tool_calls
         }
         return false
       }).length
-      this.renderSearchResults(test.citations,true,round)
+      this.renderSearchResults(test.citations, true, round)
     }
     return
   } catch (error) {
-    chatAIUtils.addErrorLog(error, "getResponseForChatGPT",this.resList)
+    chatAIUtils.addErrorLog(error, "getResponseForChatGPT", this.resList)
     return
   }
 }
@@ -2351,22 +2351,22 @@ sideOutputController.prototype.getResponseForGemini = function () {
     // let res = this.originalText.split("data:")
     // res.shift()
     // res.pop()
-    if (!MNUtil.isValidJSON(this.originalText) && !MNUtil.isValidJSON(this.originalText+"]")) {
+    if (!MNUtil.isValidJSON(this.originalText) && !MNUtil.isValidJSON(this.originalText + "]")) {
       return
     }
     try {
-      this.resList = JSON.parse(this.originalText).map(res=>{
+      this.resList = JSON.parse(this.originalText).map(res => {
         return res.candidates[0].content.parts[0].text
       })
     } catch (error) {
-      this.resList = JSON.parse(this.originalText+"]").map(res=>{
+      this.resList = JSON.parse(this.originalText + "]").map(res => {
         return res.candidates[0].content.parts[0].text
       })
     }
     this.response = this.resList.join("")
     return
   } catch (error) {
-    chatAIUtils.addErrorLog(error, "getResponseForGemini",this.originalText)
+    chatAIUtils.addErrorLog(error, "getResponseForGemini", this.originalText)
     return
   }
 }
@@ -2383,19 +2383,19 @@ sideOutputController.prototype.getResponseForClaude = function () {
     this.resList = chatAIUtils.parseEvents(this.originalText)
     let response = ""
 
-    this.resList.map(res=>{
+    this.resList.map(res => {
       if (res.event === "content_block_start") {
         response = res.data.content_block.text
       }
       if (res.event === "content_block_delta") {
-        response = response+res.data.delta.text
+        response = response + res.data.delta.text
       }
     })
     // copy(response)
     this.response = response
     return
   } catch (error) {
-    chatAIUtils.addErrorLog(error, "getResponseForClaude",this.originalText)
+    chatAIUtils.addErrorLog(error, "getResponseForClaude", this.originalText)
     return
   }
 }
@@ -2403,49 +2403,49 @@ sideOutputController.prototype.getResponseForClaude = function () {
  * @this {sideOutputController}
  * 用来格式化调用的函数内容的
  */
-sideOutputController.prototype.codifyToolCall = function (funcName,arguments) {
+sideOutputController.prototype.codifyToolCall = function (funcName, arguments) {
   switch (funcName) {
     case "multi_tool_use.parallel":
       let preFix = `multi_tool_use(\n`
       let tool_uses = arguments.tool_uses
       let toolMessages = []
-      tool_uses.map((tool_use,index)=>{
+      tool_uses.map((tool_use, index) => {
         switch (tool_use.recipient_name) {
           case "functions.setTitle":
-            toolMessages.push("\t"+this.codifyToolCall("setTitle", {title:tool_use.parameters.title.trim()}))
+            toolMessages.push("\t" + this.codifyToolCall("setTitle", { title: tool_use.parameters.title.trim() }))
             break;
           case "functions.addComment":
-            toolMessages.push("\t"+this.codifyToolCall("addComment", {comment:tool_use.parameters.comment.trim()}))
+            toolMessages.push("\t" + this.codifyToolCall("addComment", { comment: tool_use.parameters.comment.trim() }))
             break;
           case "functions.addTag":
-            toolMessages.push("\t"+this.codifyToolCall("addTag", {tag:tool_use.parameters.tag.trim()}))
+            toolMessages.push("\t" + this.codifyToolCall("addTag", { tag: tool_use.parameters.tag.trim() }))
             break;
           case "functions.copyMarkdownLink":
-            toolMessages.push("\t"+this.codifyToolCall("copyMarkdownLink", {title:tool_use.parameters.title.trim()}))
+            toolMessages.push("\t" + this.codifyToolCall("copyMarkdownLink", { title: tool_use.parameters.title.trim() }))
             break;
           case "functions.copyCardURL":
-            toolMessages.push("\t"+this.codifyToolCall("copyCardURL", {}))
+            toolMessages.push("\t" + this.codifyToolCall("copyCardURL", {}))
             break;
           case "functions.copyText":
-            toolMessages.push("\t"+this.codifyToolCall("copyText", {text:tool_use.parameters.text.trim()}))
+            toolMessages.push("\t" + this.codifyToolCall("copyText", { text: tool_use.parameters.text.trim() }))
             break;
           case "functions.addChildNote":
-            toolMessages.push("\t"+this.codifyToolCall("addChildNote", {title:tool_use.parameters.title.trim(),content:tool_use.parameters.content.trim()}))
+            toolMessages.push("\t" + this.codifyToolCall("addChildNote", { title: tool_use.parameters.title.trim(), content: tool_use.parameters.content.trim() }))
             break;
           case "functions.clearExcerpt":
-            toolMessages.push("\t"+this.codifyToolCall("clearExcerpt", {}))
+            toolMessages.push("\t" + this.codifyToolCall("clearExcerpt", {}))
             break;
           case "functions.close":
-            toolMessages.push("\t"+this.codifyToolCall("close", {}))
+            toolMessages.push("\t" + this.codifyToolCall("close", {}))
             break;
           case "functions.setExcerpt":
-            toolMessages.push("\t"+this.codifyToolCall("setExcerpt", {excerpt:tool_use.parameters.excerpt.trim()}))
+            toolMessages.push("\t" + this.codifyToolCall("setExcerpt", { excerpt: tool_use.parameters.excerpt.trim() }))
             break
           default:
             break;
         }
       })
-      return preFix+toolMessages.join("")+")\n"
+      return preFix + toolMessages.join("") + ")\n"
     default:
       return chatAITool.getToolByName(funcName).codifyToolCall(arguments)
       break;
@@ -2460,27 +2460,27 @@ sideOutputController.prototype.codifyToolCall = function (funcName,arguments) {
  */
 sideOutputController.prototype.addToChatHistory = function (config) {
   try {
-      let newData = {data:config.history}
-      if (config.funcIndices && config.funcIndices.length) {
-        newData.funcIdxs = config.funcIndices
+    let newData = { data: config.history }
+    if (config.funcIndices && config.funcIndices.length) {
+      newData.funcIdxs = config.funcIndices
+    }
+    if (config.currentPrompt && config.currentPrompt !== "Dynamic") {
+      newData.name = chatAIConfig.prompts[config.currentPrompt].title
+    } else {
+      let firstUser = config.history.find(item => item.role === "user")
+      if (typeof firstUser.content === "string") {
+        newData.name = firstUser.content.slice(0, 10)
+      } else {
+        newData.name = firstUser.content.find(item => item.type = "text").text.slice(0, 10)
       }
-      if (config.currentPrompt && config.currentPrompt !== "Dynamic") {
-        newData.name = chatAIConfig.prompts[config.currentPrompt].title
-      }else{
-        let firstUser = config.history.find(item=>item.role === "user")
-        if (typeof firstUser.content === "string") {
-          newData.name = firstUser.content.slice(0,10)
-        }else{
-          newData.name = firstUser.content.find(item=>item.type = "text").text.slice(0,10)
-        }
-      }
-      if (config.temperature !== undefined) {
-        newData.temperature = config.temperature
-      }
-      newData.model = config.currentModel
-      newData.token = config.token
-      newData.id = MNUtil.UUID()
-      this.importData(newData)
+    }
+    if (config.temperature !== undefined) {
+      newData.temperature = config.temperature
+    }
+    newData.model = config.currentModel
+    newData.token = config.token
+    newData.id = MNUtil.UUID()
+    this.importData(newData)
     return true
   } catch (error) {
     chatAIUtils.addErrorLog(error, "addToChatHistory")
@@ -2490,25 +2490,25 @@ sideOutputController.prototype.addToChatHistory = function (config) {
 sideOutputController.prototype.getPanelWidth = function () {
   if (this.floatWindow) {
     return MNUtil.studyWidth
-  }else{
+  } else {
     return MNExtensionPanel.width
   }
 }
 sideOutputController.prototype.getPanelHeight = function () {
   if (this.floatWindow) {
     return MNUtil.studyHeight
-  }else{
+  } else {
     return MNExtensionPanel.height
   }
 }
 /** 
  * @this {sideOutputController}
  */
-sideOutputController.prototype.openChatView = async function (params=undefined) {
-    if (this.connection) {
-      MNUtil.showHUD("Wait...")
-      return
-    }
+sideOutputController.prototype.openChatView = async function (params = undefined) {
+  if (this.connection) {
+    MNUtil.showHUD("Wait...")
+    return
+  }
   try {
     this.panelWidth = this.getPanelWidth()
     this.lastScrollTime = Date.now()
@@ -2566,7 +2566,7 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
         // this.importData(newData)
       }
     }
- 
+
     this.round = 0
     this.heights = {}
     if (this.notifyTimer) {
@@ -2580,72 +2580,72 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
     }
     this.chatToolbar = UIView.new()
     this.chatToolbar.layer.cornerRadius = 10
-    this.chatToolbar.backgroundColor = MNUtil.hexColorAlpha("#a2bdd7",0.2)
+    this.chatToolbar.backgroundColor = MNUtil.hexColorAlpha("#a2bdd7", 0.2)
     this.view.addSubview(this.chatToolbar)
     let x = 50
     if (this.panelWidth < 350) {
       x = 0
     }
     this.chatToolbar.frame = MNUtil.genFrame(x, 300, 350, 85)
-    this.createButton("closeChatButton","closeButtonTapped:")
-    this.closeChatButton.setImageForState(chatAIConfig.closeImage,0)
-    this.closeChatButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",0.8)
+    this.createButton("closeChatButton", "closeButtonTapped:")
+    this.closeChatButton.setImageForState(chatAIConfig.closeImage, 0)
+    this.closeChatButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 0.8)
 
-    this.createButton("chatsNavButton","toggleNavEv:")
-    this.chatsNavButton.setImageForState(this.menuImage,0)
+    this.createButton("chatsNavButton", "toggleNavEv:")
+    this.chatsNavButton.setImageForState(this.menuImage, 0)
 
-    this.createButton("moreButton","moreButtonTapped:")
-    this.moreButton.setImageForState(this.moreImage,0)
+    this.createButton("moreButton", "moreButtonTapped:")
+    this.moreButton.setImageForState(this.moreImage, 0)
 
-    this.createButton("newChatButton","newChatTapped:")
-    this.newChatButton.setImageForState(this.newChatImage,0)
+    this.createButton("newChatButton", "newChatTapped:")
+    this.newChatButton.setImageForState(this.newChatImage, 0)
 
-    this.createButton("clearButton","clearHistory:")
+    this.createButton("clearButton", "clearHistory:")
     this.clearButton.hidden = false
-    this.clearButton.setImageForState(this.clearImage,0)
+    this.clearButton.setImageForState(this.clearImage, 0)
 
-    this.createButton("chatToken","changeFunc:","chatToolbar")//工具按钮
-    this.createButton("minimizeButton","minimizeChat:","chatToolbar")//最小化按钮
-    this.createButton("reAskButton","reAsk:","chatToolbar")//提问按钮
-    this.createButton("chatModel","changeChatModel:","chatToolbar")//模型按钮
+    this.createButton("chatToken", "changeFunc:", "chatToolbar")//工具按钮
+    this.createButton("minimizeButton", "minimizeChat:", "chatToolbar")//最小化按钮
+    this.createButton("reAskButton", "reAsk:", "chatToolbar")//提问按钮
+    this.createButton("chatModel", "changeChatModel:", "chatToolbar")//模型按钮
 
-    this.reAskButton.setImageForState(this.reloadImage,0)
+    this.reAskButton.setImageForState(this.reloadImage, 0)
     this.chatToken.hidden = false
     this.chatToken.setTitleForState("🛠️")
 
     this.minimizeButton.hidden = false
-    this.minimizeButton.setImageForState(this.minimizeImage,0)
+    this.minimizeButton.setImageForState(this.minimizeImage, 0)
     if (!this.token) {
       this.token = []
     }
-    this.aiButton.setTitleForState(""+chatAIUtils.sum(this.token),0)
+    this.aiButton.setTitleForState("" + chatAIUtils.sum(this.token), 0)
     this.aiButton.titleLabel.font = UIFont.boldSystemFontOfSize(16);
-    this.aiButton.setTitleColorForState(UIColor.grayColor(),0)
+    this.aiButton.setTitleColorForState(UIColor.grayColor(), 0)
     this.chatModel.hidden = false
     this.chatModel.titleLabel.font = UIFont.boldSystemFontOfSize(16);
     MNButton.addPanGesture(this.chatModel, this, "onMoveGesture:")
     if (this.config.source === "Built-in") {
-      MNButton.setTitle(this.chatModel, "Built-in",15,true)
-    }else{
-      MNButton.setTitle(this.chatModel, this.config.model,15,true)
+      MNButton.setTitle(this.chatModel, "Built-in", 15, true)
+    } else {
+      MNButton.setTitle(this.chatModel, this.config.model, 15, true)
     }
 
-    this.createButton("sendButton","sendButtonTapped:","chatToolbar")
-    this.sendButton.setImageForState(this.sendImage,0)
+    this.createButton("sendButton", "sendButtonTapped:", "chatToolbar")
+    this.sendButton.setImageForState(this.sendImage, 0)
     this.sendButton.layer.cornerRadius = 12
-    this.sendButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",0.8)
+    this.sendButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 0.8)
     MNButton.addPanGesture(this.sendButton, this, "onMoveGesture:")
-    MNButton.addLongPressGesture(this.sendButton, this, "onLongPressSend:",0.5)
+    MNButton.addLongPressGesture(this.sendButton, this, "onLongPressSend:", 0.5)
 
-    this.createButton("imageButton","imageButtonTapped:","chatToolbar")
-    this.imageButton.setImageForState(this.addImage,0)
+    this.createButton("imageButton", "imageButtonTapped:", "chatToolbar")
+    this.imageButton.setImageForState(this.addImage, 0)
     this.imageButton.layer.cornerRadius = 8
-    this.imageButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
+    this.imageButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 1)
     this.imageButton.layer.opacity = 0.8
 
     // this.creatTextView("userInput","chatToolbar")
     this.createWebviewInput("chatToolbar")
-    this.creatTextView("userReference","chatToolbar")
+    this.creatTextView("userReference", "chatToolbar")
     // this.userInput.editable = true
     this.userReference.type = "userReference"
     // this.userReference.editable = false
@@ -2663,8 +2663,8 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
     // this.userInput.layer.borderWidth = 3
     // this.userInput.font = UIFont.systemFontOfSize(16);
 
-    this.userReference.layer.borderColor = MNUtil.hexColorAlpha("#afafaf",0.8)
-    this.userReference.backgroundColor = MNUtil.hexColorAlpha("#cecece",0.8)
+    this.userReference.layer.borderColor = MNUtil.hexColorAlpha("#afafaf", 0.8)
+    this.userReference.backgroundColor = MNUtil.hexColorAlpha("#cecece", 0.8)
     this.userReference.scrollEnabled = true
     this.userReference.layer.cornerRadius = 8
     this.userReference.bounces = true
@@ -2675,10 +2675,10 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
 
     // this.resizeGesture.addTargetAction(this,"onResizeGesture:")
 
-    this.createButton("resizeButton","referenceButtonTapped:","chatToolbar")
-    this.resizeButton.setImageForState(this.referenceImage,0)
+    this.createButton("resizeButton", "referenceButtonTapped:", "chatToolbar")
+    this.resizeButton.setImageForState(this.referenceImage, 0)
     // this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
-    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
+    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf", 1)
     this.resizeButton.layer.opacity = 0.8
     this.resizeButton.hidden = false
     // MNButton.addPanGesture(this.resizeButton, this, "onResizeGesture:")
@@ -2695,7 +2695,7 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
 
     // await MNUtil.delay(0.1)
   } catch (error) {
-    chatAIUtils.addErrorLog(error, "openChatView",params)
+    chatAIUtils.addErrorLog(error, "openChatView", params)
   }
   this.setChatLayout()
   this.view.bringSubviewToFront(this.chatToolbar)
@@ -2705,18 +2705,18 @@ sideOutputController.prototype.openChatView = async function (params=undefined) 
  * @param {string} promptKey
  */
 sideOutputController.prototype.openChatViewFromPrompt = async function (promptKey) {
-    if (this.connection) {
-      MNUtil.showHUD("Wait...")
-      return
-    }
+  if (this.connection) {
+    MNUtil.showHUD("Wait...")
+    return
+  }
   try {
 
     let prompt = chatAIConfig.getPromptByKey(promptKey)
-    MNUtil.showHUD("New Chat From: "+prompt.title)
+    MNUtil.showHUD("New Chat From: " + prompt.title)
     if (!("model" in prompt)) {
       prompt.model = "Default"
     }
-    let param = {currentModel:prompt.model,token:[0],preFuncResponse:"",lastResponse:"",prompt:promptKey}
+    let param = { currentModel: prompt.model, token: [0], preFuncResponse: "", lastResponse: "", prompt: promptKey }
     let config = chatAIConfig.parseModelConfig(prompt.model)
     // let modelConfig = prompt.model.split(":").map(m=>m.trim())
     // if (modelConfig[0] !== "Default") {
@@ -2731,13 +2731,13 @@ sideOutputController.prototype.openChatViewFromPrompt = async function (promptKe
 
     let newHistory = []
     if ("system" in prompt) {
-      newHistory.push({role:"system",content:prompt.system})
+      newHistory.push({ role: "system", content: prompt.system })
     }
     param.history = newHistory
     param.userInput = prompt.context
     if ("func" in prompt) {
       param.funcIndices = prompt.func
-    }else{
+    } else {
       param.funcIndices = []
     }
     if ("temperature" in prompt) {
@@ -2757,14 +2757,14 @@ sideOutputController.prototype.delay = async function (seconds) {
     })
   })
 }
-sideOutputController.prototype.createTextviewResponse  = function () {
+sideOutputController.prototype.createTextviewResponse = function () {
   this.textviewResponse = UITextView.new()
   this.textviewResponse.font = UIFont.systemFontOfSize(16);
   this.textviewResponse.layer.cornerRadius = 8
-  this.textviewResponse.backgroundColor = MNUtil.hexColorAlpha("#ffffff",0.8)
+  this.textviewResponse.backgroundColor = MNUtil.hexColorAlpha("#ffffff", 0.8)
   this.textviewResponse.textColor = UIColor.blackColor()
   this.textviewResponse.delegate = this
-  this.textviewResponse.contentSize = {width:this.panelWidth,height:120}
+  this.textviewResponse.contentSize = { width: this.panelWidth, height: 120 }
   this.textviewResponse.scrollEnabled = false
   this.textviewResponse.text = `Loading...`
 }
@@ -2774,48 +2774,48 @@ sideOutputController.prototype.createTextviewResponse  = function () {
  */
 sideOutputController.prototype.createChatWebview = function (superview) {
   try {
-  let webview = new UIWebView(this.view.bounds);
-  webview.backgroundColor = UIColor.whiteColor();
-  webview.scalesPageToFit = false;
-  webview.autoresizingMask = (1 << 1 | 1 << 4);
-  webview.delegate = this;
-  // webview.setValueForKey("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15","User-Agent")
-  webview.scrollView.delegate = this;
-  webview.layer.cornerRadius = 10;
-  webview.layer.masksToBounds = true;
-  webview.layer.opacity = 1.0
-  webview.scrollEnabled = false
-  webview.scrollView.scrollEnabled = false
-  if (MNUtil.isMacOS()) {
-    webview.customUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15'
-  }else{
-    webview.customUserAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
-  }
+    let webview = new UIWebView(this.view.bounds);
+    webview.backgroundColor = UIColor.whiteColor();
+    webview.scalesPageToFit = false;
+    webview.autoresizingMask = (1 << 1 | 1 << 4);
+    webview.delegate = this;
+    // webview.setValueForKey("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15","User-Agent")
+    webview.scrollView.delegate = this;
+    webview.layer.cornerRadius = 10;
+    webview.layer.masksToBounds = true;
+    webview.layer.opacity = 1.0
+    webview.scrollEnabled = false
+    webview.scrollView.scrollEnabled = false
+    if (MNUtil.isMacOS()) {
+      webview.customUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15'
+    } else {
+      webview.customUserAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
+    }
     // webview.customUserAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
-  webview.loadFileURLAllowingReadAccessToURL(
-    NSURL.fileURLWithPath(chatAIConfig.mainPath + `/sideOutput.html`),
-    NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
-  );
-  if (superview) {
-    this[superview].addSubview(webview)
-  }else{
-    this.view.addSubview(webview)
-  }
-  // this.setWebMode(MNUtil.isMacOS())
-  return webview
-    } catch (error) {
-      chatAIUtils.addErrorLog(error, "createChatWebview")
+    webview.loadFileURLAllowingReadAccessToURL(
+      NSURL.fileURLWithPath(chatAIConfig.mainPath + `/sideOutput.html`),
+      NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
+    );
+    if (superview) {
+      this[superview].addSubview(webview)
+    } else {
+      this.view.addSubview(webview)
+    }
+    // this.setWebMode(MNUtil.isMacOS())
+    return webview
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "createChatWebview")
   }
 }
 
 /** @this {sideOutputController} */
-sideOutputController.prototype.inputRunJavaScript = async function(script) {
+sideOutputController.prototype.inputRunJavaScript = async function (script) {
   return new Promise((resolve, reject) => {
     try {
-      this.userInput.evaluateJavaScript(script,(result) => {
+      this.userInput.evaluateJavaScript(script, (result) => {
         if (MNUtil.isNSNull(result)) {
           resolve(undefined)
-        }else{
+        } else {
           resolve(result)
         }
       });
@@ -2827,13 +2827,13 @@ sideOutputController.prototype.inputRunJavaScript = async function(script) {
 };
 
 /** @this {sideOutputController} */
-sideOutputController.prototype.runJavaScript = async function(script) {
+sideOutputController.prototype.runJavaScript = async function (script) {
   return new Promise((resolve, reject) => {
     try {
-      this.chatWebview.evaluateJavaScript(script,(result) => {
+      this.chatWebview.evaluateJavaScript(script, (result) => {
         if (MNUtil.isNSNull(result)) {
           resolve(undefined)
-        }else{
+        } else {
           resolve(result)
         }
       });
@@ -2845,13 +2845,13 @@ sideOutputController.prototype.runJavaScript = async function(script) {
 };
 
 /** @this {sideOutputController} */
-sideOutputController.prototype.chatRunJavaScript = async function(script) {
+sideOutputController.prototype.chatRunJavaScript = async function (script) {
   return new Promise((resolve, reject) => {
     try {
-      this.chatWebview.evaluateJavaScript(script,(result) => {
+      this.chatWebview.evaluateJavaScript(script, (result) => {
         if (chatAIUtils.isNSNull(result)) {
           resolve(undefined)
-        }else{
+        } else {
           resolve(result)
         }
       });
@@ -2879,9 +2879,9 @@ sideOutputController.prototype.setCurrentModel = async function (model) {
     let modelConfig = chatAIConfig.parseModelConfig(model)
     if (this.userReference.hidden) {
       if (modelConfig.source === "Built-in") {
-        MNButton.setTitle(this.chatModel, "Built-in",15,true)
-      }else{
-        MNButton.setTitle(this.chatModel, modelConfig.model,15,true)
+        MNButton.setTitle(this.chatModel, "Built-in", 15, true)
+      } else {
+        MNButton.setTitle(this.chatModel, modelConfig.model, 15, true)
       }
     }
     this.config = modelConfig
@@ -2901,16 +2901,16 @@ sideOutputController.prototype.chatSendMessage = function (message) {
   this.chatRunJavaScript(`sendMessage(\`${encodeURIComponent(JSON.stringify(message))}\`,\`${this.currentModel}\`)`)
 }
 /** @this {sideOutputController} */
-sideOutputController.prototype.chatSetResponse = function (response,funcResponse = "") {
+sideOutputController.prototype.chatSetResponse = function (response, funcResponse = "") {
   if (response.trim()) {
     if (funcResponse.trim()) {
       // MNUtil.copy(`setCurrentRes(\`${encodeURIComponent(response)}\`,\`${encodeURIComponent(funcResponse)}\`)`)
       this.chatRunJavaScript(`setCurrentRes(\`${encodeURIComponent(response)}\`,\`${encodeURIComponent(funcResponse)}\`)`)
-    }else{
+    } else {
       // MNUtil.copy(`setCurrentRes(\`${encodeURIComponent(response)}\`)`)
       this.chatRunJavaScript(`setCurrentRes(\`${encodeURIComponent(response)}\`)`)
     }
-  }else{
+  } else {
     if (funcResponse.trim()) {
       // MNUtil.copy(`setCurrentRes(\`\`,\`${encodeURIComponent(funcResponse+funcResponse)}\`)`)
       this.chatRunJavaScript(`setCurrentRes(\`\`,\`${encodeURIComponent(funcResponse)}\`)`)
@@ -2947,64 +2947,64 @@ sideOutputController.prototype.clearCache = async function () {
  * @param {Object} newChatData//额外的聊天数据，会被合并进已有的聊天数据中
  */
 sideOutputController.prototype.importData = function (newChatData) {
-try {
-  // MNUtil.showHUD("importData")
-  let data = chatAIConfig.getChatData()
-  if (data) {
-    if (newChatData) {
-      // let newHistory = newChatData.data
-      // let firstUser = newHistory.find(item=>item.role === "user")
-      // MNUtil.copyJSON(firstUser)
-      // let content = "新的聊天"
-      // if ("name" in newChatData && newChatData.name.trim()) {
-      //   content = newChatData.name
-      // }else if (firstUser && firstUser.content.trim()) {
-      //   content = firstUser.content
-      //   if (content.length > 20) content = content.slice(0, 17) + "...";
-      // }
-      data.chats.push(newChatData)
-      if (data.chatIdxs.length) {
-        let newIdx = Math.max(...data.chatIdxs)+1
-        data.chatIdxs.push(newIdx)
-        data.activeChatIdx = newIdx
-        this.activeChatIdx = newIdx
-      }else{
-        data.chatIdxs.push(0)
-        data.activeChatIdx = 0
-        this.activeChatIdx = 0
+  try {
+    // MNUtil.showHUD("importData")
+    let data = chatAIConfig.getChatData()
+    if (data) {
+      if (newChatData) {
+        // let newHistory = newChatData.data
+        // let firstUser = newHistory.find(item=>item.role === "user")
+        // MNUtil.copyJSON(firstUser)
+        // let content = "新的聊天"
+        // if ("name" in newChatData && newChatData.name.trim()) {
+        //   content = newChatData.name
+        // }else if (firstUser && firstUser.content.trim()) {
+        //   content = firstUser.content
+        //   if (content.length > 20) content = content.slice(0, 17) + "...";
+        // }
+        data.chats.push(newChatData)
+        if (data.chatIdxs.length) {
+          let newIdx = Math.max(...data.chatIdxs) + 1
+          data.chatIdxs.push(newIdx)
+          data.activeChatIdx = newIdx
+          this.activeChatIdx = newIdx
+        } else {
+          data.chatIdxs.push(0)
+          data.activeChatIdx = 0
+          this.activeChatIdx = 0
+        }
+        if ("token" in newChatData) {
+          this.addTokenByKey(newChatData.token)
+        }
+        //保存到chatData.json
+        chatAIConfig.exportChatData(data)
+      } else {
+        let chatsData = data.chats
+        this.activeChatIdx = data.activeChatIdx
+        let currentChat = chatsData[this.activeChatIdx]
+        if ("funcIdxs" in currentChat) {
+          this.funcIndices = currentChat.funcIdxs
+        } else {
+          this.funcIndices = []
+        }
+        this.history = currentChat.data
+        if ("model" in currentChat) {
+          this.setCurrentModel(currentChat.model)
+        }
+        if ("temperature" in currentChat) {
+          this.temperature = currentChat.temperature
+        }
+        // if ("token" in currentChat) {
+        //   this.addTokenByKey(currentChat.token)
+        // }
       }
-      if ("token" in newChatData) {
-        this.addTokenByKey(newChatData.token)
-      }
-      //保存到chatData.json
-      chatAIConfig.exportChatData(data)
-    }else{
-      let chatsData = data.chats
-      this.activeChatIdx = data.activeChatIdx
-      let currentChat = chatsData[this.activeChatIdx]
-      if ("funcIdxs" in currentChat) {
-        this.funcIndices = currentChat.funcIdxs
-      }else{
-        this.funcIndices = []
-      }
-      this.history = currentChat.data
-      if ("model" in currentChat) {
-        this.setCurrentModel(currentChat.model)
-      }
-      if ("temperature" in currentChat) {
-        this.temperature = currentChat.temperature
-      }
-      // if ("token" in currentChat) {
-      //   this.addTokenByKey(currentChat.token)
-      // }
+      this.refreshTokenByKey()
+      // MNUtil.copy(`importAllData(\`${encodeURIComponent(JSON.stringify(data))}\`)`)
+      this.chatRunJavaScript(`importAllData(\`${encodeURIComponent(JSON.stringify(data))}\`);checkMobileDragDrop();`)
     }
-    this.refreshTokenByKey()
-    // MNUtil.copy(`importAllData(\`${encodeURIComponent(JSON.stringify(data))}\`)`)
-    this.chatRunJavaScript(`importAllData(\`${encodeURIComponent(JSON.stringify(data))}\`);checkMobileDragDrop();`)
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "importData")
   }
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "importData") 
-}
 }
 /**
  * @this {sideOutputController}
@@ -3021,7 +3021,7 @@ sideOutputController.prototype.enableNavEv = function () {
 /**
  * @this {sideOutputController}
  */
-sideOutputController.prototype.setHistory = function (history,render = true) {
+sideOutputController.prototype.setHistory = function (history, render = true) {
   let fullHistory = history
   if (this.afterHistory) {
     fullHistory = history.concat(this.afterHistory)
@@ -3036,8 +3036,8 @@ sideOutputController.prototype.setHistory = function (history,render = true) {
 sideOutputController.prototype.clearHistory = function () {
   let systemPrompt = chatAIConfig.getConfig("chatSystemPrompt")
   if (systemPrompt.trim()) {
-    this.history = [{role:"system",content:systemPrompt}]
-  }else{
+    this.history = [{ role: "system", content: systemPrompt }]
+  } else {
     this.history = []
   }
   this.setHistory(this.history)
@@ -3064,7 +3064,7 @@ sideOutputController.prototype.clearHistory = function () {
   this.clearTokenByKey()
 }
 /** @this {sideOutputController} */
-sideOutputController.prototype.getWebviewHeight = async function (webview,offset = 25) {
+sideOutputController.prototype.getWebviewHeight = async function (webview, offset = 25) {
   let jsCode = `document.body.scrollHeight`
   let tem = await this.runJavaScript(jsCode, webview)
   if (tem) {
@@ -3082,54 +3082,54 @@ sideOutputController.prototype.getWebviewHeight = async function (webview,offset
   return tem ? parseInt(tem) : 100
 }
 /** @this {sideOutputController} */
-sideOutputController.prototype.setWebviewContent = async function (content,scrollToBottom = false,webview) {
+sideOutputController.prototype.setWebviewContent = async function (content, scrollToBottom = false, webview) {
   let height
   if (scrollToBottom) {
     // MNUtil.copy(content)
     // height = await this.runJavaScript(`document.body.innerHTML = "${MNUtil.escapeString(content)}"; MathJax.typesetPromise().then(() => {window.scrollTo(0,document.body.scrollHeight)});document.body.scrollHeight;`,webview)
-    height = await this.runJavaScript(`document.body.innerHTML = decodeURIComponent(\`${encodeURIComponent(content)}\`); MathJax.typesetPromise().then(() => {window.scrollTo(0,document.body.scrollHeight)});document.body.scrollHeight;`,webview)
+    height = await this.runJavaScript(`document.body.innerHTML = decodeURIComponent(\`${encodeURIComponent(content)}\`); MathJax.typesetPromise().then(() => {window.scrollTo(0,document.body.scrollHeight)});document.body.scrollHeight;`, webview)
     // MNUtil.copyJSON(height)
     if (!Object.keys(height).length) {
-      return await this.getWebviewHeight(webview) 
+      return await this.getWebviewHeight(webview)
     }
     // MNUtil.copy(height)
-  }else{
+  } else {
     // MNUtil.copy(content)
     // height = await this.runJavaScript(`document.body.innerHTML = "${MNUtil.escapeString(content)}"; MathJax.typeset();document.body.scrollHeight;`,webview)
-    height = await this.runJavaScript(`document.body.innerHTML = decodeURIComponent(\`${encodeURIComponent(content)}\`); MathJax.typeset();document.body.scrollHeight;`,webview)
+    height = await this.runJavaScript(`document.body.innerHTML = decodeURIComponent(\`${encodeURIComponent(content)}\`); MathJax.typeset();document.body.scrollHeight;`, webview)
     // MNUtil.copyJSON(height)
     if (!Object.keys(height).length) {
-      return await this.getWebviewHeight(webview) 
+      return await this.getWebviewHeight(webview)
     }
     // MNUtil.copy(height)
   }
-  return parseInt(height)+25
+  return parseInt(height) + 25
 }
 /** @this {sideOutputController} */
-sideOutputController.prototype.getWebviewContent = async function (webview){
-  let  selection = await this.runJavaScript(`editor.getSelection()`,webview)
+sideOutputController.prototype.getWebviewContent = async function (webview) {
+  let selection = await this.runJavaScript(`editor.getSelection()`, webview)
   // let selection = await this.runJavaScript(`getCurrentSelect()`,webview)
-  await this.runJavaScript(`editor.blur();`,webview)
+  await this.runJavaScript(`editor.blur();`, webview)
   this[webview].endEditing(true)
   if (!selection || !selection.trim()) {
-    let text = await this.runJavaScript(`editor.getValue();`,webview)
+    let text = await this.runJavaScript(`editor.getValue();`, webview)
     return text
-  }else{
-  return selection
-  // let converted = selection
-  //                 .replace(/\*\*\\\*\\\*\*\*/g, "")
-  //                 .replace(/\*\*\\\*\*\*/g, "")
-  //                 .replace(/######\s######\s/g, "###### ")
-  //                 .replace(/#####\s#####\s/g, "##### ")
-  //                 .replace(/####\s####\s/g, "#### ")
-  //                 .replace(/###\s###\s/g, "### ")
-  //                 .replace(/##\s##\s/g, "## ")
-  //                 .replace(/#\s#\s/g, "# ")
-  //                 .replace(/\*\*\\\$\*\*`/g, "$")
-  //                 .replace(/`\\\$/g, "$")
-  //   // let converted = selection.replace("**\\$**`","$").replace("`\\$","$")
-  //   // MNUtil.copy(selection+":"+converted)
-  //   return converted
+  } else {
+    return selection
+    // let converted = selection
+    //                 .replace(/\*\*\\\*\\\*\*\*/g, "")
+    //                 .replace(/\*\*\\\*\*\*/g, "")
+    //                 .replace(/######\s######\s/g, "###### ")
+    //                 .replace(/#####\s#####\s/g, "##### ")
+    //                 .replace(/####\s####\s/g, "#### ")
+    //                 .replace(/###\s###\s/g, "### ")
+    //                 .replace(/##\s##\s/g, "## ")
+    //                 .replace(/#\s#\s/g, "# ")
+    //                 .replace(/\*\*\\\$\*\*`/g, "$")
+    //                 .replace(/`\\\$/g, "$")
+    //   // let converted = selection.replace("**\\$**`","$").replace("`\\$","$")
+    //   // MNUtil.copy(selection+":"+converted)
+    //   return converted
   }
   // let text = await this.runJavaScript(`getCurrentSelect() ? getCurrentSelect(): editor.getValue();`,webview)
   // // let text = await this.runJavaScript(`getCurrentSelect()`,webview)
@@ -3138,22 +3138,22 @@ sideOutputController.prototype.getWebviewContent = async function (webview){
 
 }
 /** @this {sideOutputController} */
-sideOutputController.prototype.setWebviewContentDev = async function (content,funcResponse="",scrollToBottom = false,webview) {
+sideOutputController.prototype.setWebviewContentDev = async function (content, funcResponse = "", scrollToBottom = false, webview) {
   let jsCode = `setValue(\`${encodeURIComponent(funcResponse)}\`,\`${encodeURIComponent(content)}\`,${scrollToBottom})`
   let tem = await this.runJavaScript(jsCode, webview)
   if (tem) {
-    return parseInt(tem)+10
+    return parseInt(tem) + 10
   }
   MNUtil.showHUD("Loading webview...")
   await MNUtil.delay(0.5)
   tem = await this.runJavaScript(jsCode, webview)
   if (tem) {
-    return parseInt(tem)+10
+    return parseInt(tem) + 10
   }
   MNUtil.showHUD("Loading webview...")
   await MNUtil.delay(0.5)
   tem = await this.runJavaScript(jsCode, webview)
-  return tem ? parseInt(tem)+10 : 110
+  return tem ? parseInt(tem) + 10 : 110
 }
 
 /** 
@@ -3161,10 +3161,10 @@ sideOutputController.prototype.setWebviewContentDev = async function (content,fu
   *重新加载一遍veditor
   */
 sideOutputController.prototype.setNewResponse = function (webview) {
-    this[webview].loadFileURLAllowingReadAccessToURL(
-      NSURL.fileURLWithPath(chatAIConfig.mainPath + `/veditor_${this.theme}.html`),
-      NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
-    );
+  this[webview].loadFileURLAllowingReadAccessToURL(
+    NSURL.fileURLWithPath(chatAIConfig.mainPath + `/veditor_${this.theme}.html`),
+    NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
+  );
 }
 
 /** @this {sideOutputController} */
@@ -3199,18 +3199,18 @@ sideOutputController.prototype.setResponseText = async function (funcResponse = 
     }
     if (!this.onFinish) {
       if (option.response.length) {
-        option.response = option.response +"..."
-      }else if (option.reasoningResponse.length) {
-        option.reasoningResponse = option.reasoningResponse +"..."
+        option.response = option.response + "..."
+      } else if (option.reasoningResponse.length) {
+        option.reasoningResponse = option.reasoningResponse + "..."
       }
     }
     // MNUtil.log({message:"setResponseText",detail:option})
     this.chatSetResponseDev(option)
     // this["assistant"+this.round].sizeHeight = sizeHeight+40
-    } catch (error) {
-      chatAIUtils.addErrorLog(error, "sideOutputController.setResponseText")
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "sideOutputController.setResponseText")
 
-    }
+  }
 }
 
 /**
@@ -3220,98 +3220,98 @@ sideOutputController.prototype.setResponseText = async function (funcResponse = 
  * @this {sideOutputController}
  */
 sideOutputController.prototype.executeFunctionByAI = async function (func) {
-try {
-  let note,title,comment
-  let funcName = func.function.name
-  let noteid = this.noteid ?? chatAIUtils.getFocusNoteId()
-  switch (funcName) {
-    case "multi_tool_use.parallel":
-      this.func = []
-      let arguments = chatAIUtils.getValidJSON(func.function.arguments)
-      let tool_uses = arguments.tool_uses
-      let toolMessages = []
-      tool_uses.map((tool_use,index)=>{
-        switch (tool_use.recipient_name) {
-          case "functions.setTitle":
-            if (!noteid) {
-              MNUtil.showHUD("Unavailable")
-              break
-              // this.addToolMessage("Execution failed! There is no card selected",func.id)
-              // return "Error in setTitle(): There is no card selected\n"
-            }
-            let title = tool_use.parameters.title.trim()
-            if (!title) {
-              MNUtil.showHUD("Empty title")
-              break
-              // copyJSON(this.func)
-              // this.addToolMessage("Execution failed! The title provided is empty!",func.id)
-              // return "Error in setTitle(): The title provided is empty!\n"
-            }
-            this.func.push({type:"function",function:{name:"setTitle",arguments:JSON.stringify({title:title})},id:func.id,index:index})
-            note = MNUtil.getNoteById(noteid)
-            MNUtil.undoGrouping(()=>{
-              note.noteTitle = MNUtil.mergeWhitespace(title.trim())
-            })
-            toolMessages.push("Title is set")
-            // this.addToolMessage("Title is set",func.id)
-            break;
-          case "functions.addComment":
-            if (!noteid) {
-              MNUtil.showHUD("Unavailable")
-              break
-              // this.addToolMessage("Execution failed! There is no card selected",func.id)
-              // return "Error in addComment(): There is no card selected\n"
-            }
-            let comment = tool_use.parameters.comment.trim()
-            if (!comment) {
-              MNUtil.showHUD("Empty comment")
-              break
-              // copyJSON(this.func)
-              // this.addToolMessage("Execution failed! The comment provided is empty!",func.id)
-              // return "Error in addComment(): The comment provided is empty!\n"
-            }
-            // this.addToolMessage("Comment is added",func.id)
-            this.func.push({type:"function",function:{name:"addComment",arguments:JSON.stringify({comment:comment})},id:func.id,index:index})
-            note = MNNote.new(noteid)
-            MNUtil.undoGrouping(()=>{
-              try {
-                note.appendMarkdownComment(comment.tirm())
-              } catch (error) {
-                note.appendTextComment(comment.tirm())
+  try {
+    let note, title, comment
+    let funcName = func.function.name
+    let noteid = this.noteid ?? chatAIUtils.getFocusNoteId()
+    switch (funcName) {
+      case "multi_tool_use.parallel":
+        this.func = []
+        let arguments = chatAIUtils.getValidJSON(func.function.arguments)
+        let tool_uses = arguments.tool_uses
+        let toolMessages = []
+        tool_uses.map((tool_use, index) => {
+          switch (tool_use.recipient_name) {
+            case "functions.setTitle":
+              if (!noteid) {
+                MNUtil.showHUD("Unavailable")
+                break
+                // this.addToolMessage("Execution failed! There is no card selected",func.id)
+                // return "Error in setTitle(): There is no card selected\n"
               }
-            })
-            toolMessages.push("Comment is added")
-            // this.addToolMessage("Comment is added",func.id)
-            break;
-          default:
-            break;
-        }
-      
-      })
-      // MNUtil.copyJSON(tool_uses)
-      this.addToolMessage(toolMessages.join("\n"),func.id)
-      return this.codifyToolCall(funcName,arguments)
-    default:
-      let res = await chatAITool.executeTool(funcName, func, noteid,true)
-      this.tool.push(res.toolMessages )
-      if ("renderSearchResults" in res) {
-        let round = this.history.filter(item=>{
-          if (item.role === "assistant") {
-            return !item.tool_calls
+              let title = tool_use.parameters.title.trim()
+              if (!title) {
+                MNUtil.showHUD("Empty title")
+                break
+                // copyJSON(this.func)
+                // this.addToolMessage("Execution failed! The title provided is empty!",func.id)
+                // return "Error in setTitle(): The title provided is empty!\n"
+              }
+              this.func.push({ type: "function", function: { name: "setTitle", arguments: JSON.stringify({ title: title }) }, id: func.id, index: index })
+              note = MNUtil.getNoteById(noteid)
+              MNUtil.undoGrouping(() => {
+                note.noteTitle = MNUtil.mergeWhitespace(title.trim())
+              })
+              toolMessages.push("Title is set")
+              // this.addToolMessage("Title is set",func.id)
+              break;
+            case "functions.addComment":
+              if (!noteid) {
+                MNUtil.showHUD("Unavailable")
+                break
+                // this.addToolMessage("Execution failed! There is no card selected",func.id)
+                // return "Error in addComment(): There is no card selected\n"
+              }
+              let comment = tool_use.parameters.comment.trim()
+              if (!comment) {
+                MNUtil.showHUD("Empty comment")
+                break
+                // copyJSON(this.func)
+                // this.addToolMessage("Execution failed! The comment provided is empty!",func.id)
+                // return "Error in addComment(): The comment provided is empty!\n"
+              }
+              // this.addToolMessage("Comment is added",func.id)
+              this.func.push({ type: "function", function: { name: "addComment", arguments: JSON.stringify({ comment: comment }) }, id: func.id, index: index })
+              note = MNNote.new(noteid)
+              MNUtil.undoGrouping(() => {
+                try {
+                  note.appendMarkdownComment(comment.tirm())
+                } catch (error) {
+                  note.appendTextComment(comment.tirm())
+                }
+              })
+              toolMessages.push("Comment is added")
+              // this.addToolMessage("Comment is added",func.id)
+              break;
+            default:
+              break;
           }
-          return false
-        }).length
-        this.renderSearchResults(res.renderSearchResults,false,round)
-        // MNUtil.copy(`renderSearchResults(\`${encodeURIComponent(res.renderSearchResults)}\`);`)
-        // this.chatRunJavaScript(`renderSearchResults(\`${encodeURIComponent(res.renderSearchResults)}\`);`,"assistant"+this.round)
-      }
-      return res.description
-  }
 
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "executeFunctionByAI",func)
-  return undefined
-}
+        })
+        // MNUtil.copyJSON(tool_uses)
+        this.addToolMessage(toolMessages.join("\n"), func.id)
+        return this.codifyToolCall(funcName, arguments)
+      default:
+        let res = await chatAITool.executeTool(funcName, func, noteid, true)
+        this.tool.push(res.toolMessages)
+        if ("renderSearchResults" in res) {
+          let round = this.history.filter(item => {
+            if (item.role === "assistant") {
+              return !item.tool_calls
+            }
+            return false
+          }).length
+          this.renderSearchResults(res.renderSearchResults, false, round)
+          // MNUtil.copy(`renderSearchResults(\`${encodeURIComponent(res.renderSearchResults)}\`);`)
+          // this.chatRunJavaScript(`renderSearchResults(\`${encodeURIComponent(res.renderSearchResults)}\`);`,"assistant"+this.round)
+        }
+        return res.description
+    }
+
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "executeFunctionByAI", func)
+    return undefined
+  }
 }
 
 sideOutputController.prototype.setButtonOpacity = function (opacity) {
@@ -3321,42 +3321,42 @@ sideOutputController.prototype.setButtonOpacity = function (opacity) {
  * 
  * @param {string} content 
  */
-sideOutputController.prototype.addToolMessage = function (content,funcId) {
-  this.tool.push({"role":"tool","content":content,"tool_call_id":funcId})
+sideOutputController.prototype.addToolMessage = function (content, funcId) {
+  this.tool.push({ "role": "tool", "content": content, "tool_call_id": funcId })
 }
 /** @this {sideOutputController} */
 sideOutputController.prototype.setToken = async function (token) {
-    if (this.onFinish) {
-      let tokens = this.addTokenByKey(token)
-      let totalToken = chatAIUtils.sum(tokens)
-      this.aiButton.setTitleForState(""+totalToken,0)
-      // MNUtil.log({message:"config",detail:this.config})
-      if (this.config.source === "Built-in") {
-        if (token > 50000) {
-          MNUtil.confirm("🤖 MN ChatAI",`This AI Chat Context has reached ${token} tokens. Please not using Buitl-In models for long chat.\n\n本次对话已使用${token} tokens。请不要使用Built-in模型进行长对话.`)
-        }
-      }else{
-        if (token > 100000) {
-          MNUtil.confirm("🤖 MN ChatAI",`This AI Chat has consumed ${token} tokens. Please keep an eye on your balance usage.\n\n本次对话已使用${token} tokens。请注意tokens消耗。\nPS: 无关问题建议新开对话，以避免token消耗过多。`)
-        }
+  if (this.onFinish) {
+    let tokens = this.addTokenByKey(token)
+    let totalToken = chatAIUtils.sum(tokens)
+    this.aiButton.setTitleForState("" + totalToken, 0)
+    // MNUtil.log({message:"config",detail:this.config})
+    if (this.config.source === "Built-in") {
+      if (token > 50000) {
+        MNUtil.confirm("🤖 MN ChatAI", `This AI Chat Context has reached ${token} tokens. Please not using Buitl-In models for long chat.\n\n本次对话已使用${token} tokens。请不要使用Built-in模型进行长对话.`)
       }
-    }else{
-      this.refreshTokenByKey()
-      // let tokens = this.getTokenByKey()
-      // this.aiButton.setTitleForState(""+chatAIUtils.sum(tokens.concat(token)),0)
+    } else {
+      if (token > 100000) {
+        MNUtil.confirm("🤖 MN ChatAI", `This AI Chat has consumed ${token} tokens. Please keep an eye on your balance usage.\n\n本次对话已使用${token} tokens。请注意tokens消耗。\nPS: 无关问题建议新开对话，以避免token消耗过多。`)
+      }
     }
+  } else {
+    this.refreshTokenByKey()
+    // let tokens = this.getTokenByKey()
+    // this.aiButton.setTitleForState(""+chatAIUtils.sum(tokens.concat(token)),0)
+  }
 }
 /** @this {sideOutputController} */
-sideOutputController.prototype.speech = async function(text,webview){
+sideOutputController.prototype.speech = async function (text, webview) {
   let encodedText = encodeURIComponent(text)
   let voice = chatAIConfig.getConfig("speechVoice")
   let speed = chatAIConfig.getConfig("speechSpeed")
   let key = chatAIConfig.getConfig("speechKey")
   let group = chatAIConfig.getConfig("miniMaxGroup")
   if (chatAIConfig.getConfig("autoSpeech")) {
-    await this.runJavaScript(`speech(\`${encodedText}\`,\`${voice}\`,\`${key}\`,\`${group}\`,${speed},true);`,webview)
-  }else{
-    await this.runJavaScript(`speech(\`${encodedText}\`,\`${voice}\`,\`${key}\`,\`${group}\`,${speed},false);`,webview)
+    await this.runJavaScript(`speech(\`${encodedText}\`,\`${voice}\`,\`${key}\`,\`${group}\`,${speed},true);`, webview)
+  } else {
+    await this.runJavaScript(`speech(\`${encodedText}\`,\`${voice}\`,\`${key}\`,\`${group}\`,${speed},false);`, webview)
   }
 }
 /**
@@ -3364,71 +3364,71 @@ sideOutputController.prototype.speech = async function(text,webview){
  * @param {number[]} actionIndices 
  * @param {string} text 
  */
-sideOutputController.prototype.executeFinishAction = function (actionIndices,text) {
+sideOutputController.prototype.executeFinishAction = function (actionIndices, text) {
   try {
-    
 
-  let shouldClose = false
-  let noteid = this.noteid ?? chatAIUtils.getFocusNote().noteId
-  let note = MNNote.new(noteid)
-  var actions = ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","addChildNote","clearExcerpt","setExcerpt"];
-  MNUtil.undoGrouping(()=>{
-    actionIndices.forEach(index=>{
-      switch (actions[index]) {
-        case "setTitle":
-          note.noteTitle = MNUtil.mergeWhitespace(text)
-          MNUtil.showHUD("Title is set")
-          break;
-        case "addComment":
-          if (text.trim()) {
-            note.appendMarkdownComment(text.trim())
-            MNUtil.showHUD("Comment is added")
-          }else{
-            MNUtil.showHUD("Empty content!")
-          }
-          break;
-        case "addTag":
-          note.appendTextComment("#"+MNUtil.mergeWhitespace(text))
-          MNUtil.showHUD("Tag is added")
-          break
-        case "copyCardURL":
-          MNUtil.copy(note.noteURL)
-          MNUtil.showHUD("Link is copied")
-          break;
-        case "copyMarkdownLink":
-          MNUtil.copy(`[${text}](${note.noteURL})`)
-          MNUtil.showHUD("Markdown Link is copied")
-          break;
-        case "copyText":
-          MNUtil.copy(text)
-          MNUtil.showHUD("Content is copied")
-          break;
-        case "clearExcerpt":
-          note.excerptText = ""
-          MNUtil.showHUD("clear excerpt")
-          break;
-        case "close":
-          shouldClose = true;
-          break;
-        case "setExcerpt":
-          note.excerptText = text
-          MNUtil.showHUD("excerpt is set")
-          break;
-        case "addChildNote":
-          note.createChildNote({content:text,markdown:true})
-          MNUtil.showHUD("child note is added")
-          break;
-        default:
-          break;
+
+    let shouldClose = false
+    let noteid = this.noteid ?? chatAIUtils.getFocusNote().noteId
+    let note = MNNote.new(noteid)
+    var actions = ["setTitle", "addComment", "copyMarkdownLink", "copyCardURL", "copyText", "close", "addTag", "addChildNote", "clearExcerpt", "setExcerpt"];
+    MNUtil.undoGrouping(() => {
+      actionIndices.forEach(index => {
+        switch (actions[index]) {
+          case "setTitle":
+            note.noteTitle = MNUtil.mergeWhitespace(text)
+            MNUtil.showHUD("Title is set")
+            break;
+          case "addComment":
+            if (text.trim()) {
+              note.appendMarkdownComment(text.trim())
+              MNUtil.showHUD("Comment is added")
+            } else {
+              MNUtil.showHUD("Empty content!")
+            }
+            break;
+          case "addTag":
+            note.appendTextComment("#" + MNUtil.mergeWhitespace(text))
+            MNUtil.showHUD("Tag is added")
+            break
+          case "copyCardURL":
+            MNUtil.copy(note.noteURL)
+            MNUtil.showHUD("Link is copied")
+            break;
+          case "copyMarkdownLink":
+            MNUtil.copy(`[${text}](${note.noteURL})`)
+            MNUtil.showHUD("Markdown Link is copied")
+            break;
+          case "copyText":
+            MNUtil.copy(text)
+            MNUtil.showHUD("Content is copied")
+            break;
+          case "clearExcerpt":
+            note.excerptText = ""
+            MNUtil.showHUD("clear excerpt")
+            break;
+          case "close":
+            shouldClose = true;
+            break;
+          case "setExcerpt":
+            note.excerptText = text
+            MNUtil.showHUD("excerpt is set")
+            break;
+          case "addChildNote":
+            note.createChildNote({ content: text, markdown: true })
+            MNUtil.showHUD("child note is added")
+            break;
+          default:
+            break;
+        }
+      })
+
+    })
+    MNUtil.delay(0.5).then(() => {
+      if (shouldClose) {
+        MNUtil.toggleExtensionPanel()
       }
     })
-  
-  })
-  MNUtil.delay(0.5).then(()=>{
-    if (shouldClose) {
-      MNUtil.toggleExtensionPanel()
-    }
-  })
   } catch (error) {
     chatAIUtils.addErrorLog(error, "executeFinishAction")
   }
@@ -3452,16 +3452,16 @@ sideOutputController.prototype.addImageInChat = function (imageData) {
   if (imageData) {
     this.currentImage = UIImage.imageWithDataScale(imageData, 2)
     let imageSize = this.currentImage.size
-    let ratio = imageSize.width/imageSize.height
+    let ratio = imageSize.width / imageSize.height
     let height = 30
-    let width = height*ratio
-    if (width > (this.view.frame.width-10)) {
-      width = this.view.frame.width-10
-      height = width/ratio
+    let width = height * ratio
+    if (width > (this.view.frame.width - 10)) {
+      width = this.view.frame.width - 10
+      height = width / ratio
     }
     if (width < 50) {
       width = 50
-      height = width/ratio
+      height = width / ratio
     }
     let imageFrame = this.imageButton.frame
     imageFrame.width = width
@@ -3481,55 +3481,55 @@ sideOutputController.prototype.addImageInChat = function (imageData) {
  * @param {string} text 
  * @param {NSData} imageData 
  */
-sideOutputController.prototype.addToInput = function (text,imageData=undefined) {
-try {
-  this.openChatView()
-  this.addImageInChat(imageData)
-  // if (imageData) {
-  //   this.currentImage = UIImage.imageWithDataScale(imageData, 2)
-  //   this.imageButton.setImageForState(this.currentImage, 0)
-  // }
-  // let textView = this.userInput
-  let textView = this.userReference
-  if (text && text.trim()) {
-    textView.hidden = false
-    this.resizeButton.hidden = false
-    let userInput = `${textView.text.trim()}\n\n> ${text.trim()}`
-    textView.text = userInput.trim()
-    textView.frame = this.userInput.frame
-    let inputFrame = textView.frame
-    let size = textView.sizeThatFits({width:inputFrame.width,height:1000})
-    if (size.height > inputFrame.height) {
-      textView.setContentOffsetAnimated({x:0,y:size.height-inputFrame.height},true)
-    }
-    this.showHUD("Add reference")
-    this.showReference()
-  }
-  if (this.miniMode) {
-    this.miniMode = false
-    this.chatModel.hidden = true
-    MNUtil.animate(()=>{
-      this.chatToolbar.frame = this.lastChatToolbarFrame
-    }).then(()=>{
-      this.minimizeButton.hidden = false
-      // this.chatModel.hidden = true
-      this.userInput.hidden = true
-      this.userReference.hidden = false
-      this.sendButton.hidden = false
+sideOutputController.prototype.addToInput = function (text, imageData = undefined) {
+  try {
+    this.openChatView()
+    this.addImageInChat(imageData)
+    // if (imageData) {
+    //   this.currentImage = UIImage.imageWithDataScale(imageData, 2)
+    //   this.imageButton.setImageForState(this.currentImage, 0)
+    // }
+    // let textView = this.userInput
+    let textView = this.userReference
+    if (text && text.trim()) {
+      textView.hidden = false
       this.resizeButton.hidden = false
-      this.imageButton.hidden = false
-      this.chatToken.hidden = false
-      this.chatModel.hidden = false
-      this.chatModel.setImageForState(undefined,0)
+      let userInput = `${textView.text.trim()}\n\n> ${text.trim()}`
+      textView.text = userInput.trim()
+      textView.frame = this.userInput.frame
+      let inputFrame = textView.frame
+      let size = textView.sizeThatFits({ width: inputFrame.width, height: 1000 })
+      if (size.height > inputFrame.height) {
+        textView.setContentOffsetAnimated({ x: 0, y: size.height - inputFrame.height }, true)
+      }
+      this.showHUD("Add reference")
       this.showReference()
-      // this.setCurrentModel(this.currentModel)
-      // MNButton.setTitle(this.chatModel, "Reference",15,true)
-    })
+    }
+    if (this.miniMode) {
+      this.miniMode = false
+      this.chatModel.hidden = true
+      MNUtil.animate(() => {
+        this.chatToolbar.frame = this.lastChatToolbarFrame
+      }).then(() => {
+        this.minimizeButton.hidden = false
+        // this.chatModel.hidden = true
+        this.userInput.hidden = true
+        this.userReference.hidden = false
+        this.sendButton.hidden = false
+        this.resizeButton.hidden = false
+        this.imageButton.hidden = false
+        this.chatToken.hidden = false
+        this.chatModel.hidden = false
+        this.chatModel.setImageForState(undefined, 0)
+        this.showReference()
+        // this.setCurrentModel(this.currentModel)
+        // MNButton.setTitle(this.chatModel, "Reference",15,true)
+      })
+    }
+
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "addToInput")
   }
-  
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "addToInput")
-}
   // this.userInput.becomeFirstResponder()
   // textView.becomeFirstResponder()
 }
@@ -3538,7 +3538,7 @@ try {
  * @param {string} text 
  * @param {NSData} imageData 
  */
-sideOutputController.prototype.replaceInput = function (text,imageData=undefined) {
+sideOutputController.prototype.replaceInput = function (text, imageData = undefined) {
   this.addImageInChat(imageData)
   // if (imageData) {
   //   this.currentImage = UIImage.imageWithDataScale(imageData, 2)
@@ -3554,12 +3554,12 @@ sideOutputController.prototype.replaceInput = function (text,imageData=undefined
     // textView.custom = true
     // let frame = this.view.frame
     let inputFrame = textView.frame
-    let size = textView.sizeThatFits({width:inputFrame.width,height:1000})
+    let size = textView.sizeThatFits({ width: inputFrame.width, height: 1000 })
     if (size.height < inputFrame.height) {
       inputFrame.height = size.height
       textView.frame = inputFrame
-    }else{
-      textView.setContentOffsetAnimated({x:0,y:size.height-inputFrame.height},true)
+    } else {
+      textView.setContentOffsetAnimated({ x: 0, y: size.height - inputFrame.height }, true)
     }
     MNUtil.showHUD("Replace reference")
   }
@@ -3570,18 +3570,18 @@ sideOutputController.prototype.replaceInput = function (text,imageData=undefined
  */
 sideOutputController.prototype.sendStreamRequest = function (request) {
   this.currentTime = Date.now()
-  this.connection = NSURLConnection.connectionWithRequestDelegate(request,this)
+  this.connection = NSURLConnection.connectionWithRequestDelegate(request, this)
 }
 /**
  * @this {sideOutputController}
  */
-sideOutputController.prototype.popover = function(sender,commandTable,width=200,direction=2){
-  this.popoverController = MNUtil.getPopoverAndPresent(sender,commandTable,width,direction)
+sideOutputController.prototype.popover = function (sender, commandTable, width = 200, direction = 2) {
+  this.popoverController = MNUtil.getPopoverAndPresent(sender, commandTable, width, direction)
 }
 /**
  * @this {sideOutputController}
  */
-sideOutputController.prototype.checkPopover = function(){
+sideOutputController.prototype.checkPopover = function () {
   if (this.popoverController) {
     this.popoverController.dismissPopoverAnimated(true)
   }
@@ -3596,8 +3596,8 @@ sideOutputController.prototype.checkPopover = function(){
  * @this {sideOutputController}
  * @returns 
  */
-sideOutputController.prototype.tableItem = function (title,selector,param = "",checked = false) {
-  return {title:title,object:this,selector:selector,param:param,checked:checked}
+sideOutputController.prototype.tableItem = function (title, selector, param = "", checked = false) {
+  return { title: title, object: this, selector: selector, param: param, checked: checked }
 }
 
 /**
@@ -3606,8 +3606,8 @@ sideOutputController.prototype.tableItem = function (title,selector,param = "",c
  * @param {number} duration 
  * @param {UIView} view 
  */
-sideOutputController.prototype.showHUD = function (title,duration = 1.5,view = this.view) {
-  MNUtil.showHUD(title,duration,view)
+sideOutputController.prototype.showHUD = function (title, duration = 1.5, view = this.view) {
+  MNUtil.showHUD(title, duration, view)
 }
 
 /**
@@ -3616,13 +3616,13 @@ sideOutputController.prototype.showHUD = function (title,duration = 1.5,view = t
  * @param {number} duration 
  * @param {UIView} view 
  */
-sideOutputController.prototype.waitHUD = function (title,view = this.view) {
-  MNUtil.waitHUD(title,view)
+sideOutputController.prototype.waitHUD = function (title, view = this.view) {
+  MNUtil.waitHUD(title, view)
 }
 
 /** @this {sideOutputController} */
-sideOutputController.prototype.userSelectAddNote = async function (content,format) {
-try {
+sideOutputController.prototype.userSelectAddNote = async function (content, format) {
+  try {
 
     let note = chatAIUtils.getFocusNote()
     if (!note) {//当前无选中卡片
@@ -3632,67 +3632,67 @@ try {
         if (format === "json") {
           this.showHUD("➕ Create Question note from document")
           let title = content.title
-          let description = content.description+"\n\n"+chatAIUtils.getChoicesHTML(content.choices)
-          chatAIUtils.applyEditByConfig([{title:title,excerptText:description,excerptTextMarkdown:true}],note)
+          let description = content.description + "\n\n" + chatAIUtils.getChoicesHTML(content.choices)
+          chatAIUtils.applyEditByConfig([{ title: title, excerptText: description, excerptTextMarkdown: true }], note)
           note.focusInMindMap(0.5)
           return
         }
-        content = content.replace(/\\n/g,"\n")
+        content = content.replace(/\\n/g, "\n")
         let selectingText = await this.getWebviewSelection()
-        if (!selectingText && (Date.now()-this.selection.time < 5000)) {
+        if (!selectingText && (Date.now() - this.selection.time < 5000)) {
           selectingText = this.selection.text
         }
         // let selectingText = await this.getWebviewContent()
         if (selectingText) {
-          content = content+"\n\n"+selectingText
+          content = content + "\n\n" + selectingText
         }
         if (format === "markdown" && /^#/.test(content.trim())) {
-            this.showHUD("➕ Add note: "+content)
-            let contents = content.split("\n")
-            let newTitle = contents[0].replace(/^#\s?/g,"")
-            let contentRemain = contents.slice(1).join("\n").trim()
-            chatAIUtils.applyEditByConfig([{title:newTitle,excerptText:contentRemain,excerptTextMarkdown:true}],note)
-            note.focusInMindMap(0.5)
-            return
+          this.showHUD("➕ Add note: " + content)
+          let contents = content.split("\n")
+          let newTitle = contents[0].replace(/^#\s?/g, "")
+          let contentRemain = contents.slice(1).join("\n").trim()
+          chatAIUtils.applyEditByConfig([{ title: newTitle, excerptText: contentRemain, excerptTextMarkdown: true }], note)
+          note.focusInMindMap(0.5)
+          return
         }
-        chatAIUtils.applyEditByConfig([{excerptText:content,excerptTextMarkdown:true}],note)
+        chatAIUtils.applyEditByConfig([{ excerptText: content, excerptTextMarkdown: true }], note)
         note.focusInMindMap(0.5)
         return
-      }else if (MNNote.currentChildMap) {//尝试在子脑图下创建笔记
+      } else if (MNNote.currentChildMap) {//尝试在子脑图下创建笔记
         note = MNNote.currentChildMap
-      }else{//直接在主脑图创建卡片
+      } else {//直接在主脑图创建卡片
         if (format === "json") {
           this.showHUD("➕ Add Question note")
           let title = content.title
-          let description = content.description+"\n\n"+chatAIUtils.getChoicesHTML(content.choices)
-          MNUtil.undoGrouping(()=>{
-            let note = MNNote.new({title:title,excerptText:description,excerptTextMarkdown:true})
+          let description = content.description + "\n\n" + chatAIUtils.getChoicesHTML(content.choices)
+          MNUtil.undoGrouping(() => {
+            let note = MNNote.new({ title: title, excerptText: description, excerptTextMarkdown: true })
             note.focusInMindMap(0.5)
           })
           return
         }
-        content = content.replace(/\\n/g,"\n")
+        content = content.replace(/\\n/g, "\n")
         let selectingText = await this.getWebviewSelection()
-        if (!selectingText && (Date.now()-this.selection.time < 5000)) {
+        if (!selectingText && (Date.now() - this.selection.time < 5000)) {
           selectingText = this.selection.text
         }
         // let selectingText = await this.getWebviewContent()
         if (selectingText) {
-          content = content+"\n\n"+selectingText
+          content = content + "\n\n" + selectingText
         }
         if (format === "markdown" && /^#/.test(content.trim())) {
-            this.showHUD("➕ Add note: "+content)
-            let contents = content.split("\n")
-            let newTitle = contents[0].replace(/^#\s?/g,"")
-            let contentRemain = contents.slice(1).join("\n").trim()
-            MNUtil.undoGrouping(()=>{
-              let note = MNNote.new({title:newTitle,excerptText:contentRemain,excerptTextMarkdown:true})
-              note.focusInMindMap(0.5)
-            })
-            return
+          this.showHUD("➕ Add note: " + content)
+          let contents = content.split("\n")
+          let newTitle = contents[0].replace(/^#\s?/g, "")
+          let contentRemain = contents.slice(1).join("\n").trim()
+          MNUtil.undoGrouping(() => {
+            let note = MNNote.new({ title: newTitle, excerptText: contentRemain, excerptTextMarkdown: true })
+            note.focusInMindMap(0.5)
+          })
+          return
         }
-        MNUtil.undoGrouping(()=>{
-          let note = MNNote.new({excerptText:content,excerptTextMarkdown:true})
+        MNUtil.undoGrouping(() => {
+          let note = MNNote.new({ excerptText: content, excerptTextMarkdown: true })
           note.focusInMindMap(0.5)
         })
         // MNUtil.confirm("🤖 MN ChatAI", "Note unavailable, please select a note first\n\n请先选择一个笔记/卡片")
@@ -3704,10 +3704,10 @@ try {
       // chatAIUtils.log("content", content)
       // chatAIUtils.log("choices", content.choices)
       let title = content.title
-      let description = content.description+"\n\n"+chatAIUtils.getChoicesHTML(content.choices)
+      let description = content.description + "\n\n" + chatAIUtils.getChoicesHTML(content.choices)
       // let choices = content.choices
-      MNUtil.undoGrouping(()=>{
-        let childNote = note.createChildNote({title:title,excerptText:description,excerptTextMarkdown:true},false)
+      MNUtil.undoGrouping(() => {
+        let childNote = note.createChildNote({ title: title, excerptText: description, excerptTextMarkdown: true }, false)
         if ("correctAnswer" in content) {
           // chatAIUtils.log("correctAnswer", content.correctAnswer)
           childNote.appendMarkdownComment(content.correctAnswer)
@@ -3722,7 +3722,7 @@ try {
       // childNote.focusInMindMap(1.5)
       return
     }
-    content = content.replace(/\\n/g,"\n")
+    content = content.replace(/\\n/g, "\n")
     // let selectingText = await this.getWebviewSelection()
     // if (!selectingText && (Date.now()-this.selection.time < 5000)) {
     //   selectingText = this.selection.text
@@ -3732,20 +3732,20 @@ try {
     //   content = content+"\n\n"+selectingText
     // }
     if (format === "markdown" && /^#/.test(content.trim())) {
-        this.showHUD("➕ Add note: "+content)
-        let contents = content.split("\n")
-        let newTitle = contents[0].replace(/^#\s?/g,"")
-        let contentRemain = contents.slice(1).join("\n").trim()
-        let childNote = note.createChildNote({title:newTitle,excerptText:contentRemain,excerptTextMarkdown:true})
-        childNote.focusInMindMap(0.5)
-        return
+      this.showHUD("➕ Add note: " + content)
+      let contents = content.split("\n")
+      let newTitle = contents[0].replace(/^#\s?/g, "")
+      let contentRemain = contents.slice(1).join("\n").trim()
+      let childNote = note.createChildNote({ title: newTitle, excerptText: contentRemain, excerptTextMarkdown: true })
+      childNote.focusInMindMap(0.5)
+      return
     }
-    let childNote = note.createChildNote({excerptText:content,excerptTextMarkdown:true})
+    let childNote = note.createChildNote({ excerptText: content, excerptTextMarkdown: true })
     childNote.focusInMindMap(0.5)
-  
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "userSelectAddNote")
-}
+
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "userSelectAddNote")
+  }
 }
 sideOutputController.prototype.executeChatAction = async function (config) {
   try {
@@ -3753,30 +3753,74 @@ sideOutputController.prototype.executeChatAction = async function (config) {
     // MNUtil.log(config.host)
     // chatAIUtils.log("executeChatAction.config", config)
 
-      switch (config.host) {
-        case "stopLoading":
-          this.connection.cancel()
-          delete this.connection
-          // MNUtil.showHUD("stopLoading")
-          this.setButtonOpacity(1.0)
-          MNUtil.stopHUD()
-          return false
-        case "activeChat"://通常在切换对话时触发
-          if ("content" in config.params) {
+    switch (config.host) {
+      case "stopLoading":
+        this.connection.cancel()
+        delete this.connection
+        // MNUtil.showHUD("stopLoading")
+        this.setButtonOpacity(1.0)
+        MNUtil.stopHUD()
+        return false
+      case "activeChat"://通常在切换对话时触发
+        if ("content" in config.params) {
+          let content = config.params.content
+          let chatsData = (typeof content === "string") ? JSON.parse(content) : content
+          this.history = chatsData.data
+          // chatAIUtils.log("executeChatAction.activeChat", chatsData)
+          this.activeChatIdx = chatsData.chatIdx
+          this.refreshTokenByKey()
+          // let tokens = this.getTokenByKey()
+          // this.aiButton.setTitleForState(""+chatAIUtils.sum(tokens),0)
+          // if (this.history.length === 0) {
+          //   this.token = [0]
+          // }
+          if ("funcIdxs" in chatsData) {
+            this.funcIndices = chatsData.funcIdxs
+          } else {
+            this.funcIndices = []
+          }
+          if ("model" in chatsData) {
+            this.setCurrentModel(chatsData.model)
+          }
+          if ("temperature" in chatsData) {
+            this.temperature = chatsData.temperature
+          }
+        }
+        return false
+      case "refreshChat":
+        if ("content" in config.params) {
+          let content = config.params.content
+          let chatConfig = (typeof content === "string") ? JSON.parse(content) : content
+          // MNUtil.copy(chatConfig)
+          this.history = chatConfig.history
+          // chatAIUtils.log("refreshChat", chatConfig)
+          this.afterHistory = chatConfig.afterHistory
+          this.activeChatIdx = chatConfig.chatIdx
+          // chatAIUtils.log("refreshChat.afterHistory", chatConfig.afterHistory)
+          let last = this.history.pop()
+          let question = undefined
+          while (last.role !== "user") {
+            last = this.history.pop()
+          }
+          // MNUtil.copyJSON(this.history)
+          question = last.content
+          this.continueAsk(question)
+        }
+        return false
+      case "updateChat":
+        if ("content" in config.params) {
+          try {
             let content = config.params.content
-            let chatsData = (typeof content === "string") ? JSON.parse(content) : content
-            this.history = chatsData.data
-            // chatAIUtils.log("executeChatAction.activeChat", chatsData)
-            this.activeChatIdx = chatsData.chatIdx
-            this.refreshTokenByKey()
-            // let tokens = this.getTokenByKey()
-            // this.aiButton.setTitleForState(""+chatAIUtils.sum(tokens),0)
-            // if (this.history.length === 0) {
-            //   this.token = [0]
-            // }
-            if ("funcIdxs" in chatsData) {
-              this.funcIndices = chatsData.funcIdxs
-            }else{
+            // MNUtil.log({message:"updateChat:"+typeof content,detail:content})
+            let allData = (typeof content === "string") ? JSON.parse(content) : content
+            let chatsData = allData.chats
+            this.activeChatIdx = allData.activeChatIdx
+            let currentChat = chatsData[this.activeChatIdx]
+            this.history = currentChat.data
+            // chatAIUtils.log("updateChat", currentChat)
+            if ("funcIdxs" in currentChat) {
+              this.funcIndices = currentChat.funcIdxs
+            } else {
               this.funcIndices = []
             }
             if ("model" in chatsData) {
@@ -3785,95 +3829,51 @@ sideOutputController.prototype.executeChatAction = async function (config) {
             if ("temperature" in chatsData) {
               this.temperature = chatsData.temperature
             }
-          }
-          return false
-        case "refreshChat":
-          if ("content" in config.params) {
-            let content = config.params.content
-            let chatConfig = (typeof content === "string") ? JSON.parse(content) : content
-            // MNUtil.copy(chatConfig)
-            this.history = chatConfig.history
-            // chatAIUtils.log("refreshChat", chatConfig)
-            this.afterHistory = chatConfig.afterHistory
-            this.activeChatIdx = chatConfig.chatIdx
-            // chatAIUtils.log("refreshChat.afterHistory", chatConfig.afterHistory)
-            let last = this.history.pop()
-            let question = undefined
-            while (last.role !== "user") {
-              last = this.history.pop()
-            }
             // MNUtil.copyJSON(this.history)
-            question = last.content
-            this.continueAsk(question)
+            await MNUtil.delay(0.5)
+            chatAIConfig.exportChatData(allData)
+          } catch (error) {
+            chatAIUtils.addErrorLog(error, "updateChat")
           }
-          return false
-        case "updateChat":
-          if ("content" in config.params) {
-            try {
-              let content = config.params.content
-              // MNUtil.log({message:"updateChat:"+typeof content,detail:content})
-              let allData = (typeof content === "string") ? JSON.parse(content) : content
-              let chatsData = allData.chats
-              this.activeChatIdx = allData.activeChatIdx
-              let currentChat = chatsData[this.activeChatIdx]
-              this.history = currentChat.data
-              // chatAIUtils.log("updateChat", currentChat)
-              if ("funcIdxs" in currentChat) {
-                this.funcIndices = currentChat.funcIdxs
-              }else{
-                this.funcIndices = []
-              }
-              if ("model" in chatsData) {
-                this.setCurrentModel(chatsData.model)
-              }
-              if ("temperature" in chatsData) {
-                this.temperature = chatsData.temperature
-              }
-              // MNUtil.copyJSON(this.history)
-              await MNUtil.delay(0.5)
-              chatAIConfig.exportChatData(allData)
-            } catch (error) {
-              chatAIUtils.addErrorLog(error, "updateChat")
-            }
-          }
-          return false
-        case "showError":
-          if ("content" in config.params) {
-            let error = config.params.content
-            MNUtil.showHUD(error)
-          }
-          return false
-        default:
-          if ("content" in config.params) {
-            let content = config.params.content
-            MNUtil.showHUD(content)
-          }
-          return false
-      }
-    
+        }
+        return false
+      case "showError":
+        if ("content" in config.params) {
+          let error = config.params.content
+          MNUtil.showHUD(error)
+        }
+        return false
+      default:
+        if ("content" in config.params) {
+          let content = config.params.content
+          MNUtil.showHUD(content)
+        }
+        return false
+    }
+
   } catch (error) {
     chatAIUtils.addErrorLog(error, "executeChatAction")
   }
 }
 
-sideOutputController.prototype.renderSearchResults = function (results,metaso = false,round = 0) {
+sideOutputController.prototype.renderSearchResults = function (results, metaso = false, round = 0) {
   if (this.hasRenderSearchResults) {
     return
   }
   this.hasRenderSearchResults = true
-  MNUtil.log("round:"+round)
+  MNUtil.log("round:" + round)
   if (metaso) {
     // MNUtil.log({message:"renderSearchResultsForMetaso",detail:results})
     if (typeof results === "string") {
       this.chatRunJavaScript(`renderSearchResultsForMetaso(\`${encodeURIComponent(results)}\`,${round});`)
-    }else{
+    } else {
       this.chatRunJavaScript(`renderSearchResultsForMetaso(\`${encodeURIComponent(JSON.stringify(results))}\`,${round});`)
     }
     return
   }
   if (typeof results === "string") {
     this.chatRunJavaScript(`renderSearchResults(\`${encodeURIComponent(results)}\`,${round});`)
-  }else{
+  } else {
     this.chatRunJavaScript(`renderSearchResults(\`${encodeURIComponent(JSON.stringify(results))}\`,${round});`)
   }
 
@@ -3884,27 +3884,27 @@ sideOutputController.prototype.renderSearchResults = function (results,metaso = 
  */
 sideOutputController.prototype.createWebviewInput = function (superView) {
   try {
-  this.userInput = new UIWebView(this.view.bounds);
-  this.userInput.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf",0.8)
-  this.userInput.scalesPageToFit = false;
-  this.userInput.autoresizingMask = (1 << 1 | 1 << 4);
-  this.userInput.delegate = this;
-  // this.userInput.setValueForKey("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15","User-Agent")
-  this.userInput.scrollView.delegate = this;
-  this.userInput.layer.cornerRadius = 8;
-  this.userInput.layer.masksToBounds = true;
-  this.userInput.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
-  this.userInput.layer.borderWidth = 3
-  this.userInput.layer.opacity = 0.85
-  this.userInput.scrollEnabled = false
-  this.userInput.loadFileURLAllowingReadAccessToURL(
-    NSURL.fileURLWithPath(chatAIUtils.mainPath + '/overtype_chat.html'),
-    NSURL.fileURLWithPath(chatAIUtils.mainPath + '/')
-  );
-  if (superView) {
-    this[superView].addSubview(this.userInput)
-  }
-    } catch (error) {
+    this.userInput = new UIWebView(this.view.bounds);
+    this.userInput.backgroundColor = MNUtil.hexColorAlpha("#c0bfbf", 0.8)
+    this.userInput.scalesPageToFit = false;
+    this.userInput.autoresizingMask = (1 << 1 | 1 << 4);
+    this.userInput.delegate = this;
+    // this.userInput.setValueForKey("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15","User-Agent")
+    this.userInput.scrollView.delegate = this;
+    this.userInput.layer.cornerRadius = 8;
+    this.userInput.layer.masksToBounds = true;
+    this.userInput.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6", 0.8);
+    this.userInput.layer.borderWidth = 3
+    this.userInput.layer.opacity = 0.85
+    this.userInput.scrollEnabled = false
+    this.userInput.loadFileURLAllowingReadAccessToURL(
+      NSURL.fileURLWithPath(chatAIUtils.mainPath + '/overtype_chat.html'),
+      NSURL.fileURLWithPath(chatAIUtils.mainPath + '/')
+    );
+    if (superView) {
+      this[superView].addSubview(this.userInput)
+    }
+  } catch (error) {
     chatAIUtils.addErrorLog(error, "createWebviewInput")
   }
 }
@@ -3913,13 +3913,13 @@ sideOutputController.prototype.setInput = function (prompt) {
   this.inputRunJavaScript(`setInput("${encodeURIComponent(prompt)}")`)
 }
 sideOutputController.prototype.blur = function (delay = 0) {
-  MNUtil.delay(delay).then(()=>{
+  MNUtil.delay(delay).then(() => {
     try {
 
-    this.inputRunJavaScript(`editor.blur();`)
-    this.userInput.endEditing(true)
-    this.userInput.resignFirstResponder()
-    this.chatWebview.endEditing(true)
+      this.inputRunJavaScript(`editor.blur();`)
+      this.userInput.endEditing(true)
+      this.userInput.resignFirstResponder()
+      this.chatWebview.endEditing(true)
     } catch (error) {
       chatAIUtils.addErrorLog(error, "blur")
     }
@@ -3930,11 +3930,11 @@ sideOutputController.prototype.focusInput = function () {
 }
 
 sideOutputController.prototype.sendMessage = async function (text) {
-    try {
+  try {
     if (!this.userReference.hidden) {
       this.userReference.hidden = true
-      this.sendButton.setImageForState(chatAIConfig.sendImage,0)
-      MNUtil.showHUD("Hide Reference",0.5,this.chatToolbar)
+      this.sendButton.setImageForState(chatAIConfig.sendImage, 0)
+      MNUtil.showHUD("Hide Reference", 0.5, this.chatToolbar)
       return
     }
 
@@ -3949,41 +3949,41 @@ sideOutputController.prototype.sendMessage = async function (text) {
     this.userReference.text = ""
     this.userReference.hidden = true
     this.resizeButton.hidden = false
-    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
-    } catch (error) {
-      chatAIUtils.addErrorLog(error, "sendButtonTapped")
-    }
+    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf", 1)
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "sendButtonTapped")
   }
-sideOutputController.prototype.showReference = function () {
-try {
-
-  this.userReference.hidden = false
-  this.userInput.hidden = true
-  this.sendButton.setImageForState(chatAIConfig.closeImage,0)
-  if (this.userReference.text.trim()) {
-    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
-  }else{
-    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
-  }
-  this.chatModel.backgroundColor = MNUtil.hexColorAlpha("#afafaf",0.8)
-  MNButton.setTitle(this.chatModel, "Reference",15,true)
-  // MNUtil.delay(0.5).then(()=>{
-  //   MNButton.setTitle(this.chatModel, "Reference",15,true)
-  // })
-  
-} catch (error) {
-  chatAIUtils.addErrorLog(error, "showReference")
 }
+sideOutputController.prototype.showReference = function () {
+  try {
+
+    this.userReference.hidden = false
+    this.userInput.hidden = true
+    this.sendButton.setImageForState(chatAIConfig.closeImage, 0)
+    if (this.userReference.text.trim()) {
+      this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 1)
+    } else {
+      this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf", 1)
+    }
+    this.chatModel.backgroundColor = MNUtil.hexColorAlpha("#afafaf", 0.8)
+    MNButton.setTitle(this.chatModel, "Reference", 15, true)
+    // MNUtil.delay(0.5).then(()=>{
+    //   MNButton.setTitle(this.chatModel, "Reference",15,true)
+    // })
+
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "showReference")
+  }
 }
 sideOutputController.prototype.hideReference = function () {
   this.userReference.hidden = true
   this.userInput.hidden = false
-  this.sendButton.setImageForState(chatAIConfig.sendImage,0)
-  this.chatModel.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6",0.8)
+  this.sendButton.setImageForState(chatAIConfig.sendImage, 0)
+  this.chatModel.backgroundColor = MNUtil.hexColorAlpha("#9bb2d6", 0.8)
   if (this.userReference.text.trim()) {
-    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75",1)
-  }else{
-    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf",1)
+    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#e06c75", 1)
+  } else {
+    this.resizeButton.backgroundColor = MNUtil.hexColorAlpha("#afafaf", 1)
   }
   this.setCurrentModel(this.currentModel)
 }
@@ -3998,7 +3998,7 @@ sideOutputController.prototype.preCheck = function () {
     let lastToken = tokens.at(-1)
     // chatAIUtils.log("lastToken", {lastToken:lastToken,token:this.token})
     if (lastToken > 50000) {
-      MNUtil.confirm("🤖 MN ChatAI",`This AI Chat context has reached ${lastToken} tokens. Please not using Buitl-In models for long chat.\n\n本次对话上下文已达${lastToken} tokens。请不要使用Built-in模型进行长对话.`)
+      MNUtil.confirm("🤖 MN ChatAI", `This AI Chat context has reached ${lastToken} tokens. Please not using Buitl-In models for long chat.\n\n本次对话上下文已达${lastToken} tokens。请不要使用Built-in模型进行长对话.`)
       return false
     }
   }
@@ -4009,21 +4009,21 @@ sideOutputController.prototype.preCheck = function () {
  * @param {string|number} key 
  * @returns 
  */
-sideOutputController.prototype.getTokenByKey = function (key=this.activeChatIdx) {
+sideOutputController.prototype.getTokenByKey = function (key = this.activeChatIdx) {
   let realKey = ""
   if (typeof key === "number") {
-    realKey = "tokenConfig_"+key
+    realKey = "tokenConfig_" + key
   }
   if (typeof key === "string") {
     if (key.startsWith("tokenConfig_")) {
       realKey = key
-    }else{
-      realKey = "tokenConfig_"+key
+    } else {
+      realKey = "tokenConfig_" + key
     }
   }
   if (realKey in this.tokenConfig) {
     return this.tokenConfig[realKey]
-  }else{
+  } else {
     return [0]
   }
 }
@@ -4032,21 +4032,21 @@ sideOutputController.prototype.getTokenByKey = function (key=this.activeChatIdx)
  * @param {string|number} key 
  * @returns 
  */
-sideOutputController.prototype.addTokenByKey = function (token,key=this.activeChatIdx) {
+sideOutputController.prototype.addTokenByKey = function (token, key = this.activeChatIdx) {
   let realKey = ""
   if (typeof key === "number") {
-    realKey = "tokenConfig_"+key
+    realKey = "tokenConfig_" + key
   }
   if (typeof key === "string") {
     if (key.startsWith("tokenConfig_")) {
       realKey = key
-    }else{
-      realKey = "tokenConfig_"+key
+    } else {
+      realKey = "tokenConfig_" + key
     }
   }
   if (realKey in this.tokenConfig) {
     this.tokenConfig[realKey] = this.tokenConfig[realKey].concat(token)
-  }else{
+  } else {
     this.tokenConfig[realKey] = [].concat(token)
   }
   return this.tokenConfig[realKey]
@@ -4056,20 +4056,20 @@ sideOutputController.prototype.addTokenByKey = function (token,key=this.activeCh
  * @param {string|number} key 
  * @returns 
  */
-sideOutputController.prototype.clearTokenByKey = function (key=this.activeChatIdx) {
+sideOutputController.prototype.clearTokenByKey = function (key = this.activeChatIdx) {
   let realKey = ""
   if (typeof key === "number") {
-    realKey = "tokenConfig_"+key
+    realKey = "tokenConfig_" + key
   }
   if (typeof key === "string") {
     if (key.startsWith("tokenConfig_")) {
       realKey = key
-    }else{
-      realKey = "tokenConfig_"+key
+    } else {
+      realKey = "tokenConfig_" + key
     }
   }
   this.tokenConfig[realKey] = [0]
-  this.aiButton.setTitleForState(""+0,0)
+  this.aiButton.setTitleForState("" + 0, 0)
 
 }
 /**
@@ -4077,9 +4077,9 @@ sideOutputController.prototype.clearTokenByKey = function (key=this.activeChatId
  * @param {string|number} key 
  * @returns 
  */
-sideOutputController.prototype.refreshTokenByKey = function (key=this.activeChatIdx) {
+sideOutputController.prototype.refreshTokenByKey = function (key = this.activeChatIdx) {
   let tokens = this.getTokenByKey(key)
-  this.aiButton.setTitleForState(""+chatAIUtils.sum(tokens),0)
+  this.aiButton.setTitleForState("" + chatAIUtils.sum(tokens), 0)
 }
 /**
  * @type {UIView}

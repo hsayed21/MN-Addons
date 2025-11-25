@@ -64,7 +64,8 @@ viewWillLayoutSubviews: function() {
     self.locButton.frame = {  x: xRight - 120,  y: yBottom - 35,  width: 35,  height: 30,}
     self.linkButton.frame = {  x: xRight - 160,  y: yBottom - 35,  width: 35,  height: 30,}
     self.webview.frame = {x:xLeft,y:yTop+8,width:viewFrame.width,height:viewFrame.height-8}
-    self.buttonScrollview.frame = {x:0,y:yBottom-35,width:xRight-165,height:30}
+    self.addTabButton.frame = {x:5,y:yBottom-35,width:30,height:30}
+    self.buttonScrollview.frame = {x:35,y:yBottom-35,width:xRight-210,height:30}
     let x = 5
     for (let i = 0; i < 5; i++) {
       let buttonName = "historyButton" + (i+1)
@@ -456,10 +457,9 @@ try {
     Menu.dismissCurrentMenu()
     if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
     if (self.mode === "pdf") {
-      MNUtil.showHUD("当前模式不支持截图")
-      // let imageData = await snipasteUtils.screenshot(self.webview,width)
-      // MNUtil.copyImage(imageData)
-      // MNUtil.showHUD('截图已复制到剪贴板')
+      let imageData = await snipasteUtils.screenshot(self.webview,width)
+      MNUtil.copyImage(imageData)
+      MNUtil.showHUD('截图已复制到剪贴板')
       return
     }
     MNUtil.waitHUD("Screenshot using html2canvas...")
@@ -841,8 +841,6 @@ exportToPDF()
       // style="transform:rotate(7deg)"
       self.htmlMode = false
       self.snipasteFromImage(imageData)
-      // self.webview.loadHTMLStringBaseURL(`
-      // self.webview.loadHTMLStringBaseURL(`<a href="marginnote3app://note/C08E37FD-AC36-42BB-A8AB-739296E62F23">test</a>`)
       self.view.hidden = false
       self.webview.hidden = false
       return
@@ -1351,6 +1349,110 @@ exportToPDF()
 
     self.pageIndexButton.setTitleForState(index+1,0)
   },
+  addTab: function(button) {
+    if (self.view.popoverController) {self.view.popoverController.dismissPopoverAnimated(true);}
+    // MNUtil.copy(self.history)
+    let menu = new Menu(button,self)
+    menu.width = 250
+    menu.rowHeight = 35
+    menu.preferredPosition = 4
+    menu.addMenuItem('📋  From Clipboard', 'snipasteFromClipboard:')
+    menu.addMenuItem("📄  PDF (Current Page)", "snipasteFromPDF:","Current")
+    menu.addMenuItem("📄  PDF (First Page)", "snipasteFromPDF:","First")
+    menu.addMenuItem("📄  PDF (Last Page)", "snipasteFromPDF:","Last")
+    menu.addMenuItem("📄  From File", "importImage:","file")
+    menu.addMenuItem("🖼️  From Photo", "importImage:","photo")
+    menu.addMenuItem("📷  From Camera", "importImage:","camera")
+    menu.show()
+  },
+  importImage: async function (param) {
+    // MNUtil.showHUD("12"+param)
+    let self = getSnipasteController()
+    Menu.dismissCurrentMenu()
+    if (self.popoverController) { self.popoverController.dismissPopoverAnimated(true); }
+    let imageData
+    switch (param) {
+      case "cancel":
+        //do nothing
+        return
+      case "file":
+        let imagePath = await MNUtil.importFile(["public.png"])
+        imageData = NSData.dataWithContentsOfFile(imagePath)
+        break;
+      case "photo":
+        self.imagePickerController = UIImagePickerController.new()
+        self.imagePickerController.delegate = self  // 设置代理
+        self.imagePickerController.sourceType = 0  // 设置图片源为相册
+        // self.imagePickerController.allowsEditing = true  // 设置图片源为相册
+        MNUtil.studyController.presentViewControllerAnimatedCompletion(self.imagePickerController, true, undefined)
+        return;
+      case "camera":
+        self.imagePickerController = UIImagePickerController.new()
+        self.imagePickerController.delegate = self  // 设置代理
+        self.imagePickerController.sourceType = 1  // 设置图片源为相机
+        // self.imagePickerController.allowsEditing = true  // 设置图片源为相册
+        MNUtil.studyController.presentViewControllerAnimatedCompletion(self.imagePickerController, true, undefined)
+        return;
+      case "clipboard":
+        let image = UIPasteboard.generalPasteboard().image
+        if (image) {
+          imageData = image.pngData()
+        } else {
+          MNUtil.showHUD("No image in clipboard");
+          return;
+        }
+        break;
+      case "selection":
+        imageData = MNUtil.getDocImage(true)
+        if (!imageData) {
+          MNUtil.showHUD("No image found");
+          return;
+        }
+        break;
+      case "note":
+        let focusNote = chatAIUtils.getFocusNote()
+        if (!focusNote) {
+          MNUtil.showHUD("No note selected")
+          return
+        }
+        let images = chatAIUtils.getImagesFromNote(focusNote, true)
+        // imageData = MNNote.getImageFromNote(focusNote)
+        if (images.length) {
+          imageData = images[0]
+        }
+        if (!imageData) {
+          MNUtil.showHUD("No image found")
+          return
+        }
+        break;
+      default:
+        break;
+    }
+    if (imageData) {
+      // MNUtil.copyImage(imageData)
+      self.snipasteFromImage(imageData, {source:param})
+    }
+    return
+
+  },
+  imagePickerControllerDidFinishPickingMediaWithInfo: async function (UIImagePickerController, info) {
+    try {
+
+      let image = info.UIImagePickerControllerOriginalImage
+      // MNUtil.copy(image.pngData().base64Encoding())
+      // MNUtil.copyJSON(info)
+      MNUtil.studyController.dismissViewControllerAnimatedCompletion(true, undefined)
+      let imageData = image.jpegData(0.0)
+      self.snipasteFromImage(imageData, {source:"photo"})
+    } catch (error) {
+      snipasteUtils.addErrorLog(error, "imagePickerControllerDidFinishPickingMediaWithInfo")
+    }
+  },
+  imagePickerControllerDidCancel: function (params) {
+    // MNUtil.copy("text")
+    MNUtil.studyController.dismissViewControllerAnimatedCompletion(true, undefined)
+
+  },
   historyButtonTapped: function(button) {
     let self = getSnipasteController()
     let buttonName = button.id
@@ -1372,10 +1474,11 @@ exportToPDF()
         case "image":
           if (detail) {
             let source = detail.source
+            let imageData = undefined
             // snipasteUtils.log("detail",detail)
             switch (source) {
               case "selection":
-                let imageData = SnipasteHistoryManager.getImageById(id)
+                imageData = SnipasteHistoryManager.getImageById(id)
                 self.snipasteFromImage(imageData)
                 self.pageIndex = detail.pageIndex
                 self.docMd5 = detail.docMd5
@@ -1385,6 +1488,8 @@ exportToPDF()
                 self.snipasteNote(MNNote.new(id))
                 break;
               default:
+                imageData = SnipasteHistoryManager.getImageById(id)
+                self.snipasteFromImage(imageData)
                 break;
             }
           }else{
@@ -1517,6 +1622,10 @@ snipasteController.prototype.init =function () {
     this.screenButton.addGestureRecognizer(this.resizeGesture)
     this.resizeGesture.view.hidden = false
     this.resizeGesture.addTargetAction(this,"onResizeGesture:")
+
+    this.addTabButton = UIButton.buttonWithType(0);
+    this.setButtonLayout(this.addTabButton,"addTab:")
+    MNButton.setTitle(this.addTabButton, "➕")
 
     this.buttonScrollview = UIScrollView.new()
     this.view.addSubview(this.buttonScrollview)
@@ -1673,9 +1782,16 @@ try {
   // MNUtil.log({message:"snipasteHtml",detail:html})
   this.onRendering = true
   // MNUtil.copy(html)
-  this.webview.loadHTMLStringBaseURL(html)
+  this.loadHTML(html)
   if (this.view.hidden) {
     this.show()
+  }
+  if ("noteId" in option) {
+    this.currentId = option.noteId
+    let success = SnipasteHistoryManager.addRecord("note",this.currentId,{"source":option.source,"noteId":option.noteId})
+    if (success) {
+      this.refreshHistoryButtons()
+    }
   }
     // let scrollHeight = this.webview.scrollView.contentSize.height
     // this.webview.scrollView.setContentOffsetAnimated({x:0,y:scrollHeight-this.webview.frame.height},false)
@@ -1884,7 +2000,7 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
   }
   if (snipasteUtils.isPureHTMLComment(focusNote)) {
     let html = focusNote.comments[0].html
-    this.snipasteHtml(html)
+    this.snipasteHtml(html,{noteId:focusNote.noteId,source:"note"})
     this.focusNoteId = focusNote.noteId
     return
   }
@@ -1928,28 +2044,28 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
           }
           //zotero链接
           if (/^zotero:\/\//.test(comment.text)) {
-            return "<br>"+snipasteUtils.wrapText(snipasteUtils.getLinkHTML(comment.text,comment.text,false), "div", "markdown")
+            return snipasteUtils.wrapText(snipasteUtils.getLinkHTML(comment.text,comment.text,false), "div", "markdown")
           }
           if (comment.markdown) {
             // copy(marked.parse(comment.text))
-            return "<br>"+snipasteUtils.wrapText(MNUtil.md2html(comment.text),"div")
+            return snipasteUtils.wrapText(MNUtil.md2html(comment.text),"div","markdown")
           }
-          return "<br>"+snipasteUtils.wrapText(comment.text,"div")
+          return snipasteUtils.wrapText(comment.text,"div")
         case "PaintNote":
           if (comment.paint) {
             let commentImage = MNUtil.getMediaByHash(comment.paint)
-            return `<br>`+snipasteUtils.getImageHTML(commentImage)
+            return snipasteUtils.getImageHTML(commentImage)
           }else{
             return ""
           }
         case "HtmlNote":                  
-          return "<br>"+snipasteUtils.wrapText(comment.html,"div")
+          return snipasteUtils.wrapText(comment.html,"div")
         case "LinkNote":
           if ((!comment.q_hpic || focusNote.textFirst) && comment.q_htext) {
-            return "<br>"+snipasteUtils.wrapText(comment.q_htext,'div')
+            return snipasteUtils.wrapText(comment.q_htext,'div')
           }else if(comment.q_hpic && comment.q_hpic.paint){
             let imageData = MNUtil.getMediaByHash(comment.q_hpic.paint)
-            return `<br>`+snipasteUtils.getImageHTML(imageData)
+            return snipasteUtils.getImageHTML(imageData)
           }
           break;
         case "AudioNote":
@@ -1962,7 +2078,7 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
       }
     } catch (error) {
       snipasteUtils.addErrorLog(error, "snipasteNote", "snipasteNote")
-      return ""
+      return "<br>"
     }
   }).join("")
   let CSS = snipasteUtils.getNoteCSS(focusNote,!!audioBase64)
@@ -1991,7 +2107,7 @@ snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoP
         <div class="title" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', this.innerText)" onclick="copyText(this.innerText)">${title}</div>
       </div>
       <div class="excerptContainer">${excerptHtml.trim()}</div>
-      <div class="comment">${comments.trim()}</div>
+      <div class="commentContainer">${comments.trim()}</div>
       <div class="tail"></div>
     </div> 
   <script>
@@ -2100,13 +2216,6 @@ async function exportToPDF() {
   this.currentHTMLString = html
   // MNUtil.copy(html)
   this.loadHTML(html)
-  // let data = NSData.dataWithStringEncoding(html,4)
-  // this.webview.loadDataMIMETypeTextEncodingNameBaseURL(data,"text/html","UTF-8",MNUtil.genNSURL(this.mainPath+"/"))
-
-  // this.webview.loadHTMLStringBaseURL(html)
-  // this.webview.context["hide"] = (message)=>{
-  //   Application.sharedInstance().showHUD("123", this.view.window, 2);
-  // }
   if (this.view.hidden) {
     this.show()
   }
@@ -2457,8 +2566,6 @@ ${snipasteUtils.getSubFuncScript()}
 
 this.mode = "image"
 this.imageData = imageData
-// MNUtil.copy(html)
-// this.webview.loadHTMLStringBaseURL(html)
 this.loadHTML(html)
 
   // let data = NSData.dataWithStringEncoding(html,4)
@@ -2672,13 +2779,6 @@ ${snipasteUtils.getSubFuncScript()}
   this.onSnipaste = true
   this.currentHTMLString = html
   this.loadHTML(html)
-  // let data = NSData.dataWithStringEncoding(html,4)
-  // this.webview.loadDataMIMETypeTextEncodingNameBaseURL(data,"text/html","UTF-8",MNUtil.genNSURL(this.mainPath+"/"))
-
-  // this.webview.loadHTMLStringBaseURL(html)
-  // this.webview.context["hide"] = (message)=>{
-  //   Application.sharedInstance().showHUD("123", this.view.window, 2);
-  // }
   if (this.view.hidden) {
     this.show()
   }

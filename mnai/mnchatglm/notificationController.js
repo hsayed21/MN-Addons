@@ -228,9 +228,6 @@ try {
   }
   },
   copy: async function (button) {
-  // MNUtil.showHUD("copy")
-  // self.runJavaScript(`openEdit();`)
-  // return
   try {
     let self = getNotificationController()
     let text = await self.getTextForAction()
@@ -554,8 +551,8 @@ try {
     let requestURL = request.URL().absoluteString()
     // MNUtil.copy(requestURL)
     let config = MNUtil.parseURL(requestURL)
+    // chatAIUtils.log(config.scheme, config)
     if (config.scheme === "userselect") {
-      // chatAIUtils.log("config", config)
       switch (config.host) {
         case "showanswer":
           let correctAnswer = config.params.content.correctAnswer
@@ -622,6 +619,19 @@ try {
 
       return false
     }
+    if (config.scheme === "markdownui") {
+      let event = config.params
+      self.markdownUIAction(event)
+      // chatAIUtils.log("markdownui: "+event.type, config)
+      // if (event.type === "quiz") {
+      //   if(event.value.isCompleted) {
+      //     self.continueAsk(JSON.stringify(event))
+      //   }
+      //   return false
+      // }
+      // self.continueAsk(JSON.stringify(event))
+      return false
+    }
     if (/^nativecopy\:\/\//.test(requestURL)) {
       let text = decodeURIComponent(requestURL.split("content=")[1])
       MNUtil.copy(text)
@@ -639,8 +649,8 @@ try {
     }
     if (/^editorheight\:\/\//.test(requestURL)) {
       
-      // MNUtil.log("editorheight")
       let height = decodeURIComponent(requestURL.split("content=")[1])
+      // chatAIUtils.log("editorheight:"+height)
       // MNUtil.waitHUD("editorheight"+height)  
       // try {
       // MNUtil.log(`${height}:${self.webviewResponse.scrollView.contentSize.height}`)
@@ -739,6 +749,7 @@ try {
     self.autoHide = true
     self.errorLogged = false
     self.onreceive = false
+    self.onResponse = false
     if (!self.onChat) {
       self.sizeHeight = 0
     }
@@ -883,7 +894,6 @@ try {
         message:contentToShow,
         detail:self.errorMessage
       })
-      // self.runJavaScript(`openEdit();`)
       connection.cancel()
       delete self.connection
       if (!self.retried && self.isSubscription()) {
@@ -905,8 +915,6 @@ try {
           self.errorMessage = res
           await MNUtil.delay(0.1)
           self.showErrorMessage(self.errorMessage)
-          // self.setWebviewContentDev({response:`\`\`\` json\n${JSON.stringify(self.errorMessage,undefined,2)}\n\`\`\``})
-          // self.runJavaScript(`openEdit();`)
           connection.cancel()
           delete self.connection
           return
@@ -937,6 +945,7 @@ try {
       }
     }
     if (self.onResponse) {
+      // chatAIUtils.log("onResponse")
       if (self.hasDone) {
         if (!self.onFinish && self.connection && (self.connection === connection)) {
           self.onFinish = true
@@ -1068,8 +1077,6 @@ notificationController.prototype.baseAsk = async function(
   temperature=undefined
 ) {
 try {
-
-
   if (question) {//只在第一轮检测
     let res = chatAIUtils.checkVision([].concat(question), config)
     if (!res.proceed) {
@@ -1637,6 +1644,7 @@ try {
     this.response = ""
     this.preResponse = ""
     this.preFuncResponse = ""
+    this.onResponse = false
     // chatAIUtils.log("executeFinishAction", this.actions)
     if (this.actions.length) {
       let validAction = this.actions.filter(action=> action <= 20)
@@ -2071,6 +2079,7 @@ notificationController.prototype.getTextForAction = async function () {
  * @this {notificationController}
  */
 notificationController.prototype.getResponse = async function (force = false) {
+  // chatAIUtils.log("getResponse")
   // if (this.onResponse && !force) {
   //   MNUtil.showHUD("getResponse.reject")
   //   return false
@@ -2097,6 +2106,7 @@ notificationController.prototype.getResponseForChatGPT = function (checkToolCall
   try {
     let test = chatAIUtils.parseResponse(this.originalText, checkToolCalls)
     // MNUtil.copy(test)
+    // MNUtil.log("getResponseForChatGPT",test)
     if (!test) {
       // MNUtil.showHUD("Empty")
       return
@@ -2119,6 +2129,7 @@ notificationController.prototype.getResponseForChatGPT = function (checkToolCall
     return
   }
 }
+
 
 /** 
  * @this {notificationController}
@@ -2257,49 +2268,18 @@ notificationController.prototype.createWebviewResponse = function () {
   this.webviewResponse.layer.masksToBounds = true;
   this.webviewResponse.layer.borderColor = MNUtil.hexColorAlpha("#9bb2d6",0.8);
   this.webviewResponse.layer.borderWidth = 0
-  this.webviewResponse.layer.opacity = 0.9
+  this.webviewResponse.layer.opacity = 0.95
   this.webviewResponse.scrollView.bounces = false
+  this.view.addSubview(this.webviewResponse)
   // this.webviewResponse.loadFileURLAllowingReadAccessToURL(
-  //   NSURL.fileURLWithPath(chatAIConfig.mainPath + `/veditor.html`),
+  //   NSURL.fileURLWithPath(chatAIConfig.mainPath + `/veditor_${this.theme}.html`),
   //   NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
   // );
-  this.webviewResponse.loadFileURLAllowingReadAccessToURL(
-    NSURL.fileURLWithPath(chatAIConfig.mainPath + `/veditor_${this.theme}.html`),
-    NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
-  );
-  this.view.addSubview(this.webviewResponse)
 
     } catch (error) {
     chatAIUtils.addErrorLog(error, "createWebviewResponse")
   }
 }
-// /** @this {notificationController} */
-// notificationController.prototype.runJavaScript = async function(script,webview) {
-//   // if(!this.webviewResponse || !this.webviewResponse.window)return;
-//         MNUtil.showHUD("message")
-  
-//   return new Promise((resolve, reject) => {
-//     try {
-//         MNUtil.showHUD("message")
-      
-//     if (webview) {
-//       // MNUtil.copy(webview)
-//       this[webview].evaluateJavaScript(script,(result) => {
-//         MNUtil.showHUD("message1")
-//         resolve(result)
-//       });
-//     }else{
-//       this.webviewResponse.evaluateJavaScript(script,(result) => {
-//         MNUtil.showHUD("message2")
-//         resolve(result)
-//       });
-//     }
-//     } catch (error) {
-//       chatAIUtils.addErrorLog(error, "runJavaScript")
-//       resolve(0)
-//     }
-//   })
-// };
 
 /** @this {notificationController} */
 notificationController.prototype.runJavaScript = async function(script,webview) {
@@ -2357,7 +2337,14 @@ notificationController.prototype.getWebviewHeight = async function (finish = fal
   if (finish) {
     // MNUtil.copy(this.response)
     // MNUtil.log("getWebviewHeight",chatAIConfig.getConfig("allowEdit"))
-    await this.runJavaScript(`openEdit(${chatAIConfig.getConfig("allowEdit")});`)
+    let editorType = chatAIConfig.getConfig("editorType")
+    if (editorType === "markdown-ui") {
+      //do nothing
+      let sizeHeight = parseInt(await this.runJavaScript(`document.getElementsByClassName('widget-container')[0].scrollHeight`))
+      return sizeHeight
+    }else{
+      await this.runJavaScript(`openEdit(${chatAIConfig.getConfig("allowEdit")});`)
+    }
   }
   let sizeHeight = parseInt(await this.runJavaScript(`document.body.scrollHeight`))
   return sizeHeight
@@ -2366,6 +2353,11 @@ notificationController.prototype.getWebviewHeight = async function (finish = fal
 /** @this {notificationController} */
 notificationController.prototype.getWebviewSelection = async function (webview){
   try {
+  let editorType = chatAIConfig.getConfig("editorType")
+  if (editorType === "markdown-ui") {
+    MNUtil.showHUD("getWebviewSelection not supported")
+    return undefined
+  }
   let  selection = await this.runJavaScript(`editor.getSelection()`,webview)
   // let selection = await this.runJavaScript(`getCurrentSelect()`,webview)
   // MNUtil.delay(0.1).then(async ()=>{
@@ -2393,16 +2385,33 @@ notificationController.prototype.getWebviewSelection = async function (webview){
 /** @this {notificationController} */
 notificationController.prototype.getWebviewContent = async function (webview){
   try {
-  let  selection = await this.runJavaScript(`editor.getSelection()`,webview)
-  // let selection = await this.runJavaScript(`getCurrentSelect()`,webview)
-  MNUtil.delay(0.1).then(async ()=>{
-    await this.runJavaScript(`editor.blur();`,webview)
-    if (webview) {
-      this[webview].endEditing(true)
-    }else{
-      this.webviewResponse.endEditing(true)
-    }
-  })
+  let editorType = chatAIConfig.getConfig("editorType")
+  if (editorType === "markdown-ui") {
+    MNUtil.showHUD("getWebviewContent not supported")
+    return this.lastResponse
+  }
+  // let selection = await this.runJavaScript(`editor.getSelection()`,webview)
+  let tem = await this.runJavaScript(`getCurrentSelect()`,webview)
+  if (!tem) {
+    // chatAIUtils.log("getWebviewContent", "tem is undefined")
+    return this.lastResponse
+  }else{
+    // chatAIUtils.log("getWebviewContent", tem)
+  }
+  let status = JSON.parse(tem)
+  let selection = status.selectionText
+  let mode = status.mode
+  // chatAIUtils.log("status", status)
+  if (mode !== "sv") {
+    MNUtil.delay(0.1).then(async ()=>{
+      await this.runJavaScript(`editor.blur();`,webview)
+      if (webview) {
+        this[webview].endEditing(true)
+      }else{
+        this.webviewResponse.endEditing(true)
+      }
+    })
+  }
   // MNUtil.copy(selection)
   if (!selection || !selection.trim()) {
     let text = this.lastResponse
@@ -2424,20 +2433,12 @@ notificationController.prototype.scrollBottom = async function () {
 }
 /** @this {notificationController} */
 notificationController.prototype.setWebviewContentDev = async function (response) {
+  try {
+  // chatAIUtils.log("setWebviewContentDev", response)
   // this.tem.push(response)
   // MNUtil.copy(`setResponse(\`${encodeURIComponent(JSON.stringify(response))}\`)`)
   // if (Date.now() - this.lastRenderTime > 100) {
-  try {
-    // if(response.response){
-    //   this.runJavaScript(`setRealResponse(\`${encodeURIComponent( response.response)}\`)`)
-    // }else{
-    // if ("funcResponse" in response && "reasoningResponse" in response) {
-    // MNUtil.log({message:"setWebviewContentDev",detail:`setResponse(\`${encodeURIComponent(JSON.stringify(response))}\`)`})
-      // MNUtil.copy(`setResponse(\`${encodeURIComponent(JSON.stringify(response))}\`)`)
-      
-    // }
-      this.runJavaScript(`setResponse(\`${encodeURIComponent(JSON.stringify(response))}\`)`)
-    // }
+    this.runJavaScript(`setResponse(\`${encodeURIComponent(JSON.stringify(response))}\`)`)
   } catch (error) {
     chatAIUtils.addErrorLog(error, "setWebviewContentDev")
     return undefined
@@ -2452,9 +2453,15 @@ notificationController.prototype.setWebviewContentDev = async function (response
   *重新加载一遍veditor
   */
 notificationController.prototype.setNewResponse = function (webview) {
+  let editorType = chatAIConfig.getConfig("editorType")
+  let editor = `veditor_${this.theme}.html`
+  if (editorType === "markdown-ui") {
+    editor = `markdown_ui.html`
+  }
+  let path = chatAIConfig.mainPath + `/${editor}`
   if (webview) {
     this[webview].loadFileURLAllowingReadAccessToURL(
-      NSURL.fileURLWithPath(chatAIConfig.mainPath + `/veditor_${this.theme}.html`),
+      NSURL.fileURLWithPath(path),
       NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
     );
     // this[webview].loadFileURLAllowingReadAccessToURL(
@@ -2472,9 +2479,13 @@ notificationController.prototype.setNewResponse = function (webview) {
       this.createWebviewResponse()
       this.setNotiLayout()
       chatAIUtils.forceToRefresh = false
+      this.webviewResponse.loadFileURLAllowingReadAccessToURL(
+        NSURL.fileURLWithPath(path),
+        NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
+      );
     }else{
       this.webviewResponse.loadFileURLAllowingReadAccessToURL(
-        NSURL.fileURLWithPath(chatAIConfig.mainPath + `/veditor_${this.theme}.html`),
+        NSURL.fileURLWithPath(path),
         NSURL.fileURLWithPath(chatAIConfig.mainPath + '/')
       );
       // this.webviewResponse.loadFileURLAllowingReadAccessToURL(
@@ -2511,6 +2522,10 @@ notificationController.prototype.setResponseText = async function (funcResponse 
       funcResponse: funcHtml,
       response: this.response?.trim() ?? "",
       reasoningResponse: this.reasoningResponse?.trim() ?? "",
+    }
+    if (!option.funcResponse && !option.response && !option.reasoningResponse) {
+      this.onResponse = false
+      return true
     }
     if (!this.onFinish) {
       if (option.response) {
@@ -2774,8 +2789,14 @@ notificationController.prototype.refreshTheme = function (theme) {
  * @this {notificationController}
  */
 notificationController.prototype.changeTheme = function (theme,webview) {
+
   if (!chatAIConfig.getConfig("autoTheme")) {
     return
+  }
+  let editorType = chatAIConfig.getConfig("editorType")
+  if (editorType === "markdown-ui") {
+    MNUtil.showHUD("changeTheme not supported")
+    return undefined
   }
   if (webview) {
     switch (theme) {
@@ -3023,10 +3044,23 @@ notificationController.prototype.executeAction = async function (action,text,und
 try {
 
     let note = this.currentNote(false)
+    let editorType = chatAIConfig.getConfig("editorType")
     switch (action) {
       case "editMode":
+        if (editorType === "markdown-ui") {
+          MNUtil.showHUD("executeAction not supported")
+          return
+        }
         this.showHUD("Edit mode")
         this.runJavaScript(`openEdit(true)`)
+        return
+      case "editModeSV":
+        if (editorType === "markdown-ui") {
+          MNUtil.showHUD("executeAction not supported")
+          return
+        }
+        this.showHUD("Edit in source code")
+        this.runJavaScript(`openEditInSV()`)
         return
       case "bindNote":
         if (this.noteExists()) {
@@ -3558,6 +3592,67 @@ notificationController.prototype.refreshCustomButton = function (){
 /**
  * 
  * @param {string} path 
+ * @returns {Promise<NSData>}
+ * @this {notificationController}
+ */
+notificationController.prototype.extractPdfPage = async function (path,pageInput) {
+try {
+  if (this.view.hidden) {
+    // this.beginNotification("PDF")
+    this.setNewResponse()
+    await MNUtil.delay(0.1)
+    while (true) {
+      let initialized = await this.runJavaScript(`initialized`)
+      if (initialized) {
+        break
+      }
+      await MNUtil.delay(0.1)
+    }
+  }
+  let pdfData = MNUtil.getFile(path)
+  if (!pdfData) {
+    return undefined
+  }
+  let base64 = pdfData.base64Encoding()
+  let extractedPdfBase64 = ""
+  let beginTime = Date.now()
+  await this.runJavaScript(`extractPdfPage("${base64}","${pageInput}")`)
+    while (true){
+      await MNUtil.delay(0.1)
+      if (Date.now()-beginTime > 10000) {
+        MNUtil.showHUD("Timeout")
+        return undefined
+      }
+      MNUtil.showHUD("Extracting PDF...")
+      let tem = await this.runJavaScript(`getExtractedPdfBase64()`)
+      if (tem) {
+      let res = JSON.parse(decodeURIComponent(tem))
+      if (res.error) {
+        MNUtil.showHUD("Error: "+res.error)
+        MNUtil.copy(res.error)
+        return undefined
+      }
+      if (res.onExtracting === false && res.processPercent === 100) {
+        extractedPdfBase64 = res.extractedPdfBase64
+        MNUtil.showHUD("Finish")
+        break
+      }
+      }
+    }
+  chatAIUtils.log("extractedPdfBase64: "+(Date.now()-beginTime))
+  MNUtil.copy(extractedPdfBase64)
+  let data = MNUtil.dataFromBase64(extractedPdfBase64,"pdf")
+  data.writeToFileAtomically(chatAIUtils.mainPath+"/extractedPdf.pdf", false)
+  return data
+  
+} catch (error) {
+  chatAIUtils.addErrorLog(error, "notificationController.extractPdfPage", path,pageInput)
+  return undefined
+}
+}
+/**
+ * 
+ * @param {string} path 
  * @returns {Promise<string[]>}
  * @this {notificationController}
  */
@@ -3566,6 +3661,13 @@ notificationController.prototype.getLocalFileContent = async function (path) {
       // this.beginNotification("PDF")
       this.setNewResponse()
       await MNUtil.delay(0.1)
+      while (true) {
+        let initialized = await this.runJavaScript(`initialized`)
+        if (initialized) {
+          break
+        }
+        await MNUtil.delay(0.1)
+      }
     }
     let pdfData = MNUtil.getFile(path)
     if (!pdfData) {
@@ -3815,6 +3917,11 @@ try {
 }
 }
 notificationController.prototype.renderSearchResults = function (results,metaso = false) {
+  let editorType = chatAIConfig.getConfig("editorType")
+  if (editorType === "markdown-ui") {
+    MNUtil.showHUD("renderSearchResults not supported")
+    return undefined
+  }
   if (this.hasRenderSearchResults) {
     return
   }
@@ -3891,6 +3998,11 @@ notificationController.prototype.parseErrorMessage = function (errorMessage,erro
             this.retried = true//没必要重试的情况
             return message
           }
+          if (errorMessage.startsWith("Function call is missing a thought_signature")) {
+            message = "函数调用暂时不支持Gemini3的thought_signature参数"
+            this.retried = true//没必要重试的情况
+            return message
+          }
           if (errorMessage.startsWith("该令牌额度已用尽")) {
             if (this.isSubscription()) {
               message = "该令牌额度已用尽，请检查订阅"
@@ -3906,6 +4018,24 @@ notificationController.prototype.parseErrorMessage = function (errorMessage,erro
             return message
           }
           return message
+}
+
+notificationController.prototype.markdownUIAction = async function (event) {
+  try {
+      chatAIUtils.log("markdownui: "+event.type, event)
+      if (event.type === "quiz") {
+        if(event.value.isCompleted) {
+          let confirm = await MNUtil.confirm("🤖 MN ChatAI", "Quiz completed, submit to AI?\n\n测试已完成，是否提交给AI？")
+          if (confirm) {
+            this.continueAsk(JSON.stringify(event))
+          }
+        }
+        return false
+      }
+      this.continueAsk(JSON.stringify(event))
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "markdownUIAction")
+  }
 }
 /**
  * @type {UIView}

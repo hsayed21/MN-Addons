@@ -506,6 +506,37 @@ static checkLogo(){
     }
     return undefined
   }
+  static async readURL(url){
+    try {
+      let baseURL = "https://open.bigmodel.cn/api/paas/v4/reader"
+      let apikey = "76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C"
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: "Bearer "+apikey,
+        Accept: "application/json"
+      }
+        // copyJSON(headers)
+      let body = {
+        "url":url
+      }
+      const request = MNConnection.initRequest(baseURL, {
+          method: "POST",
+          headers: headers,
+          timeout: 60,
+          json: body
+        })
+      let res = await MNConnection.sendRequest(request)
+      editorUtils.log("readURL", res)
+      if ("reader_result" in res) {
+        return res.reader_result
+      }else{
+        return undefined
+      }
+    } catch (error) {
+      editorUtils.addErrorLog(error, "readURL")
+      return undefined
+    }
+  }
   static setCommentIndices(arr, fromIndex, toIndex) {
       let from = fromIndex
       let to = toIndex
@@ -1413,8 +1444,10 @@ class editorConfig{
     mode:"wysiwyg",
     size:{width:450,height:500},
     autoTitle:false,
-    autoTitleThreshold:5
+    autoTitleThreshold:5,
+    allowDeleteEmptyNote:false
   }
+  static cachedConfig = {}
   static init(){
     this.config = this.getByDefault('MNEditor_config', this.defaultConfig)
     this.dynamic = this.getByDefault('MNEditor_dynamic', false)
@@ -1424,7 +1457,8 @@ class editorConfig{
   }
   static moveEditor(){
     try {
-      NSFileManager.defaultManager().createDirectoryAtPathAttributes(MNUtil.dbFolder+"/veditor", undefined)
+      MNUtil.createFolderDev(MNUtil.dbFolder+"/veditor")
+      // NSFileManager.defaultManager().createDirectoryAtPathAttributes(MNUtil.dbFolder+"/veditor", undefined)
       // if (this.getConfig("toolbar")) {
       NSData.dataWithContentsOfFile(editorUtils.mainPath+"/veditor.html").writeToFileAtomically(MNUtil.dbFolder+"/veditor/veditor.html", false)
       // }else{

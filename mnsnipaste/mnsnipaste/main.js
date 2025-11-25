@@ -48,8 +48,6 @@ JSB.newAddon = function (mainPath) {
         MNUtil.removeObserver(self, "snipastePDF")
         MNUtil.removeObserver(self, "snipasteHtml")
         MNUtil.removeObserver(self, "snipasteMermaid")
-        MNUtil.removeObserver(self, "snipasteNote")
-        MNUtil.removeObserver(self, "snipasteImage")
         MNUtil.removeObserver(self, "snipasteAudioAction")
         MNUtil.removeObserver(self, "PopupMenuOnSelection")
         MNUtil.removeObserver(self, "PopupMenuOnNote")
@@ -190,6 +188,7 @@ JSB.newAddon = function (mainPath) {
         }
         let userInfo = sender.userInfo
         let html = sender.userInfo.html
+        // snipasteUtils.log("OnReceivedSnipasteHtml",html)
         self.addonController.snipasteHtml(html,userInfo)
       },
       OnReceivedSnipasteMermaid: function (sender) {
@@ -270,8 +269,6 @@ JSB.newAddon = function (mainPath) {
           addonController.htmlMode = false
           addonController.onSnipaste = true
           addonController.snipasteFromImage(imageData)
-//           addonController.webview.loadHTMLStringBaseURL(html)
-          // addonController.webview.loadHTMLStringBaseURL(`<a href="marginnote3app://note/C08E37FD-AC36-42BB-A8AB-739296E62F23">test</a>`)
           if (addonController.view.hidden) {
             addonController.show()
           }
@@ -437,8 +434,6 @@ JSB.newAddon = function (mainPath) {
           addonController.onSnipaste = true
           addonController.pageIndex = selection.pageIndex
           addonController.snipasteFromImage(imageData,{source:"selection",docMd5:selection.docMd5,pageIndex:selection.pageIndex})
-//           addonController.webview.loadHTMLStringBaseURL(html)
-          // addonController.webview.loadHTMLStringBaseURL(`<a href="marginnote3app://note/C08E37FD-AC36-42BB-A8AB-739296E62F23">test</a>`)
           return
         }else{
           //无图片下选择卡片
@@ -511,8 +506,6 @@ JSB.newAddon = function (mainPath) {
               addonController.htmlMode = false
               addonController.onSnipaste = true
               addonController.snipasteFromImage(imageData)
-//               addonController.webview.loadHTMLStringBaseURL(html)
-              // addonController.webview.loadHTMLStringBaseURL(`<a href="marginnote3app://note/C08E37FD-AC36-42BB-A8AB-739296E62F23">test</a>`)
               if (addonController.view.hidden) {
                 addonController.show()
               }

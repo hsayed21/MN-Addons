@@ -762,34 +762,32 @@ var dynamicController = JSB.defineClass(
       // showHUD("begin")
       self.notifyTimer.invalidate();
     },
+    /**
+     * 点击prompt按钮后触发
+     * @param {UIButton} sender 
+     */
     onPromptButton: async function (sender) {
       try {
         if (!chatAIUtils.checkCouldAsk()) {
           return;
         }
-        // chatAIUtils.log("getQuestion: "+Date.now())
-        // if (chatAIUtils.visionMode) {
-        //   MNUtil.showHUD("Unavailable for vision mode")
-        //   return
-        // }
         let self = getDynamicController();
         let userInput = await self.getInput();
         let title = sender.id;
-        let selection = chatAIUtils.currentSelection;
+        let selection = chatAIUtils.getCurrentSelectionObject();
         if (selection.onSelection) {
           chatAIUtils.notifyController.text = selection.text;
           chatAIUtils.notifyController.noteid = undefined;
         } else {
-          if (chatAIUtils.getFocusNote()) {
-            chatAIUtils.notifyController.noteid =
-              chatAIUtils.getFocusNote().noteId;
+          let focusNote = chatAIUtils.getFocusNote(false)
+          if (focusNote) {
+            chatAIUtils.notifyController.noteid = focusNote.noteId;
           } else {
             chatAIUtils.notifyController.noteid = undefined;
           }
         }
         chatAIUtils.notifyController.currentPrompt = title;
         chatAIUtils.notifyController.notShow = false;
-        // MNUtil.showHUD("getQuestion")
         let question = await chatAIUtils.chatController.getQuestion(
           title,
           userInput,
@@ -798,8 +796,6 @@ var dynamicController = JSB.defineClass(
           chatAIUtils.log("question is undefined",title,"error")
           return;
         }
-        // chatAIUtils.log("ask: "+Date.now())
-        // MNUtil.copy(question)
         chatAIUtils.notifyController.ask(question, title);
       } catch (error) {
         chatAIUtils.addErrorLog(error, "onPromptButton");
@@ -1127,7 +1123,6 @@ dynamicController.prototype.refreshVisionAndOCR = async function () {
  * @this {dynamicController}
  */
 dynamicController.prototype.openInput = async function () {
-  // MNUtil.showHUD("message")
   try {
     this.onClick = true;
     let studyFrame = MNUtil.studyView.frame;
@@ -1141,7 +1136,9 @@ dynamicController.prototype.openInput = async function () {
     this.lastFrame.height = 215;
     this.aiButton.hidden = true;
     this.addButton.hidden = true;
-    this.refreshVisionAndOCR();
+    MNUtil.delay(0).then(()=>{
+      this.refreshVisionAndOCR();
+    })
     // chatAIUtils.getInfoForReference(true,false).then((info)=>{
     //   if ("imageData" in info) {
     //     let config = chatAIConfig.getDynmaicConfig()

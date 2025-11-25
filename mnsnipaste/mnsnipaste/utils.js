@@ -410,10 +410,16 @@ class snipasteUtils{
     return `<img width="100%" src="data:image/jpeg;base64,${imageData.base64Encoding()}"/>`
   }
   static getLinkToNote(comment){
-    let note = MNNote.new(comment.text)
-    let noteid = note.noteId
+    let noteURL = comment.text
+    let config = MNUtil.parseURL(noteURL)
+    let noteId = config.pathComponents[0]
+    // this.log("getLinkToNote", config)
+    // if (noteURL.includes("summary")) {
+    //   noteURL = noteURL.replace("/summary/0","")
+    // }
+    let note = MNNote.new(noteId)
     if (note) {
-      return `<div class="linkToNote"><div class="buttonContainer">${this.getLinkHTML("snipaste://action?noteId="+noteid, "Snipaste")} ${this.getLinkHTML(note.noteURL, "Focus")} ${this.getLinkHTML("snipaste://action?noteId="+noteid+"&target=floatWindow", "Float Window")}</div>${this.getDataFromNote(note,"comment")}</div>`
+      return `<div class="linkToNote"><div class="buttonContainer">${this.getLinkHTML("snipaste://action?noteId="+noteId, "Snipaste")} ${this.getLinkHTML(note.noteURL, "Focus")} ${this.getLinkHTML("snipaste://action?noteId="+noteId+"&target=floatWindow", "Float Window")}</div>${this.getDataFromNote(note,"comment")}</div>`
     }else{
       return ""
     }
@@ -509,12 +515,15 @@ class snipasteUtils{
         cursor: grab;
         color: ${textColor};
       }
-    .comment {
+    .commentContainer {
       white-space: nowrap;
-      padding-left: 10px;
-      padding-right: 10px;
-      cursor: grab;
+      padding-left: 5px;
+      padding-right: 5px;
       color: ${textColor};
+    }
+    .comment {
+      white-space: pre-line;
+      cursor: grab;
     }
       .MathJax{
         color: ${textColor} !important;

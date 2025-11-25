@@ -10,6 +10,7 @@ JSB.newAddon = function (mainPath) {
   JSB.require('dynamicController')
   JSB.require('sideOutputController')
   JSB.require('katex.min')
+  JSB.require('pdf-lib.js')
   if (typeof jsonrepair === 'undefined') {
     JSB.require('jsonrepair')
   }
@@ -823,10 +824,12 @@ ${knowledge}
         MNUtil.showHUD("KeyboardWillShowNotification")
       },
       syncConfig :async function (params) {
+        Menu.dismissCurrentMenu()
         if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
         chatAIConfig.sync()
       },
       openFloat: async function (beginFrame) {
+        Menu.dismissCurrentMenu()
         if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
         try {
         if (!chatAIUtils.dynamicController) {
