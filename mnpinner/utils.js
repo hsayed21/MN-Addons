@@ -254,6 +254,45 @@ class pinnerUtils {
       return false
     }
   }
+
+  /**
+   * 复制 Markdown 格式的卡片链接（简化版）
+   * @param {MNNote} note - 卡片对象
+   */
+  static copyMarkdownLink(note) {
+    if (!note) {
+      MNUtil.showHUD("❌ 请先选择一个卡片");
+      return;
+    }
+
+    // 显示输入对话框
+    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+      "复制 Markdown 链接",
+      "请输入链接文本",
+      2, // alertViewStyle = 2 (文本输入框)
+      "取消",
+      ["✅ 确定"],
+      (alert, buttonIndex) => {
+        if (buttonIndex === 0) return; // 取消
+
+        // 获取输入文本
+        const inputText = alert.textFieldAtIndex(0).text;
+        const linkText = inputText && inputText.trim() ? inputText.trim() : "";
+
+        if (!linkText) {
+          MNUtil.showHUD("❌ 请输入链接文本");
+          return;
+        }
+
+        // 生成 Markdown 链接
+        const mdLink = `[${linkText}](${note.noteURL})`;
+
+        // 复制到剪贴板
+        MNUtil.copy(mdLink);
+        MNUtil.showHUD(`✅ 已复制: ${mdLink}`);
+      }
+    );
+  }
 }
 
 
