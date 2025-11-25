@@ -1407,6 +1407,15 @@ class SectionRegistry {
         order: 4,
         description: ""
       }],
+      ["research/reading", {
+        key: "research/reading",
+        displayName: "文献阅读",
+        viewMode: "research",
+        color: "#e5c07b",
+        icon: "🎓",
+        order: 5,
+        description: "阅读过程中的一些中途卡片、页面"
+      }],
       // ["submindmap", {
       //   key: "submindmap/InnerProductSpaceAndHilbertSpace",
       //   displayName: "内积空间 & Hilbert 空间",
