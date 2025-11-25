@@ -225,7 +225,8 @@ class literatureCoverParser {
       return this.buildCoverObject(coverComment);
 
     } catch (error) {
-      MNUtil.log(`[literatureCoverParser] 解析封面失败: ${error.message}`);
+      literatureUtils.addErrorLog("解析封面失败", "literatureCoverParser", error.message)
+      
       return null;
     }
   }
@@ -278,7 +279,7 @@ class literatureCoverParser {
       const imageData = MNUtil.getMediaByHash(imageHash);
 
       if (!imageData) {
-        MNUtil.log(`[literatureCoverParser] 无法获取图片数据: ${imageHash}`);
+        literatureUtils.addErrorLog("无法获取图片数据", "literatureCoverParser", imageHash)
         return null;
       }
 
@@ -298,7 +299,7 @@ class literatureCoverParser {
       };
 
     } catch (error) {
-      MNUtil.log(`[literatureCoverParser] 构建封面对象失败: ${error.message}`);
+      literatureUtils.addErrorLog("构建封面对象失败", "literatureCoverParser", error.message)
       return null;
     }
   }

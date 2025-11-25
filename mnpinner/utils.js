@@ -1359,6 +1359,15 @@ class SectionRegistry {
         order: 3,
         description: ""
       }],
+      ["research/management", {
+        key: "research/management",
+        displayName: "文献管理",
+        viewMode: "research",
+        color: "#e5c07b",
+        icon: "🎓",
+        order: 4,
+        description: ""
+      }],
       // ["submindmap", {
       //   key: "submindmap/InnerProductSpaceAndHilbertSpace",
       //   displayName: "内积空间 & Hilbert 空间",

@@ -2220,15 +2220,15 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       }
 
       // 使用 MNUtil.userInput 并设置默认值（前100个字符）
-      let defaultText = clipboard.text.length > 100
-        ? clipboard.text.substring(0, 100) + "..."
-        : clipboard.text
+      // let defaultText = clipboard.text.length > 100
+      //   ? clipboard.text.substring(0, 100) + "..."
+      //   : clipboard.text
 
       let result = await MNUtil.userInput(
         "编辑文本",
         "请输入新的文本内容",
         ["取消", "保存"],
-        {default: defaultText}
+        {default: clipboard.text}
       )
 
       if (result.button === 0) return  // 点击取消
