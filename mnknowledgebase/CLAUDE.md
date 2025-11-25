@@ -261,13 +261,56 @@ synonymGroups: [
 ```
 
 ### 添加新的 OCR 模型
-编辑 utils.js 中的 KnowledgeBaseConfig.excerptOCRSources：
+
+**重要**：添加新 OCR 模型需要修改 `utils.js` 中的**两个位置**，缺一不可！
+
+#### 1. 添加到模型选择列表（用户界面）
+编辑 `KnowledgeBaseConfig.excerptOCRSources` 数组（约第 20869 行）：
 ```javascript
 static excerptOCRSources = [
-  // 在数组末尾添加
-  "新模型名称"
+  // 在对应系列的位置添加
+  "新模型名称",
 ]
 ```
+
+#### 2. 添加到 OCR 方法的 switch-case（调用路由）
+编辑 `KnowledgeBaseNetwork.OCR` 方法中的 switch-case 结构（约第 20615 行）：
+```javascript
+switch (ocrSource) {
+  case "Doc2X":
+  case "doc2x":
+    // Doc2X 专用处理
+    break;
+  case "SimpleTex":
+  case "simpleTex":
+    // SimpleTex 专用处理
+    break;
+  // ... 其他模型 ...
+  case "doubao-seed-1-6":
+  case "doubao-seed-1-6-nothinking":
+  case "新模型名称":           // ← 在这里添加新 case
+  case "MiniMax-Text-01":
+    // 走 ChatGPTVision 调用路径
+    let beginTime = Date.now()
+    res = await this.ChatGPTVision(imageBase64, ocrSource, prompt)
+    // ...
+    break;
+  default:
+    MNUtil.showHUD("Unsupported source: "+ocrSource)  // ← 否则报这个错
+    return undefined
+}
+```
+
+#### 常见错误
+如果只添加到 `excerptOCRSources` 而不添加到 switch-case，用户选择该模型后会报错：
+```
+Unsupported source: 模型名称
+```
+
+#### 模型命名注意事项
+- case 的模型名称必须与 `excerptOCRSources` 中的字符串**完全匹配**
+- 大多数模型通过 `ChatGPTVision` 方法调用，直接添加 case 即可（利用 case 穿透）
+- `ChatGPTVision` 内部通过 `ocrConfig.modelSource(source)` 获取模型配置，该配置来自 MNOCR 插件
 
 ## 相关文档
 

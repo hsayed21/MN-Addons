@@ -20650,12 +20650,15 @@ ${this.OCRNumberingRules}
         case "claude-opus-4":
         case "claude-sonnet-4":
         case "claude-3-5-haiku":
+        case "claude-sonnet-4-5":
+        case "claude-haiku-4-5":
         case "gemini-2.0-flash-exp":
         case "gemini-2.0-flash-lite":
         case "gemini-2.5-flash-lite":
         case "gemini-2.0-flash":
         case "gemini-2.5-flash":
         case "gemini-2.5-pro":
+        case "gemini-2.5-pro-minimal":
         case "gemini-2.0-pro":
         case "GPT-4o":
         case "GPT-4o-mini":
@@ -20669,8 +20672,15 @@ ${this.OCRNumberingRules}
         case "doubao-seed-1-6-nothinking":
         case "doubao-seed-1.6-flash":
         case "doubao-seed-1.6-flash-nothinking":
+        case "doubao-seed-1.6-lite-nothinking":
+        case "doubao-seed-1-6-vision-nothinking":
         case "Moonshot-v1":
         case "MiniMax-Text-01":
+        case "qwen3-vl-30b":
+        case "qwen3-vl-32b":
+        case "qwen3-vl-235b":
+        case "qwen3-omni":
+        case "deepseek-ocr":
           let beginTime = Date.now()
           res = await this.ChatGPTVision(imageBase64, ocrSource, prompt)
           let endTime = Date.now()
@@ -20871,9 +20881,12 @@ class KnowledgeBaseConfig {
     "doubao-seed-1-6-nothinking",
     "doubao-seed-1.6-flash",
     "doubao-seed-1.6-flash-nothinking",
+    "doubao-seed-1.6-lite-nothinking",
+    "doubao-seed-1-6-vision-nothinking",
     "Doc2X",
     "Doc2XPDF",
     "SimpleTex",
+    "deepseek-ocr",
     "abab6.5s-chat",
     "MiniMax-Text-01",
     "Moonshot-v1",
@@ -20881,8 +20894,9 @@ class KnowledgeBaseConfig {
     "claude-opus-4",
     "claude-sonnet-4",
     "claude-3-7-sonnet",
-    "claude-3-5-haiku-20241022",
     "claude-3-5-haiku",
+    "claude-sonnet-4-5",
+    "claude-haiku-4-5",
     "gemini-2.0-flash",
     "gemini-2.5-flash",
     "gemini-2.0-flash-lite",
@@ -20890,6 +20904,7 @@ class KnowledgeBaseConfig {
     "gemini-2.0-flash-exp",
     "gemini-2.0-pro",
     "gemini-2.5-pro",
+    "gemini-2.5-pro-minimal",
     "glm-4v-plus",
     "glm-4v-flash",
     "glm-4.1v-thinking-flashx",
@@ -20904,29 +20919,11 @@ class KnowledgeBaseConfig {
     "GPT-5",
     "GPT-5-mini",
     "GPT-5-nano",
-    // 🆕 新增 Qwen 视觉系列
-    "qwen3-vl-plus",
-    "qwen3-omni-flash",
-    "qwen/qwen3-vl-235b-a22b-instruct",
-    "qwen/qwen3-vl-235b-a22b-thinking",
-    // 🆕 新增 Moonshot 完整系列
+    "qwen3-vl-30b",
+    "qwen3-vl-32b",
+    "qwen3-vl-235b",
+    "qwen3-omni",
     "kimi-latest",
-    "moonshot-v1-8k",
-    "moonshot-v1-32k",
-    "moonshot-v1-128k",
-    "moonshot-v1-8k-vision-preview",
-    "moonshot-v1-32k-vision-preview",
-    "moonshot-v1-128k-vision-preview",
-    "moonshot-v1-auto",
-    // 🆕 新增 Doubao 详细版本
-    "doubao-seed-1-6-thinking-250715",
-    "doubao-seed-1-6-thinking-250615",
-    "doubao-seed-1-6-250615",
-    "doubao-seed-1-6-flash-250715",
-    "doubao-seed-1-6-flash-250615",
-    "doubao-seed-1-6-vision-250815",
-    // 🆕 新增 GLM 高级版本
-    "pro/thudm/glm-4.1v-9b-thinking",
   ];
   // 默认摘录 OCR 模型常量，避免在多个位置重复字面量
   static DEFAULT_EXCERPT_OCR_MODEL = "doubao-seed-1-6";
