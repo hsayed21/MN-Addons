@@ -766,6 +766,22 @@
       padding-left: 20px;
     }
 
+    /* 字段标题选中状态 */
+    .field-header.selected {
+      background: linear-gradient(to right, #eef2ff, #ffffff);
+      border-left-width: 6px;
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.2);
+    }
+
+    /* 字段标题复选框样式 */
+    .field-checkbox {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: var(--primary-color);
+      margin-right: 8px;
+    }
+
     /* ========== 目标选择器模态框 ========== */
     .modal-overlay {
       position: fixed;
@@ -1696,17 +1712,58 @@
           '默认': '📄'
         };
 
+        // 为自定义字段添加 data-index 属性
+        if (field.index >= 0) {
+          fieldHeader.dataset.index = field.index;
+        }
+
+        // 为自定义字段添加复选框
+        let checkboxHTML = '';
+        if (field.index >= 0) {
+          checkboxHTML = '<input type="checkbox" class="field-checkbox">';
+        }
+
         fieldHeader.innerHTML = `
+          ${checkboxHTML}
           <span class="field-icon">${fieldIconMap[field.name] || '📄'}</span>
           <span class="field-title">${field.name}</span>
           <span class="field-count">${field.comments.length} 条</span>
         `;
-        fieldHeader.title = '点击全选该字段下的评论';
 
-        // 点击字段头部，全选该字段下的所有评论
-        fieldHeader.addEventListener('click', () => {
-          selectFieldComments(field);
-        });
+        // 事件绑定：区分自定义字段和摘录字段
+        if (field.index >= 0) {
+          // 自定义字段：单击选中字段，双击选中评论
+          fieldHeader.title = '单击：选中字段 | 双击：选中评论';
+
+          fieldHeader.addEventListener('click', (e) => {
+            if (e.detail === 1) {
+              fieldHeader._clickTimer = setTimeout(() => {
+                toggleFieldSelection(field);
+              }, 250);
+            }
+          });
+
+          fieldHeader.addEventListener('dblclick', (e) => {
+            clearTimeout(fieldHeader._clickTimer);
+            e.stopPropagation();
+            selectFieldComments(field);
+          });
+
+          // 复选框事件
+          const checkbox = fieldHeader.querySelector('.field-checkbox');
+          if (checkbox) {
+            checkbox.addEventListener('change', (e) => {
+              e.stopPropagation();
+              toggleFieldSelection(field);
+            });
+          }
+        } else {
+          // 摘录字段：保持原有逻辑（单击选中评论）
+          fieldHeader.title = '单击全选该字段下的评论';
+          fieldHeader.addEventListener('click', () => {
+            selectFieldComments(field);
+          });
+        }
 
         fieldGroup.appendChild(fieldHeader);
 
@@ -2130,6 +2187,27 @@
       updateUI();
     }
 
+    /**
+     * 切换字段本身的选中状态（只针对字段标题）
+     * @param {Object} field - 字段对象
+     */
+    function toggleFieldSelection(field) {
+      // 摘录字段不可选中（field.index = -1）
+      if (field.index < 0) {
+        showToast('摘录字段无法单独选中');
+        return;
+      }
+
+      // 切换选中状态
+      if (state.selectedIndices.has(field.index)) {
+        state.selectedIndices.delete(field.index);
+      } else {
+        state.selectedIndices.add(field.index);
+      }
+
+      updateUI();
+    }
+
     function invertSelection() {
       const newSet = new Set();
       state.comments.forEach((c) => {
@@ -2366,6 +2444,22 @@
           card.classList.add('selected');
         } else {
           card.classList.remove('selected');
+        }
+      });
+
+      // 更新字段标题的选中状态
+      document.querySelectorAll('.field-header[data-index]').forEach((header) => {
+        const index = parseInt(header.dataset.index);
+        const checkbox = header.querySelector('.field-checkbox');
+
+        if (checkbox) {
+          checkbox.checked = state.selectedIndices.has(index);
+        }
+
+        if (state.selectedIndices.has(index)) {
+          header.classList.add('selected');
+        } else {
+          header.classList.remove('selected');
         }
       });
 
