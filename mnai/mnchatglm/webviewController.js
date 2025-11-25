@@ -943,10 +943,12 @@ try {
     menu.addMenuItem("🆓 Image-01", "setImageGenerationModel:",{title:"Image-01",model:"image-01"},model==="image-01")
     menu.addMenuItem("🆓 Image-01 Live", "setImageGenerationModel:",{title:"Image-01 Live",model:"image-01-live"},model==="image-01-live")
     menu.addMenuItem("🆓 Qwen-Image", "setImageGenerationModel:",{title:"Qwen-Image",model:"qwen-image"},model==="qwen-image")
-    menu.addMenuItem("✨ CogView-4", "setImageGenerationModel:",{title:"CogView-4",model:"cogview-4-250304"},model==="cogview-4-250304")
-    menu.addMenuItem("✨ Gemini-2.5 Flash Image", "setImageGenerationModel:",{title:"Gemini-2.5 Flash Image",model:"gemini-2.5-flash-image"},model==="gemini-2.5-flash-image")
-    menu.addMenuItem("✨ GPT Image-1", "setImageGenerationModel:",{title:"GPT Image-1",model:"gpt-image-1"},model==="gpt-image-1")
-    menu.width = 250
+    menu.addMenuItem("✨ CogView-4 (0.06)", "setImageGenerationModel:",{title:"CogView-4",model:"cogview-4-250304"},model==="cogview-4-250304")
+    menu.addMenuItem("✨ Gemini-2.5 Flash Image (0.01)", "setImageGenerationModel:",{title:"Gemini-2.5 Flash Image",model:"gemini-2.5-flash-image"},model==="gemini-2.5-flash-image")
+    menu.addMenuItem("✨ Gemini-3 Pro Image (0.1)", "setImageGenerationModel:",{title:"Gemini-3 Pro Image",model:"gemini-3-pro-image-preview"},model==="gemini-3-pro-image-preview")
+    menu.addMenuItem("✨ Gemini-3 Pro Image 4K (0.15)", "setImageGenerationModel:",{title:"Gemini-3 Pro Image 4K",model:"gemini-3-pro-image-preview-4k"},model==="gemini-3-pro-image-preview-4k")
+    menu.addMenuItem("✨ GPT Image-1 (0.01)", "setImageGenerationModel:",{title:"GPT Image-1",model:"gpt-image-1"},model==="gpt-image-1")
+    menu.width = 300
     menu.show()
   },
   setImageGenerationModel: function (modelInfo) {
@@ -959,10 +961,12 @@ try {
   chooseWebSearchModel: function (button) {
     let menu = new Menu(button,self)
     let model = chatAIConfig.getConfig("webSearchModel")
-    menu.addMenuItem("🆓 Search Std", "setWebSearchModel:",{title:"Search Std",model:"search_std"},model==="search_std")
-    menu.addMenuItem("✨ Search Pro", "setWebSearchModel:",{title:"Search Pro",model:"search_pro"},model==="search_pro")
-    menu.addMenuItem("✨ Search Pro Quark", "setWebSearchModel:",{title:"Search Pro Quark",model:"search_pro_quark"},model==="search_pro_quark")
-    menu.addMenuItem("✨ Search Pro Sogou", "setWebSearchModel:",{title:"Search Pro Sogou",model:"search_pro_sogou"},model==="search_pro_sogou")
+    menu.addMenuItem("🆓 UAPI Search", "setWebSearchModel:",{title:"UAPI Search",model:"uapi_search"},model==="uapi_search")
+    menu.addMenuItem("✨ Search Std (0.005)", "setWebSearchModel:",{title:"Search Std",model:"search_std"},model==="search_std")
+    menu.addMenuItem("✨ Search Pro (0.01)", "setWebSearchModel:",{title:"Search Pro",model:"search_pro"},model==="search_pro")
+    menu.addMenuItem("✨ Search Pro Quark (0.01)", "setWebSearchModel:",{title:"Search Pro Quark",model:"search_pro_quark"},model==="search_pro_quark")
+    menu.addMenuItem("✨ Search Pro Sogou (0.01)", "setWebSearchModel:",{title:"Search Pro Sogou",model:"search_pro_sogou"},model==="search_pro_sogou")
+    menu.addMenuItem("✨ Metaso Search (0.01)", "setWebSearchModel:",{title:"Metaso Search",model:"metaso_search"},model==="metaso_search")
     menu.width = 250
     menu.show()
   },
@@ -1351,11 +1355,11 @@ try {
       }
       return
     }
-    let confirm = await MNUtil.confirm("🤖 MN ChatAI","Oraganize knowledge using glm-4.5-flash? \n\n 是否使用glm-4.5-flash整理知识库？")
+    let confirm = await MNUtil.confirm("🤖 MN ChatAI","Oraganize knowledge using glm-4.5-air? \n\n 是否使用glm-4.5-air整理知识库？")
     if (confirm) {
       let config = {
         source: "Subscription",
-        model: "glm-4.5-flash-nothinking",
+        model: "glm-4.5-air-nothinking",
         key: "sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44",
         url: subscriptionConfig.URL+"/v1/chat/completions"
       }
@@ -2134,8 +2138,14 @@ ${config}
     self.setButtonText(promptNames,chatAIConfig.currentPrompt)
     chatAIConfig.save("MNChatglm_config")
   },
-  toggleAutoAction:function () {
+  toggleAutoAction: async function () {
   try {
+    if (!chatAIConfig.config.autoAction) {
+      let confirm = await MNUtil.confirm("🤖 MN ChatAI", "After enabling this feature, the current prompt will be executed automatically under specific conditions. Do you want to enable it now?\n\n启用该功能后，当前prompt将自动在特定条件下执行。是否确认启用？")
+      if (!confirm) {
+        return
+      }
+    }
     chatAIConfig.config.autoAction = !chatAIConfig.config.autoAction
     chatAIConfig.save('MNChatglm_config')
     self.refreshView("autoActionView")
@@ -4340,10 +4350,19 @@ try {
         case "gemini-2.5-flash-image":
           MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: Gemini-2.5 Flash Image")
           break;
+        case "gemini-3-pro-image-preview":
+          MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: Gemini-3 Pro Image")
+          break;
+        case "gemini-3-pro-image-preview-4k":
+          MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: Gemini-3 Pro Image 4K")
+          break;
         default:
           break;
       }
       switch (chatAIConfig.getConfig("webSearchModel")){
+        case "uapi_search":
+          MNButton.setTitle(this.webSearchModelButton, "Web Search: UAPI Search")
+          break;
         case "search_std":
           MNButton.setTitle(this.webSearchModelButton, "Web Search: Search Std")
           break;
@@ -4355,6 +4374,9 @@ try {
           break;
         case "search_pro_sogou":
           MNButton.setTitle(this.webSearchModelButton, "Web Search: Search Pro Sogou")
+          break;
+        case "metaso_search":
+          MNButton.setTitle(this.webSearchModelButton, "Web Search: Metaso Search")
           break;
         default:
           break;
@@ -5133,11 +5155,11 @@ chatglmController.prototype.optimizeSystem = async function (mode = "optimizeSys
       }
       return
     }
-    let confirm = await MNUtil.confirm("🤖 MN ChatAI","Optimize system using glm-4.5-flash? \n\n 是否使用glm-4.5-flash优化系统提示词？")
+    let confirm = await MNUtil.confirm("🤖 MN ChatAI","Optimize system using glm-4.5-air? \n\n 是否使用glm-4.5-air优化系统提示词？")
     if (confirm) {
       let config = {
         source: "Subscription",
-        model: "glm-4.5-flash-nothinking",
+        model: "glm-4.5-air-nothinking",
         key: "sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44",
         url: subscriptionConfig.URL+"/v1/chat/completions"
       }

@@ -108,6 +108,9 @@ JSB.newAddon = function (mainPath) {
           return;
         };
         if (!self.addonController.view.hidden) {
+          if (self.addonController.onAnimate) {
+            return
+          }
           let studyFrame = MNUtil.currentWindow.bounds
           if (self.addonController.miniMode) {
             let oldFrame = self.addonController.view.frame
@@ -514,6 +517,9 @@ JSB.newAddon = function (mainPath) {
         }
         let menu = new Menu(sender,self)
         menu.width = 250
+        if (SnipasteHistoryManager.history.length > 0) {
+          menu.addMenuItem("🔍  Last Snipaste", "snipasteFromLast:")
+        }
         menu.addMenuItem("📋  Clipboard Image", "snipasteFromClipboard:")
         let docFileName = MNUtil.currentDoc.fullPathFileName
         if (docFileName.endsWith(".pdf")) {
@@ -535,6 +541,10 @@ JSB.newAddon = function (mainPath) {
         } catch (error) {
           snipasteUtils.addErrorLog(error, "toggleAddon")
         }
+      },
+      snipasteFromLast: function () {
+        Menu.dismissCurrentMenu()
+        self.addonController.snipasteFromHistory(0)
       },
       snipasteFromAudio: function (fileName) {
 

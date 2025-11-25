@@ -38,6 +38,15 @@ webSearch工具的搜索引擎可选，其中search_std订阅下免费，search_
 超时时间增加到10分钟
 增加一个源码模式，方便选取文本并拖拽出来
 
+createNote支持comments参数
+websearch模型支持设置为秘塔搜索（每次0.01积分），且秘塔搜索模式下支持由AI选择搜索范围（webpage,document,scholar,image,video,podcast）
+readURL工具支持一次性读取多个结果，支持AI帮助总结网页内容以节省token消耗
+
+websearch默认模型改为UAPI Search，无订阅限制，同时Search Std价格改为0.005
+readURL模型改为UAPI URL Reader
+修改使用qwen-image画图的问题
+画图模型增加gemini-3-pro-image-preview和gemini-3-pro-image-preview-4k
+
 killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app"
 
 pgrep -x "MarginNote 4" > /dev/null && (killall "MarginNote 4" && sleep 1 && open "/Applications/MarginNote 4.app") || open "/Applications/MarginNote 4.app"

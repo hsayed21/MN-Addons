@@ -1341,7 +1341,7 @@ const kbOCRConfig = {
     },
 
     {
-      pattern: /\^\*/g,
+      pattern: /\^(?:\*|\(\*\))/g,
       replacement: "*",
       description: "移除上标符号前的脱字符"
     },
@@ -1362,10 +1362,10 @@ const kbOCRConfig = {
       pattern: /𝒴/g,
       replacement: "𝒱",
     },
-    // {
-    //   pattern: //g,
-    //   replacement: "",
-    // },
+    {
+      pattern: /բ/g,
+      replacement: "_f",
+    },
     // {
     //   pattern: //g,
     //   replacement: "",

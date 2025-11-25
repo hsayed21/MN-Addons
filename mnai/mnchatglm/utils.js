@@ -88,6 +88,21 @@ class chatAITool{
 
   getArgs(){
     //toolbar的动作配置需要动态更新，所以需要单独处理
+    if (this.name === "webSearch") {
+      let model = chatAIConfig.getConfig("webSearchModel")
+      if (model === "metaso_search") {
+        let args = this.args
+        args.scope = {
+          type:"string",
+          enum:["webpage","document","scholar","image","video","podcast"],
+          description:"Optional, scope to search in web, default is 'webpage'."
+        }
+        return args
+        
+      }else{
+        return this.args
+      }
+    }
     if (this.name === "executeAction") {
       let args = this.args
       let actionConfigs = {}
@@ -178,21 +193,21 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       if (!args) {
         res.onError = true
         res.errorMessage = this.genErrorInMissingArguments(args2check[0],funcId)
-        chatAIUtils.log("Missing arguments"+args2check[0],args,"error")
+        chatAIUtils.log("Missing arguments:"+args2check[0],args,"error")
         return res
       }
       for (let arg of args2check) {//必选的参数
         if (!(arg in args)) {//如果必选参数不在AI实际提供的参数中,则报错
           res.onError = true
           res.errorMessage = this.genErrorInMissingArguments(arg,funcId)
-          chatAIUtils.log("Missing arguments"+arg,args,"error")
+          chatAIUtils.log("Missing arguments:"+arg,args,"error")
           return res
         }
         // chatAIUtils.addErrorLog(JSON.stringify(args), funcId, "Missing arguments: "+arg)
         if (typeof args[arg] === 'string' && !(args[arg].trim())) {
           res.onError = true
           res.errorMessage = this.genErrorInEmptyArguments(arg,funcId)
-          chatAIUtils.log("Empty arguments"+arg,args,"error")
+          chatAIUtils.log("Empty arguments:"+arg,args,"error")
           return res
         }
       }
@@ -888,20 +903,78 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
     try {
       let response = {}
       let message = {success:true}
-      let url = args.url
-      let res = await chatAIUtils.readURL(url)
-      if (res && "reader_result" in res) {
-        response.result = res.reader_result.content
-        message.response = "URL is read successfully:\n"+response.result
-        response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      let mode
+      if (args.mode) {
+        mode = args.mode
       }else{
-        message.response = "Failed in reading URL"
-        message.success = false
-        response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        if ("urls" in args) {
+          mode = "multiple"
+        }else{
+          mode = "single"
+        }
       }
-      return response
+      if (mode === "single") {
+        let url = args.url
+        if (args.aiSummary) {
+          let summaryPrompt = args.summaryPrompt ?? "Please summarize the content of the website."
+          let res = await chatAINetwork.aiSummaryWebsite(url,summaryPrompt)
+          if (res && res.success) {
+            response.result = `Summary of website [${res.url}]: \n`+res.summary
+            message.response = response.result
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+            return response
+          }else{
+            message.response = "Failed in summarizing URL by AI, below is the content of the website: "+res.content
+            message.success = true
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+            return response
+          }
+        }
+        let res = await chatAIUtils.readURLFree(url)
+        if (res && res.success) {
+          response.result = res.content
+          message.response = response.result
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        }else{
+          message.response = "Failed in reading URL"
+          if (res.content) {
+            message.response = "Failed in reading URL: "+res.content
+          }
+          message.success = false
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        }
+        return response
+      }
+      if (mode === "multiple") {
+        let urls = args.urls ?? []
+        if (args.aiSummary) {
+          let summaryPrompt = args.summaryPrompt ?? "Please summarize the content of the websites."
+          let res = await Promise.all(urls.map(url => chatAINetwork.aiSummaryWebsite(url,summaryPrompt)))
+          response.result = res.map(item => {
+            if (item.success) {
+              return `Summary of website [${item.url}]: ${item.summary}`
+            }else{
+              if ("content" in item) {
+                return `Failed in summarizing URL by AI, below is the content of the website[${item.url}]: ${item.content}`
+              }else{
+                return `Failed in summarizing website [${item.url}]: ${item.error}`
+              }
+            }
+          }).join("\n\n")
+          message.response = response.result
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          return response
+        }
+        let res = await Promise.all(urls.map(url => chatAIUtils.readURLFree(url)))
+        response.result = res.map(item => {
+          return `Content of url [${item.url}]: ${item.content}`
+        }).join("\n\n")
+        message.response = response.result
+        response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        return response
+      }
     } catch (error) {
-      chatAIUtils.addErrorLog(error, "readURL")
+      chatAIUtils.addErrorLog(error, "chatAITool.readURL")
       let response = {}
       let message = {success:false,response:"Failed in reading URL"}
       response.toolMessages = chatAITool.genToolMessage(message,func.id)
@@ -911,18 +984,57 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
   async webSearch(func,args){
     let response = {}
     let message = {success:true}
+    let searchModel = chatAIConfig.getConfig("webSearchModel")
     if (chatAIUtils.checkSubscribe(true,false)) {
-      MNUtil.showHUD("🤖 Searching for ["+args.question+"] ")
-      let apikeys = ["76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C","b9bf21c783bf4207a0f419af4a82fa9c.9guT9c4lY05MgFrC"]
-      let apikey = chatAIUtils.getRandomElement(apikeys)
-      let res = await chatAINetwork.webSearch(args.question,apikey)
-      response.renderSearchResults = JSON.stringify(res)
-      response.toolMessages = chatAITool.genToolMessage(JSON.stringify(res),func.id)
-    }else{
-      message.response = "Empty response due to the subscription limit in MN Utils"
+
+    }else{//未订阅下自动切换到UAPI Search
+      searchModel = "uapi_search"
+    }
+
+    MNUtil.showHUD("🤖 Searching for ["+args.question+"] ")
+    let res = undefined
+    let apikey = undefined
+    switch (searchModel) {
+      case "uapi_search":
+        res = await chatAINetwork.webSearchFree(args.question)
+        break;
+      case "metaso_search":
+        apikey = "mk-BE62FC962CCCD97B4DE0AD2BA812EF70"
+        res = await chatAINetwork.metasoSearch(args.question,apikey,args.scope)
+        break;
+      default:
+        let apikeys = ["76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C","b9bf21c783bf4207a0f419af4a82fa9c.9guT9c4lY05MgFrC"]
+        apikey = chatAIUtils.getRandomElement(apikeys)
+        res = await chatAINetwork.webSearch(args.question,apikey)
+        break;
+    }
+    // if (searchModel === "uapi_search") {
+    //   res = await chatAINetwork.webSearchFree(args.question)
+    //   response.renderSearchResults = JSON.stringify(res)
+    //   message.response = JSON.stringify(res)
+    //   response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    //   return response
+    // }
+    // if (searchModel === "metaso_search") {
+    //   let apikey = "mk-BE62FC962CCCD97B4DE0AD2BA812EF70"
+    //   let res = await chatAINetwork.metasoSearch(args.question,apikey,args.scope)
+    //   response.renderSearchResults = JSON.stringify(res)
+    //   message.response = JSON.stringify(res)
+    //   response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    //   return response
+    // }
+    // let apikeys = ["76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C","b9bf21c783bf4207a0f419af4a82fa9c.9guT9c4lY05MgFrC"]
+    // let apikey = chatAIUtils.getRandomElement(apikeys)
+    // let res = await chatAINetwork.webSearch(args.question,apikey)
+    if (!res) {
+      message.response = "Failed in searching"
       message.success = false
       response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      return response
     }
+    response.renderSearchResults = JSON.stringify(res)
+    message.response = JSON.stringify(res)
+    response.toolMessages = chatAITool.genToolMessage(message,func.id)
     return response
   }
   async generateImageUsingCogviewChatCompletion(func,args,model = "cogview-3-flash"){
@@ -1111,32 +1223,9 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       let request = chatAINetwork.initRequestForQwenWithoutStream(args.prompt, apikey, url, model)
       let res = await chatAINetwork.sendRequest(request)
       MNUtil.log({message:"generateImageUsingQwen",detail:res})
-      if (typeof res === "string") {
-        let resObj = JSON.parse(res.split("data:")[1])
-        if ("output" in resObj) {
-          MNUtil.log({message:"generateImageUsingQwen",detail:resObj})
-          MNUtil.showHUD("✅ Image generated")
-          MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
-          response.result = resObj.output.choices[0].message.content[0].image
-          message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
-          response.toolMessages = chatAITool.genToolMessage(message,func.id)
-          
-          MNUtil.delay(0.1).then(()=>{
-            let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
-            MNUtil.postNotification("snipasteImage", {imageData:imageData})
-            // MNUtil.log("✅ Image downloaded")
-          })
-          return response
-        }
-        response.result = res
-        MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result)
-        message.response = "Failed in generating image: "+response.result
-        response.toolMessages = chatAITool.genToolMessage(message,func.id)
-        return response
-      }
       // MNUtil.copy(res)
-      if ("data" in res) {
-        if ("error" in res.data) {
+      if ("output" in res) {
+        if ("data" in res && "error" in res.data) {
           if (typeof res.data.error === "string") {
             response.result = res.data.error
           }else{
@@ -1148,8 +1237,8 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
         }else{
           MNUtil.showHUD("✅ Image generated")
           MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
-          if (Array.isArray(res.data)) {
-            response.result = res.data[0].url
+          if (Array.isArray(res.output.choices)) {
+            response.result = res.output.choices[0].message.content[0].image
           }else{
             response.result = res.data.image_urls[0]
           }
@@ -1186,6 +1275,100 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
     return response
   
   }
+  async generateImageViaSubscription(func, args,model,isFree = false) {
+     if (model.startsWith("gemini-2.5-flash-image")) {
+      model = "gemini-2.5-flash-image-vip"
+    }
+    let response = {}
+    let message = {success:true}
+    try {
+      let url = subscriptionConfig.URL+"/v1/images/generations"
+      let apikey = isFree ? "sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44" :subscriptionConfig.APIKey
+      let size = "1024x1024"
+      MNUtil.showHUD("Generating image...")
+      let request = chatAINetwork.initRequestForCogView(args.prompt, apikey, url, model,size)
+      let res = await chatAINetwork.sendRequest(request)
+      // MNUtil.copy(res)
+      MNUtil.log({message:"generateImageViaSubscription",detail:res})
+      if ("data" in res) {
+        if ("error" in res.data) {
+          if (typeof res.data.error === "string") {
+            response.result = res.data.error
+          }else{
+            response.result = res.data.error.message
+          }
+          let confirm = await MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result+"\n\n是否切换到智谱CogView-3 Flash?")
+          if (confirm) {//使用智谱模型进行生图
+            response = this.generateImageUsingCogview(func, args)
+            return response;
+          }else{
+            message.response = "Failed in generating image: "+response.result
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          }
+        }else{
+          MNUtil.showHUD("✅ Image generated")
+          MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
+          // MNUtil.log("✅ Image generated")
+          if (Array.isArray(res.data)) {
+            let data = res.data[0]
+            if ("url" in data) {
+              response.result = data.url
+              message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+            }else{
+              response.result = "data:png;base64,"+data.b64_json
+              if (typeof snipasteUtils !== "undefined") {
+                message.response = "Image is created and displayed in MN Snipaste"
+              }else{
+                message.response = "Image is created"
+              }
+            }
+          }else{
+            response.result = res.data.image_urls[0]
+            message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+          }
+          // response.result = res.data.image_urls[0]
+          // message.response = "Image is created at the following url: "+res.data.image_urls[0]+"\n please show this image as markdown image"
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          MNUtil.delay(0.1).then(()=>{
+            let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
+            MNUtil.postNotification("snipasteImage", {imageData:imageData})
+            // chatAIUtils.notifyController.updateHeight()
+            // MNUtil.log("✅ Image downloaded")
+          })
+          // MNUtil.postNotification("snipasteHtml", {html:`<img src="${response.result}" alt="Image generated by MN ChatAI">`})
+        }
+      }else{
+        if ("error" in res) {
+          response.result = res.error
+          let confirm = await MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result+"\n\n是否切换到智谱Cogview-4?")
+          if (confirm) {//使用智谱模型进行生图
+            response = this.generateImageUsingCogview(func, args)
+            return response;
+          }else{
+            message.response = "Failed in generating image: "+response.result
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          }
+        }else{
+          response.result = res.error
+          let confirm = await MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result+"\n\n是否切换到智谱Cogview-4?")
+          if (confirm) {//使用智谱模型进行生图
+            response = this.generateImageUsingCogview(func, args)
+            return response;
+          }else{
+            message.response = "Failed in generating image"
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          }
+        }
+      }
+
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "generateImageViaSubscription")
+      MNUtil.showHUD("❌ Image generated failed")
+      message.response = "Failed in generating image"
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    }
+    return response
+  }
   async generateImage(func,args) {
     let model = chatAIConfig.getConfig("imageGenerationModel")
     if (model === "cogview-3-flash") {
@@ -1195,7 +1378,7 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       return await this.generateImageUsingMinimax(func,args,model)
     }
     if (model.startsWith("qwen-")) {
-      return await this.generateImageUsingQwen(func, args, model)
+      return await this.generateImageViaSubscription(func, args, model, true)
     }
     if (!chatAIUtils.checkSubscribe(false,false,true)) {
       return await this.generateImageUsingCogviewChatCompletion(func,args,"cogview-3-flash")
@@ -1204,6 +1387,7 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       return await this.generateImageUsingCogviewChatCompletion(func,args,model)
     }
     MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML(`Generating image using ${model}...`)})
+    return await this.generateImageViaSubscription(func, args, model)
     if (model.startsWith("gemini-2.5-flash-image")) {
       model = "gemini-2.5-flash-image-vip"
     }
@@ -1212,27 +1396,9 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
     try {
       let url = subscriptionConfig.URL+"/v1/images/generations"
       let apikey = subscriptionConfig.APIKey
-      // model = "gpt-image-1"
-      // url = "https://remote.feliks.top/v1/images/generations"
-      // apikey = "sk-dHlgo7tvMjnnzz4s4yCElJxLPUwcaBP7CoY5SfFTXcpCWuaj"
-      // model = "qwen-image"
-      // url = "https://api.u1162561.nyat.app:20074/v1/images/generations"
-      // apikey = "sk-Qv2WDpQnZ8w3xlbl192d0fBf92C545Ad9e4b58629d0866C7"
-      // model = "qwen-image"
-      // let url = "https://generativelanguage.googleapis.com/v1beta/openai/images/generations"
-      // let apikey = "AIzaSyAU7Ekqwi6lOHONFtu4g3Q9UWr56c1D5Gk"
-      // let model = "gemini-2.0-flash-preview-image-generation"
-      // let url = "https://api.gptgod.online/v1/images/generations"
-      // let apikey = "sk-edtyVyaobSEOb0tDXphlPDSquQKPdE8AvwU6Jl5qIjFPhtMz"
-      // let model = "gemini-2.5-flash-image"
-      // let url = "https://api.minimax.chat/v1/image_generation"
-      // let apikey = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLmnpfnq4vpo54iLCJVc2VyTmFtZSI6Iuael-eri-mjniIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxNzgyMzYzOTA3MTA5NzAwMTg2IiwiUGhvbmUiOiIxMzEyODU4OTM1MSIsIkdyb3VwSUQiOiIxNzgyMzYzOTA3MTAxMzExNTc4IiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiMTUxNDUwMTc2N0BxcS5jb20iLCJDcmVhdGVUaW1lIjoiMjAyNS0wNS0wMSAyMToxMzozMyIsIlRva2VuVHlwZSI6MSwiaXNzIjoibWluaW1heCJ9.a_vgCX8RH98PWKstZTCkkUow-ta4vS-FEYCkLNTnnYO5wpAPzqkODprPbDHTyE46uQE1PHcV34NNgQjDynAe9cKkCU11hrZhX5UexWZ7OOx_m7IvzeqezX7iZXQQSCJjzEwlwYenACS71uKGyoRpXXfNUWZ_cZZQrS_EJxAYiAiklKY1w-ue0kC61ubRdmT0FvPdQ5mWzYDvrbI6GE5OqLmWKcDFi6qQQ7PPrQkfHm8bZxQ6VmIt0pwMMA3FG4a6DW8We82iCmOZ2ZnRvQauMA7NyDnMxNG2b7Qps_A5LNAsmqNIUOb0aQtyyYdQYOokPV_LOJbrlzo_gjrxwS1n-g"
-      // let model = "image-01"
-      // let url = "https://api.minimax.chat/v1/image_generation"
-      // let apikey = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLmnpfnq4vpo54iLCJVc2VyTmFtZSI6Iuael-eri-mjniIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxNzgyMzYzOTA3MTA5NzAwMTg2IiwiUGhvbmUiOiIxMzEyODU4OTM1MSIsIkdyb3VwSUQiOiIxNzgyMzYzOTA3MTAxMzExNTc4IiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiMTUxNDUwMTc2N0BxcS5jb20iLCJDcmVhdGVUaW1lIjoiMjAyNS0wNS0wMSAyMToxMzozMyIsIlRva2VuVHlwZSI6MSwiaXNzIjoibWluaW1heCJ9.a_vgCX8RH98PWKstZTCkkUow-ta4vS-FEYCkLNTnnYO5wpAPzqkODprPbDHTyE46uQE1PHcV34NNgQjDynAe9cKkCU11hrZhX5UexWZ7OOx_m7IvzeqezX7iZXQQSCJjzEwlwYenACS71uKGyoRpXXfNUWZ_cZZQrS_EJxAYiAiklKY1w-ue0kC61ubRdmT0FvPdQ5mWzYDvrbI6GE5OqLmWKcDFi6qQQ7PPrQkfHm8bZxQ6VmIt0pwMMA3FG4a6DW8We82iCmOZ2ZnRvQauMA7NyDnMxNG2b7Qps_A5LNAsmqNIUOb0aQtyyYdQYOokPV_LOJbrlzo_gjrxwS1n-g"
-      // let model = "wanx2.1-t2i-plus"
+      let size = args.size ?? "1024x1024"
       MNUtil.showHUD("Generating image...")
-      let request = chatAINetwork.initRequestForCogView(args.prompt, apikey, url, model)
+      let request = chatAINetwork.initRequestForCogView(args.prompt, apikey, url, model,size)
       let res = await chatAINetwork.sendRequest(request)
       // MNUtil.copy(res)
       MNUtil.log({message:"generateImage",detail:res})
@@ -1597,6 +1763,15 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       if ("color" in args) {
         note.colorIndex = MNUtil.getColorIndex(args.color)
       }
+      if ("comments" in args && args.comments && args.comments.length) {
+        for (let comment of args.comments) {
+          if (comment.type === "markdown") {
+            note.appendMarkdownComment(comment.content)
+          }else{
+            note.appendTextComment(comment.content)
+          }
+        }
+      }
       if ("parentNoteId" in args && args.parentNoteId) {
         let parent = MNNote.new(args.parentNoteId)
         if (parent) {
@@ -1621,6 +1796,7 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
   }
   }
   async createNote(func,args,parentNote = undefined){
+    // chatAIUtils.log("createNote", args)
     let type = args.type ?? "childNote"
     if (type == "fromSelection") {
       let response = await this.createNoteFromSelection(func,args)
@@ -1641,6 +1817,7 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       }
       // MNUtil.log({message:"addChildNoteAfter",detail:config.content})
       let htmlContent = args.html
+      let comments = args.comments
       // if (htmlContent) {
       //   config.htmlContent = htmlContent
       // }
@@ -1673,6 +1850,16 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
           if (MNUtil.mindmapView) {
             note.focusInMindMap(0.5)
           }
+          if (comments && comments.length) {
+            for (let comment of comments) {
+              if (comment.type === "markdown") {
+                note.appendMarkdownComment(comment.content)
+              }else{
+                note.appendTextComment(comment.content)
+              }
+              note.appendMarkdownComment(comment)
+            }
+          }
           message.response = "note is created"
           message.success = true
         })
@@ -1687,6 +1874,16 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
             try {
               if (htmlContent) {
                 child.appendHtmlComment(htmlContent, htmlContent, {width:1000,height:500}, "")
+              }
+              if (comments && comments.length) {
+                for (let comment of comments) {
+                  if (comment.type === "markdown") {
+                    child.appendMarkdownComment(comment.content)
+                  }else{
+                    child.appendTextComment(comment.content)
+                  }
+                  child.appendMarkdownComment(comment)
+                }
               }
             } catch (error) {
               chatAIUtils.addErrorLog(error, "createNote")
@@ -2757,7 +2954,26 @@ try {
       }
       return `🔨 readNotes()\n`
     case "webSearch":
-      return `🔨 ${funcName}("${args.question}")\n`
+      if (args.scope) {
+        switch (args.scope) {
+          case "webpage":
+            return `🔨 webSearch("${args.question}")\n`
+          case "document":
+            return `🔨 webSearchInDocument("${args.question}")\n`
+          case "scholar":
+            return `🔨 webSearchInScholar("${args.question}")\n`
+          case "image":
+            return `🔨 webSearchInImage("${args.question}")\n`
+          case "video":
+            return `🔨 webSearchInVideo("${args.question}")\n`
+          case "podcast":
+            return `🔨 webSearchInPodcast("${args.question}")\n`
+          default:
+            break;
+        }
+        return `🔨 webSearchIn${args.scope}("${args.question}")\n`
+      }
+      return `🔨 webSearch("${args.question}")\n`
     case "readParentNote":
       if ("noteId" in args && args.noteId) {
         return `🔨 readParentNote.byId(
@@ -2930,19 +3146,50 @@ ${argsString})\n`
       let titleString = args.title ? `\n  title: ${args.title}` : ""
       let tagsString = args.tags ? `\n  tags: ${args.tags.join(", ")}` : ""
       let colorString = args.color ? `\n  color: ${args.color}` : ""
+      let commentsString = ""
+      if (args.comments && args.comments.length > 0) {
+        if (args.comments.length === 1) {
+          commentsString = `\n  comment: ${args.comments[0].content}`
+        }else{
+          commentsString = `\n  comments: ${args.comments.map(comment=>`\n    - ${comment.content}`).join("")}`
+        }
+      }
       if (args.content) {
         let contentString = args.content ? `\n  content: ${args.content}` : ""
-        return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString}${contentString}
+        return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString}${contentString}${commentsString}
 )\n`
       }
       if (args.html) {
         let htmlString = args.html ? `\n  html: ${args.html}` : ""
-        return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString}${htmlString}
+        return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString}${htmlString}${commentsString}
 )\n`
       }
-      return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString})\n`
+      return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString}${commentsString})\n`
 
-
+    case "readURL":
+      let mode
+      if (args.mode) {
+        mode = args.mode
+      }else{
+        if ("urls" in args) {
+          mode = "multiple"
+        }else{
+          mode = "single"
+        }
+      }
+      if (mode === "single") {
+        if (args.aiSummary) {
+          return `🔨 summarizeURL(${args.url})\n`
+        }
+        return `🔨 readURL(${args.url})\n`
+      }
+      if (mode === "multiple" && args.urls && args.urls.length > 0) {
+        if (args.aiSummary) {
+          return `🔨 summarizeMultipleURLs(\n${args.urls.join("\n")}\n)\n`
+        }
+        return `🔨 readMultipleURLs(\n${args.urls.join("\n")}\n)\n`
+      }
+      return `🔨 ${funcName}()\n`
     case "UnkonwFunc":
       MNUtil.showHUD("Unknown function: "+funcName)
       return `🔨 ${funcName}()\n`
@@ -3431,6 +3678,25 @@ getFullHTML(args){
           parentNoteId:{
             type:"string",
             description:"The ID of the parent note under which this child note will be created. If omitted, it defaults to the currently active note. Format must be: `marginnote4app://note/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`. Optional."
+          },
+          comments:{
+            type:"array",
+            items: {
+              type:"object",
+              properties:{
+                type:{
+                  type:"string",
+                  enum:["text","markdown"],
+                  description:"type of comment"
+                },
+                content:{
+                  type:"string",
+                  description:"content of comment"
+                }
+              },
+              description:"comment that should be added for this note"
+            },
+            description:"A list of comments to associate with the child note. Optional. Use this argument only when user ask to add comments."
           }
         },
         required:[],
@@ -3951,12 +4217,33 @@ In addition to the actionId, you can also provide additional arguments to replac
         needNote:false,
         toolTitle: "🔗   Read URL",
         args:{
+          mode:{
+            type:"string",
+            enum:["single","multiple"],
+            description:"mode to read the content of the website, default is 'single'."
+          },
+          aiSummary:{
+            type:"boolean",
+            description:"Optional, default is false. If false, the tool will only return the content(s) of the website(s). If true, the tool will use AI to summarize the content(s) of the website(s)."
+          },
+          summaryPrompt:{
+            type:"string",
+            description:"Question for AI to summarize the content(s) of the website(s). Only valid when 'aiSummary' is true. Example: 'Please summarize the content of the website.'"
+          },
           url:{
             type:"string",
-            description:"URL of the website to read"
+            description:"URL of the website to read, required when mode is 'single'"
+          },
+          urls:{
+            type:"array",
+            items:{
+              type:"string",
+              description:"URL of the website to read, required when mode is 'multiple'"
+            },
+            description:"URLs of the websites to read, required when mode is 'multiple'. You can use this argument multiple times to read multiple URLs."
           }
         },
-        required:["url"],
+        required:[],
         description:"this tool is used to read the content of a website. You must provide the URL to specify the URL to read. Do not use this tool to read image URL, use [readImage] instead."
       }
     }
@@ -8002,7 +8289,7 @@ static getImageById(imageId){
   }
   static getVars(template){
     let tokens = mustache.parse(template)
-    this.log("tokens",tokens)
+    // this.log("tokens",tokens)
     var pipelineRe = /\|\>?/;
     let vars = []
     function getChildToken(ele) {
@@ -9655,10 +9942,72 @@ static applyEditByConfig(editConfigs,note,refresh = true){
       await toolbarUtils.customActionByDes(actionDes,button,undefined,false)
     }
   }
+
+  static async readURLFree(url){
+    try {
+      let baseURL = "https://uapis.cn/api/v1/web/tomarkdown/async?url="+encodeURI(url)
+      const headers = {
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      }
+        // copyJSON(headers)
+      let body = {
+        "url":url,
+      }
+      let request = chatAINetwork.initRequest(baseURL, {
+          method: "POST",
+          headers: headers,
+          timeout: 60,
+          json: body
+        })
+      let res = await chatAINetwork.sendRequest(request)
+      chatAIUtils.log("readURLFree begin",res)
+
+      let taskId = res.data.task_id
+      if (!taskId) {
+        return {content:undefined,url:url}
+      }
+      baseURL = "https://uapis.cn/api/v1/web/tomarkdown/async/"+taskId
+      let isCompleted = false
+      let result = undefined
+      let success = false
+      do {
+        await MNUtil.delay(1)
+        request = chatAINetwork.initRequest(baseURL, {
+          method: "GET",
+          headers: headers,
+          timeout: 60,
+        })
+        res = await chatAINetwork.sendRequest(request)
+        if (res.status === "completed") {
+          isCompleted = true
+          result = res.result.markdown
+          success = true
+        }
+        if (res.status === "failed") {
+          isCompleted = true
+          result = res.error
+          success = false
+        }
+      } while (!isCompleted);
+      if (success) {
+        chatAIUtils.log("✅ readURLFree finish",{content:result,url:url})
+      }else{
+        chatAIUtils.log("❌ readURLFree finish",{content:result,url:url})
+      }
+
+      return {content:result,url:url,success:success}
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "chatAIUtils.readURLFree")
+      return undefined
+    }
+  }
+
   static async readURL(url){
     try {
       let baseURL = "https://open.bigmodel.cn/api/paas/v4/reader"
-      let apikey = "76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C"
+      let apikeys = ["76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C","b9bf21c783bf4207a0f419af4a82fa9c.9guT9c4lY05MgFrC"]
+      let apikey = this.getRandomElement(apikeys)
       const headers = {
         "Content-Type": "application/json",
         Authorization: "Bearer "+apikey,
@@ -9675,10 +10024,9 @@ static applyEditByConfig(editConfigs,note,refresh = true){
           json: body
         })
       let res = await chatAINetwork.sendRequest(request)
-      chatAIUtils.log("readURL", res)
-      return res
+      return {content:res.reader_result.content,url:url}
     } catch (error) {
-      chatAIUtils.addErrorLog(error, "readURL")
+      chatAIUtils.addErrorLog(error, "chatAIUtils.readURL")
       return undefined
     }
   }
@@ -9876,10 +10224,10 @@ class chatAIConfig {
     chatFuncIndices:[],
     chatSystemPrompt:"",
     allowEdit:false,
-    editorType:"markdown-ui",
+    editorType:"vditor",
     PDFExtractMode:"local",
     imageGenerationModel:"cogview-3-flash",
-    webSearchModel:"search_std",
+    webSearchModel:"uapi_search",
     customButton:{
       "button1":{
         "click":"bigbang",
@@ -14036,6 +14384,62 @@ static fixOCRResult(ocrResult){
 }
 
 /**
+ * @param {string} url
+ * @param {string} prompt
+ * @param {string} model
+ * @returns {Promise<Object>}
+ */
+ static async aiSummaryWebsite(url,prompt,model = "glm-4.5-air-nothinking") {
+  try {
+  let info = {success:true,url:url}
+  MNUtil.showHUD("Reading website...")
+  let urlRes = await chatAIUtils.readURLFree(url)
+  if (urlRes && urlRes.success) {
+    let content = urlRes.content
+    info.content = content
+    let key = 'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44'
+    // let key = chatAIUtils.getRandomElement(keys)
+    // MNUtil.waitHUD("Read Image By "+model)
+    MNUtil.showHUD("Summarizing website By "+model)
+    let url = subscriptionConfig.config.url + "/v1/chat/completions"
+    let history = []
+    let system = `You are a helpful assistant that can extract the content of a website. For user's question, you should output all the contents that are related to user's question and ignore the content that is unrelated to user's question. Do not output any unrelated content. Below is the content of the website [${url}]: 
+${content}`
+    history.push(chatAIUtils.genSystemMessage(system))
+    history.push(
+      {
+        role: "user", 
+        content: prompt
+      }
+    )
+    let request = this.initRequestForChatGPTWithoutStream(history,key, url, model, 0.1)
+    let res = await this.sendRequest(request)
+    if (res.choices && res.choices.length) {
+      info.summary = res.choices[0].message.content
+    }else{
+      info.success = false
+      info.error = "faild in get summary of website"
+      return info
+    }
+    MNUtil.showHUD("✅ Summarizing website success")
+    chatAIUtils.log("aiSummaryWebsite",info)
+    return info
+  }else{
+    let errorMessage = "faild in get content of website"
+    if (urlRes.content) {
+      errorMessage = "faild in get content of website: "+urlRes.content
+    }
+    return {success:false,url:url,error:errorMessage}
+  }
+
+    
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "ChatGPTVision")
+    throw error;
+  }
+}
+
+/**
  * @param {string[]} texts 
  * @param {string} query
  * @returns {Promise<Object>}
@@ -14537,7 +14941,39 @@ static getOpenAIHeaders(apikey) {
   }
 }
 /**
- * Initializes a request for ChatGPT using the provided configuration.
+ * 
+ * @param {string} apikey - The API key for authentication.
+ * @param {string} question - The question to be searched.
+ * @throws {Error} If the API key is empty or if there is an error during the request initialization.
+ */
+static async webSearchFree (question) {
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }
+  let body = {
+    "query":question
+  }
+  // let url = "https://open.bigmodel.cn/api/paas/v4/tools"
+  let url = "https://uapis.cn/api/v1/search/aggregate"
+  // copyJSON(body)
+
+  // MNUtil.copyJSON(body)
+  // MNUtil.copy(url)
+  let res = await MNConnection.fetch(url,{
+      method: "POST",
+      headers: headers,
+      timeout: 60,
+      json: body
+    })
+    // subscriptionNetwork.getKey(searchEngine)
+  try {
+    return res.results
+  } catch (error) {
+    return res
+  }
+}
+/**
  * 
  * @param {Array} history - An array of messages to be included in the request.
  * @param {string} apikey - The API key for authentication.
@@ -14585,6 +15021,74 @@ static async webSearch (question,apikey) {
   }
 }
 
+
+/**
+ * 
+ * @param {Array} history - An array of messages to be included in the request.
+ * @param {string} apikey - The API key for authentication.
+ * @param {string} url - The URL endpoint for the API request.
+ * @param {string} model - The model to be used for the request.
+ * @param {number} temperature - The temperature parameter for the request.
+ * @param {Array<number>} funcIndices - An array of function indices to be included in the request.
+ * @throws {Error} If the API key is empty or if there is an error during the request initialization.
+ */
+static async metasoSearch (question,apikey,scope) {
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: "Bearer "+apikey,
+    Accept: "application/json"
+  }
+    // copyJSON(headers)
+  // let body = {
+  //   "tool":"web-search-pro",
+  //   "messages":[{"role": "user", "content": question}],
+  //   "stream":false
+  // }
+  let body = {
+    "scope":scope,
+    "q":question,
+    "conciseSnippet":true,
+    "size":"10",
+    "includeSummary":false
+  }
+  // let url = "https://open.bigmodel.cn/api/paas/v4/tools"
+  let url = "https://metaso.cn/api/v1/search"
+  // copyJSON(body)
+
+  // MNUtil.copyJSON(body)
+  // MNUtil.copy(url)
+  let res = await MNConnection.fetch(url,{
+      method: "POST",
+      headers: headers,
+      timeout: 60,
+      json: body
+    })
+    if ("errMsg" in res) {
+      return {success:false,error:res.errMsg}
+    }
+    subscriptionNetwork.getKey("metasoSearch")
+  try {
+    switch (scope) {
+      case "podcast":
+        return res.podcasts
+      case "video":
+        return res.videos
+      case "image":
+        return res.images
+      case "document":
+        return res.documents
+      case "scholar":
+        return res.scholars
+      case "webpage":
+        return res.webpages
+      default:
+        break;
+    }
+    return res.search_result
+  } catch (error) {
+    return res
+  }
+}
 
 /**
  * Initializes a request for ChatGPT using the provided configuration.
@@ -15044,6 +15548,9 @@ static initRequestForCogView (prompt,apikey,url,model,size = "1024x1024") {
     "Content-Type": "application/json",
     Authorization: "Bearer "+apikey,
     Accept: "application/json"
+  }
+  if (model === "qwen-image") {
+    size = "1328x1328"
   }
     // copyJSON(headers)
   let body = {

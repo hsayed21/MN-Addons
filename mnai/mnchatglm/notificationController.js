@@ -2631,7 +2631,12 @@ try {
       let res = await chatAITool.executeTool(funcName, func, noteid)
       this.tool.push(res.toolMessages)
       if ("renderSearchResults" in res) {
-        this.renderSearchResults(res.renderSearchResults)
+        let searchModel = chatAIConfig.getConfig("webSearchModel")
+        if (searchModel === "metaso_search" || searchModel === "uapi_search") {
+          this.renderSearchResults(res.renderSearchResults,true)
+        }else{
+          this.renderSearchResults(res.renderSearchResults)
+        }
         // this.runJavaScript(`renderSearchResults(\`${encodeURIComponent(res.renderSearchResults)}\`);`)
       }
       return res.description
@@ -3927,7 +3932,6 @@ notificationController.prototype.renderSearchResults = function (results,metaso 
   }
   this.hasRenderSearchResults = true
   if (metaso) {
-    MNUtil.log({message:"renderSearchResultsForMetaso",detail:results})
     if (typeof results === "string") {
       this.runJavaScript(`renderSearchResultsForMetaso(\`${encodeURIComponent(results)}\`);`)
     }else{

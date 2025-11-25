@@ -3301,7 +3301,12 @@ sideOutputController.prototype.executeFunctionByAI = async function (func) {
             }
             return false
           }).length
-          this.renderSearchResults(res.renderSearchResults, false, round)
+          let searchModel = chatAIConfig.getConfig("webSearchModel")
+          if (searchModel === "metaso_search" || searchModel === "uapi_search") {
+            this.renderSearchResults(res.renderSearchResults,true,round)
+          }else{
+            this.renderSearchResults(res.renderSearchResults,false,round)
+          }
           // MNUtil.copy(`renderSearchResults(\`${encodeURIComponent(res.renderSearchResults)}\`);`)
           // this.chatRunJavaScript(`renderSearchResults(\`${encodeURIComponent(res.renderSearchResults)}\`);`,"assistant"+this.round)
         }
@@ -3863,7 +3868,6 @@ sideOutputController.prototype.renderSearchResults = function (results, metaso =
   this.hasRenderSearchResults = true
   MNUtil.log("round:" + round)
   if (metaso) {
-    // MNUtil.log({message:"renderSearchResultsForMetaso",detail:results})
     if (typeof results === "string") {
       this.chatRunJavaScript(`renderSearchResultsForMetaso(\`${encodeURIComponent(results)}\`,${round});`)
     } else {

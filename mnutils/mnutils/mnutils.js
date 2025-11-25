@@ -531,6 +531,10 @@ class MNUtil {
       // NSFileManager.defaultManager().createDirectoryAtPathAttributes(dataPath, undefined)
     }
   }
+  /**
+   * 只记录最近十次的操作
+   * @type {Array<{type:string,time:number,noteId:string,text:string,imageData:NSData,notebookId:string,docMd5:string,pageIndex:number}>}
+   */
   static focusHistory = []
   /**
    * 只记录最近十次的操作
@@ -2223,10 +2227,8 @@ static textMatchPhrase(text, query) {
    * @returns {String}
    */
   static getNoteIdByURL(url) {
-    let targetNoteId = url.trim()
-    if (/^marginnote\dapp:\/\/note\//.test(targetNoteId)) {
-      targetNoteId = targetNoteId.slice(22)
-    }
+    let config = MNUtil.parseURL(url.trim())
+    let targetNoteId = config.pathComponents[0]
     return targetNoteId
   }
   /**
@@ -2256,6 +2258,11 @@ static textMatchPhrase(text, query) {
   static async importPDFFromFile(){
     let docPath = await MNUtil.importFile("com.adobe.pdf")
     return this.importDocument(docPath)
+  }
+  static imageFromBase64(base64,type = "png"){
+    let data = this.dataFromBase64(base64,type)
+    let image = UIImage.imageWithData(data)
+    return image
   }
   static dataFromBase64(base64,type = undefined){
     if (type) {
@@ -2559,6 +2566,41 @@ static textMatchPhrase(text, query) {
   static refreshAfterDBChanged(notebookId = this.currentNotebookId){
     this.app.refreshAfterDBChanged(notebookId)
   }
+  static getLatestSelection(checkStatus = false){
+    let latestSelection = undefined
+    if (this.focusHistory.length > 0) {
+      latestSelection = this.focusHistory.at(-1)
+      if (checkStatus) {//检查上次记录的选择是否依然存在，如果存在，则返回最新的选择，否则返回undefined
+        let selection = undefined
+        let type = latestSelection.type
+        switch (type) {
+          case "text":
+            selection = this.currentSelection
+            if (selection.onSelection && selection.isText) {
+              return latestSelection
+            }
+            return undefined
+          case "image":
+            selection = this.currentSelection
+            if (selection.onSelection && !selection.isText) {
+              return latestSelection
+            }
+            return undefined
+          case "note":
+            if (this.noteExists(latestSelection.noteId)) {
+              let focusNote = MNNote.getFocusNote()
+              if (focusNote && focusNote.noteId === latestSelection.noteId) {
+                return latestSelection
+              }
+              return undefined
+            }
+            return undefined
+        }
+      }
+      return latestSelection
+    }
+    return undefined
+  }
   /**
    * Focuses a note in the mind map by its ID with an optional delay.
    * 
@@ -2733,6 +2775,11 @@ static getValidJSON(jsonString,debug = false) {
   static getImage(path,scale=2) {
     return UIImage.imageWithDataScale(NSData.dataWithContentsOfFile(path), scale)
   }
+  /**
+   * 
+   * @param {string} path 
+   * @returns {NSData}
+   */
   static getFile(path) {
     return NSData.dataWithContentsOfFile(path)
   }
@@ -3088,9 +3135,21 @@ static getValidJSON(jsonString,debug = false) {
   //   var originalText = decrypted.toString(CryptoJS.enc.Utf8);
   //   return originalText
   // }
+  /**
+   * 
+   * @param {NSData|string} data 
+   * @returns {string}
+   */
   static MD5(data){
-    let md5 = CryptoJS.MD5(data).toString();
-    return md5
+    if (typeof data === "string") {
+      let md5 = CryptoJS.MD5(data).toString();
+      return md5
+    }
+    if (data instanceof NSData) {
+      let md5 = CryptoJS.MD5(data.base64Encoding()).toString();
+      return md5
+    }
+    return undefined
   }
   static parseMNImageURL(MNImageURL){
     if (MNImageURL.includes("markdownimg/png/")) {
@@ -4331,6 +4390,26 @@ static getColorIndex(color){
 static NSValue2String(v) {
   return Database.transArrayToJSCompatible([v])[0]
 }
+/**
+ * 
+ * @param {NSValue} v 
+ * @returns {CGSize}
+ */
+static NSValue2CGSize(v) {
+  let sizeString = this.NSValue2String(v)
+  let size = sizeString.match(/\d+/g).map(k => Number(k))
+  return {width: size[0], height: size[1]}
+}
+/**
+ * 
+ * @param {NSValue} v 
+ * @returns {CGRect}
+ */
+static NSValue2CGRect(v) {
+  let rectString = this.NSValue2String(v)
+  let rect = rectString.match(/\d+/g).map(k => Number(k))
+  return {x: rect[0], y: rect[1], height: rect[2], width: rect[3]}
+}
   /**
    * 
    * @param {string} str 
@@ -4345,36 +4424,419 @@ static NSValue2String(v) {
     width: arr[3]
   }
 }
-  /**
-   * 
-   * @param {number} pageNo 
-   * @returns {string}
-   */
-  static getPageContent(pageNo) {
-  const { document } = this.currentDocController
-  if (!document) return ""
-  const data = document.textContentsForPageNo(pageNo)
-  if (!data?.length) return ""
-  return data
-    .reduce((acc, cur) => {
-      const line = cur.reduce((a, c) => {
-        a += String.fromCharCode(Number(c.char))
-        return a
-      }, "")
-      if (line) {
-        const { y } = this.CGRectString2CGRect(this.NSValue2String(cur[0].rect))
-        acc.push({
-          y,
-          line
-        })
-      }
-      return acc
-    }, [])
-    .sort((a, b) => b.y - a.y)
-    .map(k => k.line)
-    .join(" ")
-    .trim()
+static stringFromCharCode(char) {
+  if (typeof char === 'string') {
+    return String.fromCharCode(Number(char))
+  }
+  return String.fromCharCode(char)
 }
+
+/**
+ * 模块功能：提取页面原始数据，并转化为易处理的 JS 对象
+ * @param {MbBook} document 
+ * @param {number} pageNo - 页码
+ * @returns {Array} lines - 标准化的行对象数组
+ */
+static extractRawLines(pageNo,document=this.currentDocController.document) {
+  if (!document) return [];
+  // 结构：[ [charObj, charObj...], [charObj...] ... ]
+const rawData = document.textContentsForPageNo(pageNo);
+    if (!rawData || !rawData.length) return [];
+    return rawData.reduce((acc, charObjs) => {
+        if (!charObjs || !charObjs.length) return acc;
+        // --- 核心修复：检测行内的大裂缝 (Column Gap) ---
+        let currentSegment = {
+            chars: [],
+            startX: this.NSValue2CGRect(charObjs[0].rect).x
+        };
+        
+        const segments = [currentSegment];
+        
+        for (let i = 0; i < charObjs.length; i++) {
+            const charObj = charObjs[i];
+            const rect = this.NSValue2CGRect(charObj.rect);
+            
+            // 如果不是第一个字，检查和上一个字的距离
+            if (i > 0) {
+                const prevRect = this.NSValue2CGRect(charObjs[i-1].rect);
+                const gap = rect.x - (prevRect.x + prevRect.width);
+                
+                // 阈值：如果间距 > 20px，认为是分栏了
+                // 这个阈值要比普通空格宽（普通空格通常 5-10px）
+                if (gap > 20) {
+                    // 结束当前段，开启新段
+                    currentSegment = {
+                        chars: [],
+                        startX: rect.x
+                    };
+                    segments.push(currentSegment);
+                }
+            }
+            currentSegment.chars.push(charObj);
+        }
+        // --- 将切分好的片段转为标准 Line 对象 ---
+        segments.forEach(seg => {
+            if (!seg.chars.length) return;
+            
+            const text = seg.chars.reduce((str, c) => str + (c.char ? String.fromCharCode(c.char) : ""), "").trim();
+            if (!text) return;
+            const firstRect = this.NSValue2CGRect(seg.chars[0].rect);
+            const lastRect = this.NSValue2CGRect(seg.chars[seg.chars.length - 1].rect);
+            const width = (lastRect.x + lastRect.width) - firstRect.x;
+            acc.push({
+                text,
+                x: Math.round(firstRect.x),
+                y: Math.round(firstRect.y),
+                width: Math.round(width),
+                height: firstRect.height,
+                right: Math.round(firstRect.x + width), // 关键属性
+                bottom: firstRect.y + firstRect.height
+            });
+        });
+        return acc;
+    }, []);
+}
+static analyzeLayout(lines) {
+    if (!lines || lines.length < 10) {
+        return { splitX: 0, isTwoColumn: false, standardLeftX: 0, standardRightX: 0 };
+    }
+
+    // 1. 基础数据准备
+    const minX = Math.min(...lines.map(l => l.x));
+    const maxX = Math.max(...lines.map(l => l.right));
+    const pageWidth = maxX - minX;
+
+    // 2. X 坐标归桶 (Binning)，找出所有候选栏目起点
+    const xHistogram = {};
+    lines.forEach(l => {
+        // 排除特别宽的行（通常是通栏标题），它们不参与分栏判定
+        if (l.width > pageWidth * 0.7) return;
+        
+        const bucket = Math.floor(l.x / 5) * 5; 
+        xHistogram[bucket] = (xHistogram[bucket] || 0) + 1;
+    });
+
+    // 找出频率 > 5 的所有潜在起点，按 X 坐标排序（从左到右）
+    const candidates = Object.keys(xHistogram)
+        .map(x => parseInt(x))
+        .filter(x => xHistogram[x] > 5)
+        .sort((a, b) => a - b);
+
+    // 3. 寻找最佳的双栏组合 (Best Column Pair)
+    let bestPair = null;
+    let maxScore = 0;
+
+    // 遍历所有可能的两两组合
+    for (let i = 0; i < candidates.length; i++) {
+        for (let j = i + 1; j < candidates.length; j++) {
+            const leftX = candidates[i];
+            const rightX = candidates[j];
+            
+            // 3.1 间距检查
+            // 两栏起点间距至少要是页面宽度的 1/4 (降低阈值以适应学术论文紧凑排版)
+            // 同时也限制最大间距，防止误判极边缘的页码
+            const stride = rightX - leftX;
+            if (stride < pageWidth * 0.25 || stride > pageWidth * 0.8) continue;
+
+            // 3.2 垂直重叠检查 (核心逻辑)
+            // 找出属于左栏的行和属于右栏的行
+            const leftLines = lines.filter(l => Math.abs(l.x - leftX) < 15 && l.width < pageWidth * 0.6);
+            const rightLines = lines.filter(l => Math.abs(l.x - rightX) < 15 && l.width < pageWidth * 0.6);
+
+            if (leftLines.length < 3 || rightLines.length < 3) continue;
+
+            // 计算两组线的 Y 轴范围
+            const lMinY = Math.min(...leftLines.map(l => l.y));
+            const lMaxY = Math.max(...leftLines.map(l => l.bottom));
+            const rMinY = Math.min(...rightLines.map(l => l.y));
+            const rMaxY = Math.max(...rightLines.map(l => l.bottom));
+
+            // 计算重叠高度
+            const overlapStart = Math.max(lMinY, rMinY);
+            const overlapEnd = Math.min(lMaxY, rMaxY);
+            const overlapHeight = Math.max(0, overlapEnd - overlapStart);
+
+            // 如果重叠高度太小（比如只是偶尔碰上），不算分栏
+            if (overlapHeight < 50) continue;
+
+            // 3.3 评分系统
+            // 分数 = 重叠高度 * (左栏行数 + 右栏行数)
+            // 我们倾向于选择重叠区域大、且行数多的组合（这样能排除 Header/Abstract 的干扰）
+            const score = overlapHeight * (leftLines.length + rightLines.length);
+
+            if (score > maxScore) {
+                maxScore = score;
+                bestPair = { leftX, rightX, leftLines, rightLines };
+            }
+        }
+    }
+
+    // 4. 生成结果
+    if (bestPair) {
+        // 计算分割线 SplitX
+        // 找到左栏的最右边
+        const leftMaxRight = Math.max(...bestPair.leftLines.map(l => l.right));
+        // 找到右栏的最左边 (其实就是 rightX)
+        const rightMinLeft = Math.min(...bestPair.rightLines.map(l => l.x));
+        
+        // 分割线取中间
+        // 注意：有些紧凑排版 gap 只有 4-5px，所以取平均值最稳妥
+        let splitX = (leftMaxRight + rightMinLeft) / 2;
+
+        // 安全检查：如果计算出的 splitX 比右栏起点还大（数据异常），强制修正
+        if (splitX >= bestPair.rightX) splitX = bestPair.rightX - 2;
+        
+        return {
+            splitX: splitX,
+            isTwoColumn: true,
+            standardLeftX: bestPair.leftX,
+            standardRightX: bestPair.rightX
+        };
+    }
+
+    // 降级处理：单栏
+    return {
+        splitX: (minX + maxX) / 2,
+        isTwoColumn: false,
+        standardLeftX: minX,
+        standardRightX: maxX
+    };
+}
+
+/**
+ * 进阶版：自动处理单双栏混合排版 (Smart Layout Detection)
+ * 
+ * 逻辑：
+ * 1. 提取所有行的坐标 (x, y, width, height, text)。
+ * 2. 计算页面中线 (midX)。
+ * 3. 识别“通栏行”(Span Line)：即同时覆盖中线左侧和右侧的行（如标题）。
+ * 4. 利用通栏行将页面垂直切分为多个“区块 (Section)”。
+ * 5. 对每个区块内部：
+ *    - 如果没有通栏行，则按左右分栏排序 (左栏先读，右栏后读)。
+ *    - 如果是通栏行，直接加入结果。
+ * @param {MbBook} doc 
+ * @param {number} pageNo，第一页为1
+ * @returns {string}
+ */
+/**
+ * 进阶版：自动处理单双栏混合排版 + 首字下沉修复
+ */
+static getPageContent(pageNo, doc = this.currentDocController.document) {
+    if (!doc) return "";
+    if (pageNo === undefined) pageNo = this.currentDocController.currPageNo;
+    if (pageNo < 1) pageNo = 1;
+
+    // 1. 获取原始数据
+    const lines = this.extractRawLines(pageNo, doc);
+    if (!lines.length) return "";
+
+    // 2. 版面分析
+    const layout = this.analyzeLayout(lines);
+
+    // 3. 预处理：处理首字下沉 (Drop Cap)
+    // 必须在排序前处理，因为DropCap的Y坐标(基线)通常比它所属的第一行要低
+    const processedLines = this.mergeDropCaps(lines);
+
+    // 4. 全局排序：从上到下 (Top to Bottom)
+    // 使用 (y + height) 即顶部坐标进行排序，比基线排序更稳定，特别是混合字号时
+    processedLines.sort((a, b) => {
+        const aTop = a.y + a.height;
+        const bTop = b.y + b.height;
+        // 允许 3px 的误差
+        if (Math.abs(aTop - bTop) > 3) {
+            return bTop - aTop; // 降序，顶部高的在前面
+        }
+        return a.x - b.x; // 同高度，从左到右
+    });
+
+    // 5. 定义通栏判定
+    const isCrossColumn = (line) => {
+        // 如果页面本身判定为单栏，则所有行都不算“跨栏”（直接按单栏流式处理）
+        if (!layout.isTwoColumn) return false;
+        
+        // 双栏模式下，只有横跨中线的才算通栏（如大标题）
+        // 判定：左边界明显在左栏，右边界明显在右栏
+        return (line.x < layout.splitX - 20) && (line.right > layout.splitX + 20);
+    };
+
+    // 6. 核心段落合并逻辑
+    const processChunk = (chunkLines) => {
+        if (!chunkLines.length) return [];
+        
+        // 再次排序确保块内顺序正确 (基于 Top 坐标)
+        chunkLines.sort((a, b) => (b.y + b.height) - (a.y + a.height));
+
+        const paragraphs = [];
+        let currentPara = "";
+        let lastLine = null;
+
+        for (let i = 0; i < chunkLines.length; i++) {
+            const curLine = chunkLines[i];
+            
+            if (!lastLine) {
+                currentPara = curLine.text;
+                lastLine = curLine;
+                continue;
+            }
+
+            // --- 智能换段/合并判断 ---
+            
+            // 1. 计算垂直间距 (Gap)
+            // 使用 Top 差值计算更直观
+            const lastTop = lastLine.y + lastLine.height;
+            const curTop = curLine.y + curLine.height;
+            const lineGap = lastTop - curTop - curLine.height; // 近似间距
+            
+            // 2. 判定条件
+            // 间距过大（超过行高 1.5 倍） -> 新段落
+            const isGapLarge = lineGap > (Math.max(lastLine.height, curLine.height) * 1.2);
+            
+            // 缩进判断 (Indentation)
+            // 如果当前行 X 比上一行明显靠右 (> font size)，可能是新段落
+            // 注意：这里简单比较 x，如果是双栏，需要比较相对于栏目起点的 x
+            let isIndented = false;
+            const colStartX = (!layout.isTwoColumn || curLine.x < layout.splitX) 
+                              ? layout.standardLeftX : layout.standardRightX;
+            
+            // 如果这一行比标准左边距缩进了 > 15px
+            if (curLine.x - (layout.isTwoColumn ? colStartX : layout.standardLeftX || 39) > 15) {
+                isIndented = true;
+            }
+
+            // 标点符号判断
+            const endsWithHyphen = /-$/.test(lastLine.text);
+            const endsWithPunct = /[。.?!？！]$/.test(lastLine.text);
+
+            // 3. 决策：合并还是新段
+            if (isGapLarge || isIndented) {
+                paragraphs.push(currentPara);
+                currentPara = curLine.text;
+            } else {
+                // 合并
+                let separator = " ";
+                if (endsWithHyphen) {
+                    // 连字符处理：去掉 -，不加空格
+                    currentPara = currentPara.slice(0, -1);
+                    separator = ""; 
+                } else if (/[a-zA-Z0-9]$/.test(lastLine.text) && /^[a-zA-Z0-9]/.test(curLine.text)) {
+                    // 英文单词间补空格
+                    separator = " ";
+                } else {
+                    // 中文等其他情况可能不需要空格
+                    separator = ""; 
+                    if(/[a-zA-Z]/.test(lastLine.text) || /[a-zA-Z]/.test(curLine.text)) separator = " ";
+                }
+                currentPara += separator + curLine.text;
+            }
+            lastLine = curLine;
+        }
+        if (currentPara) paragraphs.push(currentPara);
+        return paragraphs;
+    };
+
+    const finalResult = [];
+    let buffer = [];
+
+    const flushBuffer = () => {
+        if (buffer.length === 0) return;
+
+        // --- 关键修复：单栏模式下直接处理，不分左右 ---
+        if (!layout.isTwoColumn) {
+            finalResult.push(...processChunk(buffer));
+        } else {
+            // 双栏模式下才拆分
+            const leftCol = [];
+            const rightCol = [];
+            
+            buffer.forEach(l => {
+                const mid = (l.x + l.right) / 2;
+                if (mid < layout.splitX) leftCol.push(l);
+                else rightCol.push(l);
+            });
+
+            if (leftCol.length) finalResult.push(...processChunk(leftCol));
+            if (rightCol.length) finalResult.push(...processChunk(rightCol));
+        }
+        buffer = [];
+    };
+
+    processedLines.forEach(line => {
+        if (isCrossColumn(line)) {
+            flushBuffer();
+            finalResult.push(line.text); // 通栏通常是标题，直接作为一段
+        } else {
+            buffer.push(line);
+        }
+    });
+    flushBuffer();
+
+    return finalResult
+        .map(p => p.replace(/\s+/g, ' ').trim())
+        .join("\n\n");
+}
+
+/**
+ * 辅助函数：合并首字下沉 (Drop Caps)
+ * 原理：找到特别高大的单个字符，将其文本拼接到其右侧第一行的开头，并从原列表中移除该对象
+ */
+static mergeDropCaps(lines) {
+    if (lines.length < 2) return lines;
+
+    // 计算中位数行高，用于判断什么是“特别大”的字
+    const heights = lines.map(l => l.height).sort((a, b) => a - b);
+    const medianHeight = heights[Math.floor(heights.length / 2)];
+    
+    // 阈值：高度大于中位数 2 倍，且文本长度为 1 (或很短)
+    const dropCaps = lines.filter(l => l.height > medianHeight * 2.5 && l.text.length < 3);
+    
+    if (dropCaps.length === 0) return lines;
+
+    const remainingLines = lines.filter(l => !dropCaps.includes(l));
+
+    dropCaps.forEach(cap => {
+        // 寻找这个首字下沉属于哪一行
+        // 条件：在 DropCap 的右侧，且垂直方向上有重叠（通常是 DropCap 的顶部对应正文第一行）
+        
+        const capTop = cap.y + cap.height;
+        const capBottom = cap.y;
+
+        // 找到候选者
+        let targetLine = null;
+        let minXDist = 9999;
+
+        remainingLines.forEach(line => {
+            const lineTop = line.y + line.height;
+            // 判定垂直重叠：行的顶部 在 DropCap 的 Top 和 Bottom 之间
+            // 或者行的 Y 坐标接近 DropCap 的顶部（容错 20px）
+            const isVerticallyAligned = (lineTop <= capTop + 10) && (line.y >= capBottom);
+            
+            if (isVerticallyAligned) {
+                // 判定水平位置：必须在 Cap 右侧
+                if (line.x > cap.x) {
+                    const dist = line.x - cap.right;
+                    if (dist < minXDist) {
+                        minXDist = dist;
+                        targetLine = line;
+                    }
+                }
+            }
+        });
+
+        if (targetLine) {
+            // 合并文本
+            targetLine.text = cap.text + targetLine.text;
+            // 调整 targetLine 的几何属性（可选，向左扩展以包含 DropCap，便于后续缩进计算）
+            targetLine.x = cap.x; 
+        } else {
+            // 如果没找到合并目标（罕见），还是把它放回去，免得丢字
+            remainingLines.push(cap);
+        }
+    });
+
+    return remainingLines;
+}
+
+
 static isEmptyImage(imageData){
   let image = UIImage.imageWithData(imageData)
   if (image.size.width === 1 && image.size.height === 1) {
@@ -4872,10 +5334,8 @@ class MNConnection{
    * @param {string} baseURL 
    */
   static loadHTML(webview,html,baseURL){
-    webview.loadHTMLStringBaseURL(
-      html,
-      NSURL.fileURLWithPath(baseURL)
-    )
+    let data = NSData.dataWithStringEncoding(html,4)
+    webview.loadDataMIMETypeTextEncodingNameBaseURL(data,"text/html","UTF-8",MNUtil.genNSURL(baseURL+"/"))
   }
   /**
    * Initializes an HTTP request with the specified URL and options.

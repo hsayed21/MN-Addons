@@ -716,16 +716,22 @@ function renderSearchResults(resultsEncoded,round = 0) {
             // 可选属性：icon, media
             const resultDiv = document.createElement('div');
             resultDiv.className = 'searchResult';
+            let resultContent = result.content ?? result.snippet
+            const content = document.createElement('p');
+            content.textContent = resultContent.slice(0,200)+"...";
             const title = document.createElement('h2');
-            title.innerHTML = `<a href="${result.link}" target="_blank">[${index+1}] ${result.title}</a>`;
+            let url = result.link ?? result.url
+            title.innerHTML = `<a href="${url}" target="_blank">[${index+1}] ${result.title}</a>`;
             resultDiv.appendChild(title);
             const media = document.createElement('p');
+            let date = result.date ?? result.publish_time
             if ("authors" in result) {
-              media.innerHTML = `${result.authors.join(",")} | ${result.date}`;
+              media.innerHTML = `${result.authors.join(",")} | ${date}`;
             }else{
-              media.innerHTML = `${result.date}`;
+              media.innerHTML = `${date}`;
             }
             resultDiv.appendChild(media);
+            resultDiv.appendChild(content);
             container.appendChild(resultDiv);
         });
     }

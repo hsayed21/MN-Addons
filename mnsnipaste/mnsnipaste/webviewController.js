@@ -32,7 +32,7 @@ viewDidLayoutSubviews: function() {
 
 },
 viewWillLayoutSubviews: function() {
-    if (self.miniMode) {
+    if (self.miniMode || self.onAnimate) {
       // self.webview.hidden = true
       return
     }
@@ -152,6 +152,7 @@ viewWillLayoutSubviews: function() {
     let offsetHeight = await self.getWebviewHeight()
     if (offsetHeight) {
         let viewFrame = self.view.frame
+        let currentHeight = viewFrame.height
         let windowHeight = MNUtil.studyHeight
         if (viewFrame.y+offsetHeight+45 >= windowHeight) {
           viewFrame.height = windowHeight-viewFrame.y
@@ -161,9 +162,24 @@ viewWillLayoutSubviews: function() {
         if (viewFrame.height < 150) {
           viewFrame.height = 150
         }
-        // MNUtil.copy(viewFrame)
-        self.view.frame = viewFrame
-        self.currentFrame = viewFrame
+        if (viewFrame.height !== currentHeight) {
+          self.onAnimate = true
+          self.closeButton.hidden = true
+          self.maxButton.hidden = true
+          self.minButton.hidden = true
+          self.moveButton.hidden = true
+          MNUtil.animate(()=>{
+            self.view.frame = viewFrame
+          }).then(()=>{
+            self.onAnimate = false
+            self.currentFrame = viewFrame
+            self.view.setNeedsLayout()
+            self.closeButton.hidden = false
+            self.maxButton.hidden = false
+            self.minButton.hidden = false
+            self.moveButton.hidden = false
+          })
+        }
         if (self.view.hidden) {
           self.show()
         }
@@ -1461,6 +1477,10 @@ exportToPDF()
     if (history) {
       let type = history.type
       let id = history.id
+      if (self.currentId === id) {
+        MNUtil.showHUD("Already at the current position")
+        return
+      }
       self.currentId = id
       let detail = SnipasteHistoryManager.getDetailById(id)
       // MNUtil.log("historyButtonTapped",history)
@@ -2976,9 +2996,75 @@ snipasteUtils.log("snipaste", config)
     snipasteUtils.addErrorLog(error, "snipasteAction")
   }
 }
-
+/** @this {snipasteController} */
 snipasteController.prototype.loadHTML = function (html) {
   // MNUtil.copy(html)
   let data = NSData.dataWithStringEncoding(html,4)
   this.webview.loadDataMIMETypeTextEncodingNameBaseURL(data,"text/html","UTF-8",MNUtil.genNSURL(this.mainPath+"/"))
+}
+/** @this {snipasteController} */
+snipasteController.prototype.snipasteFromHistory = function (index) {
+  try {
+    let history = SnipasteHistoryManager.history[index]
+    if (history) {
+      let type = history.type
+      let id = history.id
+      this.currentId = id
+      let detail = SnipasteHistoryManager.getDetailById(id)
+      // MNUtil.log("historyButtonTapped",history)
+      switch (type) {
+        case "note":
+          this.snipasteNote(MNNote.new(id))
+          break;
+        case "pdf":
+          this.snipastePDFDev(id,detail.pageNo)
+          break;
+        case "image":
+          if (detail) {
+            let source = detail.source
+            let imageData = undefined
+            // snipasteUtils.log("detail",detail)
+            switch (source) {
+              case "selection":
+                imageData = SnipasteHistoryManager.getImageById(id)
+                this.snipasteFromImage(imageData)
+                this.pageIndex = detail.pageIndex
+                this.docMd5 = detail.docMd5
+                this.focusNoteId = undefined
+                break;
+              case "note":
+                this.snipasteNote(MNNote.new(id))
+                break;
+              default:
+                imageData = SnipasteHistoryManager.getImageById(id)
+                this.snipasteFromImage(imageData)
+                break;
+            }
+          }else{
+            let imageData = SnipasteHistoryManager.getImageById(id)
+            this.snipasteFromImage(imageData)
+            break;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    let latest5History = SnipasteHistoryManager.history.slice(0,5)
+    let actualLength = latest5History.length
+    for (let i = 0; i < actualLength; i++) {
+      let buttonName = "historyButton" + (i+1)
+      let id = latest5History[i].id
+      if (this[buttonName] && id === this.currentId) {
+        MNButton.setColor(this[buttonName], "#457bd3", 0.8)
+      }else{
+        MNButton.setColor(this[buttonName], "#9bb2d6", 0.8)
+      }
+    }
+    if (this.view.hidden) {
+      this.show()
+    }
+  } catch (error) {
+    snipasteUtils.addErrorLog(error, "snipasteFromHistory")
+  }
 }
