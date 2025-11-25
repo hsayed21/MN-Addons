@@ -691,6 +691,40 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         })
         break;
 
+      case 'moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReview':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return
+          }
+          targetNote.addChild(focusNote);
+
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(focusNote)
+          // addToReview = true, reviewEverytime = true, focus = false
+          KnowledgeBaseTemplate.makeNote(processedNote, true, true, false)
+
+          success = true
+        })
+        break;
+
+      case 'moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewAndLocate':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return
+          }
+          targetNote.addChild(focusNote);
+
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(focusNote)
+          // addToReview = true, reviewEverytime = true, focus = true
+          KnowledgeBaseTemplate.makeNote(processedNote, true, true, true)
+
+          // 定位到 focusNote
+          focusNote.focusInMindMap(0.5)
+          success = true
+        })
+        break;
+
       case 'addTemplateToTargetNoteAndMoveFocusNoteAsChild':
         try {
           if (!focusNote) {
