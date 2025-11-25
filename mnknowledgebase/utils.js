@@ -1358,10 +1358,10 @@ const kbOCRConfig = {
       pattern: /^l/g,
       replacement: "ˡ",
     },
-    // {
-    //   pattern: //g,
-    //   replacement: "",
-    // },
+    {
+      pattern: /𝒴/g,
+      replacement: "𝒱",
+    },
     // {
     //   pattern: //g,
     //   replacement: "",
