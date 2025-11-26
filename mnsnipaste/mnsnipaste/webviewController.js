@@ -56,24 +56,31 @@ viewWillLayoutSubviews: function() {
     self.nextPageButton.hidden = self.mode !== "pdf"
     self.lastPageButton.hidden = self.mode !== "pdf"
     self.pageIndexButton.hidden = self.mode !== "pdf"
-    self.locButton.hidden = (self.mode !== "pdf") && (self.mode !== "note") && !self.docMd5
-    self.linkButton.hidden = (self.mode !== "note")
     self.screenButton.frame = {x: xRight - 40,y: yBottom - 35,width: 35,height: 30};
     self.moveButton.frame = {  x: xRight*0.5-75,  y: yTop,  width: 150,  height: 18};
     self.searchButton.frame = {  x: xRight - 80,  y: yBottom - 35,  width: 35,  height: 30}
+    let canLocate = self.canLocate()
+    let canLink = self.canLink()
+    self.locButton.hidden = !canLocate
     self.locButton.frame = {  x: xRight - 120,  y: yBottom - 35,  width: 35,  height: 30,}
+    self.linkButton.hidden = !canLink
     self.linkButton.frame = {  x: xRight - 160,  y: yBottom - 35,  width: 35,  height: 30,}
     self.webview.frame = {x:xLeft,y:yTop+8,width:viewFrame.width,height:viewFrame.height-8}
     self.addTabButton.frame = {x:5,y:yBottom-35,width:30,height:30}
-    self.buttonScrollview.frame = {x:35,y:yBottom-35,width:xRight-210,height:30}
+    if (self.linkButton.hidden) {
+      self.buttonScrollview.frame = {x:35,y:yBottom-35,width:xRight-160,height:30}
+    }else{
+      self.buttonScrollview.frame = {x:35,y:yBottom-35,width:xRight-210,height:30}
+    }
     let x = 5
+    let buttonWidth = 65
     for (let i = 0; i < 5; i++) {
       let buttonName = "historyButton" + (i+1)
       if (self[buttonName] && !self[buttonName].hidden) {
         if (i > 0) {
-          x = x + 105
+          x = x + buttonWidth + 5
         }
-        self[buttonName].frame = {x:x,y:0,width:100,height:30}
+        self[buttonName].frame = {x:x,y:0,width:buttonWidth,height:30}
       }
     }
     // self.buttonScrollview.setContentOffsetAnimated({x:0,y:0},false)
@@ -1372,6 +1379,9 @@ exportToPDF()
     menu.width = 250
     menu.rowHeight = 35
     menu.preferredPosition = 4
+    if (typeof chatAINetwork !== 'undefined') {
+      menu.addMenuItem("🎨  Generate Image", "loadImageGenerator:")
+    }
     menu.addMenuItem('📋  From Clipboard', 'snipasteFromClipboard:')
     menu.addMenuItem("📄  PDF (Current Page)", "snipasteFromPDF:","Current")
     menu.addMenuItem("📄  PDF (First Page)", "snipasteFromPDF:","First")
@@ -1380,6 +1390,11 @@ exportToPDF()
     menu.addMenuItem("🖼️  From Photo", "importImage:","photo")
     menu.addMenuItem("📷  From Camera", "importImage:","camera")
     menu.show()
+  },
+  loadImageGenerator: function() {
+    let self = getSnipasteController()
+    Menu.dismissCurrentMenu()
+    self.imageGenerator()
   },
   importImage: async function (param) {
     // MNUtil.showHUD("12"+param)
@@ -1475,54 +1490,22 @@ exportToPDF()
     let index = parseInt(buttonName.slice(-1))-1
     let history = SnipasteHistoryManager.history[index]
     if (history) {
-      let type = history.type
       let id = history.id
       if (self.currentId === id) {
-        MNUtil.showHUD("Already at the current position")
+        // MNUtil.showHUD("Already at the current position")
+        let menu = Menu.new(button, self)
+        menu.addMenuItem("❌ Remove", "removeFromHistory:",id)
+        if (history.type === "image") {
+          menu.addMenuItem("🖼️  Copy", "copyImage:",id)
+        }
+        menu.width = 150
+        menu.preferredPosition = 2
+        menu.show()
         return
       }
-      self.currentId = id
-      let detail = SnipasteHistoryManager.getDetailById(id)
-      // MNUtil.log("historyButtonTapped",history)
-      switch (type) {
-        case "note":
-          self.snipasteNote(MNNote.new(id))
-          break;
-        case "pdf":
-          self.snipastePDFDev(id,detail.pageNo)
-          break;
-        case "image":
-          if (detail) {
-            let source = detail.source
-            let imageData = undefined
-            // snipasteUtils.log("detail",detail)
-            switch (source) {
-              case "selection":
-                imageData = SnipasteHistoryManager.getImageById(id)
-                self.snipasteFromImage(imageData)
-                self.pageIndex = detail.pageIndex
-                self.docMd5 = detail.docMd5
-                self.focusNoteId = undefined
-                break;
-              case "note":
-                self.snipasteNote(MNNote.new(id))
-                break;
-              default:
-                imageData = SnipasteHistoryManager.getImageById(id)
-                self.snipasteFromImage(imageData)
-                break;
-            }
-          }else{
-            let imageData = SnipasteHistoryManager.getImageById(id)
-            self.snipasteFromImage(imageData)
-            break;
-          }
-          break;
-        default:
-          break;
-      }
+      self.snipasteById(id)
     }
-    let latest5History = SnipasteHistoryManager.history.slice(0,5)
+    let latest5History = SnipasteHistoryManager.getLatestHistories(5)
     for (let i = 0; i < 5; i++) {
       let id = latest5History[i].id
       let buttonName = "historyButton" + (i+1)
@@ -1536,6 +1519,19 @@ exportToPDF()
     // if (history) {
     //   self.toPage(history.pageNo)
     // }
+  },
+  removeFromHistory: function(id) {
+    Menu.dismissCurrentMenu()
+    SnipasteHistoryManager.removeRecord(id)
+    self.currentId = SnipasteHistoryManager.getLatestHistory().id
+    self.snipasteById(self.currentId)
+    self.refreshHistoryButtons()
+  },
+  copyImage: function(id) {
+    Menu.dismissCurrentMenu()
+    let imageData = SnipasteHistoryManager.getImageById(id)
+    MNUtil.copy(imageData)
+    MNUtil.showHUD("✅ Image copied")
   }
 });
 
@@ -2010,6 +2006,8 @@ try {
  * @this {snipasteController}
  */
 snipasteController.prototype.snipasteNote = async function (focusNote,audioAutoPlay = false) {
+try {
+
   this.htmlMode = true
   if (snipasteUtils.isPureImageNote(focusNote)) {
     let imageData = MNUtil.getMediaByHash(focusNote.excerptPic.paint)
@@ -2249,6 +2247,10 @@ async function exportToPDF() {
   if (success) {
     this.refreshHistoryButtons()
   }
+  
+} catch (error) {
+  snipasteUtils.addErrorLog(error, "snipasteNote")
+}
 }
 snipasteController.prototype.audioControl = function (action) {
   switch (action) {
@@ -2594,6 +2596,7 @@ let success = false
 if (detail) {
   if (detail.noteId) {
     this.currentId = detail.noteId
+    this.focusNoteId = detail.noteId
     success = SnipasteHistoryManager.addRecord("image",this.currentId,detail)
   }else{
     this.currentId = MNUtil.MD5(base64)
@@ -2872,23 +2875,23 @@ snipasteController.prototype.createWebview = function () {
 snipasteController.prototype.refreshHistoryButtons = function () {
 try {
 
-  let history = SnipasteHistoryManager.history
+  let histories = SnipasteHistoryManager.getLatestHistories()
   let targetAction = "historyButtonTapped:"
   let superview = "buttonScrollview"
-  if (history.length) {
-    let latest5History = history.slice(0,5)
+  if (histories.length) {
     // SnipasteHistoryManager.copy()
     // let contentWidth = 100
     let x = 5
-    let recordedIds = latest5History.map(item => item.id)
+    let recordedIds = histories.map(item => item.id)
     SnipasteHistoryManager.recordedIds = recordedIds
-    for (let i = 0; i < latest5History.length; i++) {
-      let id = latest5History[i].id
+    let buttonWidth = 65
+    for (let i = 0; i < histories.length; i++) {
+      let id = histories[i].id
       let buttonName = "historyButton" + (i+1)
       if (!this[buttonName]) {
         this[buttonName] = this.createButton(targetAction, superview)
       }
-      this[buttonName].setTitleForState(latest5History[i].type,0)
+      this[buttonName].setTitleForState(histories[i].type,0)
       if (id === this.currentId) {
         MNButton.setColor(this[buttonName], "#457bd3", 0.8)
         // this[buttonName].layer.borderColor = UIColor.colorWithHexString("#9bb2d6")
@@ -2898,17 +2901,17 @@ try {
         // this[buttonName].layer.borderWidth = 0
       }
       if (i > 0) {
-        x = x + 105
+        x = x + buttonWidth + 5
       }
-      this[buttonName].frame = {x:x,y:0,width:100,height:30}
+      this[buttonName].frame = {x:x,y:0,width:buttonWidth,height:30}
       this[buttonName].hidden = false
       this[buttonName].id = buttonName
     }
     this.buttonScrollview.contentSize = {width:x+100,height:30}
     this.buttonScrollview.setContentOffsetAnimated({x:0,y:0},false)
     this.buttonScrollviewContentSize = {width:x+100,height:30}
-    if (latest5History.length < 5) {//隐藏多余的按钮
-      for (let i = 5; i > latest5History.length; i--) {
+    if (histories.length < 5) {//隐藏多余的按钮
+      for (let i = 5; i > histories.length; i--) {
         let buttonName = "historyButton" + (i)
         if (this[buttonName]) {
           this[buttonName].hidden = true
@@ -2922,13 +2925,36 @@ try {
 }
 }
 
-snipasteController.prototype.snipasteAction = function(config){
-snipasteUtils.log("snipaste", config)
+/** @this {snipasteController} */
+snipasteController.prototype.snipasteAction = async function(config){
+// snipasteUtils.log("snipaste", config)
   let params = config.params
-            snipasteUtils.log("action"+("noteId" in params), params)
+            // snipasteUtils.log("action"+("noteId" in params), params)
   try {
 
         switch (config.host) {
+          case "setCurrentModel":
+            let model = config.params.model
+            snipasteConfig.imageGeneratorModel = model
+            // this.setCurrentModel(config.params.model)
+            return false
+          case "imageGenerator":
+            let prompt = config.params.prompt
+            snipasteConfig.lastPrompt = prompt
+            if (!prompt) {
+              prompt = "一只在赛博朋克城市屋顶上看星星的猫"
+            }
+            // snipasteUtils.log("imageGenerator", config.params)
+            let response = await snipasteUtils.generateImage(prompt,config.params.model)
+            if (response && response.success) {
+              MNUtil.copy(response.imageData)
+              this.snipasteFromImage(response.imageData,{source:"imageGenerator"})
+            }else{
+              MNUtil.showHUD("❌ Image generated failed")
+              MNUtil.confirm("❌ Image generated failed", response.result)
+              this.stopLoading()
+            }
+            return false
           case "showhud":
             let message = config.params.message
             if (message) {
@@ -3007,29 +3033,121 @@ snipasteController.prototype.snipasteFromHistory = function (index) {
   try {
     let history = SnipasteHistoryManager.history[index]
     if (history) {
-      let type = history.type
       let id = history.id
+      this.snipasteById(id)
+    }
+    let latest5History = SnipasteHistoryManager.history.slice(0,5)
+    let actualLength = latest5History.length
+    for (let i = 0; i < actualLength; i++) {
+      let buttonName = "historyButton" + (i+1)
+      let id = latest5History[i].id
+      if (this[buttonName] && id === this.currentId) {
+        MNButton.setColor(this[buttonName], "#457bd3", 0.8)
+      }else{
+        MNButton.setColor(this[buttonName], "#9bb2d6", 0.8)
+      }
+    }
+    if (this.view.hidden) {
+      this.show()
+    }
+  } catch (error) {
+    snipasteUtils.addErrorLog(error, "snipasteFromHistory")
+  }
+}
+
+snipasteController.prototype.imageGenerator = function() {
+    MNConnection.loadFile(this.webview, this.mainPath + "/imaGen.html", this.mainPath+"/")
+    this.currentId = undefined
+    this.focusNoteId = undefined
+    this.docMd5 = undefined
+    this.pageIndex = undefined
+    for (let i = 0; i < 5; i++) {
+      let buttonName = "historyButton" + (i+1)
+      if (!this[buttonName]) {
+        continue
+      }
+      MNButton.setColor(this[buttonName], "#9bb2d6", 0.8)
+    }
+    if (this.view.hidden) {
+      this.show()
+    }
+    MNUtil.delay(0.2).then(()=>{
+      let prompt = snipasteConfig.lastPrompt
+      this.setCurrentModel(snipasteConfig.imageGeneratorModel,prompt)
+    })
+
+}
+snipasteController.prototype.setCurrentModel = function(model,prompt) {
+  // MNUtil.copy(`setCurrentModel("${model}")`)
+  if (prompt && prompt.trim()) {
+    this.runJavaScript(`setCurrentModel("${model}");setLastPrompt("${encodeURIComponent(prompt)}")`)
+  }else{
+    this.runJavaScript(`setCurrentModel("${model}")`)
+  }
+}
+snipasteController.prototype.stopLoading = function() {
+  this.runJavaScript(`stopLoading()`)
+}
+snipasteController.prototype.canLocate = function() {
+  switch (this.mode) {
+    case "image":
+      if (this.focusNoteId) {
+        return true
+      }
+      if (this.docMd5) {
+        return true
+      }
+      return false
+    case "pdf":
+      return true
+    case "note":
+      return true
+    default:
+      return false  
+  }
+}
+snipasteController.prototype.canLink = function() {
+  switch (this.mode) {
+    case "image":
+      if (this.focusNoteId) {
+        return true
+      }else{
+        return false
+      }
+    case "pdf":
+      return false
+    case "note":
+      return true
+    default:
+      return false
+  }
+}
+snipasteController.prototype.snipasteById = function(id) {
+  try {
+
+      let info = SnipasteHistoryManager.getInfoById(id)
+      if (!info) {
+        return
+      }
       this.currentId = id
-      let detail = SnipasteHistoryManager.getDetailById(id)
-      // MNUtil.log("historyButtonTapped",history)
-      switch (type) {
+      switch (info.type) {
         case "note":
           this.snipasteNote(MNNote.new(id))
           break;
         case "pdf":
-          this.snipastePDFDev(id,detail.pageNo)
+          this.snipastePDFDev(id,info.detail.pageNo)
           break;
         case "image":
-          if (detail) {
-            let source = detail.source
+          if (info.detail) {
+            let source = info.detail.source
             let imageData = undefined
-            // snipasteUtils.log("detail",detail)
+            snipasteUtils.log("detail",info.detail)
             switch (source) {
               case "selection":
                 imageData = SnipasteHistoryManager.getImageById(id)
                 this.snipasteFromImage(imageData)
-                this.pageIndex = detail.pageIndex
-                this.docMd5 = detail.docMd5
+                this.pageIndex = info.detail.pageIndex
+                this.docMd5 = info.detail.docMd5
                 this.focusNoteId = undefined
                 break;
               case "note":
@@ -3049,22 +3167,7 @@ snipasteController.prototype.snipasteFromHistory = function (index) {
         default:
           break;
       }
-    }
-    let latest5History = SnipasteHistoryManager.history.slice(0,5)
-    let actualLength = latest5History.length
-    for (let i = 0; i < actualLength; i++) {
-      let buttonName = "historyButton" + (i+1)
-      let id = latest5History[i].id
-      if (this[buttonName] && id === this.currentId) {
-        MNButton.setColor(this[buttonName], "#457bd3", 0.8)
-      }else{
-        MNButton.setColor(this[buttonName], "#9bb2d6", 0.8)
-      }
-    }
-    if (this.view.hidden) {
-      this.show()
-    }
   } catch (error) {
-    snipasteUtils.addErrorLog(error, "snipasteFromHistory")
+    snipasteUtils.addErrorLog(error, "snipasteById")
   }
 }

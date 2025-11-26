@@ -1,9 +1,10 @@
 class SnipasteHistoryManager {
 
   static history = []; // 存储历史记录
+  static topHistory = []; // 存储置顶的历史记录
   static currentIndex = -1; // 当前索引位置
   static recordedIds = []; // 存储已记录的ID
-  static detailForId = {}; // 存储ID对应的详情
+  static infoForId = {}; // 存储ID对应的详情
 
   /**
    * 添加历史记录
@@ -13,6 +14,8 @@ class SnipasteHistoryManager {
    * @returns {boolean} 是否成功添加
    */
   static addRecord(type, id, detail) {
+  try {
+
     // // 如果在历史记录中间添加新记录，则删除后面的记录
     // if (this.currentIndex < this.history.length - 1) {
     //   this.history = this.history.slice(0, this.currentIndex + 1);
@@ -21,20 +24,43 @@ class SnipasteHistoryManager {
       return false
     }
     this.recordedIds.push(id)
-    this.history.unshift({ type, id ,detail})
-    this.detailForId[id] = detail
+    let info = { type, id }
+    info.isTop = false
+    if (detail) {
+      info.detail = detail
+    }
+    this.history.unshift(info)
+    this.infoForId[id] = info
     return true
     // this.history.push({ type, id ,content});
     // this.currentIndex = this.history.length - 1;
+    
+  } catch (error) {
+    snipasteUtils.addErrorLog(error, "addRecord")
+    return false
+  }
+  }
+  static removeRecord(id){
+    this.history = this.history.filter(item => item.id !== id)
+    this.recordedIds = this.recordedIds.filter(item => item !== id)
+  }
+  static getLatestHistory(){
+    return this.history[0]
+  }
+  static getLatestHistories(number = 5){
+    return this.history.slice(0,number)
   }
   static copy(){
     MNUtil.copy(this.history)
   }
-  static getDetailById(id){
-    return this.detailForId[id]
+  static getInfoById(id){
+    return this.infoForId[id]
   }
   static refreshDetailById(id,detail){
-    this.detailForId[id] = detail
+    let info = this.infoForId[id]
+    if (info) {
+      info.detail = detail
+    }
   }
   /**
    * 
@@ -1135,4 +1161,180 @@ static getFullMermaindHTML(content) {
     }
     return undefined
   }
+
+  static async generateImageUsingCogviewChatCompletion(prompt,model = "cogview-3-flash"){
+    let response = {success:true}
+    let message = {success:true}
+    try {
+      let url = subscriptionConfig.URL+"/v1/chat/completions"
+      let isFree = (model === "cogview-3-flash")
+      if (!isFree && !this.isActivated()) {
+        response.success = false
+        response.result = "Please activate the subscription or use the free model"
+        return response
+      }
+      let apikey = isFree ? 'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44' : subscriptionConfig.APIKey
+
+      // MNUtil.showHUD("Generating image...")
+      let request = chatAINetwork.initRequestForChatGPTWithoutStream([{"role":"user","content":prompt}], apikey, url, model)
+      let res = await chatAINetwork.sendRequest(request)
+      // MNUtil.copy(res)
+      if ("choices" in res) {
+          MNUtil.showHUD("✅ Image generated")
+          response.result = res.choices[0].message.content[0].url
+          // response.result = res.data.image_urls[0]
+          message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+          // message.response = "Image is created at the following url: "+res.data.image_urls[0]+"\n please show this image as markdown image"
+          let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
+          response.imageData = imageData
+        // }
+      }else{
+        if ("error" in res) {
+          response.success = false
+          response.result = res.error
+          MNUtil.confirm("❌ Image generated failed", response.result)
+          message.response = "Failed in generating image: "+response.result
+        }else{
+          response.success = false
+          MNUtil.showHUD("❌ Image generated failed")
+          message.response = "Failed in generating image"
+        }
+      }
+
+    } catch (error) {
+      response.success = false
+      response.result = error.message
+      snipasteUtils.addErrorLog(error, "generateImage")
+      MNUtil.showHUD("❌ Image generated failed")
+      message.response = "Failed in generating image"
+    }
+    return response
+  }
+  static async generateImageViaSubscription(prompt,model,isFree = false) {
+     if (model.startsWith("gemini-2.5-flash-image")) {
+      model = "gemini-2.5-flash-image-vip"
+    }
+    let response = {success:true}
+    let message = {success:true}
+    try {
+      if (!isFree && !this.isActivated()) {
+        response.success = false
+        response.result = "Please activate the subscription or use the free model"
+        return response
+      }
+      let url = subscriptionConfig.URL+"/v1/images/generations"
+      let apikey = isFree ? "sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44" :subscriptionConfig.APIKey
+      let size = "1024x1024"
+      if (model === "qwen-image") {
+        size = "1328x1328"
+      }
+      let request = chatAINetwork.initRequestForCogView(prompt, apikey, url, model,size)
+      let res = await chatAINetwork.sendRequest(request)
+      // MNUtil.copy(res)
+      // MNUtil.log({message:"generateImageViaSubscription",detail:res})
+      if ("data" in res) {
+        if ("error" in res.data) {
+          if (typeof res.data.error === "string") {
+            response.result = res.data.error
+            response.success = false
+          }else{
+            response.result = res.data.error.message
+            response.success = false
+          }
+          let confirm = await MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result+"\n\n是否切换到智谱CogView-3 Flash?")
+          if (confirm) {//使用智谱模型进行生图
+            response = this.generateImageUsingCogviewChatCompletion(prompt,model)
+            return response;
+          }else{
+            message.response = "Failed in generating image: "+response.result
+            response.success = false
+          }
+        }else{
+          MNUtil.showHUD("✅ Image generated")
+          MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
+          // MNUtil.log("✅ Image generated")
+          if (Array.isArray(res.data)) {
+            let data = res.data[0]
+            if ("url" in data) {
+              response.result = data.url
+              message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+            }else{
+              response.result = "data:png;base64,"+data.b64_json
+              if (typeof snipasteUtils !== "undefined") {
+                message.response = "Image is created and displayed in MN Snipaste"
+              }else{
+                message.response = "Image is created"
+              }
+            }
+          }else{
+            response.result = res.data.image_urls[0]
+            message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+          }
+          let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
+          response.imageData = imageData
+          return response;
+        }
+      }else{
+        if ("error" in res) {
+          response.result = res.error
+          let confirm = await MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result+"\n\n是否切换到智谱Cogview-4?")
+          if (confirm) {//使用智谱模型进行生图
+            response = this.generateImageUsingCogviewChatCompletion(prompt,model)
+            return response;
+          }else{
+            message.response = "Failed in generating image: "+response.result
+            response.success = false
+          }
+        }else{
+          response.result = res.error
+          let confirm = await MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result+"\n\n是否切换到智谱Cogview-4?")
+          if (confirm) {//使用智谱模型进行生图
+            response = this.generateImageUsingCogviewChatCompletion(prompt,model)
+            return response;
+          }else{
+            message.response = "Failed in generating image"
+            response.success = false
+          }
+        }
+      }
+
+    } catch (error) {
+      snipasteUtils.addErrorLog(error, "generateImageViaSubscription")
+      MNUtil.showHUD("❌ Image generated failed")
+      message.response = "Failed in generating image"
+      response.success = false
+    }
+    return response
+  }
+  static async generateImage(prompt,model = "cogview-3-flash"){
+    let response = undefined
+    switch (model) {
+      case "cogview-3-flash":
+      case "cogview-4-250304":
+        response = await this.generateImageUsingCogviewChatCompletion(prompt,model)
+        return response
+      case "qwen-image":
+        response = await this.generateImageViaSubscription(prompt,model,true)
+        return response
+      default:
+        response = await this.generateImageViaSubscription(prompt,model)
+        return response
+    }
+  }
+  static isActivated(msg = false){
+    if (typeof subscriptionConfig !== 'undefined') {
+      return subscriptionConfig.getConfig("activated")
+    }else{
+      if (msg) {
+        this.showHUD("Set your API key or install 'MN Utils'")
+      }
+      return false
+    }
+    
+  }
+}
+
+class snipasteConfig{
+  static imageGeneratorModel = "cogview-3-flash"
+  static lastPrompt = ""
 }

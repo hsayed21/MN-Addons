@@ -520,6 +520,9 @@ JSB.newAddon = function (mainPath) {
         if (SnipasteHistoryManager.history.length > 0) {
           menu.addMenuItem("🔍  Last Snipaste", "snipasteFromLast:")
         }
+        if (typeof chatAINetwork !== 'undefined') {
+          menu.addMenuItem("🎨  Generate Image", "generateImage:")
+        }
         menu.addMenuItem("📋  Clipboard Image", "snipasteFromClipboard:")
         let docFileName = MNUtil.currentDoc.fullPathFileName
         if (docFileName.endsWith(".pdf")) {
@@ -545,6 +548,10 @@ JSB.newAddon = function (mainPath) {
       snipasteFromLast: function () {
         Menu.dismissCurrentMenu()
         self.addonController.snipasteFromHistory(0)
+      },
+      generateImage: function () {
+        Menu.dismissCurrentMenu()
+        self.addonController.imageGenerator()
       },
       snipasteFromAudio: function (fileName) {
 
