@@ -1353,22 +1353,13 @@ class SectionRegistry {
         order: 2,
         description: "需要整理的零散内容"
       }],
-      ["literatureReading", {
-        key: "literatureReading",
-        displayName: "文献阅读",
-        viewMode: "custom",
-        color: "#e5c07b",
-        icon: "📖",
-        order: 3,
-        description: "文献阅读"
-      }],
       ["exerciseClass", {
         key: "exerciseClass",
         displayName: "习题课",
         viewMode: "custom",
         color: "#e5c07b",
         icon: "🎓",
-        order: 4,
+        order: 3,
         description: "习题课"
       }],
       ["research/reading", {
