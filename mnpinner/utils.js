@@ -1407,14 +1407,23 @@ class SectionRegistry {
         order: 4,
         description: ""
       }],
-      ["research/reading", {
-        key: "research/reading",
-        displayName: "文献阅读",
+      ["research/readingPin", {
+        key: "research/readingPin",
+        displayName: "阅读 ing",
         viewMode: "research",
         color: "#e5c07b",
         icon: "🎓",
         order: 5,
         description: "阅读过程中的一些中途卡片、页面"
+      }],
+      ["research/report", {
+        key: "research/report",
+        displayName: "汇报讨论",
+        viewMode: "research",
+        color: "#e5c07b",
+        icon: "🎓",
+        order: 6,
+        description: "问题、成果→汇报讨论"
       }],
       // ["submindmap", {
       //   key: "submindmap/InnerProductSpaceAndHilbertSpace",
