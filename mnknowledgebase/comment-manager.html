@@ -359,6 +359,137 @@
       background: #e0e7ff;
     }
 
+    /* ========== Markdown 链接样式 ========== */
+    .markdown-link-content a.mn-link {
+      color: var(--primary-color);
+      text-decoration: underline;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      padding: 2px 4px;
+      border-radius: 4px;
+      background: rgba(99, 102, 241, 0.08);
+    }
+
+    .markdown-link-content a.mn-link:hover {
+      color: #4f46e5;
+      background: rgba(99, 102, 241, 0.15);
+    }
+
+    .markdown-link-content a.mn-link:active {
+      transform: scale(0.98);
+    }
+
+    .markdown-link-content a.external-link {
+      color: var(--success-color);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .markdown-link-content a.external-link:hover {
+      opacity: 0.8;
+    }
+
+    .markdown-link-content a.external-link::after {
+      content: '↗';
+      font-size: 10px;
+      margin-left: 2px;
+      vertical-align: super;
+    }
+
+    /* ========== 链接子项样式 ========== */
+    .link-subitems-container {
+      margin-top: 12px;
+      border-top: 1px dashed var(--border-color);
+      padding-top: 10px;
+    }
+
+    .link-subitems-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .link-subitems-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .link-subitem {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border-radius: 6px;
+      cursor: default;
+      transition: all 0.2s ease;
+      font-size: 13px;
+    }
+
+    .link-subitem .link-index {
+      color: var(--muted);
+      font-size: 12px;
+      min-width: 20px;
+    }
+
+    .link-subitem .link-display-text {
+      color: var(--primary-color);
+      font-weight: 500;
+    }
+
+    .link-subitem .link-arrow {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .link-subitem .link-target-title {
+      color: #334155;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* 按钮容器 */
+    .link-actions {
+      display: flex;
+      gap: 4px;
+      margin-left: auto;
+    }
+
+    /* 圆形按钮样式（参考 search.html） */
+    .link-locate-btn {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      background: rgba(255, 255, 255, 0.95);
+      color: inherit;
+      font-size: 14px;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .link-locate-btn:hover {
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+      transform: scale(1.05);
+    }
+
+    .link-locate-btn:active {
+      background: var(--primary-color);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+      transform: scale(0.95);
+    }
+
     /* 图片缩略图 */
     .thumbnail {
       max-width: 200px;
@@ -1187,6 +1318,19 @@
       window.location.href = url;
     }
 
+    /**
+     * 定位到指定 noteId 的卡片
+     * @param {string} noteId - 卡片 ID
+     */
+    function focusNoteById(noteId) {
+      if (!noteId) {
+        safeHUD('卡片 ID 无效');
+        return;
+      }
+      // 使用已有的 focusCardInMindMap 动作
+      sendURLToNative('focusCardInMindMap', { noteId: noteId });
+    }
+
     // 简单日志函数，直接调用 htmlLog，保证在 MN 环境可见
     function logToNativeDirect(message) {
       try {
@@ -1483,6 +1627,12 @@
           converted.htmlMarkdownContent = comment.htmlMarkdownContent;
         }
 
+        // ✅ Markdown 链接子项数据
+        if (comment.markdownLinks && comment.markdownLinks.length > 0) {
+          converted.markdownLinks = comment.markdownLinks;
+          converted.hasMarkdownLinks = true;
+        }
+
         return converted;
       });
 
@@ -1513,14 +1663,30 @@
             return "blankTextComment";
           }
 
-          // HtmlMarkdown 格式（优先检查）
-          if (comment.htmlMarkdownType) {
-            return "htmlMarkdownComment";
+          // HtmlMarkdown 格式（使用标准检测）
+          let cleanText = comment.text;
+          if (cleanText.startsWith("- ")) {
+            cleanText = cleanText.substring(2);
           }
 
-          // 特殊：链接到其他笔记
+          if (cleanText.startsWith("<span")) {
+            return "markdownComment";  // ✅ 使用 MNUtils 标准类型
+          }
+
+          // 特殊：链接到其他笔记（纯链接）
           if (/^marginnote\dapp:\/\//.test(comment.text)) {
             return "linkToNote";
+          }
+
+          // ✅ 检测包含 Markdown 链接的文本（优先使用 Native 端标记）
+          // 格式：[显示文本](marginnote4app://note/xxx)
+          if (comment.hasMarkdownLinks || comment.markdownLinks) {
+            return "markdownLinkComment";  // 使用专门的类型
+          }
+
+          // 备用：正则检测（兼容旧数据或本地测试）
+          if (/\[([^\]]+)\]\(([^)]+)\)/.test(comment.text)) {
+            return "markdownLinkComment";
           }
 
           // 普通文本
@@ -1801,8 +1967,23 @@
         case 'textComment':
           contentHTML = createTextCardContent(comment);
           break;
-        case 'htmlMarkdownComment':  // 新增：HtmlMarkdown 评论
-          contentHTML = createHtmlMarkdownCardContent(comment);
+        case 'markdownComment':  // ✅ 使用 MNUtils 标准类型
+          // 检查是否是 HtmlMarkdown 格式
+          let cleanText = comment.text || "";
+          if (cleanText.startsWith("- ")) {
+            cleanText = cleanText.substring(2);
+          }
+
+          if (cleanText.startsWith("<span")) {
+            // HtmlMarkdown 格式
+            contentHTML = createHtmlMarkdownCardContent(comment);
+          } else if (hasMarkdownLinks(comment.text)) {
+            // ✅ 包含 Markdown 链接（[text](url) 格式）
+            contentHTML = createMarkdownLinkCardContent(comment);
+          } else {
+            // 普通 Markdown
+            contentHTML = createTextCardContent(comment);
+          }
           break;
         case 'imageComment':
           contentHTML = createImageCardContent(comment);
@@ -1822,6 +2003,9 @@
           break;
         case 'audioComment':  // 新增：音频评论
           contentHTML = createAudioCardContent(comment);
+          break;
+        case 'markdownLinkComment':  // ✅ 新增：包含 Markdown 链接的评论
+          contentHTML = createMarkdownLinkCardContent(comment);
           break;
         default:
           contentHTML = createTextCardContent(comment);
@@ -1867,6 +2051,41 @@
         });
       }
 
+      // ✅ Markdown 链接点击处理（文本内的链接）
+      const mnLinks = card.querySelectorAll('.mn-link');
+      mnLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const noteId = link.dataset.noteId;
+          if (noteId) {
+            focusNoteById(noteId);
+          }
+        });
+      });
+
+      // ✅ 定位按钮点击事件（支持主脑图和浮窗两种定位方式）
+      const locateBtns = card.querySelectorAll('.link-locate-btn');
+      locateBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const noteId = btn.dataset.noteId;
+          const action = btn.dataset.action;
+
+          if (!noteId) return;
+
+          // 根据 action 调用不同的定位方法
+          if (action === 'mindMap') {
+            // 主脑图定位
+            sendURLToNative('focusCardInMindMap', { noteId: noteId });
+          } else if (action === 'floatMap') {
+            // 浮窗定位
+            sendURLToNative('focusCardInFloatMindMap', { noteId: noteId });
+          }
+        });
+      });
+
       return card;
     }
 
@@ -1897,6 +2116,7 @@
     function createHtmlMarkdownCardContent(comment) {
       // 定义类型图标映射（完全对应 HtmlMarkdownUtils.icons）
       const typeIconMap = {
+        'danger': '❗❗❗',
         'level1': '🚩',
         'level2': '▸',
         'level3': '▪',
@@ -1904,7 +2124,6 @@
         'level5': '·',
         'key': '🔑',
         'alert': '⚠️',
-        'danger': '❗❗❗',  // 3个感叹号！
         'remark': '📝',
         'goal': '🎯',
         'question': '❓',
@@ -1916,9 +2135,39 @@
         'step': '👣'
       };
 
-      const htmlMarkdownType = comment.htmlMarkdownType || 'unknown';
+      // ✅ 直接解析 comment.text
+      let cleanText = comment.text || "";
+      if (cleanText.startsWith("- ")) {
+        cleanText = cleanText.substring(2);
+      }
+
+      // 提取类型
+      const typeRegex = /<span\s*id="([^"]*)"/;
+      const typeMatch = cleanText.match(typeRegex);
+      const htmlMarkdownType = typeMatch && typeMatch[1] ? typeMatch[1].trim() : 'unknown';
+
+      // 提取内容
+      const contentRegex = /<span[^>]*>(.*?)<\/span>/;
+      const contentMatch = cleanText.match(contentRegex);
+      let content = contentMatch && contentMatch[1] ? contentMatch[1].trim() : cleanText;
+
+      // 去除 emoji 和前缀
+      const emojisToRemove = [
+        '❗❗❗', '🚩', '▸', '▪', '•', '·', '🔑', '⚠️', '📝', '🎯',
+        '❓', '💡', '✨', '🔍', '✏️', '📋', '👣'
+      ];
+      emojisToRemove.forEach(emoji => {
+        content = content.replace(emoji, '').trim();
+      });
+
+      const prefixes = ["思路：", "方法：", "CHECK", "SKETCH", "SKETCH: "];
+      prefixes.forEach(prefix => {
+        if (content.startsWith(prefix)) {
+          content = content.substring(prefix.length).trim();
+        }
+      });
+
       const icon = typeIconMap[htmlMarkdownType] || '📌';
-      const content = comment.htmlMarkdownContent || comment.text || '';
       const needExpand = content.length > 100;
 
       return `
@@ -1933,6 +2182,61 @@
             ${escapeHtml(content)}
           </div>
           ${needExpand ? '<button class="expand-btn">展开</button>' : ''}
+        </div>
+      `;
+    }
+
+    /**
+     * 创建包含 Markdown 链接的卡片内容
+     * 显示原文本 + 提取的链接子项列表（可定位）
+     */
+    function createMarkdownLinkCardContent(comment) {
+      const text = comment.text || '';
+      const processedContent = parseMarkdownLinks(text);
+      const needExpand = text.length > 100;
+      const links = comment.markdownLinks || [];
+
+      // 生成链接子项列表 HTML
+      let linksListHTML = '';
+      if (links.length > 0) {
+        const linkItems = links.map((link, idx) => {
+          return `
+            <div class="link-subitem">
+              <span class="link-index">${idx + 1}.</span>
+              <span class="link-display-text">[${escapeHtml(link.displayText)}]</span>
+              <span class="link-arrow">→</span>
+              <span class="link-target-title">${escapeHtml(link.linkedNoteTitle)}</span>
+              <div class="link-actions">
+                <button class="link-locate-btn" data-note-id="${escapeHtml(link.noteId)}" data-action="mindMap" title="在主脑图定位">📍</button>
+                <button class="link-locate-btn" data-note-id="${escapeHtml(link.noteId)}" data-action="floatMap" title="在浮窗定位">🎯</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        linksListHTML = `
+          <div class="link-subitems-container">
+            <div class="link-subitems-header">📎 链接子项 (${links.length})</div>
+            <div class="link-subitems-list">
+              ${linkItems}
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="comment-header">
+          <input type="checkbox" class="comment-checkbox">
+          <span class="comment-icon">🔗</span>
+          <span class="comment-index">${comment.index}</span>
+          <span class="comment-type-label">Markdown 链接 (${links.length})</span>
+        </div>
+        <div class="comment-content">
+          <div class="comment-preview markdown-link-content ${needExpand ? 'collapsed' : ''}" data-allow-html="true">
+            ${processedContent}
+          </div>
+          ${needExpand ? '<button class="expand-btn">展开</button>' : ''}
+          ${linksListHTML}
         </div>
       `;
     }
@@ -2875,6 +3179,60 @@
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+
+    /**
+     * 解析 Markdown 链接并转换为可点击的 HTML
+     * @param {string} text - 包含 Markdown 链接的文本
+     * @returns {string} 转换后的 HTML
+     */
+    function parseMarkdownLinks(text) {
+      if (!text) return '';
+
+      const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+
+      // 先转义普通文本，然后替换链接
+      let result = '';
+      let lastIndex = 0;
+      let match;
+
+      while ((match = markdownLinkRegex.exec(text)) !== null) {
+        // 添加链接之前的普通文本（转义）
+        if (match.index > lastIndex) {
+          result += escapeHtml(text.substring(lastIndex, match.index));
+        }
+
+        const displayText = match[1];
+        const url = match[2];
+
+        // 检查是否是 MarginNote 内部链接
+        if (url.startsWith('marginnote4app://note/')) {
+          const noteId = url.replace('marginnote4app://note/', '');
+          result += `<a href="#" class="mn-link" data-note-id="${escapeHtml(noteId)}" onclick="return false;">${escapeHtml(displayText)}</a>`;
+        } else {
+          // 外部链接
+          result += `<a href="${escapeHtml(url)}" target="_blank" class="external-link">${escapeHtml(displayText)}</a>`;
+        }
+
+        lastIndex = match.index + match[0].length;
+      }
+
+      // 添加剩余的普通文本（转义）
+      if (lastIndex < text.length) {
+        result += escapeHtml(text.substring(lastIndex));
+      }
+
+      return result;
+    }
+
+    /**
+     * 检查文本是否包含 Markdown 链接
+     * @param {string} text - 要检查的文本
+     * @returns {boolean} 是否包含 Markdown 链接
+     */
+    function hasMarkdownLinks(text) {
+      if (!text) return false;
+      return /\[([^\]]+)\]\(([^)]+)\)/.test(text);
     }
 
     function stripHtml(html) {

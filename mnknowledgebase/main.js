@@ -2504,7 +2504,7 @@ JSB.newAddon = function(mainPath){
                 }
               }
 
-              // 检查是否是链接到其他笔记的特殊情况
+              // 检查是否是链接到其他笔记的特殊情况（纯链接）
               if (/^marginnote\dapp:\/\//.test(commentData.text)) {
                 const noteid = commentData.text.split("note/")[1];
                 if (noteid) {
@@ -2519,6 +2519,50 @@ JSB.newAddon = function(mainPath){
                     });
                   }
                 }
+              }
+
+              // ✅ 新增：检查是否包含 Markdown 链接 [text](url)
+              // 提取链接作为子项数据，方便后续定位
+              const markdownLinkRegex = /\[([^\]]+?)\]\((marginnote4app:\/\/note\/[A-Z0-9-]+)\)/g;
+              let linkMatch;
+              const extractedLinks = [];
+
+              while ((linkMatch = markdownLinkRegex.exec(commentData.text)) !== null) {
+                const displayText = linkMatch[1];
+                const url = linkMatch[2];
+                const noteId = url.replace('marginnote4app://note/', '');
+
+                // 尝试获取链接目标卡片的标题
+                let linkedNoteTitle = "(无标题)";
+                try {
+                  const linkedNote = MNNote.new(noteId, false);  // false = 不弹窗
+                  if (linkedNote) {
+                    linkedNoteTitle = linkedNote.noteTitle || "(无标题)";
+                  }
+                } catch (e) {
+                  // 获取失败，使用默认标题
+                }
+
+                extractedLinks.push({
+                  displayText: displayText,
+                  url: url,
+                  noteId: noteId,
+                  linkedNoteTitle: linkedNoteTitle,
+                  fullMatch: linkMatch[0],
+                  startPos: linkMatch.index
+                });
+              }
+
+              // 如果有提取到链接，添加到评论数据中
+              if (extractedLinks.length > 0) {
+                commentData.markdownLinks = extractedLinks;
+                commentData.hasMarkdownLinks = true;
+
+                KnowledgeBaseUtils.log("检测到 Markdown 链接", "prepareCommentDataForManager", {
+                  index: index,
+                  linksCount: extractedLinks.length,
+                  links: extractedLinks.map(l => ({ displayText: l.displayText, noteId: l.noteId }))
+                });
               }
               break;
 
