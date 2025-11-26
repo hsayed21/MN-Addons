@@ -1477,7 +1477,32 @@
       // 主要操作
       dom.moveBtn.addEventListener('click', () => handleAction('move'));
       dom.extractBtn.addEventListener('click', () => handleAction('extract'));
-      dom.deleteBtn.addEventListener('click', () => handleAction('delete'));
+
+      // 删除按钮：支持单击和长按
+      let deleteButtonPressTimer = null;
+      const LONG_PRESS_DURATION = 500; // 500ms
+
+      dom.deleteBtn.addEventListener('mousedown', (e) => {
+        deleteButtonPressTimer = setTimeout(() => {
+          handleLongPressDelete();
+          deleteButtonPressTimer = null; // 标记已触发长按
+        }, LONG_PRESS_DURATION);
+      });
+
+      dom.deleteBtn.addEventListener('mouseup', () => {
+        if (deleteButtonPressTimer !== null) {
+          clearTimeout(deleteButtonPressTimer);
+          handleAction('delete'); // 单击处理
+        }
+        deleteButtonPressTimer = null;
+      });
+
+      dom.deleteBtn.addEventListener('mouseleave', () => {
+        if (deleteButtonPressTimer !== null) {
+          clearTimeout(deleteButtonPressTimer);
+          deleteButtonPressTimer = null;
+        }
+      });
 
       // 右侧功能栏操作
       dom.updateLinkBtn.addEventListener('click', handleUpdateLink);
@@ -3102,11 +3127,83 @@
         return;
       }
 
-      // 调用 Bridge 方法删除评论
+      // 分类：链接评论 vs 非链接评论
+      const linkIndices = [];
+      const normalIndices = [];
+
+      sorted.forEach(index => {
+        const comment = state.comments[index];
+        if (comment && (comment.type === 'linkComment' || comment.type === 'linkToNote')) {
+          linkIndices.push(index);
+        } else {
+          normalIndices.push(index);
+        }
+      });
+
+      // 分别调用不同的 Bridge 方法
+      // 注意：debugLog 和 Bridge 方法都使用 window.location.href，
+      // 连续调用会导致前一个请求被覆盖，所以先输出日志，再调用 Bridge
+      if (linkIndices.length > 0) {
+        console.log(`[HTML] 双向删除链接评论 -> indices=${linkIndices}`);
+      }
+      if (normalIndices.length > 0) {
+        console.log(`[HTML] 普通删除评论 -> indices=${normalIndices}`);
+      }
+
+      // 优先处理普通评论（因为只有最后一个 location.href 会生效）
+      // 如果既有链接评论又有普通评论，需要分开处理
+      if (linkIndices.length > 0 && normalIndices.length > 0) {
+        // 混合删除：先删除普通评论，再用延时删除链接评论
+        Bridge.deleteComments(state.noteId, normalIndices);
+        setTimeout(() => {
+          Bridge.deleteBidirectionalLinks(state.noteId, linkIndices);
+        }, 100);
+      } else if (linkIndices.length > 0) {
+        Bridge.deleteBidirectionalLinks(state.noteId, linkIndices);
+      } else if (normalIndices.length > 0) {
+        Bridge.deleteComments(state.noteId, normalIndices);
+      }
+
+      // 显示操作提示
+      if (linkIndices.length > 0 && normalIndices.length > 0) {
+        showToast(`正在删除 ${sorted.length} 条评论（${linkIndices.length} 条双向删除，${normalIndices.length} 条普通删除）...`);
+      } else if (linkIndices.length > 0) {
+        showToast(`正在双向删除 ${linkIndices.length} 条链接评论...`);
+      } else {
+        showToast(`正在删除 ${normalIndices.length} 条评论...`);
+      }
+
+      // 清空选择
+      clearSelection();
+
+      // 注意：Native 端会在操作完成后自动调用 Bridge.loadCommentData() 刷新数据
+    }
+
+    // ========================================
+    // 长按删除（全部用普通删除，不删除反向链接）
+    // ========================================
+    function handleLongPressDelete() {
+      const indices = Array.from(state.selectedIndices);
+      if (indices.length === 0) {
+        showToast('请先选择评论');
+        return;
+      }
+
+      const sorted = [...indices].sort((a, b) => a - b);
+
+      debugLog(`[HTML] handleLongPressDelete -> indices=${sorted}`);
+
+      // 执行删除操作（调用 Native Bridge）
+      if (!state.noteId) {
+        showToast('错误：缺少卡片 ID');
+        return;
+      }
+
+      // 长按：不区分类型，全部用普通删除
       Bridge.deleteComments(state.noteId, sorted);
 
       // 显示操作提示
-      showToast(`正在删除 ${sorted.length} 条评论...`);
+      showToast(`正在删除 ${sorted.length} 条评论（长按模式，不删除反向链接）...`);
 
       // 清空选择
       clearSelection();
@@ -3365,6 +3462,24 @@
         } catch (error) {
           console.error('Bridge.deleteComments 失败:', error);
           showToast('删除失败: ' + error.message);
+        }
+      },
+
+      /**
+       * 双向删除链接评论（同时删除两边的链接）
+       * @param {string} noteId - 卡片 ID
+       * @param {Array<number>} indexArr - 评论索引数组
+       */
+      deleteBidirectionalLinks: function(noteId, indexArr) {
+        try {
+          postToNative('deleteBidirectionalLinks', {
+            id: noteId,
+            indexArr: JSON.stringify(indexArr)
+          });
+          console.log('[Bridge] deleteBidirectionalLinks', noteId, indexArr);
+        } catch (error) {
+          console.error('Bridge.deleteBidirectionalLinks 失败:', error);
+          showToast('双向删除失败: ' + error.message);
         }
       },
 
