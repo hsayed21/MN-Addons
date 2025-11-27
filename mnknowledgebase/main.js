@@ -535,6 +535,7 @@ JSB.newAddon = function(mainPath){
           self.tableItem('    🤖 上课-自动移动', 'classAutoMoveModeToggled:', undefined, self.classAutoMoveMode),
           self.tableItem('    🤖 上课-自动 Pin', 'classAutoPinModeToggled:', undefined, KnowledgeBaseConfig.config.classAutoPinMode),
           self.tableItem('    🤖 归类', 'classificationModeToggled:', undefined, KnowledgeBaseConfig.config.classificationMode),
+          self.tableItem('    🤖 前缀', 'prefixModeToggled:', undefined, KnowledgeBaseConfig.config.prefixMode),
           self.tableItem('-------------------------------',''),
           self.tableItem('⚙️  OCR 模型设置', 'excerptOCRModelSetting:', button),
           self.tableItem('    ⚙️ Unicode OCR 模型', 'excerptOCRModelSettingForMode1:', button),
@@ -740,6 +741,14 @@ JSB.newAddon = function(mainPath){
 
       // KnowledgeBaseConfig.config.lastClassificationNoteId = null
       // KnowledgeBaseConfig.save()
+    },
+
+    prefixModeToggled: function() {
+      self.checkPopover()
+      KnowledgeBaseConfig.config.prefixMode = !KnowledgeBaseConfig.config.prefixMode
+      KnowledgeBaseConfig.save()
+
+      MNUtil.showHUD(KnowledgeBaseConfig.config.prefixMode ? "已开启前缀模式" : "已关闭前缀模式", 1)
     },
 
     preExcerptModeToggled: function() {

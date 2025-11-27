@@ -1724,6 +1724,24 @@ class KnowledgeBaseTemplate {
       //   timestamp: startTime
       // })
 
+      // ========== 前缀模式（最优先判断） ==========
+      if (KnowledgeBaseConfig.config.prefixMode) {
+        MNUtil.undoGrouping(() => {
+          // 1. 转为非摘录模式
+          let processedNote = this.toNoExcerptVersion(note, note.parentNote);
+
+          // 2. 添加层级前缀
+          this.addHierarchicalPrefixToTitle(processedNote);
+
+          // 4. 聚焦卡片
+          if (focus) {
+            processedNote.focusInMindMap(0.3);
+          }
+        });
+        return;  // 直接返回，不执行后续逻辑
+      }
+      // ============================================
+
       if (KnowledgeBaseConfig.config.classificationMode) {
         // 归类模式：快速创建归类卡片
         // const classificationStartTime = Date.now();
@@ -4020,6 +4038,74 @@ class KnowledgeBaseTemplate {
     //   noteId: note.noteId,
     //   noteTitle: note.noteTitle
     // })
+  }
+
+  /**
+   * 为前缀模式构建完整的层级前缀内容
+   * @param {MNNote} note - 当前卡片
+   * @returns {string} - 前缀内容（如 "A ≫ B ≫ C"）
+   */
+  static buildHierarchicalPrefix(note) {
+    let parentNote = note.parentNote;
+    if (!parentNote) {
+      return "";
+    }
+
+    let parentTitle = parentNote.noteTitle;
+    if (!parentTitle || !parentTitle.trim()) {
+      return "";
+    }
+
+    // 检查父节点是否已经有前缀
+    if (parentTitle.startsWith("【")) {
+      let endIndex = parentTitle.indexOf("】");
+      if (endIndex !== -1) {
+        // 父节点有前缀：提取前缀内容 + 添加父节点的纯标题
+        let existingPrefix = parentTitle.substring(1, endIndex).trim();
+        let pureTitle = parentTitle.substring(endIndex + 1).trim();
+
+        if (existingPrefix && pureTitle) {
+          // 格式：祖先前缀 ≫ 父标题
+          return `${existingPrefix} ≫ ${pureTitle}`;
+        } else if (pureTitle) {
+          // 只有纯标题，无前缀内容
+          return pureTitle;
+        } else {
+          return existingPrefix;
+        }
+      }
+    }
+
+    // 父节点没有前缀：直接返回父节点标题
+    return parentTitle.trim();
+  }
+
+  /**
+   * 为标题添加层级前缀（前缀模式专用）
+   * @param {MNNote} note - 当前卡片
+   */
+  static addHierarchicalPrefixToTitle(note) {
+    let currentTitle = note.noteTitle;
+
+    // 1. 移除旧前缀（如果存在）
+    if (currentTitle && currentTitle.startsWith("【")) {
+      let endIndex = currentTitle.indexOf("】");
+      if (endIndex !== -1) {
+        currentTitle = currentTitle.substring(endIndex + 1).trim();
+      }
+    }
+
+    // 2. 构建新前缀
+    let prefixContent = this.buildHierarchicalPrefix(note);
+
+    // 3. 如果有父节点，添加前缀
+    if (prefixContent) {
+      note.noteTitle = `【${prefixContent}】${currentTitle}`;
+    }
+    // 如果没有父节点，保持原标题不变
+
+    // 4. 中文排版优化
+    note.noteTitle = Pangu.spacing(note.noteTitle);
   }
 
   /**
@@ -20943,6 +21029,7 @@ class KnowledgeBaseConfig {
       preProcessMode: false,  // 是否启用预处理模式（默认关闭）
       classificationMode: false,  // 归类模式
       classAutoPinMode: false,
+      prefixMode: false,  // 前缀模式（添加层级前缀）
 
       // 🆕 搜索索引模式配置
       searchIndexMode: "light",  // 索引模式: "light" (轻量，默认) 或 "full" (全量，含同义词扩展)
