@@ -119,9 +119,9 @@ if os.path.exists(main_js_path): # Determine whether the main.js file actually e
 
     # Comment out checkSubscribed related code, because this function may no longer exist in main.js
     # If needed later, you can search and confirm the location of the function before deciding whether to restore this function.
-    # func_pattern = r'(static\s+checkSubscribed\(t=!0,e=!1,i=!0\)\{)(?!return true;)'
-    # func_replacement = r'\1return true;'
-    # modified_content = re.sub(func_pattern, func_replacement, modified_content)
+    func_pattern = r'(static\s+checkSubscribed\(t=!0,e=!1,i=!0\)\{)(?!return true;)'
+    func_replacement = r'\1return true;'
+    modified_content = re.sub(func_pattern, func_replacement, modified_content)
 
     # Check whether the modification is successful (any substitution will cause the content to change)
     if modified_content != content: # If the replaced content is different from the original content, it means that at least one part has been successfully modified.
