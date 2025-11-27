@@ -1,15 +1,15 @@
 /**
- * 夏大鱼羊的 toolbarUtils 扩展函数
- * 通过 prototype 方式扩展 toolbarUtils 类的功能
+ * Xia Dayuyang's toolbarUtils extension function
+ * Extend the functionality of the toolbarUtils class using the prototype approach
  */
 
 /**
- * 初始化扩展
- * 需要在 toolbarUtils 定义后调用
+ * Initialize extension
+ * Needs to be called after toolbarUtils is defined.
  */
 function initXDYYExtensions() {
   /**
-   * 批量获取卡片 ID 存到 Arr 里
+Batch retrieve card IDs and store them in ARR.
    */
   toolbarUtils.getNoteIdArr = function (notes) {
     let idsArr = [];
@@ -20,7 +20,7 @@ function initXDYYExtensions() {
   };
 
   /**
-   * 批量获取卡片 URL 存到 Arr 里
+   * Batch retrieve card URLs and save them to ARR.
    */
   toolbarUtils.getNoteURLArr = function (notes) {
     let idsArr = [];
@@ -31,8 +31,7 @@ function initXDYYExtensions() {
   };
 
   toolbarUtils.isValidNoteId = function (noteId) {
-    const regex =
-      /^[0-9A-Z]{8}-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{12}$/;
+    const regex = /^[0-9A-Z]{8}-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{12}$/;
     return regex.test(noteId);
   };
 
@@ -44,18 +43,15 @@ function initXDYYExtensions() {
     } else if (this.isValidNoteId(noteId)) {
       return noteId;
     } else {
-      MNUtil.showHUD("剪切板中不是有效的卡片 ID 或 URL");
+      MNUtil.showHUD("A valid card ID or URL is not in the clipboard");
       return null;
     }
   };
 
-  // ===== 链接相关函数 =====
+  // ===== Link-related functions =====
 
   toolbarUtils.isCommentLink = function (comment) {
-    return (
-      comment.type === "TextNote" &&
-      comment.text.includes("marginnote4app://note/")
-    );
+    return comment.type === "TextNote" && comment.text.includes("marginnote4app://note/");
   };
 
   toolbarUtils.getNoteURLById = function (noteId) {
@@ -80,13 +76,7 @@ function initXDYYExtensions() {
         return "Single";
       }
     } else {
-      MNUtil.showHUD(
-        "卡片「" +
-          note.title +
-          "」中不包含到「" +
-          linkedNote.title +
-          "」的链接",
-      );
+      MNUtil.showHUD("The card " + note.title + " does not contain a link to " + linkedNote.title + "");
     }
   };
 
@@ -98,19 +88,16 @@ function initXDYYExtensions() {
     return this.getLinkType(note, link) === "Single";
   };
 
-  // ===== 链接去重和清理函数 =====
+  // ===== Link deduplication and cleanup functions =====
 
-  // 从 startIndex 下一个 comment 开始，删除重复的链接
+  // Starting from the next comment after startIndex, remove duplicate links.
   toolbarUtils.linkRemoveDuplicatesAfterIndex = function (note, startIndex) {
     let links = new Set();
     if (startIndex < note.comments.length - 1) {
-      // 下面先有内容才处理
+      // Content must be present before processing.
       for (let i = note.comments.length - 1; i > startIndex; i--) {
         let comment = note.comments[i];
-        if (
-          (comment.type =
-            "TextNote" && comment.text.includes("marginnote4app://note/"))
-        ) {
+        if ((comment.type = "TextNote" && comment.text.includes("marginnote4app://note/"))) {
           if (links.has(comment.text)) {
             note.removeCommentByIndex(i);
           } else {
@@ -122,19 +109,18 @@ function initXDYYExtensions() {
   };
 
   toolbarUtils.removeDuplicateKeywordsInTitle = function (note) {
-    // 获取关键词数组，如果noteTitle的格式为【xxxx】yyyyy，则默认返回一个空数组
+    // Get the keyword array. If the noteTitle is in the format of [xxxx]yyyyy, it will return an empty array by default.
     let keywordsArray =
-      note.noteTitle.match(/【.*】(.*)/) &&
-      note.noteTitle.match(/【.*】(.*)/)[1].split("; ");
-    if (!keywordsArray || keywordsArray.length === 0) return; // 如果无关键词或关键词数组为空，则直接返回不做处理
+      note.noteTitle.match(/【.*】(.*)/) && note.noteTitle.match(/【.*】(.*)/)[1].split("; ");
+    if (!keywordsArray || keywordsArray.length === 0) return; // If there are no keywords or the keyword array is empty, return directly without further processing.
 
-    // 将关键词数组转化为集合以去除重复项，然后转回数组
+    // Convert the keyword array into a set to remove duplicates, then convert it back into an array.
     let uniqueKeywords = Array.from(new Set(keywordsArray));
 
-    // 构建新的标题字符串，保留前缀和去重后的关键词列表
+    // Construct a new title string, retaining the prefix and a list of deduplicated keywords.
     let newTitle = `【${note.noteTitle.match(/【(.*)】.*/)[1]}】${uniqueKeywords.join("; ")}`;
 
-    // 更新note对象的noteTitle属性
+    // Update the noteTitle property of the note object
     note.noteTitle = newTitle;
   };
 
@@ -143,37 +129,29 @@ function initXDYYExtensions() {
 
     for (let i = focusNote.comments.length - 1; i >= 0; i--) {
       let comment = focusNote.comments[i];
-      if (
-        comment.type == "TextNote" &&
-        comment.text.includes("marginnote4app://note/")
-      ) {
-        let targetNoteId = comment.text.match(
-          /marginnote4app:\/\/note\/(.*)/,
-        )[1];
+      if (comment.type == "TextNote" && comment.text.includes("marginnote4app://note/")) {
+        let targetNoteId = comment.text.match(/marginnote4app:\/\/note\/(.*)/)[1];
         let targetNote = MNNote.new(targetNoteId);
         if (targetNote) {
           let focusNoteIndexInTargetNote = targetNote.getCommentIndex(
-            "marginnote4app://note/" + focusNote.noteId,
+            "marginnote4app://note/" + focusNote.noteId
           );
           if (focusNoteIndexInTargetNote !== -1) {
-            // 加个判断，防止是单向链接
+            // Add a check to prevent it from being a one-way link
             targetNote.removeCommentByIndex(focusNoteIndexInTargetNote);
             targetNote.appendNoteLink(parentNote, "To");
-            targetNote.moveComment(
-              targetNote.comments.length - 1,
-              focusNoteIndexInTargetNote,
-            );
+            targetNote.moveComment(targetNote.comments.length - 1, focusNoteIndexInTargetNote);
           }
         }
       }
     }
-    // 合并到父卡片
+    // Merge into parent card
     parentNote.merge(focusNote.note);
 
-    // 最后更新父卡片（也就是合并后的卡片）里的链接
+    // Finally, update the links in the parent card (i.e., the merged card).
     this.reappendAllLinksInNote(parentNote);
 
-    // 处理合并到概要卡片的情形
+    // Handling cases merged into summary cards
     if (parentNote.title.startsWith("Summary")) {
       parentNote.title = parentNote.title.replace(/(Summary; )(.*)/, "$2");
     }
@@ -183,15 +161,10 @@ function initXDYYExtensions() {
     this.clearAllFailedLinks(focusNote);
     for (let i = focusNote.comments.length - 1; i >= 0; i--) {
       let comment = focusNote.comments[i];
-      if (
-        comment.type == "TextNote" &&
-        comment.text.includes("marginnote4app://note/")
-      ) {
-        let targetNoteId = comment.text.match(
-          /marginnote4app:\/\/note\/(.*)/,
-        )[1];
+      if (comment.type == "TextNote" && comment.text.includes("marginnote4app://note/")) {
+        let targetNoteId = comment.text.match(/marginnote4app:\/\/note\/(.*)/)[1];
         if (!targetNoteId.includes("/summary/")) {
-          // 防止把概要的链接处理了
+          // To prevent the summary link from being processed
           let targetNote = MNNote.new(targetNoteId);
           focusNote.removeCommentByIndex(i);
           focusNote.appendNoteLink(targetNote, "To");
@@ -203,23 +176,15 @@ function initXDYYExtensions() {
 
   toolbarUtils.clearAllFailedLinks = function (focusNote) {
     this.linksConvertToMN4Type(focusNote);
-    // 从最后往上删除，就不会出现前面删除后干扰后面的 index 的情况
+    // Deleting from the end upwards avoids the situation where deletions from earlier steps interfere with the indexes of later steps.
     for (let i = focusNote.comments.length - 1; i >= 0; i--) {
       let comment = focusNote.comments[i];
-      if (
-        comment.type == "TextNote" &&
-        comment.text.includes("marginnote3app://note/")
-      ) {
+      if (comment.type == "TextNote" && comment.text.includes("marginnote3app://note/")) {
         focusNote.removeCommentByIndex(i);
-      } else if (
-        comment.type == "TextNote" &&
-        comment.text.includes("marginnote4app://note/")
-      ) {
-        let targetNoteId = comment.text.match(
-          /marginnote4app:\/\/note\/(.*)/,
-        )[1];
+      } else if (comment.type == "TextNote" && comment.text.includes("marginnote4app://note/")) {
+        let targetNoteId = comment.text.match(/marginnote4app:\/\/note\/(.*)/)[1];
         if (!targetNoteId.includes("/summary/")) {
-          // 防止把概要的链接处理了
+          // To prevent the summary link from being processed
           let targetNote = MNNote.new(targetNoteId);
           if (!targetNote) {
             focusNote.removeCommentByIndex(i);
@@ -232,13 +197,8 @@ function initXDYYExtensions() {
   toolbarUtils.linksConvertToMN4Type = function (focusNote) {
     for (let i = focusNote.comments.length - 1; i >= 0; i--) {
       let comment = focusNote.comments[i];
-      if (
-        comment.type == "TextNote" &&
-        comment.text.startsWith("marginnote3app://note/")
-      ) {
-        let targetNoteId = comment.text.match(
-          /marginnote3app:\/\/note\/(.*)/,
-        )[1];
+      if (comment.type == "TextNote" && comment.text.startsWith("marginnote3app://note/")) {
+        let targetNoteId = comment.text.match(/marginnote3app:\/\/note\/(.*)/)[1];
         let targetNote = MNNote.new(targetNoteId);
         if (targetNote) {
           focusNote.removeCommentByIndex(i);
@@ -255,19 +215,19 @@ function initXDYYExtensions() {
     const combinations = [];
     const permute = (result, used) => {
       if (result.length === Arr.length) {
-        combinations.push(result.join(joinLabel)); // 保存当前组合
+        combinations.push(result.join(joinLabel)); // Save the current combination
         return;
       }
       for (let i = 0; i < Arr.length; i++) {
         if (!used[i]) {
-          // 检查当前元素是否已使用
-          used[i] = true; // 标记为已使用
+          // Check if the current element has been used
+          used[i] = true; // Mark as used
           permute(result.concat(Arr[i]), used); // 递归
-          used[i] = false; // 回溯，标记为未使用
+          used[i] = false; // Backtrack, mark as unused
         }
       }
     };
-    permute([], Array(Arr.length).fill(false)); // 初始调用
+    permute([], Array(Arr.length).fill(false)); // Initial call
     return combinations;
   };
 
@@ -282,20 +242,18 @@ function initXDYYExtensions() {
       if (result === null) {
         result = new Set(texts);
       } else {
-        result = new Set(
-          [...result].filter((comment) => texts.includes(comment)),
-        );
+        result = new Set([...result].filter((comment) => texts.includes(comment)));
       }
 
-      if (result.size === 0) return; // 提前退出
+      if (result.size === 0) return; // Exit early
     });
 
     return result ? Array.from(result) : [];
   };
 
-  // 检测 str 是不是一个 4 位的数字
+  // Check if str is a 4-digit number
   toolbarUtils.isFourDigitNumber = function (str) {
-    // 使用正则表达式检查
+    // Use regular expressions to check
     const regex = /^\d{4}$/;
     return regex.test(str);
   };
@@ -304,55 +262,39 @@ function initXDYYExtensions() {
     let findYear = false;
     let targetYearNote;
     let yearLibraryNote = MNNote.new("F251AFCC-AA8E-4A1C-A489-7EA4E4B58A02");
-    let thoughtHtmlCommentIndex = focusNote.getCommentIndex("相关思考：", true);
+    let thoughtHtmlCommentIndex = focusNote.getCommentIndex("Related Thoughts:", true);
     for (let i = 0; i <= yearLibraryNote.childNotes.length - 1; i++) {
-      if (
-        this.getFirstKeywordFromTitle(
-          yearLibraryNote.childNotes[i].noteTitle,
-        ) == year
-      ) {
+      if (this.getFirstKeywordFromTitle(yearLibraryNote.childNotes[i].noteTitle) == year) {
         targetYearNote = yearLibraryNote.childNotes[i];
         findYear = true;
         break;
       }
     }
     if (!findYear) {
-      // 若不存在，则添加年份卡片
+      // If it does not exist, add a year card.
       targetYearNote = MNNote.clone("16454AD3-C1F2-4BC4-8006-721F84999BEA");
       targetYearNote.note.noteTitle += "; " + year;
       yearLibraryNote.addChild(targetYearNote.note);
     }
     let yearTextIndex = focusNote.getIncludingCommentIndex("- 年份", true);
     if (yearTextIndex == -1) {
-      focusNote.appendMarkdownComment(
-        "- 年份（Year）：",
-        thoughtHtmlCommentIndex,
-      );
+      focusNote.appendMarkdownComment("- 年份（Year）：", thoughtHtmlCommentIndex);
       focusNote.appendNoteLink(targetYearNote, "To");
-      focusNote.moveComment(
-        focusNote.comments.length - 1,
-        thoughtHtmlCommentIndex + 1,
-      );
+      focusNote.moveComment(focusNote.comments.length - 1, thoughtHtmlCommentIndex + 1);
     } else {
-      if (
-        focusNote.getCommentIndex(
-          "marginnote4app://note/" + targetYearNote.noteId,
-        ) == -1
-      ) {
+      if (focusNote.getCommentIndex("marginnote4app://note/" + targetYearNote.noteId) == -1) {
         focusNote.appendNoteLink(targetYearNote, "To");
         focusNote.moveComment(focusNote.comments.length - 1, yearTextIndex + 1);
       } else {
         focusNote.moveComment(
-          focusNote.getCommentIndex(
-            "marginnote4app://note/" + targetYearNote.noteId,
-          ),
-          yearTextIndex + 1,
+          focusNote.getCommentIndex("marginnote4app://note/" + targetYearNote.noteId),
+          yearTextIndex + 1
         );
       }
     }
   };
 
-  // ===== 评论和内容处理函数 =====
+  // ===== Comment and content processing functions =====
 
   toolbarUtils.moveLastCommentAboveComment = function (note, commentText) {
     let commentIndex = note.getCommentIndex(commentText, true);
@@ -364,7 +306,7 @@ function initXDYYExtensions() {
 
   toolbarUtils.numberToChinese = function (num) {
     const chineseNumbers = "零一二三四五六七八九";
-    const units = ["", "十", "百", "千", "万", "亿"];
+    const units = ["", "ten", "hundred", "thousand", "ten thousand", "hundred million"];
 
     if (num === 0) return chineseNumbers[0];
 
@@ -376,19 +318,19 @@ function initXDYYExtensions() {
       if (digit !== 0) {
         result = chineseNumbers[digit] + units[unitIndex] + result;
       } else if (result && result[0] !== chineseNumbers[0]) {
-        result = chineseNumbers[0] + result; // 在需要时添加"零"
+        result = chineseNumbers[0] + result; // Add zeros if needed
       }
       num = Math.floor(num / 10);
       unitIndex++;
     }
 
-    // 去除前面的零
-    return result.replace(/零+/, "零").replace(/零+$/, "").trim();
+    // Remove leading zeros
+    return result.replace("zero").replace("zero").trim();
   };
 
-  // 获得淡绿色、淡黄色、黄色卡片的类型
+  // Types of cards obtained: light green, light yellow, and yellow
   toolbarUtils.getClassificationNoteTypeByTitle = function (title) {
-    let match = title.match(/.*相关(.*)/);
+    let match = title.match(/.*Related(.*)/);
     if (match) {
       return match[1];
     } else {
@@ -396,124 +338,79 @@ function initXDYYExtensions() {
     }
   };
 
-  toolbarUtils.referenceSeriesBookMakeCard = function (
-    focusNote,
-    seriesName,
-    seriesNum,
-  ) {
+  toolbarUtils.referenceSeriesBookMakeCard = function (focusNote, seriesName, seriesNum) {
     if (focusNote.excerptText) {
       this.convertNoteToNonexcerptVersion(focusNote);
     } else {
       MNUtil.undoGrouping(() => {
-        let seriesLibraryNote = MNNote.new(
-          "4DBABA2A-F4EB-4B35-90AB-A192B79411FD",
-        );
+        let seriesLibraryNote = MNNote.new("4DBABA2A-F4EB-4B35-90AB-A192B79411FD");
         let findSeries = false;
         let targetSeriesNote;
         let focusNoteIndexInTargetSeriesNote;
         for (let i = 0; i <= seriesLibraryNote.childNotes.length - 1; i++) {
           if (seriesLibraryNote.childNotes[i].noteTitle.includes(seriesName)) {
             targetSeriesNote = seriesLibraryNote.childNotes[i];
-            seriesName = toolbarUtils.getFirstKeywordFromTitle(
-              targetSeriesNote.noteTitle,
-            );
+            seriesName = toolbarUtils.getFirstKeywordFromTitle(targetSeriesNote.noteTitle);
             findSeries = true;
             break;
           }
         }
         if (!findSeries) {
-          targetSeriesNote = MNNote.clone(
-            "5CDABCEC-8824-4E9F-93E1-574EA7811FB4",
-          );
-          targetSeriesNote.note.noteTitle = "【文献：书作系列】; " + seriesName;
+          targetSeriesNote = MNNote.clone("5CDABCEC-8824-4E9F-93E1-574EA7811FB4");
+          targetSeriesNote.note.noteTitle = "【Documents: Book Series】; " + seriesName;
           seriesLibraryNote.addChild(targetSeriesNote.note);
         }
-        let referenceInfoHtmlCommentIndex = focusNote.getCommentIndex(
-          "文献信息：",
-          true,
-        );
+        let referenceInfoHtmlCommentIndex = focusNote.getCommentIndex("Literature Information:", true);
         if (referenceInfoHtmlCommentIndex == -1) {
-          toolbarUtils.cloneAndMerge(
-            focusNote,
-            "F09C0EEB-4FB5-476C-8329-8CC5AEFECC43",
-          );
+          toolbarUtils.cloneAndMerge(focusNote, "F09C0EEB-4FB5-476C-8329-8CC5AEFECC43");
         }
-        let seriesTextIndex = focusNote.getIncludingCommentIndex(
-          "- 系列",
-          true,
-        );
-        let thoughtHtmlCommentIndex = focusNote.getCommentIndex(
-          "相关思考：",
-          true,
-        );
+        let seriesTextIndex = focusNote.getIncludingCommentIndex("- 系列", true);
+        let thoughtHtmlCommentIndex = focusNote.getCommentIndex("Related Thoughts:", true);
         MNUtil.undoGrouping(() => {
           if (seriesNum !== "0") {
-            focusNote.noteTitle =
-              toolbarUtils.replaceStringStartWithSquarebracketContent(
-                focusNote.noteTitle,
-                "【文献：书作：" + seriesName + " - Vol. " + seriesNum + "】; ",
-              );
+            focusNote.noteTitle = toolbarUtils.replaceStringStartWithSquarebracketContent(
+              focusNote.noteTitle,
+              "[Reference: Book Title: " + seriesName + " - Vol. " + seriesNum + "];"
+            );
           } else {
-            focusNote.noteTitle =
-              toolbarUtils.replaceStringStartWithSquarebracketContent(
-                focusNote.noteTitle,
-                "【文献：书作：" + seriesName + "】; ",
-              );
+            focusNote.noteTitle = toolbarUtils.replaceStringStartWithSquarebracketContent(
+              focusNote.noteTitle,
+              "【Reference: Book Title: " + seriesName + "】;"
+            );
           }
         });
         if (seriesTextIndex == -1) {
           MNUtil.undoGrouping(() => {
             if (seriesNum !== "0") {
-              focusNote.appendMarkdownComment(
-                "- 系列：Vol. " + seriesNum,
-                thoughtHtmlCommentIndex,
-              );
+              focusNote.appendMarkdownComment("- 系列：Vol. " + seriesNum, thoughtHtmlCommentIndex);
             } else {
-              focusNote.appendMarkdownComment(
-                "- 系列：",
-                thoughtHtmlCommentIndex,
-              );
+              focusNote.appendMarkdownComment("- 系列：", thoughtHtmlCommentIndex);
             }
           });
           focusNote.appendNoteLink(targetSeriesNote, "To");
-          focusNote.moveComment(
-            focusNote.comments.length - 1,
-            thoughtHtmlCommentIndex + 1,
-          );
+          focusNote.moveComment(focusNote.comments.length - 1, thoughtHtmlCommentIndex + 1);
         } else {
-          // 删掉重新添加
+          // Delete and add again
           focusNote.removeCommentByIndex(seriesTextIndex);
           MNUtil.undoGrouping(() => {
             if (seriesNum !== "0") {
-              focusNote.appendMarkdownComment(
-                "- 系列：Vol. " + seriesNum,
-                seriesTextIndex,
-              );
+              focusNote.appendMarkdownComment("- 系列：Vol. " + seriesNum, seriesTextIndex);
             } else {
               focusNote.appendMarkdownComment("- 系列：", seriesTextIndex);
             }
           });
-          if (
-            focusNote.getCommentIndex(
-              "marginnote4app://note/" + targetSeriesNote.noteId,
-            ) == -1
-          ) {
+          if (focusNote.getCommentIndex("marginnote4app://note/" + targetSeriesNote.noteId) == -1) {
             focusNote.appendNoteLink(targetSeriesNote, "To");
-            focusNote.moveComment(
-              focusNote.comments.length - 1,
-              seriesTextIndex + 1,
-            );
+            focusNote.moveComment(focusNote.comments.length - 1, seriesTextIndex + 1);
           } else {
             focusNote.moveComment(
-              focusNote.getCommentIndex(
-                "marginnote4app://note/" + targetSeriesNote.noteId,
-              ),
-              seriesTextIndex + 1,
+              focusNote.getCommentIndex("marginnote4app://note/" + targetSeriesNote.noteId),
+              seriesTextIndex + 1
             );
           }
         }
         focusNoteIndexInTargetSeriesNote = targetSeriesNote.getCommentIndex(
-          "marginnote4app://note/" + focusNote.noteId,
+          "marginnote4app://note/" + focusNote.noteId
         );
         if (focusNoteIndexInTargetSeriesNote == -1) {
           targetSeriesNote.appendNoteLink(focusNote, "To");
@@ -521,9 +418,7 @@ function initXDYYExtensions() {
         try {
           MNUtil.undoGrouping(() => {
             toolbarUtils.sortNoteByVolNum(targetSeriesNote, 1);
-            let bookLibraryNote = MNNote.new(
-              "49102A3D-7C64-42AD-864D-55EDA5EC3097",
-            );
+            let bookLibraryNote = MNNote.new("49102A3D-7C64-42AD-864D-55EDA5EC3097");
             bookLibraryNote.addChild(focusNote.note);
             // focusNote.focusInMindMap(0.5)
           });
@@ -535,10 +430,7 @@ function initXDYYExtensions() {
     }
   };
 
-  toolbarUtils.replaceStringStartWithSquarebracketContent = function (
-    string,
-    afterContent,
-  ) {
+  toolbarUtils.replaceStringStartWithSquarebracketContent = function (string, afterContent) {
     if (string.startsWith("【")) {
       string = string.replace(/^【.*?】/, afterContent);
     } else {
@@ -557,217 +449,177 @@ function initXDYYExtensions() {
       if (toolbarConfig.referenceIds.hasOwnProperty(currentDocmd5)) {
         if (toolbarConfig.referenceIds[currentDocmd5].hasOwnProperty(refNum)) {
           if (toolbarConfig.referenceIds[currentDocmd5][0] == undefined) {
-            MNUtil.showHUD("文档未绑定 ID");
+            MNUtil.showHUD("Document not bound to ID");
           } else {
             let refSourceNoteId = toolbarConfig.referenceIds[currentDocmd5][0];
             let refSourceNote = MNNote.new(refSourceNoteId);
-            let refSourceNoteTitle = toolbarUtils.getFirstKeywordFromTitle(
-              refSourceNote.noteTitle,
-            );
-            let refSourceNoteAuthor =
-              toolbarUtils.getFirstAuthorFromReferenceById(refSourceNoteId);
+            let refSourceNoteTitle = toolbarUtils.getFirstKeywordFromTitle(refSourceNote.noteTitle);
+            let refSourceNoteAuthor = toolbarUtils.getFirstAuthorFromReferenceById(refSourceNoteId);
             let refedNoteId = toolbarConfig.referenceIds[currentDocmd5][refNum];
             let refedNote = MNNote.new(refedNoteId);
-            let refedNoteTitle = toolbarUtils.getFirstKeywordFromTitle(
-              refedNote.noteTitle,
-            );
-            let refedNoteAuthor =
-              toolbarUtils.getFirstAuthorFromReferenceById(refedNoteId);
-            // 先看 refedNote 有没有归类的子卡片了
+            let refedNoteTitle = toolbarUtils.getFirstKeywordFromTitle(refedNote.noteTitle);
+            let refedNoteAuthor = toolbarUtils.getFirstAuthorFromReferenceById(refedNoteId);
+            // First check if there are any categorized sub-cards in refedNote.
             for (let i = 0; i < refedNote.childNotes.length; i++) {
               let childNote = refedNote.childNotes[i];
-              if (
-                childNote.noteTitle &&
-                childNote.noteTitle.includes(
-                  "[" + refNum + "] " + refedNoteTitle,
-                )
-              ) {
+              if (childNote.noteTitle && childNote.noteTitle.includes("[" + refNum + "] " + refedNoteTitle)) {
                 classificationNote = refedNote.childNotes[i];
                 findClassificationNote = true;
                 break;
               }
             }
             if (!findClassificationNote) {
-              // 没有的话就创建一个
-              classificationNote = MNNote.clone(
-                "C24C2604-4B3A-4B6F-97E6-147F3EC67143",
-              );
+              // Create one if it doesn't exist.
+              classificationNote = MNNote.clone("C24C2604-4B3A-4B6F-97E6-147F3EC67143");
               classificationNote.noteTitle =
                 "「" +
                 refSourceNoteTitle +
                 " - " +
                 refSourceNoteAuthor +
-                "」引用" +
+                "quote" +
                 "「[" +
                 refNum +
                 "] " +
                 refedNoteTitle +
                 " - " +
                 refedNoteAuthor +
-                "」情况";
+                "Condition";
             } else {
-              // 如果找到的话就更新一下标题
-              // 因为可能会出现偶尔忘记写作者导致的 No author
+              // Update the title if found.
+              // Because there might be occasional instances where the writer is forgotten, resulting in "No author".
               classificationNote.noteTitle =
                 "「" +
                 refSourceNoteTitle +
                 " - " +
                 refSourceNoteAuthor +
-                "」引用" +
+                "quote" +
                 "「[" +
                 refNum +
                 "] " +
                 refedNoteTitle +
                 " - " +
                 refedNoteAuthor +
-                "」情况";
+                "Condition";
             }
             refedNote.addChild(classificationNote.note);
-            // 移动链接到"引用："
-            let refedNoteIdIndexInClassificationNote =
-              classificationNote.getCommentIndex(
-                "marginnote4app://note/" + refedNoteId,
-              );
+            // Move the link to "Quote:"
+            let refedNoteIdIndexInClassificationNote = classificationNote.getCommentIndex(
+              "marginnote4app://note/" + refedNoteId
+            );
             if (refedNoteIdIndexInClassificationNote == -1) {
               classificationNote.appendNoteLink(refedNote, "To");
               classificationNote.moveComment(
                 classificationNote.comments.length - 1,
-                classificationNote.getCommentIndex("具体引用：", true),
+                classificationNote.getCommentIndex("Specific reference:", true)
               );
             } else {
               classificationNote.moveComment(
                 refedNoteIdIndexInClassificationNote,
-                classificationNote.getCommentIndex("具体引用：", true) - 1,
+                classificationNote.getCommentIndex("Specific reference:", true) - 1
               );
             }
-            // 移动链接到"原文献"
-            let refSourceNoteIdIndexInClassificationNote =
-              classificationNote.getCommentIndex(
-                "marginnote4app://note/" + refSourceNoteId,
-              );
+            // Move the link to the "Original Document"
+            let refSourceNoteIdIndexInClassificationNote = classificationNote.getCommentIndex(
+              "marginnote4app://note/" + refSourceNoteId
+            );
             if (refSourceNoteIdIndexInClassificationNote == -1) {
               classificationNote.appendNoteLink(refSourceNote, "To");
               classificationNote.moveComment(
                 classificationNote.comments.length - 1,
-                classificationNote.getCommentIndex("引用：", true),
+                classificationNote.getCommentIndex("引用：", true)
               );
             } else {
               classificationNote.moveComment(
                 refSourceNoteIdIndexInClassificationNote,
-                classificationNote.getCommentIndex("引用：", true) - 1,
+                classificationNote.getCommentIndex("引用：", true) - 1
               );
             }
-            // 链接归类卡片到 refSourceNote
-            let classificationNoteIdIndexInRefSourceNote =
-              refSourceNote.getCommentIndex(
-                "marginnote4app://note/" + classificationNote.noteId,
-              );
+            // Link category cards to refSourceNote
+            let classificationNoteIdIndexInRefSourceNote = refSourceNote.getCommentIndex(
+              "marginnote4app://note/" + classificationNote.noteId
+            );
             if (classificationNoteIdIndexInRefSourceNote == -1) {
               refSourceNote.appendNoteLink(classificationNote, "To");
             }
-            // 链接归类卡片到 refedNote
-            let classificationNoteIdIndexInRefedNote =
-              refedNote.getCommentIndex(
-                "marginnote4app://note/" + classificationNote.noteId,
-              );
+            // Link category cards to refedNote
+            let classificationNoteIdIndexInRefedNote = refedNote.getCommentIndex(
+              "marginnote4app://note/" + classificationNote.noteId
+            );
             if (classificationNoteIdIndexInRefedNote == -1) {
               refedNote.appendNoteLink(classificationNote, "To");
-              // refedNote.moveComment(refedNote.comments.length-1,refedNote.getCommentIndex("参考文献：", true))
+              // refedNote.moveComment(refedNote.comments.length-1,refedNote.getCommentIndex("References:", true))
             }
 
-            /* 处理引用内容 */
+            /* Handle referenced content */
 
-            // 标题
-            // focusNote.noteTitle = "【「" + refSourceNoteTitle + " - " + refSourceNoteAuthor +"」引用" + "「[" + refNum + "] " + refedNoteTitle + " - " + refedNoteAuthor + "」情况】"
-            focusNote.noteTitle =
-              this.replaceStringStartWithSquarebracketContent(
-                focusNote.noteTitle,
-                "【「" +
-                  refSourceNoteTitle +
-                  " - " +
-                  refSourceNoteAuthor +
-                  "」引用" +
-                  "「[" +
-                  refNum +
-                  "] " +
-                  refedNoteTitle +
-                  " - " +
-                  refedNoteAuthor +
-                  "」情况】",
-              );
+            // Title
+            // focusNote.noteTitle = "【" + refSourceNoteTitle + " - " + refSourceNoteAuthor + "」 Reference" + "【[" + refNum + "] " + refedNoteTitle + " - " + refedNoteAuthor + "」 Case】"
+            focusNote.noteTitle = this.replaceStringStartWithSquarebracketContent(
+              focusNote.noteTitle,
+              "【「" +
+                refSourceNoteTitle +
+                " - " +
+                refSourceNoteAuthor +
+                "quote" +
+                "「[" +
+                refNum +
+                "] " +
+                refedNoteTitle +
+                " - " +
+                refedNoteAuthor +
+                "Condition】"
+            );
 
             focusNote.noteTitle = focusNote.noteTitle.replace(
               /\s*{{refedNoteTitle}}\s*/,
-              "「" + refedNoteTitle + "」",
+              "「" + refedNoteTitle + "」"
             );
 
-            // 合并模板：
-            let linkHtmlCommentIndex = focusNote.getCommentIndex(
-              "相关链接：",
-              true,
-            );
+            // Merge template:
+            let linkHtmlCommentIndex = focusNote.getCommentIndex("Related Links:", true);
             if (linkHtmlCommentIndex == -1) {
-              this.cloneAndMerge(
-                focusNote,
-                "FFF70A03-D44F-4201-BD69-9B4BD3E96279",
-              );
+              this.cloneAndMerge(focusNote, "FFF70A03-D44F-4201-BD69-9B4BD3E96279");
             }
 
-            // 链接到引用卡片
-            linkHtmlCommentIndex = focusNote.getCommentIndex(
-              "相关链接：",
-              true,
+            // Link to reference card
+            linkHtmlCommentIndex = focusNote.getCommentIndex("Related Links:", true);
+            // First, make sure the link is already established.
+            let classificationNoteLinkIndexInFocusNote = focusNote.getCommentIndex(
+              "marginnote4app://note/" + classificationNote.noteId
             );
-            // 先确保已经链接了
-            let classificationNoteLinkIndexInFocusNote =
-              focusNote.getCommentIndex(
-                "marginnote4app://note/" + classificationNote.noteId,
-              );
             if (classificationNoteLinkIndexInFocusNote == -1) {
               focusNote.appendNoteLink(classificationNote, "To");
             }
             let refedNoteLinkIndexInFocusNote = focusNote.getCommentIndex(
-              "marginnote4app://note/" + refedNoteId,
+              "marginnote4app://note/" + refedNoteId
             );
             if (refedNoteLinkIndexInFocusNote == -1) {
               focusNote.appendNoteLink(refedNote, "To");
             }
             let refSourceNoteLinkIndexInFocusNote = focusNote.getCommentIndex(
-              "marginnote4app://note/" + refSourceNoteId,
+              "marginnote4app://note/" + refSourceNoteId
             );
             if (refSourceNoteLinkIndexInFocusNote == -1) {
               focusNote.appendNoteLink(refSourceNote, "To");
             }
 
             refSourceNoteLinkIndexInFocusNote = focusNote.getCommentIndex(
-              "marginnote4app://note/" + refSourceNoteId,
+              "marginnote4app://note/" + refSourceNoteId
             );
-            focusNote.moveComment(
-              refSourceNoteLinkIndexInFocusNote,
-              linkHtmlCommentIndex + 1,
-            );
+            focusNote.moveComment(refSourceNoteLinkIndexInFocusNote, linkHtmlCommentIndex + 1);
 
-            refedNoteLinkIndexInFocusNote = focusNote.getCommentIndex(
-              "marginnote4app://note/" + refedNoteId,
-            );
-            focusNote.moveComment(
-              refedNoteLinkIndexInFocusNote,
-              linkHtmlCommentIndex + 2,
-            );
+            refedNoteLinkIndexInFocusNote = focusNote.getCommentIndex("marginnote4app://note/" + refedNoteId);
+            focusNote.moveComment(refedNoteLinkIndexInFocusNote, linkHtmlCommentIndex + 2);
 
             classificationNoteLinkIndexInFocusNote = focusNote.getCommentIndex(
-              "marginnote4app://note/" + classificationNote.noteId,
+              "marginnote4app://note/" + classificationNote.noteId
             );
-            focusNote.moveComment(
-              classificationNoteLinkIndexInFocusNote,
-              linkHtmlCommentIndex + 3,
-            );
+            focusNote.moveComment(classificationNoteLinkIndexInFocusNote, linkHtmlCommentIndex + 3);
 
-            // 链接到归类卡片
-            let focusNoteLinkIndexInClassificationNote =
-              classificationNote.getCommentIndex(
-                "marginnote4app://note/" + focusNote.noteId,
-              );
+            // Link to category card
+            let focusNoteLinkIndexInClassificationNote = classificationNote.getCommentIndex(
+              "marginnote4app://note/" + focusNote.noteId
+            );
             if (focusNoteLinkIndexInClassificationNote == -1) {
               classificationNote.appendNoteLink(focusNote, "To");
             }
@@ -775,15 +627,15 @@ function initXDYYExtensions() {
             return [focusNote, classificationNote];
           }
         } else {
-          MNUtil.showHUD("[" + refNum + "] 未进行 ID 绑定");
+          MNUtil.showHUD("[" + refNum + "] No ID binding performed");
         }
       } else {
-        MNUtil.showHUD("当前文档并未开始绑定 ID");
+        MNUtil.showHUD("The current document has not yet started binding an ID");
       }
     }
   };
 
-  // 获取文献卡片的第一个作者名
+  // Get the first author's name from the reference card
   toolbarUtils.getFirstAuthorFromReferenceById = function (id) {
     let note = MNNote.new(id);
     let authorTextIndex = note.getIncludingCommentIndex("- 作者", true);
@@ -791,9 +643,7 @@ function initXDYYExtensions() {
       note.comments[authorTextIndex + 1].text &&
       note.comments[authorTextIndex + 1].text.includes("marginnote")
     ) {
-      let authorId = MNUtil.getNoteIdByURL(
-        note.comments[authorTextIndex + 1].text,
-      );
+      let authorId = MNUtil.getNoteIdByURL(note.comments[authorTextIndex + 1].text);
       let authorNote = MNNote.new(authorId);
       let authorTitle = authorNote.noteTitle;
       return this.getFirstKeywordFromTitle(authorTitle);
@@ -802,9 +652,9 @@ function initXDYYExtensions() {
     }
   };
 
-  // 替换英文标点
+  // Replace English punctuation
   toolbarUtils.formatPunctuationToEnglish = function (string) {
-    // 将中文括号替换为西文括号
+    // Replace Chinese parentheses with Western parentheses
     string = string.replace(/–/g, "-");
     string = string.replace(/，/g, ",");
     string = string.replace(/。/g, ".");
@@ -819,15 +669,15 @@ function initXDYYExtensions() {
     return string;
   };
 
-  // 规范化字符串中的英文标点的前后空格
+  // Normalize the spaces before and after English punctuation marks in the string
   toolbarUtils.formatEnglishStringPunctuationSpace = function (string) {
-    // 将中文括号替换为西文括号
+    // Replace Chinese parentheses with Western parentheses
     string = this.formatPunctuationToEnglish(string);
 
-    // 去掉换行符
+    // Remove newline characters
     string = string.replace(/\n/g, " ");
 
-    // 处理常见标点符号前后的空格
+    // Handling spaces before and after common punctuation marks
     string = string.replace(/ *, */g, ", ");
     string = string.replace(/ *\. */g, ". ");
     string = string.replace(/ *\? */g, "? ");
@@ -835,19 +685,19 @@ function initXDYYExtensions() {
     string = string.replace(/ *\) */g, ") ");
     string = string.replace(/ *\] */g, "] ");
 
-    // 如果标点符号在句末，则去掉后面的空格
+    // If the punctuation mark is at the end of the sentence, remove the following space.
     string = string.replace(/, $/g, ",");
     string = string.replace(/\. $/g, ".");
     string = string.replace(/\? $/g, "?");
     string = string.replace(/\) $/g, ")");
     string = string.replace(/\] $/g, "]");
 
-    // 处理左括号类标点符号
+    // Handling punctuation marks such as left parentheses
     string = string.replace(/ *\( */g, " (");
     string = string.replace(/ *\[ */g, " [");
 
-    // 处理一些特殊情况
-    string = string.replace(/\. ,/g, ".,"); // 名字缩写的.和后面的,
+    // Handling some special cases
+    string = string.replace(/\. ,/g, ".,"); // Replaces the initials of the name with the dot and the following dot.
 
     return string;
   };
@@ -858,11 +708,11 @@ function initXDYYExtensions() {
     text = text.replace(/\n/g, " ");
     // const regex = /^\s*\[\s*(\d{1,3})\s*\]\s*.+$/;
     const regex = /^\s*\[\s*(.*?)\s*\]\s*.+$/;
-    const match = text.trim().match(regex); // 使用正则表达式进行匹配
+    const match = text.trim().match(regex); // Use regular expressions for matching
     if (match) {
-      return match[1].trim(); // 返回匹配到的文本，并去除前后的空格
+      return match[1].trim(); // Returns the matched text and removes leading and trailing spaces.
     } else {
-      return 0; // 如果没有找到匹配项，则返回原文本
+      return 0; // If no match is found, return the original text.
     }
   };
 
@@ -871,11 +721,11 @@ function initXDYYExtensions() {
     text = this.formatPunctuationToEnglish(text);
     text = text.replace(/\n/g, " ");
     const regex = /^\s*\[[^\]]*\]\s*(.+)$/;
-    const match = text.trim().match(regex); // 使用正则表达式进行匹配
+    const match = text.trim().match(regex); // Use regular expressions for matching
     if (match) {
-      return match[1].trim(); // 返回匹配到的文本，并去除前后的空格
+      return match[1].trim(); // Returns the matched text and removes leading and trailing spaces.
     } else {
-      return text; // 如果没有找到匹配项，则返回原文本
+      return text; // If no match is found, return the original text.
     }
   };
 
@@ -898,7 +748,7 @@ function initXDYYExtensions() {
     if (toolbarConfig.referenceIds[currentDocmd5].hasOwnProperty(num)) {
       return toolbarConfig.referenceIds[currentDocmd5][num];
     } else {
-      MNUtil.showHUD("当前文档没有文献 [" + num + "] 的卡片 ID");
+      MNUtil.showHUD("The current document does not have a card ID for reference [" + num + "]");
       return "";
     }
   };
@@ -914,20 +764,13 @@ function initXDYYExtensions() {
     return this.getVolNumFromTitle(title);
   };
 
-  // 卡片按照标题的年份进行排序
+  // Cards are sorted by the year in the title.
   toolbarUtils.sortNoteByYear = function () {
     let yearLibraryNote = MNNote.new("F251AFCC-AA8E-4A1C-A489-7EA4E4B58A02");
-    let indexArr = Array.from(
-      { length: yearLibraryNote.childNotes.length },
-      (_, i) => i,
-    );
+    let indexArr = Array.from({ length: yearLibraryNote.childNotes.length }, (_, i) => i);
     let idIndexArr = indexArr.map((index) => ({
       id: yearLibraryNote.childNotes[index].noteId,
-      year: parseInt(
-        toolbarUtils.getFirstKeywordFromTitle(
-          yearLibraryNote.childNotes[index].noteTitle,
-        ),
-      ),
+      year: parseInt(toolbarUtils.getFirstKeywordFromTitle(yearLibraryNote.childNotes[index].noteTitle)),
     }));
     let sortedArr = idIndexArr.sort((a, b) => a.year - b.year);
     // MNUtil.showHUD(sortedArr[1].year)
@@ -940,14 +783,14 @@ function initXDYYExtensions() {
     });
   };
 
-  // 链接按照 vol 的数值排序
-  // startIndex 表示开始排序的评论索引
+  // Links are sorted by their vol value
+  // startIndex represents the comment index at which sorting begins.
   toolbarUtils.sortNoteByVolNum = function (note, startIndex) {
     let commentsLength = note.comments.length;
     let initialIndexArr = Array.from({ length: commentsLength }, (_, i) => i);
     let initialSliceArr = initialIndexArr.slice(startIndex);
     let initialSliceVolnumArrAux = initialSliceArr.map((index) =>
-      this.getVolNumFromLink(note.comments[index].text),
+      this.getVolNumFromLink(note.comments[index].text)
     );
     // MNUtil.showHUD(initialSliceVolnumArr)
     let initialSliceVolnumArr = [...initialSliceVolnumArrAux];
@@ -958,10 +801,7 @@ function initXDYYExtensions() {
       targetSliceArr.push(sortedVolnumArr.indexOf(volnum) + startIndex);
     });
     // MNUtil.showHUD(targetSliceArr)
-    let targetArr = [
-      ...initialIndexArr.slice(0, startIndex),
-      ...targetSliceArr,
-    ];
+    let targetArr = [...initialIndexArr.slice(0, startIndex), ...targetSliceArr];
     note.sortCommentsByNewIndices(targetArr);
     // MNUtil.showHUD(targetArr)
   };
@@ -973,14 +813,14 @@ function initXDYYExtensions() {
     const matches = title.match(regex);
 
     if (matches) {
-      const firstPart = matches[1].trim(); // 提取分号前的内容
-      const secondPart = matches[2].trim(); // 提取第一个分号后的内容
+      const firstPart = matches[1].trim(); // Extract the content before the semicolon
+      const secondPart = matches[2].trim(); // Extract the content after the first semicolon
 
-      // 根据第一部分是否为空选择返回内容
+      // Select the content to return based on whether the first part is empty.
       return firstPart === "" ? secondPart : firstPart;
     }
 
-    // 如果没有匹配，返回 null 或者空字符串
+    // If no match is found, return null or an empty string.
     return "";
   };
 
@@ -991,10 +831,10 @@ function initXDYYExtensions() {
     let targetText = title;
 
     if (matches) {
-      const firstPart = matches[1].trim(); // 提取分号前的内容
-      const secondPart = matches[2].trim(); // 提取第一个分号后的内容
+      const firstPart = matches[1].trim(); // Extract the content before the semicolon
+      const secondPart = matches[2].trim(); // Extract the content after the first semicolon
 
-      // 根据第一部分是否为空选择返回内容
+      // Select the content to return based on whether the first part is empty.
       if (firstPart !== "") {
         targetText = targetText.replace(firstPart, "");
         return this.getFirstKeywordFromTitle(targetText);
@@ -1004,13 +844,13 @@ function initXDYYExtensions() {
       }
     }
 
-    // 如果没有匹配，返回 null 或者空字符串
+    // If no match is found, return null or an empty string.
     return "";
   };
 
   toolbarUtils.languageOfString = function (input) {
-    const chineseRegex = /[\u4e00-\u9fa5]/; // 匹配中文字符的范围
-    // const englishRegex = /^[A-Za-z0-9\s,.!?]+$/; // 匹配英文字符和常见标点
+    const chineseRegex = /[\u4e00-\u9fa5]/; // Range of Chinese characters to match
+    // const englishRegex = /^[A-Za-z0-9\s,.!?]+$/; // Matches English characters and common punctuation marks
 
     if (chineseRegex.test(input)) {
       return "Chinese";
@@ -1019,12 +859,12 @@ function initXDYYExtensions() {
     }
   };
 
-  // 人名的缩写版本
+  // Abbreviated version of the person's name
 
   // static getPinyin(chineseString) {
   //   return pinyin(chineseString, {
-  //     style: pinyin.STYLE_NORMAL, // 普通拼音
-  //     heteronym: false // 不考虑多音字
+  // style: pinyin.STYLE_NORMAL, // Standard Pinyin
+  // heteronym: false // Ignore polyphonic characters
   //   });
   // }
 
@@ -1033,32 +873,32 @@ function initXDYYExtensions() {
   };
 
   toolbarUtils.moveStringPropertyToSecondPosition = function (obj, stringProp) {
-    // 检查对象是否含有指定的属性
+    // Check if the object contains the specified property
     if (!obj || !obj.hasOwnProperty(stringProp)) {
-      return "对象中没有名为 '" + stringProp + "' 的属性";
+      return "The object does not have a property named '" + stringProp + "'";
     }
 
-    // 获取对象的所有属性键
+    // Get all property keys of an object
     const keys = Object.keys(obj);
 
-    // 确保键的数量足够进行移动
+    // Ensure there are enough keys for movement
     if (keys.length < 2) {
-      return "对象中属性数量不足，无法进行移动操作";
+      return "Insufficient number of properties in the object; unable to perform the move operation";
     }
 
-    // 先保存关联值
+    // Save the associated values ​​first
     const stringValue = obj[stringProp];
 
-    // 创建一个新的对象来重新排序属性
+    // Create a new object to reorder the properties
     const newObj = {};
 
-    // 将第一个属性放入新对象
+    // Place the first property into the new object
     newObj[keys[0]] = obj[keys[0]];
 
-    // 将目标属性放到第二个位置
+    // Move the target attribute to the second position
     newObj[stringProp] = stringValue;
 
-    // 将剩余的属性放入新对象
+    // Put the remaining properties into the new object
     for (let i = 1; i < keys.length; i++) {
       if (keys[i] !== stringProp) {
         newObj[keys[i]] = obj[keys[i]];
@@ -1068,7 +908,7 @@ function initXDYYExtensions() {
     return newObj;
   };
 
-  // ===== 名称和文本处理函数 =====
+  // ===== Names and Text Processing Functions =====
 
   toolbarUtils.getAbbreviationsOfEnglishName = function (name) {
     let languageOfName = this.languageOfString(name);
@@ -1085,41 +925,35 @@ function initXDYYExtensions() {
           Name.original = name;
           break;
         case 2:
-          // 以 Kangwei Xia 为例
+          // Taking Kangwei Xia as an example
           // Name.language = "English"
           Name.original = name;
           Name.reverse = lastPart + ", " + firstPart; // Xia, Kangwei
           Name.abbreviateFirstpart = firstPart[0] + ". " + lastPart; // K. Xia
-          Name.abbreviateFirstpartAndReverseAddCommaAndDot =
-            lastPart + ", " + firstPart[0] + "."; // Xia, K.
-          Name.abbreviateFirstpartAndReverseAddDot =
-            lastPart + " " + firstPart[0] + "."; // Xia K.
+          Name.abbreviateFirstpartAndReverseAddCommaAndDot = lastPart + ", " + firstPart[0] + "."; // Xia, K.
+          Name.abbreviateFirstpartAndReverseAddDot = lastPart + " " + firstPart[0] + "."; // Xia K.
           Name.abbreviateFirstpartAndReverse = lastPart + ", " + firstPart[0]; // Xia, K
           break;
         case 3:
-          // 以 Louis de Branges 为例
+          // Take Louis de Branges as an example
           // Name.language = "English"
           Name.original = name;
           Name.removeFirstpart = middlePart + " " + lastPart; // de Branges
           Name.removeMiddlepart = firstPart + " " + lastPart; // Louis Branges
-          Name.abbreviateFirstpart =
-            firstPart[0] + ". " + middlePart + " " + lastPart; // L. de Branges
-          Name.abbreviateFirstpartAndReverseAddComma =
-            middlePart + " " + lastPart + ", " + firstPart[0]; // de Branges, L
+          Name.abbreviateFirstpart = firstPart[0] + ". " + middlePart + " " + lastPart; // L. de Branges
+          Name.abbreviateFirstpartAndReverseAddComma = middlePart + " " + lastPart + ", " + firstPart[0]; // de Branges, L
           Name.abbreviateFirstpartAndReverseAddCommaAndDot =
             middlePart + " " + lastPart + ", " + firstPart[0] + "."; // de Branges, L.
           Name.abbreviateFirstpartAndLastpartAddDots =
             firstPart[0] + ". " + middlePart + " " + lastPart[0] + "."; // L. de B.
           Name.abbreviateFirstpartAndMiddlepartAddDots =
             firstPart[0] + ". " + middlePart[0] + ". " + lastPart; // L. d. Branges
-          Name.abbreviateFirstpartAddDotAndRemoveMiddlepart =
-            firstPart[0] + ". " + lastPart; // L. Branges
+          Name.abbreviateFirstpartAddDotAndRemoveMiddlepart = firstPart[0] + ". " + lastPart; // L. Branges
           Name.abbreviateFirstpartRemoveMiddlepartAndReverseAddCommaAndDot =
             lastPart + ", " + firstPart[0] + "."; // Branges, L.
           Name.abbreviateFirstpartAndMiddlepartAndReverseAddDots =
             lastPart + " " + middlePart[0] + ". " + firstPart[0] + "."; // Branges d. L.
-          Name.abbreviateMiddlePartAddDot =
-            firstPart + " " + middlePart[0] + ". " + lastPart; // Louis d. Branges
+          Name.abbreviateMiddlePartAddDot = firstPart + " " + middlePart[0] + ". " + lastPart; // Louis d. Branges
           break;
         default:
           // Name.language = "English"
@@ -1144,27 +978,19 @@ function initXDYYExtensions() {
         let lastPart = namePinyinArr[namePinyinArr.length - 1].toString();
         let middlePart = namePinyinArr[1].toString();
         if (namePinyinArr.length == 2) {
-          // 以 lu xun 为例
+          // Taking lu xun as an example
 
           // Xun Lu
-          pinyinStandard =
-            this.camelizeString(lastPart) +
-            " " +
-            this.camelizeString(firstPart);
+          pinyinStandard = this.camelizeString(lastPart) + " " + this.camelizeString(firstPart);
           // MNUtil.showHUD(pinyinStandard)
           Name = this.getAbbreviationsOfEnglishName(pinyinStandard);
           Name.originalChineseName = nameInput;
           // Name.language = "Chinese"
           // Lu Xun
           Name.pinyinStandardAndReverse =
-            this.camelizeString(firstPart) +
-            " " +
-            this.camelizeString(lastPart);
+            this.camelizeString(firstPart) + " " + this.camelizeString(lastPart);
 
-          Name = this.moveStringPropertyToSecondPosition(
-            Name,
-            "originalChineseName",
-          );
+          Name = this.moveStringPropertyToSecondPosition(Name, "originalChineseName");
 
           // // Lu Xun
           // Name.pinyinStandardAndReverse = this.camelizeString(firstPart) + " " + this.camelizeString(lastPart)
@@ -1174,7 +1000,7 @@ function initXDYYExtensions() {
           // Name.pinyinWithSpace = firstPart + " " + lastPart
           // // Lu xun
           // Name.pinyinCamelizeFirstpartWithSpace = this.camelizeString(firstPart) + " " + lastPart
-          // // Luxun
+          // Luxun
           // Name.pinyinCamelizeFirstpartNoSpace = this.camelizeString(firstPart) + lastPart
           // // xun, Lu
           // Name.pinyinCamelizeFirstpartAndReverseWithComma = lastPart + ", " + this.camelizeString(firstPart)
@@ -1184,31 +1010,22 @@ function initXDYYExtensions() {
           // Name.pinyinCamelizeFirstpartAndReverseWithSpace = lastPart + " " + this.camelizeString(firstPart)
           // // xunLu
           // Name.pinyinCamelizeFirstpartAndReverseNoSpace = lastPart  + this.camelizeString(firstPart)
-          // // Xun, Lu
+          // Xun, Lu
           // Name.pinyinStandardWithComma = this.camelizeString(lastPart) + " " + this.camelizeString(firstPart)
         } else {
           if (namePinyinArr.length == 3) {
-            // 以 xia kang wei 为例
+            // Take xia kang wei as an example
 
             // Kangwei Xia
             pinyinStandard =
-              this.camelizeString(middlePart) +
-              lastPart +
-              " " +
-              this.camelizeString(firstPart);
+              this.camelizeString(middlePart) + lastPart + " " + this.camelizeString(firstPart);
             Name = this.getAbbreviationsOfEnglishName(pinyinStandard);
             Name.originalChineseName = nameInput;
             // Name.language = "Chinese"
             // Xia Kangwei
             Name.pinyinStandardAndReverse =
-              this.camelizeString(firstPart) +
-              " " +
-              this.camelizeString(middlePart) +
-              lastPart;
-            Name = this.moveStringPropertyToSecondPosition(
-              Name,
-              "originalChineseName",
-            );
+              this.camelizeString(firstPart) + " " + this.camelizeString(middlePart) + lastPart;
+            Name = this.moveStringPropertyToSecondPosition(Name, "originalChineseName");
           }
         }
       } else {
@@ -1220,28 +1037,25 @@ function initXDYYExtensions() {
     }
   };
 
-  // 提取文献卡片中的 bib 条目
+  // Extract bib entries from reference cards
 
   toolbarUtils.extractBibFromReferenceNote = function (focusNote) {
     let findBibContent = false;
     let bibContent;
     for (let i = 0; i <= focusNote.comments.length - 1; i++) {
-      if (
-        focusNote.comments[i].text &&
-        focusNote.comments[i].text.includes("- `.bib`")
-      ) {
+      if (focusNote.comments[i].text && focusNote.comments[i].text.includes("- `.bib`")) {
         bibContent = focusNote.comments[i].text;
         findBibContent = true;
         break;
       }
     }
     if (findBibContent) {
-      // 定义匹配bib内容的正则表达式，调整换行符处理
+      // Define a regular expression to match the content of "bib", and adjust the handling of newline characters.
       const bibPattern = /```bib\s*\n([\s\S]*?)\n\s*```/;
-      // 使用正则表达式提取bib内容
+      // Extracting bib content using regular expressions
       let bibContentMatch = bibPattern.exec(bibContent);
 
-      // 检查是否匹配到内容
+      // Check if content is matched
       if (bibContentMatch) {
         // MNUtil.copy(
         return bibContentMatch[1]
@@ -1250,69 +1064,69 @@ function initXDYYExtensions() {
           .join("\n");
         // )
       } else {
-        MNUtil.showHUD("No bib content found"); // 如果未找到匹配内容，则抛出错误
+        MNUtil.showHUD("No bib content found"); // Throws an error if no matching content is found.
       }
     } else {
       MNUtil.showHUD("No '- `bib`' found");
     }
   };
 
-  // 将字符串分割为数组
+  // Split the string into an array
 
   toolbarUtils.splitStringByThreeSeparators = function (string) {
-    // 正则表达式匹配中文逗号、中文分号和西文分号
+    // Regular expression to match Chinese commas, Chinese semicolons, and Western semicolons
     const separatorRegex = /，\s*|；\s*|;\s*/g;
 
-    // 使用split方法按分隔符分割字符串
+    // Use the split method to split the string by the delimiter
     const arr = string.split(separatorRegex);
 
-    // 去除可能的空字符串元素（如果输入字符串的前后或连续分隔符间有空白）
+    // Remove any possible empty string elements (if there are whitespace before, after, or between consecutive delimiters in the input string).
     return arr.filter(Boolean);
   };
 
   toolbarUtils.splitStringByFourSeparators = function (string) {
-    // 正则表达式匹配中文逗号、中文分号和西文分号
+    // Regular expression to match Chinese commas, Chinese semicolons, and Western semicolons
     const separatorRegex = /，\s*|；\s*|;\s*|,\s*/g;
 
-    // 使用split方法按分隔符分割字符串
+    // Use the split method to split the string by the delimiter
     const arr = string.split(separatorRegex);
 
-    // 去除可能的空字符串元素（如果输入字符串的前后或连续分隔符间有空白）
+    // Remove any possible empty string elements (if there are whitespace before, after, or between consecutive delimiters in the input string).
     return arr.filter(Boolean);
   };
 
-  // 获取数组中从 startNum 作为元素开始的连续序列数组片段
+  // Get a contiguous sequence of elements from an array starting at startNum.
   toolbarUtils.getContinuousSequenceFromNum = function (arr, startNum) {
-    let sequence = []; // 存储连续序列的数组
-    let i = arr.indexOf(startNum); // 找到startNum在数组中的索引位置
+    let sequence = []; // An array to store a continuous sequence
+    let i = arr.indexOf(startNum); // Find the index of startNum in the array
 
-    // 检查是否找到startNum或者它是否合法
+    // Check if startNum is found or if it is valid.
     if (i === -1 || startNum !== arr[i]) {
       return [];
     }
 
-    let currentNum = startNum; // 当前处理的数字
+    let currentNum = startNum; // The number currently being processed
 
-    // 向后遍历数组寻找连续序列
+    // Traverse the array backwards to find a continuous sequence
     while (i < arr.length && arr[i] === currentNum) {
-      sequence.push(arr[i]); // 将连续的数字添加到序列中
-      currentNum++; // 移动到下一个数字
-      i++; // 更新索引位置
+      sequence.push(arr[i]); // Add consecutive numbers to the sequence.
+      currentNum++; // Move to the next number
+      i++; // Update index position
     }
 
-    return sequence; // 返回找到的连续序列数组
+    return sequence; // Returns an array of the found consecutive sequences
   };
 
-  // 判断文献卡片类型
+  // Determine the type of document card
   toolbarUtils.getReferenceNoteType = function (note) {
-    if (note.noteTitle.includes("论文")) {
+    if (note.noteTitle.includes("paper")) {
       return "paper";
     } else {
       return "book";
     }
   };
 
-  // 寻找子卡片中重复的 "; xxx" 的 xxx
+  // Find the xxx in the sub-card where "; xxx" is repeated.
   toolbarUtils.findDuplicateTitles = function (childNotes) {
     const seen = new Set();
     const duplicates = [];
@@ -1333,45 +1147,43 @@ function initXDYYExtensions() {
   };
 
   /**
-   * 消除卡片内容，保留文字评论
-   * 夏大鱼羊
+   * Remove card content, retain text comments
+   * Xia Dayuyang
    */
   toolbarUtils.clearContentKeepMarkdownText = function (focusNote) {
     let focusNoteComments = focusNote.note.comments;
     let focusNoteCommentLength = focusNoteComments.length;
     let comment;
     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "请确认",
-      "只保留 Markdown 文字吗？\n注意 Html 评论也会被清除",
+      "Please confirm.",
+      "Should only Markdown text be kept?\nNote that HTML comments will also be deleted.",
       0,
-      "点错了",
-      ["确定"],
+      "Clicked the wrong thing"["Sure"],
       (alert, buttonIndex) => {
         if (buttonIndex == 1) {
           MNUtil.undoGrouping(() => {
             MNUtil.copy(focusNote.noteTitle);
             focusNote.noteTitle = "";
-            // 从最后往上删除，就不会出现前面删除后干扰后面的 index 的情况
+            // Deleting from the end upwards avoids the situation where deletions from earlier steps interfere with the indexes of later steps.
             for (let i = focusNoteCommentLength - 1; i >= 0; i--) {
               comment = focusNoteComments[i];
               if (
                 comment.type !== "TextNote" ||
                 (comment.type !== "PaintNote" &&
-                  (comment.text.includes("marginnote4app") ||
-                    comment.text.includes("marginnote3app")))
+                  (comment.text.includes("marginnote4app") || comment.text.includes("marginnote3app")))
               ) {
                 focusNote.removeCommentByIndex(i);
               }
             }
           });
         }
-      },
+      }
     );
   };
 
   /**
-   * 把卡片中的 HtmlNote 的内容转化为 Markdown 语法
-   * 夏大鱼羊
+Convert the HTMLNote content in the card to Markdown syntax.
+* Xia Dayuyang
    */
   toolbarUtils.convetHtmlToMarkdown = function (focusNote) {
     let focusNoteComments = focusNote.note.comments;
@@ -1390,191 +1202,177 @@ function initXDYYExtensions() {
 }
 
 /**
- * 扩展 toolbarConfig init 方法
- * 在 toolbarConfig.init() 调用后调用
+* Extend the toolbarConfig init method
+Called after toolbarConfig.init().
  */
 function extendToolbarConfigInit() {
-  // 保存原始的 init 方法
+  // Save the original init method
   const originalInit = toolbarConfig.init;
 
-  // 重写 init 方法
+  // Override the init method
   toolbarConfig.init = function (mainPath) {
-    // 调用原始的 init 方法
+    // Call the original init method
     originalInit.call(this, mainPath);
 
-    // 添加扩展的初始化逻辑
-    // 用来存参考文献的数据
-    toolbarConfig.referenceIds = toolbarConfig.getByDefault(
-      "MNToolbar_referenceIds",
-      {},
-    );
+    // Add extended initialization logic
+    // Data used to store references
+    toolbarConfig.referenceIds = toolbarConfig.getByDefault("MNToolbar_referenceIds", {});
   };
 
-  // ===== AI 调用相关函数 =====
+  // ===== AI calls related functions =====
 
   /**
-   * AI 翻译功能
-   * @param {string} text - 要翻译的文本
-   * @param {string} targetLang - 目标语言（默认中文）
-   * @param {string} model - AI 模型
-   * @returns {Promise<string>} 翻译后的文本
+   * AI translation function
+   * @param {string} text - The text to be translated
+   * @param {string} targetLang - Target language (default is Chinese)
+   * @param {string} model - AI model
+   * @returns {Promise<string>} Translated text
    */
-  toolbarUtils.aiTranslate = async function (
-    text,
-    targetLang = "中文",
-    model = "gpt-4o-mini",
-  ) {
+  toolbarUtils.aiTranslate = async function (text, targetLang = "default", model = "gpt-4o-mini") {
     try {
-      // 检查 MNUtils 是否激活
+      // Check if MNUtils is activated
       if (typeof subscriptionConfig === "undefined") {
-        MNUtil.showHUD("❌ 请先安装并激活 MN Utils");
+        MNUtil.showHUD("❌ Please install and activate MN Utils first");
         return null;
       }
 
       if (!subscriptionConfig.getConfig("activated")) {
-        MNUtil.showHUD("❌ 请在 MN Utils 中配置 API Key");
+        MNUtil.showHUD("❌ Please configure the API Key in MN Utils");
         return null;
       }
 
-      // 根据文本内容自动选择合适的提示词类型
+      // Automatically select the appropriate prompt word type based on the text content
       let promptType = "basic";
       if (toolbarUtils.translationConfig.isMathematicalText(text)) {
-        promptType = "math"; // 检测到数学内容，使用数学专用提示词
+        promptType = "math"; // Math content detected, use a math-specific prompt word.
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`🔧 [翻译] 检测到数学内容，使用数学专用翻译模式`);
+          MNUtil.log(`🔧 [Translation] Mathematical content detected, using mathematical translation mode`);
         }
       }
 
-      // 构建提示词
-      const systemPrompt = toolbarUtils.translationConfig.getPrompt(
-        promptType,
-        targetLang,
-      );
+      // Build prompt words
+      const systemPrompt = toolbarUtils.translationConfig.getPrompt(promptType, targetLang);
 
-      // 构建消息
+      // Build message
       const messages = [
         { role: "system", content: systemPrompt },
         { role: "user", content: text },
       ];
 
-      // 解析模型名称，去除前缀（如 "Subscription: gpt-4o" -> "gpt-4o"）
+      // Parse the model name and remove the prefix (e.g., "Subscription: gpt-4o" -> "gpt-4o")
       let actualModel = model;
       if (model.includes(":")) {
-        const parts = model.split(":").map(s => s.trim());
+        const parts = model.split(":").map((s) => s.trim());
         if (parts.length === 2) {
-          actualModel = parts[1]; // 提取实际模型名
+          actualModel = parts[1]; // Extract the actual model name
         }
       }
 
-      // 使用 Subscription 配置
+      // Using Subscription Configuration
       const config = {
         apiKey: subscriptionConfig.config.apikey,
         apiHost: subscriptionConfig.config.url,
-        model: actualModel,  // 使用解析后的模型名
+        model: actualModel, // Use the parsed model name
         temperature: 0.3,
         stream: false,
       };
 
-      // 发送请求
+      // Send request
       const result = await this.sendAIRequest(messages, config);
 
       if (result) {
         return result.trim();
       } else {
-        MNUtil.showHUD("❌ 翻译失败");
+        MNUtil.showHUD("❌ Translation failed");
         return null;
       }
     } catch (error) {
       toolbarUtils.addErrorLog(error, "aiTranslate");
-      MNUtil.showHUD("❌ 翻译出错: " + error.message);
+      MNUtil.showHUD("❌ Translation error: " + error.message);
       return null;
     }
   };
 
   /**
-   * 通用 AI 请求（支持自定义 system 和 user 消息）
-   * @param {string} userContent - 用户输入内容
-   * @param {string} systemPrompt - 系统提示词（可选）
-   * @param {string} model - AI 模型
-   * @returns {Promise<string>} AI 响应内容
+   * General AI requests (supports custom system and user messages)
+   * @param {string} userContent - User input content
+   * @param {string} systemPrompt - System prompt (optional)
+   * @param {string} model - AI model
+   * @returns {Promise<string>} AI response content
    */
-  toolbarUtils.aiGeneralRequest = async function (
-    userContent,
-    systemPrompt = "",
-    model = "gpt-4o-mini"
-  ) {
+  toolbarUtils.aiGeneralRequest = async function (userContent, systemPrompt = "", model = "gpt-4o-mini") {
     try {
-      // 检查 MNUtils 是否激活
+      // Check if MNUtils is activated
       if (typeof subscriptionConfig === "undefined") {
-        MNUtil.showHUD("❌ 请先安装并激活 MN Utils");
+        MNUtil.showHUD("❌ Please install and activate MN Utils first");
         return null;
       }
 
       if (!subscriptionConfig.getConfig("activated")) {
-        MNUtil.showHUD("❌ 请在 MN Utils 中配置 API Key");
+        MNUtil.showHUD("❌ Please configure the API Key in MN Utils");
         return null;
       }
 
-      // 构建消息数组
+      // Build message array
       const messages = [];
       if (systemPrompt) {
         messages.push({ role: "system", content: systemPrompt });
       }
       messages.push({ role: "user", content: userContent });
 
-      // 解析模型名称，去除前缀（如 "Subscription: gpt-4o" -> "gpt-4o"）
+      // Parse the model name and remove the prefix (e.g., "Subscription: gpt-4o" -> "gpt-4o")
       let actualModel = model;
       if (model.includes(":")) {
-        const parts = model.split(":").map(s => s.trim());
+        const parts = model.split(":").map((s) => s.trim());
         if (parts.length === 2) {
-          actualModel = parts[1]; // 提取实际模型名
+          actualModel = parts[1]; // Extract the actual model name
           if (typeof MNUtil !== "undefined" && MNUtil.log) {
-            MNUtil.log(`🔧 [AI通用请求] 解析模型: ${model} -> ${actualModel}`);
+            MNUtil.log(`🔧 [AI General Request] Parsing Model: ${model} -> ${actualModel}`);
           }
         }
       }
 
-      // 使用 Subscription 配置
+      // Using Subscription Configuration
       const config = {
         apiKey: subscriptionConfig.config.apikey,
         apiHost: subscriptionConfig.config.url,
-        model: actualModel,  // 使用解析后的模型名
-        temperature: 0.7,  // 通用请求使用稍高的温度
+        model: actualModel, // Use the parsed model name
+        temperature: 0.7, // Generally, a slightly higher temperature is required.
         stream: false,
       };
 
-      // 发送请求
+      // Send request
       const result = await this.sendAIRequest(messages, config);
 
       if (result) {
         return result.trim();
       } else {
-        MNUtil.showHUD("❌ AI 请求失败");
+        MNUtil.showHUD("❌ AI request failed");
         return null;
       }
     } catch (error) {
       toolbarUtils.addErrorLog(error, "aiGeneralRequest");
-      MNUtil.showHUD("❌ AI 请求出错: " + error.message);
+      MNUtil.showHUD("❌ AI request error: " + error.message);
       return null;
     }
   };
 
   /**
-   * 发送 AI 请求（通用方法）
-   * @param {Array} messages - 消息数组
-   * @param {Object} config - 配置对象
-   * @returns {Promise<string>} AI 响应内容
+Sending AI requests (general method)
+* @param {Array} messages - Array of messages
+* @param {Object} config - Configuration object
+* @returns {Promise<string>} AI response content
    */
   toolbarUtils.sendAIRequest = async function (messages, config) {
     try {
-      // 检查 MNConnection 是否可用
+      // Check if MNConnection is available
       if (typeof MNConnection === "undefined") {
-        throw new Error("MNConnection 不可用，请确保 MN Utils 已安装");
+        throw new Error("MNConnection is unavailable. Please ensure that MN Utils is installed");
       }
 
-      // 构建完整 URL
+      // Build the complete URL
       let apiUrl = config.apiHost;
-      // 如果 apiHost 已经包含完整路径，直接使用
+      // If apiHost already contains a full path, use it directly.
       if (!apiUrl.includes("/v1/chat/completions")) {
         if (!apiUrl.endsWith("/")) {
           apiUrl += "/";
@@ -1589,7 +1387,7 @@ function extendToolbarConfigInit() {
         stream: config.stream,
       };
 
-      // 使用 MNConnection 创建和发送请求
+      // Use MNConnection to create and send requests
       const request = MNConnection.initRequest(apiUrl, {
         method: "POST",
         headers: {
@@ -1600,7 +1398,7 @@ function extendToolbarConfigInit() {
         json: body,
       });
 
-      // 发送请求
+      // Send request
       const response = await MNConnection.sendRequest(request);
 
       if (response && response.choices && response.choices.length > 0) {
@@ -1615,230 +1413,223 @@ function extendToolbarConfigInit() {
   };
 
   /**
-   * OCR 后进行 AI 翻译
-   * @param {string} ocrText - OCR 识别的文本
-   * @param {string} model - AI 模型
-   * @returns {Promise<string>} 翻译后的文本
+   * AI translation after OCR
+   * @param {string} ocrText - The text recognized by OCR
+   * @param {string} model - AI model
+   * @returns {Promise<string>} Translated text
    */
-  toolbarUtils.ocrWithTranslation = async function (
-    ocrText,
-    model = "gpt-4o-mini",
-  ) {
+  toolbarUtils.ocrWithTranslation = async function (ocrText, model = "gpt-4o-mini") {
     try {
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`🔧 [OCR翻译] 开始处理，文本长度: ${ocrText.length}`);
+        MNUtil.log(`🔧 [OCR Translation] Starting processing, text length: ${ocrText.length}`);
       }
 
-      // 先显示 OCR 结果
-      // MNUtil.showHUD("📝 OCR 完成，正在翻译...");
+      // First display the OCR results
+      // MNUtil.showHUD("📝 OCR complete, translating...");
 
       let translatedText = null;
 
-      // 优先尝试使用内置翻译 API
+      // Try using the built-in translation API first
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`🔧 [OCR翻译] 尝试使用翻译 API`);
+        MNUtil.log(`🔧 [OCR translation] Attempting to use the translation API`);
       }
-      translatedText = await this.aiTranslate(ocrText, "中文", model);
+      `translatedText = await this.aiTranslate(ocrText, "中文", model);`;
 
-      // 如果内置 API 失败，尝试使用 MN Utils 的 API（如果配置了）
+      // If the built-in API fails, try using the MN Utils API (if configured).
       if (
         !translatedText &&
         typeof subscriptionConfig !== "undefined" &&
         subscriptionConfig.getConfig("activated")
       ) {
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`🔧 [OCR翻译] API 失败，尝试使用内置API`);
+          MNUtil.log(`🔧 [OCR translation] API failed, trying to use built-in API`);
         }
-        translatedText = await this.aiTranslateBuiltin(ocrText, "中文", model);
+        `translatedText = await this.aiTranslateBuiltin(ocrText, "中文", model);`;
       }
 
       if (translatedText) {
-        MNUtil.showHUD("✅ 翻译完成");
+        MNUtil.showHUD("✅ Translation complete");
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`✅ [OCR翻译] 翻译成功`);
+          MNUtil.log(`✅ [OCR Translation] Translation Successful`);
         }
         return translatedText;
       } else {
-        // 如果翻译失败，返回原始 OCR 文本
-        MNUtil.showHUD("⚠️ 翻译失败，使用原始文本");
+        // If translation fails, return the original OCR text.
+        MNUtil.showHUD("⚠️ Translation failed, using raw text");
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`❌ [OCR翻译] 翻译失败，返回原始文本`);
+          MNUtil.log(`❌ [OCR translation] Translation failed, return to original text`);
         }
         return ocrText;
       }
     } catch (error) {
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`❌ [OCR翻译] 异常: ${error.message}`);
+        MNUtil.log(`❌ [OCR translation] Exception: ${error.message}`);
       }
       toolbarUtils.addErrorLog(error, "ocrWithTranslation");
-      // 翻译失败时返回原始文本
+      // Return to original text if translation fails
       return ocrText;
     }
   };
 
-  toolbarUtils.ocrWithAI = async function (
-    ocrText,
-    model = "gpt-4o-mini",
-    systemPrompt = ""
-  ) {
+  toolbarUtils.ocrWithAI = async function (ocrText, model = "gpt-4o-mini", systemPrompt = "") {
     try {
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`🔧 [AI处理] 开始处理，文本长度: ${ocrText.length}`);
-        MNUtil.log(`🔧 [AI处理] 使用模型: ${model}`);
+        MNUtil.log(`🔧 [AI Processing] Start processing, text length: ${ocrText.length}`);
+        MNUtil.log(`🔧 [AI Processing] Using Model: ${model}`);
       }
 
-      // 处理向后兼容：如果 ocrText 包含完整提示词（没有 systemPrompt），则使用空的 systemPrompt
-      // 这样可以兼容现有的调用方式
+      // Handling backward compatibility: If ocrText contains the full prompt word (without systemPrompt), then use an empty systemPrompt.
+      // This ensures compatibility with existing calling methods
       const userContent = ocrText;
       const sysPrompt = systemPrompt || "";
 
       let aiResultText = null;
 
-      // 智能选择 API 调用方式
-      if (model.startsWith("Subscription:") || model.startsWith("ChatGPT:") || 
-          model.startsWith("ChatGLM:") || model.startsWith("Deepseek:") ||
-          model.startsWith("Claude:") || model.startsWith("Gemini:")) {
-        // 订阅模型，直接使用 MN Utils API
+      // Intelligent selection of API calling method
+      if (
+        model.startsWith("Subscription:") ||
+        model.startsWith("ChatGPT:") ||
+        model.startsWith("ChatGLM:") ||
+        model.startsWith("Deepseek:") ||
+        model.startsWith("Claude:") ||
+        model.startsWith("Gemini:")
+      ) {
+        // Subscribe to the model and use the MN Utils API directly.
         if (typeof subscriptionConfig === "undefined") {
-          MNUtil.showHUD("❌ 请先安装并激活 MN Utils");
+          MNUtil.showHUD("❌ Please install and activate MN Utils first");
           return ocrText;
         }
-        
+
         if (!subscriptionConfig.getConfig("activated")) {
-          MNUtil.showHUD("❌ 请在 MN Utils 中配置 API Key");
+          MNUtil.showHUD("❌ Please configure the API Key in MN Utils");
           return ocrText;
         }
 
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`🔧 [AI处理] 使用订阅 API 处理模型: ${model}`);
+          MNUtil.log(`🔧 [AI Processing] Processing the model using the subscription API: ${model}`);
         }
         aiResultText = await this.aiGeneralRequest(ocrText, systemPrompt, model);
-        
       } else if (model === "Built-in" || model.startsWith("glm-")) {
-        // 内置模型，使用内置 API
+        // Built-in model, using built-in API
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`🔧 [AI处理] 使用内置 AI API 处理模型: ${model}`);
+          MNUtil.log(`🔧 [AI Processing] Processing the model using the built-in AI API: ${model}`);
         }
         aiResultText = await this.aiGeneralRequestBuiltin(ocrText, systemPrompt, model);
-        
       } else {
-        // 未知模型，先尝试内置 API，失败后尝试订阅 API
+        // For unknown models, first try the built-in API; if that fails, try subscribing to the API.
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`🔧 [AI处理] 未知模型 ${model}，先尝试内置 API`);
+          MNUtil.log(`🔧 [AI Processing] Unknown model ${model}, try built-in API first`);
         }
         aiResultText = await this.aiGeneralRequestBuiltin(ocrText, systemPrompt, model);
 
-        // 如果内置 API 失败，尝试使用 MN Utils 的 API
+        // If the built-in API fails, try using the MN Utils API.
         if (
           !aiResultText &&
           typeof subscriptionConfig !== "undefined" &&
           subscriptionConfig.getConfig("activated")
         ) {
           if (typeof MNUtil !== "undefined" && MNUtil.log) {
-            MNUtil.log(`🔧 [AI处理] 内置 API 失败，尝试使用订阅 API`);
+            MNUtil.log(`🔧 [AI processing] Built-in API failed, trying to use subscription API`);
           }
           aiResultText = await this.aiGeneralRequest(ocrText, systemPrompt, model);
         }
       }
 
       if (aiResultText) {
-        MNUtil.showHUD("✅ AI 处理完成");
+        MNUtil.showHUD("✅ AI processing complete");
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`✅ [AI处理] 处理成功`);
+          MNUtil.log(`✅ [AI processing] Processing successful`);
         }
         return aiResultText;
       } else {
-        // 如果处理失败，返回原始 OCR 文本
-        MNUtil.showHUD("⚠️ AI 处理失败，使用原始文本");
+        // If processing fails, return the original OCR text.
+        MNUtil.showHUD("⚠️ AI processing failed, using raw text");
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`❌ [AI处理] 处理失败，返回原始文本`);
+          MNUtil.log(`❌ [AI processing] Processing failed, returning the original text`);
         }
         return ocrText;
       }
     } catch (error) {
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`❌ [AI处理] 异常: ${error.message}`);
+        MNUtil.log(`❌ [AI Processing] Exception: ${error.message}`);
       }
       toolbarUtils.addErrorLog(error, "ocrWithAI");
-      // 处理失败时返回原始文本
+      // Return the original text if processing fails
       return ocrText;
     }
   };
 
-  toolbarUtils.AIWithPromptAndModel = async function (
-    prompt,
-    model = "gpt-4o-mini",
-  ) {
+  toolbarUtils.AIWithPromptAndModel = async function (prompt, model = "gpt-4o-mini") {
     try {
-      // 检查 MNUtils 是否激活
+      // Check if MNUtils is activated
       if (typeof subscriptionConfig === "undefined") {
-        MNUtil.showHUD("❌ 请先安装并激活 MN Utils");
+        MNUtil.showHUD("❌ Please install and activate MN Utils first");
         return null;
       }
 
       if (!subscriptionConfig.getConfig("activated")) {
-        MNUtil.showHUD("❌ 请在 MN Utils 中配置 API Key");
+        MNUtil.showHUD("❌ Please configure the API Key in MN Utils");
         return null;
       }
 
-      // 构建消息
+      // Build message
       const messages = [
         { role: "system", content: prompt },
         { role: "user", content: "" },
       ];
 
-      // 解析模型名称，去除前缀（如 "Subscription: gpt-4o" -> "gpt-4o"）
+      // Parse the model name and remove the prefix (e.g., "Subscription: gpt-4o" -> "gpt-4o")
       let actualModel = model;
       if (model.includes(":")) {
-        const parts = model.split(":").map(s => s.trim());
+        const parts = model.split(":").map((s) => s.trim());
         if (parts.length === 2) {
-          actualModel = parts[1]; // 提取实际模型名
+          actualModel = parts[1]; // Extract the actual model name
         }
       }
 
-      // 使用 Subscription 配置
+      // Using Subscription Configuration
       const config = {
         apiKey: subscriptionConfig.config.apikey,
         apiHost: subscriptionConfig.config.url,
-        model: actualModel,  // 使用解析后的模型名
+        model: actualModel, // Use the parsed model name
         temperature: 0.3,
         stream: false,
       };
 
-      // 发送请求
+      // Send request
       const result = await this.sendAIRequest(messages, config);
 
       if (result) {
         return result.trim();
       } else {
-        MNUtil.showHUD("❌ AI 请求失败");
+        MNUtil.showHUD("❌ AI request failed");
         return null;
       }
     } catch (error) {
       toolbarUtils.addErrorLog(error, "AIWithPromptAndModel");
-      MNUtil.showHUD("❌ AI 请求出错: " + error.message);
+      MNUtil.showHUD("❌ AI request error: " + error.message);
       return null;
     }
   };
 
   /**
-   * 翻译配置
-   * 包含系统提示词和其他可配置参数
+   * Translation Configuration
+   * Includes system prompts and other configurable parameters
    */
   toolbarUtils.translationConfig = {
-    // 基础翻译提示词
+    // Basic translation prompts
     basicPrompt:
       "Translate the following text to {targetLang}. Only provide the translation without any explanation or additional text.",
 
-    // 学术翻译提示词（用于卡片内容翻译）
+    // Academic translation prompts (for translating card content)
     academicPrompt:
       "You are a professional academic translator specializing in mathematics. Translate the following academic text to {targetLang}. Important guidelines:\n1. Maintain mathematical terminology accuracy (theorem, lemma, corollary, proposition, etc.)\n2. Preserve mathematical symbols and formulas in their original format\n3. Use standard mathematical translations for terms like:\n   - Theorem → 定理\n   - Lemma → 引理\n   - Corollary → 推论\n   - Proposition → 命题\n   - Proof → 证明\n   - Definition → 定义\n   - Example → 例子/例\n   - Remark → 注记/注\n4. For specialized areas (topology, functional analysis, measure theory, etc.), use accepted Chinese mathematical terminology\n5. Keep mathematical expressions, variables, and notation unchanged\n6. Maintain consistency in terminology throughout the translation\nOnly provide the translation without any explanation.",
 
-    // 数学专用翻译提示词
+    // Math-specific translation prompts
     mathPrompt:
       "You are an expert mathematical translator with deep knowledge in pure mathematics. Translate the following mathematical text to {targetLang}. Critical requirements:\n1. Mathematical accuracy is paramount - use standard mathematical terminology in {targetLang}\n2. Common mathematical terms mapping:\n   - continuous → 连续\n   - differentiable → 可微\n   - integrable → 可积\n   - bounded → 有界\n   - compact → 紧致/紧\n   - convergent → 收敛\n   - Banach space → Banach空间\n   - Hilbert space → Hilbert空间\n   - measure → 测度\n   - topology → 拓扑\n3. Preserve all mathematical notation, formulas, and LaTeX expressions exactly\n4. For named theorems/concepts, include original name in parentheses if commonly used (e.g., 'Hahn-Banach定理 (Hahn-Banach theorem)')\n5. Maintain logical flow and mathematical rigor\n6. Use formal mathematical Chinese style\nProvide only the translation, no explanations.",
 
-    // 获取翻译提示词的方法
+    // Methods for obtaining translation prompts
     getPrompt: function (type = "math", targetLang = "中文") {
       const prompts = {
         basic: this.basicPrompt,
@@ -1850,9 +1641,9 @@ function extendToolbarConfigInit() {
       return prompt.replace(/{targetLang}/g, targetLang);
     },
 
-    // 检测是否为数学文本
+    // Check if it is mathematical text
     isMathematicalText: function (text) {
-      // 检查常见的数学术语和符号
+      // Check common mathematical terms and symbols
       const mathIndicators = [
         /theorem/i,
         /lemma/i,
@@ -1886,36 +1677,36 @@ function extendToolbarConfigInit() {
   };
 
   /**
-   * 内置翻译 API（不依赖 MN Utils 配置）
-   * @param {string} text - 要翻译的文本
-   * @param {string} targetLang - 目标语言
-   * @param {string} model - AI 模型（默认使用智谱 AI）
-   * @returns {Promise<string|null>} 翻译后的文本
+   * Built-in translation API (does not depend on MN Utils configuration)
+   * @param {string} text - The text to be translated
+   * @param {string} targetLang - Target language
+   * @param {string} model - AI model (uses Zhipu AI by default)
+   * @returns {Promise<string|null>} Translated text
    */
   toolbarUtils.aiTranslateBuiltin = async function (
     text,
     targetLang = "中文",
-    model = "glm-4-flashx-250414",
+    model = "glm-4-flashx-250414"
   ) {
     try {
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`🔧 [翻译] 开始内置翻译: ${text.substring(0, 50)}...`);
-        MNUtil.log(`🔧 [翻译] 目标语言: ${targetLang}, 模型: ${model}`);
+        MNUtil.log(`🔧 [Translation] Start built-in translation: ${text.substring(0, 50)}...`);
+        MNUtil.log(`🔧 [Translation] Target Language: ${targetLang}, Model: ${model}`);
       }
 
-      // 检查 MNConnection 是否可用
+      // Check if MNConnection is available
       if (typeof MNConnection === "undefined") {
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`❌ [翻译] MNConnection 不可用`);
+          MNUtil.log(`❌ [Translation] MNConnection unavailable`);
         }
-        throw new Error("MNConnection 不可用，请确保 MN Utils 已安装");
+        throw new Error("MNConnection is unavailable. Please ensure that MN Utils is installed");
       }
 
-      // 使用智谱 AI 的内置 API Key
+      // Using Zhipu AI's built-in API Key
       const apiKey = "449628b94fcac030495890ee542284b8.F23PvJW4XXLJ4Lsu";
       const apiUrl = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
 
-      // 模型映射：将其他模型名称映射到智谱 AI 的模型
+      // Model Mapping: Maps other model names to Zhipu AI's models
       const modelMap = {
         "gpt-4o-mini": "glm-4-flashx-250414",
         "gpt-4o": "glm-4-flashx-250414",
@@ -1924,28 +1715,25 @@ function extendToolbarConfigInit() {
         "claude-3-7-sonnet": "glm-4-flashx-250414",
       };
 
-      // 使用映射后的模型名称，如果没有映射则使用原始名称
+      // Use the mapped model name; if no mapping exists, use the original name.
       const actualModel = modelMap[model] || model;
 
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`🔧 [翻译] 实际使用模型: ${actualModel}`);
+        MNUtil.log(`🔧 [Translation] Actual Model Used: ${actualModel}`);
       }
 
-      // 根据文本内容自动选择合适的提示词类型
+      // Automatically select the appropriate prompt word type based on the text content
       let promptType = "basic";
       if (toolbarUtils.translationConfig.isMathematicalText(text)) {
-        promptType = "math"; // 检测到数学内容，使用数学专用提示词
+        promptType = "math"; // Math content detected, use a math-specific prompt word.
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`🔧 [翻译] 检测到数学内容，使用数学专用翻译模式`);
+          MNUtil.log(`🔧 [Translation] Mathematical content detected, using mathematical translation mode`);
         }
       }
 
-      const systemPrompt = toolbarUtils.translationConfig.getPrompt(
-        promptType,
-        targetLang,
-      );
+      const systemPrompt = toolbarUtils.translationConfig.getPrompt(promptType, targetLang);
 
-      // 构建请求体
+      // Build the request body
       const body = {
         model: actualModel,
         messages: [
@@ -1961,7 +1749,7 @@ function extendToolbarConfigInit() {
         temperature: 0.1,
       };
 
-      // 使用 MNConnection 创建和发送请求
+      // Use MNConnection to create and send requests
       const request = MNConnection.initRequest(apiUrl, {
         method: "POST",
         headers: {
@@ -1972,48 +1760,42 @@ function extendToolbarConfigInit() {
         json: body,
       });
 
-      // 发送请求
+      // Send request
       const response = await MNConnection.sendRequest(request);
 
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(
-          `🔧 [翻译] API 响应: ${JSON.stringify(response).substring(0, 200)}...`,
-        );
+        MNUtil.log(`🔧 [Translation] API response: ${JSON.stringify(response).substring(0, 200)}...`);
       }
 
-      // 检查响应状态
+      // Check response status
       if (response && response.statusCode >= 400) {
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`❌ [翻译] API 错误: 状态码 ${response.statusCode}`);
+          MNUtil.log(`❌ [Translation] API Error: Status Code ${response.statusCode}`);
           if (response.data && response.data.error) {
-            MNUtil.log(
-              `❌ [翻译] 错误详情: ${JSON.stringify(response.data.error)}`,
-            );
+            MNUtil.log(`❌ [Translation] Error Details: ${JSON.stringify(response.data.error)}`);
           }
         }
         return null;
       }
 
-      // 处理成功响应
+      // Successful response processing
       if (response && response.choices && response.choices.length > 0) {
         const translatedText = response.choices[0].message.content;
         if (translatedText) {
           if (typeof MNUtil !== "undefined" && MNUtil.log) {
-            MNUtil.log(
-              `✅ [翻译] 翻译成功: ${translatedText.substring(0, 100)}...`,
-            );
+            MNUtil.log(`✅ [Translation] Translation successful: ${translatedText.substring(0, 100)}...`);
           }
           return translatedText.trim();
         }
       }
 
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`❌ [翻译] 无有效响应或响应格式错误`);
+        MNUtil.log(`❌ [Translation] No valid response or incorrect response format`);
       }
       return null;
     } catch (error) {
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`❌ [翻译] 异常错误: ${error.message}`);
+        MNUtil.log(`❌ [Translation] Error: ${error.message}`);
       }
       toolbarUtils.addErrorLog(error, "aiTranslateBuiltin");
       return null;
@@ -2021,11 +1803,11 @@ function extendToolbarConfigInit() {
   };
 
   /**
-   * 通用 AI 请求 - 内置 API 版本（使用智谱 AI）
-   * @param {string} userContent - 用户输入内容
-   * @param {string} systemPrompt - 系统提示词（可选）
-   * @param {string} model - AI 模型
-   * @returns {Promise<string>} AI 响应内容
+   * General AI Requests - Built-in API Version (using Zhipu AI)
+   * @param {string} userContent - User input content
+   * @param {string} systemPrompt - System prompt (optional)
+   * @param {string} model - AI model
+   * @returns {Promise<string>} AI response content
    */
   toolbarUtils.aiGeneralRequestBuiltin = async function (
     userContent,
@@ -2034,54 +1816,54 @@ function extendToolbarConfigInit() {
   ) {
     try {
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`🔧 [AI内置] 开始处理: ${userContent.substring(0, 50)}...`);
-        MNUtil.log(`🔧 [AI内置] 原始模型: ${model}`);
+        MNUtil.log(`🔧 [AI Built-in] Start Processing: ${userContent.substring(0, 50)}...`);
+        MNUtil.log(`🔧 [AI Built-in] Original Model: ${model}`);
       }
 
-      // 检查 MNConnection 是否可用
+      // Check if MNConnection is available
       if (typeof MNConnection === "undefined") {
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`❌ [AI内置] MNConnection 不可用`);
+          MNUtil.log(`❌ [AI Built-in] MNConnection Unavailable`);
         }
-        throw new Error("MNConnection 不可用，请确保 MN Utils 已安装");
+        throw new Error("MNConnection is unavailable. Please ensure that MN Utils is installed");
       }
 
-      // 使用智谱 AI 的内置 API Key
+      // Using Zhipu AI's built-in API Key
       const apiKey = "449628b94fcac030495890ee542284b8.F23PvJW4XXLJ4Lsu";
       const apiUrl = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
 
-      // 模型映射：将其他模型名称映射到智谱 AI 的模型
+      // Model Mapping: Maps other model names to Zhipu AI's models
       const modelMap = {
         "gpt-4o-mini": "glm-4-flashx-250414",
         "gpt-4o": "glm-4-flashx-250414",
         "gpt-4.1": "glm-4-flashx-250414",
         "claude-3-5-sonnet": "glm-4-flashx-250414",
         "claude-3-7-sonnet": "glm-4-flashx-250414",
-        "Built-in": "glm-4-flashx-250414"
+        "Built-in": "glm-4-flashx-250414",
       };
 
-      // 使用映射后的模型名称，如果没有映射则使用原始名称
+      // Use the mapped model name; if no mapping exists, use the original name.
       const actualModel = modelMap[model] || model;
 
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`🔧 [AI内置] 实际使用模型: ${actualModel}`);
+        MNUtil.log(`🔧 [AI Built-in] Actual Model Used: ${actualModel}`);
       }
 
-      // 构建消息数组
+      // Build message array
       const messages = [];
       if (systemPrompt) {
         messages.push({ role: "system", content: systemPrompt });
       }
       messages.push({ role: "user", content: userContent.trim() });
 
-      // 构建请求体
+      // Build the request body
       const body = {
         model: actualModel,
         messages: messages,
-        temperature: 0.7,  // 通用请求使用稍高的温度
+        temperature: 0.7, // Generally, a slightly higher temperature is required.
       };
 
-      // 使用 MNConnection 创建和发送请求
+      // Use MNConnection to create and send requests
       const request = MNConnection.initRequest(apiUrl, {
         method: "POST",
         headers: {
@@ -2092,48 +1874,42 @@ function extendToolbarConfigInit() {
         json: body,
       });
 
-      // 发送请求
+      // Send request
       const response = await MNConnection.sendRequest(request);
 
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(
-          `🔧 [AI内置] API 响应: ${JSON.stringify(response).substring(0, 200)}...`,
-        );
+        MNUtil.log(`🔧 [AI Built-in] API Response: ${JSON.stringify(response).substring(0, 200)}...`);
       }
 
-      // 检查响应状态
+      // Check response status
       if (response && response.statusCode >= 400) {
         if (typeof MNUtil !== "undefined" && MNUtil.log) {
-          MNUtil.log(`❌ [AI内置] API 错误: 状态码 ${response.statusCode}`);
+          MNUtil.log(`❌ [AI Built-in] API Error: Status Code ${response.statusCode}`);
           if (response.data && response.data.error) {
-            MNUtil.log(
-              `❌ [AI内置] 错误详情: ${JSON.stringify(response.data.error)}`,
-            );
+            MNUtil.log(`❌ [AI Built-in] Error Details: ${JSON.stringify(response.data.error)}`);
           }
         }
         return null;
       }
 
-      // 处理成功响应
+      // Successful response processing
       if (response && response.choices && response.choices.length > 0) {
         const resultText = response.choices[0].message.content;
         if (resultText) {
           if (typeof MNUtil !== "undefined" && MNUtil.log) {
-            MNUtil.log(
-              `✅ [AI内置] 处理成功: ${resultText.substring(0, 100)}...`,
-            );
+            MNUtil.log(`✅ [AI Built-in] Processing Successful: ${resultText.substring(0, 100)}...`);
           }
           return resultText.trim();
         }
       }
 
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`❌ [AI内置] 无有效响应或响应格式错误`);
+        MNUtil.log(`❌ [AI Built-in] No valid response or incorrect response format`);
       }
       return null;
     } catch (error) {
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`❌ [AI内置] 异常错误: ${error.message}`);
+        MNUtil.log(`❌ [AI Built-in] Error: ${error.message}`);
       }
       toolbarUtils.addErrorLog(error, "aiGeneralRequestBuiltin");
       return null;
@@ -2141,71 +1917,64 @@ function extendToolbarConfigInit() {
   };
 
   /**
-   * 批量翻译卡片内容
-   * @param {string} text - 要翻译的文本
-   * @param {string} type - 翻译类型（'basic' 或 'academic'）
-   * @param {string} targetLang - 目标语言
-   * @param {string} model - AI 模型
-   * @returns {Promise<string|null>} 翻译后的文本
+Batch translation of card content
+* @param {string} text - The text to be translated
+* @param {string} type - Translation type ('basic' or 'academic')
+* @param {string} targetLang - Target language
+* @param {string} model - AI model
+* @returns {Promise<string|null>} Translated text
    */
   toolbarUtils.translateNoteContent = async function (
     text,
     type = "academic",
     targetLang = "中文",
-    model = null,
+    model = null
   ) {
     try {
       if (!text || !text.trim()) {
         return text;
       }
 
-      // 使用配置的默认模型或传入的模型
+      // Use the configured default model or the passed-in model
       const actualModel =
-        model ||
-        toolbarConfig.translateModel ||
-        toolbarConfig.defaultTranslateModel ||
-        "gpt-4o-mini";
+        model || toolbarConfig.translateModel || toolbarConfig.defaultTranslateModel || "gpt-4o-mini";
 
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
         MNUtil.log(
-          `🔧 [批量翻译] 开始翻译，类型: ${type}, 目标语言: ${targetLang}, 模型: ${actualModel}`,
+          `🔧 [Batch Translation] Start Translation, Type: ${type}, Target Language: ${targetLang}, Model: ${actualModel}`
         );
       }
 
-      // 保存原始提示词获取函数
+      // Function to save original prompt words
       const originalGetPrompt = toolbarUtils.translationConfig.getPrompt;
 
-      // 临时替换为指定类型的提示词
+      // Temporarily replace with a specified type of prompt word
       toolbarUtils.translationConfig.getPrompt = function (promptType, lang) {
         return originalGetPrompt.call(this, type, lang);
       };
 
       try {
-        // 调用内置翻译 API
-        const result = await toolbarUtils.aiTranslateBuiltin(
-          text,
-          targetLang,
-          actualModel,
-        );
+        // Call the built-in translation API
+        const result = await toolbarUtils.aiTranslateBuiltin(text, targetLang, actualModel);
         return result;
       } finally {
-        // 恢复原始提示词获取函数
+        // Function to restore original prompt word retrieval
         toolbarUtils.translationConfig.getPrompt = originalGetPrompt;
       }
     } catch (error) {
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log(`❌ [批量翻译] 翻译失败: ${error.message}`);
+        MNUtil.log(`❌ [Batch Translation] Translation failed: ${error.message}`);
       }
       throw error;
     }
   };
 
   /**
-   * 获取可用的 AI 模型列表
-   * @returns {Array<string>} 模型列表
+Get a list of available AI models
+* @returns {Array<string>} list of models
    */
   toolbarUtils.getAvailableAIModels = function () {
-    // 这些是 Subscription 支持的模型
+    // These are the models supported by Subscription
     return [
       "gpt-4o-mini",
       "gpt-4o",
@@ -2221,281 +1990,267 @@ function extendToolbarConfigInit() {
     ];
   };
 
-  // ===== 代码学习相关功能 =====
-  // 夏大鱼羊
+  // ===== Code learning related functions =====
+  // Xia Dayuyang
 
   /**
-   * 代码学习功能模块
-   * 用于处理代码学习卡片的标题格式化
+   * Code learning module
+   * Used for formatting titles in code learning cards
    */
-    /**
-     * 获取代码卡片的层级路径
-     * @param {MNNote} note - 当前卡片（D级）
-     * @returns {Object} 返回 {success: boolean, data?: {plugin, file, class, path}, error?: string}
-     */
-    toolbarUtils.getCodeCardPath =  function(note) {
-      try {
-        if (!note || !note.parentNote) {
-          return {
-            success: false,
-            error: "请选择一个有父卡片的知识点卡片"
-          };
-        }
+  /**
+   * Get the hierarchical path of the code card
+   * @param {MNNote} note - Current card (Level D)
+   * @returns {Object} 返回 {success: boolean, data?: {plugin, file, class, path}, error?: string}
+   */
+  (toolbarUtils.getCodeCardPath = function (note) {
+    try {
+      if (!note || !note.parentNote) {
+        return {
+          success: false,
+          error: "Please select a knowledge point card that has a parent card",
+        };
+      }
 
-        // C级：类卡片
-        const classNote = note.parentNote;
-        if (!classNote.noteTitle || !classNote.noteTitle.includes("类")) {
-          return {
-            success: false,
-            error: "父卡片不是类卡片"
-          };
-        }
-        const className = classNote.noteTitle.trim();
+      // Level C: Card-like
+      const classNote = note.parentNote;
+      if (!classNote.noteTitle || !classNote.noteTitle.includes("类")) {
+        return {
+          success: false,
+          error: "Parent card is not a card class",
+        };
+      }
+      const className = classNote.noteTitle.trim();
 
-        // B级：文件卡片（可选）
-        if (!classNote.parentNote) {
-          // 只有类，没有文件路径的情况
-          return {
-            success: true,
-            data: {
-              plugin: null,
-              file: null,
-              class: className,
-              path: className  // 路径就是类名
-            }
-          };
-        }
-        
-        const fileNote = classNote.parentNote;
-        if (!fileNote.noteTitle || !fileNote.noteTitle.match(/\.(js|ts|jsx|tsx)$/)) {
-          // 父父卡片存在但不是文件卡片，也返回只有类的情况
-          return {
-            success: true,
-            data: {
-              plugin: null,
-              file: null,
-              class: className,
-              path: className
-            }
-          };
-        }
-        const fileName = fileNote.noteTitle.trim();
-
-        // A级：插件根卡片（可选）
-        if (!fileNote.parentNote) {
-          // 有文件但没有插件根卡片
-          return {
-            success: true,
-            data: {
-              plugin: null,
-              file: fileName,
-              class: className,
-              path: `${fileName}/${className}`
-            }
-          };
-        }
-        
-        const pluginNote = fileNote.parentNote;
-        // 提取插件名，去除可能的emoji
-        const pluginTitle = pluginNote.noteTitle.trim();
-        const pluginName = pluginTitle.replace(/^[🧩📦🔧🛠️]*\s*/, "");
-
+      // Level B: File Card (Optional)
+      if (!classNote.parentNote) {
+        // Case where there is only a class, but no file path
         return {
           success: true,
           data: {
-            plugin: pluginName,
-            file: fileName,
+            plugin: null,
+            file: null,
             class: className,
-            path: `${pluginName}/${fileName}/${className}`
-          }
-        };
-      } catch (error) {
-        toolbarUtils.addErrorLog(error, "getCodeCardPath");
-        return {
-          success: false,
-          error: "获取路径时出错：" + error.message
+            path: className, // The path is the class name
+          },
         };
       }
-    },
 
+      const fileNote = classNote.parentNote;
+      if (!fileNote.noteTitle || !fileNote.noteTitle.match(/\.(js|ts|jsx|tsx)$/)) {
+        // If the parent card exists but is not a file card, it will also return only the class.
+        return {
+          success: true,
+          data: {
+            plugin: null,
+            file: null,
+            class: className,
+            path: className,
+          },
+        };
+      }
+      const fileName = fileNote.noteTitle.trim();
+
+      // Level A: Plugin root card (optional)
+      if (!fileNote.parentNote) {
+        // There are files but no plugin root card
+        return {
+          success: true,
+          data: {
+            plugin: null,
+            file: fileName,
+            class: className,
+            path: `${fileName}/${className}`,
+          },
+        };
+      }
+
+      const pluginNote = fileNote.parentNote;
+      // Extract plugin names and remove possible emojis
+      const pluginTitle = pluginNote.noteTitle.trim();
+      const pluginName = pluginTitle.replace(/^[🧩📦🔧🛠️]*\s*/, "");
+
+      return {
+        success: true,
+        data: {
+          plugin: pluginName,
+          file: fileName,
+          class: className,
+          path: `${pluginName}/${fileName}/${className}`,
+        },
+      };
+    } catch (error) {
+      toolbarUtils.addErrorLog(error, "getCodeCardPath");
+      return {
+        success: false,
+        Error: "Error retrieving path: " + error.message,
+      };
+    }
+  }),
     /**
-     * 根据类型生成调用方式
-     * @param {string} methodName - 方法名
-     * @param {string} type - 类型
-     * @param {string} className - 类名（不含"类"字）
-     * @param {boolean} hasFilePath - 是否有文件路径（默认true）
-     * @returns {string[]} 调用方式数组
+     * Generate calling convention based on type
+     * @param {string} methodName - Method Name
+     * @param {string} type - type
+     * @param {string} className - Class name (excluding the word "class")
+     * @param {boolean} hasFilePath - Whether a file path exists (default is true)
+     * @returns {string[]} call method array
      */
-    toolbarUtils.generateCallMethods =  function(methodName, type, className, hasFilePath = true) {
-      // 从类名中提取纯类名（去除"类"字和空格）
+    (toolbarUtils.generateCallMethods = function (methodName, type, className, hasFilePath = true) {
+      // Extract the pure class name from the class name (remove the word "class" and spaces)
       const pureClassName = className.replace(/\s*类\s*$/, "").trim();
-      
-      // 检查类名是否包含 "Class"
+
+      // Check if the class name contains "Class"
       const hasClassInName = className.includes("Class") || pureClassName.includes("Class");
-      
+
       switch (type) {
-        case "lifecycle":  // 生命周期
+        case "lifecycle": // Lifecycle
           const lifecycleMethods = [`${methodName}`, `${pureClassName}.${methodName}`];
-          
-          // 只有在有文件路径时才添加 this 版本
+
+          // Only add this version if a file path is provided.
           if (hasFilePath) {
             lifecycleMethods.push(`this.${methodName}`);
           }
-          
+
           return lifecycleMethods;
-        
-        case "staticProperty":  // 类的静态变量
-        case "staticMethod":  // 类的静态方法
+
+        case "staticProperty": // Static variable of the class
+        case "staticMethod": // Static method of the class
           const methods = [`${pureClassName}.${methodName}`];
-          
-          // 只有在有文件路径时才添加 this 版本
+
+          // Only add this version if a file path is provided.
           if (hasFilePath) {
             methods.push(`this.${methodName}`);
           }
-          
-          // 如果类名包含 "Class"，添加 self 版本
+
+          // If the class name contains "Class", add the self version.
           if (hasClassInName) {
             methods.push(`self.${methodName}`);
           }
-          
+
           return methods;
-        
-        case "staticGetter":  // 类的静态 Getter
+
+        case "staticGetter": // Static Getter of the class
           const staticGetterMethods = [`${pureClassName}.${methodName}`];
-          
-          // 只有在有文件路径时才添加 this 版本
+
+          // Only add this version if a file path is provided.
           if (hasFilePath) {
             staticGetterMethods.push(`this.${methodName}`);
           }
-          
-          // 如果类名包含 "Class"，添加 self 版本
+
+          // If the class name contains "Class", add the self version.
           if (hasClassInName) {
             staticGetterMethods.push(`self.${methodName}`);
           }
-          
+
           return staticGetterMethods;
-        
-        case "staticSetter":  // 类的静态 Setter
+
+        case "staticSetter": // Static Setter of the class
           const staticSetterMethods = [`${pureClassName}.${methodName}`];
-          
-          // 只有在有文件路径时才添加 this 版本
+
+          // Only add this version if a file path is provided.
           if (hasFilePath) {
             staticSetterMethods.push(`this.${methodName}`);
           }
-          
-          // 如果类名包含 "Class"，添加 self 版本
+
+          // If the class name contains "Class", add the self version.
           if (hasClassInName) {
             staticSetterMethods.push(`self.${methodName}`);
           }
-          
+
           return staticSetterMethods;
-        
-        case "instanceMethod":  // 实例方法
-          return [
-            `${methodName}`
-          ];
-        
-        case "getter":  // 实例 Getter 方法
-          return [
-            `${methodName}`,
-            `this.${methodName}`
-          ];
-        
-        case "setter":  // 实例 Setter 方法
-          return [
-            `${methodName}`,
-            `this.${methodName}`
-          ];
-        
-        case "prototype":  // 原型链方法
+
+        case "instanceMethod": // instance method
+          return [`${methodName}`];
+
+        case "getter": // Instance Getter method
+          return [`${methodName}`, `this.${methodName}`];
+
+        case "setter": // Instance Setter method
+          return [`${methodName}`, `this.${methodName}`];
+
+        case "prototype": // Prototype chain method
           const prototypeMethods = [`${methodName}`, `${pureClassName}.${methodName}`];
-          
-          // 如果有文件路径，添加 this 版本
+
+          // If a file path is provided, add this version.
           if (hasFilePath) {
             prototypeMethods.push(`this.${methodName}`);
           }
-          
-          // 如果类名包含 "Class"，添加 self 版本
+
+          // If the class name contains "Class", add the self version.
           if (hasClassInName) {
             prototypeMethods.push(`self.${methodName}`);
           }
-          
+
           return prototypeMethods;
-        
-        case "instanceProperty":  // 实例属性
-          return [
-            `${methodName}`,
-            `this.${methodName}`
-          ];
-        
+
+        case "instanceProperty": // instance property
+          return [`${methodName}`, `this.${methodName}`];
+
         default:
           return [methodName];
       }
-    },
-
-   /**
-   * 处理代码学习卡片
-   * @param {MNNote} note - 要处理的卡片
-   * @param {string} type - 选择的类型（中文）
-   * @returns {Object} 返回 {success: boolean, error?: string}
-   */
-  toolbarUtils.processCodeLearningCard = function(note, type) {
+    }),
+    /**
+     * Processing code learning cards
+     * @param {MNNote} note - The card to be processed
+     * @param {string} type - Selected type (Chinese)
+     * @returns {Object} 返回 {success: boolean, error?: string}
+     */
+    (toolbarUtils.processCodeLearningCard = function (note, type) {
       try {
-        // 获取路径信息
+        // Get path information
         const pathResult = this.getCodeCardPath(note);
         if (!pathResult.success) {
           return {
             success: false,
-            error: pathResult.error || "无法获取卡片路径信息"
+            Error: pathResult.error || "Unable to retrieve card path information",
           };
         }
         const pathInfo = pathResult.data;
 
-        // 获取原始方法名
+        // Get the original method name
         const originalTitle = note.noteTitle.trim();
         const methodName = originalTitle;
 
-        // 根据类型生成前缀
+        // Generate prefix based on type
         const typePrefix = {
-          "lifecycle": "插件：生命周期",
-          "staticProperty": "类：静态属性",
-          "staticMethod": "类：静态方法",
-          "staticGetter": "类：静态 Getter",
-          "staticSetter": "类：静态 Setter",
-          "instanceMethod": "实例方法",
-          "getter": "实例：Getter 方法",
-          "setter": "实例：Setter 方法",
-          "prototype": "类：原型链方法",
-          "instanceProperty": "实例：属性"
+          lifecycle: "Plugin: Lifecycle",
+          staticProperty: "Class: Static Property",
+          staticMethod: "Class: Static Method",
+          staticGetter: "Class: Static Getter",
+          staticSetter: "Class: Static Setter",
+          instanceMethod: "Instance Method",
+          getter: "Example: Getter method",
+          setter: "Example: Setter method",
+          prototype: "Class: Prototype chain methods",
+          instanceProperty: "Instance: Property",
         }[type];
 
-        // 检查是否有文件路径
+        // Check if a file path exists
         const hasFilePath = pathInfo.file !== null;
-        
-        // 生成调用方式
+
+        // Generate calling method
         const callMethods = this.generateCallMethods(methodName, type, pathInfo.class, hasFilePath);
-        
-        // 组装新标题
+
+        // Assemble new title
         const newTitle = `【${typePrefix} >> ${pathInfo.path}】; ${callMethods.join("; ")}`;
 
-        // 更新标题
+        // Update title
         note.noteTitle = newTitle;
-        
-        return {
-          success: true
-        };
 
+        return {
+          success: true,
+        };
       } catch (error) {
         toolbarUtils.addErrorLog(error, "processCodeLearningCard");
         return {
           success: false,
-          error: error.message || "处理失败"
+          error: error.message || "Processing failed",
         };
       }
-    }
+    });
 }
 
-// 导出初始化函数
+// Export initialization function
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     initXDYYExtensions,
@@ -2503,7 +2258,7 @@ if (typeof module !== "undefined" && module.exports) {
   };
 }
 
-// 立即执行初始化
+// Immediate initialization
 try {
   if (typeof toolbarUtils !== "undefined") {
     initXDYYExtensions();
@@ -2514,34 +2269,35 @@ try {
   }
 } catch (error) {
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
-    MNUtil.log("❌ 加载扩展失败: " + error);
+    MNUtil.log("❌ Failed to load extension: " + error);
   }
 }
 
 /**
- * 夏大鱼羊 - MNUtil 方法重写
- * 修复 searchNotes 功能自动复制卡片 ID 的问题
+ * Xia Dayuyang - MNUtil method overriding
+ * Fixed the issue of the searchNotes feature automatically copying card IDs.
  */
 if (typeof MNUtil !== "undefined" && MNUtil.getNoteById) {
-  // 保存原始方法的引用
+  // Save a reference to the original method
   const originalGetNoteById = MNUtil.getNoteById.bind(MNUtil);
-  
-  // 重写 MNUtil.getNoteById 方法
-  MNUtil.getNoteById = function(noteid, alert = false) {
+
+  // Override the MNUtil.getNoteById method
+  MNUtil.getNoteById = function (noteid, alert = false) {
     let note = this.db.getNoteById(noteid);
     if (note) {
       return note;
     } else {
       // if (alert) {
-      //   // 不复制 noteId，只显示提示
+      // Do not copy noteId, only display the prompt
       //   this.showHUD("Note not exist: " + noteid);
       // }
       return undefined;
     }
   };
-  
+
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
-    MNUtil.log("🔧 已重写 MNUtil.getNoteById 方法，修复自动复制 ID 问题");
+    MNUtil.log(
+      "🔧 The MNUtil.getNoteById method has been overridden to fix the issue of automatically copying IDs"
+    );
   }
 }
-

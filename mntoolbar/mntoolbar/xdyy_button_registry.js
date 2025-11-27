@@ -1,143 +1,143 @@
 /**
- * 夏大鱼羊自定义按钮注册表
- * 用于解耦按钮配置，避免修改 utils.js
+ * Xia Dayu Yang custom button registration form
+ * Used to decouple button configuration and avoid modifying utils.js
  *
- * 使用情况总览（customX）：
+ * Usage overview (customX):
  *
- * 判定依据：
- * - 已注册：在 registerAllButtons() 中通过 global.registerButton("customX", {...}) 明确注册。
- * - 被使用：
- *   1) 在 webviewController.js 中被加入 toolbarConfig.action/dynamicAction 的默认拼接列表；或
- *   2) 在仓库其他处有直接引用（如 toolbarConfig.getAction / actions 配置中直接使用）。
- * - 未使用：已注册但未出现在以上使用场景；或仅在旧版 utils.js 的默认 actions 里存在、但被当前扩展逻辑覆盖（不再生效）。
+ * Judgment basis:
+ * - Registered: Explicitly registered via global.registerButton("customX", {...}) in registerAllButtons().
+ * - is used by:
+ * 1) The default splicing list of toolbarConfig.action/dynamicAction is added to webviewController.js; or
+ * 2) There are direct references elsewhere in the warehouse (such as direct use in toolbarConfig.getAction / actions configuration).
+ * - Unused: registered but does not appear in the above usage scenarios; or only exists in the default actions of the old version of utils.js, but is overridden by the current extension logic (no longer effective).
  *
- * 已注册并被使用（直接/间接加入工具栏，或被引用）：
- * - custom1  摘录
- * - custom2  学习
- * - custom3  增加模板
- * - custom4  文献
- * - custom5  卡片
- * - custom6  文本
- * - custom7  隐藏插件栏
- * - custom8  证明
- * - custom9  思考
- * - custom10 管理评论
- * - custom11 搜索
- * - custom13 整理
- * - custom15 制卡
- * - custom16 [手型工具弹窗替换]文本
+ * Registered and used (directly/indirectly added to the toolbar, or referenced):
+ * - custom1 excerpt
+ * - custom2 learning
+ * - custom3 add template
+ * - custom4 documentation
+ * - custom5 card
+ * - custom6 text
+ * - custom7 hide the plug-in bar
+ * - custom8 proof
+ * - custom9 thoughts
+ * - custom10 manage comments
+ * - custom11 search
+ * - custom13 finishing
+ * - custom15 card making
+ * - custom16 [Hand tool pop-up replacement] text
  * - custom17 Pin
- * - custom20 htmlMarkdown 评论
+ * - custom20 htmlMarkdown comments
  *
- * 仅出现在旧版默认 actions（utils.js 里），未在本注册表中维护，且会被当前覆盖逻辑替换（视为未用）：
+ * Appears only in the old version of default actions (utils.js), is not maintained in this registry, and will be replaced by the current override logic (deemed unused):
  * - custom12, custom14, custom18, custom19
  *
- * 维护建议：
- * - 若要启用 custom12/14/18/19，请在此文件的 registerAllButtons() 中显式注册；
- * - 如需下线某个 customX，可从 registerAllButtons() 中移除并在此注释更新状态。
+ *Maintenance recommendations:
+ * - To enable custom12/14/18/19, register it explicitly in registerAllButtons() in this file;
+ * - If you want to take a customX offline, remove it from registerAllButtons() and annotate the update status here.
  */
 
-// 调试：检查加载状态
+//Debug: check loading status
 if (typeof MNUtil !== "undefined" && MNUtil.log) {
-  MNUtil.log("🔧 开始加载 xdyy_button_registry.js");
-  MNUtil.log(`🔍 toolbarConfig 是否存在: ${typeof toolbarConfig !== 'undefined'}`);
+  MNUtil.log("🔧 Start loading xdyy_button_registry.js");
+  MNUtil.log(`🔍 toolbarConfig exists: ${typeof toolbarConfig !== 'undefined'}`);
 }
 
-// 创建全局注册表
+//Create global registry
 if (typeof global === 'undefined') {
   var global = {};
 }
 
-// 初始化按钮注册表
+//Initialize button registry
 global.customButtons = {};
 
 /**
- * 注册自定义按钮
- * @param {string} key - 按钮键名
- * @param {Object} config - 按钮配置对象
+ * Register custom button
+ * @param {string} key - button key name
+ * @param {Object} config - button configuration object
  */
 global.registerButton = function(key, config) {
   global.customButtons[key] = config;
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
-    MNUtil.log(`📦 已注册按钮: ${key}`);
+    MNUtil.log(`📦 Registered button: ${key}`);
   }
 };
 
 /**
- * 获取按钮配置
- * @param {string} key - 按钮键名
- * @returns {Object|null} 按钮配置对象
+ * Get button configuration
+ * @param {string} key - button key name
+ * @returns {Object|null} button configuration object
  */
 global.getButton = function(key) {
   return global.customButtons[key] || null;
 };
 
 /**
- * 注册所有自定义按钮
- * 严格按照原始 getActions() 的内容
+ * Register all custom buttons
+ * Strictly follow the contents of the original getActions()
  */
 function registerAllButtons() {
-  // 制卡相关按钮
+  //Card related buttons
   global.registerButton("custom15", {
-    name: "制卡",
+    name: "Card Making",
     image: "makeCards",
-    templateName: "menu_makeCards"  // 延迟获取template
+    templateName: "menu_makeCards" // Delayed acquisition of template
   });
 
   global.registerButton("custom3", {
-    name: "增加模板",
+    name: "Add template",
     image: "addTemplate",
     templateName: "menu_addTemplate"
   });
 
   global.registerButton("custom11", {
-    name: "搜索",
+    name: "Search",
     image: "search",
     templateName: "menu_search"
   });
 
   global.registerButton("custom13", {
-    name: "整理",
+    name: "Organization",
     image: "classification",
     templateName: "menu_classification"
   });
-  
+
   global.registerButton("custom8", {
-    name: "证明",
+    name: "proof",
     image: "proof",
     templateName: "menu_proof"
   });
-  
+
   global.registerButton("custom10", {
-    name: "管理评论",
+    name: "Manage Comments",
     image: "comment",
     templateName: "menu_comment"
   });
 
-  // 评论相关按钮
+  // Comment related buttons
   global.registerButton("custom20", {
-    name: "htmlMarkdown 评论",
+    name: "htmlMarkdown comment",
     image: "htmlmdcomment",
     templateName: "menu_htmlmdcomment"
   });
-  
-    // 卡片操作
+
+    // Card operations
   global.registerButton("custom5", {
-    name: "卡片",
+    name: "card",
     image: "card",
     templateName: "menu_card"
   });
 
 
   global.registerButton("custom9", {
-    name: "思考",
+    name: "thinking",
     image: "think",
     templateName: "menu_think"
   });
 
 
   global.registerButton("custom1", {
-    name: "摘录",
+    name: "Excerpt",
     image: "excerpt",
     templateName: "menu_excerpt"
   });
@@ -147,172 +147,172 @@ function registerAllButtons() {
     image: "pin",
     templateName: "menu_pin"
   });
-  
-  // 学习和模板
+
+  // learning and templates
   global.registerButton("custom2", {
-    name: "学习",
+    name: "Learning",
     image: "study",
     templateName: "menu_study"
   });
 
   global.registerButton("custom4", {
-    name: "文献",
+    name: "Documentation",
     image: "reference",
     templateName: "menu_reference"
   });
 
-  // 代码学习按钮
+  // Code learning button
   global.registerButton("custom_code", {
-    name: "代码学习",
+    name: "Code Learning",
     image: "code",
     templateName: "menu_codeLearning"
   });
 
   global.registerButton("custom7", {
-    name: "隐藏插件栏",
+    name: "Hide plugin bar",
     image: "hideAddonBar",
     templateName: "hideAddonBar"
   });
-  
+
   global.registerButton("custom6", {
-    name: "文本",
+    name: "text",
     image: "text",
     templateName: "menu_text"
   });
-  
-  // 其他功能
+
+  //Other functions
   global.registerButton("snipaste", {
     name: "Snipaste",
     image: "snipaste",
     description: "Snipaste"
   });
-  
-  
+
+
   global.registerButton("edit", {
     name: "edit",
     image: "edit",
     description: JSON.stringify({showOnNoteEdit:false})
   });
-  
+
   global.registerButton("copyAsMarkdownLink", {
     name: "Copy md link",
     image: "copyAsMarkdownLink",
     description: "Copy md link"
   });
-  
-  
-  // 专门用于替换原有按钮
+
+
+  // Specifically used to replace the original button
   global.registerButton("custom16", {
-    name: "[手型工具弹窗替换]文本",
+    name: "[Hand Tool Popup Replacement] Text",
     image: "text_white",
     templateName: "menu_handtool_text"
   });
 
   global.registerButton("custom14", {
-    name: "拆证明",
+    name: "Disassembly Proof",
     image: "proof",
     templateName: "menu_proofparse"
   });
-  
-  // "custom15":{name:"[卡片弹窗替换]SOP",image:"sop_white",description: this.template("menu_sop")},
-  
+
+  // "custom15":{name:"[Card Pop-up Replacement]SOP",image:"sop_white",description: this.template("menu_sop")},
+
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
-    MNUtil.log(`🚀 已注册 ${Object.keys(global.customButtons).length} 个自定义按钮`);
+    MNUtil.log(`🚀 ${Object.keys(global.customButtons).length} custom buttons have been registered`);
   }
 }
 
-// 扩展 toolbarConfig 的函数
+// Function that extends toolbarConfig
 function extendToolbarConfig() {
   if (typeof toolbarConfig === 'undefined') {
     if (typeof MNUtil !== "undefined" && MNUtil.log) {
-      MNUtil.log("⚠️ toolbarConfig 还未定义，等待初始化");
+      MNUtil.log("⚠️ toolbarConfig has not been defined yet, waiting for initialization");
     }
     return false;
   }
-  
+
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
-    MNUtil.log("🚀 开始扩展 toolbarConfig.getActions 方法");
+    MNUtil.log("🚀 Start extending toolbarConfig.getActions method");
   }
-  
-  // 保存原始的 getActions 方法（如果还没保存）
+
+  //Save the original getActions method (if it hasn't been saved yet)
   if (!toolbarConfig._originalGetActions) {
     toolbarConfig._originalGetActions = toolbarConfig.getActions;
   }
-  
-  // 重写 getActions 方法
+
+  // Override getActions method
   toolbarConfig.getActions = function() {
-    // 获取默认按钮
+    // Get the default button
     const defaultActions = toolbarConfig._originalGetActions ? toolbarConfig._originalGetActions.call(this) : {};
-    
-    // 如果自定义按钮为空，返回默认按钮
+
+    //If the custom button is empty, return to the default button
     if (Object.keys(global.customButtons).length === 0) {
       return defaultActions;
     }
-    
-    // 创建一个新对象，完全替换 custom 按钮
+
+    //Create a new object that completely replaces the custom button
     const allActions = {};
-    
-    // 添加所有自定义按钮
+
+    //Add all custom buttons
     for (const key in global.customButtons) {
       const button = Object.assign({}, global.customButtons[key]);
-      
-      // 如果有 templateName，动态获取 description
+
+      // If there is templateName, dynamically obtain the description
       if (button.templateName && !button.description && toolbarConfig.template) {
         button.description = toolbarConfig.template(button.templateName);
       }
-      
-      // 删除 templateName 属性
+
+      // Delete templateName attribute
       delete button.templateName;
-      
+
       allActions[key] = button;
     }
-    
-    // 添加非 custom 的默认按钮
+
+    //Add non-custom default button
     for (const key in defaultActions) {
       if (!key.startsWith('custom') && !(key in allActions)) {
         allActions[key] = defaultActions[key];
       }
     }
-    
+
     return allActions;
   };
-  
-  // 扩展 getAction 方法，确保返回自定义配置
+
+  // Extend the getAction method to ensure that custom configuration is returned
   if (!toolbarConfig._originalGetAction) {
     toolbarConfig._originalGetAction = toolbarConfig.getAction;
   }
-  
+
   toolbarConfig.getAction = function(actionKey) {
-    // 先检查自定义按钮
+    //Check the custom button first
     if (global.customButtons[actionKey]) {
       const button = Object.assign({}, global.customButtons[actionKey]);
-      
-      // 如果有 templateName，动态获取 description
+
+      // If there is templateName, dynamically obtain the description
       if (button.templateName && !button.description && toolbarConfig.template) {
         button.description = toolbarConfig.template(button.templateName);
       }
-      
+
       delete button.templateName;
       return button;
     }
-    
-    // 如果不是自定义按钮，调用原始方法
+
+    // If it is not a custom button, call the original method
     if (toolbarConfig._originalGetAction) {
       const result = toolbarConfig._originalGetAction.call(this, actionKey);
       if (result) {
         return result;
       }
     }
-    
-    // 如果都找不到，尝试从 getActions() 中获取
+
+    // If neither is found, try to get it from getActions()
     const allActions = this.getActions();
     if (allActions && allActions[actionKey]) {
       return allActions[actionKey];
     }
-    
-    // 最后返回一个默认的空按钮配置，避免 undefined 错误
+
+    //Finally return a default empty button configuration to avoid undefined errors
     if (typeof MNUtil !== "undefined" && MNUtil.log) {
-      MNUtil.log(`⚠️ 找不到按钮配置: ${actionKey}，返回默认配置`);
+      MNUtil.log(`⚠️ Cannot find button configuration: ${actionKey}, return to default configuration`);
     }
     return {
       name: actionKey,
@@ -320,43 +320,43 @@ function extendToolbarConfig() {
       description: "{}"
     };
   };
-  
+
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
-    MNUtil.log("✅ toolbarConfig.getActions 和 getAction 方法已扩展，支持自定义按钮");
+    MNUtil.log("✅ toolbarConfig.getActions and getAction methods have been extended to support custom buttons");
   }
-  
+
   return true;
 }
 
-// 强制刷新按钮配置的函数
+// Function to force refresh button configuration
 function forceRefreshButtons() {
   if (typeof toolbarConfig === 'undefined') {
     return false;
   }
-  
-  // 获取新的按钮配置
+
+  // Get new button configuration
   const newActions = toolbarConfig.getActions();
   toolbarConfig.actions = newActions;
-  
-  // 强制更新每个自定义按钮的配置
+
+  //Force update the configuration of each custom button
   for (const key in global.customButtons) {
     if (toolbarConfig.actions[key]) {
       const button = Object.assign({}, global.customButtons[key]);
-      
-      // 如果有 templateName，动态获取 description
+
+      // If there is templateName, dynamically obtain the description
       if (button.templateName && !button.description && toolbarConfig.template) {
         button.description = toolbarConfig.template(button.templateName);
       }
-      
+
       delete button.templateName;
       toolbarConfig.actions[key] = button;
     }
   }
-  
-  // 创建自定义按钮的键名数组
+
+  //Create an array of key names for custom buttons
   const customKeys = Object.keys(global.customButtons);
-  
-  // 保存用户当前的按钮顺序（非 custom 按钮）
+
+  //Save the user's current button order (non-custom buttons)
   const nonCustomButtons = [];
   if (toolbarConfig.action && Array.isArray(toolbarConfig.action)) {
     for (let key of toolbarConfig.action) {
@@ -365,13 +365,13 @@ function forceRefreshButtons() {
       }
     }
   }
-  
-  // 重建 action 数组：先添加自定义按钮，再添加其他按钮
+
+  // Rebuild the action array: add custom buttons first, then add other buttons
   if (toolbarConfig.action && Array.isArray(toolbarConfig.action)) {
     toolbarConfig.action = customKeys.concat(nonCustomButtons);
   }
-  
-  // 同样处理 dynamicAction 数组
+
+  // Also process the dynamicAction array
   const nonCustomDynamicButtons = [];
   if (toolbarConfig.dynamicAction && Array.isArray(toolbarConfig.dynamicAction)) {
     for (let key of toolbarConfig.dynamicAction) {
@@ -381,44 +381,44 @@ function forceRefreshButtons() {
     }
     toolbarConfig.dynamicAction = customKeys.concat(nonCustomDynamicButtons);
   }
-  
+
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
-    MNUtil.log(`🔄 强制刷新按钮配置完成，共 ${Object.keys(newActions).length} 个按钮`);
-    MNUtil.log(`📍 action 数组: ${toolbarConfig.action.slice(0, 10).join(', ')}...`);
-    MNUtil.log(`📍 dynamicAction 数组: ${toolbarConfig.dynamicAction.slice(0, 10).join(', ')}...`);
-    MNUtil.log(`📍 自定义按钮: ${customKeys.join(', ')}`);
+    MNUtil.log(`🔄 Forced refresh button configuration completed, total ${Object.keys(newActions).length} buttons`);
+    MNUtil.log(`📍 action array: ${toolbarConfig.action.slice(0, 10).join(', ')}...`);
+    MNUtil.log(`📍 dynamicAction array: ${toolbarConfig.dynamicAction.slice(0, 10).join(', ')}...`);
+    MNUtil.log(`📍 Custom button: ${customKeys.join(', ')}`);
   }
-  
-  // 发送刷新通知
+
+  //Send refresh notification
   if (typeof MNUtil !== "undefined" && MNUtil.postNotification) {
     MNUtil.postNotification("refreshToolbarButton", {});
   }
-  
-  // 保存配置
+
+  //Save configuration
   if (toolbarConfig.save) {
     toolbarConfig.save();
   }
-  
+
   return true;
 }
 
-// 立即尝试扩展（文件加载时）
+//Try expansion now (while file is loading)
 extendToolbarConfig();
 
-// 立即注册所有按钮（不需要延迟，因为我们使用 templateName）
+// Register all buttons immediately (no delay required since we use templateName)
 try {
   registerAllButtons();
 } catch (error) {
   if (typeof MNUtil !== "undefined" && MNUtil.log) {
-    MNUtil.log(`❌ 注册按钮时出错: ${error.message}`);
+    MNUtil.log(`❌ Error while registering button: ${error.message}`);
   }
 }
 
-// 导出全局函数
+//Export global function
 global.forceRefreshButtons = forceRefreshButtons;
 global.extendToolbarConfig = extendToolbarConfig;
 
-// 导出注册函数供外部使用
+//Export registered functions for external use
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     registerButton: global.registerButton,
@@ -429,16 +429,16 @@ if (typeof module !== 'undefined' && module.exports) {
   };
 }
 
-// 添加观察者，在 toolbarConfig 初始化后强制刷新
+//Add an observer to force refresh after toolbarConfig is initialized
 if (typeof MNUtil !== 'undefined' && MNUtil.addObserver) {
-  // 创建一个临时对象来接收通知
+  // Create a temporary object to receive notifications
   const observer = {
     onToolbarConfigInit: function() {
       if (typeof MNUtil !== "undefined" && MNUtil.log) {
-        MNUtil.log("📢 收到 toolbarConfig 初始化通知");
+        MNUtil.log("📢 Received toolbarConfig initialization notification");
       }
-      
-      // 延迟一点确保初始化完成
+
+      // Delay a little to ensure initialization is completed
       setTimeout(function() {
         if (extendToolbarConfig()) {
           forceRefreshButtons();
@@ -446,21 +446,21 @@ if (typeof MNUtil !== 'undefined' && MNUtil.addObserver) {
       }, 50);
     }
   };
-  
-  // 监听初始化通知
+
+  // Listen for initialization notification
   MNUtil.addObserver(observer, 'onToolbarConfigInit:', 'ToolbarConfigInit');
 }
 
-// 延迟执行，以防通知机制失效
+// Delay execution in case the notification mechanism fails
 if (typeof setTimeout !== 'undefined') {
-  // 500ms 后尝试强制刷新
+  //Try to force refresh after 500ms
   setTimeout(function() {
     if (extendToolbarConfig()) {
       forceRefreshButtons();
     }
   }, 500);
-  
-  // 2秒后再次尝试，确保生效
+
+  //Try again after 2 seconds to ensure it takes effect
   setTimeout(function() {
     if (extendToolbarConfig()) {
       forceRefreshButtons();
