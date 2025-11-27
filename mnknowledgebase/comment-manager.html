@@ -2160,6 +2160,9 @@
         'step': '👣'
       };
 
+      // ✅ 获取链接数据（用于生成链接子项列表）
+      const links = comment.markdownLinks || [];
+
       // ✅ 直接解析 comment.text
       let cleanText = comment.text || "";
       if (cleanText.startsWith("- ")) {
@@ -2192,8 +2195,39 @@
         }
       });
 
+      // ✅ 生成链接子项列表 HTML
+      let linksListHTML = '';
+      if (links.length > 0) {
+        const linkItems = links.map((link, idx) => {
+          return `
+            <div class="link-subitem">
+              <span class="link-index">${idx + 1}.</span>
+              <span class="link-display-text">[${escapeHtml(link.displayText)}]</span>
+              <span class="link-arrow">→</span>
+              <span class="link-target-title">${escapeHtml(link.linkedNoteTitle)}</span>
+              <div class="link-actions">
+                <button class="link-locate-btn" data-note-id="${escapeHtml(link.noteId)}" data-action="mindMap" title="在主脑图定位">📍</button>
+                <button class="link-locate-btn" data-note-id="${escapeHtml(link.noteId)}" data-action="floatMap" title="在浮窗定位">🎯</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        linksListHTML = `
+          <div class="link-subitems-container">
+            <div class="link-subitems-header">📎 链接子项 (${links.length})</div>
+            <div class="link-subitems-list">
+              ${linkItems}
+            </div>
+          </div>
+        `;
+      }
+
       const icon = typeIconMap[htmlMarkdownType] || '📌';
       const needExpand = content.length > 100;
+
+      // 检查内容中是否包含 Markdown 链接
+      const hasLinks = hasMarkdownLinks(content);
 
       return `
         <div class="comment-header">
@@ -2203,10 +2237,11 @@
           <span class="comment-type-label">HtmlMD: ${htmlMarkdownType}</span>
         </div>
         <div class="comment-content">
-          <div class="comment-preview ${needExpand ? 'collapsed' : ''}">
-            ${escapeHtml(content)}
+          <div class="comment-preview ${needExpand ? 'collapsed' : ''}" ${hasLinks ? 'data-allow-html="true"' : ''}>
+            ${hasLinks ? parseMarkdownLinks(content) : escapeHtml(content)}
           </div>
           ${needExpand ? '<button class="expand-btn">展开</button>' : ''}
+          ${linksListHTML}
         </div>
       `;
     }
