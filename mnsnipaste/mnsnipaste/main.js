@@ -48,8 +48,6 @@ JSB.newAddon = function (mainPath) {
         MNUtil.removeObserver(self, "snipastePDF")
         MNUtil.removeObserver(self, "snipasteHtml")
         MNUtil.removeObserver(self, "snipasteMermaid")
-        MNUtil.removeObserver(self, "snipasteNote")
-        MNUtil.removeObserver(self, "snipasteImage")
         MNUtil.removeObserver(self, "snipasteAudioAction")
         MNUtil.removeObserver(self, "PopupMenuOnSelection")
         MNUtil.removeObserver(self, "PopupMenuOnNote")
@@ -110,6 +108,9 @@ JSB.newAddon = function (mainPath) {
           return;
         };
         if (!self.addonController.view.hidden) {
+          if (self.addonController.onAnimate) {
+            return
+          }
           let studyFrame = MNUtil.currentWindow.bounds
           if (self.addonController.miniMode) {
             let oldFrame = self.addonController.view.frame
@@ -190,6 +191,7 @@ JSB.newAddon = function (mainPath) {
         }
         let userInfo = sender.userInfo
         let html = sender.userInfo.html
+        // snipasteUtils.log("OnReceivedSnipasteHtml",html)
         self.addonController.snipasteHtml(html,userInfo)
       },
       OnReceivedSnipasteMermaid: function (sender) {
@@ -270,8 +272,6 @@ JSB.newAddon = function (mainPath) {
           addonController.htmlMode = false
           addonController.onSnipaste = true
           addonController.snipasteFromImage(imageData)
-//           addonController.webview.loadHTMLStringBaseURL(html)
-          // addonController.webview.loadHTMLStringBaseURL(`<a href="marginnote3app://note/C08E37FD-AC36-42BB-A8AB-739296E62F23">test</a>`)
           if (addonController.view.hidden) {
             addonController.show()
           }
@@ -437,8 +437,6 @@ JSB.newAddon = function (mainPath) {
           addonController.onSnipaste = true
           addonController.pageIndex = selection.pageIndex
           addonController.snipasteFromImage(imageData,{source:"selection",docMd5:selection.docMd5,pageIndex:selection.pageIndex})
-//           addonController.webview.loadHTMLStringBaseURL(html)
-          // addonController.webview.loadHTMLStringBaseURL(`<a href="marginnote3app://note/C08E37FD-AC36-42BB-A8AB-739296E62F23">test</a>`)
           return
         }else{
           //无图片下选择卡片
@@ -511,8 +509,6 @@ JSB.newAddon = function (mainPath) {
               addonController.htmlMode = false
               addonController.onSnipaste = true
               addonController.snipasteFromImage(imageData)
-//               addonController.webview.loadHTMLStringBaseURL(html)
-              // addonController.webview.loadHTMLStringBaseURL(`<a href="marginnote3app://note/C08E37FD-AC36-42BB-A8AB-739296E62F23">test</a>`)
               if (addonController.view.hidden) {
                 addonController.show()
               }
@@ -521,6 +517,12 @@ JSB.newAddon = function (mainPath) {
         }
         let menu = new Menu(sender,self)
         menu.width = 250
+        if (SnipasteHistoryManager.history.length > 0) {
+          menu.addMenuItem("🔍  Last Snipaste", "snipasteFromLast:")
+        }
+        if (typeof chatAINetwork !== 'undefined') {
+          menu.addMenuItem("🎨  Generate Image", "generateImage:")
+        }
         menu.addMenuItem("📋  Clipboard Image", "snipasteFromClipboard:")
         let docFileName = MNUtil.currentDoc.fullPathFileName
         if (docFileName.endsWith(".pdf")) {
@@ -542,6 +544,14 @@ JSB.newAddon = function (mainPath) {
         } catch (error) {
           snipasteUtils.addErrorLog(error, "toggleAddon")
         }
+      },
+      snipasteFromLast: function () {
+        Menu.dismissCurrentMenu()
+        self.addonController.snipasteFromHistory(0)
+      },
+      generateImage: function () {
+        Menu.dismissCurrentMenu()
+        self.addonController.imageGenerator()
       },
       snipasteFromAudio: function (fileName) {
 

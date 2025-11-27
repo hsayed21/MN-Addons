@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dream AI Input</title>
+  <style>
+    /* --- 1. 全局设置 --- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    }
+
+    body {
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      padding-bottom: 40px;
+    }
+
+    /* --- 2. 如梦如幻的流动背景 --- */
+    .dream-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(125deg, rgb(144, 199, 255), rgb(255, 170, 165), rgb(53, 174, 255), rgb(221, 141, 255), rgb(131, 162, 192));
+      background-size: 400% 400%;
+      animation: flowAnimation 20s ease infinite;
+      z-index: -1;
+    }
+
+    @keyframes flowAnimation {
+      0% {
+        background-position: 0% 50%;
+      }
+
+      50% {
+        background-position: 100% 50%;
+      }
+
+      100% {
+        background-position: 0% 50%;
+      }
+    }
+
+    .dream-bg::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+');
+      opacity: 0.3;
+    }
+
+    /* --- 3. 核心输入区域 --- */
+    .input-wrapper {
+      position: relative;
+      width: 90%;
+      max-width: 600px;
+      min-width: 0;
+      /* 确保宽度计算不受子元素影响 */
+      box-sizing: border-box;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border-radius: 35px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      z-index: 10;
+      /* 确保在气泡之上 */
+      /* 确保子元素的绝对定位不影响容器宽度 */
+      overflow: visible;
+    }
+
+    .input-wrapper:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    textarea {
+      width: 100%;
+      height: 200px;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      padding: 30px;
+      line-height: 1.8;
+      font-size: 20px;
+      font-weight: 400;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow:
+        0 0 10px rgba(255, 255, 255, 0.3),
+        1px 1px 2px rgba(0, 0, 0, 0.1);
+      caret-color: #fff;
+    }
+
+    textarea::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* --- 4. 按钮样式 --- */
+    .model-select-btn {
+      position: absolute;
+      bottom: 15px;
+      left: 15px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(100, 200, 255, 0.2);
+      color: white;
+      cursor: pointer;
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0.8;
+      visibility: visible;
+      transform: scale(1);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+      transition: 
+        opacity 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.1),
+        visibility 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.1),
+        transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.1),
+        all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+      overflow: hidden;
+      z-index: 100;
+    }
+
+    .model-select-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+      transition: all 0.4s ease;
+    }
+
+    .model-select-btn:hover {
+      width: 300px;
+      border-radius: 100px;
+      background: rgba(100, 200, 255, 0.9);
+    }
+
+    .model-select-btn:hover svg {
+      display: none;
+    }
+
+    .model-name-text {
+      max-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      opacity: 0;
+      margin-left: 0;
+      font-size: 16px;
+      font-weight: bold;
+      transition: all 0.4s ease;
+    }
+
+    .model-select-btn:hover .model-name-text {
+      max-width: 260px;
+      opacity: 1;
+      margin-left: 8px;
+    }
+
+    .generate-btn {
+      position: absolute;
+      bottom: 15px;
+      right: 15px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(238, 0, 255, 0.2);
+      color: white;
+      cursor: pointer;
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0.8;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      overflow: hidden;
+    }
+
+    .generate-btn svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+
+    .generate-btn:hover {
+      width: 120px;
+      border-radius: 30px;
+    }
+
+    .btn-text {
+      max-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      opacity: 0;
+      margin-left: 0;
+      font-size: 16px;
+      font-weight: bold;
+      transition: all 0.4s ease;
+    }
+
+    .generate-btn:hover .btn-text {
+      max-width: 100px;
+      opacity: 1;
+      margin-left: 8px;
+    }
+
+    .generate-btn:hover svg {
+      transform: rotate(15deg) scale(1.1);
+    }
+
+    .generate-btn:active {
+      transform: scale(0.95);
+    }
+
+    .model-select-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* 当菜单激活时，隐藏按钮（实现按钮到菜单的转变） */
+    .input-wrapper:has(.model-menu.active) .model-select-btn,
+    .model-select-btn.menu-active {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: scale(0);
+      /* 按钮消失的动画应该和菜单展开的动画同步 */
+      transition: 
+        opacity 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
+        visibility 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
+        transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* 模型选择下拉菜单 */
+    .model-menu {
+      position: absolute;
+      /* 初始状态：和按钮完全一样的位置和大小 */
+      bottom: 15px;
+      left: 15px;
+      width: 50px;
+      height: 50px;
+      min-width: 50px;
+      max-width: 50px;
+      max-height: 50px;
+      background: rgba(134, 163, 191, 0.5);
+      border-radius: 25px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      opacity: 0;
+      visibility: hidden;
+      /* 从按钮中心开始展开 */
+      transform-origin: center bottom;
+      /* 液态玻璃展开效果：从圆形到矩形的 clip-path 动画 - 按钮中心在 25px from left, 从底部 25px */
+      clip-path: circle(25px at 25px 100%);
+      /* 优化渲染性能 */
+      will-change: width, height, max-width, max-height, clip-path, transform;
+      transition: 
+        opacity 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
+        visibility 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
+        height 1s cubic-bezier(0.34, 1.56, 0.64, 1),
+        bottom 1s cubic-bezier(0.34, 1.56, 0.64, 1),
+        left 1s cubic-bezier(0.34, 1.56, 0.64, 1),
+        clip-path 1s cubic-bezier(0.34, 1.56, 0.64, 1),
+        backdrop-filter 0.8s ease,
+        box-shadow 0.8s ease,
+        border-radius 0.75s ease-out 0.05s;
+      overflow: hidden;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    /* 液态玻璃展开时的伪元素，增强流动效果 */
+    .model-menu::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(255, 255, 255, 0.1) 100%
+      );
+      border-radius: 15px;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: 
+        opacity 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+        transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    /* 流动的光泽效果，模拟液态玻璃的流动 */
+    .model-menu::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: 50%;
+      width: 200px;
+      height: 200%;
+      background: linear-gradient(
+        180deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.15) 30%,
+        rgba(255, 255, 255, 0.25) 50%,
+        rgba(255, 255, 255, 0.15) 70%,
+        transparent 100%
+      );
+      border-radius: 50%;
+      transform: translateX(-50%) scale(0);
+      transform-origin: center bottom;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    @keyframes liquidFlow {
+      0% {
+        transform: translateX(-50%) scale(0) translateY(0);
+        opacity: 0;
+      }
+      30% {
+        opacity: 0.8;
+      }
+      60% {
+        opacity: 0.6;
+      }
+      100% {
+        transform: translateX(-50%) scale(2.5) translateY(-30%);
+        opacity: 0;
+      }
+    }
+
+    .model-menu.active::after {
+      animation: liquidFlow 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s;
+    }
+
+    .model-menu.active {
+      opacity: 1;
+      visibility: visible;
+      /* 展开到完整菜单的位置和大小 */
+      width: 330px;
+      max-width: 330px;
+      height: auto;
+      max-height: 500px;
+      min-width: 180px;
+      bottom: 20px;
+      left: 20px;
+      /* 展开到完整的矩形 - 从按钮中心（40px from left edge）开始展开 */
+      /* 使用更大的半径确保完全覆盖菜单 */
+      clip-path: circle(1000px at 40px 100%);
+      border-radius: 25px;
+      pointer-events: auto;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+      overflow-y: auto;
+    }
+
+    .model-menu.active::before {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* 关闭动画：收缩回按钮位置和大小 */
+    .model-menu:not(.active) {
+      opacity: 0;
+      width: 50px;
+      max-width: 50px;
+      height: 50px;
+      max-height: 50px;
+      min-width: 50px;
+      bottom: 15px;
+      left: 15px;
+      clip-path: circle(25px at 25px 100%);
+      border-radius: 25px;
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    .model-menu:not(.active)::before {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+
+    .model-menu-item {
+      padding: 8px 15px;
+      color: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 16px;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      opacity: 0;
+      transform: scale(0.8);
+      transition: 
+        opacity 0.3s ease 0.2s,
+        transform 0.3s ease 0.2s,
+        all 0.2s ease;
+    }
+
+    .model-menu.active .model-menu-item {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .model-menu-item:last-child {
+      border-bottom: none;
+    }
+
+    .model-menu-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+      padding-left: 25px;
+    }
+
+    .model-menu-item.selected {
+      background: rgba(67, 137, 175, 0.4);
+      color: rgba(100, 200, 255, 1);
+      font-weight: 600;
+    }
+
+    .model-menu-item.selected::after {
+      content: '✓';
+      color: rgba(100, 200, 255, 1);
+      font-size: 16px;
+    }
+
+    /* 泡泡效果 */
+    .bubbles {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+      top: 0;
+      left: 0;
+    }
+
+    .bubble {
+      position: absolute;
+      bottom: -100px;
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      animation: rise 10s infinite ease-in;
+    }
+
+    .bubble:nth-child(1) {
+      width: 40px;
+      height: 40px;
+      left: 10%;
+      animation-duration: 8s;
+    }
+
+    .bubble:nth-child(2) {
+      width: 20px;
+      height: 20px;
+      left: 20%;
+      animation-duration: 5s;
+      animation-delay: 1s;
+    }
+
+    .bubble:nth-child(3) {
+      width: 50px;
+      height: 50px;
+      left: 35%;
+      animation-duration: 7s;
+      animation-delay: 2s;
+    }
+
+    .bubble:nth-child(4) {
+      width: 80px;
+      height: 80px;
+      left: 50%;
+      animation-duration: 11s;
+      animation-delay: 0s;
+    }
+
+    .bubble:nth-child(5) {
+      width: 35px;
+      height: 35px;
+      left: 55%;
+      animation-duration: 6s;
+      animation-delay: 1s;
+    }
+
+    .bubble:nth-child(6) {
+      width: 45px;
+      height: 45px;
+      left: 65%;
+      animation-duration: 8s;
+      animation-delay: 3s;
+    }
+
+    .bubble:nth-child(7) {
+      width: 25px;
+      height: 25px;
+      left: 75%;
+      animation-duration: 7s;
+      animation-delay: 2s;
+    }
+
+    .bubble:nth-child(8) {
+      width: 80px;
+      height: 80px;
+      left: 80%;
+      animation-duration: 6s;
+      animation-delay: 1s;
+    }
+
+    .bubble:nth-child(9) {
+      width: 15px;
+      height: 15px;
+      left: 70%;
+      animation-duration: 9s;
+      animation-delay: 0s;
+    }
+
+    .bubble:nth-child(10) {
+      width: 50px;
+      height: 50px;
+      left: 85%;
+      animation-duration: 5s;
+      animation-delay: 3s;
+    }
+
+    @keyframes rise {
+      0% {
+        bottom: -100px;
+        transform: translateX(0);
+      }
+
+      50% {
+        transform: translateX(100px);
+      }
+
+      100% {
+        bottom: 1080px;
+        transform: translateX(-200px);
+      }
+    }
+
+    /* =========================================
+           修改点：Loading 加载层过渡动画优化
+           ========================================= */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 9999;
+
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+
+      /* 初始状态：完全透明，无模糊，稍微放大(scale 1.2) */
+      opacity: 0;
+      visibility: hidden;
+      background: rgba(0, 0, 0, 0);
+      /* 初始背景透明 */
+      backdrop-filter: blur(0px);
+      /* 初始无模糊 */
+      -webkit-backdrop-filter: blur(0px);
+      transform: scale(1.2);
+      /* 初始放大 */
+
+      /* 统一添加过渡效果：1秒，贝塞尔曲线让动感更强 */
+      transition:
+        opacity 1s ease,
+        visibility 1s ease,
+        background 1s ease,
+        backdrop-filter 1s ease,
+        transform 1s ease;
+    }
+
+    .loading-overlay.active {
+      /* 激活状态：不透明，深度模糊，恢复原大小 */
+      opacity: 1;
+      visibility: visible;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(15px);
+      /* 过渡到模糊 */
+      -webkit-backdrop-filter: blur(15px);
+      transform: scale(1);
+      /* 恢复正常比例 */
+    }
+
+    /* 旋转的圈圈 */
+    .spinner {
+      width: 80px;
+      height: 80px;
+      border: 8px solid rgba(255, 255, 255, 0.2);
+      border-top: 8px solid rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loading-text {
+      color: rgba(207, 207, 207, 0.8);
+      font-size: 30px;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+      font-weight: 300;
+      animation: breathe 2.5s ease-in-out infinite;
+      font-weight: 600;
+    }
+
+    @keyframes breathe {
+
+      0%,
+      100% {
+        opacity: 0.2;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="dream-bg"></div>
+  <div class="bubbles">
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+  </div>
+
+  <!-- 新增：Loading 结构 -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-text">Drawing...</div>
+  </div>
+
+  <div class="input-wrapper">
+    <textarea id="promptInput" placeholder="一只在赛博朋克城市屋顶上看星星的猫"></textarea>
+
+    <button class="model-select-btn" id="modelSelectBtn" onclick="toggleModelMenu()">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      </svg>
+      <span class="model-name-text" id="modelNameText">DALL-E</span>
+    </button>
+    <div class="model-menu" id="modelMenu">
+      <!-- 模型菜单项将根据 modelNames 动态生成 -->
+    </div>
+    <button class="generate-btn" onclick="generateImage()">
+      <svg viewBox="0 0 24 24">
+        <path d="M7.5,5.6L5,7l1.4-2.5L5,2l2.5,1.4L10,2L8.6,4.5L10,7L7.5,5.6z M19,2l-1.4,2.5L15.1,5.9l2.5,1.4L19,10l1.4-2.7
+                l2.5-1.4l-2.5-1.4L19,2z M13.2,8.4l-1.3-1.3c-0.4-0.4-1-0.4-1.4,0L2.4,15.2c-0.4,0.4-0.4,1,0,1.4l1.3,1.3
+                c0.4,0.4,1,0.4,1.4,0l8.1-8.1C13.6,9.4,13.6,8.8,13.2,8.4z M18.6,13.6L13,19.2L19.2,13.6z M20.5,11.5l-1.6,1.6
+                l-1.1-1.1l-2.6,2.6l5.9,5.9l2.6-2.6L20.5,11.5z" />
+      </svg>
+      <span class="btn-text">生成</span>
+    </button>
+  </div>
+
+  <script>
+    // 当前选择的模型
+    let currentModel = 'cogview-3-flash';
+
+    // 模型名称映射
+    const modelNames = {
+      'cogview-3-flash': '🆓  CogView-3 Flash',
+      'qwen-image': '🆓  Qwen-Image',
+      "cogview-4-250304":"✨  CogView-4 (0.06)",
+      "gemini-2.5-flash-image":"✨  Gemini-2.5 Flash Image (0.01)",
+      "gemini-3-pro-image-preview":"✨  Gemini-3 Pro Image (0.1)",
+      "gemini-3-pro-image-preview-4k":"✨  Gemini-3 Pro Image 4K (0.15)",
+      "gpt-image-1":"✨  GPT Image-1 (0.01)"
+    };
+    function setCurrentModel(model) {
+      if (!modelNames.hasOwnProperty(model)) {
+        console.warn(`模型 "${model}" 不存在于 modelNames 中`);
+        return;
+      }
+      currentModel = model;
+      refreshModelSelection();
+    }
+    function setLastPrompt(encodedPrompt) {
+      let prompt = decodeURIComponent(encodedPrompt);
+      const input = document.getElementById('promptInput');
+      if (input) {
+        input.value = prompt;
+      }
+    }
+
+    // 初始化模型配置：确保 currentModel 在 modelNames 中存在
+    function initializeModelConfig() {
+      // 如果 currentModel 不在 modelNames 中，使用第一个模型
+      if (!modelNames.hasOwnProperty(currentModel)) {
+        const firstModel = Object.keys(modelNames)[0];
+        if (firstModel) {
+          currentModel = firstModel;
+        }
+      }
+    }
+
+    // 根据 modelNames 动态生成模型菜单
+    function refreshModelMenu() {
+      const menu = document.getElementById('modelMenu');
+      if (!menu) return;
+
+      // 清空现有菜单项
+      menu.innerHTML = '';
+
+      // 根据 modelNames 生成菜单项
+      Object.keys(modelNames).forEach(modelKey => {
+        const menuItem = document.createElement('div');
+        menuItem.className = 'model-menu-item';
+        menuItem.setAttribute('data-model', modelKey);
+        menuItem.onclick = () => selectModel(modelKey);
+        
+        // 如果是当前选中的模型，添加 selected 类
+        if (modelKey === currentModel) {
+          menuItem.classList.add('selected');
+        }
+
+        const span = document.createElement('span');
+        span.textContent = modelNames[modelKey];
+        menuItem.appendChild(span);
+
+        menu.appendChild(menuItem);
+      });
+    }
+
+    // 更新按钮显示的模型名称
+    function updateModelName() {
+      const modelNameText = document.getElementById('modelNameText');
+      if (modelNameText) {
+        modelNameText.textContent = modelNames[currentModel] || currentModel;
+      }
+    }
+
+    // 刷新模型选择按钮和菜单（根据 modelNames 和 currentModel）
+    function refreshModelSelection() {
+      updateModelName();
+      refreshModelMenu();
+    }
+
+    // 切换模型菜单显示/隐藏
+    function toggleModelMenu() {
+      const menu = document.getElementById('modelMenu');
+      const btn = document.getElementById('modelSelectBtn');
+      const isActive = menu.classList.toggle('active');
+      
+      // 当菜单激活时，隐藏按钮；关闭时，显示按钮
+      if (isActive) {
+        btn.classList.add('menu-active');
+      } else {
+        btn.classList.remove('menu-active');
+      }
+    }
+
+    // 选择模型
+    function selectModel(model) {
+      // 验证模型是否存在于 modelNames 中
+      if (!modelNames.hasOwnProperty(model)) {
+        console.warn(`模型 "${model}" 不存在于 modelNames 中`);
+        return;
+      }
+
+      currentModel = model;
+      
+      // 刷新模型选择按钮和菜单
+      refreshModelSelection();
+
+      // 关闭菜单 - 延迟关闭以显示选择反馈，然后触发流畅的关闭动画
+      const menu = document.getElementById('modelMenu');
+      const btn = document.getElementById('modelSelectBtn');
+      setTimeout(() => {
+        menu.classList.remove('active');
+        btn.classList.remove('menu-active');
+        postMessageToAddon('snipaste', 'setCurrentModel', undefined, { 
+          model: currentModel 
+        })
+      }, 150);
+    }
+
+    // 页面加载时初始化
+    initializeModelConfig();
+    refreshModelSelection();
+
+    // 点击外部关闭菜单
+    document.addEventListener('click', function(event) {
+      const menu = document.getElementById('modelMenu');
+      const btn = document.getElementById('modelSelectBtn');
+      
+      if (!menu.contains(event.target) && !btn.contains(event.target)) {
+        menu.classList.remove('active');
+        btn.classList.remove('menu-active');
+      }
+    });
+
+    /**
+     * 根据指定的 scheme、host、path、query 和 fragment 生成一个完整的 URL Scheme 字符串。
+     * URL Scheme 完整格式：scheme://host/path?query#fragment
+     *
+     * @param {string} scheme - URL scheme，例如 'myapp'。必须提供。
+     * @param {string|undefined} [host] - host 部分，例如 'user_profile'。
+     * @param {string|string[]|undefined} [path] - path 部分，例如 'view/123'。
+     * @param {Object<string, string|number|boolean|object>|undefined} [query] - 查询参数对象。
+     * @param {string|undefined} [fragment] - fragment 标识符，即 URL 中 # 后面的部分。
+     * @returns {string} - 生成的完整 URL 字符串。
+     */
+    function generateUrlScheme(scheme, host, path, query, fragment) {
+      // 1. 处理必须的 scheme
+      if (!scheme) {
+        console.error("Scheme is a required parameter.");
+        return '';
+      }
+      // 2. 构建基础部分：scheme 和 host
+      //    即使 host 为空，也会生成 'scheme://'，这对于 'file:///' 这类 scheme 是正确的
+      let url = `${scheme}://${host || ''}`;
+
+      // 3. 添加 path
+      if (path) {
+        if (Array.isArray(path)) {
+          let pathStr = path.join('/')
+          url += `/${pathStr.replace(/^\/+/, '')}`;
+        } else {
+          // 确保 host 和 path 之间只有一个斜杠，并处理 path 开头可能存在的斜杠
+          url += `/${path.replace(/^\/+/, '')}`;
+        }
+      }
+
+      // 4. 添加 query 参数
+      if (query && Object.keys(query).length > 0) {
+        const queryParts = [];
+        for (const key in query) {
+          // 确保我们只处理对象自身的属性
+          if (Object.prototype.hasOwnProperty.call(query, key)) {
+            const value = query[key];
+            const encodedKey = encodeURIComponent(key);
+            // 对值进行编码，如果是对象，则先序列化为 JSON 字符串
+            const encodedValue = encodeURIComponent(
+              typeof value === "object" && value !== null ? JSON.stringify(value) : value
+            );
+            queryParts.push(`${encodedKey}=${encodedValue}`);
+          }
+        }
+        if (queryParts.length > 0) {
+          url += `?${queryParts.join('&')}`;
+        }
+      }
+
+      // 5. 添加 fragment
+      if (fragment) {
+        // Fragment 部分不应该被编码
+        url += `#${fragment}`;
+      }
+
+      return url;
+    }
+
+    /**
+     *
+     * @param {string} scheme - URL scheme, 例如 'myapp'。
+     * @param {string} [host] - 可选的路径或操作名。
+     * @param {Object<string, string|number|boolean>} [params] - 查询参数对象。
+     */
+    function postMessageToAddon(scheme, host, path, params, fragment) {
+      let url = generateUrlScheme(scheme, host, path, params, fragment)
+      window.location.href = url
+    }
+    function generateImage() {
+      const btn = document.querySelector('.generate-btn');
+      const input = document.getElementById('promptInput');
+      const overlay = document.getElementById('loadingOverlay');
+
+      // 1. 显示 Loading 遮罩 (CSS动画会自动触发)
+      overlay.classList.add('active');
+
+      // 按钮动画
+      btn.style.width = '50px';
+      btn.querySelector('.btn-text').style.opacity = '0';
+
+      console.log("正在生成: " + input.value + "，使用模型: " + currentModel);
+      postMessageToAddon('snipaste', 'imageGenerator', undefined, { 
+        prompt: input.value,
+        model: currentModel 
+      })
+
+      // // 演示：3秒后关闭 Loading 并恢复 (我启用了这段代码以便你能看到效果)
+      // setTimeout(() => {
+      //   // 2. 隐藏 Loading 遮罩
+      //   overlay.classList.remove('active');
+
+      //   // 恢复按钮
+      //   btn.removeAttribute('style');
+      //   btn.querySelector('.btn-text').removeAttribute('style');
+
+      // }, 3000);
+    }
+    function stopLoading() {
+      const overlay = document.getElementById('loadingOverlay');
+      overlay.classList.remove('active');
+    }
+  </script>
+
+</body>
+
+</html>

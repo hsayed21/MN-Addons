@@ -532,6 +532,7 @@ viewWillLayoutSubviews: function() {
     commandTable  = commandTable.concat([
         {title:'🎛 Setting',object:self,selector:'openSettingView:',param:'right'},
         {title:'📤 Export',object:self,selector:'chooseExportAction:',param:button},
+        // {title:'🌐 From Web',object:self,selector:'importFromWeb:',param:button},
         // {title:'🎛 Export → File',object:self,selector:'exportMd:',param:'right'},
         // {title:'🎛 Export → Clipboard',object:self,selector:'saveTo:',param:'Clipboard'},
         {title:'🌗 Left',object:self,selector:'splitScreen:',param:'left',checked:self.customMode==="left"},
@@ -550,6 +551,22 @@ viewWillLayoutSubviews: function() {
       ]);
 
     self.popoverController = MNUtil.getPopoverAndPresent(button, commandTable,250,1)
+  },
+  importFromWeb: async function (button) {
+    let self = getEditorController()
+    if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
+    let url = await MNUtil.input("MN Editor","Please input the URL of the web page\n\n请输入网页的URL\n\n",["Cancel","Confirm"])
+    if (url.button === 0) {
+      return
+    }
+    MNUtil.waitHUD("Reading web page...")
+    let res = await editorUtils.readURL(url.input)
+    if (res) {
+      self.runJavaScript(`setValue(\`${encodeURIComponent(res.content)}\`)`)
+    }else{
+      MNUtil.showHUD("Failed to read the web page")
+    }
+    MNUtil.stopHUD()
   },
   chooseExportAction: function (button) {
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
@@ -918,6 +935,12 @@ viewWillLayoutSubviews: function() {
     editorConfig.config.autoTitleThreshold = threshold
     editorConfig.save("MNEditor_config")
     self.autoTitleThresholdButton.setTitleForState("Auto title threshold: "+editorConfig.getConfig("autoTitleThreshold")+" words",0)
+  },
+  toggleAllowDeleteEmptyNote: function () {
+    let allowDeleteEmptyNote = editorConfig.getConfig("allowDeleteEmptyNote")
+    editorConfig.config.allowDeleteEmptyNote = !allowDeleteEmptyNote
+    editorConfig.save("MNEditor_config")
+    self.allowDeleteEmptyNoteButton.setTitleForState("Allow delete empty note: "+(editorConfig.getConfig("allowDeleteEmptyNote")?"✅":"❌"),0)
   },
   changeTheme: function (params) {
     if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
@@ -2114,6 +2137,7 @@ editorController.prototype.settingViewLayout = function (){
     this.opacityButton.frame = MNUtil.genFrame(10.,130, width-20, 35)
     this.autoTitleButton.frame = MNUtil.genFrame(10.,170, width-20, 35)
     this.autoTitleThresholdButton.frame = MNUtil.genFrame(10.,210, width-20, 35)
+    this.allowDeleteEmptyNoteButton.frame = MNUtil.genFrame(10.,250, width-20, 35)
     this.imageHostButton.frame = MNUtil.genFrame(10,50, width-20, 35)
     this.uploadOnSaveButton.frame = MNUtil.genFrame(10,90, (width-25)/2., 35)
     this.uploadOnEditButton.frame = MNUtil.genFrame(15+(width-25)/2.,90, (width-25)/2., 35)
@@ -2198,6 +2222,11 @@ try {
   this.autoTitleThresholdButton.layer.opacity = 1.0
   this.autoTitleThresholdButton.setTitleForState("Auto title threshold: "+editorConfig.getConfig("autoTitleThreshold")+" words",0)
   this.autoTitleThresholdButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
+
+  this.createButton("allowDeleteEmptyNoteButton","toggleAllowDeleteEmptyNote:","configView")
+  this.allowDeleteEmptyNoteButton.layer.opacity = 1.0
+  this.allowDeleteEmptyNoteButton.setTitleForState("Allow delete empty note: "+(editorConfig.getConfig("allowDeleteEmptyNote")?"✅":"❌"),0)
+  this.allowDeleteEmptyNoteButton.backgroundColor = MNUtil.hexColorAlpha("#457bd3",0.8)
 
   this.createButton("imageHostButton","toggleImageHost:","configView")
   this.imageHostButton.layer.opacity = 1.0
@@ -2402,11 +2431,15 @@ editorController.prototype.hide = async function (endFrame,checkSave = true) {
     if (this.editorNoteId) {
       let content = await this.getContent(undefined,false)
       try {
-        if ((content !== undefined) && (!content.trim() || content.trim() === "#")) {
-          MNUtil.undoGrouping(()=>{
-            MNUtil.db.deleteBookNote(this.editorNoteId)
-          })
-          return
+        let allowDeleteEmptyNote = editorConfig.getConfig("allowDeleteEmptyNote")
+        if (allowDeleteEmptyNote && (content !== undefined) && (!content.trim() || content.trim() === "#")) {
+          let confirm = await MNUtil.confirm("MN Editor","Empty note, are you sure you want to delete this note?\n\n卡片内容为空，是否删除卡片？")
+          if (confirm) {
+            MNUtil.undoGrouping(()=>{
+              MNUtil.db.deleteBookNote(this.editorNoteId)
+            })
+            return
+          }
         }
       } catch (error) {
         editorUtils.addErrorLog(error, "checkShouldDeleteNote")
@@ -3136,7 +3169,16 @@ editorController.prototype.blur = async function (delay=0) {
 }
 /** @this {editorController} */
 editorController.prototype.getContent = async function (mode,replace=true) {
-  let content = await this.runJavaScript('editor.getValue()')
+  let content = undefined
+  //用缓存增加性能，100ms内不重复获取内容
+  if (editorConfig.cachedConfig.content && editorConfig.cachedConfig.refreshTime && Date.now()-editorConfig.cachedConfig.refreshTime < 100) {
+    content = editorConfig.cachedConfig.content
+  }else{
+    // editorUtils.log("getContent:"+Date.now())
+    content = await this.runJavaScript('editor.getValue()')
+    editorConfig.cachedConfig.content = content
+    editorConfig.cachedConfig.refreshTime = Date.now()
+  }
   // MNUtil.log({message:"getContent.before",content:content})
   // let content = await this.runJavaScript(`
   // try {

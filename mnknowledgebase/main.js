@@ -535,6 +535,7 @@ JSB.newAddon = function(mainPath){
           self.tableItem('    🤖 上课-自动移动', 'classAutoMoveModeToggled:', undefined, self.classAutoMoveMode),
           self.tableItem('    🤖 上课-自动 Pin', 'classAutoPinModeToggled:', undefined, KnowledgeBaseConfig.config.classAutoPinMode),
           self.tableItem('    🤖 归类', 'classificationModeToggled:', undefined, KnowledgeBaseConfig.config.classificationMode),
+          self.tableItem('    🤖 前缀', 'prefixModeToggled:', undefined, KnowledgeBaseConfig.config.prefixMode),
           self.tableItem('-------------------------------',''),
           self.tableItem('⚙️  OCR 模型设置', 'excerptOCRModelSetting:', button),
           self.tableItem('    ⚙️ Unicode OCR 模型', 'excerptOCRModelSettingForMode1:', button),
@@ -740,6 +741,14 @@ JSB.newAddon = function(mainPath){
 
       // KnowledgeBaseConfig.config.lastClassificationNoteId = null
       // KnowledgeBaseConfig.save()
+    },
+
+    prefixModeToggled: function() {
+      self.checkPopover()
+      KnowledgeBaseConfig.config.prefixMode = !KnowledgeBaseConfig.config.prefixMode
+      KnowledgeBaseConfig.save()
+
+      MNUtil.showHUD(KnowledgeBaseConfig.config.prefixMode ? "已开启前缀模式" : "已关闭前缀模式", 1)
     },
 
     preExcerptModeToggled: function() {
@@ -2504,7 +2513,7 @@ JSB.newAddon = function(mainPath){
                 }
               }
 
-              // 检查是否是链接到其他笔记的特殊情况
+              // 检查是否是链接到其他笔记的特殊情况（纯链接）
               if (/^marginnote\dapp:\/\//.test(commentData.text)) {
                 const noteid = commentData.text.split("note/")[1];
                 if (noteid) {
@@ -2519,6 +2528,61 @@ JSB.newAddon = function(mainPath){
                     });
                   }
                 }
+              }
+
+              // ✅ 新增：检查是否包含 Markdown 链接 [text](url)
+              // 提取链接作为子项数据，方便后续定位
+              // 支持所有 Markdown 链接（MarginNote 链接和普通 URL）
+              const markdownLinkRegex = /\[([^\]]+?)\]\(([^)]+?)\)/g;
+              let linkMatch;
+              const extractedLinks = [];
+
+              while ((linkMatch = markdownLinkRegex.exec(commentData.text)) !== null) {
+                const displayText = linkMatch[1];
+                const url = linkMatch[2];  // 完整的原始 URL
+
+                let linkedNoteTitle = "未知卡片";
+                let noteId = "";
+
+                // 判断是否是 MarginNote 链接
+                if (url.startsWith("marginnote4app://note/")) {
+                  noteId = url.replace("marginnote4app://note/", "");
+
+                  // 尝试获取链接目标卡片的标题
+                  try {
+                    const linkedNote = MNNote.new(noteId, false);  // false = 不弹窗
+                    if (linkedNote) {
+                      linkedNoteTitle = linkedNote.noteTitle || "(无标题)";
+                    }
+                  } catch (e) {
+                    // 获取失败，使用默认标题
+                  }
+                } else {
+                  // 普通 URL
+                  linkedNoteTitle = url;
+                  noteId = url;
+                }
+
+                extractedLinks.push({
+                  displayText: displayText,
+                  url: url,              // ✅ 关键：传递完整的原始 URL
+                  noteId: noteId,
+                  linkedNoteTitle: linkedNoteTitle,
+                  fullMatch: linkMatch[0],
+                  startPos: linkMatch.index
+                });
+              }
+
+              // 如果有提取到链接，添加到评论数据中
+              if (extractedLinks.length > 0) {
+                commentData.markdownLinks = extractedLinks;
+                commentData.hasMarkdownLinks = true;
+
+                KnowledgeBaseUtils.log("检测到 Markdown 链接", "prepareCommentDataForManager", {
+                  index: index,
+                  linksCount: extractedLinks.length,
+                  links: extractedLinks.map(l => ({ displayText: l.displayText, noteId: l.noteId }))
+                });
               }
               break;
 

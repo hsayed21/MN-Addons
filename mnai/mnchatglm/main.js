@@ -823,10 +823,12 @@ ${knowledge}
         MNUtil.showHUD("KeyboardWillShowNotification")
       },
       syncConfig :async function (params) {
+        Menu.dismissCurrentMenu()
         if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
         chatAIConfig.sync()
       },
       openFloat: async function (beginFrame) {
+        Menu.dismissCurrentMenu()
         if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
         try {
         if (!chatAIUtils.dynamicController) {
@@ -896,6 +898,12 @@ ${knowledge}
         // if (self.popoverController) {self.popoverController.dismissPopoverAnimated(true);}
         Menu.dismissCurrentMenu()
         let trigger = !chatAIConfig.config.autoAction
+        if (trigger) {
+          let confirm = await MNUtil.confirm("🤖 MN ChatAI", "After enabling this feature, the current prompt will be executed automatically under specific conditions. Do you want to enable it now?\n\n启用该功能后，当前prompt将自动在特定条件下执行。是否确认启用？")
+          if (!confirm) {
+            return
+          }
+        }
         MNUtil.showHUD(trigger?"✅  Enable trigger":"❌  Disable trigger")
         chatAIConfig.config.autoAction = trigger
         chatAIConfig.save('MNChatglm_config')

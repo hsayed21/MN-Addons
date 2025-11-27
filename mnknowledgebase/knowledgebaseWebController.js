@@ -691,6 +691,40 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         })
         break;
 
+      case 'moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReview':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return
+          }
+          targetNote.addChild(focusNote);
+
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(focusNote)
+          // addToReview = true, reviewEverytime = true, focus = false
+          KnowledgeBaseTemplate.makeNote(processedNote, true, true, false)
+
+          success = true
+        })
+        break;
+
+      case 'moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewAndLocate':
+        MNUtil.undoGrouping(()=>{
+          if (!focusNote) {
+            MNUtil.showHUD("请先选中一个卡片")
+            return
+          }
+          targetNote.addChild(focusNote);
+
+          let processedNote = KnowledgeBaseTemplate.toNoExcerptVersion(focusNote)
+          // addToReview = true, reviewEverytime = true, focus = true
+          KnowledgeBaseTemplate.makeNote(processedNote, true, true, true)
+
+          // 定位到 focusNote
+          focusNote.focusInMindMap(0.5)
+          success = true
+        })
+        break;
+
       case 'addTemplateToTargetNoteAndMoveFocusNoteAsChild':
         try {
           if (!focusNote) {
@@ -887,6 +921,29 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         }
         break
 
+      case "deleteBidirectionalLinks":
+      case "deletebidirectionallinks":
+        // 双向删除链接评论
+        KnowledgeBaseUtils.log("收到 deleteBidirectionalLinks 请求", "executeAction")
+
+        try {
+          const linkNoteId = getNoteIdFromParams(config.params)
+          const linkIndexArr = normalizeIndexArray(config.params.indexArr)
+
+          if (!linkNoteId || linkIndexArr.length === 0) {
+            MNUtil.showHUD("双向删除失败: 参数缺失")
+            break
+          }
+
+          MNUtil.showHUD(`正在双向删除 ${linkIndexArr.length} 条链接...`, 0.8)
+          await this.deleteBidirectionalLinks(linkNoteId, linkIndexArr)
+          success = true
+        } catch (error) {
+          KnowledgeBaseUtils.log("deleteBidirectionalLinks 失败: " + error.message, "executeAction")
+          MNUtil.showHUD("双向删除失败: " + error.message)
+        }
+        break
+
       case "extractComments":
       case "extractcomments":
         // 提取评论创建子卡片
@@ -949,6 +1006,30 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         } catch (error) {
           KnowledgeBaseUtils.log("updateCommentLink 失败: " + error.message, "executeAction")
           MNUtil.showHUD("更新失败: " + error.message)
+        }
+        break
+
+      case "editMarkdownLink":
+        try {
+          // 获取 noteId
+          const noteId = getNoteIdFromParams(config.params);
+          if (!noteId) {
+            MNUtil.showHUD("缺少卡片 ID");
+            break;
+          }
+
+          // 获取其他参数
+          const commentIndex = parseInt(config.params.commentIndex);
+          const linkIndex = parseInt(config.params.linkIndex);
+          const newDisplayText = config.params.newDisplayText;
+          const newUrl = config.params.newUrl;
+
+          // 调用编辑方法
+          await this.editMarkdownLink(noteId, commentIndex, linkIndex, newDisplayText, newUrl);
+          success = true;
+        } catch (error) {
+          KnowledgeBaseUtils.addErrorLog(error, "executeAction: editMarkdownLink");
+          MNUtil.showHUD("编辑链接失败: " + error.message);
         }
         break
 
@@ -1833,6 +1914,138 @@ knowledgebaseWebController.prototype.deleteComments = async function(noteId, ind
 }
 
 /**
+ * 双向删除链接评论（同时删除两边的链接）
+ * @param {string} noteId - 卡片ID
+ * @param {Array} indexArr - 要删除的链接评论索引数组
+ */
+knowledgebaseWebController.prototype.deleteBidirectionalLinks = async function(noteId, indexArr) {
+  try {
+    KnowledgeBaseUtils.log("开始执行", "deleteBidirectionalLinks")
+
+    // 将入参规范化为数字数组，避免重复并按倒序删除，防止索引位移
+    const normalizedIndices = normalizeIndexArray(indexArr)
+    const sortedIndices = Array.from(new Set(normalizedIndices)).sort((a, b) => b - a)
+    const selectionCount = sortedIndices.length
+
+    if (selectionCount === 0) {
+      MNUtil.showHUD("双向删除失败: 缺少评论索引")
+      return
+    }
+
+    const note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("未找到卡片")
+      return
+    }
+
+    // 解析链接目标 noteId，统计需要删除的反向链接数量
+    const targetReverseCountMap = new Map() // targetNoteId -> count
+
+    const extractTargetNoteId = (text) => {
+      if (!text) return null
+      const trimmed = text.trim()
+      const match = trimmed.match(/marginnote\dapp:\/\/note\/?([A-Za-z0-9-]+)/)
+      if (match && match[1]) return match[1]
+      return null
+    }
+
+    for (const index of sortedIndices) {
+      const comment = note.MNComments[index]
+      if (!comment) continue
+
+      // 只处理链接评论：通过检查 text 内容是否包含 marginnote URL 来判断
+      // 注意：MNComment 的 type 是 textComment/markdownComment，不是 linkComment
+      const targetNoteId = extractTargetNoteId(comment.text)
+      if (targetNoteId) {
+        const current = targetReverseCountMap.get(targetNoteId) || 0
+        targetReverseCountMap.set(targetNoteId, current + 1)
+      }
+    }
+
+    // 第一步：收集所有需要删除的反向链接信息
+    const reverseLinksToDelete = [] // { targetNoteId, reverseIndices }
+
+    for (const [targetNoteId, expectedCount] of targetReverseCountMap.entries()) {
+      try {
+        const targetNote = MNNote.new(targetNoteId)
+        if (targetNote) {
+          const targetComments = targetNote.MNComments
+          const reverseIndices = []
+
+          // 从后往前查找，先删除靠后的评论，避免索引位移
+          // 注意：通过检查 text 是否包含指向当前 noteId 的 marginnote URL 来判断
+          // MNComment 的 type 是 textComment/markdownComment，不是 linkComment
+          for (let i = targetComments.length - 1; i >= 0 && reverseIndices.length < expectedCount; i--) {
+            const tComment = targetComments[i]
+            if (tComment && tComment.text) {
+              const tText = tComment.text.trim()
+              // 检查是否是指向当前 noteId 的链接
+              if (/marginnote\dapp:\/\/note\//.test(tText) && tText.includes(noteId)) {
+                reverseIndices.push(i)
+              }
+            }
+          }
+
+          if (reverseIndices.length > 0) {
+            reverseLinksToDelete.push({
+              targetNoteId,
+              reverseIndices
+            })
+          }
+        }
+      } catch (error) {
+        KnowledgeBaseUtils.log("查找反向链接失败", "deleteBidirectionalLinks", error.message)
+      }
+    }
+
+    const totalReverseLinks = reverseLinksToDelete.reduce((sum, item) => sum + item.reverseIndices.length, 0)
+
+    // 如果没有找到任何反向链接，仍然需要删除当前链接评论
+    if (reverseLinksToDelete.length === 0) {
+      KnowledgeBaseUtils.log("未找到反向链接，仍删除当前评论", "deleteBidirectionalLinks")
+    } else {
+      KnowledgeBaseUtils.log("准备删除反向链接", "deleteBidirectionalLinks", {
+        reverseLinksToDelete
+      })
+    }
+
+    // 第二步：执行删除操作
+    MNUtil.undoGrouping(() => {
+      // 删除当前卡片的评论
+      if (sortedIndices.length > 0) {
+        note.removeCommentsByIndexArr(sortedIndices)
+        note.refresh()
+      }
+
+      // 删除所有反向链接
+      for (const linkInfo of reverseLinksToDelete) {
+        try {
+          const targetNote = MNNote.new(linkInfo.targetNoteId)
+          if (targetNote) {
+            // 按倒序删除，避免索引位移
+            linkInfo.reverseIndices.sort((a, b) => b - a)
+            targetNote.removeCommentsByIndexArr(linkInfo.reverseIndices)
+            targetNote.refresh()
+          }
+        } catch (error) {
+          KnowledgeBaseUtils.log("删除反向链接失败", "deleteBidirectionalLinks", error.message)
+        }
+      }
+    })
+
+    MNUtil.showHUD(`成功删除 ${selectionCount} 条评论（含 ${totalReverseLinks} 条反向链接）`)
+
+    // 刷新数据
+    await this.loadCommentData(noteId)
+
+  } catch (error) {
+    KnowledgeBaseUtils.log("发生错误", "deleteBidirectionalLinks", error.message)
+    MNUtil.showHUD("双向删除失败: " + error)
+    KnowledgeBaseUtils.addErrorLog(error, "deleteBidirectionalLinks")
+  }
+}
+
+/**
  * 提取评论创建子卡片（参考 utils.js:7096-7160）
  * @param {string} noteId - 卡片ID
  * @param {Array} indexArr - 要提取的评论索引数组
@@ -2044,5 +2257,131 @@ knowledgebaseWebController.prototype.updateCommentLink = async function(noteId, 
     KnowledgeBaseUtils.log("发生错误", "updateCommentLink", { error: error.message })
     MNUtil.showHUD("更新链接失败: " + error)
     KnowledgeBaseUtils.addErrorLog(error, "updateCommentLink")
+  }
+}
+
+/**
+ * 编辑 Markdown 链接
+ * @param {string} noteId - 卡片 ID
+ * @param {number} commentIndex - 评论索引
+ * @param {number} linkIndex - 链接在 markdownLinks 中的索引
+ * @param {string} newDisplayText - 新的显示文本
+ * @param {string} newUrl - 新的链接地址
+ */
+knowledgebaseWebController.prototype.editMarkdownLink = async function(
+  noteId,
+  commentIndex,
+  linkIndex,
+  newDisplayText,
+  newUrl
+) {
+  try {
+    // 1. 参数验证
+    if (!noteId || commentIndex === undefined || linkIndex === undefined) {
+      MNUtil.showHUD("参数错误")
+      return
+    }
+
+    // 2. 获取卡片和评论
+    const note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("卡片不存在")
+      return
+    }
+
+    const comment = note.MNComments[commentIndex]
+    if (!comment) {
+      MNUtil.showHUD("评论不存在")
+      return
+    }
+
+    // 3. 提取所有 Markdown 链接
+    const originalText = comment.text || ""
+    const markdownLinkRegex = /\[([^\]]+?)\]\(([^)]+?)\)/g
+    const allLinks = []
+    let match
+
+    while ((match = markdownLinkRegex.exec(originalText)) !== null) {
+      allLinks.push({
+        fullMatch: match[0],
+        displayText: match[1],
+        url: match[2],
+        startIndex: match.index,
+        endIndex: match.index + match[0].length
+      })
+    }
+
+    // 4. 验证索引
+    if (linkIndex < 0 || linkIndex >= allLinks.length) {
+      MNUtil.showHUD("链接索引无效")
+      return
+    }
+
+    const targetLink = allLinks[linkIndex]
+    const oldUrl = targetLink.url
+
+    // 5. 生成新的链接文本
+    const newLinkMarkdown = `[${newDisplayText}](${newUrl})`
+    const newText = originalText.substring(0, targetLink.startIndex) +
+                    newLinkMarkdown +
+                    originalText.substring(targetLink.endIndex)
+
+    // 6. 执行更新（包装在 undoGrouping 中）
+    MNUtil.undoGrouping(() => {
+      // 6.1 处理双向链接
+      const isOldMNLink = oldUrl.startsWith("marginnote4app://note/")
+      const isNewMNLink = newUrl.startsWith("marginnote4app://note/")
+
+      // 移除旧的反向链接
+      if (isOldMNLink) {
+        const oldNoteId = oldUrl.replace("marginnote4app://note/", "")
+        const oldTargetNote = MNNote.new(oldNoteId, false)
+
+        if (oldTargetNote) {
+          KnowledgeBaseTemplate.removeApplicationFieldLink(oldTargetNote, note.noteId)
+          KnowledgeBaseUtils.log(
+            `移除旧反向链接: ${oldTargetNote.noteTitle} -> ${note.noteTitle}`,
+            "editMarkdownLink"
+          )
+        }
+      }
+
+      // 添加新的反向链接
+      if (isNewMNLink) {
+        const newNoteId = newUrl.replace("marginnote4app://note/", "")
+        const newTargetNote = MNNote.new(newNoteId, false)
+
+        if (newTargetNote) {
+          KnowledgeBaseTemplate.addApplicationFieldLink(newTargetNote, note)
+          KnowledgeBaseUtils.log(
+            `添加新反向链接: ${newTargetNote.noteTitle} <- ${note.noteTitle}`,
+            "editMarkdownLink"
+          )
+        } else {
+          MNUtil.showHUD(`⚠️ 目标卡片不存在: ${newNoteId}`)
+        }
+      }
+
+      // 6.2 更新评论文本
+      comment.text = newText
+
+      // 6.3 刷新卡片
+      note.refresh()
+
+      KnowledgeBaseUtils.log(
+        `链接编辑成功: [${targetLink.displayText}](${oldUrl}) -> [${newDisplayText}](${newUrl})`,
+        "editMarkdownLink"
+      )
+    })
+
+    // 7. 显示成功提示
+    MNUtil.showHUD("链接编辑成功")
+
+    // 8. 刷新数据
+    await this.loadCommentData(noteId)
+
+  } catch (error) {
+    KnowledgeBaseUtils.addErrorLog(error, "editMarkdownLink")
+    MNUtil.showHUD("链接编辑失败: " + error.message)
   }
 }

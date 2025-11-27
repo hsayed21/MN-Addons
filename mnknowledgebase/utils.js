@@ -1341,7 +1341,7 @@ const kbOCRConfig = {
     },
 
     {
-      pattern: /\^\*/g,
+      pattern: /\^(?:\*|\(\*\))/g,
       replacement: "*",
       description: "移除上标符号前的脱字符"
     },
@@ -1358,18 +1358,18 @@ const kbOCRConfig = {
       pattern: /^l/g,
       replacement: "ˡ",
     },
-    // {
-    //   pattern: //g,
-    //   replacement: "",
-    // },
-    // {
-    //   pattern: //g,
-    //   replacement: "",
-    // },
-    // {
-    //   pattern: //g,
-    //   replacement: "",
-    // },
+    {
+      pattern: /𝒴/g,
+      replacement: "𝒱",
+    },
+    {
+      pattern: /բ/g,
+      replacement: "_f",
+    },
+    {
+      pattern: /L_a²/g,
+      replacement: "L²ₐ",
+    },
     // {
     //   pattern: //g,
     //   replacement: "",
@@ -1723,6 +1723,24 @@ class KnowledgeBaseTemplate {
       //   preProcessMode: KnowledgeBaseConfig.config.preProcessMode,
       //   timestamp: startTime
       // })
+
+      // ========== 前缀模式（最优先判断） ==========
+      if (KnowledgeBaseConfig.config.prefixMode) {
+        MNUtil.undoGrouping(() => {
+          // 1. 转为非摘录模式
+          let processedNote = this.toNoExcerptVersion(note, note.parentNote);
+
+          // 2. 添加层级前缀
+          this.addHierarchicalPrefixToTitle(processedNote);
+
+          // 4. 聚焦卡片
+          if (focus) {
+            processedNote.focusInMindMap(0.3);
+          }
+        });
+        return;  // 直接返回，不执行后续逻辑
+      }
+      // ============================================
 
       if (KnowledgeBaseConfig.config.classificationMode) {
         // 归类模式：快速创建归类卡片
@@ -4020,6 +4038,74 @@ class KnowledgeBaseTemplate {
     //   noteId: note.noteId,
     //   noteTitle: note.noteTitle
     // })
+  }
+
+  /**
+   * 为前缀模式构建完整的层级前缀内容
+   * @param {MNNote} note - 当前卡片
+   * @returns {string} - 前缀内容（如 "A ≫ B ≫ C"）
+   */
+  static buildHierarchicalPrefix(note) {
+    let parentNote = note.parentNote;
+    if (!parentNote) {
+      return "";
+    }
+
+    let parentTitle = parentNote.noteTitle;
+    if (!parentTitle || !parentTitle.trim()) {
+      return "";
+    }
+
+    // 检查父节点是否已经有前缀
+    if (parentTitle.startsWith("【")) {
+      let endIndex = parentTitle.indexOf("】");
+      if (endIndex !== -1) {
+        // 父节点有前缀：提取前缀内容 + 添加父节点的纯标题
+        let existingPrefix = parentTitle.substring(1, endIndex).trim();
+        let pureTitle = parentTitle.substring(endIndex + 1).trim();
+
+        if (existingPrefix && pureTitle) {
+          // 格式：祖先前缀 ≫ 父标题
+          return `${existingPrefix} ≫ ${pureTitle}`;
+        } else if (pureTitle) {
+          // 只有纯标题，无前缀内容
+          return pureTitle;
+        } else {
+          return existingPrefix;
+        }
+      }
+    }
+
+    // 父节点没有前缀：直接返回父节点标题
+    return parentTitle.trim();
+  }
+
+  /**
+   * 为标题添加层级前缀（前缀模式专用）
+   * @param {MNNote} note - 当前卡片
+   */
+  static addHierarchicalPrefixToTitle(note) {
+    let currentTitle = note.noteTitle;
+
+    // 1. 移除旧前缀（如果存在）
+    if (currentTitle && currentTitle.startsWith("【")) {
+      let endIndex = currentTitle.indexOf("】");
+      if (endIndex !== -1) {
+        currentTitle = currentTitle.substring(endIndex + 1).trim();
+      }
+    }
+
+    // 2. 构建新前缀
+    let prefixContent = this.buildHierarchicalPrefix(note);
+
+    // 3. 如果有父节点，添加前缀
+    if (prefixContent) {
+      note.noteTitle = `【${prefixContent}】${currentTitle}`;
+    }
+    // 如果没有父节点，保持原标题不变
+
+    // 4. 中文排版优化
+    note.noteTitle = Pangu.spacing(note.noteTitle);
   }
 
   /**
@@ -20650,12 +20736,15 @@ ${this.OCRNumberingRules}
         case "claude-opus-4":
         case "claude-sonnet-4":
         case "claude-3-5-haiku":
+        case "claude-sonnet-4-5":
+        case "claude-haiku-4-5":
         case "gemini-2.0-flash-exp":
         case "gemini-2.0-flash-lite":
         case "gemini-2.5-flash-lite":
         case "gemini-2.0-flash":
         case "gemini-2.5-flash":
         case "gemini-2.5-pro":
+        case "gemini-2.5-pro-minimal":
         case "gemini-2.0-pro":
         case "GPT-4o":
         case "GPT-4o-mini":
@@ -20669,8 +20758,15 @@ ${this.OCRNumberingRules}
         case "doubao-seed-1-6-nothinking":
         case "doubao-seed-1.6-flash":
         case "doubao-seed-1.6-flash-nothinking":
+        case "doubao-seed-1.6-lite-nothinking":
+        case "doubao-seed-1-6-vision-nothinking":
         case "Moonshot-v1":
         case "MiniMax-Text-01":
+        case "qwen3-vl-30b":
+        case "qwen3-vl-32b":
+        case "qwen3-vl-235b":
+        case "qwen3-omni":
+        case "deepseek-ocr":
           let beginTime = Date.now()
           res = await this.ChatGPTVision(imageBase64, ocrSource, prompt)
           let endTime = Date.now()
@@ -20871,9 +20967,12 @@ class KnowledgeBaseConfig {
     "doubao-seed-1-6-nothinking",
     "doubao-seed-1.6-flash",
     "doubao-seed-1.6-flash-nothinking",
+    "doubao-seed-1.6-lite-nothinking",
+    "doubao-seed-1-6-vision-nothinking",
     "Doc2X",
     "Doc2XPDF",
     "SimpleTex",
+    "deepseek-ocr",
     "abab6.5s-chat",
     "MiniMax-Text-01",
     "Moonshot-v1",
@@ -20881,8 +20980,9 @@ class KnowledgeBaseConfig {
     "claude-opus-4",
     "claude-sonnet-4",
     "claude-3-7-sonnet",
-    "claude-3-5-haiku-20241022",
     "claude-3-5-haiku",
+    "claude-sonnet-4-5",
+    "claude-haiku-4-5",
     "gemini-2.0-flash",
     "gemini-2.5-flash",
     "gemini-2.0-flash-lite",
@@ -20890,6 +20990,7 @@ class KnowledgeBaseConfig {
     "gemini-2.0-flash-exp",
     "gemini-2.0-pro",
     "gemini-2.5-pro",
+    "gemini-2.5-pro-minimal",
     "glm-4v-plus",
     "glm-4v-flash",
     "glm-4.1v-thinking-flashx",
@@ -20904,29 +21005,11 @@ class KnowledgeBaseConfig {
     "GPT-5",
     "GPT-5-mini",
     "GPT-5-nano",
-    // 🆕 新增 Qwen 视觉系列
-    "qwen3-vl-plus",
-    "qwen3-omni-flash",
-    "qwen/qwen3-vl-235b-a22b-instruct",
-    "qwen/qwen3-vl-235b-a22b-thinking",
-    // 🆕 新增 Moonshot 完整系列
+    "qwen3-vl-30b",
+    "qwen3-vl-32b",
+    "qwen3-vl-235b",
+    "qwen3-omni",
     "kimi-latest",
-    "moonshot-v1-8k",
-    "moonshot-v1-32k",
-    "moonshot-v1-128k",
-    "moonshot-v1-8k-vision-preview",
-    "moonshot-v1-32k-vision-preview",
-    "moonshot-v1-128k-vision-preview",
-    "moonshot-v1-auto",
-    // 🆕 新增 Doubao 详细版本
-    "doubao-seed-1-6-thinking-250715",
-    "doubao-seed-1-6-thinking-250615",
-    "doubao-seed-1-6-250615",
-    "doubao-seed-1-6-flash-250715",
-    "doubao-seed-1-6-flash-250615",
-    "doubao-seed-1-6-vision-250815",
-    // 🆕 新增 GLM 高级版本
-    "pro/thudm/glm-4.1v-9b-thinking",
   ];
   // 默认摘录 OCR 模型常量，避免在多个位置重复字面量
   static DEFAULT_EXCERPT_OCR_MODEL = "doubao-seed-1-6";
@@ -20946,6 +21029,7 @@ class KnowledgeBaseConfig {
       preProcessMode: false,  // 是否启用预处理模式（默认关闭）
       classificationMode: false,  // 归类模式
       classAutoPinMode: false,
+      prefixMode: false,  // 前缀模式（添加层级前缀）
 
       // 🆕 搜索索引模式配置
       searchIndexMode: "light",  // 索引模式: "light" (轻量，默认) 或 "full" (全量，含同义词扩展)

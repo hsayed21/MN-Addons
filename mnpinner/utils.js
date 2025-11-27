@@ -254,6 +254,45 @@ class pinnerUtils {
       return false
     }
   }
+
+  /**
+   * 复制 Markdown 格式的卡片链接（简化版）
+   * @param {MNNote} note - 卡片对象
+   */
+  static copyMarkdownLink(note) {
+    if (!note) {
+      MNUtil.showHUD("❌ 请先选择一个卡片");
+      return;
+    }
+
+    // 显示输入对话框
+    UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
+      "复制 Markdown 链接",
+      "请输入链接文本",
+      2, // alertViewStyle = 2 (文本输入框)
+      "取消",
+      ["✅ 确定"],
+      (alert, buttonIndex) => {
+        if (buttonIndex === 0) return; // 取消
+
+        // 获取输入文本
+        const inputText = alert.textFieldAtIndex(0).text;
+        const linkText = inputText && inputText.trim() ? inputText.trim() : "";
+
+        if (!linkText) {
+          MNUtil.showHUD("❌ 请输入链接文本");
+          return;
+        }
+
+        // 生成 Markdown 链接
+        const mdLink = `[${linkText}](${note.noteURL})`;
+
+        // 复制到剪贴板
+        MNUtil.copy(mdLink);
+        MNUtil.showHUD(`✅ 已复制: ${mdLink}`);
+      }
+    );
+  }
 }
 
 
@@ -1314,22 +1353,13 @@ class SectionRegistry {
         order: 2,
         description: "需要整理的零散内容"
       }],
-      ["literatureReading", {
-        key: "literatureReading",
-        displayName: "文献阅读",
-        viewMode: "custom",
-        color: "#e5c07b",
-        icon: "📖",
-        order: 3,
-        description: "文献阅读"
-      }],
       ["exerciseClass", {
         key: "exerciseClass",
         displayName: "习题课",
         viewMode: "custom",
         color: "#e5c07b",
         icon: "🎓",
-        order: 4,
+        order: 3,
         description: "习题课"
       }],
       ["research/reading", {
@@ -1358,6 +1388,33 @@ class SectionRegistry {
         icon: "🎓",
         order: 3,
         description: ""
+      }],
+      ["research/management", {
+        key: "research/management",
+        displayName: "文献管理",
+        viewMode: "research",
+        color: "#e5c07b",
+        icon: "🎓",
+        order: 4,
+        description: ""
+      }],
+      ["research/readingPin", {
+        key: "research/readingPin",
+        displayName: "阅读 ing",
+        viewMode: "research",
+        color: "#e5c07b",
+        icon: "🎓",
+        order: 5,
+        description: "阅读过程中的一些中途卡片、页面"
+      }],
+      ["research/report", {
+        key: "research/report",
+        displayName: "汇报讨论",
+        viewMode: "research",
+        color: "#e5c07b",
+        icon: "🎓",
+        order: 6,
+        description: "问题、成果→汇报讨论"
       }],
       // ["submindmap", {
       //   key: "submindmap/InnerProductSpaceAndHilbertSpace",

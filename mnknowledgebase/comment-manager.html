@@ -359,6 +359,137 @@
       background: #e0e7ff;
     }
 
+    /* ========== Markdown 链接样式 ========== */
+    .markdown-link-content a.mn-link {
+      color: var(--primary-color);
+      text-decoration: underline;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      padding: 2px 4px;
+      border-radius: 4px;
+      background: rgba(99, 102, 241, 0.08);
+    }
+
+    .markdown-link-content a.mn-link:hover {
+      color: #4f46e5;
+      background: rgba(99, 102, 241, 0.15);
+    }
+
+    .markdown-link-content a.mn-link:active {
+      transform: scale(0.98);
+    }
+
+    .markdown-link-content a.external-link {
+      color: var(--success-color);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .markdown-link-content a.external-link:hover {
+      opacity: 0.8;
+    }
+
+    .markdown-link-content a.external-link::after {
+      content: '↗';
+      font-size: 10px;
+      margin-left: 2px;
+      vertical-align: super;
+    }
+
+    /* ========== 链接子项样式 ========== */
+    .link-subitems-container {
+      margin-top: 12px;
+      border-top: 1px dashed var(--border-color);
+      padding-top: 10px;
+    }
+
+    .link-subitems-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .link-subitems-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .link-subitem {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border-radius: 6px;
+      cursor: default;
+      transition: all 0.2s ease;
+      font-size: 13px;
+    }
+
+    .link-subitem .link-index {
+      color: var(--muted);
+      font-size: 12px;
+      min-width: 20px;
+    }
+
+    .link-subitem .link-display-text {
+      color: var(--primary-color);
+      font-weight: 500;
+    }
+
+    .link-subitem .link-arrow {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .link-subitem .link-target-title {
+      color: #334155;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* 按钮容器 */
+    .link-actions {
+      display: flex;
+      gap: 4px;
+      margin-left: auto;
+    }
+
+    /* 圆形按钮样式（参考 search.html） */
+    .link-locate-btn {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      background: rgba(255, 255, 255, 0.95);
+      color: inherit;
+      font-size: 14px;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .link-locate-btn:hover {
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+      transform: scale(1.05);
+    }
+
+    .link-locate-btn:active {
+      background: var(--primary-color);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+      transform: scale(0.95);
+    }
+
     /* 图片缩略图 */
     .thumbnail {
       max-width: 200px;
@@ -766,6 +897,22 @@
       padding-left: 20px;
     }
 
+    /* 字段标题选中状态 */
+    .field-header.selected {
+      background: linear-gradient(to right, #eef2ff, #ffffff);
+      border-left-width: 6px;
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.2);
+    }
+
+    /* 字段标题复选框样式 */
+    .field-checkbox {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: var(--primary-color);
+      margin-right: 8px;
+    }
+
     /* ========== 目标选择器模态框 ========== */
     .modal-overlay {
       position: fixed;
@@ -962,6 +1109,91 @@
     .modal-btn.confirm:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    /* ========== 链接编辑模态框 ========== */
+    .link-edit-btn {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      background: rgba(255, 255, 255, 0.95);
+      color: #f59e0b;  /* 橙色 */
+      font-size: 14px;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .link-edit-btn:hover {
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+      transform: scale(1.05);
+    }
+
+    .link-edit-btn:active {
+      background: #f59e0b;
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+      transform: scale(0.95);
+    }
+
+    .edit-preview {
+      background: #f8fafc;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .edit-preview-label {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+
+    .edit-preview-content {
+      font-size: 13px;
+      color: #334155;
+      font-family: monospace;
+      word-break: break-all;
+    }
+
+    .edit-field {
+      margin-bottom: 16px;
+    }
+
+    .edit-field-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 6px;
+    }
+
+    .edit-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .edit-input:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .edit-field-hint {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 6px;
+      line-height: 1.4;
     }
 
     /* ========== Toast 提示 ========== */
@@ -1161,6 +1393,42 @@
     </div>
   </div>
 
+  <!-- 链接编辑模态框 -->
+  <div class="modal-overlay" id="editLinkModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">编辑 Markdown 链接</div>
+      </div>
+      <div class="modal-body">
+        <!-- 当前链接预览 -->
+        <div class="edit-preview">
+          <div class="edit-preview-label">当前链接：</div>
+          <div class="edit-preview-content" id="editLinkPreview"></div>
+        </div>
+
+        <!-- 显示文本输入框 -->
+        <div class="edit-field">
+          <label class="edit-field-label">显示文本：</label>
+          <input type="text" id="editDisplayText" class="edit-input" placeholder="输入显示文本">
+        </div>
+
+        <!-- URL 输入框 -->
+        <div class="edit-field">
+          <label class="edit-field-label">链接地址：</label>
+          <input type="text" id="editLinkUrl" class="edit-input" placeholder="输入链接地址（MarginNote 链接或普通 URL）">
+          <div class="edit-field-hint">
+            MarginNote 格式：marginnote4app://note/{卡片ID}<br>
+            普通 URL：https://example.com
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn cancel" id="editLinkCancelBtn">取消</button>
+        <button class="modal-btn confirm" id="editLinkConfirmBtn">确认</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast 提示 -->
   <div class="toast" id="toast"></div>
 
@@ -1169,6 +1437,19 @@
     function sendURLToNative(action, params = {}) {
       const url = generateUrlScheme('mnknowledgebase', action, params);
       window.location.href = url;
+    }
+
+    /**
+     * 定位到指定 noteId 的卡片
+     * @param {string} noteId - 卡片 ID
+     */
+    function focusNoteById(noteId) {
+      if (!noteId) {
+        safeHUD('卡片 ID 无效');
+        return;
+      }
+      // 使用已有的 focusCardInMindMap 动作
+      sendURLToNative('focusCardInMindMap', { noteId: noteId });
     }
 
     // 简单日志函数，直接调用 htmlLog，保证在 MN 环境可见
@@ -1216,7 +1497,15 @@
 
       // 已废弃（改用可视化插入点）
       targetField: null,
-      toBottom: true
+      toBottom: true,
+
+      // 编辑链接状态
+      editingLink: {
+        commentIndex: null,
+        linkIndex: null,
+        originalDisplayText: '',
+        originalUrl: ''
+      }
     };
 
     // ========================================
@@ -1259,7 +1548,15 @@
       targetOptions: document.getElementById('targetOptions'),
       modalCancelBtn: document.getElementById('modalCancelBtn'),
       modalConfirmBtn: document.getElementById('modalConfirmBtn'),
-      toast: document.getElementById('toast')
+      toast: document.getElementById('toast'),
+
+      // 链接编辑相关
+      editLinkModal: document.getElementById('editLinkModal'),
+      editLinkPreview: document.getElementById('editLinkPreview'),
+      editDisplayText: document.getElementById('editDisplayText'),
+      editLinkUrl: document.getElementById('editLinkUrl'),
+      editLinkCancelBtn: document.getElementById('editLinkCancelBtn'),
+      editLinkConfirmBtn: document.getElementById('editLinkConfirmBtn')
     };
 
     // ========================================
@@ -1317,7 +1614,32 @@
       // 主要操作
       dom.moveBtn.addEventListener('click', () => handleAction('move'));
       dom.extractBtn.addEventListener('click', () => handleAction('extract'));
-      dom.deleteBtn.addEventListener('click', () => handleAction('delete'));
+
+      // 删除按钮：支持单击和长按
+      let deleteButtonPressTimer = null;
+      const LONG_PRESS_DURATION = 500; // 500ms
+
+      dom.deleteBtn.addEventListener('mousedown', (e) => {
+        deleteButtonPressTimer = setTimeout(() => {
+          handleLongPressDelete();
+          deleteButtonPressTimer = null; // 标记已触发长按
+        }, LONG_PRESS_DURATION);
+      });
+
+      dom.deleteBtn.addEventListener('mouseup', () => {
+        if (deleteButtonPressTimer !== null) {
+          clearTimeout(deleteButtonPressTimer);
+          handleAction('delete'); // 单击处理
+        }
+        deleteButtonPressTimer = null;
+      });
+
+      dom.deleteBtn.addEventListener('mouseleave', () => {
+        if (deleteButtonPressTimer !== null) {
+          clearTimeout(deleteButtonPressTimer);
+          deleteButtonPressTimer = null;
+        }
+      });
 
       // 右侧功能栏操作
       dom.updateLinkBtn.addEventListener('click', handleUpdateLink);
@@ -1331,6 +1653,17 @@
       dom.targetModal.addEventListener('click', (e) => {
         if (e.target === dom.targetModal) closeModal();
       });
+
+      // 链接编辑模态框
+      dom.editLinkCancelBtn.addEventListener('click', closeEditLinkModal);
+      dom.editLinkConfirmBtn.addEventListener('click', confirmEditLink);
+      dom.editLinkModal.addEventListener('click', (e) => {
+        if (e.target === dom.editLinkModal) closeEditLinkModal();
+      });
+
+      // 键盘快捷键
+      dom.editDisplayText.addEventListener('keydown', handleEditLinkKeydown);
+      dom.editLinkUrl.addEventListener('keydown', handleEditLinkKeydown);
     }
 
     // ========================================
@@ -1467,6 +1800,12 @@
           converted.htmlMarkdownContent = comment.htmlMarkdownContent;
         }
 
+        // ✅ Markdown 链接子项数据
+        if (comment.markdownLinks && comment.markdownLinks.length > 0) {
+          converted.markdownLinks = comment.markdownLinks;
+          converted.hasMarkdownLinks = true;
+        }
+
         return converted;
       });
 
@@ -1497,14 +1836,30 @@
             return "blankTextComment";
           }
 
-          // HtmlMarkdown 格式（优先检查）
-          if (comment.htmlMarkdownType) {
-            return "htmlMarkdownComment";
+          // HtmlMarkdown 格式（使用标准检测）
+          let cleanText = comment.text;
+          if (cleanText.startsWith("- ")) {
+            cleanText = cleanText.substring(2);
           }
 
-          // 特殊：链接到其他笔记
+          if (cleanText.startsWith("<span")) {
+            return "markdownComment";  // ✅ 使用 MNUtils 标准类型
+          }
+
+          // 特殊：链接到其他笔记（纯链接）
           if (/^marginnote\dapp:\/\//.test(comment.text)) {
             return "linkToNote";
+          }
+
+          // ✅ 检测包含 Markdown 链接的文本（优先使用 Native 端标记）
+          // 格式：[显示文本](marginnote4app://note/xxx)
+          if (comment.hasMarkdownLinks || comment.markdownLinks) {
+            return "markdownLinkComment";  // 使用专门的类型
+          }
+
+          // 备用：正则检测（兼容旧数据或本地测试）
+          if (/\[([^\]]+)\]\(([^)]+)\)/.test(comment.text)) {
+            return "markdownLinkComment";
           }
 
           // 普通文本
@@ -1696,17 +2051,58 @@
           '默认': '📄'
         };
 
+        // 为自定义字段添加 data-index 属性
+        if (field.index >= 0) {
+          fieldHeader.dataset.index = field.index;
+        }
+
+        // 为自定义字段添加复选框
+        let checkboxHTML = '';
+        if (field.index >= 0) {
+          checkboxHTML = '<input type="checkbox" class="field-checkbox">';
+        }
+
         fieldHeader.innerHTML = `
+          ${checkboxHTML}
           <span class="field-icon">${fieldIconMap[field.name] || '📄'}</span>
           <span class="field-title">${field.name}</span>
           <span class="field-count">${field.comments.length} 条</span>
         `;
-        fieldHeader.title = '点击全选该字段下的评论';
 
-        // 点击字段头部，全选该字段下的所有评论
-        fieldHeader.addEventListener('click', () => {
-          selectFieldComments(field);
-        });
+        // 事件绑定：区分自定义字段和摘录字段
+        if (field.index >= 0) {
+          // 自定义字段：单击选中字段，双击选中评论
+          fieldHeader.title = '单击：选中字段 | 双击：选中评论';
+
+          fieldHeader.addEventListener('click', (e) => {
+            if (e.detail === 1) {
+              fieldHeader._clickTimer = setTimeout(() => {
+                toggleFieldSelection(field);
+              }, 250);
+            }
+          });
+
+          fieldHeader.addEventListener('dblclick', (e) => {
+            clearTimeout(fieldHeader._clickTimer);
+            e.stopPropagation();
+            selectFieldComments(field);
+          });
+
+          // 复选框事件
+          const checkbox = fieldHeader.querySelector('.field-checkbox');
+          if (checkbox) {
+            checkbox.addEventListener('change', (e) => {
+              e.stopPropagation();
+              toggleFieldSelection(field);
+            });
+          }
+        } else {
+          // 摘录字段：保持原有逻辑（单击选中评论）
+          fieldHeader.title = '单击全选该字段下的评论';
+          fieldHeader.addEventListener('click', () => {
+            selectFieldComments(field);
+          });
+        }
 
         fieldGroup.appendChild(fieldHeader);
 
@@ -1744,8 +2140,23 @@
         case 'textComment':
           contentHTML = createTextCardContent(comment);
           break;
-        case 'htmlMarkdownComment':  // 新增：HtmlMarkdown 评论
-          contentHTML = createHtmlMarkdownCardContent(comment);
+        case 'markdownComment':  // ✅ 使用 MNUtils 标准类型
+          // 检查是否是 HtmlMarkdown 格式
+          let cleanText = comment.text || "";
+          if (cleanText.startsWith("- ")) {
+            cleanText = cleanText.substring(2);
+          }
+
+          if (cleanText.startsWith("<span")) {
+            // HtmlMarkdown 格式
+            contentHTML = createHtmlMarkdownCardContent(comment);
+          } else if (hasMarkdownLinks(comment.text)) {
+            // ✅ 包含 Markdown 链接（[text](url) 格式）
+            contentHTML = createMarkdownLinkCardContent(comment);
+          } else {
+            // 普通 Markdown
+            contentHTML = createTextCardContent(comment);
+          }
           break;
         case 'imageComment':
           contentHTML = createImageCardContent(comment);
@@ -1765,6 +2176,9 @@
           break;
         case 'audioComment':  // 新增：音频评论
           contentHTML = createAudioCardContent(comment);
+          break;
+        case 'markdownLinkComment':  // ✅ 新增：包含 Markdown 链接的评论
+          contentHTML = createMarkdownLinkCardContent(comment);
           break;
         default:
           contentHTML = createTextCardContent(comment);
@@ -1810,6 +2224,57 @@
         });
       }
 
+      // ✅ Markdown 链接点击处理（文本内的链接）
+      const mnLinks = card.querySelectorAll('.mn-link');
+      mnLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const noteId = link.dataset.noteId;
+          if (noteId) {
+            focusNoteById(noteId);
+          }
+        });
+      });
+
+      // ✅ 定位按钮点击事件（支持主脑图和浮窗两种定位方式）
+      const locateBtns = card.querySelectorAll('.link-locate-btn');
+      locateBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const noteId = btn.dataset.noteId;
+          const action = btn.dataset.action;
+
+          if (!noteId) return;
+
+          // 根据 action 调用不同的定位方法
+          if (action === 'mindMap') {
+            // 主脑图定位
+            sendURLToNative('focusCardInMindMap', { noteId: noteId });
+          } else if (action === 'floatMap') {
+            // 浮窗定位
+            sendURLToNative('focusCardInFloatMindMap', { noteId: noteId });
+          }
+        });
+      });
+
+      // ✅ 编辑按钮点击事件
+      const editBtns = card.querySelectorAll('.link-edit-btn');
+      editBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const commentIndex = parseInt(btn.dataset.commentIndex);
+          const linkIndex = parseInt(btn.dataset.linkIndex);
+          const displayText = btn.dataset.displayText;
+          const linkUrl = btn.dataset.linkUrl;
+
+          showEditLinkModal(commentIndex, linkIndex, displayText, linkUrl);
+        });
+      });
+
       return card;
     }
 
@@ -1840,6 +2305,7 @@
     function createHtmlMarkdownCardContent(comment) {
       // 定义类型图标映射（完全对应 HtmlMarkdownUtils.icons）
       const typeIconMap = {
+        'danger': '❗❗❗',
         'level1': '🚩',
         'level2': '▸',
         'level3': '▪',
@@ -1847,7 +2313,6 @@
         'level5': '·',
         'key': '🔑',
         'alert': '⚠️',
-        'danger': '❗❗❗',  // 3个感叹号！
         'remark': '📝',
         'goal': '🎯',
         'question': '❓',
@@ -1859,10 +2324,80 @@
         'step': '👣'
       };
 
-      const htmlMarkdownType = comment.htmlMarkdownType || 'unknown';
+      // ✅ 获取链接数据（用于生成链接子项列表）
+      const links = comment.markdownLinks || [];
+
+      // ✅ 直接解析 comment.text
+      let cleanText = comment.text || "";
+      if (cleanText.startsWith("- ")) {
+        cleanText = cleanText.substring(2);
+      }
+
+      // 提取类型
+      const typeRegex = /<span\s*id="([^"]*)"/;
+      const typeMatch = cleanText.match(typeRegex);
+      const htmlMarkdownType = typeMatch && typeMatch[1] ? typeMatch[1].trim() : 'unknown';
+
+      // 提取内容
+      const contentRegex = /<span[^>]*>(.*?)<\/span>/;
+      const contentMatch = cleanText.match(contentRegex);
+      let content = contentMatch && contentMatch[1] ? contentMatch[1].trim() : cleanText;
+
+      // 去除 emoji 和前缀
+      const emojisToRemove = [
+        '❗❗❗', '🚩', '▸', '▪', '•', '·', '🔑', '⚠️', '📝', '🎯',
+        '❓', '💡', '✨', '🔍', '✏️', '📋', '👣'
+      ];
+      emojisToRemove.forEach(emoji => {
+        content = content.replace(emoji, '').trim();
+      });
+
+      const prefixes = ["思路：", "方法：", "CHECK", "SKETCH", "SKETCH: "];
+      prefixes.forEach(prefix => {
+        if (content.startsWith(prefix)) {
+          content = content.substring(prefix.length).trim();
+        }
+      });
+
+      // ✅ 生成链接子项列表 HTML
+      let linksListHTML = '';
+      if (links.length > 0) {
+        const linkItems = links.map((link, idx) => {
+          return `
+            <div class="link-subitem">
+              <span class="link-index">${idx + 1}.</span>
+              <span class="link-display-text">[${escapeHtml(link.displayText)}]</span>
+              <span class="link-arrow">→</span>
+              <span class="link-target-title">${escapeHtml(link.linkedNoteTitle)}</span>
+              <div class="link-actions">
+                <button class="link-locate-btn" data-note-id="${escapeHtml(link.noteId)}" data-action="mindMap" title="在主脑图定位">📍</button>
+                <button class="link-locate-btn" data-note-id="${escapeHtml(link.noteId)}" data-action="floatMap" title="在浮窗定位">🎯</button>
+                <button class="link-edit-btn"
+                        data-comment-index="${comment.index}"
+                        data-link-index="${idx}"
+                        data-display-text="${escapeHtml(link.displayText)}"
+                        data-link-url="${escapeHtml(link.url || '')}"
+                        title="编辑链接">✏️</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        linksListHTML = `
+          <div class="link-subitems-container">
+            <div class="link-subitems-header">📎 链接子项 (${links.length})</div>
+            <div class="link-subitems-list">
+              ${linkItems}
+            </div>
+          </div>
+        `;
+      }
+
       const icon = typeIconMap[htmlMarkdownType] || '📌';
-      const content = comment.htmlMarkdownContent || comment.text || '';
       const needExpand = content.length > 100;
+
+      // 检查内容中是否包含 Markdown 链接
+      const hasLinks = hasMarkdownLinks(content);
 
       return `
         <div class="comment-header">
@@ -1872,10 +2407,72 @@
           <span class="comment-type-label">HtmlMD: ${htmlMarkdownType}</span>
         </div>
         <div class="comment-content">
-          <div class="comment-preview ${needExpand ? 'collapsed' : ''}">
-            ${escapeHtml(content)}
+          <div class="comment-preview ${needExpand ? 'collapsed' : ''}" ${hasLinks ? 'data-allow-html="true"' : ''}>
+            ${hasLinks ? parseMarkdownLinks(content) : escapeHtml(content)}
           </div>
           ${needExpand ? '<button class="expand-btn">展开</button>' : ''}
+          ${linksListHTML}
+        </div>
+      `;
+    }
+
+    /**
+     * 创建包含 Markdown 链接的卡片内容
+     * 显示原文本 + 提取的链接子项列表（可定位）
+     */
+    function createMarkdownLinkCardContent(comment) {
+      const text = comment.text || '';
+      const processedContent = parseMarkdownLinks(text);
+      const needExpand = text.length > 100;
+      const links = comment.markdownLinks || [];
+
+      // 生成链接子项列表 HTML
+      let linksListHTML = '';
+      if (links.length > 0) {
+        const linkItems = links.map((link, idx) => {
+          return `
+            <div class="link-subitem">
+              <span class="link-index">${idx + 1}.</span>
+              <span class="link-display-text">[${escapeHtml(link.displayText)}]</span>
+              <span class="link-arrow">→</span>
+              <span class="link-target-title">${escapeHtml(link.linkedNoteTitle)}</span>
+              <div class="link-actions">
+                <button class="link-locate-btn" data-note-id="${escapeHtml(link.noteId)}" data-action="mindMap" title="在主脑图定位">📍</button>
+                <button class="link-locate-btn" data-note-id="${escapeHtml(link.noteId)}" data-action="floatMap" title="在浮窗定位">🎯</button>
+                <button class="link-edit-btn"
+                        data-comment-index="${comment.index}"
+                        data-link-index="${idx}"
+                        data-display-text="${escapeHtml(link.displayText)}"
+                        data-link-url="${escapeHtml(link.url || '')}"
+                        title="编辑链接">✏️</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        linksListHTML = `
+          <div class="link-subitems-container">
+            <div class="link-subitems-header">📎 链接子项 (${links.length})</div>
+            <div class="link-subitems-list">
+              ${linkItems}
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="comment-header">
+          <input type="checkbox" class="comment-checkbox">
+          <span class="comment-icon">🔗</span>
+          <span class="comment-index">${comment.index}</span>
+          <span class="comment-type-label">Markdown 链接 (${links.length})</span>
+        </div>
+        <div class="comment-content">
+          <div class="comment-preview markdown-link-content ${needExpand ? 'collapsed' : ''}" data-allow-html="true">
+            ${processedContent}
+          </div>
+          ${needExpand ? '<button class="expand-btn">展开</button>' : ''}
+          ${linksListHTML}
         </div>
       `;
     }
@@ -2130,6 +2727,27 @@
       updateUI();
     }
 
+    /**
+     * 切换字段本身的选中状态（只针对字段标题）
+     * @param {Object} field - 字段对象
+     */
+    function toggleFieldSelection(field) {
+      // 摘录字段不可选中（field.index = -1）
+      if (field.index < 0) {
+        showToast('摘录字段无法单独选中');
+        return;
+      }
+
+      // 切换选中状态
+      if (state.selectedIndices.has(field.index)) {
+        state.selectedIndices.delete(field.index);
+      } else {
+        state.selectedIndices.add(field.index);
+      }
+
+      updateUI();
+    }
+
     function invertSelection() {
       const newSet = new Set();
       state.comments.forEach((c) => {
@@ -2366,6 +2984,22 @@
           card.classList.add('selected');
         } else {
           card.classList.remove('selected');
+        }
+      });
+
+      // 更新字段标题的选中状态
+      document.querySelectorAll('.field-header[data-index]').forEach((header) => {
+        const index = parseInt(header.dataset.index);
+        const checkbox = header.querySelector('.field-checkbox');
+
+        if (checkbox) {
+          checkbox.checked = state.selectedIndices.has(index);
+        }
+
+        if (state.selectedIndices.has(index)) {
+          header.classList.add('selected');
+        } else {
+          header.classList.remove('selected');
         }
       });
 
@@ -2704,11 +3338,83 @@
         return;
       }
 
-      // 调用 Bridge 方法删除评论
+      // 分类：链接评论 vs 非链接评论
+      const linkIndices = [];
+      const normalIndices = [];
+
+      sorted.forEach(index => {
+        const comment = state.comments[index];
+        if (comment && (comment.type === 'linkComment' || comment.type === 'linkToNote')) {
+          linkIndices.push(index);
+        } else {
+          normalIndices.push(index);
+        }
+      });
+
+      // 分别调用不同的 Bridge 方法
+      // 注意：debugLog 和 Bridge 方法都使用 window.location.href，
+      // 连续调用会导致前一个请求被覆盖，所以先输出日志，再调用 Bridge
+      if (linkIndices.length > 0) {
+        console.log(`[HTML] 双向删除链接评论 -> indices=${linkIndices}`);
+      }
+      if (normalIndices.length > 0) {
+        console.log(`[HTML] 普通删除评论 -> indices=${normalIndices}`);
+      }
+
+      // 优先处理普通评论（因为只有最后一个 location.href 会生效）
+      // 如果既有链接评论又有普通评论，需要分开处理
+      if (linkIndices.length > 0 && normalIndices.length > 0) {
+        // 混合删除：先删除普通评论，再用延时删除链接评论
+        Bridge.deleteComments(state.noteId, normalIndices);
+        setTimeout(() => {
+          Bridge.deleteBidirectionalLinks(state.noteId, linkIndices);
+        }, 100);
+      } else if (linkIndices.length > 0) {
+        Bridge.deleteBidirectionalLinks(state.noteId, linkIndices);
+      } else if (normalIndices.length > 0) {
+        Bridge.deleteComments(state.noteId, normalIndices);
+      }
+
+      // 显示操作提示
+      if (linkIndices.length > 0 && normalIndices.length > 0) {
+        showToast(`正在删除 ${sorted.length} 条评论（${linkIndices.length} 条双向删除，${normalIndices.length} 条普通删除）...`);
+      } else if (linkIndices.length > 0) {
+        showToast(`正在双向删除 ${linkIndices.length} 条链接评论...`);
+      } else {
+        showToast(`正在删除 ${normalIndices.length} 条评论...`);
+      }
+
+      // 清空选择
+      clearSelection();
+
+      // 注意：Native 端会在操作完成后自动调用 Bridge.loadCommentData() 刷新数据
+    }
+
+    // ========================================
+    // 长按删除（全部用普通删除，不删除反向链接）
+    // ========================================
+    function handleLongPressDelete() {
+      const indices = Array.from(state.selectedIndices);
+      if (indices.length === 0) {
+        showToast('请先选择评论');
+        return;
+      }
+
+      const sorted = [...indices].sort((a, b) => a - b);
+
+      debugLog(`[HTML] handleLongPressDelete -> indices=${sorted}`);
+
+      // 执行删除操作（调用 Native Bridge）
+      if (!state.noteId) {
+        showToast('错误：缺少卡片 ID');
+        return;
+      }
+
+      // 长按：不区分类型，全部用普通删除
       Bridge.deleteComments(state.noteId, sorted);
 
       // 显示操作提示
-      showToast(`正在删除 ${sorted.length} 条评论...`);
+      showToast(`正在删除 ${sorted.length} 条评论（长按模式，不删除反向链接）...`);
 
       // 清空选择
       clearSelection();
@@ -2750,6 +3456,121 @@
     }
 
     // ========================================
+    // 链接编辑功能
+    // ========================================
+
+    /**
+     * 显示链接编辑模态框
+     * @param {number} commentIndex - 评论索引
+     * @param {number} linkIndex - 链接在 markdownLinks 中的索引
+     * @param {string} displayText - 当前显示文本
+     * @param {string} linkUrl - 当前链接地址
+     */
+    function showEditLinkModal(commentIndex, linkIndex, displayText, linkUrl) {
+      // 保存编辑状态
+      state.editingLink = {
+        commentIndex: commentIndex,
+        linkIndex: linkIndex,
+        originalDisplayText: displayText,
+        originalUrl: linkUrl
+      };
+
+      // 更新预览
+      dom.editLinkPreview.textContent = `[${displayText}](${linkUrl})`;
+
+      // 预填充输入框
+      dom.editDisplayText.value = displayText;
+      dom.editLinkUrl.value = linkUrl;
+
+      // 显示模态框
+      dom.editLinkModal.classList.add('show');
+
+      // 聚焦到第一个输入框
+      setTimeout(() => {
+        dom.editDisplayText.focus();
+        dom.editDisplayText.select();
+      }, 100);
+    }
+
+    /**
+     * 关闭链接编辑模态框
+     */
+    function closeEditLinkModal() {
+      dom.editLinkModal.classList.remove('show');
+
+      // 清空状态
+      state.editingLink = {
+        commentIndex: null,
+        linkIndex: null,
+        originalDisplayText: '',
+        originalUrl: ''
+      };
+
+      // 清空输入框
+      dom.editDisplayText.value = '';
+      dom.editLinkUrl.value = '';
+    }
+
+    /**
+     * 确认编辑链接
+     */
+    function confirmEditLink() {
+      const newDisplayText = dom.editDisplayText.value.trim();
+      const newUrl = dom.editLinkUrl.value.trim();
+
+      // 验证输入
+      if (!newDisplayText) {
+        showToast('请输入显示文本');
+        dom.editDisplayText.focus();
+        return;
+      }
+
+      if (!newUrl) {
+        showToast('请输入链接地址');
+        dom.editLinkUrl.focus();
+        return;
+      }
+
+      // 检查是否有修改
+      if (newDisplayText === state.editingLink.originalDisplayText &&
+          newUrl === state.editingLink.originalUrl) {
+        showToast('链接未修改');
+        closeEditLinkModal();
+        return;
+      }
+
+      // 调用 Bridge 方法
+      debugLog(`[HTML] editMarkdownLink -> commentIndex=${state.editingLink.commentIndex}, linkIndex=${state.editingLink.linkIndex}`);
+
+      Bridge.editMarkdownLink(
+        state.noteId,
+        state.editingLink.commentIndex,
+        state.editingLink.linkIndex,
+        newDisplayText,
+        newUrl
+      );
+
+      // 关闭模态框
+      closeEditLinkModal();
+
+      // 显示提示
+      showToast('正在更新链接...');
+    }
+
+    /**
+     * 键盘快捷键处理
+     */
+    function handleEditLinkKeydown(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        confirmEditLink();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeEditLinkModal();
+      }
+    }
+
+    // ========================================
     // Toast 提示
     // ========================================
     let toastTimer = null;
@@ -2781,6 +3602,60 @@
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+
+    /**
+     * 解析 Markdown 链接并转换为可点击的 HTML
+     * @param {string} text - 包含 Markdown 链接的文本
+     * @returns {string} 转换后的 HTML
+     */
+    function parseMarkdownLinks(text) {
+      if (!text) return '';
+
+      const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+
+      // 先转义普通文本，然后替换链接
+      let result = '';
+      let lastIndex = 0;
+      let match;
+
+      while ((match = markdownLinkRegex.exec(text)) !== null) {
+        // 添加链接之前的普通文本（转义）
+        if (match.index > lastIndex) {
+          result += escapeHtml(text.substring(lastIndex, match.index));
+        }
+
+        const displayText = match[1];
+        const url = match[2];
+
+        // 检查是否是 MarginNote 内部链接
+        if (url.startsWith('marginnote4app://note/')) {
+          const noteId = url.replace('marginnote4app://note/', '');
+          result += `<a href="#" class="mn-link" data-note-id="${escapeHtml(noteId)}" onclick="return false;">${escapeHtml(displayText)}</a>`;
+        } else {
+          // 外部链接
+          result += `<a href="${escapeHtml(url)}" target="_blank" class="external-link">${escapeHtml(displayText)}</a>`;
+        }
+
+        lastIndex = match.index + match[0].length;
+      }
+
+      // 添加剩余的普通文本（转义）
+      if (lastIndex < text.length) {
+        result += escapeHtml(text.substring(lastIndex));
+      }
+
+      return result;
+    }
+
+    /**
+     * 检查文本是否包含 Markdown 链接
+     * @param {string} text - 要检查的文本
+     * @returns {boolean} 是否包含 Markdown 链接
+     */
+    function hasMarkdownLinks(text) {
+      if (!text) return false;
+      return /\[([^\]]+)\]\(([^)]+)\)/.test(text);
     }
 
     function stripHtml(html) {
@@ -2917,6 +3792,24 @@
       },
 
       /**
+       * 双向删除链接评论（同时删除两边的链接）
+       * @param {string} noteId - 卡片 ID
+       * @param {Array<number>} indexArr - 评论索引数组
+       */
+      deleteBidirectionalLinks: function(noteId, indexArr) {
+        try {
+          postToNative('deleteBidirectionalLinks', {
+            id: noteId,
+            indexArr: JSON.stringify(indexArr)
+          });
+          console.log('[Bridge] deleteBidirectionalLinks', noteId, indexArr);
+        } catch (error) {
+          console.error('Bridge.deleteBidirectionalLinks 失败:', error);
+          showToast('双向删除失败: ' + error.message);
+        }
+      },
+
+      /**
        * 提取评论创建子卡片
        * @param {string} noteId - 卡片 ID
        * @param {Array<number>} indexArr - 评论索引数组
@@ -2974,6 +3867,30 @@
         } catch (error) {
           console.error('Bridge.updateCommentLink 失败:', error);
           showToast('更新失败: ' + error.message);
+        }
+      },
+
+      /**
+       * 编辑 Markdown 链接
+       * @param {string} noteId - 卡片 ID
+       * @param {number} commentIndex - 评论索引
+       * @param {number} linkIndex - 链接索引
+       * @param {string} newDisplayText - 新的显示文本
+       * @param {string} newUrl - 新的链接地址
+       */
+      editMarkdownLink: function(noteId, commentIndex, linkIndex, newDisplayText, newUrl) {
+        try {
+          postToNative('editMarkdownLink', {
+            id: noteId,
+            commentIndex: commentIndex,
+            linkIndex: linkIndex,
+            newDisplayText: newDisplayText,
+            newUrl: newUrl
+          });
+          console.log('[Bridge] editMarkdownLink', noteId, commentIndex, linkIndex);
+        } catch (error) {
+          console.error('Bridge.editMarkdownLink 失败:', error);
+          showToast('编辑失败: ' + error.message);
         }
       },
 

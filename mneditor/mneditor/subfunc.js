@@ -48,13 +48,6 @@ document.addEventListener('DOMContentLoaded', function () {
           console.log(error)
         }
       },
-      input: (value)=>{
-        if (value.trim() === "[[") {
-          window.location.href = "editorinlinelink://content"
-        }
-        
-        // window.location.href = "editorinput://content="+encodeURIComponent(value)
-        },
       preview:{
         math:{
           engine:"MathJax",
@@ -184,6 +177,8 @@ document.addEventListener('DOMContentLoaded', function () {
       cdn:"https://vip.123pan.cn/1836303614/dl/cdn/vditor",
       after:()=>{
         // editor.focus();
+        console.log("after:"+editor.getValue());
+        
         editor.setValue(``)
         const editorDOM = document.getElementById('vditor');
         // editorDOM.addEventListener('dragover', (event) => {

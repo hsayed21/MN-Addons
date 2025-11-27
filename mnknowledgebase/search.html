@@ -2196,6 +2196,13 @@
           <button class="sidebar-btn sidebar-btn--grouped" id="moveFocusNoteToTargetNoteAsChildAndMakeNoteAndLocateBtn" type="button" disabled>
             <span>移动 FocusNote 成为选中卡片的子卡片 & 制卡 & 主脑图定位 FocusNote</span>
           </button>
+          <!-- 由于 API 限制，不定位无法加入复习，暂时隐藏此按钮 -->
+          <!-- <button class="sidebar-btn sidebar-btn--grouped" id="moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewBtn" type="button" disabled>
+            <span>移动 FocusNote 成为选中卡片的子卡片 & 制卡 & 加入复习</span>
+          </button> -->
+          <button class="sidebar-btn sidebar-btn--grouped" id="moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewAndLocateBtn" type="button" disabled>
+            <span>移动 FocusNote 成为选中卡片的子卡片 & 制卡 & 加入复习 & 主脑图定位</span>
+          </button>
         </div>
 
         <!-- 模板操作组 -->
@@ -2793,6 +2800,15 @@
         // { key: 'untagged', label: RAW_TYPE_LABEL, types: [RAW_TYPE_LABEL] },
       ];
 
+      // 归类子类型的固定选项列表
+      const DEFAULT_CLASSIFICATION_SUBTYPES = [
+        '定义',
+        '命题',
+        '例子',
+        '反例',
+        '思想方法'
+      ];
+
       // 颜色映射：优先类型、其次颜色索引，最后回退色
       const TYPE_COLOR_MAP = {
         定义: '#7bb8ff',
@@ -2952,6 +2968,8 @@
         moveFocusNoteToTargetNoteAsChildAndLocateBtn: document.getElementById('moveFocusNoteToTargetNoteAsChildAndLocateBtn'),
         moveFocusNoteToTargetNoteAsChildAndMakeNoteBtn: document.getElementById('moveFocusNoteToTargetNoteAsChildAndMakeNoteBtn'),
         moveFocusNoteToTargetNoteAsChildAndMakeNoteAndLocateBtn: document.getElementById('moveFocusNoteToTargetNoteAsChildAndMakeNoteAndLocateBtn'),
+        moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewBtn: document.getElementById('moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewBtn'),
+        moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewAndLocateBtn: document.getElementById('moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewAndLocateBtn'),
         addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn: document.getElementById('addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn'),
         addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn: document.getElementById('addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn'),
         scrollToTopBtn: document.getElementById('scrollToTopBtn'),
@@ -3495,6 +3513,8 @@
           { btn: dom.moveFocusNoteToTargetNoteAsChildAndLocateBtn, action: 'moveFocusNoteToTargetNoteAsChildAndLocate' },
           { btn: dom.moveFocusNoteToTargetNoteAsChildAndMakeNoteBtn, action: 'moveFocusNoteToTargetNoteAsChildAndMakeNote' },
           { btn: dom.moveFocusNoteToTargetNoteAsChildAndMakeNoteAndLocateBtn, action: 'moveFocusNoteToTargetNoteAsChildAndMakeNoteAndLocate' },
+          { btn: dom.moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewBtn, action: 'moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReview' },
+          { btn: dom.moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewAndLocateBtn, action: 'moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewAndLocate' },
           { btn: dom.addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn, action: 'addTemplateToTargetNoteAndMoveFocusNoteAsChild' },
           { btn: dom.addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn, action: 'addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocate' }
         ];
@@ -3985,14 +4005,10 @@
       }
 
       function refreshClassificationOptions() {
-        const options = new Set();
-        (state.cards || []).forEach((card) => {
-          if (!card) return;
-          if (card.type === '归类' && card.classificationSubtype) {
-            options.add(card.classificationSubtype);
-          }
-        });
-        state.classificationOptions = Array.from(options).sort();
+        // 使用固定的子类型列表，不再动态生成
+        state.classificationOptions = DEFAULT_CLASSIFICATION_SUBTYPES.slice();
+
+        // 验证当前选择是否有效
         if (
           state.currentClassificationSubtype !== 'all' &&
           !state.classificationOptions.includes(state.currentClassificationSubtype)
@@ -5099,6 +5115,8 @@
           dom.moveFocusNoteToTargetNoteAsChildAndLocateBtn,
           dom.moveFocusNoteToTargetNoteAsChildAndMakeNoteBtn,
           dom.moveFocusNoteToTargetNoteAsChildAndMakeNoteAndLocateBtn,
+          dom.moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewBtn,
+          dom.moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewAndLocateBtn,
           dom.addTemplateToTargetNoteAndMoveFocusNoteAsChildBtn,
           dom.addTemplateToTargetNoteAndMoveFocusNoteAsChildAndLocateBtn,
         ];
@@ -5187,6 +5205,18 @@
 
           case 'moveFocusNoteToTargetNoteAsChildAndMakeNoteAndLocate':
             if (!postBridge('moveFocusNoteToTargetNoteAsChildAndMakeNoteAndLocate', { id })) {
+              showToast('操作失败');
+            }
+            break;
+
+          case 'moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReview':
+            if (!postBridge('moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReview', { id })) {
+              showToast('操作失败');
+            }
+            break;
+
+          case 'moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewAndLocate':
+            if (!postBridge('moveFocusNoteToTargetNoteAsChildAndMakeNoteAndAddToReviewAndLocate', { id })) {
               showToast('操作失败');
             }
             break;

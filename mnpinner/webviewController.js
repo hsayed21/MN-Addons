@@ -1544,6 +1544,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       let commandTable = [
         self.tableItem("🔄 更新为当前卡片", "updatePinToFocusNote:", param),
         self.tableItem("✏️  修改标题", "renameCard:", param),
+        self.tableItem("🔗 复制 Markdown 链接", "copyMarkdownLinkForCard:", param),
         self.tableItem("↔️  转移到...", "showTransferMenu:", param)
       ]
 
@@ -1551,7 +1552,7 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       self.popoverController = MNUtil.getPopoverAndPresent(
         button,
         commandTable,
-        150,  // 宽度
+        200,  // 宽度
         1     // 箭头方向
       )
     } catch (error) {
@@ -1612,6 +1613,41 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
     } catch (error) {
       pinnerUtils.addErrorLog(error, "showTransferMenu")
       MNUtil.showHUD("显示转移菜单失败")
+    }
+  },
+
+  /**
+   * 复制卡片的 Markdown 链接
+   */
+  copyMarkdownLinkForCard: function(param) {
+    try {
+      self.checkPopover()
+      // 从参数中获取卡片信息
+      let card = param.card
+      if (!card) {
+        MNUtil.showHUD("❌ 无法获取卡片数据")
+        return
+      }
+
+      // 检查卡片类型
+      if (card.type !== "card") {
+        MNUtil.showHUD("❌ 此功能仅支持卡片类型的 Pin")
+        return
+      }
+
+      // 通过 noteId 创建 MNNote 对象
+      let note = MNNote.new(card.noteId)
+      if (!note) {
+        MNUtil.showHUD("❌ 无法找到对应的卡片")
+        return
+      }
+
+      // 调用工具方法
+      pinnerUtils.copyMarkdownLink(note)
+
+    } catch (error) {
+      pinnerUtils.addErrorLog(error, "copyMarkdownLinkForCard")
+      MNUtil.showHUD("❌ 复制链接失败")
     }
   },
 
@@ -2220,15 +2256,15 @@ let pinnerController = JSB.defineClass('pinnerController : UIViewController <NSU
       }
 
       // 使用 MNUtil.userInput 并设置默认值（前100个字符）
-      let defaultText = clipboard.text.length > 100
-        ? clipboard.text.substring(0, 100) + "..."
-        : clipboard.text
+      // let defaultText = clipboard.text.length > 100
+      //   ? clipboard.text.substring(0, 100) + "..."
+      //   : clipboard.text
 
       let result = await MNUtil.userInput(
         "编辑文本",
         "请输入新的文本内容",
         ["取消", "保存"],
-        {default: defaultText}
+        {default: clipboard.text}
       )
 
       if (result.button === 0) return  // 点击取消

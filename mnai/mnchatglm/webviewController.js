@@ -565,15 +565,6 @@ try {
     let self = getChatglmController()
     Menu.dismissCurrentMenu()
     self.checkPopover()
-    // if (!chatAIUtils.isSubscribed()) {
-    //   let confirm = await MNUtil.confirm("🤖 MN ChatAI", "This feature requires subscription or free usage. Do you want to continue?\n\n该功能需要订阅或免费额度，是否继续？")
-    //   if (!confirm) {
-    //     return
-    //   }
-    // }
-    // if (!chatAIUtils.checkSubscribe(false)) {
-    //   return
-    // }
     let source = params.source
     let button = params.button
     let selectIndex = params.index
@@ -906,6 +897,21 @@ try {
     MNButton.setTitle(self.narrowModeButton, "Narrow Mode: "+(chatAIConfig.getConfig("narrowMode")?"✅":"❌"))
     chatAIConfig.save("MNChatglm_config")
   },
+  changeEditorType: function (button) {
+    let menu = new Menu(button,self)
+    menu.preferredPosition = 2
+    menu.addMenuItem("Vditor", "setEditorType:","vditor",chatAIConfig.getConfig("editorType")==="vditor")
+    menu.addMenuItem("Markdown UI", "setEditorType:","markdown-ui",chatAIConfig.getConfig("editorType")==="markdown-ui")
+    menu.width = 300
+    menu.show()
+  },
+  setEditorType: function (type) {
+    let self = getChatglmController()
+    Menu.dismissCurrentMenu()
+    chatAIConfig.config.editorType = type
+    MNButton.setTitle(self.editorTypeButton, "Markdown Render: "+type)
+    chatAIConfig.save("MNChatglm_config")
+  },
   choosePDFExtractMode: function (button) {
     let menu = new Menu(button,self)
     let mode = chatAIConfig.getConfig("PDFExtractMode")
@@ -930,17 +936,19 @@ try {
     }
     chatAIConfig.save("MNChatglm_config")
   },
-  chooseimageGenerationModel: function (button) {
+  chooseImageGenerationModel: function (button) {
     let menu = new Menu(button,self)
     let model = chatAIConfig.getConfig("imageGenerationModel")
     menu.addMenuItem("🆓 CogView-3 Flash", "setImageGenerationModel:",{title:"CogView-3-Flash",model:"cogview-3-flash"},model==="cogview-3-flash")
-    menu.addMenuItem("🆓 CogView-4", "setImageGenerationModel:",{title:"CogView-4",model:"cogview-4-250304"},model==="cogview-4-250304")
     menu.addMenuItem("🆓 Image-01", "setImageGenerationModel:",{title:"Image-01",model:"image-01"},model==="image-01")
     menu.addMenuItem("🆓 Image-01 Live", "setImageGenerationModel:",{title:"Image-01 Live",model:"image-01-live"},model==="image-01-live")
     menu.addMenuItem("🆓 Qwen-Image", "setImageGenerationModel:",{title:"Qwen-Image",model:"qwen-image"},model==="qwen-image")
-    menu.addMenuItem("✨ Gemini-2.5 Flash Image", "setImageGenerationModel:",{title:"Gemini-2.5 Flash Image",model:"gemini-2.5-flash-image"},model==="gemini-2.5-flash-image")
-    menu.addMenuItem("✨ GPT Image-1", "setImageGenerationModel:",{title:"GPT Image-1",model:"gpt-image-1"},model==="gpt-image-1")
-    menu.width = 250
+    menu.addMenuItem("✨ CogView-4 (0.06)", "setImageGenerationModel:",{title:"CogView-4",model:"cogview-4-250304"},model==="cogview-4-250304")
+    menu.addMenuItem("✨ Gemini-2.5 Flash Image (0.01)", "setImageGenerationModel:",{title:"Gemini-2.5 Flash Image",model:"gemini-2.5-flash-image"},model==="gemini-2.5-flash-image")
+    menu.addMenuItem("✨ Gemini-3 Pro Image (0.1)", "setImageGenerationModel:",{title:"Gemini-3 Pro Image",model:"gemini-3-pro-image-preview"},model==="gemini-3-pro-image-preview")
+    menu.addMenuItem("✨ Gemini-3 Pro Image 4K (0.15)", "setImageGenerationModel:",{title:"Gemini-3 Pro Image 4K",model:"gemini-3-pro-image-preview-4k"},model==="gemini-3-pro-image-preview-4k")
+    menu.addMenuItem("✨ GPT Image-1 (0.01)", "setImageGenerationModel:",{title:"GPT Image-1",model:"gpt-image-1"},model==="gpt-image-1")
+    menu.width = 300
     menu.show()
   },
   setImageGenerationModel: function (modelInfo) {
@@ -948,6 +956,25 @@ try {
     Menu.dismissCurrentMenu()
     self.imageGenerationModelButton.setTitleForState("Image Generation: "+modelInfo.title,0)
     chatAIConfig.config.imageGenerationModel = modelInfo.model
+    chatAIConfig.save("MNChatglm_config")
+  },
+  chooseWebSearchModel: function (button) {
+    let menu = new Menu(button,self)
+    let model = chatAIConfig.getConfig("webSearchModel")
+    menu.addMenuItem("🆓 UAPI Search", "setWebSearchModel:",{title:"UAPI Search",model:"uapi_search"},model==="uapi_search")
+    menu.addMenuItem("✨ Search Std (0.005)", "setWebSearchModel:",{title:"Search Std",model:"search_std"},model==="search_std")
+    menu.addMenuItem("✨ Search Pro (0.01)", "setWebSearchModel:",{title:"Search Pro",model:"search_pro"},model==="search_pro")
+    menu.addMenuItem("✨ Search Pro Quark (0.01)", "setWebSearchModel:",{title:"Search Pro Quark",model:"search_pro_quark"},model==="search_pro_quark")
+    menu.addMenuItem("✨ Search Pro Sogou (0.01)", "setWebSearchModel:",{title:"Search Pro Sogou",model:"search_pro_sogou"},model==="search_pro_sogou")
+    menu.addMenuItem("✨ Metaso Search (0.01)", "setWebSearchModel:",{title:"Metaso Search",model:"metaso_search"},model==="metaso_search")
+    menu.width = 250
+    menu.show()
+  },
+  setWebSearchModel: function (modelInfo) {
+    let self = getNotificationController()
+    Menu.dismissCurrentMenu()
+    self.webSearchModelButton.setTitleForState("Web Search: "+modelInfo.title,0)
+    chatAIConfig.config.webSearchModel = modelInfo.model
     chatAIConfig.save("MNChatglm_config")
   },
   closeButtonTapped: function() {
@@ -1328,11 +1355,11 @@ try {
       }
       return
     }
-    let confirm = await MNUtil.confirm("🤖 MN ChatAI","Oraganize knowledge using glm-4.5-flash? \n\n 是否使用glm-4.5-flash整理知识库？")
+    let confirm = await MNUtil.confirm("🤖 MN ChatAI","Oraganize knowledge using glm-4.5-air? \n\n 是否使用glm-4.5-air整理知识库？")
     if (confirm) {
       let config = {
         source: "Subscription",
-        model: "glm-4.5-flash-nothinking",
+        model: "glm-4.5-air-nothinking",
         key: "sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44",
         url: subscriptionConfig.URL+"/v1/chat/completions"
       }
@@ -1555,7 +1582,7 @@ ${self.knowledgeInput.text}
     let menu = new Menu(sender,self)
     menu.preferredPosition = 4
     menu.addMenuItem("❓  Variable Help","openURLInBrowser:","https://mnaddon.craft.me/chatai/template")
-    let vars = ['{{!}}','{{card}}','{{cardOCR}}','{{cards}}','{{cardsOCR}}','{{parentCard}}','{{parentCardOCR}}','{{notesInMindmap}}','{{context}}','{{textOCR}}','{{userInput}}','{{knowledge}}','{{noteDocInfo}}','{{currentDocInfo}}','{{noteDocAttach}}','{{currentDocAttach}}','{{noteDocName}}','{{currentDocName}}','{{selectionText}}','{{clipboardText}}']
+    let vars = ['{{!}}','{{card}}','{{cardOCR}}','{{cards}}','{{cardsOCR}}','{{parentCard}}','{{parentCardOCR}}','{{notesInMindmap}}','{{context}}','{{textOCR}}','{{userInput}}','{{knowledge}}','{{noteDocInfo}}','{{currentDocInfo}}','{{noteDocAttach}}','{{currentDocAttach}}','{{noteDocName}}','{{currentDocName}}','{{selectionText}}','{{clipboardText}}','{{currentSelection.asString}}']
     let selector = 'insert:'
     vars.forEach(variable=>{
       menu.addMenuItem(variable,selector,variable)
@@ -1975,6 +2002,8 @@ ${self.knowledgeInput.text}
             chatAIConfig.setCurrentPrompt(chatAIConfig.config.promptNames[0])
             self.setButtonText(chatAIConfig.config.promptNames,chatAIConfig.currentPrompt)
             self.refreshLayout()
+            self.setTextview(chatAIConfig.config.currentPrompt)
+
             chatAIConfig.save(["MNChatglm_config","MNChatglm_prompts"])
             self.scrollview.setContentOffsetAnimated({x:0,y:0}, true)
             MNUtil.log({message:"Delete Prompt: "+prompt.title,source:"MN ChatAI",detail:prompt})
@@ -2109,8 +2138,14 @@ ${config}
     self.setButtonText(promptNames,chatAIConfig.currentPrompt)
     chatAIConfig.save("MNChatglm_config")
   },
-  toggleAutoAction:function () {
+  toggleAutoAction: async function () {
   try {
+    if (!chatAIConfig.config.autoAction) {
+      let confirm = await MNUtil.confirm("🤖 MN ChatAI", "After enabling this feature, the current prompt will be executed automatically under specific conditions. Do you want to enable it now?\n\n启用该功能后，当前prompt将自动在特定条件下执行。是否确认启用？")
+      if (!confirm) {
+        return
+      }
+    }
     chatAIConfig.config.autoAction = !chatAIConfig.config.autoAction
     chatAIConfig.save('MNChatglm_config')
     self.refreshView("autoActionView")
@@ -2313,7 +2348,7 @@ ${config}
       "🌡️  0.0"
     ]
     let temperatures = [1.0,0.8,0.6,0.4,0.2,0.0]
-    let res = await MNUtil.userSelect("Select temperature", "选择温度", options)
+    let res = await MNUtil.userSelect("🤖 MN ChatAI","Select temperature.\nHigher temperature means more creative and lower temperature means more focused.\n请选择温度。\n较高的温度可能会更有创造性，而较低的温度意味着更保守的回答。", options)
     if (res) {
       if(!chatAIUtils.checkSubscribe(true,false,false)) {
         return
@@ -2981,7 +3016,7 @@ try {
 chatglmController.prototype.getQuestion = async function(promptKey = chatAIConfig.currentPrompt,userInput) {
   // MNUtil.log("getQuestion")
 try {
-  let selection = chatAIUtils.currentSelection
+  let selection = chatAIUtils.getCurrentSelectionObject()
   if (selection.onSelection) {
     let question = await this.getQuestionOnText(promptKey,userInput)
     return question
@@ -3011,7 +3046,7 @@ chatglmController.prototype.getQuestionOnNote = async function(noteid,prompt = c
   let contextMessage
   let systemMessage
   let question
-  let opt = {noteId:noteid,userInput:userInput,vision:(chatAIUtils.visionMode || !!vision)}
+  let opt = {noteId:noteid,userInput:userInput,vision:vision}
   // MNUtil.log("getQuestionOnNote")
   contextMessage = await chatAIUtils.render(context,opt)
   if (!contextMessage || !contextMessage.trim()) {
@@ -3023,7 +3058,7 @@ chatglmController.prototype.getQuestionOnNote = async function(noteid,prompt = c
     if (typeof systemMessage === "undefined") {
       return undefined
     }
-    if (chatAIUtils.visionMode || vision) {
+    if (vision) {
       let imageDatas = chatAIUtils.getImagesFromNote(MNNote.new(noteid),true)
       question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(contextMessage, imageDatas)]
     }else{
@@ -3032,7 +3067,7 @@ chatglmController.prototype.getQuestionOnNote = async function(noteid,prompt = c
     return question
   }
   //无system指令的情况
-  if (chatAIUtils.visionMode || vision) {
+  if (vision) {
     // let imageData = MNNote.getImageFromNote(MNNote.new(noteid))
     let imageDatas = chatAIUtils.getImagesFromNote(MNNote.new(noteid),true)
     question = [chatAIUtils.genUserMessage(contextMessage, imageDatas)]
@@ -3054,7 +3089,7 @@ chatglmController.prototype.getQuestionOnText = async function(prompt = chatAICo
   let vision = chatAIConfig.prompts[prompt].vision
   let context = chatAIConfig.prompts[prompt].context
   let system = chatAIConfig.prompts[prompt].system
-  let opt = {userInput:userInput,vision:(chatAIUtils.visionMode || !!vision)}
+  let opt = {userInput:userInput,vision:vision}
   let contextMessage = await chatAIUtils.render(context,opt)
   if (!contextMessage || !contextMessage.trim()) {
     MNUtil.confirm("🤖 MN ChatAI","User message is empty\n\n用户提示词为空")
@@ -3067,7 +3102,7 @@ chatglmController.prototype.getQuestionOnText = async function(prompt = chatAICo
     if (typeof systemMessage === "undefined") {
       return undefined
     }
-    if (chatAIUtils.visionMode  || vision) {
+    if (vision) {
       let imageData = MNUtil.getDocImage()
       question = [{role:"system",content:systemMessage},chatAIUtils.genUserMessage(contextMessage, imageData)]
     }else{
@@ -3075,7 +3110,7 @@ chatglmController.prototype.getQuestionOnText = async function(prompt = chatAICo
     }
     return question
   }
-  if (chatAIUtils.visionMode || vision) {
+  if (vision) {
     let imageData = MNUtil.getDocImage()
     question = [chatAIUtils.genUserMessage(contextMessage, imageData)]
   }else{
@@ -3157,7 +3192,9 @@ chatglmController.prototype.settingViewLayout = function (){
       this.autoThemeButton.frame = MNUtil.genFrame(5,125,width-10,35)
       this.pdfExtractModeButton.frame = MNUtil.genFrame(5,165,width-10,35)
       this.imageGenerationModelButton.frame = MNUtil.genFrame(5,205,width-10,35)
-      this.narrowModeButton.frame = MNUtil.genFrame(5,245,width-10,35)
+      this.webSearchModelButton.frame = MNUtil.genFrame(5,245,width-10,35)
+      this.narrowModeButton.frame = MNUtil.genFrame(5,285,width-10,35)
+      this.editorTypeButton.frame = MNUtil.genFrame(5,325,width-10,35)
       // configView
       this.scrollview.frame = {x:5,y:5,width:width-10,height:150}
       // this.scrollview.contentSize = {width:width-10,height:height};
@@ -3197,7 +3234,9 @@ chatglmController.prototype.settingViewLayout = function (){
       this.autoThemeButton.frame = MNUtil.genFrame(5,125,350,35)
       this.pdfExtractModeButton.frame = MNUtil.genFrame(5,165,350,35)
       this.imageGenerationModelButton.frame = MNUtil.genFrame(5,205,350,35)
-      this.narrowModeButton.frame = MNUtil.genFrame(5,245,350,35)
+      this.webSearchModelButton.frame = MNUtil.genFrame(5,245,350,35)
+      this.narrowModeButton.frame = MNUtil.genFrame(5,285,350,35)
+      this.editorTypeButton.frame = MNUtil.genFrame(5,325,350,35)
       // configView
       this.scrollview.frame = {x:5,y:5,width:350,height:height-75}
       // this.scrollview.contentSize = {width:350,height:height};
@@ -3513,11 +3552,18 @@ try {
   this.createButton("pdfExtractModeButton","choosePDFExtractMode:",targetView)
   MNButton.setConfig(this.pdfExtractModeButton, {opacity:1.0,color:"#457bd3",alpha:0.8})
 
-  this.createButton("imageGenerationModelButton","chooseimageGenerationModel:",targetView)
+  this.createButton("imageGenerationModelButton","chooseImageGenerationModel:",targetView)
   MNButton.setConfig(this.imageGenerationModelButton, {opacity:1.0,color:"#457bd3",alpha:0.8})
+
+  this.createButton("webSearchModelButton","chooseWebSearchModel:",targetView)
+  MNButton.setConfig(this.webSearchModelButton, {opacity:1.0,color:"#457bd3",alpha:0.8})
 
   this.createButton("narrowModeButton","toggleNarrowMode:",targetView)
   MNButton.setConfig(this.narrowModeButton, {opacity:1.0,color:"#457bd3",alpha:0.8,title:"Narrow Mode: "+(chatAIConfig.getConfig("narrowMode")?"✅":"❌")})
+
+  this.createButton("editorTypeButton","changeEditorType:",targetView)
+  MNButton.setConfig(this.editorTypeButton, {opacity:1.0,color:"#457bd3",alpha:0.8,title:"Markdown Render: "+chatAIConfig.getConfig("editorType")})
+
 
   this.createButton("allowEditButton","toggleAllowEdit:",targetView)
   MNButton.setConfig(this.allowEditButton, {opacity:1.0,color:"#457bd3",alpha:0.8})
@@ -4304,6 +4350,34 @@ try {
         case "gemini-2.5-flash-image":
           MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: Gemini-2.5 Flash Image")
           break;
+        case "gemini-3-pro-image-preview":
+          MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: Gemini-3 Pro Image")
+          break;
+        case "gemini-3-pro-image-preview-4k":
+          MNButton.setTitle(this.imageGenerationModelButton, "Image Generation: Gemini-3 Pro Image 4K")
+          break;
+        default:
+          break;
+      }
+      switch (chatAIConfig.getConfig("webSearchModel")){
+        case "uapi_search":
+          MNButton.setTitle(this.webSearchModelButton, "Web Search: UAPI Search")
+          break;
+        case "search_std":
+          MNButton.setTitle(this.webSearchModelButton, "Web Search: Search Std")
+          break;
+        case "search_pro":
+          MNButton.setTitle(this.webSearchModelButton, "Web Search: Search Pro")
+          break;
+        case "search_pro_quark":
+          MNButton.setTitle(this.webSearchModelButton, "Web Search: Search Pro Quark")
+          break;
+        case "search_pro_sogou":
+          MNButton.setTitle(this.webSearchModelButton, "Web Search: Search Pro Sogou")
+          break;
+        case "metaso_search":
+          MNButton.setTitle(this.webSearchModelButton, "Web Search: Metaso Search")
+          break;
         default:
           break;
       }
@@ -4976,12 +5050,6 @@ chatglmController.prototype.setResponseText = async function (funcResponse = "",
     // MNUtil.copy(this.tem)
     this.onResponse = true
     this.onreceive = false
-    // MNUtil.copy(this.response.trim())
-    // let beginTime = Date.now()
-    // let response = chatAIUtils.fixMarkdownLinks(this.response.trim())
-    // response = chatAIUtils.replaceButtonCodeBlocks(response)
-    // let endTime = Date.now()
-    // MNUtil.log("setResponseText:"+(endTime-beginTime)+"ms")
     let option = {
       scrollToBottom: this.scrollToBottom,
       funcResponse: funcHtml,
@@ -5087,11 +5155,11 @@ chatglmController.prototype.optimizeSystem = async function (mode = "optimizeSys
       }
       return
     }
-    let confirm = await MNUtil.confirm("🤖 MN ChatAI","Optimize system using glm-4.5-flash? \n\n 是否使用glm-4.5-flash优化系统提示词？")
+    let confirm = await MNUtil.confirm("🤖 MN ChatAI","Optimize system using glm-4.5-air? \n\n 是否使用glm-4.5-air优化系统提示词？")
     if (confirm) {
       let config = {
         source: "Subscription",
-        model: "glm-4.5-flash-nothinking",
+        model: "glm-4.5-air-nothinking",
         key: "sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44",
         url: subscriptionConfig.URL+"/v1/chat/completions"
       }

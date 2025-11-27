@@ -12,7 +12,9 @@
   <script src="veditor.func.js"></script>
   <script src="pdf.js"></script>
   <script src="pdf.worker.js"></script>
+  <script src="pdf-lib.js"></script>
   <script src="html2canvas.js" defer></script>
+
     <link rel="stylesheet" href="notyf.min.css">
     <script src="notyf.min.js" defer></script>
   <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script> -->
@@ -314,6 +316,30 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     })
     }
+  function openEditInSV() {
+      if (editor) {
+        preContent = editor.getValue()
+        editor.destroy()
+      }
+      editor = new Vditor('vditor', {
+      cache: {
+        enable: false,
+      },
+      theme:theme,
+      select:(text)=>{
+      },
+      toolbar:[],
+      mode: "sv",
+      i18n:i18n,
+      value: preContent,
+      cdn:"https://vip.123pan.cn/1836303614/dl/cdn/vditor",
+      after:()=>{
+        setTimeout(() => {
+          notifyRefreshHeight()
+        }, 0);
+      }
+    })
+  }
 </script>
 <script src="./es5/tex-svg-full.js"></script>
 

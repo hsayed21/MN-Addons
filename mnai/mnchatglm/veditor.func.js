@@ -13,6 +13,9 @@ let pageContents = [];
 let pageStructure = []
 let buttonCodeBlockCache = {}
 let buttonPreContent = ""
+let extractedPdfBase64 = ""
+let extractedPdfProgress = {onExtracting: false,processPercent: 0}
+let initialized = true
 
 
 
@@ -112,6 +115,16 @@ function getPdfContent() {
   parsedPdf = undefined
   return JSON.stringify(pageContents,null,2)
 }
+function getExtractedPdfBase64() {
+  let progress = {
+    onExtracting: extractedPdfProgress.onExtracting,
+    processPercent: extractedPdfProgress.processPercent
+  }
+  if (progress.processPercent === 100) {
+    progress.extractedPdfBase64 = extractedPdfBase64
+  }
+  return encodeURIComponent(JSON.stringify(progress))
+}
 function getProgress() {
   let process = {
     onProcess: onProcess,
@@ -141,7 +154,7 @@ const renderPage = async (pageNum) => {
     // if (pageNum == 12) {
       
     // console.log(textContent);
-    // console.log(`第 ${pageNum} 页文本内容:\n`, textItems);
+    // console.log(`第 $m{pageNum} 页文本内容:\n`, textItems);
     // }
     // await page.render(renderContext).promise;
     await renderPage(pageNum + 1);
@@ -153,6 +166,77 @@ const renderPage = async (pageNum) => {
  */
 async function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+        // 解析页码输入字符串
+        function parsePageRanges(input, totalPages) {
+            const pages = new Set();
+            const parts = input.split(',').map(p => p.trim());
+            
+            for (const part of parts) {
+                if (part.includes('-')) {
+                    // 处理范围，如 "5-7"
+                    const [start, end] = part.split('-').map(p => parseInt(p.trim()));
+                    for (let i = start; i <= end; i++) {
+                        if (i > 0 && i <= totalPages) pages.add(i);
+                    }
+                } else {
+                    // 处理单个页码
+                    const page = parseInt(part);
+                    if (page > 0 && page <= totalPages) pages.add(page);
+                }
+            }
+            
+            return Array.from(pages).sort((a, b) => a - b);
+        }
+async function extractPdfPage(base64,pageInput){
+try {
+
+  extractedPdfBase64 = ""
+  extractedPdfProgress.onExtracting = true
+  extractedPdfProgress.processPercent = 0
+// 带 data URL 前缀
+// const base64WithPrefix = 'data:application/pdf;base64,JVBERi0xLjQK...';
+// const pdfDoc = await PDFDocument.load(base64);
+    if (!base64.startsWith("data:application/pdf;base64,")) {
+      base64 = "data:application/pdf;base64,"+base64
+    }
+    const pdfDoc = await PDFLib.PDFDocument.load(base64, { 
+        ignoreEncryption: true 
+    });
+    // 2. 创建新的PDF文档
+    const newPdfDoc = await PDFLib.PDFDocument.create();
+    // 3. 解析用户输入的页码
+    const totalPages = pdfDoc.getPageCount();
+    const pagesToExtract = parsePageRanges(pageInput, totalPages);
+    // 4. **核心操作**：复制页面并添加到新文档（保留原始数据）
+    const pages = await newPdfDoc.copyPages(pdfDoc, pagesToExtract.map(p => p - 1));
+    pages.forEach(page => newPdfDoc.addPage(page));
+    // 5. 生成新的PDF文件
+     const pdfBytes = await newPdfDoc.save({
+         useObjectStreams: true,  // 保持文件压缩
+         addDefaultPage: false
+     });
+
+    // 6. 转换为 Blob
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+
+    // 7. 读取为 Data URL (包含 Base64 前缀)
+    const base64WithPrefix = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    // 结果："data:application/pdf;base64,JVBERi0xLjQK..."
+    const dataUrl = base64WithPrefix; // 完整的 Data URL
+    extractedPdfBase64 = dataUrl
+  extractedPdfProgress.onExtracting = false
+  extractedPdfProgress.processPercent = 100
+} catch (error) {
+  extractedPdfProgress.onExtracting = false
+  extractedPdfProgress.error = error.message
+}
 }
 async function getDocumentContent(base64) {
   let otherEle = document.getElementById("other")
@@ -342,29 +426,19 @@ function setRealResponse(resEncoded) {
    * 获取当前选中的text/html
    * */
   function getCurrentSelect(){
-    // let selectedHtml = editor.getSelection()
-    let selectionObj = null, rangeObj = null;
-    let selectedText = "", selectedHtml = "";
-
-    // 处理兼容性
-    if(window.getSelection){
-      // 现代浏览器
-      // 获取text
-      selectionObj = window.getSelection();
-
-      //  获取html
-      rangeObj = selectionObj.getRangeAt(0);
-      var docFragment = rangeObj.cloneContents();
-      var tempDiv = document.createElement("div");
-      tempDiv.appendChild(docFragment);
-      selectedHtml = tempDiv.innerHTML;
-    } else if(document.selection){
-        // 非主流浏览器IE
-        selectionObj = document.selection;
-        rangeObj = selectionObj.createRange();
-        selectedHtml = rangeObj.htmlText;
+    let status = {}
+    status.mode = editor.getCurrentMode()
+    if (status.mode == "sv") {
+      let selection = window.getSelection()
+      if (selection) {
+        status.selectionText = selection.toString().trim();
+      }else{
+        status.selectionText = "";
+      }
+    }else{
+      status.selectionText = editor.getSelection()
     }
-    return editor.html2md(selectedHtml);
+    return JSON.stringify(status)
   };
   function createAudioElement(divId) {
     // 获取指定的div元素
@@ -514,9 +588,11 @@ function extractTitleAndTime(text) {
             resultDiv.className = 'search-result';
             const title = document.createElement('h2');
             let titles = extractTitleAndTime(result.title);
-            title.innerHTML = `<a href="${result.link}" target="_blank">${titles[0]}</a>`;
+            let url = result.link ?? result.url
+            title.innerHTML = `<a href="${url}" target="_blank">${titles[0]}</a>`;
             const content = document.createElement('p');
-            content.textContent = result.content.slice(0,200)+"...";
+            let resultContent = result.content ?? result.snippet
+            content.textContent = resultContent.slice(0,200)+"...";
             resultDiv.appendChild(title);
             const media = document.createElement('p');
             if (result.media) {
@@ -551,16 +627,22 @@ function extractTitleAndTime(text) {
             // 可选属性：icon, media
             const resultDiv = document.createElement('div');
             resultDiv.className = 'search-result';
+            let resultContent = result.content ?? result.snippet
+            const content = document.createElement('p');
+            content.textContent = resultContent.slice(0,200)+"...";
             const title = document.createElement('h2');
-            title.innerHTML = `<a href="${result.link}" target="_blank">[${index+1}] ${result.title}</a>`;
+            let url = result.link ?? result.url
+            title.innerHTML = `<a href="${url}" target="_blank">[${index+1}] ${result.title}</a>`;
             resultDiv.appendChild(title);
             const media = document.createElement('p');
+            let date = result.date ?? result.publish_time
             if ("authors" in result) {
-              media.innerHTML = `${result.authors.join(",")} | ${result.date}`;
+              media.innerHTML = `${result.authors.join(",")} | ${date}`;
             }else{
-              media.innerHTML = `${result.date}`;
+              media.innerHTML = `${date}`;
             }
             resultDiv.appendChild(media);
+            resultDiv.appendChild(content);
             container.appendChild(resultDiv);
         });
     }

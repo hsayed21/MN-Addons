@@ -88,6 +88,21 @@ class chatAITool{
 
   getArgs(){
     //toolbar的动作配置需要动态更新，所以需要单独处理
+    if (this.name === "webSearch") {
+      let model = chatAIConfig.getConfig("webSearchModel")
+      if (model === "metaso_search") {
+        let args = this.args
+        args.scope = {
+          type:"string",
+          enum:["webpage","document","scholar","image","video","podcast"],
+          description:"Optional, scope to search in web, default is 'webpage'."
+        }
+        return args
+        
+      }else{
+        return this.args
+      }
+    }
     if (this.name === "executeAction") {
       let args = this.args
       let actionConfigs = {}
@@ -178,21 +193,21 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       if (!args) {
         res.onError = true
         res.errorMessage = this.genErrorInMissingArguments(args2check[0],funcId)
-        chatAIUtils.log("Missing arguments"+args2check[0],args,"error")
+        chatAIUtils.log("Missing arguments:"+args2check[0],args,"error")
         return res
       }
       for (let arg of args2check) {//必选的参数
         if (!(arg in args)) {//如果必选参数不在AI实际提供的参数中,则报错
           res.onError = true
           res.errorMessage = this.genErrorInMissingArguments(arg,funcId)
-          chatAIUtils.log("Missing arguments"+arg,args,"error")
+          chatAIUtils.log("Missing arguments:"+arg,args,"error")
           return res
         }
         // chatAIUtils.addErrorLog(JSON.stringify(args), funcId, "Missing arguments: "+arg)
         if (typeof args[arg] === 'string' && !(args[arg].trim())) {
           res.onError = true
           res.errorMessage = this.genErrorInEmptyArguments(arg,funcId)
-          chatAIUtils.log("Empty arguments"+arg,args,"error")
+          chatAIUtils.log("Empty arguments:"+arg,args,"error")
           return res
         }
       }
@@ -241,7 +256,8 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
   let tags = []
   let funcName = this.name
   let args = chatAIUtils.getValidJSON(func.function.arguments)
-  chatAIUtils.log("execute",{name:func.function.name,args:args})
+  chatAIUtils.log("execute: "+func.function.name,args)
+  // MNUtil.copy(args)
       // MNUtil.log({message:"createMindmap",detail:func.function.arguments})
       // MNUtil.log({message:"createMindmap",detail:args})
 
@@ -263,6 +279,9 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
   let response = {}
   // MNUtil.log({message:"execute",detail:funcName})
   switch (funcName) {
+    case "readURL":
+      response = await this.readURL(func,args)
+      break;
     case "executeAction":
       response = await this.executeToolbarAction(func,args)
       break;
@@ -307,6 +326,12 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       break;
     case "moveNotes":
       response = await this.moveNotes(func,args)
+      break;
+    case "readImage":
+      response = await this.readImage(func,args)
+      break;
+    case "webSearch":
+      response = await this.webSearch(func,args)
       break;
     default:
       break;
@@ -410,20 +435,6 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
           throw error;
         }
         MNUtil.waitHUD("🤖 Reading: "+currentFile.name)
-      }
-      break;
-    case "webSearch":
-      if (chatAIUtils.checkSubscribe(true,false)) {
-        MNUtil.showHUD("🤖 Searching for ["+args.question+"] ")
-        let apikeys = ["76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C","b9bf21c783bf4207a0f419af4a82fa9c.9guT9c4lY05MgFrC"]
-        let apikey = chatAIUtils.getRandomElement(apikeys)
-        let res = await chatAINetwork.webSearch(args.question,apikey)
-        response.renderSearchResults = JSON.stringify(res)
-        response.toolMessages = chatAITool.genToolMessage(JSON.stringify(res),func.id)
-      }else{
-        message.response = "Empty response due to the subscription limit in MN Utils"
-        message.success = false
-        response.toolMessages = chatAITool.genToolMessage(message,func.id)
       }
       break;
     case "readNotes":
@@ -888,12 +899,205 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       return response
     }
   }
+  async readURL(func,args){
+    try {
+      let response = {}
+      let message = {success:true}
+      let mode
+      if (args.mode) {
+        mode = args.mode
+      }else{
+        if ("urls" in args) {
+          mode = "multiple"
+        }else{
+          mode = "single"
+        }
+      }
+      if (mode === "single") {
+        let url = args.url
+        if (args.aiSummary) {
+          let summaryPrompt = args.summaryPrompt ?? "Please summarize the content of the website."
+          let res = await chatAINetwork.aiSummaryWebsite(url,summaryPrompt)
+          if (res && res.success) {
+            response.result = `Summary of website [${res.url}]: \n`+res.summary
+            message.response = response.result
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+            return response
+          }else{
+            message.response = "Failed in summarizing URL by AI, below is the content of the website: "+res.content
+            message.success = true
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+            return response
+          }
+        }
+        let res = await chatAIUtils.readURLFree(url)
+        if (res && res.success) {
+          response.result = res.content
+          message.response = response.result
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        }else{
+          message.response = "Failed in reading URL"
+          if (res.content) {
+            message.response = "Failed in reading URL: "+res.content
+          }
+          message.success = false
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        }
+        return response
+      }
+      if (mode === "multiple") {
+        let urls = args.urls ?? []
+        if (args.aiSummary) {
+          let summaryPrompt = args.summaryPrompt ?? "Please summarize the content of the websites."
+          let res = await Promise.all(urls.map(url => chatAINetwork.aiSummaryWebsite(url,summaryPrompt)))
+          response.result = res.map(item => {
+            if (item.success) {
+              return `Summary of website [${item.url}]: ${item.summary}`
+            }else{
+              if ("content" in item) {
+                return `Failed in summarizing URL by AI, below is the content of the website[${item.url}]: ${item.content}`
+              }else{
+                return `Failed in summarizing website [${item.url}]: ${item.error}`
+              }
+            }
+          }).join("\n\n")
+          message.response = response.result
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          return response
+        }
+        let res = await Promise.all(urls.map(url => chatAIUtils.readURLFree(url)))
+        response.result = res.map(item => {
+          return `Content of url [${item.url}]: ${item.content}`
+        }).join("\n\n")
+        message.response = response.result
+        response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        return response
+      }
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "chatAITool.readURL")
+      let response = {}
+      let message = {success:false,response:"Failed in reading URL"}
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      return response
+    }
+  }
+  async webSearch(func,args){
+    let response = {}
+    let message = {success:true}
+    let searchModel = chatAIConfig.getConfig("webSearchModel")
+    if (chatAIUtils.checkSubscribe(true,false)) {
+
+    }else{//未订阅下自动切换到UAPI Search
+      searchModel = "uapi_search"
+    }
+
+    MNUtil.showHUD("🤖 Searching for ["+args.question+"] ")
+    let res = undefined
+    let apikey = undefined
+    switch (searchModel) {
+      case "uapi_search":
+        res = await chatAINetwork.webSearchFree(args.question)
+        break;
+      case "metaso_search":
+        apikey = "mk-BE62FC962CCCD97B4DE0AD2BA812EF70"
+        res = await chatAINetwork.metasoSearch(args.question,apikey,args.scope)
+        break;
+      default:
+        let apikeys = ["76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C","b9bf21c783bf4207a0f419af4a82fa9c.9guT9c4lY05MgFrC"]
+        apikey = chatAIUtils.getRandomElement(apikeys)
+        res = await chatAINetwork.webSearch(args.question,apikey)
+        break;
+    }
+    // if (searchModel === "uapi_search") {
+    //   res = await chatAINetwork.webSearchFree(args.question)
+    //   response.renderSearchResults = JSON.stringify(res)
+    //   message.response = JSON.stringify(res)
+    //   response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    //   return response
+    // }
+    // if (searchModel === "metaso_search") {
+    //   let apikey = "mk-BE62FC962CCCD97B4DE0AD2BA812EF70"
+    //   let res = await chatAINetwork.metasoSearch(args.question,apikey,args.scope)
+    //   response.renderSearchResults = JSON.stringify(res)
+    //   message.response = JSON.stringify(res)
+    //   response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    //   return response
+    // }
+    // let apikeys = ["76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C","b9bf21c783bf4207a0f419af4a82fa9c.9guT9c4lY05MgFrC"]
+    // let apikey = chatAIUtils.getRandomElement(apikeys)
+    // let res = await chatAINetwork.webSearch(args.question,apikey)
+    if (!res) {
+      message.response = "Failed in searching"
+      message.success = false
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      return response
+    }
+    response.renderSearchResults = JSON.stringify(res)
+    message.response = JSON.stringify(res)
+    response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    return response
+  }
+  async generateImageUsingCogviewChatCompletion(func,args,model = "cogview-3-flash"){
+    MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML(`Generating image using ${model}...`)})
+    let response = {}
+    let message = {success:true}
+    try {
+      let url = subscriptionConfig.URL+"/v1/chat/completions"
+      let apikey = model === "cogview-4-250304" ? subscriptionConfig.APIKey : 'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44'
+      MNUtil.showHUD("Generating image...")
+      let request = chatAINetwork.initRequestForChatGPTWithoutStream([{"role":"user","content":args.prompt}], apikey, url, model)
+      let res = await chatAINetwork.sendRequest(request)
+      // MNUtil.copy(res)
+      if ("choices" in res) {
+        // if ("error" in res.data) {
+        //   if (typeof res.data.error === "string") {
+        //     response.result = res.data.error
+        //   }else{
+        //     response.result = res.data.error.message
+        //   }
+        //   MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result)
+        //   message.response = "Failed in generating image: "+response.result
+        //   response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        // }else{
+          MNUtil.showHUD("✅ Image generated")
+          MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
+          response.result = res.choices[0].message.content[0].url
+          // response.result = res.data.image_urls[0]
+          message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+          // message.response = "Image is created at the following url: "+res.data.image_urls[0]+"\n please show this image as markdown image"
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          MNUtil.delay(0.1).then(async()=>{
+            let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
+            MNUtil.postNotification("snipasteImage", {imageData:imageData})
+          })
+        // }
+      }else{
+        if ("error" in res) {
+          response.result = res.error
+          MNUtil.confirm("❌ Image generated failed", response.result)
+          message.response = "Failed in generating image: "+response.result
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        }else{
+          MNUtil.showHUD("❌ Image generated failed")
+          message.response = "Failed in generating image"
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+        }
+      }
+
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "generateImage")
+      MNUtil.showHUD("❌ Image generated failed")
+      message.response = "Failed in generating image"
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    }
+    return response
+  
+  }
   async generateImageUsingCogview(func,args,model = "cogview-3-flash"){
     MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML(`Generating image using ${model}...`)})
     let response = {}
     let message = {success:true}
     try {
-
       let url = "https://open.bigmodel.cn/api/paas/v4/images/generations"
       let apikey = "76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C"
       MNUtil.showHUD("Generating image...")
@@ -921,9 +1125,6 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
           MNUtil.delay(0.1).then(async()=>{
             let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
             MNUtil.postNotification("snipasteImage", {imageData:imageData})
-            // await MNUtil.delay(1)
-            // chatAIUtils.notifyController.updateHeight()
-            // MNUtil.log("✅ Image downloaded")
           })
         }
       }else{
@@ -1022,32 +1223,9 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       let request = chatAINetwork.initRequestForQwenWithoutStream(args.prompt, apikey, url, model)
       let res = await chatAINetwork.sendRequest(request)
       MNUtil.log({message:"generateImageUsingQwen",detail:res})
-      if (typeof res === "string") {
-        let resObj = JSON.parse(res.split("data:")[1])
-        if ("output" in resObj) {
-          MNUtil.log({message:"generateImageUsingQwen",detail:resObj})
-          MNUtil.showHUD("✅ Image generated")
-          MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
-          response.result = resObj.output.choices[0].message.content[0].image
-          message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
-          response.toolMessages = chatAITool.genToolMessage(message,func.id)
-          
-          MNUtil.delay(0.1).then(()=>{
-            let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
-            MNUtil.postNotification("snipasteImage", {imageData:imageData})
-            // MNUtil.log("✅ Image downloaded")
-          })
-          return response
-        }
-        response.result = res
-        MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result)
-        message.response = "Failed in generating image: "+response.result
-        response.toolMessages = chatAITool.genToolMessage(message,func.id)
-        return response
-      }
       // MNUtil.copy(res)
-      if ("data" in res) {
-        if ("error" in res.data) {
+      if ("output" in res) {
+        if ("data" in res && "error" in res.data) {
           if (typeof res.data.error === "string") {
             response.result = res.data.error
           }else{
@@ -1059,8 +1237,8 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
         }else{
           MNUtil.showHUD("✅ Image generated")
           MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
-          if (Array.isArray(res.data)) {
-            response.result = res.data[0].url
+          if (Array.isArray(res.output.choices)) {
+            response.result = res.output.choices[0].message.content[0].image
           }else{
             response.result = res.data.image_urls[0]
           }
@@ -1097,21 +1275,119 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
     return response
   
   }
+  async generateImageViaSubscription(func, args,model,isFree = false) {
+     if (model.startsWith("gemini-2.5-flash-image")) {
+      model = "gemini-2.5-flash-image-vip"
+    }
+    let response = {}
+    let message = {success:true}
+    try {
+      let url = subscriptionConfig.URL+"/v1/images/generations"
+      let apikey = isFree ? "sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44" :subscriptionConfig.APIKey
+      let size = "1024x1024"
+      MNUtil.showHUD("Generating image...")
+      let request = chatAINetwork.initRequestForCogView(args.prompt, apikey, url, model,size)
+      let res = await chatAINetwork.sendRequest(request)
+      // MNUtil.copy(res)
+      MNUtil.log({message:"generateImageViaSubscription",detail:res})
+      if ("data" in res) {
+        if ("error" in res.data) {
+          if (typeof res.data.error === "string") {
+            response.result = res.data.error
+          }else{
+            response.result = res.data.error.message
+          }
+          let confirm = await MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result+"\n\n是否切换到智谱CogView-3 Flash?")
+          if (confirm) {//使用智谱模型进行生图
+            response = this.generateImageUsingCogview(func, args)
+            return response;
+          }else{
+            message.response = "Failed in generating image: "+response.result
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          }
+        }else{
+          MNUtil.showHUD("✅ Image generated")
+          MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML("Downloading image...")})
+          // MNUtil.log("✅ Image generated")
+          if (Array.isArray(res.data)) {
+            let data = res.data[0]
+            if ("url" in data) {
+              response.result = data.url
+              message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+            }else{
+              response.result = "data:png;base64,"+data.b64_json
+              if (typeof snipasteUtils !== "undefined") {
+                message.response = "Image is created and displayed in MN Snipaste"
+              }else{
+                message.response = "Image is created"
+              }
+            }
+          }else{
+            response.result = res.data.image_urls[0]
+            message.response = "Image is created at the following url: "+response.result+"\n please show this image as markdown image"
+          }
+          // response.result = res.data.image_urls[0]
+          // message.response = "Image is created at the following url: "+res.data.image_urls[0]+"\n please show this image as markdown image"
+          response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          MNUtil.delay(0.1).then(()=>{
+            let imageData = NSData.dataWithContentsOfURL(MNUtil.genNSURL(response.result))
+            MNUtil.postNotification("snipasteImage", {imageData:imageData})
+            // chatAIUtils.notifyController.updateHeight()
+            // MNUtil.log("✅ Image downloaded")
+          })
+          // MNUtil.postNotification("snipasteHtml", {html:`<img src="${response.result}" alt="Image generated by MN ChatAI">`})
+        }
+      }else{
+        if ("error" in res) {
+          response.result = res.error
+          let confirm = await MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result+"\n\n是否切换到智谱Cogview-4?")
+          if (confirm) {//使用智谱模型进行生图
+            response = this.generateImageUsingCogview(func, args)
+            return response;
+          }else{
+            message.response = "Failed in generating image: "+response.result
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          }
+        }else{
+          response.result = res.error
+          let confirm = await MNUtil.confirm("🤖 MNChatAI:\n\n❌ Image generated failed", response.result+"\n\n是否切换到智谱Cogview-4?")
+          if (confirm) {//使用智谱模型进行生图
+            response = this.generateImageUsingCogview(func, args)
+            return response;
+          }else{
+            message.response = "Failed in generating image"
+            response.toolMessages = chatAITool.genToolMessage(message,func.id)
+          }
+        }
+      }
+
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "generateImageViaSubscription")
+      MNUtil.showHUD("❌ Image generated failed")
+      message.response = "Failed in generating image"
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+    }
+    return response
+  }
   async generateImage(func,args) {
     let model = chatAIConfig.getConfig("imageGenerationModel")
-    if (model.startsWith("cogview")) {
-      return await this.generateImageUsingCogview(func,args,model)
+    if (model === "cogview-3-flash") {
+      return await this.generateImageUsingCogviewChatCompletion(func,args,model)
     }
     if (model.startsWith("image-01")) {
       return await this.generateImageUsingMinimax(func,args,model)
     }
     if (model.startsWith("qwen-")) {
-      return await this.generateImageUsingQwen(func, args, model)
+      return await this.generateImageViaSubscription(func, args, model, true)
     }
     if (!chatAIUtils.checkSubscribe(false,false,true)) {
-      return await this.generateImageUsingCogview(func,args,"cogview-3-flash")
+      return await this.generateImageUsingCogviewChatCompletion(func,args,"cogview-3-flash")
+    }
+    if (model === "cogview-4-250304") {
+      return await this.generateImageUsingCogviewChatCompletion(func,args,model)
     }
     MNUtil.postNotification("snipasteHtml", {html:chatAITool.getLoadingHTML(`Generating image using ${model}...`)})
+    return await this.generateImageViaSubscription(func, args, model)
     if (model.startsWith("gemini-2.5-flash-image")) {
       model = "gemini-2.5-flash-image-vip"
     }
@@ -1120,27 +1396,9 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
     try {
       let url = subscriptionConfig.URL+"/v1/images/generations"
       let apikey = subscriptionConfig.APIKey
-      // model = "gpt-image-1"
-      // url = "https://remote.feliks.top/v1/images/generations"
-      // apikey = "sk-dHlgo7tvMjnnzz4s4yCElJxLPUwcaBP7CoY5SfFTXcpCWuaj"
-      // model = "qwen-image"
-      // url = "https://api.u1162561.nyat.app:20074/v1/images/generations"
-      // apikey = "sk-Qv2WDpQnZ8w3xlbl192d0fBf92C545Ad9e4b58629d0866C7"
-      // model = "qwen-image"
-      // let url = "https://generativelanguage.googleapis.com/v1beta/openai/images/generations"
-      // let apikey = "AIzaSyAU7Ekqwi6lOHONFtu4g3Q9UWr56c1D5Gk"
-      // let model = "gemini-2.0-flash-preview-image-generation"
-      // let url = "https://api.gptgod.online/v1/images/generations"
-      // let apikey = "sk-edtyVyaobSEOb0tDXphlPDSquQKPdE8AvwU6Jl5qIjFPhtMz"
-      // let model = "gemini-2.5-flash-image"
-      // let url = "https://api.minimax.chat/v1/image_generation"
-      // let apikey = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLmnpfnq4vpo54iLCJVc2VyTmFtZSI6Iuael-eri-mjniIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxNzgyMzYzOTA3MTA5NzAwMTg2IiwiUGhvbmUiOiIxMzEyODU4OTM1MSIsIkdyb3VwSUQiOiIxNzgyMzYzOTA3MTAxMzExNTc4IiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiMTUxNDUwMTc2N0BxcS5jb20iLCJDcmVhdGVUaW1lIjoiMjAyNS0wNS0wMSAyMToxMzozMyIsIlRva2VuVHlwZSI6MSwiaXNzIjoibWluaW1heCJ9.a_vgCX8RH98PWKstZTCkkUow-ta4vS-FEYCkLNTnnYO5wpAPzqkODprPbDHTyE46uQE1PHcV34NNgQjDynAe9cKkCU11hrZhX5UexWZ7OOx_m7IvzeqezX7iZXQQSCJjzEwlwYenACS71uKGyoRpXXfNUWZ_cZZQrS_EJxAYiAiklKY1w-ue0kC61ubRdmT0FvPdQ5mWzYDvrbI6GE5OqLmWKcDFi6qQQ7PPrQkfHm8bZxQ6VmIt0pwMMA3FG4a6DW8We82iCmOZ2ZnRvQauMA7NyDnMxNG2b7Qps_A5LNAsmqNIUOb0aQtyyYdQYOokPV_LOJbrlzo_gjrxwS1n-g"
-      // let model = "image-01"
-      // let url = "https://api.minimax.chat/v1/image_generation"
-      // let apikey = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLmnpfnq4vpo54iLCJVc2VyTmFtZSI6Iuael-eri-mjniIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxNzgyMzYzOTA3MTA5NzAwMTg2IiwiUGhvbmUiOiIxMzEyODU4OTM1MSIsIkdyb3VwSUQiOiIxNzgyMzYzOTA3MTAxMzExNTc4IiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiMTUxNDUwMTc2N0BxcS5jb20iLCJDcmVhdGVUaW1lIjoiMjAyNS0wNS0wMSAyMToxMzozMyIsIlRva2VuVHlwZSI6MSwiaXNzIjoibWluaW1heCJ9.a_vgCX8RH98PWKstZTCkkUow-ta4vS-FEYCkLNTnnYO5wpAPzqkODprPbDHTyE46uQE1PHcV34NNgQjDynAe9cKkCU11hrZhX5UexWZ7OOx_m7IvzeqezX7iZXQQSCJjzEwlwYenACS71uKGyoRpXXfNUWZ_cZZQrS_EJxAYiAiklKY1w-ue0kC61ubRdmT0FvPdQ5mWzYDvrbI6GE5OqLmWKcDFi6qQQ7PPrQkfHm8bZxQ6VmIt0pwMMA3FG4a6DW8We82iCmOZ2ZnRvQauMA7NyDnMxNG2b7Qps_A5LNAsmqNIUOb0aQtyyYdQYOokPV_LOJbrlzo_gjrxwS1n-g"
-      // let model = "wanx2.1-t2i-plus"
+      let size = args.size ?? "1024x1024"
       MNUtil.showHUD("Generating image...")
-      let request = chatAINetwork.initRequestForCogView(args.prompt, apikey, url, model)
+      let request = chatAINetwork.initRequestForCogView(args.prompt, apikey, url, model,size)
       let res = await chatAINetwork.sendRequest(request)
       // MNUtil.copy(res)
       MNUtil.log({message:"generateImage",detail:res})
@@ -1505,6 +1763,15 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       if ("color" in args) {
         note.colorIndex = MNUtil.getColorIndex(args.color)
       }
+      if ("comments" in args && args.comments && args.comments.length) {
+        for (let comment of args.comments) {
+          if (comment.type === "markdown") {
+            note.appendMarkdownComment(comment.content)
+          }else{
+            note.appendTextComment(comment.content)
+          }
+        }
+      }
       if ("parentNoteId" in args && args.parentNoteId) {
         let parent = MNNote.new(args.parentNoteId)
         if (parent) {
@@ -1529,6 +1796,7 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
   }
   }
   async createNote(func,args,parentNote = undefined){
+    // chatAIUtils.log("createNote", args)
     let type = args.type ?? "childNote"
     if (type == "fromSelection") {
       let response = await this.createNoteFromSelection(func,args)
@@ -1549,6 +1817,7 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       }
       // MNUtil.log({message:"addChildNoteAfter",detail:config.content})
       let htmlContent = args.html
+      let comments = args.comments
       // if (htmlContent) {
       //   config.htmlContent = htmlContent
       // }
@@ -1581,6 +1850,16 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
           if (MNUtil.mindmapView) {
             note.focusInMindMap(0.5)
           }
+          if (comments && comments.length) {
+            for (let comment of comments) {
+              if (comment.type === "markdown") {
+                note.appendMarkdownComment(comment.content)
+              }else{
+                note.appendTextComment(comment.content)
+              }
+              note.appendMarkdownComment(comment)
+            }
+          }
           message.response = "note is created"
           message.success = true
         })
@@ -1595,6 +1874,16 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
             try {
               if (htmlContent) {
                 child.appendHtmlComment(htmlContent, htmlContent, {width:1000,height:500}, "")
+              }
+              if (comments && comments.length) {
+                for (let comment of comments) {
+                  if (comment.type === "markdown") {
+                    child.appendMarkdownComment(comment.content)
+                  }else{
+                    child.appendTextComment(comment.content)
+                  }
+                  child.appendMarkdownComment(comment)
+                }
               }
             } catch (error) {
               chatAIUtils.addErrorLog(error, "createNote")
@@ -1766,6 +2055,34 @@ ${JSON.stringify(promptConfigs,undefined,2)}`
       let message = {success:false}
       message.response = "Failed in execute prompt: "+error.message
       response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      return response
+    }
+  }
+  async readImage(func,args) {
+    try {
+      MNUtil.waitHUD("Reading Image...")
+      let response = {}
+      let message = {success:true}
+      let imageId = args.imageId
+      let query = args.query
+      if (imageId.startsWith("https://") || imageId.startsWith("http://")) {
+        MNUtil.waitHUD("Downloading image...")
+        await MNUtil.delay(0)
+      }
+      let image = chatAIUtils.getImageById(imageId)
+      let content = await chatAINetwork.readImage(image,query)
+      message.response = "Content of image ["+imageId+"]: \n"+content
+      message.success = true
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      MNUtil.stopHUD()
+      return response
+    } catch (error) {
+      let response = {}
+      let message = {success:false}
+      chatAIUtils.addErrorLog(error, "readImage")
+      message.response = "Failed in read image: "+error.message
+      response.toolMessages = chatAITool.genToolMessage(message,func.id)
+      MNUtil.stopHUD()
       return response
     }
   }
@@ -2637,7 +2954,26 @@ try {
       }
       return `🔨 readNotes()\n`
     case "webSearch":
-      return `🔨 ${funcName}("${args.question}")\n`
+      if (args.scope) {
+        switch (args.scope) {
+          case "webpage":
+            return `🔨 webSearch("${args.question}")\n`
+          case "document":
+            return `🔨 webSearchInDocument("${args.question}")\n`
+          case "scholar":
+            return `🔨 webSearchInScholar("${args.question}")\n`
+          case "image":
+            return `🔨 webSearchInImage("${args.question}")\n`
+          case "video":
+            return `🔨 webSearchInVideo("${args.question}")\n`
+          case "podcast":
+            return `🔨 webSearchInPodcast("${args.question}")\n`
+          default:
+            break;
+        }
+        return `🔨 webSearchIn${args.scope}("${args.question}")\n`
+      }
+      return `🔨 webSearch("${args.question}")\n`
     case "readParentNote":
       if ("noteId" in args && args.noteId) {
         return `🔨 readParentNote.byId(
@@ -2810,19 +3146,50 @@ ${argsString})\n`
       let titleString = args.title ? `\n  title: ${args.title}` : ""
       let tagsString = args.tags ? `\n  tags: ${args.tags.join(", ")}` : ""
       let colorString = args.color ? `\n  color: ${args.color}` : ""
+      let commentsString = ""
+      if (args.comments && args.comments.length > 0) {
+        if (args.comments.length === 1) {
+          commentsString = `\n  comment: ${args.comments[0].content}`
+        }else{
+          commentsString = `\n  comments: ${args.comments.map(comment=>`\n    - ${comment.content}`).join("")}`
+        }
+      }
       if (args.content) {
         let contentString = args.content ? `\n  content: ${args.content}` : ""
-        return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString}${contentString}
+        return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString}${contentString}${commentsString}
 )\n`
       }
       if (args.html) {
         let htmlString = args.html ? `\n  html: ${args.html}` : ""
-        return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString}${htmlString}
+        return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString}${htmlString}${commentsString}
 )\n`
       }
-      return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString})\n`
+      return `🔨 ${func}(${noteIdString}${titleString}${tagsString}${colorString}${commentsString})\n`
 
-
+    case "readURL":
+      let mode
+      if (args.mode) {
+        mode = args.mode
+      }else{
+        if ("urls" in args) {
+          mode = "multiple"
+        }else{
+          mode = "single"
+        }
+      }
+      if (mode === "single") {
+        if (args.aiSummary) {
+          return `🔨 summarizeURL(${args.url})\n`
+        }
+        return `🔨 readURL(${args.url})\n`
+      }
+      if (mode === "multiple" && args.urls && args.urls.length > 0) {
+        if (args.aiSummary) {
+          return `🔨 summarizeMultipleURLs(\n${args.urls.join("\n")}\n)\n`
+        }
+        return `🔨 readMultipleURLs(\n${args.urls.join("\n")}\n)\n`
+      }
+      return `🔨 ${funcName}()\n`
     case "UnkonwFunc":
       MNUtil.showHUD("Unknown function: "+funcName)
       return `🔨 ${funcName}()\n`
@@ -3311,6 +3678,25 @@ getFullHTML(args){
           parentNoteId:{
             type:"string",
             description:"The ID of the parent note under which this child note will be created. If omitted, it defaults to the currently active note. Format must be: `marginnote4app://note/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`. Optional."
+          },
+          comments:{
+            type:"array",
+            items: {
+              type:"object",
+              properties:{
+                type:{
+                  type:"string",
+                  enum:["text","markdown"],
+                  description:"type of comment"
+                },
+                content:{
+                  type:"string",
+                  description:"content of comment"
+                }
+              },
+              description:"comment that should be added for this note"
+            },
+            description:"A list of comments to associate with the child note. Optional. Use this argument only when user ask to add comments."
           }
         },
         required:[],
@@ -3810,6 +4196,55 @@ In addition to the actionId, you can also provide additional arguments to replac
         },
         required:["prompt"],
         description: `this tool [executePrompt] is used to ask an assistant to execute a prompt. You must provide the promptId to specify the prompt to execute. `
+      },
+      "readImage":{
+        needNote:false,
+        toolTitle: "🖼   Read Image",
+        args:{
+          imageId:{
+            type:"string",
+            description:"imageId of the image to read, which is the hash of the image. URL of image is also supported, including web image URL (e.g. https://example.com/image.png) and MarginNote Image URL (e.g. marginnote4app://markdownimg/png/eb163704ce5daa13fde4e82e1d319b7a)"
+          },
+          query:{
+            type:"string",
+            description:"query of information you want to get from the image. Provide enough background context to help the Ai assistant understand what to analyze."
+          }
+        },
+        required:["imageId","query"],
+        description:"this tool is used to read the content of an image using Ai Assistant. You must provide the imageId to specify the image to read. You can use this tool multiple times with different queries to read many details of the image."
+      },
+      "readURL":{
+        needNote:false,
+        toolTitle: "🔗   Read URL",
+        args:{
+          mode:{
+            type:"string",
+            enum:["single","multiple"],
+            description:"mode to read the content of the website, default is 'single'."
+          },
+          aiSummary:{
+            type:"boolean",
+            description:"Optional, default is false. If false, the tool will only return the content(s) of the website(s). If true, the tool will use AI to summarize the content(s) of the website(s)."
+          },
+          summaryPrompt:{
+            type:"string",
+            description:"Question for AI to summarize the content(s) of the website(s). Only valid when 'aiSummary' is true. Example: 'Please summarize the content of the website.'"
+          },
+          url:{
+            type:"string",
+            description:"URL of the website to read, required when mode is 'single'"
+          },
+          urls:{
+            type:"array",
+            items:{
+              type:"string",
+              description:"URL of the website to read, required when mode is 'multiple'"
+            },
+            description:"URLs of the websites to read, required when mode is 'multiple'. You can use this argument multiple times to read multiple URLs."
+          }
+        },
+        required:[],
+        description:"this tool is used to read the content of a website. You must provide the URL to specify the URL to read. Do not use this tool to read image URL, use [readImage] instead."
       }
     }
     // chatAIUtils.log("toolConfig",toolConfig)
@@ -3835,7 +4270,7 @@ In addition to the actionId, you can also provide additional arguments to replac
     }
   }
   static get toolNames(){
-    return ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","createNote","clearExcerpt","setExcerpt","readDocument","readNotes","webSearch","readParentNote","createMindmap","editNote","generateImage","createHTML","userConfirm","userInput","userSelect","mergeNotes","moveNotes","linkNotes","organizeNotes","searchNotes","createMermaidChart","knowledge","executeAction","executePrompt"]
+    return ["setTitle","addComment","copyMarkdownLink","copyCardURL","copyText","close","addTag","createNote","clearExcerpt","setExcerpt","readDocument","readNotes","webSearch","readParentNote","createMindmap","editNote","generateImage","createHTML","userConfirm","userInput","userSelect","mergeNotes","moveNotes","linkNotes","organizeNotes","searchNotes","createMermaidChart","knowledge","executeAction","executePrompt","readImage","readURL"]
   }
   static get toolNumber(){
     return this.toolNames.length
@@ -3844,14 +4279,10 @@ In addition to the actionId, you can also provide additional arguments to replac
     return [0,1,2,3,4,6,8,9]
   }
   static get activatedTools(){
-    // 还没正式启用新功能，先隐藏新功能
-    return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,0,1,6,2,3,4,8,9,27,28,29,5]
-    // return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,0,1,6,2,3,4,8,9,27,5]
+    return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,30,31,12,0,1,6,2,3,4,8,9,27,28,29,5]
   }
   static get activatedToolsExceptOld(){
-    // 还没正式启用新功能，先隐藏新功能
-    return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,27,28,29,5]
-    // return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,12,27,5]
+    return [15,11,13,21,22,23,24,25,7,14,17,26,16,18,19,20,10,30,31,12,27,28,29,5]
   }
   static async getChangedTools(currentFunc,index){
     let targetFunc = currentFunc
@@ -4082,6 +4513,7 @@ class chatAIUtils {
   static emojiIndices = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"]
   static cache = {}
   static cacheInfo = {number:0,times:0,enabled:true}
+  static imageCache = {}
   static MNImagePattern = /!\[.*?\]\((marginnote4app\:\/\/markdownimg\/(png|jpeg)\/.*?)(\))/g;
   /**
    * @type {{version:String,type:String}}
@@ -4218,7 +4650,7 @@ class chatAIUtils {
   } 
   static currentNote() {
     if (!this.currentNoteId) {
-      if (!this.currentSelection.onSelection) {//当前
+      if (!this.getCurrentSelectionObject().onSelection) {//当前
         let focusNote = MNNote.getFocusNote()
         if (focusNote) {
           this.currentNoteId = focusNote.noteId
@@ -4827,7 +5259,7 @@ try {
       if (this.currentNote()) {
         return this.currentNote()
       }
-      if (allowSelection && this.currentSelection.onSelection) {
+      if (allowSelection && this.getCurrentSelectionObject().onSelection) {
         chatAIUtils.log("create from selection")
         return MNNote.fromSelection().realGroupNoteForTopicId()
       }
@@ -4992,31 +5424,17 @@ try {
  */
   static getVarInfo(vars,preConfig = {}) {//对通用的部分先写好对应的值
     let config = preConfig
+    let dateNow = Date.now()
     config.date = {
-      now: new Date(Date.now()).toLocaleString(),
-      tomorrow: new Date(Date.now()+86400000).toLocaleString(),
-      yesterday: new Date(Date.now()-86400000).toLocaleString(),
+      now: new Date(dateNow).toLocaleString(),
+      tomorrow: new Date(dateNow+86400000).toLocaleString(),
+      yesterday: new Date(dateNow-86400000).toLocaleString(),
       year: new Date().getFullYear(),
       month: new Date().getMonth()+1,
       day: new Date().getDate(),
       hour: new Date().getHours(),
       minute: new Date().getMinutes(),
       second: new Date().getSeconds()
-    }
-    let currentSelection = this.currentSelection
-    if (currentSelection.onSelection) {
-      config.isSelectionImage = !currentSelection.isText
-      config.isSelectionText = !!currentSelection.text
-      config.selectionText = currentSelection.text
-    }else{
-      config.isSelectionText = false
-      config.isSelectionImage = false
-    }
-    let focusNote = this.getFocusNote(false)
-    if (focusNote) {
-      config.hasFocusNote = true
-    }else{
-      config.hasFocusNote = false
     }
 
     if (vars.hasClipboardText) {
@@ -5025,9 +5443,8 @@ try {
     if (vars.hasKnowledge) {
       config.knowledge = chatAIConfig.knowledge
     }
-    config.test = "test"
     if (vars.hasCurrentDocName) {
-      config.currentDocName = MNUtil.getFileName(MNUtil.currentDocController.document.pathFile)
+      config.currentDocName = MNUtil.currentDocController.document.docTitle
     }
     config.hideOnSelectionText = function (value) {//不能返回空字符串
       // MNUtil.showHUD("message"+this.isSelectionText)
@@ -5107,16 +5524,17 @@ try {
    * @returns {{onSelection: boolean, image: null|undefined|NSData, text: null|undefined|string, isText: null|undefined|boolean,docMd5:string|undefined,pageIndex:number|undefined}} The current selection details.
    */
   static get currentSelection() {
+  let dateNow = Date.now()
     if (this.selectionRefreshTime) {
-      if (Date.now() - this.selectionRefreshTime > 100) {//超过100ms，重新获取选区信息
-        this.selectionRefreshTime = Date.now()
+      if (dateNow - this.selectionRefreshTime > 100) {//超过100ms，重新获取选区信息
+        this.selectionRefreshTime = dateNow
         this._currentSelection = MNUtil.currentSelection
         return this._currentSelection
       }else{
         return this._currentSelection
       }
     }else{
-      this.selectionRefreshTime = Date.now()
+      this.selectionRefreshTime = dateNow
       this._currentSelection = MNUtil.currentSelection
       return this._currentSelection
     }
@@ -5207,12 +5625,9 @@ try {
     noteConfig.inMainMindMap = !noteConfig.childMindMap
     noteConfig.inChildMindMap = !!noteConfig.childMindMap
     if (opt.parent && note.parentNote) {
-      if ("parentLevel" in noteInfo) {
-        if (opt.parentLevel > 0) {
-      // MNUtil.log("Get parent: "+opt.parentLevel)
-          noteConfig.parent = await this.getNoteObject(note.parentNote,{parentLevel:opt.parentLevel-1,parent:true,first:false})
-        }
-      }else{
+      if ("parentLevel" in opt && opt.parentLevel > 0) {
+        noteConfig.parent = await this.getNoteObject(note.parentNote,{parentLevel:opt.parentLevel-1,parent:true,first:false})
+      }else{//只要opt.parent为true，则即使parentLevel为0，也要获取父笔记
       // MNUtil.log("Get parent: "+opt.parentLevel)
         noteConfig.parent = await this.getNoteObject(note.parentNote,{first:false})
       }
@@ -5724,10 +6139,10 @@ try {
         }
         return info
       }
-      let selection = this.currentSelection
+      let selection = this.getCurrentSelectionObject()
       if (selection.onSelection) {//文档上存在选区
         info.userInput = selection.text
-        if (selection.isText) {//选区为文本
+        if (selection.type === "text") {//选区为文本
           // let autoOCR = chatAIConfig.getConfig("autoOCR")
           // if (autoOCR) {//如果开启了自动OCR，则只有当图片存在时才会调用OCR
           //   let text = await chatAINetwork.getTextOCR(selection.image)
@@ -5743,7 +6158,7 @@ try {
             autoImage = chatAIUtils.isVisionModel(config.model)
           }
           if (autoImage || autoOCR) {//如果同时开启了自动图片和自动OCR，则只有当图片存在时才会调用OCR
-            let imageData = selection.image
+            let imageData = chatAIUtils.getImageById(selection.imageId)
             if (autoImage) {//将图片添加到引用框中
               info.imageData = imageData
               return info
@@ -5837,10 +6252,10 @@ static async getInfoForDynamic() {
         }
         return info
       }
-      let selection = this.currentSelection
+      let selection = this.getCurrentSelectionObject()
       if (selection.onSelection) {//文档上存在选区
         info.userInput = selection.text
-        if (selection.isText) {//选区为文本
+        if (selection.type === "text") {//选区为文本
           // let autoOCR = chatAIConfig.getConfig("autoOCR")
           // if (autoOCR) {//如果开启了自动OCR，则只有当图片存在时才会调用OCR
           //   let text = await chatAINetwork.getTextOCR(selection.image)
@@ -6374,7 +6789,7 @@ static parseDataChunks(str) {
       if (jsonStr === '' || jsonStr === '[DONE]') {
         continue;
       }
-      const data = JSON.parse(jsonStr);
+      const data = this.getValidJSON(jsonStr)
       const delta = data.choices[0]?.delta;
       if (delta) {
         results.push(delta);
@@ -6519,7 +6934,14 @@ static parseDataChunks(str) {
     }
 }
 static multiLetterRegex = /(?<!\\)(\\[a-zA-Z]{2,})/g;
-static singleCharRegex = /(?<!\\)(\\(?:[cvHkdu]|[^a-zA-Z0-9\\]))/g;
+// static singleCharRegex = /(?<!\\)(\\(?:[cvHkdu]|[^a-zA-Z0-9\\'"]))/g;
+  /**
+   * 它匹配一个未转义的反斜杠，后面跟着白名单中的任意一个字符。
+   * 这个统一的字符集包含了所有安全的单字母命令和符号命令。
+   */
+static singleCharRegex = /(?<!\\)(\\[cvHkdu%&$#_{},:;!^~`.@ ])/g;
+//去掉了\\，不知道会不会造成影响
+// static singleCharRegex = /(?<!\\)(\\[cvHkdu%&$#_{},:;!\\^~`.@ ])/g;
 /**
  * 使用两步替换策略，精准地纠正AI生成的字符串中未正确转义的LaTeX反斜杠。
  * 这种方法可以有效避免将标准的JavaScript转义序列（如 \n, \b）错误地转义。
@@ -6536,12 +6958,7 @@ static fixLatexEscaping(text) {
   // 正则表达式：匹配一个未转义的 \，后面跟着两个或更多的字母。
   // [a-zA-Z]{2,} - 匹配至少两个字母。
   correctedText = correctedText.replace(this.multiLetterRegex, '\\$1');
-  // --- 第 2 步：修复特定的、安全的单字母命令和所有符号命令 ---
-  // 正则表达式：匹配一个未转义的 \，后面跟着...
-  // 1. 白名单中的一个单字母：[cvHkdu] (根据需要增删)
-  // 2. 或 (|) 一个非字母、非数字、非反斜杠的字符：[^a-zA-Z0-9\\]
-  //    我们排除了反斜杠，因为 `\\` 已经是正确的。
-  //    排除了数字，因为像 \1 这样的命令在LaTeX中不常见，且可能与其他格式冲突。
+  // --- 第 2 步：修复特定的、安全的单字符命令 ---
   correctedText = correctedText.replace(this.singleCharRegex, '\\$1');
   return correctedText;
 }
@@ -6558,20 +6975,11 @@ static preResults = []
     if (!originalText) {
       return undefined
     }
-    // let beginTime = Date.now()
     let response = {}
-    // this.parseTime.push(MNUtil.UUID())
-    // let tem = this.parseTime.join("\n")
-    // return {response:tem}
     let resList = this.parseDataChunks(originalText)
     if (resList.usage) {
       response.usage = resList.usage
     }
-    // if (this.preResults && this.preResults.length && resList.results) {
-    //   this.preResults = this.preResults.concat(resList.results)
-    // }else{
-    //   this.preResults = resList.results
-    // }
     let results = resList.results
     // let results = this.preResults
     // MNUtil.copy(results)
@@ -6617,6 +7025,7 @@ static preResults = []
         // MNUtil.copyJSON(JSON.parse("{\"title\": \"排放变化特征分析\"}{\"title\": \"排放变化特征分析\"}"))
         if (arg) {//尝试解析arg为对象
           arg = this.fixLatexEscaping(arg)//修复LaTeX反斜杠转义错误
+        // MNUtil.copy(arg)
           let args = this.getValidJSON(arg.trim())
           if (!args) {
             args = this.getValidJSON(this.safeJsonParse(arg.trim()))
@@ -6661,23 +7070,33 @@ static preResults = []
       return ""
     }).join("").trim()
     response.response = chatAITool.formatMarkdown(response.response)
+    let reasoningKey = undefined
     // response.response = response.response.trim()
     //   .replace(/\\\[/g, '\n$$$') // Replace display math mode delimiters
     //   .replace(/\\\]/g, '$$$\n') // Replace display math mode delimiters
     //   .replace(/(\\\(\s?)|(\s?\\\))/g, '$') // Replace inline math mode opening delimiter
     response.reasoningResponse = results.map(res=>{
       if (res) {
+        if (reasoningKey) {
+          return res[reasoningKey]
+        }
         if (res.reasoning_content) {
+          reasoningKey = "reasoning_content"
           return res.reasoning_content
         }
         if (res.reasoning) {
+          reasoningKey = "reasoning"
           return res.reasoning
+        }
+        if (res.reasoning_text) {
+          reasoningKey = "reasoning_text"
+          return res.reasoning_text
         }
       }
       return ""
     }).join("").trim()
 
-    if (!response.reasoningResponse && response.response) {
+    if (!response.reasoningResponse && response.response) {//仅在未能从reasoningKey中解析内容时尝试从响应文本中解析
       if (/^<think>/.test(response.response)) {
         let tem = response.response.split("</think>")
         if (tem.length > 1) {
@@ -6724,11 +7143,6 @@ static preResults = []
       })
       // MNUtil.log({message:"citations",detail:response.citations})
     }
-    // MNUtil.copy(response)
-    // let endTime = Date.now()
-    // this.parseTime.push(endTime - beginTime)
-    // MNUtil.copyJSON(this.parseTime)
-
     return response
   } catch (error) {
     this.addErrorLog(error, "parseResponse")
@@ -7148,7 +7562,7 @@ code.hljs {
    * @param {NSData|NSData[]} imageData 
    * @returns 
    */
-  static genSystemMessage(content,imageData){
+  static genSystemMessage(content){
     return {
       role: "system", 
       content: content
@@ -7273,121 +7687,6 @@ code.hljs {
   static getImageUrl(imageId){
     return "marginnote4app://markdownimg/png/"+imageId
   }
-  /**
-   * 
-   * @param {string|MNNote} noteid 
-   * @returns 
-   */
-  static genCardStructureSync (noteid) {
-    // MNUtil.log("genCardStructureSync")
-  let hasImage = false
-  let cardStructure = {title:""}
-  let note = MNNote.new(noteid)
-  let imageId = ""
-  if (note.noteTitle && note.noteTitle !== "") {
-    cardStructure.title = this.removeMarkdownHeadingsFromTitle(note.noteTitle)
-  }
-  if (note.excerptPic && !note.textFirst) {
-    if (this.isBlankNote(note)) {
-      hasImage = false
-    }else{
-      hasImage = true
-      imageId = note.excerptPic.paint
-      cardStructure.content = "![noteImage]("+this.getImageUrl(imageId)+")"
-    }
-  }else if(note.excerptText){
-    if (note.excerptTextMarkdown) {
-      cardStructure.content = chatAIUtils.replaceBase64ImagesWithTemplate(note.excerptText)
-      cardStructure.markdownEnabled = true
-    }else{
-      cardStructure.content = note.excerptText
-      cardStructure.markdownEnabled = false
-    }
-  }
-
-
-  // if (this.isBlankNote(note)) {
-  //   cardStructure.content = note.excerptText??""
-  // }else{
-  //   if (note.excerptPic && !note.textFirst) {
-  //     cardStructure.content = "![noteImage]("+this.getImageUrl(imageId)+")"
-  //   }else if (this.noteHasExcerptText(note)){
-  //     if (hasImage) {
-  //       // cardStructure.content = "![noteImage](marginnote4app://markdownimg/png/"+imageId+")"
-  //       cardStructure.content = "![noteImage]("+this.getImageUrl(imageId)+")"
-  //     }else{
-  //       cardStructure.content = chatAIUtils.replaceBase64ImagesWithTemplate(note.excerptText)
-  //     }
-  //   }
-  // }
-  if (note.linkedNotes?.length) {
-    cardStructure.linkedNoteIds = note.linkedNotes.map((linkedNote)=>{
-      return linkedNote.noteid
-    })
-  }
-  if (note.comments.length) {
-    let comments = []
-    for (let i = 0; i < note.comments.length; i++) {
-      const comment = note.comments[i];
-      switch (comment.type) {
-        case "TextNote":
-          if (/^marginnote\dapp:\/\//.test(comment.text)) {
-          }else{
-            comments.push(comment.text)
-          }
-          break
-        case "HtmlNote":
-          comments.push(comment.text)
-          break
-        case "LinkNote":
-          if (comment.q_hpic && !note.textFirst) {
-            comments.push("![noteImage]("+this.getImageUrl(comment.q_hpic.paint)+")")
-          }else{
-            comments.push(comment.q_htext)
-          }
-          break
-        case "PaintNote":
-          if (comment.paint) {
-            hasImage = true
-            comments.push("![noteImage]("+this.getImageUrl(comment.paint)+")")
-          }
-          break
-        default:
-          break
-      }
-    }
-    if (comments.length) {
-      if (comments.length === 1) {
-        cardStructure.comment = comments[0]
-      }else{
-        cardStructure.comments = comments
-      }
-    }
-  }
-  cardStructure.id = note.noteId
-  cardStructure.url = "marginnote4app://note/"+note.noteId
-  if (note.parentNote) {
-    cardStructure.parentId = note.parentNote.noteId
-  }
-  if (note.colorIndex !== undefined) {
-    cardStructure.color = note.color
-  }
-  if (note.notebookId) {
-    let notebook = MNUtil.getNoteBookById(note.notebookId)
-    cardStructure.notebook = notebook.title
-  }
-  if (note.tags && note.tags.length) {
-    cardStructure.tags = note.tags
-  }
-  if (note.childNotes && note.childNotes.length) {
-    cardStructure.children = note.childNotes.map((childNote)=>{
-      return {id:childNote.noteId}
-    })
-  }else{
-    cardStructure.children = []
-  }
-  return cardStructure
-}
   static removeMarkdownHeadingsFromTitle(title){
   try {
 
@@ -7424,15 +7723,16 @@ code.hljs {
   if (note.noteTitle && note.noteTitle !== "") {
     cardStructure.title = this.removeMarkdownHeadingsFromTitle(note.noteTitle)
   }
+  let isBlankNote = this.isBlankNote(note)
   if (note.excerptPic && !note.textFirst) {
-    if (this.isBlankNote(note)) {
+    if (isBlankNote) {
       hasImage = false
     }else{
       hasImage = true
       imageId = note.excerptPic.paint
     }
   }
-  if (this.isBlankNote(note)) {
+  if (isBlankNote) {
     cardStructure.content = note.excerptText??""
     if (cardStructure.content) {
       cardStructure.markdownEnabled = note.excerptTextMarkdown
@@ -7444,6 +7744,7 @@ code.hljs {
       if (hasImage) {
         // cardStructure.content = "![noteImage](marginnote4app://markdownimg/png/"+imageId+")"
         cardStructure.content = "![noteImage]("+this.getImageUrl(imageId)+")"
+        cardStructure.contentInImage = note.excerptText
       }else{
         if (note.excerptTextMarkdown) {
           cardStructure.markdownEnabled = true
@@ -7531,6 +7832,64 @@ code.hljs {
   }
   return cardStructure
 }
+  static parseMNImageURL(MNImageURL){
+    if (MNImageURL.includes("markdownimg/png/")) {
+      let hash = MNImageURL.split("markdownimg/png/")[1]
+      // this.imageTypeCache[hash] = "png"
+      return {
+        hash: hash,
+        type: "png",
+        ext: "png"
+      }
+    }else if (MNImageURL.includes("markdownimg/jpeg/")) {
+      let hash = MNImageURL.split("markdownimg/jpeg/")[1]
+      // this.imageTypeCache[hash] = "jpeg"
+      return {
+        hash: hash,
+        type: "jpeg",
+        ext: "jpg"
+      }
+    }
+    return undefined
+  }
+/**
+ * @param {string} imageId 
+ * @returns {NSData}
+ */
+static getImageById(imageId){
+  if (imageId.startsWith("https://") || imageId.startsWith("http://")) {
+    let image = NSData.dataWithContentsOfURL(MNUtil.genNSURL(imageId))
+    if (image) {
+      return image
+    }
+    return undefined
+  }
+  if (imageId.startsWith("marginnote4app://markdownimg/png/") || imageId.startsWith("marginnote4app://markdownimg/jpeg/")) {
+    let imageInfo = this.parseMNImageURL(imageId)
+    imageId = imageInfo.hash
+  }
+  let image = MNUtil.getMediaByHash(imageId)
+  if (image) {
+    return image
+  }
+  image = this.imageCache[imageId]
+  if (image) {
+    return image
+  }
+  return undefined
+}
+// /**
+//  * @param {string} imageURL
+//  * @returns {NSData}
+//  */
+// static getOnlineImageById(imageURL){
+//   let image = 
+//   image = this.imageCache[imageId]
+//   if (image) {
+//     return image
+//   }
+//   return undefined
+// }
 /**
    * 
    * @param {string|MNNote} noteid 
@@ -7860,7 +8219,7 @@ code.hljs {
     vars.map(v=>{
       if (v.startsWith("note.")) {
         noteInfo.hasNote = true//只要有一个变量带note就行
-        if (v.startsWith("note.doc.content")) {
+        if (v.endsWith(".doc.content")) {
           noteInfo.hasNoteDoc = true
         }
         if (v.startsWith("note.childMindMap.")) {
@@ -7871,26 +8230,8 @@ code.hljs {
         }
         if (v.startsWith("note.parent.")) {
           noteInfo.hasParent = true
-          if (v.startsWith("note.parent.parent.parent.")) {
-            noteInfo.parentLevel = 3
-            if (v.startsWith("note.parent.parent.parent.doc.content")) {
-              noteInfo.hasNoteDoc = true
-            }
-          }else if (v.startsWith("note.parent.parent.")) {
-            if (noteInfo.parentLevel !== 3) {//如果为3则不覆盖
-              noteInfo.parentLevel = 2
-            }
-            if (v.startsWith("note.parent.parent.doc.content")) {
-              noteInfo.hasNoteDoc = true
-            }
-          }else {
-            if (noteInfo.parentLevel < 2) {//如果小于2则不覆盖
-              noteInfo.parentLevel = 1
-            }
-            if (v.startsWith("note.parent.doc.content")) {
-              noteInfo.hasNoteDoc = true
-            }
-          }
+          let items = v.split(".").filter(item=>item === "parent")
+          noteInfo.parentLevel = items.length
         }
         if (v.startsWith("note.child.")) {
           noteInfo.hasChild = true
@@ -7902,9 +8243,53 @@ code.hljs {
   static hasTimer(vars){
     return vars.some(v=>v.startsWith("timer."))
   }
+  static hasCurrentSelection(vars){
+    if (vars.includes("isSelectionImage") || vars.includes("isSelectionText") || vars.includes("selectionText")) {
+      return true
+    }
+    return vars.some(v=>v.startsWith("currentSelection."))
+  }
+  static _currentSelectionObject = undefined//缓存当前选中的内容，以1秒为缓存时间，超过1秒则重新获取
+  /**
+   * 
+   * @param {boolean} forceRefresh 是否强制刷新
+   * @returns {{onSelection: boolean, imageId: string, text: string, type: string, pageIndex: number, document: {id: string, name: string}, asString: string, refreshTime: number}}
+   */
+  static getCurrentSelectionObject(forceRefresh = false){//比currentSelection更为宽松，以1秒为缓存时间，超过1秒则重新获取
+    let dateNow = Date.now()
+    if (!forceRefresh && this._currentSelectionObject && (dateNow - this._currentSelectionObject.refreshTime < 1000)) {
+      return this._currentSelectionObject
+    }
+    // this.log("getCurrentSelectionObject")
+    let currentSelection = this.currentSelection
+    if (currentSelection.onSelection) {
+      let image = currentSelection.image
+      let imageId = MNUtil.UUID()
+      // let imageId = MNUtil.MD5(image.base64Encoding())
+      this.imageCache[imageId] = image
+      let selectionInfo = {
+        onSelection:true,
+        imageId:imageId,
+        text:currentSelection.text,
+        type:currentSelection.isText ? "text" : "image",
+        pageIndex:currentSelection.pageIndex,
+        document:{
+          id:currentSelection.docMd5,
+          name:MNUtil.getDocById(currentSelection.docMd5).docTitle
+        }
+      }
+      selectionInfo.asString = JSON.stringify(selectionInfo)
+      selectionInfo.refreshTime = dateNow
+      this._currentSelectionObject = selectionInfo
+      return selectionInfo
+    }
+    return {
+      onSelection:false
+    }
+  }
   static getVars(template){
     let tokens = mustache.parse(template)
-    this.log("tokens",tokens)
+    // this.log("tokens",tokens)
     var pipelineRe = /\|\>?/;
     let vars = []
     function getChildToken(ele) {
@@ -7972,13 +8357,16 @@ code.hljs {
       hasCurrentDocAttach:vars.includes("currentDocAttach"),
       hasClipboardText:vars.includes("clipboardText"),
       hasSelectionText:vars.includes("selectionText"),
+      hasFocusNote:vars.includes("hasFocusNote"),
       hasKnowledge:vars.includes("knowledge"),
       hasCurrentDocName:vars.includes("currentDocName"),
+      hasCurrentSelection:this.hasCurrentSelection(vars),
       noteInfo:this.getNoteInfo(vars),
       hasMindmapNotes:vars.includes("mindmap.allNotes"),
       hasMindmapFocusNotes:vars.includes("mindmap.focusNotes"),
       hasTimer:this.hasTimer(vars),
     }
+    // chatAIUtils.log("parseVars config",config)
     return config
     
   } catch (error) {
@@ -8179,6 +8567,26 @@ static getLineByIndex(str, index) {
     if (vars.hasTimer) {
       preObject.timer = await this.getTimerStatus()
     }
+    if (vars.hasCurrentSelection) {
+      let currentSelection = this.getCurrentSelectionObject()
+      preObject.currentSelection = currentSelection
+      if (currentSelection.onSelection) {
+        preObject.isSelectionImage = (currentSelection.type === "image")
+        preObject.isSelectionText = (currentSelection.type === "text")
+        preObject.selectionText = currentSelection.text
+      }else{
+        preObject.isSelectionText = false
+        preObject.isSelectionImage = false
+      }
+    }
+  if (vars.hasFocusNote) {
+    let focusNote = this.getFocusNote(false)
+    if (focusNote) {
+      preObject.hasFocusNote = true
+    }else{
+      preObject.hasFocusNote = false
+    }
+  }
     let config = this.getVarInfo(vars,preObject)
     // let selectedText = MNUtil.selectionText
     let contextVar = ""
@@ -8194,7 +8602,6 @@ static getLineByIndex(str, index) {
 
     if (vars.hasCard) {
       let structure = await this.genCardStructure(noteid,ocr)
-      // let structure = this.genCardStructureSync(noteid)
       let stringified = this.stringifyCardStructure(structure)
       config.card = stringified
     }
@@ -8336,6 +8743,26 @@ static async getTextVarInfo(text,userInput,vision=false,ocr=this.OCREnhancedMode
   if (noteConfig) {
     preObject.note = noteConfig
   }
+  if (vars.hasCurrentSelection) {
+    let currentSelection = this.getCurrentSelectionObject()
+    preObject.currentSelection = currentSelection
+    if (currentSelection.onSelection) {
+      preObject.isSelectionImage = (currentSelection.type === "image")
+      preObject.isSelectionText = (currentSelection.type === "text")
+      preObject.selectionText = currentSelection.text
+    }else{
+      preObject.isSelectionText = false
+      preObject.isSelectionImage = false
+    }
+  }
+  if (vars.hasFocusNote) {
+    let focusNote = this.getFocusNote(false)
+    if (focusNote) {
+      preObject.hasFocusNote = true
+    }else{
+      preObject.hasFocusNote = false
+    }
+  }
   if (vars.hasTimer) {
     preObject.timer = await this.getTimerStatus()
   }
@@ -8370,6 +8797,7 @@ static async getTextVarInfo(text,userInput,vision=false,ocr=this.OCREnhancedMode
   if (vars.hasNotesInMindmap) {
     config.notesInMindmap = mindmapObject.allNotes
   }
+
   if (vars.hasContext || vars.hasCard || vars.hasParentCard || vars.hasCards) {
     if (ocr) {
       let docImage = MNUtil.getDocImage()
@@ -8406,14 +8834,6 @@ static async getTextVarInfo(text,userInput,vision=false,ocr=this.OCREnhancedMode
       }
     }
     config.userInput = selectedText
-  }
-  let currentSelection = this.currentSelection
-  if (currentSelection.onSelection) {
-    config.isSelectionImage = !currentSelection.isText
-    config.isSelectionText = !!currentSelection.text
-  }else{
-    config.isSelectionImage = false
-    config.isSelectionText = false
   }
   if (vars.hasCurrentDocInfo || vars.hasNoteDocInfo) {
     let currentFile = this.getCurrentFile()
@@ -9512,7 +9932,6 @@ static applyEditByConfig(editConfigs,note,refresh = true){
       }
     }
     return true
-
   }
   static async _executeToolbarAction(actionDes,button = undefined) {
     await toolbarUtils.customActionByDes(actionDes,button,undefined,false)
@@ -9521,6 +9940,94 @@ static applyEditByConfig(editConfigs,note,refresh = true){
       actionDes = actionDes.onFinish
       await MNUtil.delay(delay)
       await toolbarUtils.customActionByDes(actionDes,button,undefined,false)
+    }
+  }
+
+  static async readURLFree(url){
+    try {
+      let baseURL = "https://uapis.cn/api/v1/web/tomarkdown/async?url="+encodeURI(url)
+      const headers = {
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      }
+        // copyJSON(headers)
+      let body = {
+        "url":url,
+      }
+      let request = chatAINetwork.initRequest(baseURL, {
+          method: "POST",
+          headers: headers,
+          timeout: 60,
+          json: body
+        })
+      let res = await chatAINetwork.sendRequest(request)
+      chatAIUtils.log("readURLFree begin",res)
+
+      let taskId = res.data.task_id
+      if (!taskId) {
+        return {content:undefined,url:url}
+      }
+      baseURL = "https://uapis.cn/api/v1/web/tomarkdown/async/"+taskId
+      let isCompleted = false
+      let result = undefined
+      let success = false
+      do {
+        await MNUtil.delay(1)
+        request = chatAINetwork.initRequest(baseURL, {
+          method: "GET",
+          headers: headers,
+          timeout: 60,
+        })
+        res = await chatAINetwork.sendRequest(request)
+        if (res.status === "completed") {
+          isCompleted = true
+          result = res.result.markdown
+          success = true
+        }
+        if (res.status === "failed") {
+          isCompleted = true
+          result = res.error
+          success = false
+        }
+      } while (!isCompleted);
+      if (success) {
+        chatAIUtils.log("✅ readURLFree finish",{content:result,url:url})
+      }else{
+        chatAIUtils.log("❌ readURLFree finish",{content:result,url:url})
+      }
+
+      return {content:result,url:url,success:success}
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "chatAIUtils.readURLFree")
+      return undefined
+    }
+  }
+
+  static async readURL(url){
+    try {
+      let baseURL = "https://open.bigmodel.cn/api/paas/v4/reader"
+      let apikeys = ["76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C","b9bf21c783bf4207a0f419af4a82fa9c.9guT9c4lY05MgFrC"]
+      let apikey = this.getRandomElement(apikeys)
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: "Bearer "+apikey,
+        Accept: "application/json"
+      }
+        // copyJSON(headers)
+      let body = {
+        "url":url,
+      }
+      const request = chatAINetwork.initRequest(baseURL, {
+          method: "POST",
+          headers: headers,
+          timeout: 60,
+          json: body
+        })
+      let res = await chatAINetwork.sendRequest(request)
+      return {content:res.reader_result.content,url:url}
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "chatAIUtils.readURL")
+      return undefined
     }
   }
 }
@@ -9584,11 +10091,11 @@ class chatAIConfig {
 
 {{!仅在非视觉模式下显示}}
 {{^visionMode}}
-{{!仅在存在选择文本时显示}}
-{{#isSelectionText}}
-### 文档上选中内容 
-{{selectionText}}
-{{/isSelectionText}}
+{{!仅在存在选择文档选区时显示}}
+{{#currentSelection.onSelection}}
+## 当前文档上选中的内容
+{{currentSelection.asString}}
+{{/currentSelection.onSelection}}
 {{!仅在存在选中的笔记时显示}}
 {{#hasFocusNote}}
 ### 选中的笔记/卡片信息
@@ -9717,8 +10224,10 @@ class chatAIConfig {
     chatFuncIndices:[],
     chatSystemPrompt:"",
     allowEdit:false,
+    editorType:"vditor",
     PDFExtractMode:"local",
     imageGenerationModel:"cogview-3-flash",
+    webSearchModel:"uapi_search",
     customButton:{
       "button1":{
         "click":"bigbang",
@@ -9778,6 +10287,7 @@ class chatAIConfig {
     markdown2Mindmap:"mindmapImage",
     addBlankComment:"commentImage",
     editMode:"editorImage",
+    editModeSV:"editorSVImage",
     bindNote:"bindImage",
     openInEditor:"editorImage",
     snipaste:"snipasteImage",
@@ -10025,7 +10535,187 @@ static modelsWithoutVisionPatterns = [
     return dynamicHistory[0]
   }
   static defaultModelConfig = {
-  "OpenRouter":[
+    "modelRouter":{
+      "Volcengine":{
+        "doubao-seed-code":{
+          "model":"doubao-seed-code-preview-251028",
+        },
+        "doubao-seed-code-nothinking":{
+          "model":"doubao-seed-code-preview-251028",
+          "extraBody":{"thinking":{"type":"disabled"}},
+        },
+        "doubao-seed-1-6":{
+          "model":"doubao-seed-1-6-251015",
+        },
+        "doubao-seed-1-6-nothinking":{
+          "model":"doubao-seed-1-6-251015",
+          "extraBody":{"reasoning_effort":"minimal"},
+        },
+        "doubao-seed-1-6-minimal":{
+          "model":"doubao-seed-1-6-251015",
+          "extraBody":{"reasoning_effort":"minimal"},
+        },
+        "doubao-seed-1-6-low":{
+          "model":"doubao-seed-1-6-251015",
+          "extraBody":{"reasoning_effort":"low"},
+        },
+        "doubao-seed-1-6-medium":{
+          "model":"doubao-seed-1-6-251015",
+          "extraBody":{"reasoning_effort":"medium"},
+        },
+        "doubao-seed-1-6-high":{
+          "model":"doubao-seed-1-6-251015",
+          "extraBody":{"reasoning_effort":"high"},
+        },
+        "doubao-seed-1-6-thinking":{
+          "model":"doubao-seed-1-6-thinking-250715",
+        },
+        "doubao-seed-1-6-lite":{
+          "model":"doubao-seed-1-6-lite-251015",
+        },
+        "doubao-seed-1-6-lite-nothinking":{
+          "model":"doubao-seed-1-6-lite-251015",
+          "extraBody":{"reasoning_effort":"minimal"},
+        },
+        "doubao-seed-1-6-lite-minimal":{
+          "model":"doubao-seed-1-6-lite-251015",
+          "extraBody":{"reasoning_effort":"minimal"},
+        },
+        "doubao-seed-1-6-lite-low":{
+          "model":"doubao-seed-1-6-lite-251015",
+          "extraBody":{"reasoning_effort":"low"},
+        },
+        "doubao-seed-1-6-lite-medium":{
+          "model":"doubao-seed-1-6-lite-251015",
+          "extraBody":{"reasoning_effort":"medium"},
+        },
+        "doubao-seed-1-6-lite-high":{
+          "model":"doubao-seed-1-6-lite-251015",
+          "extraBody":{"reasoning_effort":"high"},
+        },
+        "doubao-seed-1-6-flash":{
+          "model":"doubao-seed-1-6-flash-250828",
+        },
+        "doubao-seed-1-6-flash-nothinking":{
+          "model":"doubao-seed-1-6-flash-250828",
+          "extraBody":{"thinking":{"type":"disabled"}},
+        },
+        "doubao-seed-1-6-vision":{
+          "model":"doubao-seed-1-6-vision-250815",
+        },
+        "doubao-seed-1-6-vision-nothinking":{
+          "model":"doubao-seed-1-6-vision-250815",
+          "extraBody":{"thinking":{"type":"disabled"}},
+        }
+      },
+      "ChatGLM":{
+        "glm-4.6-nothinking":{
+          "model":"glm-4.6",
+          "extraBody":{"thinking":{"type":"disabled"},"tool_stream":true},
+        },
+        "glm-4.6":{
+          "model":"glm-4.6",
+          "extraBody":{"tool_stream":true},
+        },
+        "glm-4.5-nothinking":{
+          "model":"glm-4.5",
+          "extraBody":{"thinking":{"type":"disabled"}},
+        },
+        "glm-4.5v-nothinking":{
+          "model":"glm-4.5v",
+          "extraBody":{"thinking":{"type":"disabled"}},
+        },
+        "glm-4.5-x-nothinking":{
+          "model":"glm-4.5-x",
+          "extraBody":{"thinking":{"type":"disabled"}},
+        },
+        "glm-4.5-air-nothinking":{
+          "model":"glm-4.5-air",
+          "extraBody":{"thinking":{"type":"disabled"}},
+        },
+        "glm-4.5-airx-nothinking":{
+          "model":"glm-4.5-airx",
+          "extraBody":{"thinking":{"type":"disabled"}},
+        },
+        "glm-4.5-flash-nothinking":{
+          "model":"glm-4.5-flash",
+          "extraBody":{"thinking":{"type":"disabled"}},
+        }
+      },
+      "KimiCoding":{
+        "kimi-for-coding-thinking":{
+          "model":"kimi-for-coding",
+          "extraBody":{"reasoning_effort":"medium"},
+        },
+        "kimi-for-coding-medium":{
+          "model":"kimi-for-coding",
+          "extraBody":{"reasoning_effort":"medium"},
+        },
+        "kimi-for-coding-high":{
+          "model":"kimi-for-coding",
+          "extraBody":{"reasoning_effort":"high"},
+        },
+        "kimi-for-coding-low":{
+          "model":"kimi-for-coding",
+          "extraBody":{"reasoning_effort":"low"},
+        }
+      },
+      "Gemini":{
+        "gemini-3-pro-minimal":{
+          "model":"gemini-3-pro-preview",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":128,"include_thoughts":true}}},
+        },
+        "gemini-2.5-pro-minimal":{
+          "model":"gemini-2.5-pro",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":128,"include_thoughts":true}}},
+        },
+        "gemini-2.5-pro-low":{
+          "model":"gemini-2.5-pro",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":1024,"include_thoughts":true}}},
+        },
+        "gemini-2.5-pro-medium":{
+          "model":"gemini-2.5-pro",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":8192,"include_thoughts":true}}},
+        },
+        "gemini-2.5-pro-high":{
+          "model":"gemini-2.5-pro",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":24576,"include_thoughts":true}}},
+        },
+        "gemini-2.5-flash-nothinking":{
+          "model":"gemini-2.5-flash",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":0,"include_thoughts":true}}},
+        },
+        "gemini-2.5-flash-low":{
+          "model":"gemini-2.5-flash",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":1024,"include_thoughts":true}}},
+        },
+        "gemini-2.5-flash-medium":{
+          "model":"gemini-2.5-flash",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":8192,"include_thoughts":true}}},
+        },
+        "gemini-2.5-flash-high":{
+          "model":"gemini-2.5-flash",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":24576,"include_thoughts":true}}},
+        },
+        "gemini-2.5-flash-lite-nothinking":{
+          "model":"gemini-2.5-flash-lite",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":0,"include_thoughts":true}}},
+        },
+        "gemini-2.5-flash-lite-low":{
+          "model":"gemini-2.5-flash-lite",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":1024,"include_thoughts":true}}},
+        },
+        "gemini-2.5-flash-lite-medium":{
+          "model":"gemini-2.5-flash-lite",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":8192,"include_thoughts":true}}},
+        },
+        "gemini-2.5-flash-lite-high":{
+          "model":"gemini-2.5-flash-lite",
+          "extraBody":{"google":{"thinking_config":{"thinking_budget":24576,"include_thoughts":true}}},
+        }
+      }
+    },
+    "OpenRouter":[
         "deepseek/deepseek-chat-v3.1:free",
         "deepseek/deepseek-chat-v3-0324:free",
         "deepseek/deepseek-r1:free",
@@ -10532,9 +11222,26 @@ static modelsWithoutVisionPatterns = [
     "deepseek-reasoner"
   ]
   }
+  static getModelsFromSource(source){
+    if (this.modelConfig && source in this.modelConfig){
+      return this.modelConfig[source]
+    }
+    if (source in this.defaultModelConfig) {
+      return this.defaultModelConfig[source]
+    }
+    return []
+  }
+  static getModelRouter(source){
+    let modelRouter = this.getModelsFromSource("modelRouter")
+    // chatAIUtils.log("modelRouter",modelRouter)
+    if (modelRouter && source in modelRouter){
+      return modelRouter[source]
+    }
+    return undefined
+  }
   static defaultDynamicPrompt = {
-    "note":"list below is the structure of a card:\n{{card}}",
-    "text":"{{context}}"
+    "note":this.defaultSystem,
+    "text":this.defaultSystem
   }
   /**
    * @type {string}
@@ -10568,6 +11275,7 @@ static modelsWithoutVisionPatterns = [
       this.dynamicPrompt = this.getByDefault("MNChatglm_dynamicPrompt", this.defaultDynamicPrompt)
       this.modelConfig = this.getByDefault("MNChatglm_modelConfig", this.defaultModelConfig)
     }
+    this.config.editorType = "vditor"
     this.currentPrompt = this.getConfig("currentPrompt")
     // MNUtil.copyJSON({prompts:this.prompts,config:this.config})
     let currentPrompt = this.prompts[this.currentPrompt]
@@ -10623,6 +11331,7 @@ static modelsWithoutVisionPatterns = [
     this.clearImage = MNUtil.getImage(this.mainPath + `/eraser.png`)
     this.mindmapImage = MNUtil.getImage(this.mainPath + `/mindmap.png`)
     this.editorImage = MNUtil.getImage(this.mainPath + `/edit.png`,2.2)
+    this.editorSVImage = MNUtil.getImage(this.mainPath + `/sv.png`,2.2)
     this.defaultActionImage = MNUtil.getImage(this.mainPath + `/action.png`)
     this.snipasteImage = MNUtil.getImage(this.mainPath + `/snipaste.png`)
     this.menuImage = MNUtil.getImage(this.mainPath + `/menu.png`)
@@ -12330,6 +13039,7 @@ static modelsWithoutVisionPatterns = [
         return ""
     }
   }
+
   /**
    * 
    * @param {string} source 提供商
@@ -12337,28 +13047,24 @@ static modelsWithoutVisionPatterns = [
    * @returns 
    */
   static modelNames(source,checkKey = false){
-    let models
+    let models = this.getModelsFromSource(source)
     let additionalModels = []
     if (checkKey && !this.hasAPIKeyInSource(source)) {//如果对应的提供商的key不存在,就不返回任何模型
       return []
     }
-    let modelConfig = (this.modelConfig && source in this.modelConfig)?this.modelConfig:this.defaultModelConfig
     switch (source) {
       case "Claude":
-        return modelConfig[source]
+        return models
       case "ChatGPT":
-        models = modelConfig["ChatGPT"]
         if (this.config.customModel.trim()) {
           additionalModels = this.config.customModel.split(",").map(model=>model.trim()).filter(model=>!models.includes(model))
         }
         return models.concat(additionalModels)
       case "Subscription":
-        models = modelConfig["Subscription"]
         if (this.config.customModel.trim()) {
           additionalModels = this.config.customModel.split(",").map(model=>model.trim()).filter(model=>!models.includes(model))
         }
         return models.concat(additionalModels)
-
       case "Custom":
         return this.config.customModel.split(",").map(model=>model.trim())
       case "Built-in":
@@ -12366,7 +13072,7 @@ static modelsWithoutVisionPatterns = [
       default:
         //通用源
         if (this.generalSource.includes(source)) {
-          return modelConfig[source]
+          return models
         }
         chatAIUtils.addErrorLog("Unspported source: "+source, "modelNames")
         return []
@@ -13550,20 +14256,7 @@ Content-Type: application/pdf
       throw error;
     }
   }
-/**
- * 允许直接传入base64图片,减少转换耗时
- * @param {string|NSData} imageData
- * @returns {Promise<Object>}
- */
- static async ChatGPTVision(imageData,model="glm-4v-flash") {
-  try {
-  let keys = ['76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C','b9bf21c783bf4207a0f419af4a82fa9c.9guT9c4lY05MgFrC']
-  // let key = 'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44'
-  let key = chatAIUtils.getRandomElement(keys)
-  MNUtil.waitHUD("OCR By "+model)
-  // let url = subscriptionConfig.config.url + "/v1/chat/completions"
-  let url = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
-  let prompt = `—role—
+  static defaultQueryOfReadImage = `—role—
 Image Text Extraction Specialist
 
 —goal—
@@ -13572,7 +14265,72 @@ Image Text Extraction Specialist
 * For any formulas, you must enclose them with dollar signs.
 
 —constrain—
-* You are not allowed to output any content other than what is in the image.`
+* You are not allowed to output any content other than what is in the image.
+
+—role—
+Image Text Extraction Specialist
+
+—goal—
+* For the given image, please directly output the text in the image.
+
+* For any formulas, you must enclose them with dollar signs.
+* 
+—constrain—
+* You are not allowed to output any content other than what is in the image.
+
+—example—
+$\\phi_{n} = \\frac{f_{0}^{2}h_{n}}{gH\\left(K^{2} - K_{s}^{2} - irK^{2}/k\\bar{u}\\right)}$
+`
+  /**
+   * @param {NSData} image 
+   * @returns 
+   */
+  static async readImage (image,query = this.defaultQueryOfReadImage,compression = true) {
+    try {
+      if (compression) {
+        image = UIImage.imageWithData(image).jpegData(0.1)
+      }
+      let res = await this.freeReadImage(image,query)
+      chatAIUtils.log("readImage",res)
+      return res
+      // if (typeof ocrNetwork === 'undefined' || !ocrNetwork.readImage) {
+      //   //OCR未安装，使用自带OCR
+      //   return await this.freeReadImage(image,query)
+      // }
+      // let res = await ocrNetwork.readImage(image,query)
+      // MNUtil.copy(res)
+      return res
+    } catch (error) {
+      chatAIUtils.addErrorLog(error, "readImage",)
+      throw error;
+    }
+  }
+static fixOCRResult(ocrResult){
+    let convertedText = ocrResult
+      .replace(/\$\$\n?/g, '$$$\n')
+      .replace(/(\\\[\s*\n?)|(\s*\\\]\n?)/g, '$$$\n')
+      .replace(/(\\\(\s*)|(\s*\\\))/g, '$')
+      .replace(/```/g,'')
+      .replace(/<\|begin_of_box\|>/g,'')
+      .replace(/<\|end_of_box\|>/g,'')
+    return convertedText
+}
+/**
+ * 允许直接传入base64图片,减少转换耗时
+ * @param {string|NSData} imageData
+ * @returns {Promise<Object>}
+ */
+ static async ChatGPTVision(imageData,options= {}) {
+  try {
+  let prompt = options.prompt ?? this.defaultQueryOfReadImage
+  let model = options.model ?? "glm-4v-flash"
+  // let keys = ['76ab4fa776ae4dfc97b91c07e73b0747.tcVmN7p0voHpb35C','b9bf21c783bf4207a0f419af4a82fa9c.9guT9c4lY05MgFrC']
+  let key = 'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44'
+  // let key = chatAIUtils.getRandomElement(keys)
+  // MNUtil.waitHUD("Read Image By "+model)
+  MNUtil.showHUD("Read Image By "+model)
+  let url = subscriptionConfig.config.url + "/v1/chat/completions"
+  // let url = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
   // let compressedImageData = UIImage.imageWithData(imageData).jpegData(0.1)
   let imageUrl = "data:image/jpeg;base64,"
   if (typeof imageData === "string") {
@@ -13580,7 +14338,11 @@ Image Text Extraction Specialist
   }else{
     imageUrl = imageUrl+imageData.base64Encoding()
   }
-  let history = [
+  let history = []
+  if (options.system) {
+    history.push(chatAIUtils.genSystemMessage(options.system))
+  }
+  history.push(
     {
       role: "user", 
       content: [
@@ -13596,7 +14358,7 @@ Image Text Extraction Specialist
         }
       ]
     }
-  ]
+  )
   let request = this.initRequestForChatGPTWithoutStream(history,key, url, model, 0.1)
     let res = await this.sendRequest(request)
     let ocrResult
@@ -13605,13 +14367,71 @@ Image Text Extraction Specialist
     }else{
       return undefined
     }
-    let convertedText = ocrResult
-      .replace(/\$\$\n?/g, '$$$\n')
-      .replace(/(\\\[\s*\n?)|(\s*\\\]\n?)/g, '$$$\n')
-      .replace(/(\\\(\s*)|(\s*\\\))/g, '$')
-      .replace(/```/g,'')
-    MNUtil.stopHUD()
-    return convertedText
+    MNUtil.showHUD("✅ Read Image Success")
+    return ocrResult
+    // let convertedText = ocrResult
+    //   .replace(/\$\$\n?/g, '$$$\n')
+    //   .replace(/(\\\[\s*\n?)|(\s*\\\]\n?)/g, '$$$\n')
+    //   .replace(/(\\\(\s*)|(\s*\\\))/g, '$')
+    //   .replace(/```/g,'')
+    // MNUtil.stopHUD()
+    // return convertedText
+    
+  } catch (error) {
+    chatAIUtils.addErrorLog(error, "ChatGPTVision")
+    throw error;
+  }
+}
+
+/**
+ * @param {string} url
+ * @param {string} prompt
+ * @param {string} model
+ * @returns {Promise<Object>}
+ */
+ static async aiSummaryWebsite(url,prompt,model = "glm-4.5-air-nothinking") {
+  try {
+  let info = {success:true,url:url}
+  MNUtil.showHUD("Reading website...")
+  let urlRes = await chatAIUtils.readURLFree(url)
+  if (urlRes && urlRes.success) {
+    let content = urlRes.content
+    info.content = content
+    let key = 'sk-S2rXjj2qB98OiweU46F3BcF2D36e4e5eBfB2C9C269627e44'
+    // let key = chatAIUtils.getRandomElement(keys)
+    // MNUtil.waitHUD("Read Image By "+model)
+    MNUtil.showHUD("Summarizing website By "+model)
+    let url = subscriptionConfig.config.url + "/v1/chat/completions"
+    let history = []
+    let system = `You are a helpful assistant that can extract the content of a website. For user's question, you should output all the contents that are related to user's question and ignore the content that is unrelated to user's question. Do not output any unrelated content. Below is the content of the website [${url}]: 
+${content}`
+    history.push(chatAIUtils.genSystemMessage(system))
+    history.push(
+      {
+        role: "user", 
+        content: prompt
+      }
+    )
+    let request = this.initRequestForChatGPTWithoutStream(history,key, url, model, 0.1)
+    let res = await this.sendRequest(request)
+    if (res.choices && res.choices.length) {
+      info.summary = res.choices[0].message.content
+    }else{
+      info.success = false
+      info.error = "faild in get summary of website"
+      return info
+    }
+    MNUtil.showHUD("✅ Summarizing website success")
+    chatAIUtils.log("aiSummaryWebsite",info)
+    return info
+  }else{
+    let errorMessage = "faild in get content of website"
+    if (urlRes.content) {
+      errorMessage = "faild in get content of website: "+urlRes.content
+    }
+    return {success:false,url:url,error:errorMessage}
+  }
+
     
   } catch (error) {
     chatAIUtils.addErrorLog(error, "ChatGPTVision")
@@ -13660,7 +14480,35 @@ Image Text Extraction Specialist
     }
 
     let res = await this.ChatGPTVision(imageBase64)
+    res = this.fixOCRResult(res)
     this.OCRBuffer[MD5] = res
+    MNUtil.stopHUD()
+    return res
+  }
+  /**
+   * @param {NSData} image 
+   * @returns 
+   */
+  static async freeReadImage(image,query = this.defaultQueryOfReadImage){
+    let imageBase64 = image.base64Encoding()
+    // let MD5 = chatAIUtils.MD5(imageBase64+query)
+    // if (MD5 in this.OCRBuffer) {
+    //   // MNUtil.showHUD("Read from buffer...")
+    //   // let sourcesForAction = ["Doc2X","SimpleTex"]
+    //   let res = this.OCRBuffer[MD5]
+    //   return res
+    // }
+    let system = `# Core Directive: Respond Fast, Be to the Point
+You are an efficient AI visual analysis assistant. Your responses must be generated as quickly as possible, so brevity is the top priority.
+# Response Guidelines
+1.  **Answer Immediately**: Omit all preambles and conclusions. Start directly with the answer to the user's question.
+    *   *Example*: If the user asks, "How many people are in the picture?", respond directly with "There appear to be 3 people in the image." instead of "Okay, I have analyzed the image. Based on my observation, there appear to be 3 people in the image."
+2.  **Refine Information**: Provide only the core information the user asked for. If the user doesn't ask a specific question, summarize the image's main subject in a single, short sentence.
+    *   *Example*: If the user asks, "What breed is this dog?", simply answer "The dog looks like a Golden Retriever." You do not need to add that it is playing with a ball on the grass.
+3.  **Prioritize Plain Text**: Use short sentences. Only use simple bullet points (-) when listing several distinct items is necessary for clarity.`
+
+    let res = await this.ChatGPTVision(imageBase64,{prompt:query,model:"qwen3-omni-flash",system:system})
+    // this.OCRBuffer[MD5] = res
     MNUtil.stopHUD()
     return res
   }
@@ -14093,7 +14941,39 @@ static getOpenAIHeaders(apikey) {
   }
 }
 /**
- * Initializes a request for ChatGPT using the provided configuration.
+ * 
+ * @param {string} apikey - The API key for authentication.
+ * @param {string} question - The question to be searched.
+ * @throws {Error} If the API key is empty or if there is an error during the request initialization.
+ */
+static async webSearchFree (question) {
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }
+  let body = {
+    "query":question
+  }
+  // let url = "https://open.bigmodel.cn/api/paas/v4/tools"
+  let url = "https://uapis.cn/api/v1/search/aggregate"
+  // copyJSON(body)
+
+  // MNUtil.copyJSON(body)
+  // MNUtil.copy(url)
+  let res = await MNConnection.fetch(url,{
+      method: "POST",
+      headers: headers,
+      timeout: 60,
+      json: body
+    })
+    // subscriptionNetwork.getKey(searchEngine)
+  try {
+    return res.results
+  } catch (error) {
+    return res
+  }
+}
+/**
  * 
  * @param {Array} history - An array of messages to be included in the request.
  * @param {string} apikey - The API key for authentication.
@@ -14115,8 +14995,9 @@ static async webSearch (question,apikey) {
   //   "messages":[{"role": "user", "content": question}],
   //   "stream":false
   // }
+  let searchEngine = chatAIConfig.getConfig("webSearchModel")
   let body = {
-    "search_engine":"search_std",
+    "search_engine":searchEngine,
     "search_query":question,
     "stream":false
   }
@@ -14132,6 +15013,7 @@ static async webSearch (question,apikey) {
       timeout: 60,
       json: body
     })
+    subscriptionNetwork.getKey(searchEngine)
   try {
     return res.search_result
   } catch (error) {
@@ -14139,6 +15021,74 @@ static async webSearch (question,apikey) {
   }
 }
 
+
+/**
+ * 
+ * @param {Array} history - An array of messages to be included in the request.
+ * @param {string} apikey - The API key for authentication.
+ * @param {string} url - The URL endpoint for the API request.
+ * @param {string} model - The model to be used for the request.
+ * @param {number} temperature - The temperature parameter for the request.
+ * @param {Array<number>} funcIndices - An array of function indices to be included in the request.
+ * @throws {Error} If the API key is empty or if there is an error during the request initialization.
+ */
+static async metasoSearch (question,apikey,scope) {
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: "Bearer "+apikey,
+    Accept: "application/json"
+  }
+    // copyJSON(headers)
+  // let body = {
+  //   "tool":"web-search-pro",
+  //   "messages":[{"role": "user", "content": question}],
+  //   "stream":false
+  // }
+  let body = {
+    "scope":scope,
+    "q":question,
+    "conciseSnippet":true,
+    "size":"10",
+    "includeSummary":false
+  }
+  // let url = "https://open.bigmodel.cn/api/paas/v4/tools"
+  let url = "https://metaso.cn/api/v1/search"
+  // copyJSON(body)
+
+  // MNUtil.copyJSON(body)
+  // MNUtil.copy(url)
+  let res = await MNConnection.fetch(url,{
+      method: "POST",
+      headers: headers,
+      timeout: 60,
+      json: body
+    })
+    if ("errMsg" in res) {
+      return {success:false,error:res.errMsg}
+    }
+    subscriptionNetwork.getKey("metasoSearch")
+  try {
+    switch (scope) {
+      case "podcast":
+        return res.podcasts
+      case "video":
+        return res.videos
+      case "image":
+        return res.images
+      case "document":
+        return res.documents
+      case "scholar":
+        return res.scholars
+      case "webpage":
+        return res.webpages
+      default:
+        break;
+    }
+    return res.search_result
+  } catch (error) {
+    return res
+  }
+}
 
 /**
  * Initializes a request for ChatGPT using the provided configuration.
@@ -14172,7 +15122,7 @@ static initRequestForChatGPT (history,apikey,url,model,temperature,funcIndices=[
   const request = this.initRequest(url, {
       method: "POST",
       headers: headers,
-      timeout: 60,
+      timeout: 600,
       json: body
     })
   return request
@@ -14198,73 +15148,85 @@ static initRequestForVolcengine (history,apikey,url,model,temperature,funcIndice
     // copyJSON(headers)
   let realModel = model
   let extraBody = {}
-  switch (model) {
-    case "doubao-seed-1-6":
-      realModel = "doubao-seed-1-6-251015"
-      break;
-    case "doubao-seed-1-6-nothinking":
-      realModel = "doubao-seed-1-6-251015"
-      extraBody.reasoning_effort = "minimal"
-      break;
-    case "doubao-seed-1-6-minimal":
-      realModel = "doubao-seed-1-6-251015"
-      extraBody.reasoning_effort = "minimal"
-      break;
-    case "doubao-seed-1-6-low":
-      realModel = "doubao-seed-1-6-251015"
-      extraBody.reasoning_effort = "low"
-      break;
-    case "doubao-seed-1-6-medium":
-      realModel = "doubao-seed-1-6-251015"
-      extraBody.reasoning_effort = "medium"
-      break;
-    case "doubao-seed-1-6-high":
-      realModel = "doubao-seed-1-6-251015"
-      extraBody.reasoning_effort = "high"
-      break;
-    case "doubao-seed-1-6-thinking":
-      realModel = "doubao-seed-1-6-thinking-250715"
-      break;
-    case "doubao-seed-1-6-lite":
-      realModel = "doubao-seed-1-6-lite-251015"
-      break;
-    case "doubao-seed-1-6-lite-nothinking":
-      realModel = "doubao-seed-1-6-lite-251015"
-      extraBody.reasoning_effort = "minimal"
-      break;
-    case "doubao-seed-1-6-lite-minimal":
-      realModel = "doubao-seed-1-6-lite-251015"
-      extraBody.reasoning_effort = "minimal"
-      break;
-    case "doubao-seed-1-6-lite-low":
-      realModel = "doubao-seed-1-6-lite-251015"
-      extraBody.reasoning_effort = "low"
-      break;
-    case "doubao-seed-1-6-lite-medium":
-      realModel = "doubao-seed-1-6-lite-251015"
-      extraBody.reasoning_effort = "medium"
-      break;
-    case "doubao-seed-1-6-lite-high":
-      realModel = "doubao-seed-1-6-lite-251015"
-      extraBody.reasoning_effort = "high"
-      break;
-    case "doubao-seed-1-6-flash":
-      realModel = "doubao-seed-1-6-flash-250828"
-      break;
-    case "doubao-seed-1-6-flash-nothinking":
-      realModel = "doubao-seed-1-6-flash-250828"
-      extraBody.thinking = {"type":"disabled"}
-      break;
-    case "doubao-seed-1-6-vision":
-      realModel = "doubao-seed-1-6-vision-250815"
-      break;
-    case "doubao-seed-1-6-vision-nothinking":
-      realModel = "doubao-seed-1-6-vision-250815"
-      extraBody.thinking = {"type":"disabled"}
-      break;
-    default:
-      break;
+  let modelRouter = chatAIConfig.getModelRouter("Volcengine")
+  if (model in modelRouter) {
+    realModel = modelRouter[model].model
+    extraBody = modelRouter[model].extraBody
   }
+  // switch (model) {
+  //   case "doubao-seed-code":
+  //     realModel = "doubao-seed-code-preview-251028"
+  //     break;
+  //   case "doubao-seed-code-nothinking":
+  //     realModel = "doubao-seed-code-preview-251028"
+  //     extraBody.thinking = {"type":"disabled"}
+  //     break;
+  //   case "doubao-seed-1-6":
+  //     realModel = "doubao-seed-1-6-251015"
+  //     break;
+  //   case "doubao-seed-1-6-nothinking":
+  //     realModel = "doubao-seed-1-6-251015"
+  //     extraBody.reasoning_effort = "minimal"
+  //     break;
+  //   case "doubao-seed-1-6-minimal":
+  //     realModel = "doubao-seed-1-6-251015"
+  //     extraBody.reasoning_effort = "minimal"
+  //     break;
+  //   case "doubao-seed-1-6-low":
+  //     realModel = "doubao-seed-1-6-251015"
+  //     extraBody.reasoning_effort = "low"
+  //     break;
+  //   case "doubao-seed-1-6-medium":
+  //     realModel = "doubao-seed-1-6-251015"
+  //     extraBody.reasoning_effort = "medium"
+  //     break;
+  //   case "doubao-seed-1-6-high":
+  //     realModel = "doubao-seed-1-6-251015"
+  //     extraBody.reasoning_effort = "high"
+  //     break;
+  //   case "doubao-seed-1-6-thinking":
+  //     realModel = "doubao-seed-1-6-thinking-250715"
+  //     break;
+  //   case "doubao-seed-1-6-lite":
+  //     realModel = "doubao-seed-1-6-lite-251015"
+  //     break;
+  //   case "doubao-seed-1-6-lite-nothinking":
+  //     realModel = "doubao-seed-1-6-lite-251015"
+  //     extraBody.reasoning_effort = "minimal"
+  //     break;
+  //   case "doubao-seed-1-6-lite-minimal":
+  //     realModel = "doubao-seed-1-6-lite-251015"
+  //     extraBody.reasoning_effort = "minimal"
+  //     break;
+  //   case "doubao-seed-1-6-lite-low":
+  //     realModel = "doubao-seed-1-6-lite-251015"
+  //     extraBody.reasoning_effort = "low"
+  //     break;
+  //   case "doubao-seed-1-6-lite-medium":
+  //     realModel = "doubao-seed-1-6-lite-251015"
+  //     extraBody.reasoning_effort = "medium"
+  //     break;
+  //   case "doubao-seed-1-6-lite-high":
+  //     realModel = "doubao-seed-1-6-lite-251015"
+  //     extraBody.reasoning_effort = "high"
+  //     break;
+  //   case "doubao-seed-1-6-flash":
+  //     realModel = "doubao-seed-1-6-flash-250828"
+  //     break;
+  //   case "doubao-seed-1-6-flash-nothinking":
+  //     realModel = "doubao-seed-1-6-flash-250828"
+  //     extraBody.thinking = {"type":"disabled"}
+  //     break;
+  //   case "doubao-seed-1-6-vision":
+  //     realModel = "doubao-seed-1-6-vision-250815"
+  //     break;
+  //   case "doubao-seed-1-6-vision-nothinking":
+  //     realModel = "doubao-seed-1-6-vision-250815"
+  //     extraBody.thinking = {"type":"disabled"}
+  //     break;
+  //   default:
+  //     break;
+  // }
   let body = {
     "model":realModel,
     "messages":history,
@@ -14280,7 +15242,7 @@ static initRequestForVolcengine (history,apikey,url,model,temperature,funcIndice
   const request = this.initRequest(url, {
       method: "POST",
       headers: headers,
-      timeout: 60,
+      timeout: 600,
       json: body
     })
   return request
@@ -14305,43 +15267,48 @@ static initRequestForChatGLM (history,apikey,url,model,temperature,funcIndices=[
   const headers = this.getOpenAIHeaders(apikey)
   let realModel = model
   let extraBody = {}
-  switch (model) {
-    case "glm-4.6-nothinking":
-      realModel = "glm-4.6"
-      extraBody.thinking = {"type":"disabled"}
-      extraBody.tool_stream = true
-      break;
-    case "glm-4.6":
-      realModel = "glm-4.6"
-      extraBody.tool_stream = true
-      break;
-    case "glm-4.5-nothinking":
-      realModel = "glm-4.5"
-      extraBody.thinking = {"type":"disabled"}
-      break;
-    case "glm-4.5v-nothinking":
-      realModel = "glm-4.5v"
-      extraBody.thinking = {"type":"disabled"}
-      break;
-    case "glm-4.5-x-nothinking":
-      realModel = "glm-4.5-x"
-      extraBody.thinking = {"type":"disabled"}
-      break;
-    case "glm-4.5-air-nothinking":
-      realModel = "glm-4.5-air"
-      extraBody.thinking = {"type":"disabled"}
-      break;
-    case "glm-4.5-airx-nothinking":
-      realModel = "glm-4.5-airx"
-      extraBody.thinking = {"type":"disabled"}
-      break;
-    case "glm-4.5-flash-nothinking":
-      realModel = "glm-4.5-flash"
-      extraBody.thinking = {"type":"disabled"}
-      break;
-    default:
-      break;
+  let modelRouter = chatAIConfig.getModelRouter("ChatGLM")
+  if (model in modelRouter) {
+    realModel = modelRouter[model].model
+    extraBody = modelRouter[model].extraBody
   }
+  // switch (model) {
+  //   case "glm-4.6-nothinking":
+  //     realModel = "glm-4.6"
+  //     extraBody.thinking = {"type":"disabled"}
+  //     extraBody.tool_stream = true
+  //     break;
+  //   case "glm-4.6":
+  //     realModel = "glm-4.6"
+  //     extraBody.tool_stream = true
+  //     break;
+  //   case "glm-4.5-nothinking":
+  //     realModel = "glm-4.5"
+  //     extraBody.thinking = {"type":"disabled"}
+  //     break;
+  //   case "glm-4.5v-nothinking":
+  //     realModel = "glm-4.5v"
+  //     extraBody.thinking = {"type":"disabled"}
+  //     break;
+  //   case "glm-4.5-x-nothinking":
+  //     realModel = "glm-4.5-x"
+  //     extraBody.thinking = {"type":"disabled"}
+  //     break;
+  //   case "glm-4.5-air-nothinking":
+  //     realModel = "glm-4.5-air"
+  //     extraBody.thinking = {"type":"disabled"}
+  //     break;
+  //   case "glm-4.5-airx-nothinking":
+  //     realModel = "glm-4.5-airx"
+  //     extraBody.thinking = {"type":"disabled"}
+  //     break;
+  //   case "glm-4.5-flash-nothinking":
+  //     realModel = "glm-4.5-flash"
+  //     extraBody.thinking = {"type":"disabled"}
+  //     break;
+  //   default:
+  //     break;
+  // }
     // copyJSON(headers)
   let body = {
     "model":realModel,
@@ -14358,7 +15325,7 @@ static initRequestForChatGLM (history,apikey,url,model,temperature,funcIndices=[
   const request = this.initRequest(url, {
       method: "POST",
       headers: headers,
-      timeout: 60,
+      timeout: 600,
       json: body
     })
   return request
@@ -14383,34 +15350,39 @@ static initRequestForKimiCoding (history,apikey,url,model,temperature,funcIndice
   const headers = this.getOpenAIHeaders(apikey)
   let realModel = model
   let extraBody = {}
-  switch (model) {
-    case "kimi-for-coding-thinking":
-      realModel = "kimi-for-coding"
-      extraBody = {
-        "reasoning_effort": "medium"
-      }
-      break;
-    case "kimi-for-coding-medium":
-      realModel = "kimi-for-coding"
-      extraBody = {
-        "reasoning_effort": "medium"
-      }
-      break;
-    case "kimi-for-coding-high":
-      realModel = "kimi-for-coding"
-      extraBody = {
-        "reasoning_effort": "high"
-      }
-      break;
-    case "kimi-for-coding-low":
-      realModel = "kimi-for-coding"
-      extraBody = {
-        "reasoning_effort": "low"
-      }
-      break;
-    default:
-      break;
+  let modelRouter = chatAIConfig.getModelRouter("KimiCoding")
+  if (model in modelRouter) {
+    realModel = modelRouter[model].model
+    extraBody = modelRouter[model].extraBody
   }
+  // switch (model) {
+  //   case "kimi-for-coding-thinking":
+  //     realModel = "kimi-for-coding"
+  //     extraBody = {
+  //       "reasoning_effort": "medium"
+  //     }
+  //     break;
+  //   case "kimi-for-coding-medium":
+  //     realModel = "kimi-for-coding"
+  //     extraBody = {
+  //       "reasoning_effort": "medium"
+  //     }
+  //     break;
+  //   case "kimi-for-coding-high":
+  //     realModel = "kimi-for-coding"
+  //     extraBody = {
+  //       "reasoning_effort": "high"
+  //     }
+  //     break;
+  //   case "kimi-for-coding-low":
+  //     realModel = "kimi-for-coding"
+  //     extraBody = {
+  //       "reasoning_effort": "low"
+  //     }
+  //     break;
+  //   default:
+  //     break;
+  // }
   // let modelFragment = model.split("-")
   // chatAIUtils.log("modelFragment", modelFragment)
     // copyJSON(headers)
@@ -14430,7 +15402,7 @@ static initRequestForKimiCoding (history,apikey,url,model,temperature,funcIndice
   const request = this.initRequest(url, {
       method: "POST",
       headers: headers,
-      timeout: 60,
+      timeout: 600,
       json: body
     })
   return request
@@ -14467,7 +15439,7 @@ static initRequestForChatGPTWithoutStream (history,apikey,url,model,temperature,
   const request = this.initRequest(url, {
       method: "POST",
       headers: headers,
-      timeout: 60,
+      timeout: 600,
       json: body
     })
   return request
@@ -14513,7 +15485,7 @@ static initRequestForQwenWithoutStream (prompt,apikey,url,model) {
   const request = this.initRequest(url, {
       method: "POST",
       headers: headers,
-      timeout: 60,
+      timeout: 600,
       json: body
     })
   return request
@@ -14550,7 +15522,7 @@ static initRequestForRerank (texts,query,apikey,url,model,top_n=10) {
   const request = this.initRequest(url, {
       method: "POST",
       headers: headers,
-      timeout: 60,
+      timeout: 600,
       json: body
     })
   return request
@@ -14577,6 +15549,9 @@ static initRequestForCogView (prompt,apikey,url,model,size = "1024x1024") {
     Authorization: "Bearer "+apikey,
     Accept: "application/json"
   }
+  if (model === "qwen-image") {
+    size = "1328x1328"
+  }
     // copyJSON(headers)
   let body = {
     "model":model,
@@ -14586,7 +15561,7 @@ static initRequestForCogView (prompt,apikey,url,model,size = "1024x1024") {
   const request = this.initRequest(url, {
       method: "POST",
       headers: headers,
-      timeout: 60,
+      timeout: 600,
       json: body
     })
   return request
@@ -14628,7 +15603,7 @@ static initRequestForClaude(history,apikey,url,model,temperature,funcIndices=[])
   const request = this.initRequest(url, {
       method: "POST",
       headers: headers,
-      timeout: 60,
+      timeout: 600,
       json: body
     })
   return request
@@ -14671,58 +15646,67 @@ static initRequestForGemini (history,apikey,url,model,temperature,funcIndices=[]
           }
         }
       }
-  switch (model) {
-    case "gemini-2.5-pro-minimal":
-      realModel = "gemini-2.5-pro"
-      extraBody.google.thinking_config.thinking_budget = 128
-      break;
-    case "gemini-2.5-pro-low":
-      realModel = "gemini-2.5-pro"
-      extraBody.google.thinking_config.thinking_budget = 1024
-      break;
-    case "gemini-2.5-pro-medium":
-      realModel = "gemini-2.5-pro"
-      extraBody.google.thinking_config.thinking_budget = 8192
-      break;
-    case "gemini-2.5-pro-high":
-      realModel = "gemini-2.5-pro"
-      extraBody.google.thinking_config.thinking_budget = 24576
-      break;
-    case "gemini-2.5-flash-nothinking":
-      realModel = "gemini-2.5-flash"
-      extraBody.google.thinking_config.thinking_budget = 0
-      break;
-    case "gemini-2.5-flash-low":
-      realModel = "gemini-2.5-flash"
-      extraBody.google.thinking_config.thinking_budget = 1024
-      break;
-    case "gemini-2.5-flash-medium":
-      realModel = "gemini-2.5-flash"
-      extraBody.google.thinking_config.thinking_budget = 8192
-      break;
-    case "gemini-2.5-flash-high":
-      realModel = "gemini-2.5-flash"
-      extraBody.google.thinking_config.thinking_budget = 24576
-      break;
-    case "gemini-2.5-flash-lite-nothinking":
-      realModel = "gemini-2.5-flash-lite"
-      extraBody.google.thinking_config.thinking_budget = 0
-      break;
-    case "gemini-2.5-flash-lite-low":
-      realModel = "gemini-2.5-flash-lite"
-      extraBody.google.thinking_config.thinking_budget = 1024
-      break;
-    case "gemini-2.5-flash-lite-medium":
-      realModel = "gemini-2.5-flash-lite"
-      extraBody.google.thinking_config.thinking_budget = 8192
-      break;
-    case "gemini-2.5-flash-lite-high":
-      realModel = "gemini-2.5-flash-lite"
-      extraBody.google.thinking_config.thinking_budget = 24576
-      break;
-    default:
-      break;
+  let modelRouter = chatAIConfig.getModelRouter("Gemini")
+  if (model in modelRouter) {
+    realModel = modelRouter[model].model
+    extraBody = modelRouter[model].extraBody
   }
+  // switch (model) {
+  //   case "gemini-3-pro-minimal":
+  //     realModel = "gemini-3-pro-preview"
+  //     extraBody.google.thinking_config.thinking_budget = 128
+  //     break;
+  //   case "gemini-2.5-pro-minimal":
+  //     realModel = "gemini-2.5-pro"
+  //     extraBody.google.thinking_config.thinking_budget = 128
+  //     break;
+  //   case "gemini-2.5-pro-low":
+  //     realModel = "gemini-2.5-pro"
+  //     extraBody.google.thinking_config.thinking_budget = 1024
+  //     break;
+  //   case "gemini-2.5-pro-medium":
+  //     realModel = "gemini-2.5-pro"
+  //     extraBody.google.thinking_config.thinking_budget = 8192
+  //     break;
+  //   case "gemini-2.5-pro-high":
+  //     realModel = "gemini-2.5-pro"
+  //     extraBody.google.thinking_config.thinking_budget = 24576
+  //     break;
+  //   case "gemini-2.5-flash-nothinking":
+  //     realModel = "gemini-2.5-flash"
+  //     extraBody.google.thinking_config.thinking_budget = 0
+  //     break;
+  //   case "gemini-2.5-flash-low":
+  //     realModel = "gemini-2.5-flash"
+  //     extraBody.google.thinking_config.thinking_budget = 1024
+  //     break;
+  //   case "gemini-2.5-flash-medium":
+  //     realModel = "gemini-2.5-flash"
+  //     extraBody.google.thinking_config.thinking_budget = 8192
+  //     break;
+  //   case "gemini-2.5-flash-high":
+  //     realModel = "gemini-2.5-flash"
+  //     extraBody.google.thinking_config.thinking_budget = 24576
+  //     break;
+  //   case "gemini-2.5-flash-lite-nothinking":
+  //     realModel = "gemini-2.5-flash-lite"
+  //     extraBody.google.thinking_config.thinking_budget = 0
+  //     break;
+  //   case "gemini-2.5-flash-lite-low":
+  //     realModel = "gemini-2.5-flash-lite"
+  //     extraBody.google.thinking_config.thinking_budget = 1024
+  //     break;
+  //   case "gemini-2.5-flash-lite-medium":
+  //     realModel = "gemini-2.5-flash-lite"
+  //     extraBody.google.thinking_config.thinking_budget = 8192
+  //     break;
+  //   case "gemini-2.5-flash-lite-high":
+  //     realModel = "gemini-2.5-flash-lite"
+  //     extraBody.google.thinking_config.thinking_budget = 24576
+  //     break;
+  //   default:
+  //     break;
+  // }
     // copyJSON(headers)
   let body = {
     "model":realModel,
@@ -14740,7 +15724,7 @@ static initRequestForGemini (history,apikey,url,model,temperature,funcIndices=[]
   const request = this.initRequest(url, {
       method: "POST",
       headers: headers,
-      timeout: 60,
+      timeout: 600,
       json: body
     })
   return request
