@@ -1009,6 +1009,30 @@ knowledgebaseWebController.prototype.executeAction = async function(config, clos
         }
         break
 
+      case "editMarkdownLink":
+        try {
+          // 获取 noteId
+          const noteId = getNoteIdFromParams(config.params);
+          if (!noteId) {
+            MNUtil.showHUD("缺少卡片 ID");
+            break;
+          }
+
+          // 获取其他参数
+          const commentIndex = parseInt(config.params.commentIndex);
+          const linkIndex = parseInt(config.params.linkIndex);
+          const newDisplayText = config.params.newDisplayText;
+          const newUrl = config.params.newUrl;
+
+          // 调用编辑方法
+          await this.editMarkdownLink(noteId, commentIndex, linkIndex, newDisplayText, newUrl);
+          success = true;
+        } catch (error) {
+          KnowledgeBaseUtils.addErrorLog(error, "executeAction: editMarkdownLink");
+          MNUtil.showHUD("编辑链接失败: " + error.message);
+        }
+        break
+
       default:
         MNUtil.showHUD("未知动作: " + config.host)
     }
@@ -2233,5 +2257,131 @@ knowledgebaseWebController.prototype.updateCommentLink = async function(noteId, 
     KnowledgeBaseUtils.log("发生错误", "updateCommentLink", { error: error.message })
     MNUtil.showHUD("更新链接失败: " + error)
     KnowledgeBaseUtils.addErrorLog(error, "updateCommentLink")
+  }
+}
+
+/**
+ * 编辑 Markdown 链接
+ * @param {string} noteId - 卡片 ID
+ * @param {number} commentIndex - 评论索引
+ * @param {number} linkIndex - 链接在 markdownLinks 中的索引
+ * @param {string} newDisplayText - 新的显示文本
+ * @param {string} newUrl - 新的链接地址
+ */
+knowledgebaseWebController.prototype.editMarkdownLink = async function(
+  noteId,
+  commentIndex,
+  linkIndex,
+  newDisplayText,
+  newUrl
+) {
+  try {
+    // 1. 参数验证
+    if (!noteId || commentIndex === undefined || linkIndex === undefined) {
+      MNUtil.showHUD("参数错误")
+      return
+    }
+
+    // 2. 获取卡片和评论
+    const note = MNNote.new(noteId)
+    if (!note) {
+      MNUtil.showHUD("卡片不存在")
+      return
+    }
+
+    const comment = note.MNComments[commentIndex]
+    if (!comment) {
+      MNUtil.showHUD("评论不存在")
+      return
+    }
+
+    // 3. 提取所有 Markdown 链接
+    const originalText = comment.text || ""
+    const markdownLinkRegex = /\[([^\]]+?)\]\(([^)]+?)\)/g
+    const allLinks = []
+    let match
+
+    while ((match = markdownLinkRegex.exec(originalText)) !== null) {
+      allLinks.push({
+        fullMatch: match[0],
+        displayText: match[1],
+        url: match[2],
+        startIndex: match.index,
+        endIndex: match.index + match[0].length
+      })
+    }
+
+    // 4. 验证索引
+    if (linkIndex < 0 || linkIndex >= allLinks.length) {
+      MNUtil.showHUD("链接索引无效")
+      return
+    }
+
+    const targetLink = allLinks[linkIndex]
+    const oldUrl = targetLink.url
+
+    // 5. 生成新的链接文本
+    const newLinkMarkdown = `[${newDisplayText}](${newUrl})`
+    const newText = originalText.substring(0, targetLink.startIndex) +
+                    newLinkMarkdown +
+                    originalText.substring(targetLink.endIndex)
+
+    // 6. 执行更新（包装在 undoGrouping 中）
+    MNUtil.undoGrouping(() => {
+      // 6.1 处理双向链接
+      const isOldMNLink = oldUrl.startsWith("marginnote4app://note/")
+      const isNewMNLink = newUrl.startsWith("marginnote4app://note/")
+
+      // 移除旧的反向链接
+      if (isOldMNLink) {
+        const oldNoteId = oldUrl.replace("marginnote4app://note/", "")
+        const oldTargetNote = MNNote.new(oldNoteId, false)
+
+        if (oldTargetNote) {
+          KnowledgeBaseTemplate.removeApplicationFieldLink(oldTargetNote, note.noteId)
+          KnowledgeBaseUtils.log(
+            `移除旧反向链接: ${oldTargetNote.noteTitle} -> ${note.noteTitle}`,
+            "editMarkdownLink"
+          )
+        }
+      }
+
+      // 添加新的反向链接
+      if (isNewMNLink) {
+        const newNoteId = newUrl.replace("marginnote4app://note/", "")
+        const newTargetNote = MNNote.new(newNoteId, false)
+
+        if (newTargetNote) {
+          KnowledgeBaseTemplate.addApplicationFieldLink(newTargetNote, note)
+          KnowledgeBaseUtils.log(
+            `添加新反向链接: ${newTargetNote.noteTitle} <- ${note.noteTitle}`,
+            "editMarkdownLink"
+          )
+        } else {
+          MNUtil.showHUD(`⚠️ 目标卡片不存在: ${newNoteId}`)
+        }
+      }
+
+      // 6.2 更新评论文本
+      comment.text = newText
+
+      // 6.3 刷新卡片
+      note.refresh()
+
+      KnowledgeBaseUtils.log(
+        `链接编辑成功: [${targetLink.displayText}](${oldUrl}) -> [${newDisplayText}](${newUrl})`,
+        "editMarkdownLink"
+      )
+    })
+
+    // 7. 显示成功提示
+    MNUtil.showHUD("链接编辑成功")
+
+    // 8. 刷新数据
+    await this.loadCommentData(noteId)
+
+  } catch (error) {
+    KnowledgeBaseUtils.addErrorLog(error, "editMarkdownLink")
+    MNUtil.showHUD("链接编辑失败: " + error.message)
   }
 }
