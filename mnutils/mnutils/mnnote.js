@@ -240,6 +240,14 @@ class MNNote{
     return MNUtil.noteColorByNotebookIdAndColorIndex(this.notebookId,this.colorIndex)
   }
   /**
+   * @returns {boolean}
+   * true: open
+   * false: closed (对子脑图无效，依然为open)
+   */
+  get mindmapBranchClose(){
+    return this.note.mindmapBranchClose
+  }
+  /**
    * Retrieves the child notes of the current note.
    * 
    * This method returns an array of MNNote instances representing the child notes of the current note. If the current note has no child notes, it returns an empty array.
@@ -548,7 +556,25 @@ class MNNote{
     this.note.excerptText = text
   }
   get excerptPic(){
-    return this.note.excerptPic
+    let excerptPic = this.note.excerptPic
+    if (!excerptPic) {
+      return undefined
+    }
+    let size = MNUtil.NSValue2CGSize(excerptPic.size)
+    let selList = excerptPic.selLst.map(item=>{
+      let rect = MNUtil.NSValue2CGRect(item.rect)
+      let imgRect = MNUtil.NSValue2CGRect(item.imgRect)
+      return {
+        rect: rect,
+        imgRect: imgRect,
+        pageNo: item.pageNo,
+        rotation: item.rotation
+      }
+    })
+    excerptPic.selLst = selList
+    excerptPic.size = size
+    MNUtil.log("excerptPic",excerptPic)
+    return excerptPic
   }
   get excerptPicData(){
     let imageData = MNUtil.getMediaByHash(this.note.excerptPic.paint)
@@ -1723,8 +1749,42 @@ try {
     }
     return this
   }
+
   prependTextComment(comment){
     this.appendTextComment(comment,0)
+  }
+  /**
+   * 添加评论，可以通过option参数设置是否为markdown评论，以及评论的索引
+   * @param  {string} comment
+   * @param  {{index:number,markdown:boolean}} option
+   * @returns {MNNote}
+   */
+  appendComment(comment,option={}){
+    let validComment = comment && comment.trim()
+    if (!validComment) {
+      return this
+    }
+    let index = option.index
+    if (option.markdown) {
+      this.note.appendMarkdownComment(comment)
+    }else{
+      this.note.appendTextComment(comment)
+    }
+    if (index !== undefined) {
+      this.moveComment(this.note.comments.length-1, index,false)
+    }
+    return this
+  }
+  /**
+   * 添加评论，可以通过option参数设置是否为markdown评论
+   * @param  {string} comment
+   * @param  {{index:number,markdown:boolean}} option
+   * @returns {MNNote}
+   */
+  prependComment(comment,option={}){
+    option.index = 0
+    this.appendComment(comment,option)
+    return this
   }
   /**
    *
@@ -2260,6 +2320,13 @@ try {
         this.appendMarkdownComment(editConfig.markdownComment, editConfig.markdownCommentIndex)
       }else{
         this.appendMarkdownComment(editConfig.markdownComment)
+      }
+    }
+    if ("textComment" in editConfig) {
+      if ("textCommentIndex" in editConfig) {
+        this.appendTextComment(editConfig.textComment, editConfig.textCommentIndex)
+      }else{
+        this.appendTextComment(editConfig.textComment)
       }
     }
     if ("tagsToRemove" in editConfig) {
@@ -3442,6 +3509,9 @@ class MNComment {
             return "blankImageComment"
           }
         }
+        if (comment.draft) {
+          return "mergedChildMapComment"
+        }
         if (comment.q_hpic) {
           if (comment.q_hpic.drawing) {
             return "mergedImageCommentWithDrawing"
@@ -3579,8 +3649,45 @@ class MNDocument{
   get currentNotebook(){
     return MNNotebook.new(this.document.currentTopicId)
   }
+  /**
+   * 缓存内容,key为pageNo,value为内容
+   * @type {DictObj}
+   */
+  cacheContent = {}
   textContentsForPageNo(pageNo){
     return this.document.textContentsForPageNo(pageNo)
+  }
+  /**
+   * 
+   * @param {number} pageNo 
+   * @param {boolean} cache 是否缓存内容，默认缓存，即如果缓存中存在，则直接返回缓存中的内容，如果cache为false，则不缓存，即每次都重新获取内容
+   * @returns {string}
+   */
+  getPageContent(pageNo,cache = true){
+    if (cache && this.cacheContent[pageNo]) {
+      return this.cacheContent[pageNo]
+    }
+    let pageContent = MNUtil.getPageContent(pageNo,this.document)
+    if (cache) {
+      this.cacheContent[pageNo] = pageContent
+    }
+    return pageContent
+  }
+  /**
+   * 
+   * @param {boolean} asArray 是否返回数组，方便按页处理
+   * @param {boolean} cache 是否缓存内容
+   * @returns {string|string[]}
+   */
+  getFileContent(asArray = false,cache = true){
+    let beginTime = Date.now()
+    let fileContent = []
+    for (let pageNo = 1; pageNo <= this.pageCount; pageNo++) {
+      fileContent.push(this.getPageContent(pageNo,cache))
+    }
+    let endTime = Date.now()
+    MNUtil.log("MNDocument.getFileContent",{time:endTime - beginTime})
+    return asArray ? fileContent : fileContent.join("\n")
   }
   open(notebookId){
     MNUtil.openDoc(this.docMd5,notebookId)
