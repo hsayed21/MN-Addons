@@ -132,7 +132,7 @@ function registerAllCustomActions() {
   // HTML settings
   const htmlSetting = [
     { title: "SKETCH: ✍️", type: "sketch" },
-    { title: "注: 📝", type: "remark" },
+    { title: "Note: 📝", type: "remark" },
     { title: "Method: ✔", type: "method" },
     { title: "Key: 🔑", type: "key" },
     { title: "Question: ❓", type: "question" },
@@ -410,7 +410,7 @@ function registerAllCustomActions() {
   global.registerCustomAction("referenceTestIfIdInCurrentDoc", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "输入文献号",
+      "Enter document number",
       "",
       2,
       "Cancel",
@@ -449,7 +449,7 @@ function registerAllCustomActions() {
   global.registerCustomAction("referenceStoreOneIdForCurrentDocByFocusNote", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
     UIAlertView.showWithTitleMessageStyleCancelButtonTitleOtherButtonTitlesTapBlock(
-      "输入文献号",
+      "Enter document number",
       "",
       2,
       "Cancel",

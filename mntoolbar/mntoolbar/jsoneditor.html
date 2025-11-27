@@ -82,7 +82,7 @@ body {
       "onCancel": {
         "$ref": "action"
       },
-      "menuItems": {   
+      "menuItems": {
         "type": "array",
         "items": {
           "oneOf":[
@@ -741,7 +741,7 @@ function getSchemaByActionName(actionName) {
 }
 function getSchemaByAction(action) {
   let properties = getSchemaByActionName(action.action)
-  
+
   if (properties && "onLongPress" in action) {
     let tem = getSchemaByActionName(action.onLongPress.action)
     if (tem) {
@@ -759,7 +759,7 @@ function getSchemaByAction(action) {
 function setSchemaByAction(action) {
   let properties = getSchemaByAction(action)
   // console.log(properties);
-  
+
   setSchema(genSchema(properties))
 }
     const options = {
@@ -771,7 +771,7 @@ function setSchemaByAction(action) {
         let path = node.path
         if (path.length) {
           items.unshift({
-              text: '拷贝值',
+              text: 'copy value',
               title: 'copy',
               className: 'jsoneditor-duplicate',
               click:()=>{
@@ -784,7 +784,7 @@ function setSchemaByAction(action) {
           })
         }else{
           items.unshift({
-              text: '拷贝',
+              text: 'copy',
               title: 'copy',
               className: 'jsoneditor-duplicate',
               click:()=>{
@@ -817,10 +817,10 @@ function setSchemaByAction(action) {
           //       const parent = path
           //           .slice(0, -1)
           //           .reduce((obj, key) => obj && obj[key], config);
-            
+
           //       // 获取要删除的最终属性名
           //       const lastKey = path[path.length - 1];
-                
+
           //       if (parent && lastKey in parent) {
           //           delete parent[lastKey];
           //           editor.update(config);
@@ -829,11 +829,11 @@ function setSchemaByAction(action) {
 
           //   return
           // }
-          
+
           // console.log("change");
           // editor.refresh()
           let config = editor.get()
-          
+
           let needSet = false
           if ("action" in config && node.field === "action") {
             setSchemaByAction(config)
@@ -861,29 +861,29 @@ function setSchemaByAction(action) {
                   if (!("target" in config)) {
                     config.target = "auto"
                     needSet = true
-                  } 
+                  }
                   break;
                 case "addComment":
                   if (!("content" in config)) {
                     config.content = ""
                     needSet = true
-                  } 
+                  }
                   break;
                 case "menu":
                   if (!("menuItems" in config)) {
                     config.menuItems = []
                     needSet = true
-                  } 
+                  }
                   break;
                 case "mergeText":
                   if (!("source" in config)) {
                     config.source = []
                     needSet = true
-                  } 
+                  }
                   if (!("target" in config)) {
                     config.target = "excerptText"
                     needSet = true
-                  } 
+                  }
                   break;
                 case "ocr":
                   if(!("target" in config)){
@@ -927,7 +927,7 @@ function setSchemaByAction(action) {
                     needSet = true
                   }
                   break;
-                case "webSearch": 
+                case "webSearch":
                   if(!("question" in config)){
                     config.question = ""
                     needSet = true
@@ -993,7 +993,7 @@ function setSchemaByAction(action) {
           adjustSelectWidth()
           return
         }
-        
+
       },
       "enableSort": false,
       "enableTransform": false,
@@ -1001,7 +1001,7 @@ function setSchemaByAction(action) {
       "mode":"tree",
       "templates": [
         {
-            text: '结束动作',
+          text: 'End action',
             title: 'onFinish action',
             className: 'jsoneditor-type-object',
             field: 'onFinish',
@@ -1010,7 +1010,7 @@ function setSchemaByAction(action) {
             }
         },
         {
-            text: '长按动作',
+          text: 'Long press action',
             title: 'onLongPress action',
             className: 'jsoneditor-type-object',
             field: 'onLongPress',
@@ -1019,13 +1019,13 @@ function setSchemaByAction(action) {
             }
         },
         {
-            text: '结束确认',
+          text: 'End confirmation',
             title: 'confirm action',
             className: 'jsoneditor-type-object',
             field: 'onFinish',
             value: {
               "action": "confirm",
-              "title": "请点击确认",
+              "title": "Please click to confirm",
               "onConfirm": {
                 "action": "",
               },
@@ -1035,7 +1035,7 @@ function setSchemaByAction(action) {
             }
         },
         {
-            text: '双击动作',
+          text: 'Double-click action',
             title: 'doubleClick action',
             className: 'jsoneditor-type-object',
             field: 'doubleClick',
@@ -1044,14 +1044,14 @@ function setSchemaByAction(action) {
             }
         },
         {
-            text: '菜单选项',
+          text: 'menu option',
             title: 'menu items',
             className: 'jsoneditor-type-array',
             field: 'menuItems',
             value: []
         },
         {
-            text: '步骤选项',
+          text: 'Step options',
             title: 'steps',
             className: 'jsoneditor-type-array',
             field: 'steps',
@@ -1076,7 +1076,7 @@ function setSchemaByAction(action) {
               parent = path.at(-2)
             }
             switch (parent) {
-            
+
               case 'method':
                 return ['replace','append']
               case 'content':
@@ -1150,9 +1150,9 @@ function setSchemaByAction(action) {
         const initialJson0 = {
   "action": "menu",
   "menuItems": [
-    "👇🏻👇🏻👇🏻👇🏻编辑卡片",
+    "👇🏻👇🏻👇🏻👇🏻Edit card",
     {
-      "menuTitle": "1.开关MD",
+      "menuTitle": "1. Switch MD",
       "action": "mergeText",
       "target": "excerptText",
       "source": [
@@ -1165,23 +1165,23 @@ function setSchemaByAction(action) {
       }
     },
     {
-      "menuTitle": "2.粘贴为评论",
+      "menuTitle": "2. Paste as comment",
       "action": "paste",
       "target": "default"
     },
     {
-      "menuTitle": "3.粘贴为追加摘录",
+      "menuTitle": "3. Paste as appended excerpt",
       "action": "paste",
       "target": "appendExcerpt"
     },
-    "👇🏻👇🏻👇🏻👇🏻格式卡片",
+    "👇🏻👇🏻👇🏻👇🏻Format Card",
     {
-      "menuTitle": "1.清除格式",
+      "menuTitle": "1. Clear format",
       "action": "command",
       "command": "ClearFormat1"
     },
     {
-      "menuTitle": "2.评论转摘录",
+      "menuTitle": "2. Comment excerpt",
       "action": "mergeText",
       "target": "excerptText",
       "source": [
@@ -1191,28 +1191,28 @@ function setSchemaByAction(action) {
       "removeSource": true
     },
     {
-      "menuTitle": "3.转换标题",
+      "menuTitle": "3.Convert title",
       "action": "switchTitleOrExcerpt"
     },
-    "👇🏻👇🏻👇🏻👇🏻学习卡片",
+    "👇🏻👇🏻👇🏻👇🏻Learning Cards",
     {
-      "menuTitle": "1.开始复习",
+      "menuTitle": "1.Start review",
       "action": "command",
       "command": "FlashcardsPlay"
     },
     {
-      "menuTitle": "2.结束复习",
+      "menuTitle": "2.End review",
       "action": "command",
       "command": "FlashcardsStop"
     },
     {
-      "menuTitle": "3.小窗显示卡片",
+      "menuTitle": "3. Small window display card",
       "action": "focus",
       "target": "floatMindmap"
     },
-    "👇🏻👇🏻👇🏻👇🏻系统设置",
+    "👇🏻👇🏻👇🏻👇🏻System settings",
     {
-      "menuTitle": "1.开关工具栏",
+      "menuTitle": "1. Switch toolbar",
       "action": "toggleView",
       "targets": [
         "addonBar",
@@ -1220,7 +1220,7 @@ function setSchemaByAction(action) {
       ]
     },
     {
-      "menuTitle": "2.强制退出",
+      "menuTitle": "2. Force exit",
       "action": "crash"
     }
   ]
