@@ -2523,29 +2523,40 @@ JSB.newAddon = function(mainPath){
 
               // ✅ 新增：检查是否包含 Markdown 链接 [text](url)
               // 提取链接作为子项数据，方便后续定位
-              const markdownLinkRegex = /\[([^\]]+?)\]\((marginnote4app:\/\/note\/[A-Z0-9-]+)\)/g;
+              // 支持所有 Markdown 链接（MarginNote 链接和普通 URL）
+              const markdownLinkRegex = /\[([^\]]+?)\]\(([^)]+?)\)/g;
               let linkMatch;
               const extractedLinks = [];
 
               while ((linkMatch = markdownLinkRegex.exec(commentData.text)) !== null) {
                 const displayText = linkMatch[1];
-                const url = linkMatch[2];
-                const noteId = url.replace('marginnote4app://note/', '');
+                const url = linkMatch[2];  // 完整的原始 URL
 
-                // 尝试获取链接目标卡片的标题
-                let linkedNoteTitle = "(无标题)";
-                try {
-                  const linkedNote = MNNote.new(noteId, false);  // false = 不弹窗
-                  if (linkedNote) {
-                    linkedNoteTitle = linkedNote.noteTitle || "(无标题)";
+                let linkedNoteTitle = "未知卡片";
+                let noteId = "";
+
+                // 判断是否是 MarginNote 链接
+                if (url.startsWith("marginnote4app://note/")) {
+                  noteId = url.replace("marginnote4app://note/", "");
+
+                  // 尝试获取链接目标卡片的标题
+                  try {
+                    const linkedNote = MNNote.new(noteId, false);  // false = 不弹窗
+                    if (linkedNote) {
+                      linkedNoteTitle = linkedNote.noteTitle || "(无标题)";
+                    }
+                  } catch (e) {
+                    // 获取失败，使用默认标题
                   }
-                } catch (e) {
-                  // 获取失败，使用默认标题
+                } else {
+                  // 普通 URL
+                  linkedNoteTitle = url;
+                  noteId = url;
                 }
 
                 extractedLinks.push({
                   displayText: displayText,
-                  url: url,
+                  url: url,              // ✅ 关键：传递完整的原始 URL
                   noteId: noteId,
                   linkedNoteTitle: linkedNoteTitle,
                   fullMatch: linkMatch[0],
