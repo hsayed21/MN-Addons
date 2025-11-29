@@ -487,6 +487,8 @@ function getSchemaByActionName(actionName) {
     case "markdown2Mindmap":
       properties.source = stringEnum(['currentNote','clipboard','file','chatAIOutput'])
       properties.method = stringEnum(['onlyHeading','auto'])
+      properties.mode = stringEnum(['create','update'])
+      properties.updateMode = stringEnum(['replace','merge'])
       break;
     case "addMarkdownLink":
       properties.title = stringType()

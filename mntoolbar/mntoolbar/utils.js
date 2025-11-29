@@ -353,7 +353,7 @@ class toolbarUtils {
           menuItems = ["content", "markdown", "index"];
           break;
         case "markdown2Mindmap":
-          menuItems = ["source", "method"];
+          menuItems = ["source", "method", "mode", "updateMode"];
           break;
         case "addMarkdownLink":
           menuItems = ["title", "link"];
@@ -2929,9 +2929,19 @@ Change the color of a PNG image in pure JavaScript, without using Canvas or Buff
     try {
       let markdown = ``;
       let source = des.source ?? "currentNote";
-      let method = des.method ?? "auto"; //支持onlyHeading
+      let method = des.method ?? "auto"; // 支持onlyHeading
+      let mode = des.mode ?? "create"; // "create" or "update"
+      let updateMode = des.updateMode ?? "replace"; // "replace" or "merge"
       let focusNote = MNNote.getFocusNote();
       let newNoteTitle = "Mindmap";
+
+      if (mode === "update") {
+        if (!focusNote) {
+          MNUtil.showHUD("Please focus on a card to update");
+          return;
+        }
+      }
+
       switch (source) {
         case "currentNote":
           if (!focusNote) {
@@ -2960,15 +2970,42 @@ Change the color of a PNG image in pure JavaScript, without using Canvas or Buff
         default:
           break;
       }
-      // let markdown = des.markdown
-      MNUtil.showHUD("Creating Mindmap...");
+
+      MNUtil.showHUD(mode === "update" ? "Updating Mindmap..." : "Creating Mindmap...");
       await MNUtil.delay(0.1);
       let res = toolbarUtils.markdown2AST(markdown);
       if (method === "onlyHeading" && !res.children.some((c) => c.type == "heading")) {
         MNUtil.showHUD("No Heading Found");
         return;
       }
+
       MNUtil.undoGrouping(() => {
+
+        if (mode === "update") {
+          if (updateMode === "replace") {
+            if (focusNote.childNotes && focusNote.childNotes.length > 0) {
+              const childrenToRemove = [...focusNote.childNotes];
+              childrenToRemove.forEach(child => {
+                child.delete(true);
+              });
+            }
+
+            if (method === "onlyHeading") {
+              toolbarUtils.AST2MindmapOnlyHeadingFirstLevel(focusNote, res);
+            } else {
+              toolbarUtils.AST2Mindmap(focusNote, res);
+            }
+            MNUtil.showHUD("✅ Tree replaced successfully");
+            return;
+          }
+          else if (updateMode === "merge") {
+            // Merge mode: keep existing notes, add missing ones from markdown
+            toolbarUtils.mergeNoteTreeFromAST(focusNote, res, method);
+            return;
+          }
+        }
+
+        // Create mode (default)
         if (!focusNote) {
           focusNote = this.newNoteInCurrentChildMap({ title: newNoteTitle });
           focusNote.focusInFloatMindMap(0.5);
@@ -2985,6 +3022,201 @@ Change the color of a PNG image in pure JavaScript, without using Canvas or Buff
       return;
     }
   }
+
+  /**
+   * Merge mode: Keep all existing notes in app, add missing ones from markdown
+   * - Notes only in app: KEEP
+   * - Notes only in markdown: ADD
+   * - Notes in both: SKIP (keep app version, don't recreate)
+   * @param {MNNote} note - The root note to update
+   * @param {Object} ast - The AST tree from markdown
+   * @param {string} method - "auto" or "onlyHeading"
+   */
+  static mergeNoteTreeFromAST(note, ast, method = "auto") {
+    try {
+      if (!ast.children || ast.children.length === 0) {
+        return;
+      }
+
+      let addedCount = 0;
+      let skippedCount = 0;
+
+      if (method === "onlyHeading") {
+        // OnlyHeading mode - use same logic as AST2MindmapOnlyHeadingFirstLevel
+        ast.children.forEach((c, index) => {
+          if (c.type === "hr") {
+            return;
+          }
+
+          if (c.type === "heading") {
+            // Check if this heading already exists
+            let existingChild = this.findSimilarChildNote(note, c.name, c);
+
+            if (existingChild) {
+              // Heading exists - skip creation, recursively merge children
+              skippedCount++;
+              if (c.children && c.children.length > 0) {
+                this.mergeNoteTreeFromAST(existingChild, c, method);
+              }
+            } else {
+              // Heading doesn't exist - create it using exact same logic
+              addedCount++;
+              let config = { title: c.name, excerptTextMarkdown: true };
+              let subHeadings = c.children.filter((child) => child.type === "heading");
+
+              if (subHeadings.length) {
+                let childNote = note.createChildNote(config, false);
+                this.mergeNoteTreeFromAST(childNote, c, method); // Recursively merge
+              } else {
+                config.excerptText = c.children
+                  .map((p) => {
+                    let texts = [p.raw ?? p.name];
+                    if (p.hasList) {
+                      texts.push(p.listText);
+                    }
+                    return texts.join("\n");
+                  })
+                  .join("\n\n");
+                let childNote = note.createChildNote(config, false);
+              }
+            }
+          } else {
+            // Non-heading content
+            let texts = [c.raw ?? c.name];
+            if (c.hasList) {
+              texts.push(c.listText);
+            }
+            let excerptText = texts.join("\n");
+
+            // Check if exists
+            let existingChild = this.findSimilarChildNote(note, excerptText, c);
+
+            if (existingChild) {
+              skippedCount++;
+            } else {
+              addedCount++;
+              let config = { excerptText: excerptText, excerptTextMarkdown: true };
+              let childNote = note.createChildNote(config, false);
+            }
+          }
+        });
+      } else {
+        // Auto mode - use same logic as AST2Mindmap
+        ast.children.forEach((c, index) => {
+          if (c.type === "hr") {
+            return;
+          }
+
+          let text = this.removeMarkdownFormat(c.name);
+          if (text.endsWith(":") || text.endsWith("：")) {
+            text = text.slice(0, -1);
+          }
+
+          // Check if note already exists
+          let existingChild = this.findSimilarChildNote(note, text, c);
+
+          if (existingChild) {
+            // Note exists - skip creation, recursively merge children
+            skippedCount++;
+            if (c.children && c.children.length > 0) {
+              this.mergeNoteTreeFromAST(existingChild, c, method);
+            }
+            return;
+          }
+
+          // Note doesn't exist - create using EXACT same logic as AST2Mindmap
+          addedCount++;
+          let config = this.getConfig(text);
+
+          if ((text.startsWith("$") && text.endsWith("$")) || /\:/.test(text) || /：/.test(text)) {
+            // Skip special processing
+          } else {
+            if (
+              c.children.length === 1 &&
+              !(/\:/.test(c.children[0].name) || /：/.test(c.children[0].name))
+            ) {
+              if (text.endsWith(":") || text.endsWith("：")) {
+                config = { excerptText: text + "\n" + c.children[0].name };
+              } else {
+                config = { title: text, excerptText: c.children[0].name };
+              }
+              let childNote = note.createChildNote(config, false);
+              if (c.children[0].children.length) {
+                this.mergeNoteTreeFromAST(childNote, c.children[0], method);
+              }
+              return;
+            }
+            if (
+              c.children.length > 1 &&
+              c.children[0].type === "paragraph" &&
+              c.children[1].type === "heading"
+            ) {
+              if (text.endsWith(":") || text.endsWith("：")) {
+                config = { excerptText: text + "\n" + c.children[0].name };
+              } else {
+                config = { title: text, excerptText: c.children[0].name };
+              }
+              c.children.shift();
+            }
+          }
+
+          let childNote = note.createChildNote(config, false);
+          if (c.children && c.children.length) {
+            this.mergeNoteTreeFromAST(childNote, c, method);
+          }
+        });
+      }
+
+      if (addedCount > 0 || skippedCount > 0) {
+        MNUtil.showHUD(`✅ Merged: ${addedCount} added, ${skippedCount} kept`);
+      }
+    } catch (error) {
+      this.addErrorLog(error, "mergeNoteTreeFromAST");
+    }
+  }
+
+  /**
+   * Find a child note that matches the AST node
+   * @param {MNNote} parentNote - The parent note to search in
+   * @param {string} astText - The text from AST node
+   * @param {Object} astChild - The AST child node
+   * @returns {MNNote|null} The matching child note or null
+   */
+  static findSimilarChildNote(parentNote, astText, astChild) {
+    if (!parentNote.childNotes || parentNote.childNotes.length === 0) {
+      return null;
+    }
+
+    // Try to find exact match by title
+    for (let child of parentNote.childNotes) {
+      // Check title match
+      if (child.noteTitle && child.noteTitle.trim() === astText.trim()) {
+        return child;
+      }
+
+      // Check excerpt text match (first line)
+      if (child.excerptText) {
+        let firstLine = child.excerptText.split('\n')[0].trim();
+        if (firstLine === astText.trim()) {
+          return child;
+        }
+      }
+
+      // For headings, be more lenient with matching
+      if (astChild.type === "heading") {
+        let childTitle = child.noteTitle || child.excerptText?.split('\n')[0] || "";
+        // Remove common prefixes and compare
+        let normalizedChildTitle = childTitle.replace(/^#+\s*/, "").trim();
+        let normalizedAstText = astText.replace(/^#+\s*/, "").trim();
+        if (normalizedChildTitle === normalizedAstText) {
+          return child;
+        }
+      }
+    }
+
+    return null;
+  }
+
   static async loadImageToExcalidraw(des) {
     let source = des.source ?? "selection";
     let method = des.method ?? "replace";

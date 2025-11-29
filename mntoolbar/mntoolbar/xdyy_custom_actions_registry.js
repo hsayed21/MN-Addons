@@ -2328,7 +2328,7 @@ function registerAllCustomActions() {
   // splitMarkdownTextInFocusNote
   global.registerCustomAction("splitMarkdownTextInFocusNote", async function (context) {
     const { button, des, focusNote, focusNotes, self } = context;
-    toolbarUtils.markdown2Mindmap({ source: "currentNote" });
+    toolbarUtils.markdown2Mindmap(des || { source: "currentNote" });
   });
 
   // splitComments - Split comments into individual cards

@@ -19,7 +19,8 @@
     "xdyy_utils_extensions.js",
     "xdyy_custom_actions_registry.js",
     "xdyy_button_registry.js",
-    "xdyy_menu_registry.js"
+    "xdyy_menu_registry.js",
+    "../../index.d.ts"
   ],
   "exclude": [
     "/Users/linlifei/extension/FeliksPro/.out/index.d.ts",
